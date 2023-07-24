@@ -2,7 +2,7 @@
     <br/>
     <br/>
     <br/>
-    <h3>Server action for Next.js Pages directory</h3>
+    <h3>Server action for your Next.js Pages</h3>
     <br/>
     <br/>
 </div>
