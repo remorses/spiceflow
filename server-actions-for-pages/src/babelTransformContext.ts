@@ -84,11 +84,12 @@ function visitPage(
 
   path.traverse({
     ExportNamedDeclaration(path) {
-      const { declaration } = path.node;
+      const declarationPath = path.get('declaration');
       if (
-        t.isFunctionDeclaration(declaration) &&
-        t.isIdentifier(declaration.id, { name: 'getServerSideProps' })
+        declarationPath.isFunctionDeclaration() &&
+        declarationPath.get('id').isIdentifier({ name: 'getServerSideProps' })
       ) {
+        const declaration = declarationPath.node;
         const exportAsExpression = t.isDeclaration(declaration)
           ? t.toExpression(declaration)
           : declaration;
@@ -104,6 +105,25 @@ function visitPage(
             )
           ),
         ]);
+      } else if (declarationPath.isVariableDeclaration()) {
+        const declarations = declarationPath.get('declarations');
+
+        for (const variableDeclaratorPath of declarations) {
+          if (
+            variableDeclaratorPath
+              .get('id')
+              .isIdentifier({ name: 'getServerSideProps' })
+          ) {
+            const initPath = variableDeclaratorPath.get('init');
+            if (initPath.node) {
+              initPath.replaceWith(
+                t.callExpression(wrapGetServerSidePropsIdentifier, [
+                  initPath.node,
+                ])
+              );
+            }
+          }
+        }
       }
     },
     ExportDefaultDeclaration(defaultExportPath) {
@@ -159,10 +179,12 @@ export default function (
 
         const { filename } = this.file.opts;
         const isApiRoute = filename && filename.startsWith(apiDir);
+        const isMiddleware =
+          filename && /(\/|\\)_middleware\.\w+$/.test(filename);
 
         if (isApiRoute) {
           visitApiHandler(babel, path);
-        } else {
+        } else if (!isMiddleware) {
           visitPage(babel, path);
         }
       },

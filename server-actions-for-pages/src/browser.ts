@@ -1,3 +1,5 @@
+import { JsonRpcRequest } from './jsonRpc';
+
 function escapeRegExp(string: string): string {
   return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // $& means the whole matched string
 }
@@ -18,39 +20,34 @@ function rewriteStacktrace(error: Error): Error {
 
 type NextRpcCall = (...params: any[]) => any;
 
+let nextId = 1;
+
 function createRpcFetcher(url: string, method: string): NextRpcCall {
   return function rpcFetch() {
     return fetch(url, {
       method: 'POST',
       body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: nextId++,
         method,
         params: Array.prototype.slice.call(arguments),
-      }),
+      } satisfies JsonRpcRequest),
       headers: {
         'content-type': 'application/json',
       },
     })
       .then(function (res) {
-        const statusError = new Error('Unexpected HTTP status ' + res.status);
-        if (res.status === 502) {
-          return res.json().then(
-            (json) => {
-              if (json.error && typeof json.error.message === 'string') {
-                return json;
-              }
-              return Promise.reject(statusError);
-            },
-            (err) => Promise.reject(statusError)
-          );
-        }
         if (!res.ok) {
-          throw statusError;
+          throw new Error('Unexpected HTTP status ' + res.status);
         }
         return res.json();
       })
       .then(function (json) {
         if (json.error) {
-          let err = Object.assign(new Error(json.error.message), json.error);
+          let err = Object.assign(
+            new Error(json.error.message),
+            json.error.data
+          );
           if (process.env.NODE_ENV !== 'production') {
             err = rewriteStacktrace(err);
           }

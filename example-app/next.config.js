@@ -1,3 +1,6 @@
+const {} = require('server-actions-for-pages')
+
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
     experimental: {
