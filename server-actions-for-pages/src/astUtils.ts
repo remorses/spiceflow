@@ -17,7 +17,7 @@ export type Literal =
 export function literalToAst(
   t: typeof types,
   literal: Literal
-): babel.types.Expression {
+): types.Expression {
   if (typeof literal === 'number') {
     return t.numericLiteral(literal);
   } else if (typeof literal === 'boolean') {

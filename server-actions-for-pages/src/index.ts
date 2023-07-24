@@ -1,6 +1,6 @@
 import * as path from 'path';
 import * as fs from 'fs';
-import * as webpack from 'webpack';
+import type * as webpack from 'webpack';
 import { NextConfig } from 'next';
 import { PluginOptions as RpcPluginOptions } from './babelTransformRpc';
 import { PluginOptions as ContextPluginOptions } from './babelTransformContext';

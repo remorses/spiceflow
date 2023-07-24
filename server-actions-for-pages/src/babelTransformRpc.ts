@@ -107,6 +107,7 @@ export default function (
   return {
     visitor: {
       Program(program) {
+        // @ts-expect-error
         const { filename } = this.file.opts;
 
         if (!filename) {

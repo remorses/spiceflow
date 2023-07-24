@@ -27,6 +27,7 @@
         "babel-loader": "^8.3.0"
     },
     "devDependencies": {
-        "next": "13.4.12"
+        "next": "13.4.12",
+        "webpack": "^5.88.2"
     }
 }
