@@ -170,16 +170,18 @@ export default function (
             if (isAllowedTsExportDeclaration(declaration)) {
               // ignore
             } else if (declaration.isFunctionDeclaration()) {
+              const identifier = declaration.get('id');
+              const methodName = identifier.node?.name;
+              if (methodName === 'wrapMethod') {
+                continue;
+              }
               if (!declaration.node.async) {
                 throw declaration.buildCodeFrameError(
                   'rpc exports must be async functions',
                 );
               }
-              const identifier = declaration.get('id');
-              const methodName = identifier.node?.name;
 
-              if (methodName === 'wrapMethod') {
-              } else if (methodName) {
+              if (methodName) {
                 rpcMethodNames.push(methodName);
                 if (isServer) {
                   // replace with wrapped
@@ -210,12 +212,19 @@ export default function (
                   init.isFunctionExpression() ||
                   init.isArrowFunctionExpression()
                 ) {
+                  const { id } = variable.node;
+                  if (t.isIdentifier(id)) {
+                    const methodName = id.name;
+                    if (methodName === 'wrapMethod') {
+                      continue;
+                    }
+                  }
                   if (!init.node.async) {
                     throw init.buildCodeFrameError(
                       'rpc exports must be async functions',
                     );
                   }
-                  const { id } = variable.node;
+
                   if (t.isIdentifier(id)) {
                     const methodName = id.name;
                     if (methodName === 'wrapMethod') {
