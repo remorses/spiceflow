@@ -45,6 +45,7 @@ Create a file for your server actions inside the `/pages/api` directory:
 
 ```ts
 // pages/api/server-actions.js
+'poor man user server';
 
 export async function serverAction() {
   return { hello: 'world' };
