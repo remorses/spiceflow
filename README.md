@@ -75,7 +75,7 @@ When processing the file for the client the plugin replaces the exported functio
 
 ## Accessing the request and response objects
 
-This plugin injects the `req` and `res` objects in an async context, so you can access them in your server functions:
+This plugin injects the `req` and `res` objects in an `AsyncLocalStorage` context, so you can access them in your server functions:
 
 Edge function example:
 
