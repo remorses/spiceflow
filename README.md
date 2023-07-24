@@ -115,6 +115,30 @@ export async function createUser({ name = '' }) {
 }
 ```
 
+## Adding error logging and handling
+
+You can export a function named `wrapMethod` to easily wrap all your server actions to add error logging or other wrappers
+
+```ts
+"poor man's use server";
+
+export function wrapMethod(fn) {
+  return async (...args) => {
+    try {
+      const res = await fn(...args);
+      return res;
+    } catch (error) {
+      console.error(error);
+      throw error;
+    }
+  };
+}
+
+export async function failingFunction({}) {
+  throw new Error('This function fails');
+}
+```
+
 ## Credits
 
 This is a fork of the awesome [next-rpc](https://github.com/Janpot/next-rpc) with some changes:
