@@ -1,4 +1,4 @@
-'use server actions';
+'poor man user server';
 
 export const config = {
   runtime: 'edge',

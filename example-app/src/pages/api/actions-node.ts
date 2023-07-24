@@ -1,4 +1,4 @@
-'use server actions';
+'poor man user server';
 
 export async function createUser({ name = '' }) {
   return {
