@@ -7,16 +7,18 @@
     <br/>
 </div>
 
-This Next.js plugin let you use something like [Next.js Server Actions](https://nextjs.org/docs/app/building-your-application/data-fetching/server-actions) using the `/pages` directory, letting you call your server functions directly from your client components.
+This Next.js plugin let you use something like [Next.js Server Actions](https://nextjs.org/docs/app/building-your-application/data-fetching/server-actions) with the `/pages` directory, letting you call server functions directly from your client components.
 
-WIth Server Actions i mean calling your server functions directly in your client components, it does not closely follow the Next.js Server Actions behavior:
+WIth Server Actions i mean calling your functions that run in the server directly in your client components, it does not closely follow the Next.js Server Actions behavior.
 
 ## Differences with Next.js Server Actions
 
 - It does not depend on any React canary features, it just turns your server functions into a `fetch` calls in the client
-- It works both inside `pages` and `app` directories
+- It works both inside `pages` and `app` directories components
 - It only works for an entire file (adding `"poor man's use server"` at the top of the file)
-- Server actions files must be inside the `pages/api` directory
+- Server actions files must be inside the `/pages/api` directory
+- It does not work inside `formAction`, you call the function inside `onSubmit` instead
+- and `startTransition` will not track pending state, just use `useState` to track the loading state
 - It's already stable, it's pretty simple concept that does not depend on any React canary features
 
 ## Installation
@@ -67,11 +69,11 @@ export default function Page() {
 
 ## How it works
 
-The plugin will replace the content of files with `"poor man's use server"` at the top with inside the `pages/api` directory to make the exported functions callable from the client.
+The plugin will replace the content of files with `"poor man's use server"` at the top inside the `pages/api` directory to make the exported functions callable from the browser.
 
-When processing the file for the server the plugin creates an API handler that follows the JSON RPC spec. The API handler works both with edge and Node.js runtimes.
+When processing the file for the server the plugin creates an API handler that follows the JSON RPC spec.
 
-When processing the file for the client the plugin replaces the exported functions with a `fetch` call to the API handler.
+When processing the file for the client the plugin replaces the exported functions with a `fetch` calls to the API handler.
 
 ## Accessing the request and response objects
 
