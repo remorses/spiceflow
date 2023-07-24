@@ -117,7 +117,7 @@ export async function createUser({ name = '' }) {
 
 ## Adding error logging and handling
 
-You can export a function named `wrapMethod` to easily wrap all your server actions to add error logging or other wrappers
+You can export a function named `wrapMethod` to easily wrap all your server actions with error logging or other wrappers
 
 ```ts
 "poor man's use server";
