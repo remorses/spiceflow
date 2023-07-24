@@ -16,10 +16,11 @@
         "autoprefixer": "10.4.14",
         "next": "13.4.12",
         "popmotion": "^11.0.5",
-        "server-actions-for-pages": "workspace:*",
         "postcss": "8.4.24",
         "react": "18.2.0",
         "react-dom": "18.2.0",
+        "react-server-dom-webpack": "^0.0.1",
+        "server-actions-for-pages": "workspace:*",
         "tailwindcss": "3.3.2",
         "typescript": "^5.1.3"
     }
