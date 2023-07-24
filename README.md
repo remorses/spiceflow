@@ -73,6 +73,46 @@ When processing the file for the server the plugin creates an API handler that f
 
 When processing the file for the client the plugin replaces the exported functions with a `fetch` call to the API handler.
 
+## Accessing the request and response objects
+
+This plugin injects the `req` and `res` objects in an async context, so you can access them in your server functions:
+
+Edge function example:
+
+```ts
+'poor man user server';
+
+import { getEdgeContext } from 'server-actions-for-next-pages/context';
+
+export const config = {
+  runtime: 'edge',
+};
+
+export async function serverAction({}) {
+  const { req, res } = await getEdgeContext();
+
+  res?.headers.set('x-server-action', 'true');
+  const url = req?.url;
+  return { url };
+}
+```
+
+Example in Node.js:
+
+```ts
+'poor man user server';
+import { getNodejsContext } from 'server-actions-for-next-pages/context';
+
+export async function createUser({ name = '' }) {
+  const { req, res } = await getNodejsContext();
+  const url = req?.url;
+  return {
+    name,
+    url,
+  };
+}
+```
+
 ## Credits
 
 This is a fork of the awesome [next-rpc](https://github.com/Janpot/next-rpc) with some changes:

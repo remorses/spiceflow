@@ -11,7 +11,6 @@ export const createUser = _createRpcMethod(async function createUser({
   } = await getNodejsContext();
   const url = req?.url;
   return {
-    id: 1,
     name,
     url
   };

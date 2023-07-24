@@ -5,7 +5,6 @@ export async function createUser({ name = '' }) {
   const { req, res } = await getNodejsContext();
   const url = req?.url;
   return {
-    id: 1,
     name,
     url,
   };
