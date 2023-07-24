@@ -22,7 +22,7 @@ WIth Server Actions i mean calling your server functions directly in your client
 ## Installation
 
 ```bash
-npm install --save-dev server-actions-for-pages
+npm install --save-dev server-actions-for-next-pages
 ```
 
 ## Usage
@@ -31,7 +31,7 @@ Add the plugin to your `next.config.js` file:
 
 ```js
 // next.config.js
-const { withServerActions } = require('server-actions-for-pages');
+const { withServerActions } = require('server-actions-for-next-pages');
 
 /** @type {import('next').NextConfig} */
 const nextConfig = withServerActions()({

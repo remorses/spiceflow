@@ -1,6 +1,6 @@
 'poor man user server';
 
-import { createRpcMethod as _createRpcMethod, createRpcHandler as _createRpcHandler } from "server-actions-for-pages/dist/server";
+import { createRpcMethod as _createRpcMethod, createRpcHandler as _createRpcHandler } from "server-actions-for-next-pages/dist/server";
 export const createUser = _createRpcMethod(async function createUser({
   name = ''
 }) {

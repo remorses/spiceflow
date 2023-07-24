@@ -1,10 +1,10 @@
 {
-    "name": "server-actions-for-pages",
+    "name": "server-actions-for-next-pages",
     "version": "0.0.0",
     "description": "",
     "main": "dist/index.js",
     "types": "dist/index.d.ts",
-    "repository": "https://github.com/remorses/server-actions-for-pages",
+    "repository": "https://github.com/remorses/server-actions-for-next-pages",
     "scripts": {
         "build": "cp ../README.md ./README.md && rm -rf dist && tsc",
         "watch": "tsc -w"

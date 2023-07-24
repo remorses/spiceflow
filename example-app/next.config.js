@@ -1,4 +1,4 @@
-const { withServerActions } = require('server-actions-for-pages');
+const { withServerActions } = require('server-actions-for-next-pages');
 
 /** @type {import('next').NextConfig} */
 const nextConfig = withServerActions()({
