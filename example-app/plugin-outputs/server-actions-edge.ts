@@ -10,7 +10,6 @@ export const serverAction = _createRpcMethod(async function serverAction({}) {
     req,
     res
   } = await getEdgeContext();
-  console.log('serverAction', res);
   res?.headers.set('x-server-action', 'true');
   const url = req?.url;
   return {
