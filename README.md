@@ -37,7 +37,7 @@ const nextConfig = withServerActions()({
 module.exports = nextConfig;
 ```
 
-Create a file for your server actions inside the `pages/api` directory:
+Create a file for your server actions inside the `/pages/api` directory:
 
 ```ts
 // pages/api/server-actions.js
@@ -47,7 +47,7 @@ export async function serverAction() {
 }
 ```
 
-Import the `serverAction` function in your client components:
+Import your actions in your client components:
 
 ```tsx
 // pages/api/server-actions.js
