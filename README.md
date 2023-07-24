@@ -54,9 +54,9 @@ Import your actions in your client components:
 import { serverAction } from './api/server-actions';
 
 export default function Page() {
-  useEffect(() => {
-    serverAction().then((data) => console.log(data));
-  }, []);
+    
+  serverAction().then((data) => console.log(data));
+
   return <div>...</div>;
 }
 ```
