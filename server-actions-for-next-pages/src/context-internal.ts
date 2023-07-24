@@ -6,21 +6,36 @@ import type {
   NextPage,
 } from 'next';
 import type { IncomingMessage, ServerResponse } from 'http';
+import { NextRequest, NextResponse } from 'next/server';
 
-interface NextRpcContext {
+interface NodejsContext {
   req?: IncomingMessage;
   res?: ServerResponse;
+}
+interface EdgeContext {
+  req?: NextRequest;
+  res?: NextResponse;
 }
 
 const DEFAULT_CONTEXT = {};
 
-const asyncLocalStorage = new AsyncLocalStorage<NextRpcContext>();
+const asyncLocalStorage = new AsyncLocalStorage<NodejsContext | EdgeContext>();
 
-export function getContext(): NextRpcContext {
+export function getNodejsContext(): NodejsContext {
+  return asyncLocalStorage.getStore() || DEFAULT_CONTEXT;
+}
+export function getEdgeContext(): EdgeContext {
   return asyncLocalStorage.getStore() || DEFAULT_CONTEXT;
 }
 
-export function wrapApiHandler(handler: NextApiHandler): NextApiHandler {
+export function wrapApiHandler(handler: Function, isEdge) {
+  if (isEdge) {
+    return async (req) => {
+      const res = NextResponse.json(null);
+      const context = { req, res };
+      return asyncLocalStorage.run(context, () => handler(req));
+    };
+  }
   return (req, res) => {
     const context = { req, res };
     return asyncLocalStorage.run(context, () => handler(req, res));
@@ -28,18 +43,18 @@ export function wrapApiHandler(handler: NextApiHandler): NextApiHandler {
 }
 
 export function wrapGetServerSideProps(
-  getServerSideProps: GetServerSideProps
+  getServerSideProps: GetServerSideProps,
 ): GetServerSideProps {
   return (context) =>
     asyncLocalStorage.run(context, () => getServerSideProps(context));
 }
 
 export type GetInitialProps<IP> = (
-  context: NextPageContext
+  context: NextPageContext,
 ) => IP | Promise<IP>;
 
 export function wrapGetInitialProps<IP>(
-  getInitialProps: GetInitialProps<IP>
+  getInitialProps: GetInitialProps<IP>,
 ): GetInitialProps<IP> {
   return (context) =>
     asyncLocalStorage.run(context, () => getInitialProps(context));

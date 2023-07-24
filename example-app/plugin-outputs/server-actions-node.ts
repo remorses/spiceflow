@@ -1,12 +1,19 @@
 'poor man user server';
 
 import { createRpcMethod as _createRpcMethod, createRpcHandler as _createRpcHandler } from "server-actions-for-next-pages/dist/server";
+import { getNodejsContext } from 'server-actions-for-next-pages/context';
 export const createUser = _createRpcMethod(async function createUser({
   name = ''
 }) {
+  const {
+    req,
+    res
+  } = await getNodejsContext();
+  const url = req?.url;
   return {
     id: 1,
-    name
+    name,
+    url
   };
 }, {
   name: "createUser",

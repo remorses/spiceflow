@@ -1,6 +1,7 @@
 import { NextApiHandler } from 'next';
 import { JsonRpcResponse } from './jsonRpc';
 import { NextRequest, NextResponse } from 'next/server';
+import { getEdgeContext } from './context-internal';
 
 export type Method<P extends any[], R> = (...params: P) => Promise<R>;
 export type WrapMethodMeta = {
@@ -116,11 +117,13 @@ export function createRpcHandler(
   };
   if (isEdge) {
     return async (req: NextRequest) => {
+      const { res } = await getEdgeContext();
       const { status, json } = await handler({
         body: await req.json(),
         method: req.method,
       });
-      return NextResponse.json(json, { status });
+
+      return NextResponse.json(json, { status, headers: res?.headers || {} });
     };
   } else {
     return (async (req, res) => {

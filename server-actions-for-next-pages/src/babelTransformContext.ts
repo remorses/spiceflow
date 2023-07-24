@@ -1,5 +1,6 @@
 import { annotateAsPure } from './astUtils';
 import * as babel from '@babel/core';
+import { getConfigObject, isEdgeInConfig } from './babelTransformRpc';
 
 type Babel = typeof babel;
 
@@ -14,13 +15,13 @@ export interface PluginOptions {
 
 function visitApiHandler(
   { types: t }: Babel,
-  path: babel.NodePath<babel.types.Program>,
+  program: babel.NodePath<babel.types.Program>,
 ) {
   let defaultExportPath:
     | babel.NodePath<babel.types.ExportDefaultDeclaration>
     | undefined;
 
-  path.traverse({
+  program.traverse({
     ExportDefaultDeclaration(path) {
       defaultExportPath = path;
     },
@@ -33,9 +34,9 @@ function visitApiHandler(
     }
 
     const wrapApiHandlerIdentifier =
-      path.scope.generateUidIdentifier('wrapApiHandler');
+      program.scope.generateUidIdentifier('wrapApiHandler');
 
-    path.node.body.unshift(
+    program.node.body.unshift(
       t.importDeclaration(
         [
           t.importSpecifier(
@@ -51,11 +52,15 @@ function visitApiHandler(
       ? t.toExpression(declaration)
       : declaration;
 
+    const isEdge = isEdgeInConfig(getConfigObject(program));
     defaultExportPath.replaceWith(
       t.exportDefaultDeclaration(
         annotateAsPure(
           t,
-          t.callExpression(wrapApiHandlerIdentifier, [exportAsExpression]),
+          t.callExpression(wrapApiHandlerIdentifier, [
+            exportAsExpression,
+            isEdge ? t.booleanLiteral(true) : t.booleanLiteral(false),
+          ]),
         ),
       ),
     );
@@ -64,14 +69,14 @@ function visitApiHandler(
 
 function visitPage(
   { types: t }: Babel,
-  path: babel.NodePath<babel.types.Program>,
+  program: babel.NodePath<babel.types.Program>,
 ) {
-  const wrapGetServerSidePropsIdentifier = path.scope.generateUidIdentifier(
+  const wrapGetServerSidePropsIdentifier = program.scope.generateUidIdentifier(
     'wrapGetServerSideProps',
   );
-  const wrapPageIdentifier = path.scope.generateUidIdentifier('wrapPage');
+  const wrapPageIdentifier = program.scope.generateUidIdentifier('wrapPage');
 
-  path.node.body.unshift(
+  program.node.body.unshift(
     t.importDeclaration(
       [
         t.importSpecifier(
@@ -84,7 +89,7 @@ function visitPage(
     ),
   );
 
-  path.traverse({
+  program.traverse({
     ExportNamedDeclaration(path) {
       const declarationPath = path.get('declaration');
       if (
@@ -174,7 +179,7 @@ export default function (
 
   return {
     visitor: {
-      Program(path) {
+      Program(program) {
         if (!isServer) {
           return;
         }
@@ -186,9 +191,9 @@ export default function (
           filename && /(\/|\\)_middleware\.\w+$/.test(filename);
 
         if (isApiRoute) {
-          visitApiHandler(babel, path);
+          visitApiHandler(babel, program);
         } else if (!isMiddleware) {
-          visitPage(babel, path);
+          visitPage(babel, program);
         }
       },
     },

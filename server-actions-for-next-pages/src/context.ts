@@ -1,1 +1,1 @@
-export { getContext } from './context-internal';
+export { getNodejsContext, getEdgeContext } from './context-internal';

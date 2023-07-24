@@ -39,7 +39,7 @@ function getConfigObjectExpression(
   }
 }
 
-function getConfigObject(
+export function getConfigObject(
   program: babel.NodePath<babel.types.Program>,
 ): babel.NodePath<babel.types.ObjectExpression> | null {
   for (const statement of program.get('body')) {
@@ -73,9 +73,12 @@ function hasWrapMethod(code: string) {
   );
 }
 
-function isEdgeInConfig(
+export function isEdgeInConfig(
   configObject: babel.NodePath<babel.types.ObjectExpression>,
 ): boolean {
+  if (!configObject) {
+    return false;
+  }
   for (const property of configObject.get('properties')) {
     if (!property.isObjectProperty()) {
       continue;
@@ -126,11 +129,10 @@ export default function (
         const isAction = isServerAction(program);
 
         if (!isAction) {
-          console.log('not an action', filename);
           return;
         }
         const isEdge = configObject && isEdgeInConfig(configObject);
-        console.log('isEdge', isEdge, filename);
+
         const hasWrap = hasWrapMethod(program);
 
         const rpcRelativePath = filename
