@@ -41,7 +41,7 @@ const nextConfig = withServerActions()({
 module.exports = nextConfig;
 ```
 
-Create a file for your server actions inside the `/pages/api` directory:
+Create a file for your server actions inside the `/pages/api` directory with `'poor man user server'` at the top:
 
 ```ts
 // pages/api/server-actions.js
