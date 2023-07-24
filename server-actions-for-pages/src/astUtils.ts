@@ -16,7 +16,7 @@ export type Literal =
 
 export function literalToAst(
   t: typeof types,
-  literal: Literal
+  literal: Literal,
 ): types.Expression {
   if (typeof literal === 'number') {
     return t.numericLiteral(literal);
@@ -30,7 +30,7 @@ export function literalToAst(
     return t.objectExpression(
       Object.entries(literal).map(([key, value]) => {
         return t.objectProperty(t.identifier(key), literalToAst(t, value));
-      })
+      }),
     );
   }
   throw new Error(`Unsupported literal type "${typeof literal}"`);

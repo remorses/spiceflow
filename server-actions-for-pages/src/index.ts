@@ -6,14 +6,7 @@ import { PluginOptions as RpcPluginOptions } from './babelTransformRpc';
 import { PluginOptions as ContextPluginOptions } from './babelTransformContext';
 import { WrapMethod } from './server';
 
-export interface NextRpcConfig {
-  rpc: true;
-  wrapMethod?: WrapMethod;
-}
-
-export interface WithRpcConfig {
-  experimentalContext?: boolean;
-}
+export interface WithRpcConfig {}
 
 export { WrapMethod };
 
@@ -23,7 +16,6 @@ export default function init(withRpcConfig: WithRpcConfig = {}) {
       ...nextConfig,
 
       webpack(config: webpack.Configuration, options) {
-        const { experimentalContext = false } = withRpcConfig;
         const { isServer, dev, dir } = options;
         const pagesDir = findPagesDir(dir);
         const apiDir = path.resolve(pagesDir, './api');
@@ -54,14 +46,10 @@ export default function init(withRpcConfig: WithRpcConfig = {}) {
                     require.resolve('../dist/babelTransformRpc'),
                     rpcPluginOptions,
                   ],
-                  ...(experimentalContext
-                    ? [
-                        [
-                          require.resolve('../dist/babelTransformContext'),
-                          contextPluginOptions,
-                        ],
-                      ]
-                    : []),
+                  [
+                    require.resolve('../dist/babelTransformContext'),
+                    contextPluginOptions,
+                  ],
                   require.resolve('@babel/plugin-syntax-jsx'),
                   [
                     require.resolve('@babel/plugin-syntax-typescript'),
@@ -95,11 +83,11 @@ function findPagesDir(dir: string): string {
   // Check one level up the tree to see if the pages directory might be there
   if (fs.existsSync(path.join(dir, '..', 'pages'))) {
     throw new Error(
-      'No `pages` directory found. Did you mean to run `next` in the parent (`../`) directory?'
+      'No `pages` directory found. Did you mean to run `next` in the parent (`../`) directory?',
     );
   }
 
   throw new Error(
-    "Couldn't find a `pages` directory. Please create one under the project root"
+    "Couldn't find a `pages` directory. Please create one under the project root",
   );
 }

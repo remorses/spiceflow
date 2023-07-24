@@ -12,7 +12,7 @@ export interface PluginOptions {
 
 function visitApiHandler(
   { types: t }: Babel,
-  path: babel.NodePath<babel.types.Program>
+  path: babel.NodePath<babel.types.Program>,
 ) {
   let defaultExportPath:
     | babel.NodePath<babel.types.ExportDefaultDeclaration>
@@ -38,11 +38,11 @@ function visitApiHandler(
         [
           t.importSpecifier(
             wrapApiHandlerIdentifier,
-            t.identifier('wrapApiHandler')
+            t.identifier('wrapApiHandler'),
           ),
         ],
-        t.stringLiteral(IMPORT_PATH)
-      )
+        t.stringLiteral(IMPORT_PATH),
+      ),
     );
 
     const exportAsExpression = t.isDeclaration(declaration)
@@ -53,19 +53,19 @@ function visitApiHandler(
       t.exportDefaultDeclaration(
         annotateAsPure(
           t,
-          t.callExpression(wrapApiHandlerIdentifier, [exportAsExpression])
-        )
-      )
+          t.callExpression(wrapApiHandlerIdentifier, [exportAsExpression]),
+        ),
+      ),
     );
   }
 }
 
 function visitPage(
   { types: t }: Babel,
-  path: babel.NodePath<babel.types.Program>
+  path: babel.NodePath<babel.types.Program>,
 ) {
   const wrapGetServerSidePropsIdentifier = path.scope.generateUidIdentifier(
-    'wrapGetServerSideProps'
+    'wrapGetServerSideProps',
   );
   const wrapPageIdentifier = path.scope.generateUidIdentifier('wrapPage');
 
@@ -74,12 +74,12 @@ function visitPage(
       [
         t.importSpecifier(
           wrapGetServerSidePropsIdentifier,
-          t.identifier('wrapGetServerSideProps')
+          t.identifier('wrapGetServerSideProps'),
         ),
         t.importSpecifier(wrapPageIdentifier, t.identifier('wrapPage')),
       ],
-      t.stringLiteral(IMPORT_PATH)
-    )
+      t.stringLiteral(IMPORT_PATH),
+    ),
   );
 
   path.traverse({
@@ -101,8 +101,8 @@ function visitPage(
               t,
               t.callExpression(wrapGetServerSidePropsIdentifier, [
                 exportAsExpression,
-              ])
-            )
+              ]),
+            ),
           ),
         ]);
       } else if (declarationPath.isVariableDeclaration()) {
@@ -119,7 +119,7 @@ function visitPage(
               initPath.replaceWith(
                 t.callExpression(wrapGetServerSidePropsIdentifier, [
                   initPath.node,
-                ])
+                ]),
               );
             }
           }
@@ -144,19 +144,19 @@ function visitPage(
               declaration.id,
               annotateAsPure(
                 t,
-                t.callExpression(wrapPageIdentifier, [declaration.id])
-              )
-            )
-          )
+                t.callExpression(wrapPageIdentifier, [declaration.id]),
+              ),
+            ),
+          ),
         );
       } else {
         defaultExportPath.replaceWith(
           t.exportDefaultDeclaration(
             annotateAsPure(
               t,
-              t.callExpression(wrapPageIdentifier, [declaration])
-            )
-          )
+              t.callExpression(wrapPageIdentifier, [declaration]),
+            ),
+          ),
         );
         defaultExportPath.skip();
       }
@@ -166,7 +166,7 @@ function visitPage(
 
 export default function (
   babel: Babel,
-  options: PluginOptions
+  options: PluginOptions,
 ): babel.PluginObj {
   const { apiDir, isServer } = options;
 

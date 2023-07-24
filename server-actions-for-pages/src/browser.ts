@@ -11,7 +11,7 @@ function escapeRegExp(string: string): string {
 function rewriteStacktrace(error: Error): Error {
   const toReplaceRegex = new RegExp(
     escapeRegExp(process.env.__NEXT_DIST_DIR as string),
-    'g'
+    'g',
   );
   error.stack =
     error.stack && error.stack.replace(toReplaceRegex, '/_next/development');
@@ -46,7 +46,7 @@ function createRpcFetcher(url: string, method: string): NextRpcCall {
         if (json.error) {
           let err = Object.assign(
             new Error(json.error.message),
-            json.error.data
+            json.error.data,
           );
           if (process.env.NODE_ENV !== 'production') {
             err = rewriteStacktrace(err);

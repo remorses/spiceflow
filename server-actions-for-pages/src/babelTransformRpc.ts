@@ -11,22 +11,22 @@ const IMPORT_PATH_BROWSER = 'next-rpc/dist/browser';
 function buildRpcApiHandler(
   t: BabelTypes,
   createRpcHandlerIdentifier: babel.types.Identifier,
-  rpcMethodNames: string[]
+  rpcMethodNames: string[],
 ): babel.types.Expression {
   return annotateAsPure(
     t,
     t.callExpression(createRpcHandlerIdentifier, [
       t.arrayExpression(
         rpcMethodNames.map((name) =>
-          t.arrayExpression([t.stringLiteral(name), t.identifier(name)])
-        )
+          t.arrayExpression([t.stringLiteral(name), t.identifier(name)]),
+        ),
       ),
-    ])
+    ]),
   );
 }
 
 function isAllowedTsExportDeclaration(
-  declaration: babel.NodePath<babel.types.Declaration | null | undefined>
+  declaration: babel.NodePath<babel.types.Declaration | null | undefined>,
 ): boolean {
   return (
     declaration.isTSTypeAliasDeclaration() ||
@@ -35,7 +35,7 @@ function isAllowedTsExportDeclaration(
 }
 
 function getConfigObjectExpression(
-  variable: babel.NodePath<babel.types.VariableDeclarator>
+  variable: babel.NodePath<babel.types.VariableDeclarator>,
 ): babel.NodePath<babel.types.ObjectExpression> | null {
   const identifier = variable.get('id');
   const init = variable.get('init');
@@ -51,7 +51,7 @@ function getConfigObjectExpression(
 }
 
 function getConfigObject(
-  program: babel.NodePath<babel.types.Program>
+  program: babel.NodePath<babel.types.Program>,
 ): babel.NodePath<babel.types.ObjectExpression> | null {
   for (const statement of program.get('body')) {
     if (statement.isExportNamedDeclaration()) {
@@ -73,7 +73,7 @@ function getConfigObject(
 }
 
 function isRpc(
-  configObject: babel.NodePath<babel.types.ObjectExpression>
+  configObject: babel.NodePath<babel.types.ObjectExpression>,
 ): boolean {
   for (const property of configObject.get('properties')) {
     if (!property.isObjectProperty()) {
@@ -102,7 +102,7 @@ export interface PluginOptions {
 
 export default function (
   { types: t }: Babel,
-  { apiDir, pagesDir, isServer, basePath }: PluginOptions
+  { apiDir, pagesDir, isServer, basePath }: PluginOptions,
 ): babel.PluginObj {
   return {
     visitor: {
@@ -143,14 +143,14 @@ export default function (
           rpcMethod:
             | babel.types.ArrowFunctionExpression
             | babel.types.FunctionExpression,
-          meta: WrapMethodMeta
+          meta: WrapMethodMeta,
         ) => {
           return t.callExpression(createRpcMethodIdentifier, [
             rpcMethod,
             literalToAst(t, meta),
             t.memberExpression(
               t.identifier('config'),
-              t.identifier('wrapMethod')
+              t.identifier('wrapMethod'),
             ),
           ]);
         };
@@ -163,7 +163,7 @@ export default function (
             } else if (declaration.isFunctionDeclaration()) {
               if (!declaration.node.async) {
                 throw declaration.buildCodeFrameError(
-                  'rpc exports must be async functions'
+                  'rpc exports must be async functions',
                 );
               }
               const identifier = declaration.get('id');
@@ -180,10 +180,10 @@ export default function (
                           createRpcMethod(t.toExpression(declaration.node), {
                             name: methodName,
                             pathname: rpcPath,
-                          })
+                          }),
                         ),
-                      ])
-                    )
+                      ]),
+                    ),
                   );
                 }
               }
@@ -201,7 +201,7 @@ export default function (
                 ) {
                   if (!init.node.async) {
                     throw init.buildCodeFrameError(
-                      'rpc exports must be async functions'
+                      'rpc exports must be async functions',
                     );
                   }
                   const { id } = variable.node;
@@ -213,26 +213,26 @@ export default function (
                         createRpcMethod(init.node, {
                           name: methodName,
                           pathname: rpcPath,
-                        })
+                        }),
                       );
                     }
                   }
                 } else {
                   throw variable.buildCodeFrameError(
-                    'rpc exports must be static functions'
+                    'rpc exports must be static functions',
                   );
                 }
               }
             } else {
               for (const specifier of statement.get('specifiers')) {
                 throw specifier.buildCodeFrameError(
-                  'rpc exports must be static functions'
+                  'rpc exports must be static functions',
                 );
               }
             }
           } else if (statement.isExportDefaultDeclaration()) {
             throw statement.buildCodeFrameError(
-              'default exports are not allowed in rpc routes'
+              'default exports are not allowed in rpc routes',
             );
           }
         }
@@ -244,7 +244,7 @@ export default function (
           let apiHandlerExpression = buildRpcApiHandler(
             t,
             createRpcHandlerIdentifier,
-            rpcMethodNames
+            rpcMethodNames,
           );
 
           program.unshiftContainer('body', [
@@ -252,14 +252,14 @@ export default function (
               [
                 t.importSpecifier(
                   createRpcMethodIdentifier,
-                  t.identifier('createRpcMethod')
+                  t.identifier('createRpcMethod'),
                 ),
                 t.importSpecifier(
                   createRpcHandlerIdentifier,
-                  t.identifier('createRpcHandler')
+                  t.identifier('createRpcHandler'),
                 ),
               ],
-              t.stringLiteral(IMPORT_PATH_SERVER)
+              t.stringLiteral(IMPORT_PATH_SERVER),
             ),
           ]);
 
@@ -280,10 +280,10 @@ export default function (
               [
                 t.importSpecifier(
                   createRpcFetcherIdentifier,
-                  t.identifier('createRpcFetcher')
+                  t.identifier('createRpcFetcher'),
                 ),
               ],
-              t.stringLiteral(IMPORT_PATH_BROWSER)
+              t.stringLiteral(IMPORT_PATH_BROWSER),
             ),
             ...rpcMethodNames.map((name) =>
               t.exportNamedDeclaration(
@@ -295,11 +295,11 @@ export default function (
                       t.callExpression(createRpcFetcherIdentifier, [
                         t.stringLiteral(rpcPath),
                         t.stringLiteral(name),
-                      ])
-                    )
+                      ]),
+                    ),
                   ),
-                ])
-              )
+                ]),
+              ),
             ),
           ]);
         }
