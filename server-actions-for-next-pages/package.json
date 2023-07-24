@@ -1,36 +1,38 @@
 {
-    "name": "server-actions-for-next-pages",
-    "version": "0.0.0",
-    "description": "",
-    "main": "dist/index.js",
-    "types": "dist/index.d.ts",
-    "repository": "https://github.com/remorses/server-actions-for-next-pages",
-    "scripts": {
-        "build": "cp ../README.md ./README.md && rm -rf dist && tsc",
-        "watch": "tsc -w"
-    },
-    "files": [
-        "dist",
-        "src",
-        "esm"
-    ],
-    "keywords": [],
-    "author": "Tommaso De Rossi, morse <beats.by.morse@gmail.com>",
-    "license": "",
-    "peerDependencies": {
-        "next": ">=10"
-    },
-    "dependencies": {
-        "@babel/core": "^7.22.9",
-        "@babel/parser": "^7.22.7",
-        "@babel/plugin-syntax-jsx": "^7.22.5",
-        "@babel/plugin-syntax-typescript": "^7.22.5",
-        "babel-loader": "^8.3.0"
-    },
-    "devDependencies": {
-        "@babel/generator": "^7.22.9",
-        "@babel/types": "^7.22.5",
-        "next": "13.4.12",
-        "webpack": "^5.88.2"
-    }
+  "name": "server-actions-for-next-pages",
+  "version": "0.0.0",
+  "description": "",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "repository": "https://github.com/remorses/server-actions-for-next-pages",
+  "scripts": {
+    "build": "cp ../README.md ./README.md && rm -rf dist && tsc",
+    "watch": "tsc -w"
+  },
+  "files": [
+    "dist",
+    "src",
+    "esm",
+    "context.d.ts",
+    "context.js"
+  ],
+  "keywords": [],
+  "author": "Tommaso De Rossi, morse <beats.by.morse@gmail.com>",
+  "license": "",
+  "peerDependencies": {
+    "next": ">=10"
+  },
+  "dependencies": {
+    "@babel/core": "^7.22.9",
+    "@babel/parser": "^7.22.7",
+    "@babel/plugin-syntax-jsx": "^7.22.5",
+    "@babel/plugin-syntax-typescript": "^7.22.5",
+    "babel-loader": "^8.3.0"
+  },
+  "devDependencies": {
+    "@babel/generator": "^7.22.9",
+    "@babel/types": "^7.22.5",
+    "next": "13.4.12",
+    "webpack": "^5.88.2"
+  }
 }
