@@ -18,7 +18,7 @@ WIth Server Actions i mean calling your functions that run in the server directl
 - It only works for an entire file (adding `"poor man's use server"` at the top of the file)
 - Server actions files must be inside the `/pages/api` directory
 - It does not work inside `formAction`, you call the function inside `onSubmit` instead
-- and `startTransition` will not track pending state, just use `useState` to track the loading state
+- `startTransition` will not track pending state, just use `useState` to track the loading state
 - It's already stable, it's pretty simple concept that does not depend on any React canary features
 
 ## Installation
