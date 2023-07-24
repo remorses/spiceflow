@@ -15,6 +15,7 @@ It follows the same idea as [Next.js Server Actions](), letting you call your se
 - It works both inside `pages` and `app` directories
 - It only works for an entire file (adding `"poor man user server"` at the top of the file)
 - Server actions files must be inside the `pages/api` directory
+- It's already stable, it's pretty simple concept that does not depend on any React canary features
 
 ## Installation
 
