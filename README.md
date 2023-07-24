@@ -11,7 +11,7 @@ This Next.js plugin let you use something like [Next.js Server Actions](https://
 
 WIth Server Actions i mean calling your server functions directly in your client components, it does not closely follow the Next.js Server Actions behavior:
 
-Other differences are:
+## Differences with Next.js Server Actions
 
 - It does not depend on any React canary features, it just turns your server functions into a `fetch` calls in the client
 - It works both inside `pages` and `app` directories
