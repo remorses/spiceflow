@@ -1,13 +1,12 @@
 {
-    "name": "package",
+    "name": "server-actions-for-pages",
     "version": "0.0.0",
     "description": "",
     "main": "dist/index.js",
-    "module": "esm/index.js",
     "types": "dist/index.d.ts",
-    "repository": "https://github.com/remorses/",
+    "repository": "https://github.com/remorses/server-actions-for-pages",
     "scripts": {
-        "build": "tsc && tsc -m es6 --outDir esm",
+        "build": "tsc",
         "watch": "tsc -w"
     },
     "files": [
