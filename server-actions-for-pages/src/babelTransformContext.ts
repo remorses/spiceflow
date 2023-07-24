@@ -3,7 +3,9 @@ import * as babel from '@babel/core';
 
 type Babel = typeof babel;
 
-const IMPORT_PATH = 'next-rpc/dist/context-internal';
+const { name } = require('../package.json');
+
+const IMPORT_PATH = `${name}/dist/context-internal`;
 
 export interface PluginOptions {
   apiDir: string;

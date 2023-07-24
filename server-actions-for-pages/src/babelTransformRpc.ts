@@ -1,29 +1,18 @@
 import { annotateAsPure, literalToAst } from './astUtils';
+import path from 'path';
+import fs from 'fs';
 import * as babel from '@babel/core';
+import type * as types from '@babel/types';
 import { WrapMethodMeta } from './server';
+import { parse } from '@babel/parser';
+import generate from '@babel/generator';
 
-type Babel = typeof babel;
+type Babel = { types: typeof types };
 type BabelTypes = typeof babel.types;
 
-const IMPORT_PATH_SERVER = 'next-rpc/dist/server';
-const IMPORT_PATH_BROWSER = 'next-rpc/dist/browser';
-
-function buildRpcApiHandler(
-  t: BabelTypes,
-  createRpcHandlerIdentifier: babel.types.Identifier,
-  rpcMethodNames: string[],
-): babel.types.Expression {
-  return annotateAsPure(
-    t,
-    t.callExpression(createRpcHandlerIdentifier, [
-      t.arrayExpression(
-        rpcMethodNames.map((name) =>
-          t.arrayExpression([t.stringLiteral(name), t.identifier(name)]),
-        ),
-      ),
-    ]),
-  );
-}
+const { name } = require('../package.json');
+const IMPORT_PATH_SERVER = `${name}/dist/server`;
+const IMPORT_PATH_BROWSER = `${name}/dist/browser`;
 
 function isAllowedTsExportDeclaration(
   declaration: babel.NodePath<babel.types.Declaration | null | undefined>,
@@ -72,7 +61,19 @@ function getConfigObject(
   return null;
 }
 
-function isRpc(
+function isServerAction(code: string) {
+  // https://regex101.com/r/Wm6UvV/1
+  return /^("|')use server actions("|')(;?)\n/m.test(code);
+}
+function hasWrapMethod(code: string) {
+  return (
+    /export\s+function\s+wrapMethod\s*\(/m.test(code) ||
+    /export\s+(let|const)\s+wrapMethod\s*/m.test(code) ||
+    /export\s+\{\s*wrapMethod/m.test(code)
+  );
+}
+
+function isEdgeInConfig(
   configObject: babel.NodePath<babel.types.ObjectExpression>,
 ): boolean {
   for (const property of configObject.get('properties')) {
@@ -81,10 +82,11 @@ function isRpc(
     }
     const key = property.get('key');
     const value = property.get('value');
+
     if (
       property.isObjectProperty() &&
-      key.isIdentifier({ name: 'rpc' }) &&
-      value.isBooleanLiteral({ value: true })
+      key.isIdentifier({ name: 'runtime' }) &&
+      value.isStringLiteral({ value: 'edge' })
     ) {
       return true;
     }
@@ -121,10 +123,15 @@ export default function (
         }
 
         const configObject = getConfigObject(program);
+        const isAction = isServerAction(program);
 
-        if (!configObject || !isRpc(configObject)) {
+        if (!isAction) {
+          console.log('not an action', filename);
           return;
         }
+        const isEdge = configObject && isEdgeInConfig(configObject);
+        console.log('isEdge', isEdge, filename);
+        const hasWrap = hasWrapMethod(program);
 
         const rpcRelativePath = filename
           .slice(pagesDir.length)
@@ -148,10 +155,12 @@ export default function (
           return t.callExpression(createRpcMethodIdentifier, [
             rpcMethod,
             literalToAst(t, meta),
-            t.memberExpression(
-              t.identifier('config'),
-              t.identifier('wrapMethod'),
-            ),
+
+            parse(
+              hasWrap
+                ? `typeof wrapMethod === 'function' ? wrapMethod : undefined`
+                : 'null',
+            ).program.body[0]['expression'],
           ]);
         };
 
@@ -168,7 +177,9 @@ export default function (
               }
               const identifier = declaration.get('id');
               const methodName = identifier.node?.name;
-              if (methodName) {
+
+              if (methodName === 'wrapMethod') {
+              } else if (methodName) {
                 rpcMethodNames.push(methodName);
                 if (isServer) {
                   // replace with wrapped
@@ -207,6 +218,9 @@ export default function (
                   const { id } = variable.node;
                   if (t.isIdentifier(id)) {
                     const methodName = id.name;
+                    if (methodName === 'wrapMethod') {
+                      continue;
+                    }
                     rpcMethodNames.push(methodName);
                     if (isServer) {
                       init.replaceWith(
@@ -235,6 +249,27 @@ export default function (
               'default exports are not allowed in rpc routes',
             );
           }
+        }
+
+        function buildRpcApiHandler(
+          t: BabelTypes,
+          createRpcHandlerIdentifier: babel.types.Identifier,
+          rpcMethodNames: string[],
+        ): babel.types.Expression {
+          return annotateAsPure(
+            t,
+            t.callExpression(createRpcHandlerIdentifier, [
+              t.arrayExpression(
+                rpcMethodNames.map((name) =>
+                  t.arrayExpression([
+                    t.stringLiteral(name),
+                    t.identifier(name),
+                  ]),
+                ),
+              ),
+              isEdge ? t.booleanLiteral(true) : t.booleanLiteral(false),
+            ]),
+          );
         }
 
         if (isServer) {
@@ -302,6 +337,23 @@ export default function (
               ),
             ),
           ]);
+        }
+        if (process.env.DEBUG_ACTIONS_BABEL_PLUGIN) {
+          // stringify the AST and print it
+          const output = generate(
+            program.node,
+            {
+              /* options */
+            },
+            // @ts-expect-error
+            this.file.code,
+          );
+          let p = path.resolve(
+            './plugin-outputs',
+            (isServer ? 'server-' : 'client-') + path.basename(filename),
+          );
+          fs.mkdirSync(path.dirname(p), { recursive: true });
+          fs.writeFileSync(p, output.code);
         }
       },
     },

@@ -22,7 +22,7 @@ type NextRpcCall = (...params: any[]) => any;
 
 let nextId = 1;
 
-function createRpcFetcher(url: string, method: string): NextRpcCall {
+export function createRpcFetcher(url: string, method: string): NextRpcCall {
   return function rpcFetch() {
     return fetch(url, {
       method: 'POST',
@@ -37,17 +37,24 @@ function createRpcFetcher(url: string, method: string): NextRpcCall {
       },
     })
       .then(function (res) {
-        if (!res.ok) {
-          throw new Error('Unexpected HTTP status ' + res.status);
+        if (res.status === 502) {
+          const statusError = new Error('Unexpected HTTP status ' + res.status);
+          return res.json().then(
+            (json) => {
+              if (json.error && typeof json.error.message === 'string') {
+                return json;
+              }
+              return Promise.reject(statusError);
+            },
+            () => Promise.reject(statusError),
+          );
         }
         return res.json();
       })
       .then(function (json) {
         if (json.error) {
-          let err = Object.assign(
-            new Error(json.error.message),
-            json.error.data,
-          );
+          let err = new Error(json.error.message);
+          Object.assign(err, json.error.data || {});
           if (process.env.NODE_ENV !== 'production') {
             err = rewriteStacktrace(err);
           }
@@ -57,9 +64,3 @@ function createRpcFetcher(url: string, method: string): NextRpcCall {
       });
   };
 }
-
-Object.defineProperty(exports, '__esModule', {
-  value: true,
-});
-
-exports.createRpcFetcher = createRpcFetcher;

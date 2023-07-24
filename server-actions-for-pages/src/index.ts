@@ -10,7 +10,7 @@ export interface WithRpcConfig {}
 
 export { WrapMethod };
 
-export default function init(withRpcConfig: WithRpcConfig = {}) {
+export function withServerActions(withRpcConfig: WithRpcConfig = {}) {
   return (nextConfig: NextConfig = {}): NextConfig => {
     return {
       ...nextConfig,
