@@ -117,7 +117,7 @@ export async function createUser({ name = '' }) {
 
 This is a fork of the awesome [next-rpc](https://github.com/Janpot/next-rpc) with some changes:
 
-- Ti supports the Edge runtime
+- It supports the Edge runtime
 - It sets status code to 502 when the server function throws an error
 - It uses the top level `'poor mans use server'` instead of the `config.rpc` option
 - `wrapMethod` can be defined with an export instead of `config.wrapMethod`
