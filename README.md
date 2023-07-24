@@ -7,7 +7,11 @@
     <br/>
 </div>
 
-It follows the same idea as [Next.js Server Actions](https://nextjs.org/docs/app/building-your-application/data-fetching/server-actions), letting you call your server functions directly from your client components, with some differences:
+This Next.js plugin let you use something like [Next.js Server Actions](https://nextjs.org/docs/app/building-your-application/data-fetching/server-actions) using the `/pages` directory, letting you call your server functions directly from your client components.
+
+WIth Server Actions i mean calling your server functions directly in your client components, it does not closely follow the Next.js Server Actions behavior:
+
+Other differences are:
 
 - It does not depend on any React canary features, it just turns your server functions into a `fetch` calls in the client
 - It works both inside `pages` and `app` directories
@@ -54,7 +58,6 @@ Import your actions in your client components:
 import { serverAction } from './api/server-actions';
 
 export default function Page() {
-
   serverAction().then((data) => console.log(data));
 
   return <div>...</div>;
