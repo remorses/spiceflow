@@ -2,9 +2,11 @@
 
 import { createRpcMethod as _createRpcMethod, createRpcHandler as _createRpcHandler } from "server-actions-for-next-pages/dist/server";
 import { getEdgeContext } from 'server-actions-for-next-pages/context';
+import { wrapMethod } from './actions-node';
 export const config = {
   runtime: 'edge'
 };
+export { wrapMethod };
 export const serverAction = _createRpcMethod(async function serverAction({}) {
   const {
     req,
@@ -18,5 +20,5 @@ export const serverAction = _createRpcMethod(async function serverAction({}) {
 }, {
   name: "serverAction",
   pathname: "/api/actions-edge"
-}, null);
+}, typeof wrapMethod === 'function' ? wrapMethod : undefined);
 export default /*#__PURE__*/_createRpcHandler([["serverAction", serverAction]], true);

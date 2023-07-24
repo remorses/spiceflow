@@ -69,7 +69,8 @@ function hasWrapMethod(code: string) {
   return (
     /export\s+function\s+wrapMethod\s*\(/m.test(code) ||
     /export\s+(let|const)\s+wrapMethod\s*/m.test(code) ||
-    /export\s+\{\s*wrapMethod/m.test(code)
+    // https://regex101.com/r/nRaEVs/1
+    /export\s+\{[^}]*wrapMethod/m.test(code)
   );
 }
 
@@ -250,6 +251,9 @@ export default function (
               }
             } else {
               for (const specifier of statement.get('specifiers')) {
+                if (specifier?.node?.exported?.name === 'wrapMethod') {
+                  continue;
+                }
                 throw specifier.buildCodeFrameError(
                   'rpc exports must be static functions',
                 );

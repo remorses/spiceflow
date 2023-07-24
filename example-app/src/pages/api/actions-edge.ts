@@ -1,10 +1,13 @@
 "poor man's use server";
 
 import { getEdgeContext } from 'server-actions-for-next-pages/context';
+import { wrapMethod } from './actions-node';
 
 export const config = {
   runtime: 'edge',
 };
+
+export { wrapMethod };
 
 export async function serverAction({}) {
   const { req, res } = await getEdgeContext();
