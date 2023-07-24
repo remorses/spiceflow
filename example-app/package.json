@@ -3,8 +3,8 @@
     "version": "0.1.0",
     "private": true,
     "scripts": {
-        "dev": "next dev",
-        "build": "next build",
+        "dev": "DEBUG_ACTIONS_BABEL_PLUGIN=1 next dev",
+        "build": "DEBUG_ACTIONS_BABEL_PLUGIN=1 next build",
         "start": "next start",
         "lint": "next lint"
     },

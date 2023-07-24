@@ -1,18 +1,13 @@
-const {} = require('server-actions-for-pages')
-
+const { withServerActions } = require('server-actions-for-pages');
 
 /** @type {import('next').NextConfig} */
-const nextConfig = {
-    experimental: {
-        urlImports: [
-            'https://framer.com/m/',
-            'https://framerusercontent.com/',
-            'https://fonts.gstatic.com/',
-            'https://ga.jspm.io/',
-            'https://jspm.dev/',
-        ],
-        externalDir: true,
-    },
-}
+const nextConfig = withServerActions()({
+  reactStrictMode: false,
 
-module.exports = nextConfig
+  experimental: {
+    externalDir: true,
+    serverMinification: false,
+  },
+});
+
+module.exports = nextConfig;
