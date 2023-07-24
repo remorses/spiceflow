@@ -16,7 +16,7 @@ WIth Server Actions i mean calling your functions that run in the server directl
 - It does not depend on any React canary features, it just turns your server functions into a `fetch` calls in the client
 - It works both inside `pages` and `app` directories
 - It only works for an entire file (adding `"poor man's use server"` at the top of the file)
-- Server actions files must be inside the `pages/api` directory
+- Server actions files must be inside the `/pages/api` directory
 - It's already stable, it's pretty simple concept that does not depend on any React canary features
 
 ## Installation
