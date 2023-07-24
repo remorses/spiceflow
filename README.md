@@ -50,11 +50,11 @@ export async function serverAction() {
 Import your actions in your client components:
 
 ```tsx
-// pages/api/server-actions.js
+// pages/index.jsx
 import { serverAction } from './api/server-actions';
 
 export default function Page() {
-    
+
   serverAction().then((data) => console.log(data));
 
   return <div>...</div>;
