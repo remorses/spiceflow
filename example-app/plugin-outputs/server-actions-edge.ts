@@ -1,4 +1,4 @@
-'poor man user server';
+'poor mans use server';
 
 import { createRpcMethod as _createRpcMethod, createRpcHandler as _createRpcHandler } from "server-actions-for-next-pages/dist/server";
 import { getEdgeContext } from 'server-actions-for-next-pages/context';
