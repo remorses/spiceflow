@@ -63,7 +63,7 @@ export function getConfigObject(
 
 function isServerAction(code: string) {
   // https://regex101.com/r/Wm6UvV/1
-  return /^("|')poor mans use server("|')(;?)\n/m.test(code);
+  return /^("|')poor man's use server("|')(;?)\n/m.test(code);
 }
 function hasWrapMethod(code: string) {
   return (

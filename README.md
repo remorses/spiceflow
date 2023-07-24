@@ -15,7 +15,7 @@ WIth Server Actions i mean calling your server functions directly in your client
 
 - It does not depend on any React canary features, it just turns your server functions into a `fetch` calls in the client
 - It works both inside `pages` and `app` directories
-- It only works for an entire file (adding `"poor mans use server"` at the top of the file)
+- It only works for an entire file (adding `"poor man's use server"` at the top of the file)
 - Server actions files must be inside the `pages/api` directory
 - It's already stable, it's pretty simple concept that does not depend on any React canary features
 
@@ -41,11 +41,11 @@ const nextConfig = withServerActions()({
 module.exports = nextConfig;
 ```
 
-Create a file for your server actions inside the `/pages/api` directory with `'poor mans use server'` at the top:
+Create a file for your server actions inside the `/pages/api` directory with `"poor man's use server"` at the top:
 
 ```ts
 // pages/api/server-actions.js
-'poor mans use server';
+"poor man's use server";
 
 export async function serverAction() {
   return { hello: 'world' };
@@ -67,7 +67,7 @@ export default function Page() {
 
 ## How it works
 
-The plugin will replace the content of files with `"poor mans use server"` at the top with inside the `pages/api` directory to make the exported functions callable from the client.
+The plugin will replace the content of files with `"poor man's use server"` at the top with inside the `pages/api` directory to make the exported functions callable from the client.
 
 When processing the file for the server the plugin creates an API handler that follows the JSON RPC spec. The API handler works both with edge and Node.js runtimes.
 
@@ -80,7 +80,7 @@ This plugin injects the `req` and `res` objects in an `AsyncLocalStorage` contex
 Edge function example:
 
 ```ts
-'poor mans use server';
+"poor man's use server";
 
 import { getEdgeContext } from 'server-actions-for-next-pages/context';
 
@@ -100,7 +100,7 @@ export async function serverAction({}) {
 Example in Node.js:
 
 ```ts
-'poor mans use server';
+"poor man's use server";
 import { getNodejsContext } from 'server-actions-for-next-pages/context';
 
 export async function createUser({ name = '' }) {
@@ -119,5 +119,5 @@ This is a fork of the awesome [next-rpc](https://github.com/Janpot/next-rpc) wit
 
 - It supports the Edge runtime
 - It sets status code to 502 when the server function throws an error
-- It uses the top level `'poor mans use server'` instead of the `config.rpc` option
+- It uses the top level `"poor man's use server"` instead of the `config.rpc` option
 - `wrapMethod` can be defined with an export instead of `config.wrapMethod`
