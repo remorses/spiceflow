@@ -24,7 +24,7 @@ WIth Server Actions i mean calling your functions that run in the server directl
 ## Installation
 
 ```bash
-npm install --save-dev server-actions-for-next-pages
+npm i server-actions-for-next-pages
 ```
 
 ## Usage
