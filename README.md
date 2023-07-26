@@ -67,13 +67,22 @@ export default function Page() {
 }
 ```
 
-## How it works
+## Usage in edge runtime
 
-The plugin will replace the content of files with `"poor man's use server"` at the top inside the `pages/api` directory to make the exported functions callable from the browser.
+This plugin assumes the runtime of your app to be Nodejs unless you explicitly set it to edge for your api page, this means that to support the edge runtime you need to export a config object like `export const config = { runtime: 'edge' };` in your api page.
 
-When processing the file for the server the plugin creates an API handler that follows the JSON RPC spec.
+```tsx
+// pages/api/server-actions.js
+"poor man's use server";
 
-When processing the file for the client the plugin replaces the exported functions with a `fetch` calls to the API handler.
+export const config = {
+  runtime: 'edge',
+};
+
+export async function serverAction() {
+  return { hello: 'world' };
+}
+```
 
 ## Accessing the request and response objects
 
@@ -138,6 +147,16 @@ export async function failingFunction({}) {
   throw new Error('This function fails');
 }
 ```
+
+## How it works
+
+The plugin will replace the content of files inside `pages/api` with `"poor man's use server"` at the top to make the exported functions callable from the browser.
+
+When processing the file for the server the plugin creates an API handler that follows the JSON RPC spec.
+
+When processing the file for the client the plugin replaces the exported functions with a `fetch` calls to the API handler.
+
+This plugin uses Babel to process your page content, it will not slow down compilation time noticeably because it only process files inside the `pages/api` folder.
 
 ## Credits
 
