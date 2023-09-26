@@ -2,6 +2,7 @@
 
 import { createRpcMethod as _createRpcMethod, createRpcHandler as _createRpcHandler } from "server-actions-for-next-pages/dist/server";
 import { getNodejsContext } from 'server-actions-for-next-pages/context';
+import { getContext } from 'server-actions-for-next-pages/context';
 export const createUser = _createRpcMethod(async function createUser({
   name = ''
 }) {
@@ -9,6 +10,11 @@ export const createUser = _createRpcMethod(async function createUser({
     req,
     res
   } = await getNodejsContext();
+  const {
+    cookies,
+    headers
+  } = getContext();
+  console.log('cookies & headers', headers());
   const url = req?.url;
   return {
     name,

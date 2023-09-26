@@ -7,6 +7,7 @@
   "repository": "https://github.com/remorses/server-actions-for-next-pages",
   "scripts": {
     "build": "cp ../README.md ./README.md && rm -rf dist && tsc",
+    "prepublishOnly": "pnpm build",
     "watch": "tsc -w"
   },
   "files": [
@@ -32,7 +33,7 @@
   "devDependencies": {
     "@babel/generator": "^7.22.9",
     "@babel/types": "^7.22.5",
-    "next": "13.4.12",
+    "next": "13.5.3",
     "webpack": "^5.88.2"
   }
 }
