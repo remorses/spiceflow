@@ -1,6 +1,6 @@
 {
     "name": "nextjs-app",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "private": true,
     "scripts": {
         "dev": "DEBUG_ACTIONS_BABEL_PLUGIN=1 next dev",
