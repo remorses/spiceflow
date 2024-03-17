@@ -1,5 +1,11 @@
 # server-actions-for-next-pages
 
+## 0.2.1
+
+### Patch Changes
+
+- Support for multiple plugins with loaders at the same time
+
 ## 0.2.0
 
 ### Minor Changes
