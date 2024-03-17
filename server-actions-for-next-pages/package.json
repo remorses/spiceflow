@@ -33,7 +33,7 @@
   "devDependencies": {
     "@babel/generator": "^7.22.9",
     "@babel/types": "^7.22.5",
-    "next": "13.5.3",
+    "next": "14.2.0-canary.26",
     "webpack": "^5.88.2"
   }
 }
