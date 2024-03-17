@@ -5,7 +5,7 @@ import { createUser, failingFunction } from '@/pages/api/actions-node';
 import { useEffect, useState } from 'react';
 
 export default function Home () {
-  
+  // throw new Error('This function fails');
   failingFunction({}).catch((error: any) => {
     console.error(error);
     return null;

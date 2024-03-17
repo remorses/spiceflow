@@ -42,8 +42,8 @@ export default async function (
     });
 
     if (res) {
-      const sourcemap = JSON.stringify(res.map, null, 2)
-      // console.log('sourcemap', sourcemap);
+      const sourcemap = JSON.stringify(res.map, null, 2);
+      // logger.log('sourcemap', sourcemap);
       callback(null, res?.code || '', sourcemap || undefined);
     } else {
       logger.error('no result');
