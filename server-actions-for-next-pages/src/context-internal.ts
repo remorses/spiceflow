@@ -16,6 +16,7 @@ import {
   HeadersAdapter,
 } from 'next/dist/server/web/spec-extension/adapters/headers';
 import { RequestCookies } from 'next/dist/compiled/@edge-runtime/cookies';
+import { cookies, headers } from 'next/headers';
 
 interface CommonContext {
   cookies(): ReadonlyRequestCookies;
@@ -32,10 +33,12 @@ interface EdgeContext extends CommonContext {
 
 const DEFAULT_CONTEXT = {
   headers() {
+    return headers()
     throw new Error('Cannot call headers() outside of a request');
     return new HeadersAdapter({});
   },
   cookies() {
+    return cookies()
     throw new Error('Cannot call cookies() outside of a request');
     return RequestCookiesAdapter.seal(
       new RequestCookies(new HeadersAdapter({})),
