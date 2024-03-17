@@ -24,15 +24,18 @@
     "next": ">=10"
   },
   "dependencies": {
-    "@babel/core": "^7.22.9",
-    "@babel/parser": "^7.22.7",
-    "@babel/plugin-syntax-jsx": "^7.22.5",
-    "@babel/plugin-syntax-typescript": "^7.22.5",
-    "babel-loader": "^8.3.0"
+    "@babel/core": "^7.24.0",
+    "@babel/parser": "^7.24.0",
+    "@babel/plugin-syntax-jsx": "^7.23.3",
+    "@babel/plugin-syntax-typescript": "^7.23.3",
+    "@babel/plugin-transform-typescript": "^7.23.6",
+    "babel-loader": "^8.3.0",
+    "esbuild": "^0.20.2"
   },
   "devDependencies": {
-    "@babel/generator": "^7.22.9",
-    "@babel/types": "^7.22.5",
+    "@babel/generator": "^7.23.6",
+    "@types/babel__core": "^7.20.5",
+    "@babel/types": "^7.24.0",
     "next": "14.2.0-canary.26",
     "webpack": "^5.88.2"
   }

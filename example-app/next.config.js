@@ -7,7 +7,6 @@ const nextConfig = withServerActions()({
   experimental: {
     externalDir: true,
     serverMinification: false,
-    serverActions: true,
   },
 });
 

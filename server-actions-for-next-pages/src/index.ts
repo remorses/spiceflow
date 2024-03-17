@@ -12,23 +12,13 @@ export { WrapMethod };
 
 export function withServerActions(withRpcConfig: WithRpcConfig = {}) {
   return (nextConfig: NextConfig = {}): NextConfig => {
+    applyTurbopackOptions(nextConfig);
     return {
       ...nextConfig,
 
       webpack(config: webpack.Configuration, options) {
         const { isServer, dev, dir } = options;
         const pagesDir = findPagesDir(dir);
-        const apiDir = path.resolve(pagesDir, './api');
-
-        const rpcPluginOptions: RpcPluginOptions = {
-          isServer,
-          pagesDir,
-          dev,
-          apiDir,
-          basePath: nextConfig.basePath || '/',
-        };
-
-        const contextPluginOptions: ContextPluginOptions = { apiDir, isServer };
 
         config.module = config.module || {};
         config.module.rules = config.module.rules || [];
@@ -41,21 +31,12 @@ export function withServerActions(withRpcConfig: WithRpcConfig = {}) {
               loader: 'babel-loader',
               options: {
                 sourceMaps: dev,
-                plugins: [
-                  [
-                    require.resolve('../dist/babelTransformRpc'),
-                    rpcPluginOptions,
-                  ],
-                  [
-                    require.resolve('../dist/babelTransformContext'),
-                    contextPluginOptions,
-                  ],
-                  require.resolve('@babel/plugin-syntax-jsx'),
-                  [
-                    require.resolve('@babel/plugin-syntax-typescript'),
-                    { isTSX: true },
-                  ],
-                ],
+                plugins: plugins({
+                  isServer,
+                  pagesDir,
+
+                  basePath: (nextConfig.basePath as string) || '/',
+                }),
               },
             },
           ],
@@ -69,6 +50,77 @@ export function withServerActions(withRpcConfig: WithRpcConfig = {}) {
       },
     };
   };
+}
+
+export function plugins({
+  isServer,
+  pagesDir,
+
+  basePath,
+}) {
+  const apiDir = path.resolve(pagesDir, './api');
+  const rpcPluginOptions: RpcPluginOptions = {
+    isServer,
+    pagesDir,
+
+    apiDir,
+    basePath: basePath || '/',
+  };
+
+  const contextPluginOptions: ContextPluginOptions = { apiDir, isServer };
+  return [
+    require.resolve('@babel/plugin-syntax-jsx'),
+    [require.resolve('@babel/plugin-transform-typescript'), { isTSX: true }],
+    [require.resolve('../dist/babelTransformRpc'), rpcPluginOptions],
+    [require.resolve('../dist/babelTransformContext'), contextPluginOptions],
+    process.env.DEBUG_ACTIONS && [
+      require.resolve('../dist/babelDebugOutputs'),
+      contextPluginOptions,
+    ],
+  ].filter(Boolean) as any[];
+}
+
+function applyTurbopackOptions(nextConfig: NextConfig): void {
+  nextConfig.experimental ??= {};
+  nextConfig.experimental.turbo ??= {};
+  nextConfig.experimental.turbo.rules ??= {};
+
+  const rules = nextConfig.experimental.turbo.rules;
+
+  const pagesDir = findPagesDir(process.cwd());
+  const globs = ['{./src/pages,./pages/}/**/*.{ts,tsx,js,jsx}'];
+  const apiDir = path.resolve(pagesDir, './api');
+  const basePath = (nextConfig.basePath as string) || '/';
+
+  const options: WithRpcConfig = {
+    isServer: false,
+    pagesDir,
+    apiDir,
+    basePath,
+  };
+  for (const glob of globs) {
+    // @ts-expect-error as is required while it should not, it breaks imports
+    rules[glob] = {
+      browser: {
+        // as: 'browser',
+        loaders: [
+          {
+            loader: require.resolve('../dist/turbopackLoader'),
+            options: { ...options, isServer: false },
+          },
+        ],
+      },
+      default: {
+        // as: 'default',
+        loaders: [
+          {
+            loader: require.resolve('../dist/turbopackLoader'),
+            options: { ...options, isServer: true },
+          },
+        ],
+      },
+    };
+  }
 }
 
 // taken from https://github.com/vercel/next.js/blob/v12.1.5/packages/next/lib/find-pages-dir.ts

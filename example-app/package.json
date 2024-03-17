@@ -3,8 +3,8 @@
     "version": "0.1.1",
     "private": true,
     "scripts": {
-        "dev": "DEBUG_ACTIONS_BABEL_PLUGIN=1 next dev",
-        "build": "DEBUG_ACTIONS_BABEL_PLUGIN=1 next build",
+        "dev": "rm -rf .next && DEBUG_ACTIONS=1 next dev --port 7754 --turbo",
+        "build": "rm -rf .next && DEBUG_ACTIONS=1 next build",
         "start": "next start",
         "lint": "next lint"
     },

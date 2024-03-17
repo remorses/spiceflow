@@ -6,6 +6,7 @@ import type * as types from '@babel/types';
 import { WrapMethodMeta } from './server';
 import { parse } from '@babel/parser';
 import generate from '@babel/generator';
+import { directive, logger } from './utils';
 
 type Babel = { types: typeof types };
 type BabelTypes = typeof babel.types;
@@ -41,7 +42,7 @@ function getConfigObjectExpression(
 
 export function getConfigObject(
   program: babel.NodePath<babel.types.Program>,
-): babel.NodePath<babel.types.ObjectExpression> | null {
+): babel.NodePath<babel.types.ObjectExpression> | undefined {
   for (const statement of program.get('body')) {
     if (statement.isExportNamedDeclaration()) {
       const declaration = statement.get('declaration');
@@ -58,24 +59,60 @@ export function getConfigObject(
       }
     }
   }
-  return null;
+  return;
 }
 
-function isServerAction(code: string) {
-  // https://regex101.com/r/Wm6UvV/1
-  return /^("|')poor man's use server("|')(;?)\n/m.test(code);
-}
-function hasWrapMethod(code: string) {
-  return (
-    /export\s+function\s+wrapMethod\s*\(/m.test(code) ||
-    /export\s+(let|const)\s+wrapMethod\s*/m.test(code) ||
-    // https://regex101.com/r/nRaEVs/1
-    /export\s+\{[^}]*wrapMethod/m.test(code)
+function isServerAction(program: babel.NodePath<babel.types.Program>): boolean {
+  const dir = program.node.directives?.find(
+    (x) => x.value?.value === directive,
   );
+  return !!dir;
+  // https://regex101.com/r/Wm6UvV/1
+  // return /^("|')poor man's use server("|')(;?)\n/m.test(code);
+}
+
+function hasWrapMethod(program: babel.NodePath<babel.types.Program>) {
+  // check if there is a function export called wrapMethod
+  for (const statement of program.get('body')) {
+    // also check the export { wrapMethod }
+    if (statement.isExportNamedDeclaration()) {
+      for (const specifier of statement.get('specifiers')) {
+        if (
+          specifier.node.exported.type === 'Identifier' &&
+          specifier.node.exported.name === 'wrapMethod'
+        ) {
+          return true;
+        }
+      }
+    }
+    if (statement.isExportNamedDeclaration()) {
+      const declaration = statement.get('declaration');
+      if (declaration.isFunctionDeclaration()) {
+        const identifier = declaration.get('id');
+        if (identifier.node?.name === 'wrapMethod') {
+          return true;
+        }
+      } else if (declaration.isVariableDeclaration()) {
+        for (const variable of declaration.get('declarations')) {
+          const id = variable.get('id');
+          if (id.isIdentifier() && id.node.name === 'wrapMethod') {
+            return true;
+          }
+        }
+      }
+    }
+  }
+
+  // return (
+  //   /export\s+function\s+wrapMethod\s*\(/m.test(code) ||
+  //   /export\s+(let|const)\s+wrapMethod\s*/m.test(code) ||
+  //   // https://regex101.com/r/nRaEVs/1
+  //   /export\s+\{[^}]*wrapMethod/m.test(code)
+  // );
 }
 
 export function isEdgeInConfig(
-  configObject: babel.NodePath<babel.types.ObjectExpression>,
+  configObject?: babel.NodePath<babel.types.ObjectExpression>,
 ): boolean {
   if (!configObject) {
     return false;
@@ -101,7 +138,7 @@ export function isEdgeInConfig(
 export interface PluginOptions {
   isServer: boolean;
   pagesDir: string;
-  dev: boolean;
+
   apiDir: string;
   basePath: string;
 }
@@ -113,7 +150,6 @@ export default function (
   return {
     visitor: {
       Program(program) {
-        // @ts-expect-error
         const { filename } = this.file.opts;
 
         if (!filename) {
@@ -123,6 +159,7 @@ export default function (
         const isApiRoute = filename && filename.startsWith(apiDir);
 
         if (!isApiRoute) {
+          logger.log(`Skipping ${filename} because it's not an api route`);
           return;
         }
 
@@ -130,9 +167,11 @@ export default function (
         const isAction = isServerAction(program);
 
         if (!isAction) {
+          logger.log(`Skipping ${filename} because it's not an action`);
           return;
         }
         const isEdge = configObject && isEdgeInConfig(configObject);
+        logger.log(`Processing ${filename} as an action`);
 
         const hasWrap = hasWrapMethod(program);
 
@@ -251,7 +290,10 @@ export default function (
               }
             } else {
               for (const specifier of statement.get('specifiers')) {
-                if (specifier?.node?.exported?.name === 'wrapMethod') {
+                if (
+                  specifier?.node?.exported.type === 'Identifier' &&
+                  specifier?.node?.exported.name === 'wrapMethod'
+                ) {
                   continue;
                 }
                 throw specifier.buildCodeFrameError(
@@ -353,14 +395,14 @@ export default function (
             ),
           ]);
         }
-        if (process.env.DEBUG_ACTIONS_BABEL_PLUGIN) {
+        if (process.env.DEBUG_ACTIONS) {
           // stringify the AST and print it
           const output = generate(
             program.node,
             {
               /* options */
             },
-            // @ts-expect-error
+
             this.file.code,
           );
           let p = path.resolve(

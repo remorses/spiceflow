@@ -183,8 +183,7 @@ export default function (
         if (!isServer) {
           return;
         }
-
-        // @ts-expect-error
+        
         const { filename } = this.file.opts;
         const isApiRoute = filename && filename.startsWith(apiDir);
         const isMiddleware =
