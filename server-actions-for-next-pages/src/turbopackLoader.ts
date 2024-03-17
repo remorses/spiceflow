@@ -42,7 +42,9 @@ export default async function (
     });
 
     if (res) {
-      callback(null, res?.code || '', JSON.stringify(res.map) || undefined);
+      const sourcemap = JSON.stringify(res.map, null, 2)
+      // console.log('sourcemap', sourcemap);
+      callback(null, res?.code || '', sourcemap || undefined);
     } else {
       logger.error('no result');
       await skip();
