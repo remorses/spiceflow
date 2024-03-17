@@ -88,7 +88,7 @@ function applyTurbopackOptions(nextConfig: NextConfig): void {
   const rules = nextConfig.experimental.turbo.rules;
 
   const pagesDir = findPagesDir(process.cwd());
-  const globs = ['{./src/pages,./pages/}/**/*.{ts,tsx,js,jsx}'];
+
   const apiDir = path.resolve(pagesDir, './api');
   const basePath = (nextConfig.basePath as string) || '/';
 
@@ -98,29 +98,21 @@ function applyTurbopackOptions(nextConfig: NextConfig): void {
     apiDir,
     basePath,
   };
-  for (const glob of globs) {
-    // @ts-expect-error as is required while it should not, it breaks imports
-    rules[glob] = {
-      browser: {
-        // as: 'browser',
-        loaders: [
-          {
-            loader: require.resolve('../dist/turbopackLoader'),
-            options: { ...options, isServer: false },
-          },
-        ],
-      },
-      default: {
-        // as: 'default',
-        loaders: [
-          {
-            loader: require.resolve('../dist/turbopackLoader'),
-            options: { ...options, isServer: true },
-          },
-        ],
-      },
-    };
-  }
+  const glob = '{./src/pages,./pages/}/**/*.{ts,tsx,js,jsx}';
+  rules[glob] ??= {};
+  const globbed: any = rules[glob];
+  globbed.browser ??= {};
+  globbed.browser.loaders ??= [];
+  globbed.browser.loaders.push({
+    loader: require.resolve('../dist/turbopackLoader'),
+    options: { ...options, isServer: false },
+  });
+  globbed.default ??= {};
+  globbed.default.loaders ??= [];
+  globbed.default.loaders.push({
+    loader: require.resolve('../dist/turbopackLoader'),
+    options: { ...options, isServer: true },
+  });
 }
 
 // taken from https://github.com/vercel/next.js/blob/v12.1.5/packages/next/lib/find-pages-dir.ts
