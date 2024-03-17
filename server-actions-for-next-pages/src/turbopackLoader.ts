@@ -10,7 +10,9 @@ export default async function (
   map: any,
 ) {
   const callback = this.async();
-
+  if (typeof map === 'string') {
+    map = JSON.parse(map);
+  }
   try {
     const skip = async () => {
       const res = await esbuildTransform(source, {

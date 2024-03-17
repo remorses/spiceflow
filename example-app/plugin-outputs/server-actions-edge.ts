@@ -1,10 +1,10 @@
 "poor man's use server";
 
 import { createRpcMethod as _createRpcMethod, createRpcHandler as _createRpcHandler } from "server-actions-for-next-pages/dist/server";
-import { getContext, getEdgeContext } from 'server-actions-for-next-pages/context';
-import { wrapMethod } from './actions-node';
+import { getContext, getEdgeContext } from "server-actions-for-next-pages/context";
+import { wrapMethod } from "./actions-node";
 export const config = {
-  runtime: 'edge'
+  runtime: "edge"
 };
 export { wrapMethod };
 export const serverAction = _createRpcMethod(async function serverAction({}) {
@@ -16,8 +16,7 @@ export const serverAction = _createRpcMethod(async function serverAction({}) {
     cookies,
     headers
   } = getContext();
-  // console.log('cookies & headers', cookies(), headers());
-  res?.headers.set('x-server-action', 'true');
+  res?.headers.set("x-server-action", "true");
   const url = req?.url;
   return {
     url
