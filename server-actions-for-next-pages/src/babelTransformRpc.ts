@@ -1,4 +1,4 @@
-import { annotateAsPure, literalToAst } from './astUtils';
+import { annotateAsPure, literalToAst } from './utils';
 import path from 'path';
 import fs from 'fs';
 import * as babel from '@babel/core';

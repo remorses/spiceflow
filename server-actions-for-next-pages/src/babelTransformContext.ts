@@ -1,4 +1,4 @@
-import { annotateAsPure } from './astUtils';
+import { annotateAsPure } from './utils';
 import * as babel from '@babel/core';
 import { getConfigObject, isEdgeInConfig } from './babelTransformRpc';
 
