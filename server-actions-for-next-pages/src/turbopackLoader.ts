@@ -2,7 +2,6 @@ import type webpack from 'webpack';
 import { transform } from '@babel/core';
 import { plugins } from '.';
 import { logger } from './utils';
-import { transform as esbuildTransform } from 'esbuild';
 
 export default async function (
   this: LoaderThis<any>,
@@ -14,19 +13,6 @@ export default async function (
     map = JSON.parse(map);
   }
   try {
-    const skip = async () => {
-      const res = await esbuildTransform(source, {
-        loader: 'tsx',
-        sourcefile: this.resourcePath,
-        jsx: 'preserve',
-        // jsx: 'transform',
-        // jsxDev: true,
-
-        sourcemap: true,
-      });
-      callback(null, res.code, res.map);
-    };
-
     const options = this.getOptions();
     const { isServer, pagesDir, apiDir, basePath } = options;
 
@@ -49,7 +35,7 @@ export default async function (
       callback(null, res?.code || '', sourcemap || undefined);
     } else {
       logger.error('no result');
-      await skip();
+      callback(null, source, map);
     }
   } catch (e: any) {
     logger.error(e);

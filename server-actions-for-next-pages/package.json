@@ -29,8 +29,7 @@
     "@babel/plugin-syntax-jsx": "^7.23.3",
     "@babel/plugin-syntax-typescript": "^7.23.3",
     "@babel/plugin-transform-typescript": "^7.23.6",
-    "babel-loader": "^8.3.0",
-    "esbuild": "^0.20.2"
+    "babel-loader": "^8.3.0"
   },
   "devDependencies": {
     "@babel/generator": "^7.23.6",
