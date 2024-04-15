@@ -13,8 +13,8 @@
         "prettier": "^2.8.8",
         "tsx": "^3.12.7",
         "typescript": "^5.1.6",
-        "vite": "^4.4.6",
-        "vitest": "^0.32.4"
+        "vite": "^5.2.8",
+        "vitest": "^1.5.0"
     },
     "repository": "https://github.com/remorses/",
     "author": "remorses <beats.by.morse@gmail.com>",

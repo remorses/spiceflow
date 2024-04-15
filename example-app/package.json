@@ -11,11 +11,11 @@
     "dependencies": {
         "@motionone/dom": "^10.16.2",
         "@types/node": "20.2.5",
-        "@types/react": "18.2.23",
+        "@types/react": "18.2.78",
         "@types/react-dom": "18.2.4",
         "autoprefixer": "10.4.14",
         "elacca": "^0.5.1",
-        "next": "14.2.0-canary.26",
+        "next": "14.2.1",
         "popmotion": "^11.0.5",
         "postcss": "8.4.24",
         "react": "18.2.0",
