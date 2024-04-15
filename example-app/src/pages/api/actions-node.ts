@@ -6,7 +6,7 @@ import { getContext } from 'server-actions-for-next-pages/context';
 export async function createUser({ name = '' }) {
   const { req, res } = await getNodejsContext();
   const { cookies, headers } = getContext();
-  console.log('node cookies & headers', headers());
+  // console.log('node cookies & headers', headers());
   const url = req?.url;
   return {
     name,

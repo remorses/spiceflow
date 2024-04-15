@@ -14,7 +14,7 @@ export const createUser = _createRpcMethod(async function createUser({
     cookies,
     headers
   } = getContext();
-  console.log('node cookies & headers', headers());
+  // console.log('node cookies & headers', headers());
   const url = req?.url;
   return {
     name,
