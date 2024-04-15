@@ -12,7 +12,7 @@ export default function Home () {
   });
   const [state, setState] = useState();
   useEffect(() => {
-    Promise.all([
+    Promise.allSettled([
       serverAction('home'),
       createUser({ name: 'test' }),
       failingFunction({}).catch((error: any) => {
