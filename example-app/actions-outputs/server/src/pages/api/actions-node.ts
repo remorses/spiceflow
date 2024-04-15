@@ -2,10 +2,10 @@
 
 import { wrapApiHandler as _wrapApiHandler } from "server-actions-for-next-pages/dist/context-internal";
 import { createRpcMethod as _createRpcMethod, createRpcHandler as _createRpcHandler } from "server-actions-for-next-pages/dist/server";
-import { getNodejsContext } from "server-actions-for-next-pages/context";
-import { getContext } from "server-actions-for-next-pages/context";
+import { getNodejsContext } from 'server-actions-for-next-pages/context';
+import { getContext } from 'server-actions-for-next-pages/context';
 export const createUser = _createRpcMethod(async function createUser({
-  name = ""
+  name = ''
 }) {
   const {
     req,
@@ -15,7 +15,7 @@ export const createUser = _createRpcMethod(async function createUser({
     cookies,
     headers
   } = getContext();
-  console.log("cookies & headers", headers());
+  console.log('node cookies & headers', headers());
   const url = req?.url;
   return {
     name,
@@ -31,13 +31,13 @@ export function wrapMethod(fn) {
       const res = await fn(...args);
       return res;
     } catch (error) {
-      console.error(error);
+      // console.error(error);
       throw error;
     }
   };
 }
 export const failingFunction = _createRpcMethod(async function failingFunction({}) {
-  throw new Error("This function fails");
+  throw new Error('This function fails');
 }, {
   name: "failingFunction",
   pathname: "/api/actions-node"

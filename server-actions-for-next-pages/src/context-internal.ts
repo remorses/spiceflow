@@ -33,16 +33,10 @@ interface EdgeContext extends CommonContext {
 
 const DEFAULT_CONTEXT = {
   headers() {
-    return headers()
-    throw new Error('Cannot call headers() outside of a request');
-    return new HeadersAdapter({});
+    return headers();
   },
   cookies() {
-    return cookies()
-    throw new Error('Cannot call cookies() outside of a request');
-    return RequestCookiesAdapter.seal(
-      new RequestCookies(new HeadersAdapter({})),
-    );
+    return cookies();
   },
 };
 
@@ -61,7 +55,7 @@ export function getContext(): CommonContext {
 export function wrapApiHandler(handler: Function, isEdge) {
   if (isEdge) {
     return async (req) => {
-      const res = NextResponse.json(null);
+      const res = new Response('');
       const context = {
         req,
         res,
