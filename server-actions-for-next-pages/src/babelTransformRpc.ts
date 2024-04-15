@@ -26,7 +26,7 @@ function isAllowedTsExportDeclaration(
 
 function getConfigObjectExpression(
   variable: babel.NodePath<babel.types.VariableDeclarator>,
-): babel.NodePath<babel.types.ObjectExpression> | null {
+) {
   const identifier = variable.get('id');
   const init = variable.get('init');
   if (
@@ -34,15 +34,21 @@ function getConfigObjectExpression(
     identifier.node.name === 'config' &&
     init.isObjectExpression()
   ) {
-    return init;
-  } else {
-    return null;
+    const isEdge = isEdgeInConfig(init);
+    return {
+      isEdge,
+    };
   }
+  if (identifier.isIdentifier() && identifier.node.name === 'runtime') {
+    const isEdge = init.isStringLiteral({ value: 'edge' });
+    return {
+      isEdge,
+    };
+  }
+  return null;
 }
 
-export function getConfigObject(
-  program: babel.NodePath<babel.types.Program>,
-): babel.NodePath<babel.types.ObjectExpression> | undefined {
+export function getConfigObject(program: babel.NodePath<babel.types.Program>) {
   for (const statement of program.get('body')) {
     if (statement.isExportNamedDeclaration()) {
       const declaration = statement.get('declaration');
@@ -163,14 +169,15 @@ export default function (
           return;
         }
 
-        const configObject = getConfigObject(program);
+        const { isEdge } = getConfigObject(program) || { isEdge: false };
+
         const isAction = isServerAction(program);
 
         if (!isAction) {
           logger.log(`Skipping ${filename} because it's not an action`);
           return;
         }
-        const isEdge = configObject && isEdgeInConfig(configObject);
+
         logger.log(`Processing ${filename} as an action`);
 
         const hasWrap = hasWrapMethod(program);

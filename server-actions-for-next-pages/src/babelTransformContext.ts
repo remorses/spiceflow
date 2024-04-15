@@ -52,7 +52,7 @@ function visitApiHandler(
       ? t.toExpression(declaration)
       : declaration;
 
-    const isEdge = isEdgeInConfig(getConfigObject(program));
+    const { isEdge } = getConfigObject(program) || { isEdge: false };
     defaultExportPath.replaceWith(
       t.exportDefaultDeclaration(
         annotateAsPure(
@@ -183,7 +183,7 @@ export default function (
         if (!isServer) {
           return;
         }
-        
+
         const { filename } = this.file.opts;
         const isApiRoute = filename && filename.startsWith(apiDir);
         const isMiddleware =

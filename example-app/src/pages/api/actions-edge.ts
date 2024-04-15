@@ -1,11 +1,12 @@
 "poor man's use server";
 
-import { getContext, getEdgeContext } from 'server-actions-for-next-pages/context';
+import {
+  getContext,
+  getEdgeContext,
+} from 'server-actions-for-next-pages/context';
 import { wrapMethod } from './actions-node';
 
-export const config = {
-  runtime: 'edge',
-};
+export const runtime = 'edge';
 
 export { wrapMethod };
 
