@@ -52,10 +52,7 @@ export function getConfigObject(program: babel.NodePath<babel.types.Program>) {
   for (const statement of program.get('body')) {
     if (statement.isExportNamedDeclaration()) {
       const declaration = statement.get('declaration');
-      if (
-        declaration.isVariableDeclaration() &&
-        declaration.node.kind === 'const'
-      ) {
+      if (declaration.isVariableDeclaration()) {
         for (const variable of declaration.get('declarations')) {
           const configObject = getConfigObjectExpression(variable);
           if (configObject) {
@@ -370,7 +367,19 @@ export default function (
             program.scope.generateUidIdentifier('createRpcFetcher');
 
           // Clear the whole body
-          for (const statement of program.get('body')) {
+          out: for (const statement of program.get('body')) {
+            // don't remove if it's an export with name is config or runtime
+            if (statement.isExportNamedDeclaration()) {
+              const declaration = statement.get('declaration');
+              if (declaration.isVariableDeclaration()) {
+                for (const variable of declaration.get('declarations')) {
+                  const configObject = getConfigObjectExpression(variable);
+                  if (configObject) {
+                    continue out;
+                  }
+                }
+              }
+            }
             statement.remove();
           }
 

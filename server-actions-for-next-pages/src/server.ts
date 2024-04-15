@@ -118,13 +118,20 @@ export function createRpcHandler(
   };
   if (isEdge) {
     return async (req: NextRequest) => {
+      console.log('req.constructor.name', req.constructor.name);
       const { res } = await getEdgeContext();
       const { status, json } = await handler({
-        body: await req.json(),
+        body:
+          req.constructor.name === 'IncomingMessage'
+            ? req.body
+            : await req.json(),
         method: req.method,
       });
 
-      return NextResponse.json(json, { status, headers: res?.headers || {} });
+      return new Response(JSON.stringify(json), {
+        status,
+        headers: res?.headers || {},
+      });
     };
   } else {
     return (async (req, res) => {

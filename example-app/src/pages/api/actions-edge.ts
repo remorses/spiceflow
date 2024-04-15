@@ -6,8 +6,8 @@ import {
 } from 'server-actions-for-next-pages/context';
 import { wrapMethod } from './actions-node';
 
-// export const runtime = 'edge';
-export const config = { runtime: 'edge' };
+export const runtime = 'edge';
+// export const config = { runtime: 'edge' };
 
 export { wrapMethod };
 

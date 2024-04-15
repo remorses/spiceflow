@@ -4,11 +4,9 @@ import { wrapApiHandler as _wrapApiHandler } from "server-actions-for-next-pages
 import { createRpcMethod as _createRpcMethod, createRpcHandler as _createRpcHandler } from "server-actions-for-next-pages/dist/server";
 import { getContext, getEdgeContext } from 'server-actions-for-next-pages/context';
 import { wrapMethod } from './actions-node';
+export const runtime = 'edge';
+// export const config = { runtime: 'edge' };
 
-// export const runtime = 'edge';
-export const config = {
-  runtime: 'edge'
-};
 export { wrapMethod };
 export const edgeServerAction = _createRpcMethod(async function edgeServerAction({}) {
   const {
