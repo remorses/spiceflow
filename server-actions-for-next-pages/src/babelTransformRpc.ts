@@ -24,6 +24,17 @@ function isAllowedTsExportDeclaration(
   );
 }
 
+const allowedExports = new Set([
+  'revalidate', //
+  'preferredRegion',
+  'runtime',
+  'maxDuration',
+  'fetchCache',
+  'dynamic',
+  'dynamicParams',
+  'GET',
+  'HEAD',
+]);
 function getConfigObjectExpression(
   variable: babel.NodePath<babel.types.VariableDeclarator>,
 ) {
@@ -260,9 +271,20 @@ export default function (
             ) {
               for (const variable of declaration.get('declarations')) {
                 const init = variable.get('init');
+
+                if (getConfigObjectExpression(variable)) {
+                  continue;
+                }
+                const node = variable.get('id');
+
+                if (node.isIdentifier() && allowedExports.has(node.node.name)) {
+                  continue;
+                }
                 if (getConfigObjectExpression(variable)) {
                   // ignore, this is the only allowed non-function export
-                } else if (
+                  continue;
+                }
+                if (
                   init.isFunctionExpression() ||
                   init.isArrowFunctionExpression()
                 ) {
