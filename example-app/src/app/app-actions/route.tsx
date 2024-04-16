@@ -1,3 +1,4 @@
+
 "poor man's use server";
 
 import {
@@ -17,6 +18,7 @@ export function wrapMethod(fn) {
     }
   };
 }
+
 
 export async function appServerAction({}) {
   // console.log('edge cookies & headers', cookies(), headers());
