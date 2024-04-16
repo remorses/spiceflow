@@ -1,7 +1,7 @@
 {
   "name": "server-actions-for-next-pages",
   "version": "0.2.1",
-  "description": "Use something like Next.js server actions in your pages directory",
+  "description": "Use Next.js server actions in your pages directory",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "repository": "https://github.com/remorses/server-actions-for-next-pages",
