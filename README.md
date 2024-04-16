@@ -14,10 +14,14 @@ WIth Server Actions i mean calling your functions that run in the server directl
 ## Differences with Next.js Server Actions
 
 - Actions can be imported inside `pages` and `app` files
-- Actions must be defined in a file inside the `/pages/api` directory with the `"poor man's use server"` directive on top
+- Actions must be defined in
+  - a file inside the `/pages/api` directory with the `"poor man's use server"` directive on top
+  - a route inside the `/app` directory with the `"poor man's use server"` directive on top
 - No closure support, actions can be defined for an entire file(adding `"poor man's use server"` at the top of the file)
 - Actions can run concurrently
+- Actions can throw errors, on the client these errors will be thrown with the same error message
 - Actions inputs and outputs are serialized with [superjson](https://github.com/blitz-js/superjson), a superset of JSON
+- Actions do not work inside `formAction`, you call the function inside `onSubmit` instead
 - To get headers and cookies you cannot import them directly from `next/headers`, instead you have to use `getContext`:
 
   ```ts
@@ -27,8 +31,6 @@ WIth Server Actions i mean calling your functions that run in the server directl
     return { headers, cookies };
   }
   ```
-
-- It does not work inside `formAction`, you call the function inside `onSubmit` instead
 
 ## Installation
 
