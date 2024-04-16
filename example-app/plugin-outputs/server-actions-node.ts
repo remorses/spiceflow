@@ -14,8 +14,10 @@ export const createUser = _createRpcMethod(async function createUser({
     cookies,
     headers
   } = getContext();
+  await sleep(1000);
   // console.log('node cookies & headers', headers());
   const url = req?.url;
+  // revalidatePath('/');
   return {
     functionName: 'nodejs createUser',
     url
@@ -41,4 +43,7 @@ export const failingFunction = _createRpcMethod(async function failingFunction({
   name: "failingFunction",
   pathname: "/api/actions-node"
 }, typeof wrapMethod === 'function' ? wrapMethod : undefined);
+function sleep(ms: number) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
 export default /*#__PURE__*/_createRpcHandler([["createUser", createUser], ["failingFunction", failingFunction]], false);

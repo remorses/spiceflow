@@ -29,7 +29,6 @@ WIth Server Actions i mean calling your functions that run in the server directl
   ```
 
 - It does not work inside `formAction`, you call the function inside `onSubmit` instead
-- `startTransition` will not track action pending state, just use `useState` to track the loading state
 
 ## Installation
 
