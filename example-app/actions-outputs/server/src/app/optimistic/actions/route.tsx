@@ -1,5 +1,6 @@
 "poor man's use server";
 
+import { wrapGetServerSideProps as _wrapGetServerSideProps } from "server-actions-for-next-pages/dist/context-internal";
 import { createRpcMethod as _createRpcMethod, createRpcHandler as _createRpcHandler } from "server-actions-for-next-pages/dist/server";
 import fs from 'fs';
 import { revalidatePath } from 'next/cache';
@@ -18,7 +19,7 @@ export const sendMessage = _createRpcMethod(async function sendMessage({
   name: "sendMessage",
   pathname: "/optimistic/actions"
 }, null);
-function sleep(ms: number) {
+function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 export const POST = /*#__PURE__*/_createRpcHandler([["sendMessage", sendMessage]], true);
