@@ -3,6 +3,7 @@
 import { edgeServerAction } from '@/pages/api/actions-edge';
 import { createUser, failingFunction } from '@/pages/api/actions-node';
 import { useEffect, useState } from 'react';
+import superjson from 'superjson'
 
 export default function Home() {
   // throw new Error('This function fails');
@@ -24,7 +25,7 @@ export default function Home() {
   return (
     <div className='bg-gray-100 text-gray-800 flex flex-col items-center p-10'>
       <pre className='overflow-scroll'>
-        {JSON.stringify(state || null, null, 2)}
+        {JSON.stringify(superjson.serialize(state) || null, null, 2)}
       </pre>
     </div>
   );

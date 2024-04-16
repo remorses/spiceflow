@@ -14,6 +14,7 @@ export interface JsonRpcRequest {
   jsonrpc: '2.0';
   method: string;
   params: JsonValue[];
+  meta?: any
   id: JsonRpcRequestId;
 }
 
@@ -28,6 +29,7 @@ export interface JsonRpcSuccessResponse {
   result: JsonValue;
   error?: undefined;
   id: JsonRpcRequestId;
+  meta?: any;
 }
 
 export interface JsonRpcErrorResponse {

@@ -1,4 +1,5 @@
 import { NextApiHandler } from 'next';
+import superjson from 'superjson';
 import { JsonRpcResponse } from './jsonRpc';
 import { NextRequest, NextResponse } from 'next/server';
 import { getEdgeContext } from './context-internal';
@@ -64,7 +65,7 @@ export function createRpcHandler(
       };
     }
 
-    const { id, method: fn, params } = body;
+    const { id, method: fn, params, meta: argsMeta } = body;
     const requestedFn = methods.get(fn);
 
     if (typeof requestedFn !== 'function') {
@@ -85,12 +86,19 @@ export function createRpcHandler(
     }
 
     try {
-      const result = await requestedFn(...params);
+      const args = superjson.deserialize({
+        json: params,
+        meta: argsMeta,
+      }) as any[];
+      const result = await requestedFn(...args);
+      const { json, meta } = superjson.serialize(result);
+
       return {
         json: {
           jsonrpc: '2.0',
           id,
-          result,
+          result: json as any,
+          meta,
         } satisfies JsonRpcResponse,
       };
     } catch (error) {
@@ -118,25 +126,26 @@ export function createRpcHandler(
   };
   if (isEdge) {
     return async (req: NextRequest) => {
-      console.log('req.constructor.name', req.constructor.name);
+      
       const { res } = await getEdgeContext();
+      const body = await req.json();
+
       const { status, json } = await handler({
-        body:
-          req.constructor.name === 'IncomingMessage'
-            ? req.body
-            : await req.json(),
+        body,
         method: req.method,
       });
 
-      return new Response(JSON.stringify(json), {
+      return new Response(JSON.stringify(json, null, 2), {
         status,
         headers: res?.headers || {},
       });
     };
   } else {
     return (async (req, res) => {
+      
+      const body = req.body
       const { status, json } = await handler({
-        body: req.body,
+        body,
         method: req.method,
       });
       res.status(status || 200).json(json);
