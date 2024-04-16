@@ -17,7 +17,7 @@ WIth Server Actions i mean calling your functions that run in the server directl
 - Actions must be defined in a file inside the `/pages/api` directory with the `"poor man's use server"` directive on top
 - No closure support, actions can be defined for an entire file(adding `"poor man's use server"` at the top of the file)
 - Actions can run concurrently
-- Actions inputs and outputs are serialized with superjson, a superset of JSON
+- Actions inputs and outputs are serialized with [superjson](https://github.com/blitz-js/superjson), a superset of JSON
 - To get headers and cookies you cannot import them directly from `next/headers`, instead you have to use `getContext`:
 
   ```ts
@@ -29,7 +29,7 @@ WIth Server Actions i mean calling your functions that run in the server directl
   ```
 
 - It does not work inside `formAction`, you call the function inside `onSubmit` instead
-- `startTransition` will not track pending state, just use `useState` to track the loading state
+- `startTransition` will not track action pending state, just use `useState` to track the loading state
 
 ## Installation
 
@@ -168,6 +168,7 @@ This plugin uses Babel to process your page content, it will not slow down compi
 This is a fork of the awesome [next-rpc](https://github.com/Janpot/next-rpc) with some changes:
 
 - It supports the Edge runtime
+- Uses superjson to serialize and deserialize arguments and results
 - It sets status code to 502 when the server function throws an error
 - It uses the top level `"poor man's use server"` instead of the `config.rpc` option
 - `wrapMethod` can be defined with an export instead of `config.wrapMethod`
