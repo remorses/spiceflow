@@ -15,7 +15,9 @@
     "src",
     "esm",
     "context.d.ts",
-    "context.js"
+    "context.js",
+    "headers.d.ts",
+    "headers.js"
   ],
   "keywords": [],
   "author": "Tommaso De Rossi, morse <beats.by.morse@gmail.com>",
