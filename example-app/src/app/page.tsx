@@ -1,5 +1,6 @@
 'use client';
 
+import { appServerAction } from '@/app/app-actions/route';
 import { edgeServerAction } from '@/pages/api/actions-edge';
 import { createUser, failingFunction } from '@/pages/api/actions-node';
 import { useEffect, useState, useTransition } from 'react';
@@ -16,6 +17,7 @@ export default function Home() {
   useEffect(() => {
     startTransition(() => {
       return Promise.allSettled([
+        appServerAction({}),
         edgeServerAction('home'),
         createUser({ name: 'test' }),
         failingFunction({}).catch((error: any) => {

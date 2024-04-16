@@ -13,6 +13,9 @@ export interface PluginOptions {
   isServer: boolean;
 }
 
+/**
+ * injects context for api routes, not needed for app routes because headers() and cookies() are already available
+ */
 function visitApiHandler(
   { types: t }: Babel,
   program: babel.NodePath<babel.types.Program>,
@@ -52,7 +55,7 @@ function visitApiHandler(
       ? t.toExpression(declaration)
       : declaration;
 
-    const { isEdge } = getConfigObject(program) || { isEdge: false };
+    const { isEdge } = getConfigObject(program, false) || { isEdge: false };
     defaultExportPath.replaceWith(
       t.exportDefaultDeclaration(
         annotateAsPure(
@@ -132,7 +135,6 @@ function visitPage(
       }
     },
   });
-  
 }
 
 export default function (

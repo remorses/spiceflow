@@ -48,7 +48,14 @@ function getConfigObjectExpression(
   return null;
 }
 
-export function getConfigObject(program: babel.NodePath<babel.types.Program>) {
+export function getConfigObject(
+  program: babel.NodePath<babel.types.Program>,
+  isAppDir: boolean,
+) {
+  if (isAppDir) {
+    // app routes always use Request and Response
+    return { isEdge: true };
+  }
   for (const statement of program.get('body')) {
     if (statement.isExportNamedDeclaration()) {
       const declaration = statement.get('declaration');
@@ -141,14 +148,13 @@ export function isEdgeInConfig(
 export interface PluginOptions {
   isServer: boolean;
   pagesDir: string;
-
-  apiDir: string;
+  isAppDir: boolean;
   basePath: string;
 }
 
 export default function (
   { types: t }: Babel,
-  { apiDir, pagesDir, isServer, basePath }: PluginOptions,
+  { pagesDir, isAppDir, isServer, basePath }: PluginOptions,
 ): babel.PluginObj {
   return {
     visitor: {
@@ -159,14 +165,9 @@ export default function (
           return;
         }
 
-        const isApiRoute = filename && filename.startsWith(apiDir);
-
-        if (!isApiRoute) {
-          logger.log(`Skipping ${filename} because it's not an api route`);
-          return;
-        }
-
-        const { isEdge } = getConfigObject(program) || { isEdge: false };
+        const { isEdge } = getConfigObject(program, isAppDir) || {
+          isEdge: false,
+        };
 
         const isAction = isServerAction(program);
 
@@ -179,13 +180,20 @@ export default function (
 
         const hasWrap = hasWrapMethod(program);
 
-        const rpcRelativePath = filename
-          .slice(pagesDir.length)
-          .replace(/\.[j|t]sx?$/, '')
-          .replace(/\/index$/, '');
+        const rel = path.relative(path.dirname(pagesDir), filename);
+        console.log(rel);
+        const rpcRelativePath =
+          '/' +
+          rel
+            .replace(/\.[j|t]sx?$/, '')
+            // remove /pages at the start
+            .replace(/^pages\//, '')
+            .replace(/^app\//, '')
+            .replace(/\/index$/, '')
+            .replace(/\/route$/, '');
 
         const rpcPath =
-          basePath === '/' ? rpcRelativePath : `${basePath}/${rpcRelativePath}`;
+          basePath === '/' ? rpcRelativePath : `${basePath}${rpcRelativePath}`;
 
         const rpcMethodNames: string[] = [];
 
@@ -359,9 +367,23 @@ export default function (
             ),
           ]);
 
-          program.pushContainer('body', [
-            t.exportDefaultDeclaration(apiHandlerExpression),
-          ]);
+          if (isAppDir) {
+            // export const POST = {apiHandlerExpression}
+            program.pushContainer('body', [
+              t.exportNamedDeclaration(
+                t.variableDeclaration('const', [
+                  t.variableDeclarator(
+                    t.identifier('POST'),
+                    apiHandlerExpression,
+                  ),
+                ]),
+              ),
+            ]);
+          } else {
+            program.pushContainer('body', [
+              t.exportDefaultDeclaration(apiHandlerExpression),
+            ]);
+          }
         } else {
           const createRpcFetcherIdentifier =
             program.scope.generateUidIdentifier('createRpcFetcher');

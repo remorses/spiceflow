@@ -14,12 +14,12 @@ export default async function (
   }
   try {
     const options = this.getOptions();
-    const { isServer, pagesDir, apiDir, basePath } = options;
+    
 
     const res = transform(source || '', {
       babelrc: false,
       sourceType: 'module',
-      plugins: plugins({ isServer, pagesDir, basePath }) as any,
+      plugins: plugins(options) as any,
       filename: this.resourcePath,
 
       // cwd: process.cwd(),

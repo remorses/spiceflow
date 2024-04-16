@@ -20,6 +20,7 @@ export function withServerActions(withRpcConfig: WithRpcConfig = {}) {
         const { isServer, dev, dir } = options;
         const pagesDir = findPagesDir(dir);
 
+        const appDir = path.resolve(pagesDir, '../app');
         config.module = config.module || {};
         config.module.rules = config.module.rules || [];
         config.module.rules.push({
@@ -34,7 +35,26 @@ export function withServerActions(withRpcConfig: WithRpcConfig = {}) {
                 plugins: plugins({
                   isServer,
                   pagesDir,
-
+                  isAppDir: false,
+                  basePath: (nextConfig.basePath as string) || '/',
+                }),
+              },
+            },
+          ],
+        });
+        config.module.rules.push({
+          test: /route\.(tsx|ts|js|mjs|jsx)$/,
+          include: [appDir],
+          use: [
+            options.defaultLoaders.babel,
+            {
+              loader: 'babel-loader',
+              options: {
+                sourceMaps: dev,
+                plugins: plugins({
+                  isServer,
+                  pagesDir,
+                  isAppDir: true,
                   basePath: (nextConfig.basePath as string) || '/',
                 }),
               },
@@ -55,15 +75,15 @@ export function withServerActions(withRpcConfig: WithRpcConfig = {}) {
 export function plugins({
   isServer,
   pagesDir,
-
+  isAppDir,
   basePath,
-}) {
+}: RpcPluginOptions) {
   const apiDir = path.resolve(pagesDir, './api');
   const rpcPluginOptions: RpcPluginOptions = {
     isServer,
     pagesDir,
 
-    apiDir,
+    isAppDir,
     basePath: basePath || '/',
   };
 
@@ -89,32 +109,36 @@ function applyTurbopackOptions(nextConfig: NextConfig): void {
 
   const pagesDir = findPagesDir(process.cwd());
 
-  const apiDir = path.resolve(pagesDir, './api');
   const basePath = (nextConfig.basePath as string) || '/';
 
-  const options: WithRpcConfig = {
-    isServer: false,
-    pagesDir,
-    apiDir,
-    basePath,
-  };
-  const glob = '{./src/pages,./pages/}/**/*.{ts,tsx,js,jsx}';
-  rules[glob] ??= {};
-  const globbed: any = rules[glob];
-  globbed.browser ??= {};
-  globbed.browser.as = '*.tsx';
-  globbed.browser.loaders ??= [];
-  globbed.browser.loaders.push({
-    loader: require.resolve('../dist/turbopackLoader'),
-    options: { ...options, isServer: false },
-  });
-  globbed.default ??= {};
-  globbed.default.as = '*.tsx';
-  globbed.default.loaders ??= [];
-  globbed.default.loaders.push({
-    loader: require.resolve('../dist/turbopackLoader'),
-    options: { ...options, isServer: true },
-  });
+  const globs = [
+    '{./src/pages,./pages/}/**/*.{ts,tsx,js,jsx}', //
+    '{./src/app,./app/}/**/route.{ts,tsx,js,jsx}', //
+  ];
+  for (let glob of globs) {
+    rules[glob] ??= {};
+    const options: RpcPluginOptions = {
+      isServer: false,
+      pagesDir,
+      isAppDir: glob.includes('/app'),
+      basePath,
+    };
+    const globbed: any = rules[glob];
+    globbed.browser ??= {};
+    globbed.browser.as = '*.tsx';
+    globbed.browser.loaders ??= [];
+    globbed.browser.loaders.push({
+      loader: require.resolve('../dist/turbopackLoader'),
+      options: { ...options, isServer: false },
+    });
+    globbed.default ??= {};
+    globbed.default.as = '*.tsx';
+    globbed.default.loaders ??= [];
+    globbed.default.loaders.push({
+      loader: require.resolve('../dist/turbopackLoader'),
+      options: { ...options, isServer: true },
+    });
+  }
 }
 
 // taken from https://github.com/vercel/next.js/blob/v12.1.5/packages/next/lib/find-pages-dir.ts

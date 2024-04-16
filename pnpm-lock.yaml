@@ -72,8 +72,8 @@ importers:
         specifier: workspace:*
         version: link:../server-actions-for-next-pages
       superjson:
-        specifier: ^2.2.1
-        version: 2.2.1
+        specifier: ^1.13.3
+        version: 1.13.3
       tailwindcss:
         specifier: 3.3.2
         version: 3.3.2
@@ -102,8 +102,8 @@ importers:
         specifier: ^8.3.0
         version: 8.3.0(@babel/core@7.24.0)(webpack@5.88.2)
       superjson:
-        specifier: ^2.2.1
-        version: 2.2.1
+        specifier: ^1.13.3
+        version: 1.13.3
     devDependencies:
       '@babel/generator':
         specifier: ^7.23.6
@@ -4267,9 +4267,9 @@ packages:
       ts-interface-checker: 0.1.13
     dev: false
 
-  /superjson@2.2.1:
-    resolution: {integrity: sha512-8iGv75BYOa0xRJHK5vRLEjE2H/i4lulTjzpUXic3Eg8akftYjkmQDa8JARQ42rlczXyFR3IeRoeFCc7RxHsYZA==}
-    engines: {node: '>=16'}
+  /superjson@1.13.3:
+    resolution: {integrity: sha512-mJiVjfd2vokfDxsQPOwJ/PtanO87LhpYY88ubI5dUB1Ab58Txbyje3+jpm+/83R/fevaq/107NNhtYBLuoTrFg==}
+    engines: {node: '>=10'}
     dependencies:
       copy-anything: 3.0.5
     dev: false
