@@ -74,7 +74,6 @@ function visitPage(
   const wrapGetServerSidePropsIdentifier = program.scope.generateUidIdentifier(
     'wrapGetServerSideProps',
   );
-  const wrapPageIdentifier = program.scope.generateUidIdentifier('wrapPage');
 
   program.node.body.unshift(
     t.importDeclaration(
@@ -83,7 +82,6 @@ function visitPage(
           wrapGetServerSidePropsIdentifier,
           t.identifier('wrapGetServerSideProps'),
         ),
-        t.importSpecifier(wrapPageIdentifier, t.identifier('wrapPage')),
       ],
       t.stringLiteral(IMPORT_PATH),
     ),
@@ -133,42 +131,8 @@ function visitPage(
         }
       }
     },
-    ExportDefaultDeclaration(defaultExportPath) {
-      const { declaration } = defaultExportPath.node;
-      if (t.isTSDeclareFunction(declaration)) {
-        return;
-      }
-
-      if (t.isDeclaration(declaration)) {
-        if (!declaration.id) {
-          return;
-        }
-
-        defaultExportPath.insertAfter(
-          t.expressionStatement(
-            t.assignmentExpression(
-              '=',
-              declaration.id,
-              annotateAsPure(
-                t,
-                t.callExpression(wrapPageIdentifier, [declaration.id]),
-              ),
-            ),
-          ),
-        );
-      } else {
-        defaultExportPath.replaceWith(
-          t.exportDefaultDeclaration(
-            annotateAsPure(
-              t,
-              t.callExpression(wrapPageIdentifier, [declaration]),
-            ),
-          ),
-        );
-        defaultExportPath.skip();
-      }
-    },
   });
+  
 }
 
 export default function (

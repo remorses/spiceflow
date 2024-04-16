@@ -13,13 +13,21 @@ WIth Server Actions i mean calling your functions that run in the server directl
 
 ## Differences with Next.js Server Actions
 
-- It does not depend on any React canary features, it just turns your server functions into a `fetch` calls in the client
-- It works both inside `pages` and `app` directories components
-- It only works for an entire file (adding `"poor man's use server"` at the top of the file)
+- Actions can be imported inside `pages` and `app` files
+- No closure support, it only works for an entire file (adding `"poor man's use server"` at the top of the file)
 - Server actions files must be inside the `/pages/api` directory
+- To get headers and cookies you cannot import them directly from `next/headers`, instead you have to use `getContext`:
+
+  ```ts
+  import { getContext } from 'server-actions-for-next-pages/context';
+  export async function action({}) {
+    const { headers, cookies } = await getContext();
+    return { headers, cookies };
+  }
+  ```
+
 - It does not work inside `formAction`, you call the function inside `onSubmit` instead
 - `startTransition` will not track pending state, just use `useState` to track the loading state
-- You currently cannot call actions in the server that make use of context, this is because context is currently not passed down when outside of the api handler
 
 ## Installation
 
@@ -75,9 +83,7 @@ This plugin assumes the runtime of your app to be Nodejs unless you explicitly s
 // pages/api/server-actions.js
 "poor man's use server";
 
-export const config = {
-  runtime: 'edge',
-};
+export const runtime = 'edge';
 
 export async function serverAction() {
   return { hello: 'world' };
@@ -93,18 +99,14 @@ Edge function example:
 ```ts
 "poor man's use server";
 
-import { getEdgeContext } from 'server-actions-for-next-pages/context';
+import { getContext } from 'server-actions-for-next-pages/context';
 
-export const config = {
-  runtime: 'edge',
-};
+export const runtime = 'edge';
 
 export async function serverAction({}) {
-  const { req, res } = await getEdgeContext();
-
-  res?.headers.set('x-server-action', 'true');
-  const url = req?.url;
-  return { url };
+  const { headers, cookies } = await getContext();
+  const host = headers().get('host');
+  return { host };
 }
 ```
 
@@ -112,14 +114,15 @@ Example in Node.js:
 
 ```ts
 "poor man's use server";
-import { getNodejsContext } from 'server-actions-for-next-pages/context';
+import { getContext } from 'server-actions-for-next-pages/context';
 
 export async function createUser({ name = '' }) {
-  const { req, res } = await getNodejsContext();
-  const url = req?.url;
+  const { headers, cookies } = await getContext();
+  const host = headers().get('host');
+
   return {
     name,
-    url,
+    host,
   };
 }
 ```

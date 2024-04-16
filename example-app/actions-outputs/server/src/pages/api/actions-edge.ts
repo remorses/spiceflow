@@ -5,6 +5,18 @@ import { createRpcMethod as _createRpcMethod, createRpcHandler as _createRpcHand
 import { getContext, getEdgeContext } from 'server-actions-for-next-pages/context';
 export const runtime = 'edge';
 // export const config = { runtime: 'edge' };
+
+export function wrapMethod(fn) {
+  return async (...args) => {
+    try {
+      const res = await fn(...args);
+      return res;
+    } catch (error) {
+      // console.error(error);
+      throw error;
+    }
+  };
+}
 export const edgeServerAction = _createRpcMethod(async function edgeServerAction({}) {
   const {
     req,
@@ -26,5 +38,5 @@ export const edgeServerAction = _createRpcMethod(async function edgeServerAction
 }, {
   name: "edgeServerAction",
   pathname: "/api/actions-edge"
-}, null);
+}, typeof wrapMethod === 'function' ? wrapMethod : undefined);
 export default /*#__PURE__*/_wrapApiHandler( /*#__PURE__*/_createRpcHandler([["edgeServerAction", edgeServerAction]], true), true);

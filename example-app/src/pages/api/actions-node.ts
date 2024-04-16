@@ -9,7 +9,7 @@ export async function createUser({ name = '' }) {
   // console.log('node cookies & headers', headers());
   const url = req?.url;
   return {
-    name,
+    functionName: 'nodejs createUser',
     url,
   };
 }

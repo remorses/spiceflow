@@ -42,9 +42,15 @@ const DEFAULT_CONTEXT = {
 
 const asyncLocalStorage = new AsyncLocalStorage<NodejsContext | EdgeContext>();
 
+/**
+ * @deprecated Use getContext instead
+ */
 export function getNodejsContext(): NodejsContext {
   return (asyncLocalStorage.getStore() as NodejsContext) || DEFAULT_CONTEXT;
 }
+/**
+ * @deprecated Use getContext instead
+ */
 export function getEdgeContext(): EdgeContext {
   return (asyncLocalStorage.getStore() as EdgeContext) || DEFAULT_CONTEXT;
 }
@@ -101,32 +107,4 @@ export function wrapGetServerSideProps(
     };
     return asyncLocalStorage.run(asyncCtx, () => getServerSideProps(c));
   };
-}
-
-export type GetInitialProps<IP> = (
-  context: NextPageContext,
-) => IP | Promise<IP>;
-
-/**
- * @deprecated
- */
-export function wrapGetInitialProps<IP>(
-  getInitialProps: GetInitialProps<IP>,
-): GetInitialProps<IP> {
-  return (context) =>
-    asyncLocalStorage.run(context as any, () => getInitialProps(context));
-}
-
-export function wrapPage<P, IP>(Page: NextPage<P, IP>): NextPage<P, IP> {
-  if (typeof Page.getInitialProps === 'function') {
-    Page.getInitialProps = wrapGetInitialProps(Page.getInitialProps);
-  }
-  return new Proxy(Page, {
-    set(target, property, value) {
-      if (property === 'getInitialProps' && typeof value === 'function') {
-        return Reflect.set(target, property, wrapGetInitialProps(value));
-      }
-      return Reflect.set(target, property, value);
-    },
-  });
 }

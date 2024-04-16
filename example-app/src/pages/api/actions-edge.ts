@@ -4,10 +4,21 @@ import {
   getContext,
   getEdgeContext,
 } from 'server-actions-for-next-pages/context';
-import { wrapMethod } from './actions-node';
 
 export const runtime = 'edge';
 // export const config = { runtime: 'edge' };
+
+export function wrapMethod(fn) {
+  return async (...args) => {
+    try {
+      const res = await fn(...args);
+      return res;
+    } catch (error) {
+      // console.error(error);
+      throw error;
+    }
+  };
+}
 
 export async function edgeServerAction({}) {
   const { req, res } = await getEdgeContext();
