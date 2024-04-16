@@ -13,13 +13,25 @@ WIth Server Actions i mean calling your functions that run in the server directl
 
 ## Differences with Next.js Server Actions
 
-- It does not depend on any React canary features, it just turns your server functions into a `fetch` calls in the client
-- It works both inside `pages` and `app` directories components
-- It only works for an entire file (adding `"poor man's use server"` at the top of the file)
-- Server actions files must be inside the `/pages/api` directory
-- It does not work inside `formAction`, you call the function inside `onSubmit` instead
-- `startTransition` will not track pending state, just use `useState` to track the loading state
-- You currently cannot call actions in the server that make use of context, this is because context is currently not passed down when outside of the api handler
+- Actions can be imported inside `pages` and `app` files
+- Actions must be defined in
+  - a file inside the `/pages/api` directory with the `"poor man's use server"` directive on top
+  - a route inside the `/app` directory with the `"poor man's use server"` directive on top
+- No closure support, actions can be defined for an entire file(adding `"poor man's use server"` at the top of the file)
+- Actions can run concurrently
+- Actions can throw errors, on the client these errors will be thrown with the same error message
+- Actions inputs and outputs are serialized with [superjson](https://github.com/blitz-js/superjson), a superset of JSON
+- Actions do not work inside `formAction`, you call the function inside `onSubmit` instead
+- To get headers and cookies you cannot import them directly from `next/headers`, instead you have to use `getContext`:
+
+  ```ts
+  "poor man's use server";
+  import { cookies, headers } from 'server-actions-for-next-pages/headers';
+
+  export async function action({}) {
+    return { headers: headers(), cookies: cookies() };
+  }
+  ```
 
 ## Installation
 
@@ -75,9 +87,7 @@ This plugin assumes the runtime of your app to be Nodejs unless you explicitly s
 // pages/api/server-actions.js
 "poor man's use server";
 
-export const config = {
-  runtime: 'edge',
-};
+export const runtime = 'edge';
 
 export async function serverAction() {
   return { hello: 'world' };
@@ -93,18 +103,13 @@ Edge function example:
 ```ts
 "poor man's use server";
 
-import { getEdgeContext } from 'server-actions-for-next-pages/context';
+import { cookies, headers } from 'server-actions-for-next-pages/headers';
 
-export const config = {
-  runtime: 'edge',
-};
+export const runtime = 'edge';
 
 export async function serverAction({}) {
-  const { req, res } = await getEdgeContext();
-
-  res?.headers.set('x-server-action', 'true');
-  const url = req?.url;
-  return { url };
+  const host = headers().get('host');
+  return { host };
 }
 ```
 
@@ -112,14 +117,15 @@ Example in Node.js:
 
 ```ts
 "poor man's use server";
-import { getNodejsContext } from 'server-actions-for-next-pages/context';
+import { cookies, headers } from 'server-actions-for-next-pages/headers';
 
 export async function createUser({ name = '' }) {
-  const { req, res } = await getNodejsContext();
-  const url = req?.url;
+
+  const host = headers().get('host');
+
   return {
     name,
-    url,
+    host,
   };
 }
 ```
@@ -163,6 +169,7 @@ This plugin uses Babel to process your page content, it will not slow down compi
 This is a fork of the awesome [next-rpc](https://github.com/Janpot/next-rpc) with some changes:
 
 - It supports the Edge runtime
+- Uses superjson to serialize and deserialize arguments and results
 - It sets status code to 502 when the server function throws an error
 - It uses the top level `"poor man's use server"` instead of the `config.rpc` option
 - `wrapMethod` can be defined with an export instead of `config.wrapMethod`
