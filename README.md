@@ -25,10 +25,11 @@ WIth Server Actions i mean calling your functions that run in the server directl
 - To get headers and cookies you cannot import them directly from `next/headers`, instead you have to use `getContext`:
 
   ```ts
-  import { getContext } from 'server-actions-for-next-pages/context';
+  "poor man's use server";
+  import { cookies, headers } from 'server-actions-for-next-pages/headers';
+
   export async function action({}) {
-    const { headers, cookies } = await getContext();
-    return { headers, cookies };
+    return { headers: headers(), cookies: cookies() };
   }
   ```
 
@@ -102,12 +103,11 @@ Edge function example:
 ```ts
 "poor man's use server";
 
-import { getContext } from 'server-actions-for-next-pages/context';
+import { cookies, headers } from 'server-actions-for-next-pages/headers';
 
 export const runtime = 'edge';
 
 export async function serverAction({}) {
-  const { headers, cookies } = await getContext();
   const host = headers().get('host');
   return { host };
 }
@@ -117,10 +117,10 @@ Example in Node.js:
 
 ```ts
 "poor man's use server";
-import { getContext } from 'server-actions-for-next-pages/context';
+import { cookies, headers } from 'server-actions-for-next-pages/headers';
 
 export async function createUser({ name = '' }) {
-  const { headers, cookies } = await getContext();
+
   const host = headers().get('host');
 
   return {

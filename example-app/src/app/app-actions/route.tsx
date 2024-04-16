@@ -4,6 +4,7 @@ import {
   getContext,
   getEdgeContext,
 } from 'server-actions-for-next-pages/context';
+import { cookies, headers } from 'server-actions-for-next-pages/headers';
 
 export function wrapMethod(fn) {
   return async (...args) => {
@@ -18,12 +19,11 @@ export function wrapMethod(fn) {
 }
 
 export async function appServerAction({}) {
-  const { cookies, headers } = getContext();
   // console.log('edge cookies & headers', cookies(), headers());
 
   return {
     cookies: cookies().toString().slice(0, 20),
-    headers: Array.from(headers().keys()),
+    headers: Array.from(headers().keys()).slice(0, 2),
     functionName: 'appRouteAction',
   };
 }

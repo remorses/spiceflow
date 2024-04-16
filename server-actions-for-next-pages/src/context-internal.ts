@@ -40,20 +40,26 @@ const DEFAULT_CONTEXT = {
   },
 };
 
-const asyncLocalStorage = new AsyncLocalStorage<NodejsContext | EdgeContext>();
+export const asyncLocalStorage = new AsyncLocalStorage<
+  NodejsContext | EdgeContext
+>();
 
 /**
- * @deprecated Use getContext instead
+ * @deprecated Use headers() and cookies() instead, exported from next-actions-for-next-pages/headers
  */
 export function getNodejsContext(): NodejsContext {
   return (asyncLocalStorage.getStore() as NodejsContext) || DEFAULT_CONTEXT;
 }
 /**
- * @deprecated Use getContext instead
+ * @deprecated Use headers() and cookies() instead, exported from next-actions-for-next-pages/headers
  */
 export function getEdgeContext(): EdgeContext {
   return (asyncLocalStorage.getStore() as EdgeContext) || DEFAULT_CONTEXT;
 }
+
+/**
+ * @deprecated Use headers() and cookies() instead, exported from next-actions-for-next-pages/headers
+ */
 export function getContext(): CommonContext {
   return asyncLocalStorage.getStore() || DEFAULT_CONTEXT;
 }

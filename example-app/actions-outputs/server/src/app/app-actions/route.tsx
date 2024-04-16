@@ -2,7 +2,7 @@
 
 import { wrapGetServerSideProps as _wrapGetServerSideProps } from "server-actions-for-next-pages/dist/context-internal";
 import { createRpcMethod as _createRpcMethod, createRpcHandler as _createRpcHandler } from "server-actions-for-next-pages/dist/server";
-import { getContext } from 'server-actions-for-next-pages/context';
+import { cookies, headers } from 'server-actions-for-next-pages/headers';
 export function wrapMethod(fn) {
   return async (...args) => {
     try {
@@ -15,15 +15,11 @@ export function wrapMethod(fn) {
   };
 }
 export const appServerAction = _createRpcMethod(async function appServerAction({}) {
-  const {
-    cookies,
-    headers
-  } = getContext();
   // console.log('edge cookies & headers', cookies(), headers());
 
   return {
     cookies: cookies().toString().slice(0, 20),
-    headers: Array.from(headers().keys()),
+    headers: Array.from(headers().keys()).slice(0, 2),
     functionName: 'appRouteAction'
   };
 }, {
