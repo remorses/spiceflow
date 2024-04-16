@@ -14,8 +14,10 @@ WIth Server Actions i mean calling your functions that run in the server directl
 ## Differences with Next.js Server Actions
 
 - Actions can be imported inside `pages` and `app` files
-- No closure support, it only works for an entire file (adding `"poor man's use server"` at the top of the file)
-- Server actions files must be inside the `/pages/api` directory
+- Actions must be defined in a file inside the `/pages/api` directory with the `"poor man's use server"` directive on top
+- No closure support, actions can be defined for an entire file(adding `"poor man's use server"` at the top of the file)
+- Actions can run concurrently
+- Actions inputs and outputs are serialized with superjson, a superset of JSON
 - To get headers and cookies you cannot import them directly from `next/headers`, instead you have to use `getContext`:
 
   ```ts
