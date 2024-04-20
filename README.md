@@ -120,7 +120,6 @@ Example in Node.js:
 import { cookies, headers } from 'server-actions-for-next-pages/headers';
 
 export async function createUser({ name = '' }) {
-
   const host = headers().get('host');
 
   return {
@@ -173,3 +172,10 @@ This is a fork of the awesome [next-rpc](https://github.com/Janpot/next-rpc) wit
 - It sets status code to 502 when the server function throws an error
 - It uses the top level `"poor man's use server"` instead of the `config.rpc` option
 - `wrapMethod` can be defined with an export instead of `config.wrapMethod`
+
+## New Major Version, Comment In Issues with your opinion
+
+- to support route.ts files and overcome "can't have additional exports" error in Next.js, create a file "app/api/\_actions[[slug]].ts" and generate an api handler there based on other files with the directive at the top
+- the loader loads all files inside the app directory, check if they have the directive at the top, if not skip the loader
+- add a command to output a library you can use in other apps, using api extractor to generate the types into a single file. generate the fetch calls using the same babel plugin in client mode
+- maybe also generate a openapi spec so you can generate the api in multiple languages.

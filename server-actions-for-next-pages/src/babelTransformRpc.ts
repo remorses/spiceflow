@@ -35,6 +35,7 @@ const allowedExports = new Set([
   'GET',
   'HEAD',
 ]);
+
 function getConfigObjectExpression(
   variable: babel.NodePath<babel.types.VariableDeclarator>,
 ) {

@@ -31,8 +31,10 @@
     "@babel/plugin-syntax-jsx": "^7.23.3",
     "@babel/plugin-syntax-typescript": "^7.23.3",
     "@babel/plugin-transform-typescript": "^7.23.6",
+    "@microsoft/api-extractor": "^7.43.1",
     "babel-loader": "^8.3.0",
-    "superjson": "^1.13.3"
+    "superjson": "^1.13.3",
+    "ts-json-schema-generator": "^2.1.0"
   },
   "devDependencies": {
     "@babel/generator": "^7.23.6",

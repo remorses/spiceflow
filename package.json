@@ -11,9 +11,9 @@
         "@changesets/cli": "^2.26.2",
         "c8": "^7.14.0",
         "prettier": "^2.8.8",
-        "tsx": "^3.12.7",
+        "tsx": "^4.7.2",
         "typescript": "^5.1.6",
-        "vite": "^5.2.8",
+        "vite": "^5.2.10",
         "vitest": "^1.5.0"
     },
     "repository": "https://github.com/remorses/",
