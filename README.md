@@ -178,6 +178,7 @@ This is a fork of the awesome [next-rpc](https://github.com/Janpot/next-rpc) wit
 - to support route.ts files and overcome "can't have additional exports" error in Next.js, create a file "app/api/\_actions[[slug]].ts" and generate an api handler there based on other files with the directive at the top
 - the loader loads all files inside the app directory, check if they have the directive at the top, if not skip the loader
 - add a command to output a library you can use in other apps, using api extractor to generate the types into a single file. generate the fetch calls using the same babel plugin in client mode
+- support for async generators, using server sent events. follow the json rpc spec for each event.
 - maybe also generate a OpenAPI spec so you can generate the SDKs in multiple languages.
 
 ```
