@@ -1,6 +1,6 @@
 import type webpack from 'webpack';
 import { transform } from '@babel/core';
-import { plugins } from '.';
+import { fastCheckIfServerAction, plugins } from '.';
 import { logger } from './utils';
 
 export default async function (
@@ -14,8 +14,16 @@ export default async function (
   }
   try {
     const options = this.getOptions();
-    
 
+    // const skip = fastCheckIfServerAction({
+    //   source,
+    //   filename: this.resourcePath,
+    // });
+    // if (skip) {
+    //   logger.log(`Skipping ${this.resourcePath} because it's not an action`);
+    //   callback(null, source, map);
+    //   return;
+    // }
     const res = transform(source || '', {
       babelrc: false,
       sourceType: 'module',

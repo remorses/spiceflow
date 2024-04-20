@@ -173,7 +173,7 @@ This is a fork of the awesome [next-rpc](https://github.com/Janpot/next-rpc) wit
 - It uses the top level `"poor man's use server"` instead of the `config.rpc` option
 - `wrapMethod` can be defined with an export instead of `config.wrapMethod`
 
-## New Major Version, Comment In Issues with your opinion
+## New major version, comment in issues with your opinion
 
 - to support route.ts files and overcome "can't have additional exports" error in Next.js, create a file "app/api/\_actions[[slug]].ts" and generate an api handler there based on other files with the directive at the top
 - the loader loads all files inside the app directory, check if they have the directive at the top, if not skip the loader

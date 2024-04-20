@@ -5,6 +5,7 @@ import { NextConfig } from 'next';
 import { PluginOptions as RpcPluginOptions } from './babelTransformRpc';
 import { PluginOptions as ContextPluginOptions } from './babelTransformContext';
 import { WrapMethod } from './server';
+import { directive } from '@babel/types';
 
 export interface WithRpcConfig {}
 
@@ -70,6 +71,21 @@ export function withServerActions(withRpcConfig: WithRpcConfig = {}) {
       },
     };
   };
+}
+
+export function fastCheckIfServerAction({ source, filename }) {
+  // the context plugin is required for pages, to add the async context in getServerSideProps or api routes
+  if (filename.includes('/pages/')) {
+    return false;
+  }
+  const quotes = ['"', "'"];
+  for (const quote of quotes) {
+    const str = quote + directive + quote;
+    if (source.includes(str)) {
+      return false;
+    }
+  }
+  return true;
 }
 
 export function plugins({
