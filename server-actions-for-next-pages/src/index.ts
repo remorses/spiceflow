@@ -18,9 +18,9 @@ export function withServerActions(withRpcConfig: WithRpcConfig = {}) {
 
       webpack(config: webpack.Configuration, options) {
         const { isServer, dev, dir } = options;
-        const pagesDir = findPagesDir(dir);
-
-        const appDir = path.resolve(pagesDir, '../app');
+        const nextDir = findNextDir(dir);
+        const pagesDir = path.resolve(nextDir, './pages');
+        const appDir = path.resolve(nextDir, './app');
         config.module = config.module || {};
         config.module.rules = config.module.rules || [];
         config.module.rules.push({
@@ -34,7 +34,7 @@ export function withServerActions(withRpcConfig: WithRpcConfig = {}) {
                 sourceMaps: dev,
                 plugins: plugins({
                   isServer,
-                  pagesDir,
+                  nextDir,
                   isAppDir: false,
                   basePath: (nextConfig.basePath as string) || '/',
                 }),
@@ -53,7 +53,7 @@ export function withServerActions(withRpcConfig: WithRpcConfig = {}) {
                 sourceMaps: dev,
                 plugins: plugins({
                   isServer,
-                  pagesDir,
+                  nextDir,
                   isAppDir: true,
                   basePath: (nextConfig.basePath as string) || '/',
                 }),
@@ -74,15 +74,16 @@ export function withServerActions(withRpcConfig: WithRpcConfig = {}) {
 
 export function plugins({
   isServer,
-  pagesDir,
+  nextDir,
   isAppDir,
   basePath,
+  url,
 }: RpcPluginOptions) {
-  const apiDir = path.resolve(pagesDir, './api');
+  const apiDir = path.resolve(nextDir, './pages/api');
   const rpcPluginOptions: RpcPluginOptions = {
     isServer,
-    pagesDir,
-
+    nextDir,
+    url,
     isAppDir,
     basePath: basePath || '/',
   };
@@ -107,7 +108,7 @@ function applyTurbopackOptions(nextConfig: NextConfig): void {
 
   const rules = nextConfig.experimental.turbo.rules;
 
-  const pagesDir = findPagesDir(process.cwd());
+  const nextDir = findNextDir(process.cwd());
 
   const basePath = (nextConfig.basePath as string) || '/';
 
@@ -119,7 +120,7 @@ function applyTurbopackOptions(nextConfig: NextConfig): void {
     rules[glob] ??= {};
     const options: RpcPluginOptions = {
       isServer: false,
-      pagesDir,
+      nextDir,
       isAppDir: glob.includes('/app'),
       basePath,
     };
@@ -142,7 +143,7 @@ function applyTurbopackOptions(nextConfig: NextConfig): void {
 }
 
 // taken from https://github.com/vercel/next.js/blob/v12.1.5/packages/next/lib/find-pages-dir.ts
-function findPagesDir(dir: string): string {
+export function findPagesDir(dir: string): string {
   // prioritize ./pages over ./src/pages
   let curDir = path.join(dir, 'pages');
   if (fs.existsSync(curDir)) return curDir;
@@ -159,5 +160,25 @@ function findPagesDir(dir: string): string {
 
   throw new Error(
     "Couldn't find a `pages` directory. Please create one under the project root",
+  );
+}
+export function findNextDir(dir: string): string {
+  {
+    let curDir = path.resolve(dir, 'pages');
+    if (fs.existsSync(curDir)) return path.dirname(curDir);
+
+    curDir = path.resolve(dir, 'src/pages');
+    if (fs.existsSync(curDir)) return path.dirname(curDir);
+  }
+  {
+    let curDir = path.resolve(dir, 'app');
+    if (fs.existsSync(curDir)) return path.dirname(curDir);
+
+    curDir = path.resolve(dir, 'src/app');
+    if (fs.existsSync(curDir)) return path.dirname(curDir);
+  }
+
+  throw new Error(
+    "Couldn't find a Next.js directory. Please create one under the project root",
   );
 }

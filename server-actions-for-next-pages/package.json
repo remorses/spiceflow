@@ -10,6 +10,7 @@
     "prepublishOnly": "pnpm build",
     "watch": "tsc -w"
   },
+  "bin": "dist/cli.js",
   "files": [
     "dist",
     "src",
@@ -33,6 +34,9 @@
     "@babel/plugin-transform-typescript": "^7.23.6",
     "@microsoft/api-extractor": "^7.43.1",
     "babel-loader": "^8.3.0",
+    "cac": "^6.7.14",
+    "fast-glob": "^3.3.2",
+    "find-up": "^7.0.0",
     "superjson": "^1.13.3",
     "ts-json-schema-generator": "^2.1.0"
   },

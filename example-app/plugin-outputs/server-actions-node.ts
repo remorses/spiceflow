@@ -1,6 +1,6 @@
 "poor man's use server";
 
-import { createRpcMethod as _createRpcMethod, createRpcHandler as _createRpcHandler } from "server-actions-for-next-pages/dist/server";
+import { createRpcMethod as _createRpcMethod, createRpcHandler as _createRpcHandler } from "server-actions-for-next-pages/dist/server.js";
 import { getNodejsContext } from 'server-actions-for-next-pages/context';
 export const createUser = _createRpcMethod(async function createUser({
   name = ''
@@ -32,7 +32,11 @@ export function wrapMethod(fn) {
     }
   };
 }
-export const failingFunction = _createRpcMethod(async function failingFunction({}) {
+
+/**
+ * @public
+ */
+export const failingFunction = _createRpcMethod(async function failingFunction({}: z.infer<typeof User>) {
   throw new Error('This function fails');
 }, {
   name: "failingFunction",

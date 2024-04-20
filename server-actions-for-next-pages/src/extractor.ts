@@ -1,40 +1,130 @@
 import { Extractor, ExtractorConfig } from '@microsoft/api-extractor';
+
 import { exec } from 'child_process';
 import fs from 'fs';
 import path from 'path';
+import { globSync } from 'fast-glob';
 import { createGenerator } from 'ts-json-schema-generator';
+import { directive } from './utils';
+import { plugins } from '.';
+import { transform } from '@babel/core';
 
-export async function extract() {
-  const tscCommand = `tsc  --emitDeclarationOnly --declaration --noEmit false --outDir dist `;
-  await new Promise((resolve, reject) => {
-    exec(tscCommand, {}, (error, stdout, stderr) => {
-      if (error) {
-        console.error(stdout, stderr);
-        reject(error);
-      } else {
-        resolve(stdout);
-      }
+export async function extract({ nextDir, url, basePath = '', outDir }) {
+  outDir = path.resolve(outDir, 'lib');
+  await fs.promises.rmdir(outDir, { recursive: true }).catch(() => null);
+  const typesDistDir = 'dist';
+  const dummyEntrypoint = path.resolve(nextDir, 'dummy-actions-entrypoint.ts');
+  const cwd = process.cwd();
+
+  try {
+    const globBase = path.relative(cwd, nextDir);
+    const globs = [
+      path.posix.join(globBase, 'pages/**/*.{ts,tsx,js,jsx}'),
+      path.posix.join(globBase, 'app/**/*.{ts,tsx,js,jsx}'),
+    ];
+    // console.log({ globs });
+    const allPossibleFiles = globSync(globs, {
+      onlyFiles: true,
+      absolute: true,
     });
-  }).catch((error) => {
-    // console.error(error);
-    console.error('Error running tsc, continue anyway');
-  });
-  let dtsInputFilePath = 'dist/src/pages/api/actions-node.d.ts';
-  dtsInputFilePath = 'dist/try-extractor/dummy.d.ts';
-  const dtsOutputFilePath = 'try-extractor/extracted.d.ts';
-  const generator = createGenerator({
-    path: dtsOutputFilePath,
-    type: '*',
-    tsconfig: 'tsconfig.json',
-    skipTypeCheck: true,
-    functions: 'comment',
-  });
-  const schema = generator.createSchema();
-  fs.writeFileSync(
-    'try-extractor/schema.json',
-    JSON.stringify(schema, null, 2),
-  );
-  rollupDtsFile(dtsInputFilePath, dtsOutputFilePath, 'tsconfig.json');
+    const actionFilesRelativePaths = allPossibleFiles
+      .filter((file) => {
+        const content = fs.readFileSync(file, 'utf8');
+        return content.includes(directive);
+      })
+      .map((x) => {
+        return path.relative(nextDir, x);
+      });
+
+    const dummyContent = actionFilesRelativePaths
+      .map((file) => `export * from './${file}'\n`)
+      .join('\n');
+    if (!dummyContent) {
+      throw new Error('No action files found!');
+    }
+
+    const imports = [] as string[];
+
+    for (let actionFile of actionFilesRelativePaths) {
+      const abs = path.resolve(nextDir, actionFile);
+      const content = fs.readFileSync(abs, 'utf8');
+      const isAppDir = actionFile.includes('/app');
+      const actionName = path.basename(actionFile, path.extname(actionFile));
+
+      const res = transform(content || '', {
+        babelrc: false,
+        sourceType: 'module',
+        plugins: plugins({
+          basePath,
+          isAppDir,
+          isServer: false,
+          url,
+          nextDir,
+        }),
+        filename: abs,
+
+        sourceMaps: false,
+      });
+      if (!res || !res.code) {
+        console.error(
+          `Error transforming ${actionFile}, returned nothing, maybe not an action?`,
+        );
+        continue;
+      }
+
+      const importPath =
+        './' +
+        path.posix.join(path.posix.dirname(actionFile), actionName + '.js');
+      console.log(`processed ${importPath}`);
+      imports.push(importPath);
+      fs.mkdirSync(path.resolve(outDir, path.dirname(importPath)), {
+        recursive: true,
+      });
+      fs.writeFileSync(path.resolve(outDir, importPath), res.code, 'utf-8');
+    }
+
+    fs.writeFileSync(dummyEntrypoint, dummyContent, 'utf8');
+    const entryPointDts = path.resolve(
+      typesDistDir,
+      path.relative(process.cwd(), nextDir),
+      path.basename(dummyEntrypoint, path.extname(dummyEntrypoint)) + '.d.ts',
+    );
+    const tscCommand = `tsc  --emitDeclarationOnly --declaration --noEmit false --outDir ${typesDistDir} `;
+    await new Promise((resolve, reject) => {
+      exec(tscCommand, {}, (error, stdout, stderr) => {
+        if (error) {
+          console.error(stdout, stderr);
+          reject(error);
+        } else {
+          resolve(stdout);
+        }
+      });
+    }).catch((error) => {
+      // console.error(error);
+      console.error('Error running tsc, continue anyway');
+    });
+
+    fs.writeFileSync(
+      path.resolve(outDir, 'index.js'),
+      imports.map((x) => `export * from '${x}'`).join('\n'),
+    );
+    // const generator = createGenerator({
+    //   path: dtsOutputFilePath,
+    //   type: '*',
+    //   tsconfig: 'tsconfig.json',
+    //   skipTypeCheck: true,
+    //   functions: 'comment',
+    // });
+    // const schema = generator.createSchema();
+    // fs.writeFileSync(
+    //   path.resolve(outDir, 'schema.json'),
+    //   JSON.stringify(schema, null, 2),
+    // );
+    const dtsOutputFilePath = path.resolve(outDir, 'index.d.ts');
+    rollupDtsFile(entryPointDts, dtsOutputFilePath, 'tsconfig.json');
+  } finally {
+    await fs.promises.unlink(dummyEntrypoint).catch(() => null);
+  }
 }
 
 function rollupDtsFile(

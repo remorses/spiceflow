@@ -12,8 +12,8 @@ type Babel = { types: typeof types };
 type BabelTypes = typeof babel.types;
 
 const { name } = require('../package.json');
-const IMPORT_PATH_SERVER = `${name}/dist/server`;
-const IMPORT_PATH_BROWSER = `${name}/dist/browser`;
+const IMPORT_PATH_SERVER = `${name}/dist/server.js`;
+const IMPORT_PATH_BROWSER = `${name}/dist/browser.js`;
 
 function isAllowedTsExportDeclaration(
   declaration: babel.NodePath<babel.types.Declaration | null | undefined>,
@@ -159,14 +159,15 @@ export function isEdgeInConfig(
 
 export interface PluginOptions {
   isServer: boolean;
-  pagesDir: string;
+  nextDir: string;
   isAppDir: boolean;
   basePath: string;
+  url?: string;
 }
 
 export default function (
   { types: t }: Babel,
-  { pagesDir, isAppDir, isServer, basePath }: PluginOptions,
+  { nextDir, isAppDir, isServer, url: rpcUrl, basePath }: PluginOptions,
 ): babel.PluginObj {
   return {
     visitor: {
@@ -192,8 +193,8 @@ export default function (
 
         const hasWrap = hasWrapMethod(program);
 
-        const rel = path.relative(path.dirname(pagesDir), filename);
-        console.log(rel);
+        const rel = path.relative(nextDir, filename);
+        
         const rpcRelativePath =
           '/' +
           rel
@@ -204,8 +205,11 @@ export default function (
             .replace(/\/index$/, '')
             .replace(/\/route$/, '');
 
-        const rpcPath =
+        let rpcPath =
           basePath === '/' ? rpcRelativePath : `${basePath}${rpcRelativePath}`;
+        if (rpcUrl) {
+          rpcPath = new URL(rpcPath, rpcUrl).toString();
+        }
 
         const rpcMethodNames: string[] = [];
 
