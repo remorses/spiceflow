@@ -1,12 +1,11 @@
-import { annotateAsPure, literalToAst } from './utils';
-import path from 'path';
-import fs from 'fs';
 import * as babel from '@babel/core';
-import type * as types from '@babel/types';
-import { WrapMethodMeta } from './server';
-import { parse } from '@babel/parser';
 import generate from '@babel/generator';
-import { directive, logger } from './utils';
+import { parseExpression } from '@babel/parser';
+import type * as types from '@babel/types';
+import fs from 'fs';
+import path from 'path';
+import { WrapMethodMeta } from './server';
+import { annotateAsPure, directive, logger } from './utils';
 
 type Babel = { types: typeof types };
 type BabelTypes = typeof babel.types;
@@ -194,7 +193,7 @@ export default function (
         const hasWrap = hasWrapMethod(program);
 
         const rel = path.relative(nextDir, filename);
-        
+
         const rpcRelativePath =
           '/' +
           rel
@@ -224,13 +223,13 @@ export default function (
         ) => {
           return t.callExpression(createRpcMethodIdentifier, [
             rpcMethod,
-            literalToAst(t, meta),
+            parseExpression(JSON.stringify(meta)),
 
-            parse(
+            parseExpression(
               hasWrap
                 ? `typeof wrapMethod === 'function' ? wrapMethod : undefined`
                 : 'null',
-            ).program.body[0]['expression'],
+            ),
           ]);
         };
 

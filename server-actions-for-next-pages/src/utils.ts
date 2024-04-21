@@ -1,4 +1,4 @@
-import { PluginPass } from '@babel/core';
+import { PluginPass, parse } from '@babel/core';
 
 import { Node, types } from '@babel/core';
 
@@ -16,26 +16,16 @@ export type Literal =
   | { [key: string]: Literal }
   | Literal[];
 
-export function literalToAst(
-  t: typeof types,
-  literal: Literal,
-): types.Expression {
-  if (typeof literal === 'number') {
-    return t.numericLiteral(literal);
-  } else if (typeof literal === 'boolean') {
-    return t.booleanLiteral(literal);
-  } else if (typeof literal === 'string') {
-    return t.stringLiteral(literal);
-  } else if (Array.isArray(literal)) {
-    return t.arrayExpression(literal.map((item) => literalToAst(t, item)));
-  } else if (typeof literal === 'object') {
-    return t.objectExpression(
-      Object.entries(literal).map(([key, value]) => {
-        return t.objectProperty(t.identifier(key), literalToAst(t, value));
-      }),
-    );
+export function parseExpression(code: string): any {
+  const statement = parse(code)?.program?.body?.[0];
+  if (!statement) {
+    throw new Error(`Could not parse statement "${code}"`);
   }
-  throw new Error(`Unsupported literal type "${typeof literal}"`);
+  const expr = statement['expression'];
+  if (!expr) {
+    throw new Error(`Could not parse expression "${code}"`);
+  }
+  return expr;
 }
 
 const enabled = !!process.env.DEBUG_ACTIONS;

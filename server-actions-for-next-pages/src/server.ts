@@ -7,6 +7,7 @@ import { getEdgeContext } from './context-internal';
 export type Method<P extends any[], R> = (...params: P) => Promise<R>;
 export type WrapMethodMeta = {
   name: string;
+  isGenerator?: boolean;
   pathname: string;
 };
 

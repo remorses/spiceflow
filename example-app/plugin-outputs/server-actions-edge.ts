@@ -1,6 +1,6 @@
 "poor man's use server";
 
-import { createRpcMethod as _createRpcMethod, createRpcHandler as _createRpcHandler } from "server-actions-for-next-pages/dist/server";
+import { createRpcMethod as _createRpcMethod, createRpcHandler as _createRpcHandler } from "server-actions-for-next-pages/dist/server.js";
 import { getEdgeContext } from 'server-actions-for-next-pages/context';
 import { cookies, headers } from 'server-actions-for-next-pages/headers';
 export const runtime = 'edge';
@@ -33,7 +33,7 @@ export const edgeServerAction = _createRpcMethod(async function edgeServerAction
     functionName: 'edgeServerAction'
   };
 }, {
-  name: "edgeServerAction",
-  pathname: "/api/actions-edge"
+  "name": "edgeServerAction",
+  "pathname": "/api/actions-edge"
 }, typeof wrapMethod === 'function' ? wrapMethod : undefined);
 export default /*#__PURE__*/_createRpcHandler([["edgeServerAction", edgeServerAction]], true);
