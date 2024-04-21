@@ -20,6 +20,14 @@ export async function createUser({ name = '' }) {
   };
 }
 
+// async generator
+export async function* asyncGeneratorActionNode(arg) {
+  for (let i = 0; i < 10; i++) {
+    await sleep(300);
+    yield { arg, i };
+  }
+}
+
 export function wrapMethod(fn) {
   return async (...args) => {
     try {

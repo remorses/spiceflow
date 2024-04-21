@@ -58,131 +58,14 @@ export function createRpcHandler({
   isEdge?: boolean;
 }) {
   const methodsMap = new Map(methods.map((x) => [x.method, x]));
-  const handler = async ({ method, body }) => {
-    if (method !== 'POST') {
-      return {
-        status: 405,
-        json: {
-          jsonrpc: '2.0',
-          id: null,
-          error: {
-            code: -32001,
-            message: 'Server error',
-            data: {
-              cause: `HTTP method "${method}" is not allowed`,
-            },
-          },
-        } satisfies JsonRpcResponse,
-      };
-    }
 
-    const { id, method: fn, params, meta: argsMeta } = body;
-    const requestedMethod = methodsMap.get(fn);
-
-    if (typeof requestedMethod?.implementation !== 'function') {
-      return {
-        status: 400,
-        json: {
-          jsonrpc: '2.0',
-          id,
-          error: {
-            code: -32601,
-            message: 'Method not found',
-            data: {
-              cause: `Method "${method}" is not a function`,
-            },
-          },
-        } satisfies JsonRpcResponse,
-      };
-    }
-
-    try {
-      const args = superjson.deserialize({
-        json: params,
-        meta: argsMeta,
-      }) as any[];
-      if (!requestedMethod.isGenerator) {
-        const result = await requestedMethod.implementation(...args);
-        const { json, meta } = superjson.serialize(result);
-
-        return {
-          json: {
-            jsonrpc: '2.0',
-            id,
-            result: json as any,
-            meta,
-          } satisfies JsonRpcResponse,
-        };
-      } else {
-        return (async function* () {
-          // send a response for each yielded value
-          const result = await requestedMethod.implementation(...args);
-
-          try {
-            for await (const value of result) {
-              const { json, meta } = superjson.serialize(value);
-
-              yield {
-                json: {
-                  jsonrpc: '2.0',
-                  id,
-                  result: json as any,
-                  meta,
-                } satisfies JsonRpcResponse,
-              };
-            }
-          } catch (error) {
-            const {
-              name = 'NextRpcError',
-              message = `Invalid value thrown in "${method}", must be instance of Error`,
-              stack = undefined,
-            } = error instanceof Error ? error : {};
-            return {
-              json: {
-                jsonrpc: '2.0',
-                id,
-                error: {
-                  code: 1,
-                  message,
-                  data: {
-                    name,
-                    ...(process.env.NODE_ENV === 'production' ? {} : { stack }),
-                  },
-                },
-              } satisfies JsonRpcResponse,
-            };
-          }
-        })();
-      }
-    } catch (error) {
-      const {
-        name = 'NextRpcError',
-        message = `Invalid value thrown in "${method}", must be instance of Error`,
-        stack = undefined,
-      } = error instanceof Error ? error : {};
-      return {
-        status: 502,
-        json: {
-          jsonrpc: '2.0',
-          id,
-          error: {
-            code: 1,
-            message,
-            data: {
-              name,
-              ...(process.env.NODE_ENV === 'production' ? {} : { stack }),
-            },
-          },
-        } satisfies JsonRpcResponse,
-      };
-    }
-  };
   if (isEdge) {
     return async (req: NextRequest) => {
       const { res } = await getEdgeContext();
       const body = await req.json();
 
       const result = await handler({
+        methodsMap,
         body,
         method: req.method,
       });
@@ -230,25 +113,30 @@ export function createRpcHandler({
     return (async (req, res) => {
       const body = req.body;
       const result = await handler({
+        methodsMap,
         body,
         method: req.method,
       });
+      console.log('isAsyncIterable', JSON.stringify(result));
       if (isAsyncIterable(result)) {
+        res.status(200);
         res.setHeader('content-type', 'text/event-stream');
         res.setHeader('cache-control', 'no-cache');
         res.setHeader('connection', 'keep-alive');
+        res.flushHeaders();
         // handle cancellation
         res.on('close', () => {
           (result as AsyncIterator<any>).return?.();
         });
         for await (const value of result) {
           res.write('data: ' + JSON.stringify(value.json) + '\n\n');
+          // flush
         }
         res.end();
-      } else {
-        const { status, json } = result;
-        res.status(status || 200).json(json);
+        return;
       }
+      const { status, json } = result;
+      res.status(status || 200).json(json);
     }) satisfies NextApiHandler;
   }
 }
@@ -256,3 +144,122 @@ export function createRpcHandler({
 function isAsyncIterable(obj: any): obj is AsyncIterable<any> {
   return obj != null && typeof obj[Symbol.asyncIterator] === 'function';
 }
+
+const handler = async ({ method, methodsMap, body }) => {
+  if (method !== 'POST') {
+    return {
+      status: 405,
+      json: {
+        jsonrpc: '2.0',
+        id: null,
+        error: {
+          code: -32001,
+          message: 'Server error',
+          data: {
+            cause: `HTTP method "${method}" is not allowed`,
+          },
+        },
+      } satisfies JsonRpcResponse,
+    };
+  }
+
+  const { id, method: fn, params, meta: argsMeta } = body;
+  const requestedMethod = methodsMap.get(fn);
+
+  if (typeof requestedMethod?.implementation !== 'function') {
+    return {
+      status: 400,
+      json: {
+        jsonrpc: '2.0',
+        id,
+        error: {
+          code: -32601,
+          message: 'Method not found',
+          data: {
+            cause: `Method "${method}" is not a function`,
+          },
+        },
+      } satisfies JsonRpcResponse,
+    };
+  }
+
+  try {
+    const args = superjson.deserialize({
+      json: params,
+      meta: argsMeta,
+    }) as any[];
+    if (!requestedMethod.isGenerator) {
+      const result = await requestedMethod.implementation(...args);
+      const { json, meta } = superjson.serialize(result);
+
+      return {
+        json: {
+          jsonrpc: '2.0',
+          id,
+          result: json as any,
+          meta,
+        } satisfies JsonRpcResponse,
+      };
+    }
+    return (async function* () {
+      // send a response for each yielded value
+      const result = await requestedMethod.implementation(...args);
+
+      try {
+        for await (const value of result) {
+          const { json, meta } = superjson.serialize(value);
+
+          yield {
+            json: {
+              jsonrpc: '2.0',
+              id,
+              result: json as any,
+              meta,
+            } satisfies JsonRpcResponse,
+          };
+        }
+      } catch (error) {
+        const {
+          name = 'NextRpcError',
+          message = `Invalid value thrown in "${method}", must be instance of Error`,
+          stack = undefined,
+        } = error instanceof Error ? error : {};
+        return {
+          json: {
+            jsonrpc: '2.0',
+            id,
+            error: {
+              code: 1,
+              message,
+              data: {
+                name,
+                ...(process.env.NODE_ENV === 'production' ? {} : { stack }),
+              },
+            },
+          } satisfies JsonRpcResponse,
+        };
+      }
+    })();
+  } catch (error) {
+    const {
+      name = 'NextRpcError',
+      message = `Invalid value thrown in "${method}", must be instance of Error`,
+      stack = undefined,
+    } = error instanceof Error ? error : {};
+    return {
+      status: 502,
+      json: {
+        jsonrpc: '2.0',
+        id,
+        error: {
+          code: 1,
+          message,
+          data: {
+            name,
+            ...(process.env.NODE_ENV === 'production' ? {} : { stack }),
+          },
+        },
+      } satisfies JsonRpcResponse,
+    };
+  }
+};

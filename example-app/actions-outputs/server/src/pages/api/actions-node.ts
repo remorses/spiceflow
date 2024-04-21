@@ -22,6 +22,19 @@ export const createUser = _createRpcMethod(async function createUser({
   "name": "createUser",
   "pathname": "/api/actions-node",
   "isGenerator": false
+}, typeof wrapMethod === 'function' ? wrapMethod : undefined); // async generator
+export const asyncGeneratorActionNode = _createRpcMethod(async function* asyncGeneratorActionNode(arg) {
+  for (let i = 0; i < 10; i++) {
+    await sleep(300);
+    yield {
+      arg,
+      i
+    };
+  }
+}, {
+  "name": "asyncGeneratorActionNode",
+  "pathname": "/api/actions-node",
+  "isGenerator": true
 }, typeof wrapMethod === 'function' ? wrapMethod : undefined);
 export function wrapMethod(fn) {
   return async (...args) => {
@@ -54,6 +67,10 @@ export default /*#__PURE__*/_wrapApiHandler(_createRpcHandler({
     method: "createUser",
     implementation: createUser,
     isGenerator: false
+  }, {
+    method: "asyncGeneratorActionNode",
+    implementation: asyncGeneratorActionNode,
+    isGenerator: true
   }, {
     method: "failingFunction",
     implementation: failingFunction,

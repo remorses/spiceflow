@@ -21,7 +21,7 @@ export function wrapMethod(fn) {
 }
 
 // async generator
-export const asyncGeneratorAction = _createRpcMethod(async function* asyncGeneratorAction() {
+export const asyncGeneratorActionEdge = _createRpcMethod(async function* asyncGeneratorActionEdge() {
   for (let i = 0; i < 10; i++) {
     await sleep(300);
     yield {
@@ -29,7 +29,7 @@ export const asyncGeneratorAction = _createRpcMethod(async function* asyncGenera
     };
   }
 }, {
-  "name": "asyncGeneratorAction",
+  "name": "asyncGeneratorActionEdge",
   "pathname": "/api/actions-edge",
   "isGenerator": true
 }, typeof wrapMethod === 'function' ? wrapMethod : undefined);
@@ -56,8 +56,8 @@ export const edgeServerAction = _createRpcMethod(async function edgeServerAction
 export default /*#__PURE__*/_wrapApiHandler(_createRpcHandler({
   isEdge: true,
   methods: [{
-    method: "asyncGeneratorAction",
-    implementation: asyncGeneratorAction,
+    method: "asyncGeneratorActionEdge",
+    implementation: asyncGeneratorActionEdge,
     isGenerator: true
   }, {
     method: "edgeServerAction",

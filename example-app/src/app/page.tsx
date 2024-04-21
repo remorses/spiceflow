@@ -2,16 +2,20 @@
 
 import { appServerAction } from '@/app/app-actions/route';
 import {
-  asyncGeneratorAction,
+  asyncGeneratorActionEdge,
   edgeServerAction,
 } from '@/pages/api/actions-edge';
-import { createUser, failingFunction } from '@/pages/api/actions-node';
+import {
+  asyncGeneratorActionNode,
+  createUser,
+  failingFunction,
+} from '@/pages/api/actions-node';
 import { useEffect, useState, useTransition } from 'react';
 import superjson from 'superjson';
 
 export default function Home() {
   // throw new Error('This function fails');
-  failingFunction({}).catch((error: any) => {
+  failingFunction({ username: 'user' }).catch((error: any) => {
     console.error(error);
     return null;
   });
@@ -31,22 +35,31 @@ export default function Home() {
     });
   }, []);
 
-  const [stream, setStream] = useState<any>();
+  const [stream, setStream] = useState<any>('');
+  // useEffect(() => {
+  //   (async function () {
+  //     const gen = await asyncGeneratorActionEdge();
+
+  //     for await (const value of gen) {
+  //       console.log('edge generator value', value);
+  //       setStream((x) => x + value.i);
+  //     }
+  //   })();
+  // }, []);
   useEffect(() => {
     (async function () {
-      const gen = await asyncGeneratorAction();
+      const gen = await asyncGeneratorActionNode({ arg: 'exampleArg' });
 
-      // while (true) {
-      //   const { value, done } = await gen.next();
-      //   setStream(value);
-      //   if (done) break;
-      //   // Process value
-      // }
-      // return;
-      for await (const value of gen) {
-        console.log('value', value);
-        setStream(value.i);
+      console.log('node generator', gen);
+
+      while (true) {
+        const { value, done } = await gen.next();
+        if (done) break;
+        console.log('node generator value', value);
+        setStream((x) => x + value.i);
+        // Process value
       }
+      return;
     })();
   }, []);
   return (

@@ -6,6 +6,11 @@ export const createUser = /*#__PURE__*/_createRpcFetcher({
   "method": "createUser",
   "isGenerator": false
 });
+export const asyncGeneratorActionNode = /*#__PURE__*/_createRpcFetcher({
+  "url": "/api/actions-node",
+  "method": "asyncGeneratorActionNode",
+  "isGenerator": true
+});
 export const failingFunction = /*#__PURE__*/_createRpcFetcher({
   "url": "/api/actions-node",
   "method": "failingFunction",
