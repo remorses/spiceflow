@@ -5,7 +5,15 @@ type NextRpcCall = (...params: any[]) => any;
 
 let nextId = 1;
 
-export function createRpcFetcher(url: string, method: string): NextRpcCall {
+export function createRpcFetcher({
+  url,
+  method,
+  isGenerator,
+}: {
+  url: string;
+  method: string;
+  isGenerator?: boolean;
+}): NextRpcCall {
   return async function rpcFetch(...args) {
     const { json, meta } = superjson.serialize(args);
     const res = await fetch(url, {

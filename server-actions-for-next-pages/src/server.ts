@@ -43,11 +43,19 @@ export function createRpcMethod<P extends any[], R>(
   return async (...args) => wrapped(...args);
 }
 
-export function createRpcHandler(
-  methodsInit: [string, (...params: any[]) => Promise<any>][],
-  isEdge?: boolean,
-) {
-  const methods = new Map(methodsInit);
+export function createRpcHandler({
+  methods,
+  isEdge,
+  isGenerator,
+}: {
+  methods: {
+    method: string;
+    implementation: (...params: any[]) => Promise<any>;
+  }[];
+  isGenerator?: boolean;
+  isEdge?: boolean;
+}) {
+  const methodsMap = new Map(methods.map((x) => [x.method, x.implementation]));
   const handler = async ({ method, body }) => {
     if (method !== 'POST') {
       return {
@@ -67,7 +75,7 @@ export function createRpcHandler(
     }
 
     const { id, method: fn, params, meta: argsMeta } = body;
-    const requestedFn = methods.get(fn);
+    const requestedFn = methodsMap.get(fn);
 
     if (typeof requestedFn !== 'function') {
       return {
@@ -127,7 +135,6 @@ export function createRpcHandler(
   };
   if (isEdge) {
     return async (req: NextRequest) => {
-      
       const { res } = await getEdgeContext();
       const body = await req.json();
 
@@ -143,8 +150,7 @@ export function createRpcHandler(
     };
   } else {
     return (async (req, res) => {
-      
-      const body = req.body
+      const body = req.body;
       const { status, json } = await handler({
         body,
         method: req.method,

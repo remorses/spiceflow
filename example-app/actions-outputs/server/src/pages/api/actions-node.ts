@@ -46,4 +46,14 @@ export const failingFunction = _createRpcMethod(async function failingFunction({
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
-export default /*#__PURE__*/_wrapApiHandler( /*#__PURE__*/_createRpcHandler([["createUser", createUser], ["failingFunction", failingFunction]], false), false);
+export default /*#__PURE__*/_wrapApiHandler(_createRpcHandler({
+  isEdge: false,
+  isGenerator: false,
+  methods: [{
+    method: "createUser",
+    implementation: createUser
+  }, {
+    method: "failingFunction",
+    implementation: failingFunction
+  }]
+}), false);

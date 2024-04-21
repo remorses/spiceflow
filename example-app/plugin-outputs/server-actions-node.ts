@@ -45,4 +45,14 @@ export const failingFunction = _createRpcMethod(async function failingFunction({
 function sleep(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
-export default /*#__PURE__*/_createRpcHandler([["createUser", createUser], ["failingFunction", failingFunction]], false);
+export default _createRpcHandler({
+  isEdge: false,
+  isGenerator: false,
+  methods: [{
+    method: "createUser",
+    implementation: createUser
+  }, {
+    method: "failingFunction",
+    implementation: failingFunction
+  }]
+});

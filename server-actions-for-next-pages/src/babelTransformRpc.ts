@@ -188,7 +188,7 @@ export default function (
           return;
         }
 
-        logger.log(`Processing ${filename} as an action`);
+        logger.log(`Processing ${filename} as a ${isServer ? 'server' : 'client'} action`);
 
         const hasWrap = hasWrapMethod(program);
 
@@ -371,10 +371,16 @@ export default function (
           const createRpcHandlerIdentifier =
             program.scope.generateUidIdentifier('createRpcHandler');
 
-          let apiHandlerExpression = buildRpcApiHandler(
-            t,
-            createRpcHandlerIdentifier,
-            rpcMethodNames,
+          const methodsExpr = rpcMethodNames
+            .map((name) => {
+              return `{ method: "${name}", implementation: ${name} }`;
+            })
+            .join(',');
+          const isGenerator = false;
+          const argExpr = `({ isEdge: ${isEdge}, isGenerator: ${isGenerator}, methods: [${methodsExpr}] })`;
+
+          let apiHandlerExpression = parseExpression(
+            `${createRpcHandlerIdentifier.name}(${argExpr})`,
           );
 
           program.unshiftContainer('body', [
@@ -449,8 +455,13 @@ export default function (
                     annotateAsPure(
                       t,
                       t.callExpression(createRpcFetcherIdentifier, [
-                        t.stringLiteral(rpcPath),
-                        t.stringLiteral(name),
+                        parseExpression(
+                          JSON.stringify({
+                            url: rpcPath,
+                            method: name,
+                            isGenerator: false,
+                          }),
+                        ),
                       ]),
                     ),
                   ),

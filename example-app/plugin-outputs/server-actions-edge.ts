@@ -36,4 +36,11 @@ export const edgeServerAction = _createRpcMethod(async function edgeServerAction
   "name": "edgeServerAction",
   "pathname": "/api/actions-edge"
 }, typeof wrapMethod === 'function' ? wrapMethod : undefined);
-export default /*#__PURE__*/_createRpcHandler([["edgeServerAction", edgeServerAction]], true);
+export default _createRpcHandler({
+  isEdge: true,
+  isGenerator: false,
+  methods: [{
+    method: "edgeServerAction",
+    implementation: edgeServerAction
+  }]
+});

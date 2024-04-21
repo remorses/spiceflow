@@ -16,18 +16,6 @@ export type Literal =
   | { [key: string]: Literal }
   | Literal[];
 
-export function parseExpression(code: string): any {
-  const statement = parse(code)?.program?.body?.[0];
-  if (!statement) {
-    throw new Error(`Could not parse statement "${code}"`);
-  }
-  const expr = statement['expression'];
-  if (!expr) {
-    throw new Error(`Could not parse expression "${code}"`);
-  }
-  return expr;
-}
-
 const enabled = !!process.env.DEBUG_ACTIONS;
 export const logger = {
   log(...args) {
