@@ -37,6 +37,7 @@ export interface JsonRpcErrorResponse {
   result?: undefined;
   error: JsonRpcError;
   id: JsonRpcRequestId;
+  meta?: any;
 }
 
 export type JsonRpcResponse = JsonRpcSuccessResponse | JsonRpcErrorResponse;

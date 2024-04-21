@@ -19,7 +19,8 @@ export const createUser = _createRpcMethod(async function createUser({
   };
 }, {
   "name": "createUser",
-  "pathname": "/api/actions-node"
+  "pathname": "/api/actions-node",
+  "isGenerator": false
 }, typeof wrapMethod === 'function' ? wrapMethod : undefined);
 export function wrapMethod(fn) {
   return async (...args) => {
@@ -37,22 +38,24 @@ export function wrapMethod(fn) {
  * @public
  */
 export const failingFunction = _createRpcMethod(async function failingFunction({}: z.infer<typeof User>) {
-  throw new Error('This function fails');
+  // throw new Error('This function fails');
 }, {
   "name": "failingFunction",
-  "pathname": "/api/actions-node"
+  "pathname": "/api/actions-node",
+  "isGenerator": false
 }, typeof wrapMethod === 'function' ? wrapMethod : undefined);
 function sleep(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 export default _createRpcHandler({
   isEdge: false,
-  isGenerator: false,
   methods: [{
     method: "createUser",
-    implementation: createUser
+    implementation: createUser,
+    isGenerator: false
   }, {
     method: "failingFunction",
-    implementation: failingFunction
+    implementation: failingFunction,
+    isGenerator: false
   }]
 });

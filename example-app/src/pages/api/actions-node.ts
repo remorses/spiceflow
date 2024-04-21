@@ -1,7 +1,7 @@
 "poor man's use server";
 import { z } from 'zod';
 
-import { User } from '@/types';
+import { User } from '@/utils';
 import { revalidatePath } from 'next/cache';
 import { getNodejsContext } from 'server-actions-for-next-pages/context';
 import { getContext } from 'server-actions-for-next-pages/context';
@@ -36,7 +36,7 @@ export function wrapMethod(fn) {
  * @public
  */
 export async function failingFunction({}: z.infer<typeof User>) {
-  throw new Error('This function fails');
+  // throw new Error('This function fails');
 }
 
 function sleep(ms: number) {

@@ -23,13 +23,14 @@ export const appServerAction = _createRpcMethod(async function appServerAction({
   };
 }, {
   "name": "appServerAction",
-  "pathname": "/app-actions"
+  "pathname": "/app-actions",
+  "isGenerator": false
 }, typeof wrapMethod === 'function' ? wrapMethod : undefined);
 export const POST = _createRpcHandler({
   isEdge: true,
-  isGenerator: false,
   methods: [{
     method: "appServerAction",
-    implementation: appServerAction
+    implementation: appServerAction,
+    isGenerator: false
   }]
 });

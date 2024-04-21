@@ -4,10 +4,12 @@ import { JsonRpcResponse } from './jsonRpc';
 import { NextRequest, NextResponse } from 'next/server';
 import { getEdgeContext } from './context-internal';
 
-export type Method<P extends any[], R> = (...params: P) => Promise<R>;
+export type Method<P extends any[], R> = (
+  ...params: P
+) => Promise<R> | AsyncIterable<R>;
 export type WrapMethodMeta = {
   name: string;
-  isGenerator?: boolean;
+  isGenerator: boolean;
   pathname: string;
 };
 
@@ -40,22 +42,22 @@ export function createRpcMethod<P extends any[], R>(
       `Invalid wrapMethod type, expected "function", got "${typeof customWrapRpcMethod}"`,
     );
   }
-  return async (...args) => wrapped(...args);
+  return (...args) => wrapped(...args);
 }
 
 export function createRpcHandler({
   methods,
   isEdge,
-  isGenerator,
 }: {
   methods: {
     method: string;
-    implementation: (...params: any[]) => Promise<any>;
+    isGenerator: boolean;
+    implementation: (...params: any[]) => any;
   }[];
-  isGenerator?: boolean;
+
   isEdge?: boolean;
 }) {
-  const methodsMap = new Map(methods.map((x) => [x.method, x.implementation]));
+  const methodsMap = new Map(methods.map((x) => [x.method, x]));
   const handler = async ({ method, body }) => {
     if (method !== 'POST') {
       return {
@@ -75,9 +77,9 @@ export function createRpcHandler({
     }
 
     const { id, method: fn, params, meta: argsMeta } = body;
-    const requestedFn = methodsMap.get(fn);
+    const requestedMethod = methodsMap.get(fn);
 
-    if (typeof requestedFn !== 'function') {
+    if (typeof requestedMethod?.implementation !== 'function') {
       return {
         status: 400,
         json: {
@@ -99,17 +101,59 @@ export function createRpcHandler({
         json: params,
         meta: argsMeta,
       }) as any[];
-      const result = await requestedFn(...args);
-      const { json, meta } = superjson.serialize(result);
+      if (!requestedMethod.isGenerator) {
+        const result = await requestedMethod.implementation(...args);
+        const { json, meta } = superjson.serialize(result);
 
-      return {
-        json: {
-          jsonrpc: '2.0',
-          id,
-          result: json as any,
-          meta,
-        } satisfies JsonRpcResponse,
-      };
+        return {
+          json: {
+            jsonrpc: '2.0',
+            id,
+            result: json as any,
+            meta,
+          } satisfies JsonRpcResponse,
+        };
+      } else {
+        return (async function* () {
+          // send a response for each yielded value
+          const result = await requestedMethod.implementation(...args);
+          console.log('result', JSON.stringify(result));
+          try {
+            for await (const value of result) {
+              const { json, meta } = superjson.serialize(value);
+
+              yield {
+                json: {
+                  jsonrpc: '2.0',
+                  id,
+                  result: json as any,
+                  meta,
+                } satisfies JsonRpcResponse,
+              };
+            }
+          } catch (error) {
+            const {
+              name = 'NextRpcError',
+              message = `Invalid value thrown in "${method}", must be instance of Error`,
+              stack = undefined,
+            } = error instanceof Error ? error : {};
+            return {
+              json: {
+                jsonrpc: '2.0',
+                id,
+                error: {
+                  code: 1,
+                  message,
+                  data: {
+                    name,
+                    ...(process.env.NODE_ENV === 'production' ? {} : { stack }),
+                  },
+                },
+              } satisfies JsonRpcResponse,
+            };
+          }
+        })();
+      }
     } catch (error) {
       const {
         name = 'NextRpcError',
@@ -138,24 +182,71 @@ export function createRpcHandler({
       const { res } = await getEdgeContext();
       const body = await req.json();
 
-      const { status, json } = await handler({
+      const result = await handler({
         body,
         method: req.method,
       });
+      console.log('result', result);
 
-      return new Response(JSON.stringify(json, null, 2), {
-        status,
-        headers: res?.headers || {},
-      });
+      if (isAsyncIterable(result)) {
+        const transformStream = new TransformStream({});
+
+        const writer = transformStream.writable.getWriter();
+        req.signal.addEventListener('abort', () => {
+          writer.abort();
+        });
+        const encoder = new TextEncoder();
+        // sent a server sent event for each yielded value
+
+        for await (const value of result) {
+          writer.write(
+            encoder.encode('data: ' + JSON.stringify(value.json) + '\n\n'),
+          );
+        }
+
+        writer.close();
+        return new Response(transformStream.readable, {
+          headers: {
+            'content-type': 'text/event-stream',
+            'cache-control': 'no-cache',
+            connection: 'keep-alive',
+          },
+        });
+      } else {
+        const { status, json } = result;
+        return new Response(JSON.stringify(json, null, 2), {
+          status,
+          headers: res?.headers || {},
+        });
+      }
     };
   } else {
     return (async (req, res) => {
       const body = req.body;
-      const { status, json } = await handler({
+      const result = await handler({
         body,
         method: req.method,
       });
-      res.status(status || 200).json(json);
+      if (isAsyncIterable(result)) {
+        res.setHeader('content-type', 'text/event-stream');
+        res.setHeader('cache-control', 'no-cache');
+        res.setHeader('connection', 'keep-alive');
+        // handle cancellation
+        res.on('close', () => {
+          result.return?.();
+        });
+        for await (const value of result) {
+          res.write('data: ' + JSON.stringify(value.json) + '\n\n');
+        }
+        res.end();
+      } else {
+        const { status, json } = result;
+        res.status(status || 200).json(json);
+      }
     }) satisfies NextApiHandler;
   }
+}
+
+function isAsyncIterable(obj: any): obj is AsyncIterable<any> {
+  return obj != null && typeof obj[Symbol.asyncIterator] === 'function';
 }

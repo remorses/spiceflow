@@ -188,7 +188,11 @@ export default function (
           return;
         }
 
-        logger.log(`Processing ${filename} as a ${isServer ? 'server' : 'client'} action`);
+        logger.log(
+          `Processing ${filename} as a ${
+            isServer ? 'server' : 'client'
+          } action`,
+        );
 
         const hasWrap = hasWrapMethod(program);
 
@@ -233,8 +237,11 @@ export default function (
           ]);
         };
 
+        const generators = new Map<string, boolean>();
         for (const statement of program.get('body')) {
           if (statement.isExportNamedDeclaration()) {
+            // check if function is async generator
+
             const declaration = statement.get('declaration');
             if (isAllowedTsExportDeclaration(declaration)) {
               // ignore
@@ -244,6 +251,8 @@ export default function (
               if (methodName === 'wrapMethod') {
                 continue;
               }
+              const isGenerator = !!declaration.node.generator;
+              generators.set(methodName!, isGenerator);
               if (!declaration.node.async) {
                 throw declaration.buildCodeFrameError(
                   'rpc exports must be async functions',
@@ -262,6 +271,7 @@ export default function (
                           createRpcMethod(t.toExpression(declaration.node), {
                             name: methodName,
                             pathname: rpcPath,
+                            isGenerator,
                           }),
                         ),
                       ]),
@@ -310,12 +320,15 @@ export default function (
                     if (methodName === 'wrapMethod') {
                       continue;
                     }
+                    const isGenerator = !!init.node.generator;
+                    generators.set(methodName!, isGenerator);
                     rpcMethodNames.push(methodName);
                     if (isServer) {
                       init.replaceWith(
                         createRpcMethod(init.node, {
                           name: methodName,
                           pathname: rpcPath,
+                          isGenerator,
                         }),
                       );
                     }
@@ -346,38 +359,18 @@ export default function (
           }
         }
 
-        function buildRpcApiHandler(
-          t: BabelTypes,
-          createRpcHandlerIdentifier: babel.types.Identifier,
-          rpcMethodNames: string[],
-        ): babel.types.Expression {
-          return annotateAsPure(
-            t,
-            t.callExpression(createRpcHandlerIdentifier, [
-              t.arrayExpression(
-                rpcMethodNames.map((name) =>
-                  t.arrayExpression([
-                    t.stringLiteral(name),
-                    t.identifier(name),
-                  ]),
-                ),
-              ),
-              isEdge ? t.booleanLiteral(true) : t.booleanLiteral(false),
-            ]),
-          );
-        }
-
         if (isServer) {
           const createRpcHandlerIdentifier =
             program.scope.generateUidIdentifier('createRpcHandler');
 
           const methodsExpr = rpcMethodNames
             .map((name) => {
-              return `{ method: "${name}", implementation: ${name} }`;
+              const isGenerator = !!generators.get(name);
+              return `{ method: "${name}", implementation: ${name}, isGenerator: ${isGenerator}, }`;
             })
             .join(',');
-          const isGenerator = false;
-          const argExpr = `({ isEdge: ${isEdge}, isGenerator: ${isGenerator}, methods: [${methodsExpr}] })`;
+
+          const argExpr = `({ isEdge: ${isEdge}, methods: [${methodsExpr}] })`;
 
           let apiHandlerExpression = parseExpression(
             `${createRpcHandlerIdentifier.name}(${argExpr})`,
@@ -447,8 +440,9 @@ export default function (
               ],
               t.stringLiteral(IMPORT_PATH_BROWSER),
             ),
-            ...rpcMethodNames.map((name) =>
-              t.exportNamedDeclaration(
+            ...rpcMethodNames.map((name) => {
+              const isGenerator = !!generators.get(name);
+              return t.exportNamedDeclaration(
                 t.variableDeclaration('const', [
                   t.variableDeclarator(
                     t.identifier(name),
@@ -459,15 +453,15 @@ export default function (
                           JSON.stringify({
                             url: rpcPath,
                             method: name,
-                            isGenerator: false,
+                            isGenerator,
                           }),
                         ),
                       ]),
                     ),
                   ),
                 ]),
-              ),
-            ),
+              );
+            }),
           ]);
         }
         if (process.env.DEBUG_ACTIONS) {

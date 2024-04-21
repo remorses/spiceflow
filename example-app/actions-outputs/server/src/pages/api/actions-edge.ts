@@ -2,22 +2,25 @@
 
 import { wrapApiHandler as _wrapApiHandler } from "server-actions-for-next-pages/dist/context-internal";
 import { createRpcMethod as _createRpcMethod, createRpcHandler as _createRpcHandler } from "server-actions-for-next-pages/dist/server.js";
+import { sleep } from '@/utils';
 import { getEdgeContext } from 'server-actions-for-next-pages/context';
 import { cookies, headers } from 'server-actions-for-next-pages/headers';
 export const runtime = 'edge';
 // export const config = { runtime: 'edge' };
 
-export function wrapMethod(fn) {
-  return async (...args) => {
-    try {
-      const res = await fn(...args);
-      return res;
-    } catch (error) {
-      // console.error(error);
-      throw error;
-    }
-  };
-}
+// async generator
+export const asyncGeneratorAction = _createRpcMethod(async function* asyncGeneratorAction() {
+  for (let i = 0; i < 10; i++) {
+    await sleep(300);
+    yield {
+      i
+    };
+  }
+}, {
+  "name": "asyncGeneratorAction",
+  "pathname": "/api/actions-edge",
+  "isGenerator": true
+}, null);
 export const edgeServerAction = _createRpcMethod(async function edgeServerAction({}) {
   const {
     req,
@@ -35,13 +38,18 @@ export const edgeServerAction = _createRpcMethod(async function edgeServerAction
   };
 }, {
   "name": "edgeServerAction",
-  "pathname": "/api/actions-edge"
-}, typeof wrapMethod === 'function' ? wrapMethod : undefined);
+  "pathname": "/api/actions-edge",
+  "isGenerator": false
+}, null);
 export default /*#__PURE__*/_wrapApiHandler(_createRpcHandler({
   isEdge: true,
-  isGenerator: false,
   methods: [{
+    method: "asyncGeneratorAction",
+    implementation: asyncGeneratorAction,
+    isGenerator: true
+  }, {
     method: "edgeServerAction",
-    implementation: edgeServerAction
+    implementation: edgeServerAction,
+    isGenerator: false
   }]
 }), true);
