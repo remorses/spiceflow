@@ -464,23 +464,6 @@ export default function (
             }),
           ]);
         }
-        if (process.env.DEBUG_ACTIONS) {
-          // stringify the AST and print it
-          const output = generate(
-            program.node,
-            {
-              /* options */
-            },
-
-            this.file.code,
-          );
-          let p = path.resolve(
-            './plugin-outputs',
-            (isServer ? 'server-' : 'client-') + path.basename(filename),
-          );
-          fs.mkdirSync(path.dirname(p), { recursive: true });
-          fs.writeFileSync(p, output.code);
-        }
       },
     },
   };

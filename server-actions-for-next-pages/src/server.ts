@@ -111,27 +111,34 @@ export function createRpcHandler({
     };
   } else {
     return (async (req, res) => {
-      const body = req.body;
+      let body = req.body;
+      if (typeof body === 'string') {
+        // if the sdk send a request without content-type header as json, it will be a string
+        body = JSON.parse(body);
+      }
       const result = await handler({
         methodsMap,
         body,
         method: req.method,
       });
-      console.log('isAsyncIterable', JSON.stringify(result));
+
       if (isAsyncIterable(result)) {
         res.status(200);
         res.setHeader('content-type', 'text/event-stream');
         res.setHeader('cache-control', 'no-cache');
         res.setHeader('connection', 'keep-alive');
+        // https://github.com/vercel/next.js/issues/9965#issuecomment-584319868
+        res.setHeader('content-encoding', 'none');
         res.flushHeaders();
         // handle cancellation
         res.on('close', () => {
+          console.log(`response closed, cancelling generator`);
           (result as AsyncIterator<any>).return?.();
         });
         for await (const value of result) {
           res.write('data: ' + JSON.stringify(value.json) + '\n\n');
-          // flush
         }
+
         res.end();
         return;
       }

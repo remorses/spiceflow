@@ -21,7 +21,7 @@ export function wrapMethod(fn) {
 }
 
 // async generator
-export const asyncGeneratorActionEdge = _createRpcMethod(async function* asyncGeneratorActionEdge() {
+export const asyncGeneratorActionEdge = _createRpcMethod(async function* asyncGeneratorActionEdge(arg) {
   for (let i = 0; i < 10; i++) {
     await sleep(300);
     yield {

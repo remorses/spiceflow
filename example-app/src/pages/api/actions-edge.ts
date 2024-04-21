@@ -20,7 +20,7 @@ export function wrapMethod(fn) {
 }
 
 // async generator
-export async function* asyncGeneratorActionEdge() {
+export async function* asyncGeneratorActionEdge(arg?: any) {
   for (let i = 0; i < 10; i++) {
     await sleep(300);
     yield { i };
