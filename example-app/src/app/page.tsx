@@ -35,7 +35,7 @@ export default function Home() {
   useEffect(() => {
     (async function () {
       const gen = await asyncGeneratorAction();
-      console.log('async generator', gen);
+
       // while (true) {
       //   const { value, done } = await gen.next();
       //   setStream(value);

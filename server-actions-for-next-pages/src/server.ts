@@ -186,26 +186,32 @@ export function createRpcHandler({
         body,
         method: req.method,
       });
-      console.log('result', result);
 
       if (isAsyncIterable(result)) {
-        const transformStream = new TransformStream({}, { highWaterMark: 0 });
-
-        const writer = transformStream.writable.getWriter();
-        req.signal.addEventListener('abort', () => {
-          writer.abort();
-        });
         const encoder = new TextEncoder();
-        // sent a server sent event for each yielded value
+        req.signal.addEventListener('abort', () => {
+          result.return?.(undefined);
+        });
+        const readableStream = new ReadableStream(
+          {
+            start(controller) {},
+            async pull(controller) {
+              for await (const value of result) {
+                controller.enqueue(
+                  encoder.encode(
+                    'data: ' + JSON.stringify(value.json) + '\n\n',
+                  ),
+                );
+              }
+              controller.close();
+            },
 
-        for await (const value of result) {
-          await writer.write(
-            encoder.encode('data: ' + JSON.stringify(value.json) + '\n\n'),
-          );
-        }
+            cancel() {},
+          },
+          // { highWaterMark: 0 },
+        );
 
-        writer.close();
-        return new Response(transformStream.readable, {
+        return new Response(readableStream, {
           headers: {
             'content-type': 'text/event-stream',
             'cache-control': 'no-cache',
