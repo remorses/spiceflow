@@ -7,7 +7,17 @@ import { cookies, headers } from 'server-actions-for-next-pages/headers';
 export const runtime = 'edge';
 // export const config = { runtime: 'edge' };
 
-
+export function wrapMethod(fn) {
+  return async (...args) => {
+    try {
+      const res = await fn(...args);
+      return res;
+    } catch (error) {
+      // console.error(error);
+      throw error;
+    }
+  };
+}
 
 // async generator
 export async function* asyncGeneratorAction() {

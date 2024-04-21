@@ -66,6 +66,7 @@ export function createRpcFetcher({
           if (event.data === '[DONE]') {
             continue;
           }
+
           const json = JSON.parse(event.data);
 
           const { jsonrpc, id, result, meta, error } = json as JsonRpcResponse;

@@ -117,7 +117,7 @@ export function createRpcHandler({
         return (async function* () {
           // send a response for each yielded value
           const result = await requestedMethod.implementation(...args);
-          console.log('result', JSON.stringify(result));
+
           try {
             for await (const value of result) {
               const { json, meta } = superjson.serialize(value);
@@ -189,7 +189,7 @@ export function createRpcHandler({
       console.log('result', result);
 
       if (isAsyncIterable(result)) {
-        const transformStream = new TransformStream({});
+        const transformStream = new TransformStream({}, { highWaterMark: 0 });
 
         const writer = transformStream.writable.getWriter();
         req.signal.addEventListener('abort', () => {
@@ -199,7 +199,7 @@ export function createRpcHandler({
         // sent a server sent event for each yielded value
 
         for await (const value of result) {
-          writer.write(
+          await writer.write(
             encoder.encode('data: ' + JSON.stringify(value.json) + '\n\n'),
           );
         }
@@ -212,13 +212,13 @@ export function createRpcHandler({
             connection: 'keep-alive',
           },
         });
-      } else {
-        const { status, json } = result;
-        return new Response(JSON.stringify(json, null, 2), {
-          status,
-          headers: res?.headers || {},
-        });
       }
+
+      const { status, json } = result;
+      return new Response(JSON.stringify(json, null, 2), {
+        status,
+        headers: res?.headers || {},
+      });
     };
   } else {
     return (async (req, res) => {
@@ -233,7 +233,7 @@ export function createRpcHandler({
         res.setHeader('connection', 'keep-alive');
         // handle cancellation
         res.on('close', () => {
-          result.return?.();
+          (result as AsyncIterator<any>).return?.();
         });
         for await (const value of result) {
           res.write('data: ' + JSON.stringify(value.json) + '\n\n');

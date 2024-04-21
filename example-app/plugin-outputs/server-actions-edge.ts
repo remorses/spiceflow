@@ -7,6 +7,18 @@ import { cookies, headers } from 'server-actions-for-next-pages/headers';
 export const runtime = 'edge';
 // export const config = { runtime: 'edge' };
 
+export function wrapMethod(fn) {
+  return async (...args) => {
+    try {
+      const res = await fn(...args);
+      return res;
+    } catch (error) {
+      // console.error(error);
+      throw error;
+    }
+  };
+}
+
 // async generator
 export const asyncGeneratorAction = _createRpcMethod(async function* asyncGeneratorAction() {
   for (let i = 0; i < 10; i++) {
@@ -19,7 +31,7 @@ export const asyncGeneratorAction = _createRpcMethod(async function* asyncGenera
   "name": "asyncGeneratorAction",
   "pathname": "/api/actions-edge",
   "isGenerator": true
-}, null);
+}, typeof wrapMethod === 'function' ? wrapMethod : undefined);
 export const edgeServerAction = _createRpcMethod(async function edgeServerAction({}) {
   const {
     req,
@@ -39,7 +51,7 @@ export const edgeServerAction = _createRpcMethod(async function edgeServerAction
   "name": "edgeServerAction",
   "pathname": "/api/actions-edge",
   "isGenerator": false
-}, null);
+}, typeof wrapMethod === 'function' ? wrapMethod : undefined);
 export default _createRpcHandler({
   isEdge: true,
   methods: [{
