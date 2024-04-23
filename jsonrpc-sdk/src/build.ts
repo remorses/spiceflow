@@ -11,6 +11,8 @@ import { plugins } from '.';
 import { directive } from './utils';
 
 export async function buildOnce({ rootDir, url }) {
+  console.log();
+  console.log('building functions');
   if (url && !url.endsWith('/')) {
     // make sure that new URL uses the last portion of the path too
     url += '/';
@@ -183,9 +185,9 @@ export async function build({ rootDir, url, watch = false }) {
       logger.log(`detected change in ${path}`);
       await buildOnce({ rootDir, url });
       if (missedWatch.ref) {
-        missedWatch.ref = false;
         // logger.log('missed a change, rebuilding');
         await buildOnce({ rootDir, url });
+        missedWatch.ref = false;
       }
     } finally {
       isBuilding.ref = false;
