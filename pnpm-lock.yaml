@@ -50,6 +50,9 @@ importers:
       elacca:
         specifier: ^0.5.1
         version: 0.5.1(next@14.2.1(@babel/core@7.24.0)(react-dom@18.2.0(react@18.2.0))(react@18.2.0))(webpack@5.91.0)
+      example-sdk:
+        specifier: workspace:*
+        version: link:../example-sdk
       next:
         specifier: 14.2.1
         version: 14.2.1(@babel/core@7.24.0)(react-dom@18.2.0(react@18.2.0))(react@18.2.0)

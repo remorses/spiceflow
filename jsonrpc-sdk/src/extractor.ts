@@ -9,6 +9,16 @@ import { plugins } from '.';
 import { directive } from './utils';
 
 export async function extract({ rootDir, url, basePath = '' }) {
+  if (url && !url.endsWith('/')) {
+    // make sure that new URL uses the last portion of the path too
+    url += '/';
+  }
+  try {
+    new URL(url);
+  } catch (e) {
+    throw new Error(`Invalid url ${url}`);
+  }
+
   let libOutDir = path.resolve('dist');
   await fs.promises.rmdir(libOutDir, { recursive: true }).catch(() => null);
   const typesDistDir = 'dist';
@@ -31,6 +41,41 @@ export async function extract({ rootDir, url, basePath = '' }) {
       .map((x) => {
         return path.relative(rootDir, x);
       });
+    const serverEntrypoint = path.resolve(rootDir, 'server.ts');
+    const importsCode = actionFilesRelativePaths
+      .map((filePath) => {
+        filePath = removeExtension(filePath);
+        return `${JSON.stringify(
+          '/' + filePath,
+        )}: () => import('./${filePath}')`;
+      })
+      .join(',');
+    const serverExposeContent =
+      `// this file was generated\n` +
+      `import { internalEdgeHandler, internalNodeJsHandler } from 'jsonrpc-sdk/dist/server';\n` +
+      `const methodsMap = {${importsCode}}\n` +
+      `export const edgeHandler = internalEdgeHandler({ methodsMap });\n` +
+      `export const nodeJsHandler = internalNodeJsHandler({ methodsMap });\n`;
+
+    if (!actionFilesRelativePaths.length) {
+      throw new Error('No functions files found!');
+    }
+    fs.writeFileSync(serverEntrypoint, serverExposeContent, 'utf8');
+
+    const tscCommand = `tsc --declaration --noEmit false --outDir ${typesDistDir} `;
+    await new Promise((resolve, reject) => {
+      exec(tscCommand, {}, (error, stdout, stderr) => {
+        if (error) {
+          console.error(stdout, stderr);
+          reject(error);
+        } else {
+          resolve(stdout);
+        }
+      });
+    }).catch((error) => {
+      // console.error(error);
+      console.error('Error running tsc, continue anyway');
+    });
 
     const imports = [] as string[];
 
@@ -71,48 +116,10 @@ export async function extract({ rootDir, url, basePath = '' }) {
       fs.writeFileSync(path.resolve(libOutDir, importPath), res.code, 'utf-8');
     }
 
-    const serverEntrypoint = path.resolve(rootDir, 'server.ts');
-    const serverExposeContent =
-      `import { internalEdgeHandler, internalNodeJsHandler } from 'jsonrpc-sdk/dist/server';\n` +
-      `const methodsMap = {${actionFilesRelativePaths
-        .map(
-          (file) =>
-            `${JSON.stringify('/' + file)}: () => import('./${removeExtension(
-              file,
-            )}')`,
-        )
-        .join(',')}}\n` +
-      `export const edgeHandler = internalEdgeHandler({ methodsMap });\n` +
-      `export const nodeJsHandler = internalNodeJsHandler({ methodsMap });\n`;
-
-    if (!actionFilesRelativePaths.length) {
-      throw new Error('No functions files found!');
-    }
-    fs.writeFileSync(serverEntrypoint, serverExposeContent, 'utf8');
-    const entryPointDts = path.resolve(
-      typesDistDir,
-      path.relative(process.cwd(), rootDir),
-      path.basename(serverEntrypoint, path.extname(serverEntrypoint)) + '.d.ts',
-    );
-    const tscCommand = `tsc  --emitDeclarationOnly --declaration --noEmit false --outDir ${typesDistDir} `;
-    await new Promise((resolve, reject) => {
-      exec(tscCommand, {}, (error, stdout, stderr) => {
-        if (error) {
-          console.error(stdout, stderr);
-          reject(error);
-        } else {
-          resolve(stdout);
-        }
-      });
-    }).catch((error) => {
-      // console.error(error);
-      console.error('Error running tsc, continue anyway');
-    });
-
-    fs.writeFileSync(
-      path.resolve(libOutDir, 'index.js'),
-      imports.map((x) => `export * from '${x}'`).join('\n'),
-    );
+    // fs.writeFileSync(
+    //   path.resolve(libOutDir, 'index.js'),
+    //   imports.map((x) => `export * from '${x}'`).join('\n'),
+    // );
     // const generator = createGenerator({
     //   path: dtsOutputFilePath,
     //   type: '*',
@@ -126,8 +133,12 @@ export async function extract({ rootDir, url, basePath = '' }) {
     //   JSON.stringify(schema, null, 2),
     // );
     const dtsOutputFilePath = path.resolve(libOutDir, 'index.d.ts');
-
-    rollupDtsFile(entryPointDts, dtsOutputFilePath, 'tsconfig.json');
+    // const entryPointDts = path.resolve(
+    //   typesDistDir,
+    //   path.relative(process.cwd(), rootDir),
+    //   path.basename(serverEntrypoint, path.extname(serverEntrypoint)) + '.d.ts',
+    // );
+    // rollupDtsFile(entryPointDts, dtsOutputFilePath, 'tsconfig.json');
   } finally {
     // await fs.promises.unlink(serverEntrypoint).catch(() => null);
   }

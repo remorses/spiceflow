@@ -151,13 +151,13 @@ export function isEdgeInConfig(
 export interface PluginOptions {
   isServer: boolean;
   rootDir: string;
-  basePath: string;
+
   url?: string;
 }
 
 export default function (
   { types: t }: Babel,
-  { rootDir, isServer, url: rpcUrl, basePath }: PluginOptions,
+  { rootDir, isServer, url: rpcUrl }: PluginOptions,
 ): babel.PluginObj {
   return {
     visitor: {
@@ -189,19 +189,14 @@ export default function (
 
         const rel = path.relative(rootDir, filename);
 
-        const rpcRelativePath =
-          '/' +
-          rel
-            .replace(/\.[j|t]sx?$/, '')
-            // remove /pages at the start
-            .replace(/^src\//, '')
-            .replace(/\/index$/, '');
-
-        let rpcPath =
-          basePath === '/' ? rpcRelativePath : `${basePath}${rpcRelativePath}`;
-        if (rpcUrl) {
-          rpcPath = new URL(rpcPath, rpcUrl).toString();
-        }
+        const rpcRelativePath = rel
+          .replace(/\.[j|t]sx?$/, '')
+          // remove /pages at the start
+          .replace(/^src\//, '')
+          .replace(/\/index$/, '');
+        let rpcPath = rpcUrl
+          ? new URL(rpcRelativePath, rpcUrl).toString()
+          : '/' + rpcRelativePath;
 
         const rpcMethodNames: string[] = [];
 

@@ -49,12 +49,12 @@ type MethodsMap = {
   }>;
 };
 
-export async function internalEdgeHandler({
+export function internalEdgeHandler({
   methodsMap,
 }: {
   methodsMap: MethodsMap;
 }) {
-  return async (req: Request) => {
+  return async ({ req, basePath }: { req: Request; basePath: string }) => {
     const body = await req.json();
     const res = new Response();
     const result = await asyncLocalStorage.run({ req, res }, () =>
@@ -62,6 +62,7 @@ export async function internalEdgeHandler({
         methodsMap,
         body,
         pathname: new URL(req.url).pathname,
+        basePath,
         method: req.method,
       }),
     );
@@ -107,7 +108,7 @@ export async function internalEdgeHandler({
   };
 }
 
-export async function internalNodeJsHandler({
+export function internalNodeJsHandler({
   methodsMap,
 }: {
   methodsMap: MethodsMap;
@@ -115,9 +116,11 @@ export async function internalNodeJsHandler({
   return async ({
     req,
     res,
+    basePath,
   }: {
     req: IncomingMessage;
     res: ServerResponse;
+    basePath: string;
   }) => {
     let body = req['body'];
     if (body && typeof body === 'string') {
@@ -144,6 +147,7 @@ export async function internalNodeJsHandler({
       handler({
         methodsMap,
         body,
+        basePath,
         pathname: req.url!,
         method: req.method!,
       }),
@@ -181,16 +185,24 @@ function isAsyncIterable(obj: any): obj is AsyncIterable<any> {
 const handler = async ({
   method,
   methodsMap,
+  basePath,
   body,
   pathname,
 }: {
   method: string;
+  basePath: string;
   pathname: string;
   methodsMap: MethodsMap;
   body: JsonRpcRequest;
 }) => {
   if (!methodsMap) {
     throw new Error('No methods found');
+  }
+  if (basePath && pathname.startsWith(basePath)) {
+    if (basePath.endsWith('/')) {
+      basePath = basePath.slice(0, -1);
+    }
+    pathname = pathname.slice(basePath.length);
   }
   if (method !== 'POST') {
     return {
@@ -211,7 +223,7 @@ const handler = async ({
 
   const { id, method: fn, params, meta: argsMeta } = body;
 
-  const mod = methodsMap[pathname] && (await methodsMap[pathname]);
+  const mod = methodsMap[pathname] && (await methodsMap[pathname]());
   if (!mod) {
     return {
       status: 400,
@@ -241,7 +253,9 @@ const handler = async ({
           code: -32601,
           message: 'Method not found',
           data: {
-            cause: `Method "${method}" is not a function`,
+            cause: `Method "${fn}" is not a function, in ${Object.keys(
+              mod,
+            ).join(', ')}`,
           },
         },
       } satisfies JsonRpcResponse,
