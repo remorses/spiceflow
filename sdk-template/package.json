@@ -11,7 +11,7 @@
   ],
   "scripts": {
     "build": "jsonrpc-sdk --url http://localhost:3333",
-    "server": "jsonrpc-sdk server --url http://localhost:3333",
+    "server": "jsonrpc-sdk server --port 3333",
     "watch": "jsonrpc-sdk --watch --url http://localhost:3333"
   },
   "dependencies": {

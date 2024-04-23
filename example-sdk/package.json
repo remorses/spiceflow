@@ -5,7 +5,11 @@
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
   "type": "module",
-  "scripts": {},
+  "scripts": {
+    "build": "jsonrpc-sdk --url http://localhost:3333",
+    "server": "jsonrpc-sdk server --port 3333",
+    "watch": "jsonrpc-sdk --watch --url http://localhost:3333"
+  },
   "dependencies": {
     "jsonrpc-sdk": "workspace:*"
   },

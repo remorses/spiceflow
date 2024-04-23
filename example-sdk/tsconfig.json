@@ -12,7 +12,6 @@
     "moduleResolution": "NodeNext",
     "resolveJsonModule": true,
     "isolatedModules": true,
-    
     "jsx": "preserve",
     "incremental": true,
     "plugins": [],
