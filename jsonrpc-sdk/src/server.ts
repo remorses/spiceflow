@@ -44,19 +44,20 @@ export function createRpcMethod<P extends any[], R>(
   return (...args) => wrapped(...args);
 }
 
-type MethodMod = {
-  method: string;
-  implementation: (...params: any[]) => any;
+type MethodsMap = {
+  [key: string]: {
+    [key: string]: Method<any, any>;
+  };
 };
+
+
 export function createRpcHandler({
-  methods,
+  methodsMap,
   isEdge,
 }: {
-  methods: MethodMod[];
+  methodsMap: MethodsMap;
   isEdge?: boolean;
 }) {
-  const methodsMap = new Map(methods.map((x) => [x.method, x]));
-
   if (isEdge) {
     return async (req: NextRequest) => {
       const { res } = await getEdgeContext();
@@ -65,6 +66,7 @@ export function createRpcHandler({
       const result = await handler({
         methodsMap,
         body,
+        pathname: new URL(req.url).pathname,
         method: req.method,
       });
 
@@ -117,6 +119,7 @@ export function createRpcHandler({
       const result = await handler({
         methodsMap,
         body,
+        pathname: req.url!,
         method: req.method!,
       });
 
@@ -154,9 +157,11 @@ const handler = async ({
   method,
   methodsMap,
   body,
+  pathname,
 }: {
   method: string;
-  methodsMap: Map<string, MethodMod>;
+  pathname: string;
+  methodsMap: MethodsMap;
   body: JsonRpcRequest;
 }) => {
   if (method !== 'POST') {
@@ -177,9 +182,28 @@ const handler = async ({
   }
 
   const { id, method: fn, params, meta: argsMeta } = body;
-  const requestedMethod = methodsMap.get(fn);
 
-  if (typeof requestedMethod?.implementation !== 'function') {
+  const mod = methodsMap[pathname];
+  if (!mod) {
+    return {
+      status: 400,
+      json: {
+        jsonrpc: '2.0',
+        id,
+        error: {
+          code: -32601,
+          message: 'Method not found',
+          data: {
+            cause: `Path "${pathname}" is not handled by any method`,
+          },
+        },
+      } satisfies JsonRpcResponse,
+    };
+  }
+
+  const requestedMethod = mod[fn];
+
+  if (typeof requestedMethod !== 'function') {
     return {
       status: 400,
       json: {
@@ -201,7 +225,7 @@ const handler = async ({
       json: params,
       meta: argsMeta,
     }) as any[];
-    const result = await requestedMethod.implementation(...args);
+    const result = await requestedMethod(...args);
     if (!isAsyncIterable(result)) {
       const { json, meta } = superjson.serialize(result);
 
