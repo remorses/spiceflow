@@ -1,30 +1,22 @@
 import { AsyncLocalStorage } from 'async_hooks';
 import type { IncomingMessage, ServerResponse } from 'http';
-import { ReadonlyHeaders } from 'next/dist/server/web/spec-extension/adapters/headers';
-import { ReadonlyRequestCookies } from 'next/dist/server/web/spec-extension/adapters/request-cookies';
-import { cookies, headers } from 'next/headers';
-import { NextRequest, NextResponse } from 'next/server';
 
 interface CommonContext {
-  cookies(): ReadonlyRequestCookies;
-  headers(): ReadonlyHeaders;
+  // cookies(): ReadonlyRequestCookies;
+  // headers(): ReadonlyHeaders;
 }
 interface NodejsContext extends CommonContext {
   req?: IncomingMessage;
   res?: ServerResponse;
 }
 interface EdgeContext extends CommonContext {
-  req?: NextRequest;
-  res?: NextResponse;
+  req?: Request;
+  res?: Response;
 }
 
 const DEFAULT_CONTEXT = {
-  headers() {
-    return headers();
-  },
-  cookies() {
-    return cookies();
-  },
+  // headers() {},
+  // cookies() {},
 };
 
 export const asyncLocalStorage = new AsyncLocalStorage<

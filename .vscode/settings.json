@@ -2,10 +2,11 @@
   "search.exclude": {
     "**/node_modules": true,
     "**/bower_components": true,
-    "**/server-actions-for-next-pages/**": true,
+    // "**/server-actions-for-next-pages/**": true,
     "**/actions-outputs/**": true,
     "**/plugin-outputs/**": true,
     "**/example-sdk/**": true,
-    "**/*.code-search": true
+    "**/*.code-search": true,
+    "**/dist/**": true
   }
 }

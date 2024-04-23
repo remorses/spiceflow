@@ -1,11 +1,8 @@
-import * as path from 'path';
 import * as fs from 'fs';
-import type * as webpack from 'webpack';
-import { NextConfig } from 'next';
+import * as path from 'path';
 import { PluginOptions } from './babelTransformRpc';
 
 import { WrapMethod } from './server';
-import { directive } from '@babel/types';
 
 export interface WithRpcConfig {}
 
