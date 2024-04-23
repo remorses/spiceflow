@@ -1,4 +1,9 @@
-import { Extractor, ExtractorConfig } from '@microsoft/api-extractor';
+import { red } from 'picocolors';
+import {
+  Extractor,
+  ExtractorConfig,
+  ExtractorLogLevel,
+} from '@microsoft/api-extractor';
 import chokidar from 'chokidar';
 import { getPackages } from '@manypkg/get-packages';
 
@@ -70,7 +75,9 @@ export async function buildOnce({ rootDir, url }) {
     await new Promise((resolve, reject) => {
       exec(tscCommand, {}, (error, stdout, stderr) => {
         if (error) {
-          console.error(stdout, stderr);
+          console.log();
+          console.error(red(stdout));
+          console.error(red(stderr));
           reject(error);
         } else {
           resolve(stdout);
@@ -244,8 +251,16 @@ function rollupDtsFile({
     // Equivalent to the "--local" command-line parameter
     localBuild: true,
 
+    messageCallback(message) {
+      if (message.logLevel !== ExtractorLogLevel.Error) {
+        return;
+      }
+
+      console.log(message.text);
+    },
+    showDiagnostics: false,
     // Equivalent to the "--verbose" command-line parameter
-    showVerboseMessages: true,
+    showVerboseMessages: false,
   });
 
   if (!extractorResult.succeeded) {

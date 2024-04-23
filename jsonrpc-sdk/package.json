@@ -39,6 +39,7 @@
     "eventsource-parser": "^1.1.2",
     "fast-glob": "^3.3.2",
     "find-up": "^7.0.0",
+    "picocolors": "^1.0.0",
     "superjson": "^1.13.3",
     "ts-json-schema-generator": "^2.1.0"
   },
