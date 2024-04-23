@@ -11,15 +11,12 @@ export { WrapMethod };
 export function plugins({
   isServer,
   rootDir: nextDir,
-
-  basePath,
   url,
 }: PluginOptions) {
   const rpcPluginOptions: PluginOptions = {
     isServer,
     rootDir: nextDir,
     url,
-    basePath: basePath || '/',
   };
 
   return [

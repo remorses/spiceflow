@@ -8,7 +8,7 @@ import path from 'path';
 import { plugins } from '.';
 import { directive } from './utils';
 
-export async function extract({ rootDir, url, basePath = '' }) {
+export async function extract({ rootDir, url }) {
   if (url && !url.endsWith('/')) {
     // make sure that new URL uses the last portion of the path too
     url += '/';
@@ -24,6 +24,7 @@ export async function extract({ rootDir, url, basePath = '' }) {
   const typesDistDir = 'dist';
 
   const cwd = process.cwd();
+  const serverEntrypoint = path.resolve(rootDir, 'server.ts');
 
   try {
     const globBase = path.relative(cwd, rootDir);
@@ -41,7 +42,6 @@ export async function extract({ rootDir, url, basePath = '' }) {
       .map((x) => {
         return path.relative(rootDir, x);
       });
-    const serverEntrypoint = path.resolve(rootDir, 'server.ts');
     const importsCode = actionFilesRelativePaths
       .map((filePath) => {
         filePath = removeExtension(filePath);
@@ -89,7 +89,6 @@ export async function extract({ rootDir, url, basePath = '' }) {
         babelrc: false,
         sourceType: 'module',
         plugins: plugins({
-          basePath,
           isServer: false,
           url,
           rootDir,
@@ -140,7 +139,7 @@ export async function extract({ rootDir, url, basePath = '' }) {
     // );
     // rollupDtsFile(entryPointDts, dtsOutputFilePath, 'tsconfig.json');
   } finally {
-    // await fs.promises.unlink(serverEntrypoint).catch(() => null);
+    await fs.promises.unlink(serverEntrypoint).catch(() => null);
   }
 }
 
