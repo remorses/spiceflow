@@ -159,6 +159,9 @@ export async function buildOnce({ rootDir, url }) {
 }
 const logger = console;
 
+let isBuilding = { ref: false };
+let missedWatch = { ref: false };
+
 export async function build({ rootDir, url, watch = false }) {
   await buildOnce({ rootDir, url });
   if (!watch) {
@@ -170,9 +173,23 @@ export async function build({ rootDir, url, watch = false }) {
     persistent: true,
   });
   console.log('watching for changes');
-  watcher.on('change', async (path) => {
-    logger.log(`detected change in ${path}`);
-    buildOnce({ rootDir, url });
+  watcher.on('change', async (path, stats) => {
+    if (isBuilding.ref) {
+      missedWatch.ref = true;
+      return;
+    }
+    isBuilding.ref = true;
+    try {
+      logger.log(`detected change in ${path}`);
+      await buildOnce({ rootDir, url });
+      if (missedWatch.ref) {
+        missedWatch.ref = false;
+        // logger.log('missed a change, rebuilding');
+        await buildOnce({ rootDir, url });
+      }
+    } finally {
+      isBuilding.ref = false;
+    }
   });
 }
 
