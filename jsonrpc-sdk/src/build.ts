@@ -21,7 +21,7 @@ export async function extract({ rootDir, url }) {
   }
 
   let libOutDir = path.resolve('dist');
-  await fs.promises.rmdir(libOutDir, { recursive: true }).catch(() => null);
+  await fs.promises.rm(libOutDir, { recursive: true }).catch(() => null);
   const typesDistDir = 'dist';
 
   const cwd = process.cwd();
@@ -63,7 +63,7 @@ export async function extract({ rootDir, url }) {
     }
     fs.writeFileSync(serverEntrypoint, serverExposeContent, 'utf8');
 
-    const tscCommand = `tsc --declaration --noEmit false --outDir ${typesDistDir} `;
+    const tscCommand = `tsc --incremental --declaration --noEmit false --outDir ${typesDistDir} `;
     await new Promise((resolve, reject) => {
       exec(tscCommand, {}, (error, stdout, stderr) => {
         if (error) {
