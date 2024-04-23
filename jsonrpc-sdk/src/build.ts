@@ -1,4 +1,5 @@
 import { Extractor, ExtractorConfig } from '@microsoft/api-extractor';
+import { getPackages } from '@manypkg/get-packages';
 
 import { transform } from '@babel/core';
 import { exec } from 'child_process';
@@ -115,10 +116,6 @@ export async function extract({ rootDir, url }) {
       fs.writeFileSync(path.resolve(libOutDir, importPath), res.code, 'utf-8');
     }
 
-    // fs.writeFileSync(
-    //   path.resolve(libOutDir, 'index.js'),
-    //   imports.map((x) => `export * from '${x}'`).join('\n'),
-    // );
     // const generator = createGenerator({
     //   path: dtsOutputFilePath,
     //   type: '*',
@@ -131,23 +128,46 @@ export async function extract({ rootDir, url }) {
     //   path.resolve(outDir, 'schema.json'),
     //   JSON.stringify(schema, null, 2),
     // );
-    const dtsOutputFilePath = path.resolve(libOutDir, 'index.d.ts');
-    // const entryPointDts = path.resolve(
-    //   typesDistDir,
-    //   path.relative(process.cwd(), rootDir),
-    //   path.basename(serverEntrypoint, path.extname(serverEntrypoint)) + '.d.ts',
-    // );
-    // rollupDtsFile(entryPointDts, dtsOutputFilePath, 'tsconfig.json');
+
+    const bundledPackages = (await getPackages(process.cwd())).packages.map(
+      (x) => x.packageJson.name,
+    );
+    if (!bundledPackages.length) {
+      console.log('no workspace packages found, skipping types bundling');
+      return;
+    }
+    for (const actionFile of actionFilesRelativePaths) {
+      const entryPointDts = path.resolve(
+        typesDistDir,
+        // path.relative(process.cwd(), rootDir),
+        path.dirname(actionFile),
+        path.basename(actionFile, path.extname(actionFile)) + '.d.ts',
+      );
+      console.log(`bundling types for ${entryPointDts}`);
+
+      rollupDtsFile({
+        bundledPackages,
+        inputFilePath: entryPointDts,
+        outputFilePath: entryPointDts,
+        tsconfigFilePath: 'tsconfig.json',
+      });
+    }
   } finally {
     await fs.promises.unlink(serverEntrypoint).catch(() => null);
   }
 }
 
-function rollupDtsFile(
-  inputFilePath: string,
-  outputFilePath: string,
-  tsconfigFilePath: string,
-) {
+function rollupDtsFile({
+  inputFilePath,
+  outputFilePath,
+  tsconfigFilePath,
+  bundledPackages,
+}: {
+  inputFilePath: string;
+  outputFilePath: string;
+  tsconfigFilePath: string;
+  bundledPackages: string[];
+}) {
   let cwd = process.cwd();
   if (!fs.existsSync(tsconfigFilePath)) {
     throw new Error(`tsconfig.json not found at ${tsconfigFilePath}`);
@@ -158,7 +178,7 @@ function rollupDtsFile(
   const extractorConfig = ExtractorConfig.prepare({
     configObject: {
       mainEntryPointFilePath: inputFilePath,
-
+      bundledPackages,
       apiReport: {
         enabled: false,
 

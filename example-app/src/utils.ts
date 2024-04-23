@@ -7,3 +7,5 @@ export const User = z.object({
 export function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
+export type UserType = z.infer<typeof User>;

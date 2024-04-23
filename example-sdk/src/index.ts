@@ -1,2 +1,2 @@
 export * from './v1/example';
-export * from './v1/another-file';
+export * from './v1/generator';
