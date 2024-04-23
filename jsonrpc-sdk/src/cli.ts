@@ -3,7 +3,7 @@
 import fs from 'fs-extra';
 
 import { cac } from 'cac';
-import { extract } from './extractor.js';
+import { extract } from './build.js';
 import { findRootDir } from './index.js';
 
 export const cli = cac();
