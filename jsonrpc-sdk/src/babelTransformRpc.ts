@@ -58,14 +58,7 @@ function getConfigObjectExpression(
   return null;
 }
 
-export function getConfigObject(
-  program: babel.NodePath<babel.types.Program>,
-  isAppDir: boolean,
-) {
-  if (isAppDir) {
-    // app routes always use Request and Response
-    return { isEdge: true };
-  }
+export function getConfigObject(program: babel.NodePath<babel.types.Program>) {
   for (const statement of program.get('body')) {
     if (statement.isExportNamedDeclaration()) {
       const declaration = statement.get('declaration');
@@ -157,15 +150,14 @@ export function isEdgeInConfig(
 
 export interface PluginOptions {
   isServer: boolean;
-  nextDir: string;
-  isAppDir: boolean;
+  rootDir: string;
   basePath: string;
   url?: string;
 }
 
 export default function (
   { types: t }: Babel,
-  { nextDir, isAppDir, isServer, url: rpcUrl, basePath }: PluginOptions,
+  { rootDir, isServer, url: rpcUrl, basePath }: PluginOptions,
 ): babel.PluginObj {
   return {
     visitor: {
@@ -176,7 +168,7 @@ export default function (
           return;
         }
 
-        const { isEdge } = getConfigObject(program, isAppDir) || {
+        const { isEdge } = getConfigObject(program) || {
           isEdge: false,
         };
 
@@ -195,17 +187,15 @@ export default function (
 
         const hasWrap = hasWrapMethod(program);
 
-        const rel = path.relative(nextDir, filename);
+        const rel = path.relative(rootDir, filename);
 
         const rpcRelativePath =
           '/' +
           rel
             .replace(/\.[j|t]sx?$/, '')
             // remove /pages at the start
-            .replace(/^pages\//, '')
-            .replace(/^app\//, '')
-            .replace(/\/index$/, '')
-            .replace(/\/route$/, '');
+            .replace(/^src\//, '')
+            .replace(/\/index$/, '');
 
         let rpcPath =
           basePath === '/' ? rpcRelativePath : `${basePath}${rpcRelativePath}`;
@@ -358,57 +348,7 @@ export default function (
           }
         }
 
-        if (isServer) {
-          const createRpcHandlerIdentifier =
-            program.scope.generateUidIdentifier('createRpcHandler');
-
-          const methodsExpr = rpcMethodNames
-            .map((name) => {
-              const isGenerator = !!generators.get(name);
-              return `{ method: "${name}", implementation: ${name}, isGenerator: ${isGenerator}, }`;
-            })
-            .join(',');
-
-          const argExpr = `({ isEdge: ${isEdge}, methods: [${methodsExpr}] })`;
-
-          let apiHandlerExpression = parseExpression(
-            `${createRpcHandlerIdentifier.name}(${argExpr})`,
-          );
-
-          program.unshiftContainer('body', [
-            t.importDeclaration(
-              [
-                t.importSpecifier(
-                  createRpcMethodIdentifier,
-                  t.identifier('createRpcMethod'),
-                ),
-                t.importSpecifier(
-                  createRpcHandlerIdentifier,
-                  t.identifier('createRpcHandler'),
-                ),
-              ],
-              t.stringLiteral(IMPORT_PATH_SERVER),
-            ),
-          ]);
-
-          if (isAppDir) {
-            // export const POST = {apiHandlerExpression}
-            program.pushContainer('body', [
-              t.exportNamedDeclaration(
-                t.variableDeclaration('const', [
-                  t.variableDeclarator(
-                    t.identifier('POST'),
-                    apiHandlerExpression,
-                  ),
-                ]),
-              ),
-            ]);
-          } else {
-            program.pushContainer('body', [
-              t.exportDefaultDeclaration(apiHandlerExpression),
-            ]);
-          }
-        } else {
+        if (!isServer) {
           const createRpcFetcherIdentifier =
             program.scope.generateUidIdentifier('createRpcFetcher');
 

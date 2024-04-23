@@ -2,8 +2,8 @@ import * as path from 'path';
 import * as fs from 'fs';
 import type * as webpack from 'webpack';
 import { NextConfig } from 'next';
-import { PluginOptions as RpcPluginOptions } from './babelTransformRpc';
-import { PluginOptions as ContextPluginOptions } from './babelTransformContext';
+import { PluginOptions } from './babelTransformRpc';
+
 import { WrapMethod } from './server';
 import { directive } from '@babel/types';
 
@@ -11,190 +11,38 @@ export interface WithRpcConfig {}
 
 export { WrapMethod };
 
-export function withServerActions(withRpcConfig: WithRpcConfig = {}) {
-  return (nextConfig: NextConfig = {}): NextConfig => {
-    applyTurbopackOptions(nextConfig);
-    return {
-      ...nextConfig,
-
-      webpack(config: webpack.Configuration, options) {
-        const { isServer, dev, dir } = options;
-        const nextDir = findNextDir(dir);
-        const pagesDir = path.resolve(nextDir, './pages');
-        const appDir = path.resolve(nextDir, './app');
-        config.module = config.module || {};
-        config.module.rules = config.module.rules || [];
-        config.module.rules.push({
-          test: /\.(tsx|ts|js|mjs|jsx)$/,
-          include: [pagesDir],
-          use: [
-            options.defaultLoaders.babel,
-            {
-              loader: 'babel-loader',
-              options: {
-                sourceMaps: dev,
-                plugins: plugins({
-                  isServer,
-                  nextDir,
-                  isAppDir: false,
-                  basePath: (nextConfig.basePath as string) || '/',
-                }),
-              },
-            },
-          ],
-        });
-        config.module.rules.push({
-          test: /route\.(tsx|ts|js|mjs|jsx)$/,
-          include: [appDir],
-          use: [
-            options.defaultLoaders.babel,
-            {
-              loader: 'babel-loader',
-              options: {
-                sourceMaps: dev,
-                plugins: plugins({
-                  isServer,
-                  nextDir,
-                  isAppDir: true,
-                  basePath: (nextConfig.basePath as string) || '/',
-                }),
-              },
-            },
-          ],
-        });
-
-        if (typeof nextConfig.webpack === 'function') {
-          return nextConfig.webpack(config, options);
-        } else {
-          return config;
-        }
-      },
-    };
-  };
-}
-
-export function fastCheckIfServerAction({ source, filename }) {
-  // the context plugin is required for pages, to add the async context in getServerSideProps or api routes
-  if (filename.includes('/pages/')) {
-    return false;
-  }
-  const quotes = ['"', "'"];
-  for (const quote of quotes) {
-    const str = quote + directive + quote;
-    if (source.includes(str)) {
-      return false;
-    }
-  }
-  return true;
-}
-
 export function plugins({
   isServer,
-  nextDir,
-  isAppDir,
+  rootDir: nextDir,
+
   basePath,
   url,
-}: RpcPluginOptions) {
-  const apiDir = path.resolve(nextDir, './pages/api');
-  const rpcPluginOptions: RpcPluginOptions = {
+}: PluginOptions) {
+  const rpcPluginOptions: PluginOptions = {
     isServer,
-    nextDir,
+    rootDir: nextDir,
     url,
-    isAppDir,
     basePath: basePath || '/',
   };
 
-  const contextPluginOptions: ContextPluginOptions = { apiDir, isServer };
   return [
     require.resolve('@babel/plugin-syntax-jsx'),
     [require.resolve('@babel/plugin-transform-typescript'), { isTSX: true }],
     [require.resolve('../dist/babelTransformRpc'), rpcPluginOptions],
-    [require.resolve('../dist/babelTransformContext'), contextPluginOptions],
     process.env.DEBUG_ACTIONS && [
       require.resolve('../dist/babelDebugOutputs'),
-      contextPluginOptions,
+      rpcPluginOptions,
     ],
   ].filter(Boolean) as any[];
 }
 
-function applyTurbopackOptions(nextConfig: NextConfig): void {
-  nextConfig.experimental ??= {};
-  nextConfig.experimental.turbo ??= {};
-  nextConfig.experimental.turbo.rules ??= {};
-
-  const rules = nextConfig.experimental.turbo.rules;
-
-  const nextDir = findNextDir(process.cwd());
-
-  const basePath = (nextConfig.basePath as string) || '/';
-
-  const globs = [
-    '{./src/pages,./pages/}/**/*.{ts,tsx,js,jsx}', //
-    '{./src/app,./app/}/**/route.{ts,tsx,js,jsx}', //
-  ];
-  for (let glob of globs) {
-    rules[glob] ??= {};
-    const options: RpcPluginOptions = {
-      isServer: false,
-      nextDir,
-      isAppDir: glob.includes('/app'),
-      basePath,
-    };
-    const globbed: any = rules[glob];
-    globbed.browser ??= {};
-    globbed.browser.as = '*.tsx';
-    globbed.browser.loaders ??= [];
-    globbed.browser.loaders.push({
-      loader: require.resolve('../dist/turbopackLoader'),
-      options: { ...options, isServer: false },
-    });
-    globbed.default ??= {};
-    globbed.default.as = '*.tsx';
-    globbed.default.loaders ??= [];
-    globbed.default.loaders.push({
-      loader: require.resolve('../dist/turbopackLoader'),
-      options: { ...options, isServer: true },
-    });
-  }
-}
-
-// taken from https://github.com/vercel/next.js/blob/v12.1.5/packages/next/lib/find-pages-dir.ts
-export function findPagesDir(dir: string): string {
-  // prioritize ./pages over ./src/pages
-  let curDir = path.join(dir, 'pages');
-  if (fs.existsSync(curDir)) return curDir;
-
-  curDir = path.join(dir, 'src/pages');
-  if (fs.existsSync(curDir)) return curDir;
-
-  // Check one level up the tree to see if the pages directory might be there
-  if (fs.existsSync(path.join(dir, '..', 'pages'))) {
-    throw new Error(
-      'No `pages` directory found. Did you mean to run `next` in the parent (`../`) directory?',
-    );
-  }
-
-  throw new Error(
-    "Couldn't find a `pages` directory. Please create one under the project root",
-  );
-}
-export function findNextDir(dir: string): string {
+export function findRootDir(dir: string): string {
   {
-    let curDir = path.resolve(dir, 'pages');
-    if (fs.existsSync(curDir)) return path.dirname(curDir);
-
-    curDir = path.resolve(dir, 'src/pages');
-    if (fs.existsSync(curDir)) return path.dirname(curDir);
-  }
-  {
-    let curDir = path.resolve(dir, 'app');
-    if (fs.existsSync(curDir)) return path.dirname(curDir);
-
-    curDir = path.resolve(dir, 'src/app');
+    let curDir = path.resolve(dir, 'src');
     if (fs.existsSync(curDir)) return path.dirname(curDir);
   }
 
   throw new Error(
-    "Couldn't find a Next.js directory. Please create one under the project root",
+    "Couldn't find a src directory. Please create one under the project root",
   );
 }

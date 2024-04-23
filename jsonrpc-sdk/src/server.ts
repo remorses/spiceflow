@@ -20,7 +20,6 @@ export interface WrapMethod {
   ): Method<P, R>;
 }
 
-// TODO wrap with context here? otherwise the headers and cookies will be missing from the context
 export function createRpcMethod<P extends any[], R>(
   method: Method<P, R>,
   meta: WrapMethodMeta,

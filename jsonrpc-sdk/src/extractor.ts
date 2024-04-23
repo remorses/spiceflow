@@ -1,27 +1,23 @@
 import { Extractor, ExtractorConfig } from '@microsoft/api-extractor';
 
+import { transform } from '@babel/core';
 import { exec } from 'child_process';
+import { globSync } from 'fast-glob';
 import fs from 'fs';
 import path from 'path';
-import { globSync } from 'fast-glob';
-import { createGenerator } from 'ts-json-schema-generator';
-import { directive } from './utils';
 import { plugins } from '.';
-import { transform } from '@babel/core';
+import { directive } from './utils';
 
-export async function extract({ nextDir, url, basePath = '', outDir }) {
+export async function extract({ rootDir, url, basePath = '', outDir }) {
   outDir = path.resolve(outDir, 'lib');
   await fs.promises.rmdir(outDir, { recursive: true }).catch(() => null);
   const typesDistDir = 'dist';
-  const dummyEntrypoint = path.resolve(nextDir, 'dummy-actions-entrypoint.ts');
+  const dummyEntrypoint = path.resolve(rootDir, 'dummy-actions-entrypoint.ts');
   const cwd = process.cwd();
 
   try {
-    const globBase = path.relative(cwd, nextDir);
-    const globs = [
-      path.posix.join(globBase, 'pages/**/*.{ts,tsx,js,jsx}'),
-      path.posix.join(globBase, 'app/**/*.{ts,tsx,js,jsx}'),
-    ];
+    const globBase = path.relative(cwd, rootDir);
+    const globs = [path.posix.join(globBase, 'src/**/*.{ts,tsx,js,jsx}')];
     // console.log({ globs });
     const allPossibleFiles = globSync(globs, {
       onlyFiles: true,
@@ -33,7 +29,7 @@ export async function extract({ nextDir, url, basePath = '', outDir }) {
         return content.includes(directive);
       })
       .map((x) => {
-        return path.relative(nextDir, x);
+        return path.relative(rootDir, x);
       });
 
     const dummyContent = actionFilesRelativePaths
@@ -46,7 +42,7 @@ export async function extract({ nextDir, url, basePath = '', outDir }) {
     const imports = [] as string[];
 
     for (let actionFile of actionFilesRelativePaths) {
-      const abs = path.resolve(nextDir, actionFile);
+      const abs = path.resolve(rootDir, actionFile);
       const content = fs.readFileSync(abs, 'utf8');
       const isAppDir = actionFile.includes('/app');
       const actionName = path.basename(actionFile, path.extname(actionFile));
@@ -56,10 +52,9 @@ export async function extract({ nextDir, url, basePath = '', outDir }) {
         sourceType: 'module',
         plugins: plugins({
           basePath,
-          isAppDir,
           isServer: false,
           url,
-          nextDir,
+          rootDir: rootDir,
         }),
         filename: abs,
 
@@ -86,7 +81,7 @@ export async function extract({ nextDir, url, basePath = '', outDir }) {
     fs.writeFileSync(dummyEntrypoint, dummyContent, 'utf8');
     const entryPointDts = path.resolve(
       typesDistDir,
-      path.relative(process.cwd(), nextDir),
+      path.relative(process.cwd(), rootDir),
       path.basename(dummyEntrypoint, path.extname(dummyEntrypoint)) + '.d.ts',
     );
     const tscCommand = `tsc  --emitDeclarationOnly --declaration --noEmit false --outDir ${typesDistDir} `;

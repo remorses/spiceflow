@@ -4,7 +4,7 @@ import fs from 'fs-extra';
 
 import { cac } from 'cac';
 import { extract } from './extractor.js';
-import { findNextDir } from './index.js';
+import { findRootDir } from './index.js';
 import packageJson from '../package.json';
 
 const thisPackage = packageJson.name;
@@ -55,12 +55,12 @@ async function generateSdk({ outDir, name = 'sdk', url }) {
       JSON.stringify(packageJson, null, 2),
     );
   }
-  const nextDir = await findNextDir(process.cwd());
-  await extract({ nextDir, outDir, url });
+  const rootDir = await findRootDir(process.cwd());
+  await extract({ rootDir, outDir, url });
 }
 
 cli
-  .command('sdk', 'Generate an SDK package for your Server Actions')
+  .command('sdk', 'Generate an SDK package for your functions')
   .option('--name <name>', 'Name of the package')
   .option('--url <url>', 'URL of the package')
   .option('--outDir <outDir>', 'Output directory')
