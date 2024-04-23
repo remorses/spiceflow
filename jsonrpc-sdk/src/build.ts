@@ -1,4 +1,5 @@
 import { Extractor, ExtractorConfig } from '@microsoft/api-extractor';
+import chokidar from 'chokidar';
 import { getPackages } from '@manypkg/get-packages';
 
 import { transform } from '@babel/core';
@@ -9,7 +10,7 @@ import path from 'path';
 import { plugins } from '.';
 import { directive } from './utils';
 
-export async function extract({ rootDir, url }) {
+export async function buildOnce({ rootDir, url }) {
   if (url && !url.endsWith('/')) {
     // make sure that new URL uses the last portion of the path too
     url += '/';
@@ -155,6 +156,24 @@ export async function extract({ rootDir, url }) {
   } finally {
     await fs.promises.unlink(serverEntrypoint).catch(() => null);
   }
+}
+const logger = console;
+
+export async function build({ rootDir, url, watch = false }) {
+  await buildOnce({ rootDir, url });
+  if (!watch) {
+    return;
+  }
+  const watcher = chokidar.watch(rootDir, {
+    // ignored: /(^|[\/\\])\../, // ignore dotfiles
+    ignored: ['**/node_modules/**', '**/dist/**', 'src/server.ts'],
+    persistent: true,
+  });
+  console.log('watching for changes');
+  watcher.on('change', async (path) => {
+    logger.log(`detected change in ${path}`);
+    buildOnce({ rootDir, url });
+  });
 }
 
 function rollupDtsFile({
