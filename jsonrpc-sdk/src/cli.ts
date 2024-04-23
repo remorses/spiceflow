@@ -5,6 +5,9 @@ import fs from 'fs-extra';
 import { cac } from 'cac';
 import { extract } from './extractor.js';
 import { findNextDir } from './index.js';
+import packageJson from '../package.json';
+
+const thisPackage = packageJson.name;
 
 export const cli = cac();
 
@@ -29,7 +32,7 @@ async function generateSdk({ outDir, name = 'sdk', url }) {
           type: 'module',
           scripts: {},
           dependencies: {
-            'server-actions-for-next-pages': '*',
+            [thisPackage]: '*',
           },
           devDependencies: {},
         },
