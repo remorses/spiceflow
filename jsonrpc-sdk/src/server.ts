@@ -2,6 +2,7 @@ import { IncomingMessage, ServerResponse } from 'http';
 import superjson from 'superjson';
 import { asyncLocalStorage } from './context-internal';
 import { JsonRpcRequest, JsonRpcResponse } from './jsonRpc';
+import { jsonRpcError } from './utils';
 
 export type Method<P extends any[], R> = (
   ...params: P
@@ -129,21 +130,17 @@ export function internalNodeJsHandler({
     }
     if (!body) {
       // if used outside of next.js, the body is not available
-      body = await new Promise((resolve, reject) => {
-        let data = '';
-        req.on('data', (chunk) => {
-          data += chunk;
-        });
-
-        req.on('end', () => {
-          try {
-            const parsedData = JSON.parse(data);
-            resolve(parsedData);
-          } catch (error) {
-            reject(error);
-          }
-        });
-      });
+      try {
+        body = await readReqJson(req);
+      } catch (error) {
+        res.writeHead(400);
+        res.end(
+          JSON.stringify(
+            jsonRpcError({ message: 'Invalid body, must be JSON' }),
+          ),
+        );
+        return;
+      }
     }
 
     const result = await asyncLocalStorage.run({ req, res }, () =>
@@ -344,3 +341,21 @@ const handler = async ({
     };
   }
 };
+
+function readReqJson(req: IncomingMessage) {
+  return new Promise((resolve, reject) => {
+    let data = '';
+    req.on('data', (chunk) => {
+      data += chunk;
+    });
+
+    req.on('end', () => {
+      try {
+        const parsedData = JSON.parse(data);
+        resolve(parsedData);
+      } catch (error) {
+        reject(error);
+      }
+    });
+  });
+}
