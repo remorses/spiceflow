@@ -7,7 +7,7 @@
   "type": "module",
   "scripts": {},
   "dependencies": {
-    "server-actions-for-next-pages": "*"
+    "jsonrpc-sdk": "workspace:*"
   },
   "devDependencies": {}
 }

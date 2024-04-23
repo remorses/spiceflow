@@ -44,130 +44,134 @@ export function createRpcMethod<P extends any[], R>(
 }
 
 type MethodsMap = {
-  [key: string]: {
+  [key: string]: () => Promise<{
     [key: string]: Method<any, any>;
-  };
+  }>;
 };
 
-export async function edgeHandler({
-  req,
-  res,
+export async function internalEdgeHandler({
   methodsMap,
 }: {
-  req: Request;
-  res: Response;
   methodsMap: MethodsMap;
 }) {
-  const body = await req.json();
-
-  const result = await asyncLocalStorage.run({ req, res }, () =>
-    handler({
-      methodsMap,
-      body,
-      pathname: new URL(req.url).pathname,
-      method: req.method,
-    }),
-  );
-
-  if (isAsyncIterable(result)) {
-    const encoder = new TextEncoder();
-    req.signal.addEventListener('abort', () => {
-      result.return?.(undefined);
-    });
-    const readableStream = new ReadableStream(
-      {
-        start(controller) {},
-        async pull(controller) {
-          for await (const value of result) {
-            controller.enqueue(
-              encoder.encode('data: ' + JSON.stringify(value.json) + '\n\n'),
-            );
-          }
-          controller.close();
-        },
-
-        cancel() {},
-      },
-      // { highWaterMark: 0 },
+  return async (req: Request) => {
+    const body = await req.json();
+    const res = new Response();
+    const result = await asyncLocalStorage.run({ req, res }, () =>
+      handler({
+        methodsMap,
+        body,
+        pathname: new URL(req.url).pathname,
+        method: req.method,
+      }),
     );
 
-    return new Response(readableStream, {
-      headers: {
-        'content-type': 'text/event-stream',
-        'cache-control': 'no-cache',
-        connection: 'keep-alive',
-      },
-    });
-  }
-
-  const { status, json } = result;
-  return new Response(JSON.stringify(json, null, 2), {
-    status,
-    headers: res?.headers || {},
-  });
-}
-
-export async function nodeJsHandler({
-  methodsMap,
-  req,
-  res,
-}: {
-  methodsMap: MethodsMap;
-  req: IncomingMessage;
-  res: ServerResponse;
-}) {
-  let body = req['body'];
-  if (body && typeof body === 'string') {
-    // if the sdk send a request without content-type header as json, it will be a string
-    body = JSON.parse(body);
-  }
-  if (!body) {
-    // if used outside of next.js, the body is not available
-    body = await new Promise((resolve, reject) => {
-      let data = '';
-      req.on('data', (chunk) => {
-        data += chunk;
+    if (isAsyncIterable(result)) {
+      const encoder = new TextEncoder();
+      req.signal.addEventListener('abort', () => {
+        result.return?.(undefined);
       });
+      const readableStream = new ReadableStream(
+        {
+          start(controller) {},
+          async pull(controller) {
+            for await (const value of result) {
+              controller.enqueue(
+                encoder.encode('data: ' + JSON.stringify(value.json) + '\n\n'),
+              );
+            }
+            controller.close();
+          },
 
-      req.on('end', () => {
-        const parsedData = JSON.parse(data);
-        resolve(parsedData);
-        // Handle parsed JSON
+          cancel() {},
+        },
+        // { highWaterMark: 0 },
+      );
+
+      return new Response(readableStream, {
+        headers: {
+          'content-type': 'text/event-stream',
+          'cache-control': 'no-cache',
+          connection: 'keep-alive',
+        },
       });
-    });
-  }
-
-  const result = await asyncLocalStorage.run({ req, res }, () =>
-    handler({
-      methodsMap,
-      body,
-      pathname: req.url!,
-      method: req.method!,
-    }),
-  );
-
-  if (isAsyncIterable(result)) {
-    res.writeHead(200);
-    res.setHeader('content-type', 'text/event-stream');
-    res.setHeader('cache-control', 'no-cache');
-    res.setHeader('connection', 'keep-alive');
-    // https://github.com/vercel/next.js/issues/9965#issuecomment-584319868
-    res.setHeader('content-encoding', 'none');
-    res.flushHeaders();
-    // handle cancellation
-    res.on('close', () => {
-      console.log(`response closed, cancelling generator`);
-      (result as AsyncIterator<any>).return?.();
-    });
-    for await (const value of result) {
-      res.write('data: ' + JSON.stringify(value.json) + '\n\n');
     }
 
-    res.end();
-    return;
-  }
-  const { status, json } = result;
-  res.writeHead(status || 200).end(JSON.stringify(json, null, 2));
+    const { status, json } = result;
+    return new Response(JSON.stringify(json, null, 2), {
+      status,
+      headers: res?.headers || {
+        'content-type': 'application/json',
+      },
+    });
+  };
+}
+
+export async function internalNodeJsHandler({
+  methodsMap,
+}: {
+  methodsMap: MethodsMap;
+}) {
+  return async ({
+    req,
+    res,
+  }: {
+    req: IncomingMessage;
+    res: ServerResponse;
+  }) => {
+    let body = req['body'];
+    if (body && typeof body === 'string') {
+      // if the sdk send a request without content-type header as json, it will be a string
+      body = JSON.parse(body);
+    }
+    if (!body) {
+      // if used outside of next.js, the body is not available
+      body = await new Promise((resolve, reject) => {
+        let data = '';
+        req.on('data', (chunk) => {
+          data += chunk;
+        });
+
+        req.on('end', () => {
+          const parsedData = JSON.parse(data);
+          resolve(parsedData);
+          // Handle parsed JSON
+        });
+      });
+    }
+
+    const result = await asyncLocalStorage.run({ req, res }, () =>
+      handler({
+        methodsMap,
+        body,
+        pathname: req.url!,
+        method: req.method!,
+      }),
+    );
+
+    if (isAsyncIterable(result)) {
+      res.writeHead(200);
+      res.setHeader('content-type', 'text/event-stream');
+      res.setHeader('cache-control', 'no-cache');
+      res.setHeader('connection', 'keep-alive');
+      // https://github.com/vercel/next.js/issues/9965#issuecomment-584319868
+      res.setHeader('content-encoding', 'none');
+      res.flushHeaders();
+      // handle cancellation
+      res.on('close', () => {
+        console.log(`response closed, cancelling generator`);
+        (result as AsyncIterator<any>).return?.();
+      });
+      for await (const value of result) {
+        res.write('data: ' + JSON.stringify(value.json) + '\n\n');
+      }
+
+      res.end();
+      return;
+    }
+    const { status, json } = result;
+    res.writeHead(status || 200).end(JSON.stringify(json, null, 2));
+  };
 }
 
 function isAsyncIterable(obj: any): obj is AsyncIterable<any> {
@@ -207,7 +211,7 @@ const handler = async ({
 
   const { id, method: fn, params, meta: argsMeta } = body;
 
-  const mod = methodsMap[pathname];
+  const mod = methodsMap[pathname] && (await methodsMap[pathname]);
   if (!mod) {
     return {
       status: 400,

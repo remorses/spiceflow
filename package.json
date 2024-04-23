@@ -4,7 +4,7 @@
   "scripts": {
     "test": "NODE_ENV=test vitest",
     "watch": "pnpm -r watch",
-    "example-sdk": "cd example-app && pnpm server-actions-for-next-pages sdk --outDir ../example-sdk --url http://localhost:7754 --name example-sdk",
+    "example-sdk": "cd example-app && pnpm jsonrpc-sdk sdk --outDir ../example-sdk --url http://localhost:7754 --name example-sdk",
     "build": "pnpm -r build",
     "release": "pnpm build && changeset"
   },

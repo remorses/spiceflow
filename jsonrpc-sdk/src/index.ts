@@ -36,7 +36,7 @@ export function plugins({
 export function findRootDir(dir: string): string {
   {
     let curDir = path.resolve(dir, 'src');
-    if (fs.existsSync(curDir)) return path.dirname(curDir);
+    if (fs.existsSync(curDir)) return path.resolve(curDir);
   }
 
   throw new Error(

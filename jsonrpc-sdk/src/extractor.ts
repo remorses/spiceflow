@@ -8,16 +8,16 @@ import path from 'path';
 import { plugins } from '.';
 import { directive } from './utils';
 
-export async function extract({ rootDir, url, basePath = '', outDir }) {
-  outDir = path.resolve(outDir, 'dist');
-  await fs.promises.rmdir(outDir, { recursive: true }).catch(() => null);
-  const typesDistDir = 'types';
-  const dummyEntrypoint = path.resolve(rootDir, 'dummy-actions-entrypoint.ts');
+export async function extract({ rootDir, url, basePath = '' }) {
+  let libOutDir = path.resolve('dist');
+  await fs.promises.rmdir(libOutDir, { recursive: true }).catch(() => null);
+  const typesDistDir = 'dist';
+
   const cwd = process.cwd();
 
   try {
     const globBase = path.relative(cwd, rootDir);
-    const globs = [path.posix.join(globBase, 'src/**/*.{ts,tsx,js,jsx}')];
+    const globs = [path.posix.join(globBase, '**/*.{ts,tsx,js,jsx}')];
     // console.log({ globs });
     const allPossibleFiles = globSync(globs, {
       onlyFiles: true,
@@ -31,13 +31,6 @@ export async function extract({ rootDir, url, basePath = '', outDir }) {
       .map((x) => {
         return path.relative(rootDir, x);
       });
-
-    const dummyContent = actionFilesRelativePaths
-      .map((file) => `export * from './${file}'\n`)
-      .join('\n');
-    if (!dummyContent) {
-      throw new Error('No action files found!');
-    }
 
     const imports = [] as string[];
 
@@ -72,17 +65,34 @@ export async function extract({ rootDir, url, basePath = '', outDir }) {
         path.posix.join(path.posix.dirname(actionFile), actionName + '.js');
       console.log(`processed ${importPath}`);
       imports.push(importPath);
-      fs.mkdirSync(path.resolve(outDir, path.dirname(importPath)), {
+      fs.mkdirSync(path.resolve(libOutDir, path.dirname(importPath)), {
         recursive: true,
       });
-      fs.writeFileSync(path.resolve(outDir, importPath), res.code, 'utf-8');
+      fs.writeFileSync(path.resolve(libOutDir, importPath), res.code, 'utf-8');
     }
 
-    fs.writeFileSync(dummyEntrypoint, dummyContent, 'utf8');
+    const serverEntrypoint = path.resolve(rootDir, 'server.ts');
+    const serverExposeContent =
+      `import { internalEdgeHandler, internalNodeJsHandler } from 'jsonrpc-sdk/dist/server';\n` +
+      `const methodsMap = {${actionFilesRelativePaths
+        .map(
+          (file) =>
+            `${JSON.stringify('/' + file)}: () => import('./${removeExtension(
+              file,
+            )}')`,
+        )
+        .join(',')}}\n` +
+      `export const edgeHandler = internalEdgeHandler({ methodsMap });\n` +
+      `export const nodeJsHandler = internalNodeJsHandler({ methodsMap });\n`;
+
+    if (!actionFilesRelativePaths.length) {
+      throw new Error('No functions files found!');
+    }
+    fs.writeFileSync(serverEntrypoint, serverExposeContent, 'utf8');
     const entryPointDts = path.resolve(
       typesDistDir,
       path.relative(process.cwd(), rootDir),
-      path.basename(dummyEntrypoint, path.extname(dummyEntrypoint)) + '.d.ts',
+      path.basename(serverEntrypoint, path.extname(serverEntrypoint)) + '.d.ts',
     );
     const tscCommand = `tsc  --emitDeclarationOnly --declaration --noEmit false --outDir ${typesDistDir} `;
     await new Promise((resolve, reject) => {
@@ -100,7 +110,7 @@ export async function extract({ rootDir, url, basePath = '', outDir }) {
     });
 
     fs.writeFileSync(
-      path.resolve(outDir, 'index.js'),
+      path.resolve(libOutDir, 'index.js'),
       imports.map((x) => `export * from '${x}'`).join('\n'),
     );
     // const generator = createGenerator({
@@ -115,10 +125,11 @@ export async function extract({ rootDir, url, basePath = '', outDir }) {
     //   path.resolve(outDir, 'schema.json'),
     //   JSON.stringify(schema, null, 2),
     // );
-    const dtsOutputFilePath = path.resolve(outDir, 'index.d.ts');
+    const dtsOutputFilePath = path.resolve(libOutDir, 'index.d.ts');
+
     rollupDtsFile(entryPointDts, dtsOutputFilePath, 'tsconfig.json');
   } finally {
-    await fs.promises.unlink(dummyEntrypoint).catch(() => null);
+    // await fs.promises.unlink(serverEntrypoint).catch(() => null);
   }
 }
 
@@ -128,6 +139,10 @@ function rollupDtsFile(
   tsconfigFilePath: string,
 ) {
   let cwd = process.cwd();
+  if (!fs.existsSync(tsconfigFilePath)) {
+    throw new Error(`tsconfig.json not found at ${tsconfigFilePath}`);
+  }
+
   let packageJsonFullPath = path.join(cwd, 'package.json');
 
   const extractorConfig = ExtractorConfig.prepare({
@@ -170,4 +185,8 @@ function rollupDtsFile(
       `API Extractor completed with ${extractorResult.errorCount} errors and ${extractorResult.warningCount} warnings when processing ${inputFilePath}`,
     );
   }
+}
+
+function removeExtension(filePath: string) {
+  return filePath.replace(/\.[j|t]sx?$/, '');
 }
