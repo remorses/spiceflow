@@ -1,0 +1,21 @@
+{
+  "name": "sdk-template",
+  "version": "0.0.0",
+  "description": "",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "type": "module",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "jsonrpc-sdk --url http://localhost:3333",
+    "server": "jsonrpc-sdk server --url http://localhost:3333",
+    "watch": "jsonrpc-sdk --watch --url http://localhost:3333"
+  },
+  "dependencies": {
+    "jsonrpc-sdk": "workspace:*"
+  },
+  "devDependencies": {}
+}

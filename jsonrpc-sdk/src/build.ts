@@ -1,4 +1,6 @@
 import { red } from 'picocolors';
+import fsx from 'fs-extra';
+
 import {
   Extractor,
   ExtractorConfig,
@@ -13,7 +15,7 @@ import { globSync } from 'fast-glob';
 import fs from 'fs';
 import path from 'path';
 import { plugins } from '.';
-import { directive } from './utils';
+import { directive, serverEntryName } from './utils';
 
 export async function buildOnce({ rootDir, url }) {
   console.log();
@@ -29,11 +31,11 @@ export async function buildOnce({ rootDir, url }) {
   }
 
   let libOutDir = path.resolve('dist');
+  let serverOutDir = path.resolve('server');
   await fs.promises.rm(libOutDir, { recursive: true }).catch(() => null);
-  const typesDistDir = 'dist';
 
   const cwd = process.cwd();
-  const serverEntrypoint = path.resolve(rootDir, 'server.ts');
+  const serverEntrypoint = path.resolve(rootDir, serverEntryName + '.ts');
 
   try {
     const globBase = path.relative(cwd, rootDir);
@@ -56,13 +58,13 @@ export async function buildOnce({ rootDir, url }) {
         filePath = removeExtension(filePath);
         return `${JSON.stringify(
           '/' + filePath,
-        )}: () => import('./${filePath}')`;
+        )}: () => import('./${filePath}.js')`;
       })
       .join(',');
     const serverExposeContent =
       `// this file was generated\n` +
-      `import { internalEdgeHandler, internalNodeJsHandler } from 'jsonrpc-sdk/dist/server';\n` +
-      `const methodsMap = {${importsCode}}\n` +
+      `import { internalEdgeHandler, internalNodeJsHandler } from 'jsonrpc-sdk/dist/server.js';\n` +
+      `export const methodsMap = {${importsCode}}\n` +
       `export const edgeHandler = internalEdgeHandler({ methodsMap });\n` +
       `export const nodeJsHandler = internalNodeJsHandler({ methodsMap });\n`;
 
@@ -71,22 +73,28 @@ export async function buildOnce({ rootDir, url }) {
     }
     fs.writeFileSync(serverEntrypoint, serverExposeContent, 'utf8');
 
-    const tscCommand = `tsc --incremental --declaration --noEmit false --outDir ${typesDistDir} `;
-    await new Promise((resolve, reject) => {
-      exec(tscCommand, {}, (error, stdout, stderr) => {
-        if (error) {
-          console.log();
-          console.error(red(stdout));
-          console.error(red(stderr));
-          reject(error);
-        } else {
-          resolve(stdout);
-        }
-      });
-    }).catch((error) => {
+    await Promise.all([
+      runCommand(
+        `tsc --incremental --declaration --noEmit false --outDir ${libOutDir} `,
+      ),
+    ]).catch((error) => {
       // console.error(error);
       console.error('Error running tsc, continue anyway');
     });
+
+    // copy tsc output to server dir
+    await fsx.copy(libOutDir, serverOutDir, { overwrite: true });
+    // rename serverEntryName to index
+    const tscOutFiles = fs.readdirSync(serverOutDir);
+    for (const file of tscOutFiles) {
+      if (file.startsWith(serverEntryName)) {
+        const remaining = file.slice(serverEntryName.length);
+        fs.renameSync(
+          path.resolve(serverOutDir, file),
+          path.resolve(serverOutDir, 'index' + remaining),
+        );
+      }
+    }
 
     const imports = [] as string[];
 
@@ -148,7 +156,7 @@ export async function buildOnce({ rootDir, url }) {
     }
     for (const actionFile of actionFilesRelativePaths) {
       const entryPointDts = path.resolve(
-        typesDistDir,
+        libOutDir,
         // path.relative(process.cwd(), rootDir),
         path.dirname(actionFile),
         path.basename(actionFile, path.extname(actionFile)) + '.d.ts',
@@ -178,7 +186,7 @@ export async function build({ rootDir, url, watch = false }) {
   }
   const watcher = chokidar.watch(rootDir, {
     // ignored: /(^|[\/\\])\../, // ignore dotfiles
-    ignored: ['**/node_modules/**', '**/dist/**', 'src/server.ts'],
+    ignored: ['**/node_modules/**', '**/dist/**', `src/${serverEntryName}.ts`],
     persistent: true,
   });
   console.log('watching for changes');
@@ -272,4 +280,19 @@ function rollupDtsFile({
 
 function removeExtension(filePath: string) {
   return filePath.replace(/\.[j|t]sx?$/, '');
+}
+
+function runCommand(command: string) {
+  return new Promise((resolve, reject) => {
+    exec(command, {}, (error, stdout, stderr) => {
+      if (error) {
+        console.log();
+        console.error(red(stdout));
+        console.error(red(stderr));
+        reject(error);
+      } else {
+        resolve(stdout);
+      }
+    });
+  });
 }

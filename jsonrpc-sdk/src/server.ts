@@ -136,9 +136,12 @@ export function internalNodeJsHandler({
         });
 
         req.on('end', () => {
-          const parsedData = JSON.parse(data);
-          resolve(parsedData);
-          // Handle parsed JSON
+          try {
+            const parsedData = JSON.parse(data);
+            resolve(parsedData);
+          } catch (error) {
+            reject(error);
+          }
         });
       });
     }

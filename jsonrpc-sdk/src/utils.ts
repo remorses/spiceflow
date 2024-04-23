@@ -40,3 +40,5 @@ export function getFileName(state: PluginPass) {
   return filename;
 }
 export const directive = "poor man's use server";
+
+export const serverEntryName = '_function_server_file';

@@ -34,11 +34,13 @@
     "@babel/plugin-transform-typescript": "^7.23.6",
     "@manypkg/get-packages": "^2.2.1",
     "@microsoft/api-extractor": "^7.43.1",
+    "@types/fs-extra": "^11.0.4",
     "cac": "^6.7.14",
     "chokidar": "^3.6.0",
     "eventsource-parser": "^1.1.2",
     "fast-glob": "^3.3.2",
     "find-up": "^7.0.0",
+    "fs-extra": "^11.2.0",
     "picocolors": "^1.0.0",
     "superjson": "^1.13.3",
     "ts-json-schema-generator": "^2.1.0"

@@ -9,9 +9,6 @@
   "dependencies": {
     "jsonrpc-sdk": "workspace:*"
   },
-  "bundledDependencies": [
-    "example-app"
-  ],
   "devDependencies": {
     "example-app": "workspace:*"
   }
