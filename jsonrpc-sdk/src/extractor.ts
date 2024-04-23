@@ -9,9 +9,9 @@ import { plugins } from '.';
 import { directive } from './utils';
 
 export async function extract({ rootDir, url, basePath = '', outDir }) {
-  outDir = path.resolve(outDir, 'lib');
+  outDir = path.resolve(outDir, 'dist');
   await fs.promises.rmdir(outDir, { recursive: true }).catch(() => null);
-  const typesDistDir = 'dist';
+  const typesDistDir = 'types';
   const dummyEntrypoint = path.resolve(rootDir, 'dummy-actions-entrypoint.ts');
   const cwd = process.cwd();
 
@@ -44,7 +44,7 @@ export async function extract({ rootDir, url, basePath = '', outDir }) {
     for (let actionFile of actionFilesRelativePaths) {
       const abs = path.resolve(rootDir, actionFile);
       const content = fs.readFileSync(abs, 'utf8');
-      const isAppDir = actionFile.includes('/app');
+
       const actionName = path.basename(actionFile, path.extname(actionFile));
 
       const res = transform(content || '', {
@@ -54,7 +54,7 @@ export async function extract({ rootDir, url, basePath = '', outDir }) {
           basePath,
           isServer: false,
           url,
-          rootDir: rootDir,
+          rootDir,
         }),
         filename: abs,
 

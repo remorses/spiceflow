@@ -13,7 +13,7 @@ let deletedDir = false;
 
 export default function debugOutputsPlugin(
   { types: t }: Babel,
-  { apiDir, pagesDir, isServer, basePath }: PluginOptions,
+  { isServer, basePath }: PluginOptions,
 ): babel.PluginObj | undefined {
   const cwd = process.cwd();
 

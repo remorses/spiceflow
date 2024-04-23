@@ -1,6 +1,6 @@
 import { NextApiHandler } from 'next';
 import superjson from 'superjson';
-import { JsonRpcResponse } from './jsonRpc';
+import { JsonRpcRequest, JsonRpcResponse } from './jsonRpc';
 import { NextRequest, NextResponse } from 'next/server';
 import { getEdgeContext } from './context-internal';
 
@@ -44,16 +44,15 @@ export function createRpcMethod<P extends any[], R>(
   return (...args) => wrapped(...args);
 }
 
+type MethodMod = {
+  method: string;
+  implementation: (...params: any[]) => any;
+};
 export function createRpcHandler({
   methods,
   isEdge,
 }: {
-  methods: {
-    method: string;
-    isGenerator: boolean;
-    implementation: (...params: any[]) => any;
-  }[];
-
+  methods: MethodMod[];
   isEdge?: boolean;
 }) {
   const methodsMap = new Map(methods.map((x) => [x.method, x]));
@@ -118,7 +117,7 @@ export function createRpcHandler({
       const result = await handler({
         methodsMap,
         body,
-        method: req.method,
+        method: req.method!,
       });
 
       if (isAsyncIterable(result)) {
@@ -151,7 +150,15 @@ function isAsyncIterable(obj: any): obj is AsyncIterable<any> {
   return obj != null && typeof obj[Symbol.asyncIterator] === 'function';
 }
 
-const handler = async ({ method, methodsMap, body }) => {
+const handler = async ({
+  method,
+  methodsMap,
+  body,
+}: {
+  method: string;
+  methodsMap: Map<string, MethodMod>;
+  body: JsonRpcRequest;
+}) => {
   if (method !== 'POST') {
     return {
       status: 405,
@@ -194,8 +201,8 @@ const handler = async ({ method, methodsMap, body }) => {
       json: params,
       meta: argsMeta,
     }) as any[];
-    if (!requestedMethod.isGenerator) {
-      const result = await requestedMethod.implementation(...args);
+    const result = await requestedMethod.implementation(...args);
+    if (!isAsyncIterable(result)) {
       const { json, meta } = superjson.serialize(result);
 
       return {
@@ -209,7 +216,6 @@ const handler = async ({ method, methodsMap, body }) => {
     }
     return (async function* () {
       // send a response for each yielded value
-      const result = await requestedMethod.implementation(...args);
 
       try {
         for await (const value of result) {
