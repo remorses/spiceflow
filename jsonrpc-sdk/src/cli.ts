@@ -50,7 +50,7 @@ cli
     try {
       await new Promise<void>((resolve, reject) => {
         const p = spawn(
-          `${nodePath} ${watch ? '--watch' : ''} ${JSON.stringify(
+          `${nodePath} --no-warnings ${watch ? '--watch' : ''} ${JSON.stringify(
             tempFilePath,
           )}`,
           {

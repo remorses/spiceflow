@@ -2,6 +2,7 @@ import { red } from 'picocolors';
 import fsx from 'fs-extra';
 
 import {
+  ConsoleMessageId,
   Extractor,
   ExtractorConfig,
   ExtractorLogLevel,
@@ -161,7 +162,7 @@ export async function buildOnce({ rootDir, url }) {
         path.dirname(actionFile),
         path.basename(actionFile, path.extname(actionFile)) + '.d.ts',
       );
-      console.log(`bundling types for ${entryPointDts}`);
+      console.log(`bundling types for ${path.relative(cwd, entryPointDts)}`);
 
       rollupDtsFile({
         bundledPackages,
@@ -259,12 +260,15 @@ function rollupDtsFile({
     // Equivalent to the "--local" command-line parameter
     localBuild: true,
 
-    messageCallback(message) {
-      if (message.logLevel !== ExtractorLogLevel.Error) {
-        return;
+    messageCallback: (message) => {
+      switch (message.messageId) {
+        case ConsoleMessageId.ApiReportCreated:
+          message.logLevel = ExtractorLogLevel.None;
+          break;
+        case ConsoleMessageId.Preamble:
+          message.logLevel = ExtractorLogLevel.None;
+          break;
       }
-
-      console.log(message.text);
     },
     showDiagnostics: false,
     // Equivalent to the "--verbose" command-line parameter
