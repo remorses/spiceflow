@@ -382,6 +382,7 @@ export default ({
               ),
               ...rpcMethodNames.map((name) => {
                 const isGenerator = !!generators.get(name);
+                onMethod?.({ name, pathname: rpcPath, isGenerator });
                 return t.exportNamedDeclaration(
                   t.variableDeclaration('const', [
                     t.variableDeclarator(
