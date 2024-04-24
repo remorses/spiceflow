@@ -174,3 +174,7 @@ export async function failingFunction({}) {
 ## Versioning
 
 You can create a `v1` folder in your project and exports your function from `index.ts`, when you want to release a breaking version of your API, you can create a new folder and change the imports in `index.ts` file. This way the sdk users will always use the latest version of your API, while old SDK users will keep the old version.
+
+## How it works
+
+Spiceflow `build` command transpiles the files with the `use spiceflow` directive so that any function uses fetch to call the server, the result is saved in the `dist` folder. Other files are compiled to the dist directory using `tsc`. These fetch calls use JSON-RPC to communicate with the server. Spiceflow also bundles the type definitions with `@microsoft/api-extractor` so your packages does not rely on external local packages and can be safely published to npm.
