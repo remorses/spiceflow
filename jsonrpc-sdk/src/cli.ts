@@ -1,5 +1,6 @@
 #! /usr/bin/env node
 import os from 'os';
+import fsx from 'fs-extra';
 
 import fs from 'fs-extra';
 
@@ -19,6 +20,17 @@ cli
     const { url, watch } = options;
     const rootDir = await findRootDir(process.cwd());
     await build({ rootDir, url, watch });
+  });
+cli
+  .command('init', 'Generate a new spiceflow project')
+  .option('--name <name>', 'Name of this project')
+  .action(async (options) => {
+    // copy contents of the template dir here
+    const { name } = options;
+    if (!name) {
+      throw new Error('--name is required');
+    }
+    await fsx.copy(path.resolve(__dirname, '../sdk-template'), name);
   });
 cli
   .command('serve', 'Expose a server for your functions')

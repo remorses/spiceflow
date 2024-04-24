@@ -6,7 +6,7 @@
   "types": "dist/index.d.ts",
   "repository": "https://github.com/remorses/spiceflow",
   "scripts": {
-    "build": "cp ../README.md ./README.md && rm -rf dist && tsc",
+    "build": "cp ../README.md ./README.md && cp -r ../spiceflow/sdk-template ./sdk-template && rm -rf dist && tsc",
     "prepublishOnly": "pnpm build",
     "watch": "tsc -w"
   },
@@ -14,6 +14,7 @@
   "files": [
     "dist",
     "src",
+    "sdk-template",
     "esm",
     "context.d.ts",
     "context.js",

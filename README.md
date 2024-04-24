@@ -2,96 +2,132 @@
     <br/>
     <br/>
     <br/>
-    <h3>Server action for your Next.js Pages</h3>
+    <h3>spiceflow</h3>
+    <p>If GraphQL and server actions had a baby</p>
     <br/>
     <br/>
 </div>
 
-This Next.js plugin let you use something like [Next.js Server Actions](https://nextjs.org/docs/app/building-your-application/data-fetching/server-actions) with the `/pages` directory, letting you call server functions directly from your client components.
+```ts
+"poor man's use server";
+import { cookies, headers } from 'spiceflow/headers';
 
-WIth Server Actions i mean calling your functions that run in the server directly in your client components, it does not closely follow the Next.js Server Actions behavior.
-
-## Differences with Next.js Server Actions
-
-- Actions can be imported inside `pages` and `app` files
-- Actions must be defined in
-  - a file inside the `/pages/api` directory with the `"poor man's use server"` directive on top
-  - a route inside the `/app` directory with the `"poor man's use server"` directive on top
-- No closure support, actions can be defined for an entire file(adding `"poor man's use server"` at the top of the file)
-- Actions can run concurrently
-- Actions can throw errors, on the client these errors will be thrown with the same error message
-- Actions inputs and outputs are serialized with [superjson](https://github.com/blitz-js/superjson), a superset of JSON
-- Actions do not work inside `formAction`, you call the function inside `onSubmit` instead
-- To get headers and cookies you cannot import them directly from `next/headers`, instead you have to use `getContext`:
-
-  ```ts
-  "poor man's use server";
-  import { cookies, headers } from 'server-actions-for-next-pages/headers';
-
-  export async function action({}) {
-    return { headers: headers(), cookies: cookies() };
-  }
-  ```
+export async function action({}) {
+  return { headers: headers(), cookies: cookies() };
+}
+```
 
 ## Installation
 
 ```bash
-npm i server-actions-for-next-pages
+npm i spiceflow
 ```
 
 ## Usage
 
-Add the plugin to your `next.config.js` file:
+```bash
+# create a new spiceflow project, works best in a monorepo
+npx spiceflow init --name my-api
+tree
+.
+├── package.json
+├── src
+│   ├── index.ts
+│   └── v1
+│       ├── example.ts
+│       └── generator.ts
+└── tsconfig.json
 
-```js
-// next.config.js
-const { withServerActions } = require('server-actions-for-next-pages');
-
-/** @type {import('next').NextConfig} */
-const nextConfig = withServerActions()({
-  reactStrictMode: false,
-});
-
-module.exports = nextConfig;
+npm run serve # build the sdk in the dist folder and start a server exposing your API
+npm run try-sdk # try using the sdk
 ```
 
-Create a file for your server actions inside the `/pages/api` directory with `"poor man's use server"` at the top:
+## Writing your API functions
+
+Write your functions
 
 ```ts
-// pages/api/server-actions.js
+// src/v1/functions.ts
 "poor man's use server";
 
-export async function serverAction() {
+export async function spiceflowFunction() {
   return { hello: 'world' };
+}
+
+export async function* spiceflowGenerator() {
+  for (let i = 0; i < 10; i++) {
+    await sleep(300);
+    yield { i };
+  }
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 ```
 
-Import your actions in your client components:
+Expose the server
 
-```tsx
-// pages/index.jsx
-import { serverAction } from './api/server-actions';
+```bash
+spiceflow serve
+```
 
-export default function Page() {
-  serverAction().then((data) => console.log(data));
+Build the client sdk to the dist folder
 
-  return <div>...</div>;
+```bash
+spiceflow build
+```
+
+Call your function from the client, they will use fetch to call the server
+
+```ts
+import {
+  spiceflowFunction,
+  spiceflowGenerator,
+} from './my-api/dist/v1/functions';
+
+// will call the server with fetch
+const { hello } = await spiceflowFunction();
+
+for await (const { i } of spiceflowGenerator()) {
+  console.log(i);
 }
 ```
 
-## Usage in edge runtime
+## Serving your API
 
-This plugin assumes the runtime of your app to be Nodejs unless you explicitly set it to edge for your api page, this means that to support the edge runtime you need to export a config object like `export const config = { runtime: 'edge' };` in your api page.
+Spiceflow has 3 ways to serve your API:
+
+### Built-in Node.js server
+
+```
+spiceflow serve --port 3333
+```
+
+### Next.js pages API handler
 
 ```tsx
-// pages/api/server-actions.js
-"poor man's use server";
+// pages/api/spiceflow/[...slug].tsx
+import { nodeJsHandler } from './my-api/server';
 
-export const runtime = 'edge';
-
-export async function serverAction() {
-  return { hello: 'world' };
+export default async function handler(req, res) {
+  return await nodeJsHandler({ req, res, basePath: '/api/spiceflow' });
 }
+```
+
+### Next.js app API route
+
+```tsx
+// pages/api/spiceflow/[...slug]/route.tsx
+import { edgeHandler } from './my-api/server';
+
+export const POST = edgeHandler;
+```
+
+After exposing your server you will need to rebuild your client sdk using that url:
+
+```bash
+spiceflow build --url http://localhost:3000/api/spiceflow # the Next.js app url
 ```
 
 ## Accessing the request and response objects
@@ -103,29 +139,12 @@ Edge function example:
 ```ts
 "poor man's use server";
 
-import { cookies, headers } from 'server-actions-for-next-pages/headers';
-
-export const runtime = 'edge';
+import { getNodejsContext } from 'spiceflow/context';
 
 export async function serverAction({}) {
-  const host = headers().get('host');
+  const { req } = getNodejsContext();
+  const host = req?.headers.get('host');
   return { host };
-}
-```
-
-Example in Node.js:
-
-```ts
-"poor man's use server";
-import { cookies, headers } from 'server-actions-for-next-pages/headers';
-
-export async function createUser({ name = '' }) {
-  const host = headers().get('host');
-
-  return {
-    name,
-    host,
-  };
 }
 ```
 
@@ -152,43 +171,3 @@ export async function failingFunction({}) {
   throw new Error('This function fails');
 }
 ```
-
-## How it works
-
-The plugin will replace the content of files inside `pages/api` with `"poor man's use server"` at the top to make the exported functions callable from the browser.
-
-When processing the file for the server the plugin creates an API handler that follows the JSON RPC spec.
-
-When processing the file for the client the plugin replaces the exported functions with a `fetch` calls to the API handler.
-
-This plugin uses Babel to process your page content, it will not slow down compilation time noticeably because it only process files inside the `pages/api` folder.
-
-## Credits
-
-This is a fork of the awesome [next-rpc](https://github.com/Janpot/next-rpc) with some changes:
-
-- It supports the Edge runtime
-- Uses superjson to serialize and deserialize arguments and results
-- It sets status code to 502 when the server function throws an error
-- It uses the top level `"poor man's use server"` instead of the `config.rpc` option
-- `wrapMethod` can be defined with an export instead of `config.wrapMethod`
-
-## New major version, comment in issues with your opinion
-
-- to support route.ts files and overcome "can't have additional exports" error in Next.js, create a file "app/api/\_actions[[slug]].ts" and generate an api handler there based on other files with the directive at the top
-- the loader loads all files inside the app directory, check if they have the directive at the top, if not skip the loader
-- add a command to output a library you can use in other apps, using api extractor to generate the types into a single file. generate the fetch calls using the same babel plugin in client mode
-- support for async generators, using server sent events. follow the json rpc spec for each event.
-- maybe also generate a OpenAPI spec so you can generate the SDKs in multiple languages.
-
-```
-server-actions-for-next-pages sdk --outDir ./sdk --name my-sdk --url https://deployed-site.com
-```
-
-generates a folder with
-
-- package.json with same name as the --name, increment version if another package.json already exists
-- lib/index.d.ts, the extracted types from all the action files
-- lib/index.js, all the exported actions in the app, using fetch calls to the server (url passed with --url)
-- schema.json, the OpenAPI spec for the SDK, using JSON rpc
-- you should also add any needed dependencies if the generated types rely on other packages
