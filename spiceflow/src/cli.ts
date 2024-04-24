@@ -12,6 +12,8 @@ import path from 'path';
 
 export const cli = cac();
 
+const __dirname = path.dirname(import.meta.url);
+
 cli
   .command('', 'Generate an SDK package for your functions')
   .alias('build')
