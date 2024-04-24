@@ -43,11 +43,7 @@ cli
     }
     fsx.copySync(path.resolve(__dirname, '../sdk-template'), name, {
       filter(pathname) {
-        return (
-          !pathname.includes('node_modules') &&
-          !pathname.includes('dist') &&
-          !pathname.endsWith('.tsbuildinfo')
-        );
+        return !pathname.endsWith('.tsbuildinfo');
       },
     });
     // replace the package.json name
