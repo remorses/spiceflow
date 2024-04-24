@@ -43,6 +43,7 @@ export async function buildOnce({
   }
 
   let browserOutDir = path.resolve('client');
+  fs.mkdirSync(browserOutDir, { recursive: true });
 
   // await fs.promises.rm(browserOutDir, { recursive: true }).catch(() => null);
 
@@ -84,6 +85,10 @@ export async function buildOnce({
       throw new Error('No functions files found!');
     }
     fs.writeFileSync(serverEntrypoint, serverExposeContent, 'utf8');
+
+    if (fs.existsSync('src/index.ts')) {
+      fs.copyFileSync('src/index.ts', 'client/index.ts');
+    }
 
     for (let actionFile of actionFilesRelativePaths) {
       const abs = path.resolve(rootDir, actionFile);
