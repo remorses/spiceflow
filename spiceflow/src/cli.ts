@@ -14,14 +14,19 @@ export const cli = cac();
 
 cli
   .command('', 'Generate an SDK package for your functions')
+  .alias('build')
   .option('--watch', 'Watch for changes')
   .option('--url <url>', 'URL of the package, including the base path', {
     default: 'http://localhost:3333',
   })
+  .option(
+    '--openapi',
+    '[experimental] Creates an openapi.json schema based on your functions',
+  )
   .action(async (options) => {
-    const { url, watch } = options;
+    const { url, watch, openapi } = options;
     const rootDir = await findRootDir(process.cwd());
-    await build({ rootDir, url, watch });
+    await build({ rootDir, url, openapi, watch });
   });
 cli
   .command('init', 'Generate a new spiceflow project')

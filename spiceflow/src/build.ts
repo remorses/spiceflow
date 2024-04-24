@@ -20,7 +20,17 @@ import { camelCaseCapitalized, directive, serverEntryName } from './utils.js';
 import { createGenerator } from 'ts-json-schema-generator';
 import { WrapMethodMeta } from './server.js';
 
-export async function buildOnce({ openapi = false, rootDir, url }) {
+type BuildOptions = {
+  openapi?: boolean;
+  rootDir: string;
+  url: string;
+  watch?: boolean;
+};
+export async function buildOnce({
+  openapi = false,
+  rootDir,
+  url,
+}: BuildOptions) {
   console.log();
   console.log('building functions');
   if (url && !url.endsWith('/')) {
@@ -210,11 +220,12 @@ const logger = console;
 let isBuilding = { ref: false };
 let missedWatch = { ref: false };
 
-export async function build({ rootDir, url, watch = false }) {
-  await buildOnce({ rootDir, url });
-  if (!watch) {
+export async function build(options: BuildOptions) {
+  await buildOnce(options);
+  if (!options.watch) {
     return;
   }
+  const { rootDir, url } = options;
   const watcher = chokidar.watch(rootDir, {
     // ignored: /(^|[\/\\])\../, // ignore dotfiles
     ignored: ['**/node_modules/**', '**/dist/**', `src/${serverEntryName}.ts`],
@@ -229,10 +240,10 @@ export async function build({ rootDir, url, watch = false }) {
     isBuilding.ref = true;
     try {
       logger.log(`detected change in ${path}`);
-      await buildOnce({ rootDir, url });
+      await buildOnce(options);
       if (missedWatch.ref) {
         // logger.log('missed a change, rebuilding');
-        await buildOnce({ rootDir, url });
+        await buildOnce(options);
         missedWatch.ref = false;
       }
     } finally {

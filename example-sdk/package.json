@@ -7,7 +7,7 @@
   "types": "lib/index.d.ts",
   "type": "module",
   "scripts": {
-    "build": "spiceflow --url http://localhost:3333",
+    "build": "spiceflow --openapi --url http://localhost:3333",
     "serve": "spiceflow serve --watch --port 3333",
     "watch": "spiceflow --watch --url http://localhost:3333"
   },
