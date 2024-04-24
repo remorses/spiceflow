@@ -68,7 +68,7 @@ export function internalEdgeHandler({
       }),
     );
 
-    if (isAsyncIterable(result)) {
+    if (isAsyncGenerator(result)) {
       const encoder = new TextEncoder();
       let generatorFinished = false;
 
@@ -82,7 +82,11 @@ export function internalEdgeHandler({
         {
           start(controller) {},
           async pull(controller) {
-            for await (const value of result) {
+            while (true) {
+              const { done, value } = await result.next();
+              if (done) {
+                break;
+              }
               controller.enqueue(
                 encoder.encode('data: ' + JSON.stringify(value.json) + '\n\n'),
               );
@@ -159,7 +163,7 @@ export function internalNodeJsHandler({
       }),
     );
 
-    if (isAsyncIterable(result)) {
+    if (isAsyncGenerator(result)) {
       res.writeHead(200, {
         'content-type': 'text/event-stream',
         'cache-control': 'no-cache',
@@ -176,7 +180,11 @@ export function internalNodeJsHandler({
           (result as AsyncIterator<any>).return?.();
         }
       });
-      for await (const value of result) {
+      while (true) {
+        const { done, value } = await result.next();
+        if (done) {
+          break;
+        }
         res.write('data: ' + JSON.stringify(value.json) + '\n\n');
       }
       generatorFinished = true;
@@ -189,8 +197,8 @@ export function internalNodeJsHandler({
   };
 }
 
-function isAsyncIterable(obj: any): obj is AsyncIterable<any> {
-  return obj != null && typeof obj[Symbol.asyncIterator] === 'function';
+function isAsyncGenerator(obj: any): obj is AsyncGenerator<any> {
+  return obj != null && typeof obj.next === 'function';
 }
 
 const handler = async ({
@@ -279,7 +287,7 @@ const handler = async ({
       meta: argsMeta,
     }) as any[];
     const result = await requestedMethod(...args);
-    if (!isAsyncIterable(result)) {
+    if (!isAsyncGenerator(result)) {
       const { json, meta } = superjson.serialize(result);
 
       return {
@@ -295,7 +303,11 @@ const handler = async ({
       // send a response for each yielded value
 
       try {
-        for await (const value of result) {
+        while (true) {
+          const { done, value } = await result.next();
+          if (done) {
+            break;
+          }
           const { json, meta } = superjson.serialize(value);
 
           yield {
