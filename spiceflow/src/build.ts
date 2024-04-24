@@ -74,6 +74,7 @@ export async function buildOnce({
       })
       .join(',');
     const serverExposeContent =
+      `// @ts-nocheck\n` +
       `// this file was generated\n` +
       `import { internalEdgeHandler, internalNodeJsHandler } from 'spiceflow/dist/server.js';\n` +
       `export const methodsMap = {${importsCode}}\n` +
@@ -194,7 +195,6 @@ export async function buildOnce({
         continue;
       }
 
-      
       const { createGenerator } = await import('ts-json-schema-generator');
 
       const generator = createGenerator({
