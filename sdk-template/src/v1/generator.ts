@@ -1,4 +1,4 @@
-"poor man's use server";
+"use spiceflow"
 
 export async function* generator() {
   for (let i = 0; i < 10; i++) {

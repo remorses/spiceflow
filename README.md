@@ -9,7 +9,7 @@
 </div>
 
 ```ts
-"poor man's use server";
+"use spiceflow"
 import { cookies, headers } from 'spiceflow/headers';
 
 export async function action({}) {
@@ -48,7 +48,7 @@ Write your functions
 
 ```ts
 // src/v1/functions.ts
-"poor man's use server";
+"use spiceflow"
 
 export async function spiceflowFunction() {
   return { hello: 'world' };
@@ -137,7 +137,7 @@ This plugin injects the `req` and `res` objects in an `AsyncLocalStorage` contex
 Edge function example:
 
 ```ts
-"poor man's use server";
+"use spiceflow"
 
 import { getNodejsContext } from 'spiceflow/context';
 
@@ -153,7 +153,7 @@ export async function serverAction({}) {
 You can export a function named `wrapMethod` to easily wrap all your server actions with error logging or other wrappers
 
 ```ts
-"poor man's use server";
+"use spiceflow"
 
 export function wrapMethod(fn) {
   return async (...args) => {

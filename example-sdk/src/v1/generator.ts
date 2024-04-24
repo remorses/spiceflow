@@ -1,4 +1,4 @@
-"poor man's use server";
+"use spiceflow"
 
 import { UserType } from 'example-app/src/utils.js';
 
