@@ -33,7 +33,7 @@ cli
 
     const tempFilePath = path.resolve('_main.mjs');
 
-    const code = `import { methodsMap } from './server/index.js'; import { exposeNodeServer } from 'jsonrpc-sdk/dist/expose.js'; exposeNodeServer({ methodsMap, basePath: '${basePath}', port: ${port} });`;
+    const code = `import { methodsMap } from './server/index.js'; import { exposeNodeServer } from 'spiceflow/dist/expose.js'; exposeNodeServer({ methodsMap, basePath: '${basePath}', port: ${port} });`;
     fs.writeFileSync(tempFilePath, code);
     process.on('SIGINT', () => {
       try {

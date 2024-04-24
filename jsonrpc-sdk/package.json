@@ -1,5 +1,5 @@
 {
-  "name": "jsonrpc-sdk",
+  "name": "spiceflow",
   "version": "0.0.0",
   "description": "Like GraphQL but for json-rpc and no schema needed",
   "main": "dist/index.js",

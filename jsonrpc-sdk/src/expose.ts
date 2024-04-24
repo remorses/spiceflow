@@ -16,7 +16,7 @@ export async function exposeNodeServer({ methodsMap, basePath, port }) {
         res.end('ok');
         return;
       }
-      console.log(`[jsonrpc-sdk] ${req.url}`);
+      console.log(`[spiceflow] ${req.url}`);
       await handler({ req, res, basePath });
     } catch (error) {
       if (ended) {

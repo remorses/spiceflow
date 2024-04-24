@@ -64,7 +64,7 @@ export async function buildOnce({ rootDir, url }) {
       .join(',');
     const serverExposeContent =
       `// this file was generated\n` +
-      `import { internalEdgeHandler, internalNodeJsHandler } from 'jsonrpc-sdk/dist/server.js';\n` +
+      `import { internalEdgeHandler, internalNodeJsHandler } from 'spiceflow/dist/server.js';\n` +
       `export const methodsMap = {${importsCode}}\n` +
       `export const edgeHandler = internalEdgeHandler({ methodsMap });\n` +
       `export const nodeJsHandler = internalNodeJsHandler({ methodsMap });\n`;

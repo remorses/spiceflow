@@ -10,12 +10,12 @@
     "README.md"
   ],
   "scripts": {
-    "build": "jsonrpc-sdk --url http://localhost:3333",
-    "serve": "jsonrpc-sdk serve --port 3333",
-    "watch": "jsonrpc-sdk --watch --url http://localhost:3333"
+    "build": "spiceflow --url http://localhost:3333",
+    "serve": "spiceflow serve --port 3333",
+    "watch": "spiceflow --watch --url http://localhost:3333"
   },
   "dependencies": {
-    "jsonrpc-sdk": "workspace:*"
+    "spiceflow": "workspace:*"
   },
   "devDependencies": {}
 }

@@ -6,12 +6,12 @@
   "types": "lib/index.d.ts",
   "type": "module",
   "scripts": {
-    "build": "jsonrpc-sdk --url http://localhost:3333",
-    "serve": "jsonrpc-sdk serve --watch --port 3333",
-    "watch": "jsonrpc-sdk --watch --url http://localhost:3333"
+    "build": "spiceflow --url http://localhost:3333",
+    "serve": "spiceflow serve --watch --port 3333",
+    "watch": "spiceflow --watch --url http://localhost:3333"
   },
   "dependencies": {
-    "jsonrpc-sdk": "workspace:*"
+    "spiceflow": "workspace:*"
   },
   "devDependencies": {
     "example-app": "workspace:*"
