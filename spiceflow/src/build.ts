@@ -71,7 +71,7 @@ export async function buildOnce({
         filePath = removeExtension(filePath);
         return `${JSON.stringify(
           '/' + filePath,
-        )}: () => import('./${filePath}.js')`;
+        )}: () => import('./${filePath}')`;
       })
       .join(',');
     const serverExposeContent =
