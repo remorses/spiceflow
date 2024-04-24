@@ -1,12 +1,12 @@
 "poor man's use server";
 
-import { UserType, User } from 'example-app/src/utils.js';
+import { UserType } from 'example-app/src/utils.js';
 
 export async function* generator(user: UserType) {
-  const x = User.parse(user);
+  // const x = User.parse(user);
   for (let i = 0; i < 10; i++) {
     await sleep(300);
-    yield { i };
+    yield { i, another: true };
   }
 }
 

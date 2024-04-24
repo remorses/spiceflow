@@ -70,8 +70,13 @@ export function internalEdgeHandler({
 
     if (isAsyncIterable(result)) {
       const encoder = new TextEncoder();
+      let generatorFinished = false;
+
       req.signal.addEventListener('abort', () => {
-        result.return?.(undefined);
+        if (!generatorFinished) {
+          console.log(`request aborted, cancelling generator`);
+          result.return?.(undefined);
+        }
       });
       const readableStream = new ReadableStream(
         {
@@ -82,6 +87,7 @@ export function internalEdgeHandler({
                 encoder.encode('data: ' + JSON.stringify(value.json) + '\n\n'),
               );
             }
+            generatorFinished = true;
             controller.close();
           },
 
@@ -154,21 +160,26 @@ export function internalNodeJsHandler({
     );
 
     if (isAsyncIterable(result)) {
-      res.writeHead(200);
-      res.setHeader('content-type', 'text/event-stream');
-      res.setHeader('cache-control', 'no-cache');
-      res.setHeader('connection', 'keep-alive');
-      // https://github.com/vercel/next.js/issues/9965#issuecomment-584319868
-      res.setHeader('content-encoding', 'none');
-      res.flushHeaders();
+      res.writeHead(200, {
+        'content-type': 'text/event-stream',
+        'cache-control': 'no-cache',
+        connection: 'keep-alive',
+        // https://github.com/vercel/next.js/issues/9965#issuecomment-584319868
+        'content-encoding': 'none',
+      });
+
+      let generatorFinished = false;
       // handle cancellation
       res.on('close', () => {
-        console.log(`response closed, cancelling generator`);
-        (result as AsyncIterator<any>).return?.();
+        if (!generatorFinished) {
+          console.log(`response closed, cancelling generator`);
+          (result as AsyncIterator<any>).return?.();
+        }
       });
       for await (const value of result) {
         res.write('data: ' + JSON.stringify(value.json) + '\n\n');
       }
+      generatorFinished = true;
 
       res.end();
       return;
