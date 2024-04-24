@@ -45,6 +45,7 @@ cli
     const packageJsonPath = path.resolve(name, 'package.json');
     const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
     packageJson.name = name;
+    delete packageJson.private;
     // replace workspace:* with * from the package.json
     for (const key of Object.keys(packageJson.dependencies || {})) {
       const value = packageJson.dependencies[key];

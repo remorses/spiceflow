@@ -1,5 +1,6 @@
 {
   "name": "example-sdk",
+  "private": true,
   "version": "0.3.0",
   "description": "SDK for https://x",
   "main": "lib/index.js",
