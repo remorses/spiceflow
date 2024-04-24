@@ -92,6 +92,9 @@ importers:
 
   example-sdk:
     dependencies:
+      '@microsoft/api-extractor':
+        specifier: ^7.43.1
+        version: 7.43.1(@types/node@20.2.5)
       spiceflow:
         specifier: workspace:*
         version: link:../spiceflow

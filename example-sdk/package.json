@@ -12,6 +12,7 @@
     "watch": "spiceflow --watch --url http://localhost:3333"
   },
   "dependencies": {
+    "@microsoft/api-extractor": "^7.43.1",
     "spiceflow": "workspace:*"
   },
   "devDependencies": {

@@ -43,8 +43,8 @@ export async function buildOnce({
   }
 
   let browserOutDir = path.resolve('browser');
-  let serverOutDir = path.resolve('server');
-  await fs.promises.rm(browserOutDir, { recursive: true }).catch(() => null);
+
+  // await fs.promises.rm(browserOutDir, { recursive: true }).catch(() => null);
 
   const cwd = process.cwd();
   const serverEntrypoint = path.resolve(rootDir, 'server.ts');
@@ -128,35 +128,35 @@ export async function buildOnce({
       });
       fs.writeFileSync(outFile, res.code, 'utf-8');
     }
-
-    // const bundledPackages = (await getPackages(process.cwd())).packages.map(
-    //   (x) => x.packageJson.name,
-    // );
-    // // TODO devDependencies should be bundled too, given these are not shipped with the SDK
-    // if (!bundledPackages.length) {
-    //   console.log('no workspace packages found, skipping types bundling');
-    //   return;
-    // }
-    // for (const actionFile of actionFilesRelativePaths) {
-    //   const entryPointDts = path.resolve(
-    //     browserOutDir,
-    //     // path.relative(process.cwd(), rootDir),
-    //     path.dirname(actionFile),
-    //     path.basename(actionFile, path.extname(actionFile)) + '.d.ts',
-    //   );
-    //   console.log(`bundling types for ${path.relative(cwd, entryPointDts)}`);
-
-    //   rollupDtsFile({
-    //     bundledPackages,
-    //     inputFilePath: entryPointDts,
-    //     outputFilePath: entryPointDts,
-    //     tsconfigFilePath: 'tsconfig.json',
-    //   });
-    // }
   } finally {
     // await fs.promises.unlink(serverEntrypoint).catch(() => null);
   }
 }
+
+export async function bundleTypes({ rootDir }) {
+  const browserIndexFile = path.resolve('dist/browser/index.d.ts');
+
+  if (!fs.existsSync(browserIndexFile)) {
+    return;
+  }
+
+  const bundledPackages = (await getPackages(process.cwd())).packages.map(
+    (x) => x.packageJson.name,
+  );
+  if (!bundledPackages.length) {
+    console.log('no workspace packages found, skipping types bundling');
+    return;
+  }
+
+  rollupDtsFile({
+    bundledPackages,
+    inputFilePath: browserIndexFile,
+    outputFilePath: browserIndexFile,
+    tsconfigFilePath: 'tsconfig.json',
+  });
+  console.log(`types bundled in ${browserIndexFile}`);
+}
+
 const logger = console;
 
 let isBuilding = { ref: false };

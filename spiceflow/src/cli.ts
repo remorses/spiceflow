@@ -5,7 +5,7 @@ import fsx from 'fs-extra';
 import fs from 'fs-extra';
 
 import { cac } from 'cac';
-import { build, buildOnce } from './build.js';
+import { build, buildOnce, bundleTypes } from './build.js';
 import { findRootDir } from './index.js';
 import { exec, execSync, spawn } from 'child_process';
 import path from 'path';
@@ -32,6 +32,15 @@ cli
     const rootDir = await findRootDir(process.cwd());
     await build({ rootDir, url, openapi, watch });
   });
+
+cli
+  .command('types', 'Bundle browser types')
+
+  .action(async (options) => {
+    const rootDir = await findRootDir(process.cwd());
+    await bundleTypes({ rootDir });
+  });
+
 cli
   .command('init', 'Generate a new spiceflow project')
   .option('--name <name>', 'Name of this project')
