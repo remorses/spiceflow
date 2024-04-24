@@ -1,7 +1,7 @@
 {
   "name": "spiceflow",
   "version": "0.0.0",
-  "description": "Like GraphQL but for json-rpc and no schema needed",
+  "description": "If GraphQL, JSON-RPC and React server actions had a baby, it would be called spiceflow",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "repository": "https://github.com/remorses/spiceflow",

@@ -3,9 +3,11 @@
     <br/>
     <br/>
     <h3>spiceflow</h3>
-    <p>If GraphQL and server actions had a baby</p>
+    <br/>
+    <p>If GraphQL, JSON-RPC and React server actions had a baby, it would be called spiceflow</p>
     <br/>
     <br/>
+    
 </div>
 
 Spiceflow is the fastest way to write and expose an RPC API. In Spiceflow any files with the directive `'use spiceflow'` will be processed as an API route, each function defined in the file will be exposed as an JSON-RPC method.
