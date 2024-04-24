@@ -1,6 +1,5 @@
 'use client';
 
-import { appServerAction } from '@/app/app-actions/route';
 import {
   asyncGeneratorActionEdge,
   edgeServerAction,
@@ -24,7 +23,6 @@ export default function Home() {
   useEffect(() => {
     startTransition(() => {
       return Promise.allSettled([
-        appServerAction({}),
         edgeServerAction('home'),
         createUser({ name: 'test' }),
         failingFunction({ username: 'xx' }).catch((error: any) => {
