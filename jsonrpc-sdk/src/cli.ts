@@ -31,6 +31,19 @@ cli
       throw new Error('--name is required');
     }
     await fsx.copy(path.resolve(__dirname, '../sdk-template'), name);
+    // replace the package.json name
+    const packageJsonPath = path.resolve(name, 'package.json');
+    const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+    packageJson.name = name;
+    // replace workspace:* with * from the package.json
+    for (const key of Object.keys(packageJson.dependencies || {})) {
+      const value = packageJson.dependencies[key];
+      if (value && value.startsWith('workspace:')) {
+        packageJson.dependencies[key] = '*';
+      }
+    }
+
+    fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
   });
 cli
   .command('serve', 'Expose a server for your functions')

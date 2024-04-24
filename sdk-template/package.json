@@ -11,8 +11,8 @@
   ],
   "scripts": {
     "build": "spiceflow --url http://localhost:3333",
-    "serve": "spiceflow serve --port 3333",
-    "watch": "spiceflow --watch --url http://localhost:3333"
+    "watch": "spiceflow --watch --url http://localhost:3333",
+    "serve": "spiceflow serve --port 3333"
   },
   "dependencies": {
     "spiceflow": "workspace:*"
