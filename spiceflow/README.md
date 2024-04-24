@@ -3,9 +3,11 @@
     <br/>
     <br/>
     <h3>spiceflow</h3>
-    <p>If GraphQL and server actions had a baby</p>
+    <br/>
+    <p>If GraphQL, JSON-RPC and React server actions had a baby, it would be called spiceflow</p>
     <br/>
     <br/>
+    
 </div>
 
 Spiceflow is the fastest way to write and expose an RPC API. In Spiceflow any files with the directive `'use spiceflow'` will be processed as an API route, each function defined in the file will be exposed as an JSON-RPC method.
@@ -37,13 +39,13 @@ tree
 │       └── generator.ts
 └── tsconfig.json
 
-npm run serve # build the sdk in the dist folder and start a server exposing your API
+npm run serve # builds the sdk in the dist folder and starts serving your API
 npm run try-sdk # try using the sdk
 ```
 
 ## Writing your API functions
 
-Write your functions
+Any functions exported in a file with the `'use spiceflow'` directive will be processed as an API route, each function defined in the file will be exposed as an JSON-RPC method.
 
 ```ts
 // src/v1/functions.ts
@@ -68,16 +70,10 @@ function sleep(ms: number) {
 Expose the server
 
 ```bash
-spiceflow serve
+spiceflow serve --watch
 ```
 
-Build the client sdk to the dist folder
-
-```bash
-spiceflow build
-```
-
-Call your function from the client, they will use fetch to call the server
+Call your function from the client, these will use fetch to call the server
 
 ```ts
 import {
@@ -104,6 +100,8 @@ spiceflow serve --port 3333
 ```
 
 ### Next.js pages API handler
+
+> Note: You will need to call `spiceflow build` before using the SDK when using this method
 
 ```tsx
 // pages/api/spiceflow/[...slug].tsx
@@ -177,4 +175,4 @@ You can create a `v1` folder in your project and exports your function from `ind
 
 ## How it works
 
-Spiceflow `build` command transpiles the files with the `use spiceflow` directive so that any function uses fetch to call the server, the result is saved in the `dist` folder. Other files are compiled to the dist directory using `tsc`. These fetch calls use JSON-RPC to communicate with the server. Spiceflow also bundles the type definitions with `@microsoft/api-extractor` so your packages does not rely on external local packages and can be safely published to npm.
+Spiceflow `build` command transpiles the files with the `use spiceflow` directive so that any exported function will use fetch to send arguments and get the result, the the transformed files are saved in the `dist` folder. Other files are compiled to the dist directory using `tsc`. Spiceflow also bundles the type definitions with `@microsoft/api-extractor` so the generated dist files don't rely on external local packages and can be safely published to npm.

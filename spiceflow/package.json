@@ -1,6 +1,6 @@
 {
   "name": "spiceflow",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "description": "If GraphQL, JSON-RPC and React server actions had a baby, it would be called spiceflow",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
