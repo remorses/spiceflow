@@ -9,7 +9,7 @@ export interface WithRpcConfig {}
 export { WrapMethod };
 
 import pluginSyntaxJsx from '@babel/plugin-syntax-jsx';
-import pluginTransformTypescript from '@babel/plugin-transform-typescript';
+import pluginTransformTypescript from '@babel/plugin-syntax-typescript';
 import babelTransformRpc from './babelTransformRpc.js';
 import babelDebugOutputs from './babelDebugOutputs.js';
 

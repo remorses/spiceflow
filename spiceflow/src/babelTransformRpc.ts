@@ -1,15 +1,13 @@
 import * as babel from '@babel/core';
 import generate from '@babel/generator';
-import { parseExpression } from '@babel/parser';
+import { parse, parseExpression } from '@babel/parser';
 import type * as types from '@babel/types';
 import fs from 'fs';
 import path from 'path';
 import { WrapMethodMeta } from './server.js';
-import { annotateAsPure, directive, logger } from './utils.js';
+import { annotateAsPure, directive, logger, removeExtension } from './utils.js';
 
 type Babel = { types: typeof types };
-
-const IMPORT_PATH_BROWSER = `spiceflow/dist/browser.js`;
 
 function isAllowedTsExportDeclaration(
   declaration: babel.NodePath<babel.types.Declaration | null | undefined>,
@@ -343,9 +341,6 @@ export default function (
         }
 
         if (!isServer) {
-          const createRpcFetcherIdentifier =
-            program.scope.generateUidIdentifier('createRpcFetcher');
-
           // Clear the whole body
           out: for (const statement of program.get('body')) {
             // don't remove if it's an export with name is config or runtime
@@ -363,38 +358,33 @@ export default function (
             statement.remove();
           }
 
+          const outFile = path.resolve(
+            rootDir,
+            '../browser',
+            path.relative(rootDir, filename),
+          );
+          program.node.directives = [];
           program.pushContainer('body', [
-            t.importDeclaration(
-              [
-                t.importSpecifier(
-                  createRpcFetcherIdentifier,
-                  t.identifier('createRpcFetcher'),
-                ),
-              ],
-              t.stringLiteral(IMPORT_PATH_BROWSER),
-            ),
+            ...(parse(
+              `import { createRpcFetcher } from 'spiceflow/dist/browser.js';\n` +
+                `import * as methods from './${
+                  removeExtension(
+                    path.relative(path.dirname(outFile), filename),
+                  ) + '.js'
+                }'`,
+              { sourceType: 'module' },
+            ).program.body as any),
             ...rpcMethodNames.map((name) => {
               const isGenerator = !!generators.get(name);
               onMethod?.({ name, pathname: rpcPath, isGenerator });
-              return t.exportNamedDeclaration(
-                t.variableDeclaration('const', [
-                  t.variableDeclarator(
-                    t.identifier(name),
-                    annotateAsPure(
-                      t,
-                      t.callExpression(createRpcFetcherIdentifier, [
-                        parseExpression(
-                          JSON.stringify({
-                            url: rpcPath,
-                            method: name,
-                            isGenerator,
-                          }),
-                        ),
-                      ]),
-                    ),
-                  ),
-                ]),
-              );
+              return parse(
+                `export const ${name}: typeof methods['${name}'] = createRpcFetcher({ url: ${JSON.stringify(
+                  rpcPath,
+                )}, method: ${JSON.stringify(
+                  name,
+                )}, isGenerator: ${isGenerator} });`,
+                { sourceType: 'module', plugins: ['typescript'] },
+              ).program.body[0];
             }),
           ]);
         }

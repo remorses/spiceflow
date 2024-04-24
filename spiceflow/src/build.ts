@@ -16,7 +16,7 @@ import globSync from 'fast-glob';
 import fs from 'fs';
 import path from 'path';
 import { plugins } from './index.js';
-import { camelCaseCapitalized, directive, serverEntryName } from './utils.js';
+import { camelCaseCapitalized, directive, removeExtension } from './utils.js';
 import { WrapMethodMeta } from './server.js';
 
 type BuildOptions = {
@@ -42,12 +42,12 @@ export async function buildOnce({
     throw new Error(`Invalid url ${url}`);
   }
 
-  let libOutDir = path.resolve('dist');
+  let browserOutDir = path.resolve('browser');
   let serverOutDir = path.resolve('server');
-  await fs.promises.rm(libOutDir, { recursive: true }).catch(() => null);
+  await fs.promises.rm(browserOutDir, { recursive: true }).catch(() => null);
 
   const cwd = process.cwd();
-  const serverEntrypoint = path.resolve(rootDir, serverEntryName + '.ts');
+  const serverEntrypoint = path.resolve(rootDir, 'server.ts');
 
   try {
     const globBase = path.relative(cwd, rootDir);
@@ -74,7 +74,6 @@ export async function buildOnce({
       })
       .join(',');
     const serverExposeContent =
-      `// @ts-nocheck\n` +
       `// this file was generated\n` +
       `import { internalEdgeHandler, internalNodeJsHandler } from 'spiceflow/dist/server.js';\n` +
       `export const methodsMap = {${importsCode}}\n` +
@@ -85,31 +84,6 @@ export async function buildOnce({
       throw new Error('No functions files found!');
     }
     fs.writeFileSync(serverEntrypoint, serverExposeContent, 'utf8');
-
-    await Promise.all([
-      runCommand(
-        `tsc --incremental --declaration --noEmit false --outDir ${libOutDir} `,
-      ),
-    ]).catch((error) => {
-      // console.error(error);
-      console.error('Error running tsc, continue anyway');
-    });
-
-    // copy tsc output to server dir
-    await fsx.copy(libOutDir, serverOutDir, { overwrite: true });
-    // rename serverEntryName to index
-    const tscOutFiles = fs.readdirSync(serverOutDir);
-    for (const file of tscOutFiles) {
-      if (file.startsWith(serverEntryName)) {
-        const remaining = file.slice(serverEntryName.length);
-        fs.renameSync(
-          path.resolve(serverOutDir, file),
-          path.resolve(serverOutDir, 'index' + remaining),
-        );
-      }
-    }
-
-    const imports = [] as string[];
 
     for (let actionFile of actionFilesRelativePaths) {
       const abs = path.resolve(rootDir, actionFile);
@@ -144,77 +118,43 @@ export async function buildOnce({
       }
       const importPath =
         './' +
-        path.posix.join(path.posix.dirname(actionFile), actionName + '.js');
-      const outFile = path.resolve(libOutDir, importPath);
+        path.posix.join(path.posix.dirname(actionFile), actionName + '.ts');
+      const outFile = path.resolve(browserOutDir, importPath);
 
       console.log(`processed ${importPath}`);
-      imports.push(importPath);
-      fs.mkdirSync(path.resolve(libOutDir, path.dirname(importPath)), {
+
+      fs.mkdirSync(path.dirname(outFile), {
         recursive: true,
       });
-      if (openapi) {
-        const openapiTypes =
-          `import * as methods from ${JSON.stringify(
-            './' + path.basename(importPath),
-          )}\n` +
-          methods
-            .map(
-              (x) =>
-                `export const x: Awaited<ReturnType<typeof methods.${x.name}>>\n`,
-            )
-            .join('\n');
-        fs.writeFileSync(openapiTypesPath(outFile), openapiTypes, 'utf-8');
-        fs.writeFileSync(outFile, res.code, 'utf-8');
-      }
+      fs.writeFileSync(outFile, res.code, 'utf-8');
     }
 
-    const bundledPackages = (await getPackages(process.cwd())).packages.map(
-      (x) => x.packageJson.name,
-    );
-    // TODO devDependencies should be bundled too, given these are not shipped with the SDK
-    if (!bundledPackages.length) {
-      console.log('no workspace packages found, skipping types bundling');
-      return;
-    }
-    for (const actionFile of actionFilesRelativePaths) {
-      const entryPointDts = path.resolve(
-        libOutDir,
-        // path.relative(process.cwd(), rootDir),
-        path.dirname(actionFile),
-        path.basename(actionFile, path.extname(actionFile)) + '.d.ts',
-      );
-      console.log(`bundling types for ${path.relative(cwd, entryPointDts)}`);
+    // const bundledPackages = (await getPackages(process.cwd())).packages.map(
+    //   (x) => x.packageJson.name,
+    // );
+    // // TODO devDependencies should be bundled too, given these are not shipped with the SDK
+    // if (!bundledPackages.length) {
+    //   console.log('no workspace packages found, skipping types bundling');
+    //   return;
+    // }
+    // for (const actionFile of actionFilesRelativePaths) {
+    //   const entryPointDts = path.resolve(
+    //     browserOutDir,
+    //     // path.relative(process.cwd(), rootDir),
+    //     path.dirname(actionFile),
+    //     path.basename(actionFile, path.extname(actionFile)) + '.d.ts',
+    //   );
+    //   console.log(`bundling types for ${path.relative(cwd, entryPointDts)}`);
 
-      rollupDtsFile({
-        bundledPackages,
-        inputFilePath: entryPointDts,
-        outputFilePath: entryPointDts,
-        tsconfigFilePath: 'tsconfig.json',
-      });
-      if (!openapi) {
-        continue;
-      }
-
-      const { createGenerator } = await import('ts-json-schema-generator');
-
-      const generator = createGenerator({
-        path: path.resolve(actionFile),
-        type: `*`,
-        tsconfig: 'tsconfig.json',
-        minify: false,
-        // discriminatorType: 'open-api',
-        skipTypeCheck: true,
-        functions: 'comment',
-      });
-      const schema = generator.createSchema();
-      console.log(JSON.stringify(schema, null, 2));
-      // fs.writeFileSync(
-      //   path.resolve(libOutDir, 'schema.json'),
-      //   JSON.stringify(schema, null, 2),
-      // );
-    }
+    //   rollupDtsFile({
+    //     bundledPackages,
+    //     inputFilePath: entryPointDts,
+    //     outputFilePath: entryPointDts,
+    //     tsconfigFilePath: 'tsconfig.json',
+    //   });
+    // }
   } finally {
-    await fs.promises.unlink(serverEntrypoint).catch(() => null);
+    // await fs.promises.unlink(serverEntrypoint).catch(() => null);
   }
 }
 const logger = console;
@@ -230,7 +170,12 @@ export async function build(options: BuildOptions) {
   const { rootDir, url } = options;
   const watcher = chokidar.watch(rootDir, {
     // ignored: /(^|[\/\\])\../, // ignore dotfiles
-    ignored: ['**/node_modules/**', '**/dist/**', `src/${serverEntryName}.ts`],
+    ignored: [
+      '**/node_modules/**',
+      '**/dist/**',
+      path.resolve(`src/server.ts`),
+      'browser/**',
+    ],
     persistent: true,
   });
   console.log('watching for changes');
@@ -323,10 +268,6 @@ function rollupDtsFile({
       `API Extractor completed with ${extractorResult.errorCount} errors and ${extractorResult.warningCount} warnings when processing ${inputFilePath}`,
     );
   }
-}
-
-function removeExtension(filePath: string) {
-  return filePath.replace(/\.[j|t]sx?$/, '');
 }
 
 function runCommand(command: string) {

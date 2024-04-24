@@ -1,5 +1,5 @@
-"use spiceflow"
+'use spiceflow';
 
-export async function action({  }) {
+export async function action({}) {
   return 'hello';
 }

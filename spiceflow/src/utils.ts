@@ -42,8 +42,6 @@ export function getFileName(state: PluginPass) {
 }
 export const directive = 'use spiceflow';
 
-export const serverEntryName = '_function_server_file';
-
 export function jsonRpcError({
   id = null,
   message,
@@ -70,4 +68,8 @@ export function camelCaseCapitalized(str: string) {
   }
   const first = str[0].toUpperCase();
   return first + str.slice(1);
+}
+
+export function removeExtension(filePath: string) {
+  return filePath.replace(/\.[j|t]sx?$/, '');
 }
