@@ -17,7 +17,6 @@ import fs from 'fs';
 import path from 'path';
 import { plugins } from './index.js';
 import { camelCaseCapitalized, directive, serverEntryName } from './utils.js';
-import { createGenerator } from 'ts-json-schema-generator';
 import { WrapMethodMeta } from './server.js';
 
 type BuildOptions = {
@@ -194,6 +193,9 @@ export async function buildOnce({
       if (!openapi) {
         continue;
       }
+
+      
+      const { createGenerator } = await import('ts-json-schema-generator');
 
       const generator = createGenerator({
         path: path.resolve(actionFile),

@@ -9,10 +9,12 @@ import { build, buildOnce } from './build.js';
 import { findRootDir } from './index.js';
 import { exec, execSync, spawn } from 'child_process';
 import path from 'path';
+import { fileURLToPath } from 'url';
 
 export const cli = cac();
 
-const __dirname = path.dirname(import.meta.url);
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 cli
   .command('', 'Generate an SDK package for your functions')
