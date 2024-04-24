@@ -10,6 +10,8 @@
     
 </div>
 
+## What is spiceflow?
+
 Spiceflow is the fastest way to write and expose an RPC API. In Spiceflow any files with the directive `'use spiceflow'` will be processed as an API route, each function defined in the file will be exposed as an JSON-RPC method.
 
 After defining your functions you can call `spiceflow serve` to start a server exposing your API, you can also espose the API using the Next.js or your own server.
