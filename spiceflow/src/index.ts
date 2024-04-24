@@ -13,13 +13,11 @@ import pluginTransformTypescript from '@babel/plugin-transform-typescript';
 import babelTransformRpc from './babelTransformRpc.js';
 import babelDebugOutputs from './babelDebugOutputs.js';
 
-export function plugins(
-  options: PluginOptions & { onMethod?: (method: WrapMethodMeta) => void },
-) {
+export function plugins(options: PluginOptions) {
   return [
     pluginSyntaxJsx,
     [pluginTransformTypescript, { isTSX: true }],
-    [babelTransformRpc(options), options],
+    [babelTransformRpc, options],
     process.env.DEBUG_ACTIONS && [babelDebugOutputs, options],
   ].filter(Boolean);
 }
