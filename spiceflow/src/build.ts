@@ -126,7 +126,6 @@ export async function buildOnce({ openapi = false, rootDir, url }) {
         sourceMaps: false,
       });
 
-      console.log({ methods });
       if (!res || !res.code) {
         console.error(
           `Error transforming ${actionFile}, returned nothing, maybe not an action?`,
@@ -143,25 +142,20 @@ export async function buildOnce({ openapi = false, rootDir, url }) {
       fs.mkdirSync(path.resolve(libOutDir, path.dirname(importPath)), {
         recursive: true,
       });
-      const openapiTypes =
-        `import * as methods from ${JSON.stringify(
-          './' + path.basename(importPath),
-        )}\n` +
-        methods
-          .map(
-            (x) =>
-              `export type ${camelCaseCapitalized(
-                x.name,
-              )}ReturnType = Awaited<ReturnType<typeof methods.${
-                x.name
-              }>>\n` +
-              `export type ${camelCaseCapitalized(
-                x.name,
-              )}Params = Parameters<typeof methods.${x.name}>\n`,
-          )
-          .join('\n');
-      fs.writeFileSync(openapiTypesPath(outFile), openapiTypes, 'utf-8');
-      fs.writeFileSync(outFile, res.code, 'utf-8');
+      if (openapi) {
+        const openapiTypes =
+          `import * as methods from ${JSON.stringify(
+            './' + path.basename(importPath),
+          )}\n` +
+          methods
+            .map(
+              (x) =>
+                `export const x: Awaited<ReturnType<typeof methods.${x.name}>>\n`,
+            )
+            .join('\n');
+        fs.writeFileSync(openapiTypesPath(outFile), openapiTypes, 'utf-8');
+        fs.writeFileSync(outFile, res.code, 'utf-8');
+      }
     }
 
     const bundledPackages = (await getPackages(process.cwd())).packages.map(
@@ -192,19 +186,20 @@ export async function buildOnce({ openapi = false, rootDir, url }) {
       }
 
       const generator = createGenerator({
-        path: openapiTypesPath(path.resolve(actionFile)),
+        path: path.resolve(actionFile),
         type: `*`,
         tsconfig: 'tsconfig.json',
         minify: false,
-        discriminatorType: 'open-api',
+        // discriminatorType: 'open-api',
         skipTypeCheck: true,
-        functions: 'hide',
+        functions: 'comment',
       });
       const schema = generator.createSchema();
-      fs.writeFileSync(
-        path.resolve(libOutDir, 'schema.json'),
-        JSON.stringify(schema, null, 2),
-      );
+      console.log(JSON.stringify(schema, null, 2));
+      // fs.writeFileSync(
+      //   path.resolve(libOutDir, 'schema.json'),
+      //   JSON.stringify(schema, null, 2),
+      // );
     }
   } finally {
     await fs.promises.unlink(serverEntrypoint).catch(() => null);
@@ -339,6 +334,6 @@ function runCommand(command: string) {
 function openapiTypesPath(outFile) {
   return path.resolve(
     path.dirname(outFile),
-    `${path.basename(outFile, path.extname(outFile))}-openapi.d.ts`,
+    `${path.basename(outFile, path.extname(outFile))}-schema.d.ts`,
   );
 }
