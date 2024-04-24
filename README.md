@@ -40,7 +40,8 @@ npx spiceflow init --name my-api
 # │       └── generator.ts
 # └── tsconfig.json
 
-npm run serve # builds the sdk in the dist folder and starts serving your API
+npx spiceflow serve # builds the sdk in the dist folder and starts serving your API
+
 npm run try-sdk # try using the sdk
 ```
 
