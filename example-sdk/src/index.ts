@@ -1,2 +1,2 @@
-export * from './v1/example';
-export * from './v1/generator';
+export * from './v1/example.js';
+export * from './v1/generator.js';
