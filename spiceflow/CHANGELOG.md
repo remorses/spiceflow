@@ -1,5 +1,11 @@
 # spiceflow
 
+## 0.0.2
+
+### Patch Changes
+
+- Added experimental --openapi
+
 ## 0.0.1
 
 ### Patch Changes

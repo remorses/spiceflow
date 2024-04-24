@@ -4,11 +4,13 @@
     <br/>
     <h3>spiceflow</h3>
     <br/>
-    <p>If GraphQL, JSON-RPC and React server actions had a baby, it would be called spiceflow</p>
+    <p>If GraphQL, JSON-RPC and React server actions had a baby</p>
     <br/>
     <br/>
     
 </div>
+
+## What is spiceflow?
 
 Spiceflow is the fastest way to write and expose an RPC API. In Spiceflow any files with the directive `'use spiceflow'` will be processed as an API route, each function defined in the file will be exposed as an JSON-RPC method.
 
@@ -29,23 +31,23 @@ npm i spiceflow
 ```bash
 # create a new spiceflow project, works best in a monorepo
 npx spiceflow init --name my-api
-tree
-.
-├── package.json
-├── src
-│   ├── index.ts
-│   └── v1
-│       ├── example.ts
-│       └── generator.ts
-└── tsconfig.json
+# .
+# ├── package.json
+# ├── src
+# │   ├── index.ts
+# │   └── v1
+# │       ├── example.ts
+# │       └── generator.ts
+# └── tsconfig.json
 
-npm run serve # builds the sdk in the dist folder and starts serving your API
+npx spiceflow serve # builds the sdk in the dist folder and starts serving your API
+
 npm run try-sdk # try using the sdk
 ```
 
 ## Writing your API functions
 
-Any functions exported in a file with the `'use spiceflow'` directive will be processed as an API route, each function defined in the file will be exposed as an JSON-RPC method.
+#### Any functions exported in a file with the `'use spiceflow'` directive will be processed as an API route, each function defined in the file will be exposed as an JSON-RPC method.
 
 ```ts
 // src/v1/functions.ts
@@ -67,13 +69,13 @@ function sleep(ms: number) {
 }
 ```
 
-Expose the server
+#### Build and serve the API
 
 ```bash
 spiceflow serve --watch
 ```
 
-Call your function from the client, these will use fetch to call the server
+#### Call your function from the client, these will use fetch to communicate with the server
 
 ```ts
 import {
@@ -131,8 +133,6 @@ spiceflow build --url http://localhost:3000/api/spiceflow # the Next.js app url
 
 This plugin injects the `req` and `res` objects in an `AsyncLocalStorage` context, so you can access them in your server functions:
 
-Edge function example:
-
 ```ts
 'use spiceflow';
 
@@ -175,4 +175,6 @@ You can create a `v1` folder in your project and exports your function from `ind
 
 ## How it works
 
-Spiceflow `build` command transpiles the files with the `use spiceflow` directive so that any exported function will use fetch to send arguments and get the result, the the transformed files are saved in the `dist` folder. Other files are compiled to the dist directory using `tsc`. Spiceflow also bundles the type definitions with `@microsoft/api-extractor` so the generated dist files don't rely on external local packages and can be safely published to npm.
+Spiceflow `build` command transpiles the files with the `use spiceflow` directive so that any exported function will use fetch to send arguments and get the result, the the transformed files are saved in the `dist` folder.Other files are compiled to the dist directory using `tsc`.
+
+Spiceflow also bundles the type definitions with `@microsoft/api-extractor` so the generated dist files don't rely on external local packages and can be safely published to npm.
