@@ -1,11 +1,11 @@
 "poor man's use server";
+import fs from 'fs';
+import { revalidatePath } from 'next/cache';
+
 import { z } from 'zod';
 
 import { User } from '@/utils';
-import { revalidatePath } from 'next/cache';
 import { getNodejsContext } from 'server-actions-for-next-pages/context';
-import { getContext } from 'server-actions-for-next-pages/context';
-import { cookies, headers } from 'server-actions-for-next-pages/headers';
 
 export async function createUser({ name = '' }) {
   const { req, res } = await getNodejsContext();
@@ -45,6 +45,28 @@ export function wrapMethod(fn) {
  */
 export async function failingFunction({}: z.infer<typeof User>) {
   // throw new Error('This function fails');
+}
+
+export async function sendMessage({ text }) {
+  // console.log('edge cookies & headers', cookies(), headers());
+  await sleep(100);
+  await fs.promises.writeFile(
+    './optimistic.json',
+    JSON.stringify(
+      [
+        ...JSON.parse(fs.readFileSync('./optimistic.json', 'utf-8')),
+        {
+          text,
+          sending: false,
+        },
+      ],
+      null,
+      2,
+    ),
+  );
+  revalidatePath('/optimistic');
+
+  return {};
 }
 
 function sleep(ms: number) {

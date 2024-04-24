@@ -1,6 +1,6 @@
 'use client';
 
-import { sendMessage } from '@/app/optimistic/actions/route';
+import { sendMessage } from '@/pages/api/actions-node';
 import { useRouter } from 'next/navigation';
 import { useOptimistic, useRef, useTransition } from 'react';
 

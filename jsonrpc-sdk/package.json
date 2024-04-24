@@ -4,7 +4,7 @@
   "description": "Like GraphQL but for json-rpc and no schema needed",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "repository": "https://github.com/remorses/server-actions-for-next-pages",
+  "repository": "https://github.com/remorses/spiceflow",
   "scripts": {
     "build": "cp ../README.md ./README.md && rm -rf dist && tsc",
     "prepublishOnly": "pnpm build",
