@@ -46,7 +46,7 @@ npm run try-sdk # try using the sdk
 
 ## Writing your API functions
 
-### Any functions exported in a file with the `'use spiceflow'` directive will be processed as an API route, each function defined in the file will be exposed as an JSON-RPC method.
+#### Any functions exported in a file with the `'use spiceflow'` directive will be processed as an API route, each function defined in the file will be exposed as an JSON-RPC method.
 
 ```ts
 // src/v1/functions.ts
@@ -68,13 +68,13 @@ function sleep(ms: number) {
 }
 ```
 
-### Build and serve the API
+#### Build and serve the API
 
 ```bash
 spiceflow serve --watch
 ```
 
-### Call your function from the client, these will use fetch to communicate with the server
+#### Call your function from the client, these will use fetch to communicate with the server
 
 ```ts
 import {
