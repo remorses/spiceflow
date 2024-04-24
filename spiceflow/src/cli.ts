@@ -15,7 +15,9 @@ export const cli = cac();
 cli
   .command('', 'Generate an SDK package for your functions')
   .option('--watch', 'Watch for changes')
-  .option('--url <url>', 'URL of the package, including the base path')
+  .option('--url <url>', 'URL of the package, including the base path', {
+    default: 'http://localhost:3333',
+  })
   .action(async (options) => {
     const { url, watch } = options;
     const rootDir = await findRootDir(process.cwd());
