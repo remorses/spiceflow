@@ -151,6 +151,7 @@ export async function buildOnce({ rootDir, url }) {
     const bundledPackages = (await getPackages(process.cwd())).packages.map(
       (x) => x.packageJson.name,
     );
+    // TODO devDependencies should be bundled too, given these are not shipped with the SDK
     if (!bundledPackages.length) {
       console.log('no workspace packages found, skipping types bundling');
       return;

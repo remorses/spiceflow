@@ -8,14 +8,13 @@
     <br/>
 </div>
 
-```ts
-"use spiceflow"
-import { cookies, headers } from 'spiceflow/headers';
+Spiceflow is the fastest way to write and expose an RPC API. In Spiceflow any files with the directive `'use spiceflow'` will be processed as an API route, each function defined in the file will be exposed as an JSON-RPC method.
 
-export async function action({}) {
-  return { headers: headers(), cookies: cookies() };
-}
-```
+After defining your functions you can call `spiceflow serve` to start a server exposing your API, you can also espose the API using the Next.js or your own server.
+
+When calling `spiceflow build` spiceflow will generate a client side SDK for your API, you can use it to call your API from the browser. This client SDK will be type safe, because the functions are called the same way from the server and the client, so types can be reused (after being bundled with @microsoft/api-extractor).
+
+You can publish this SDK to npm and let your users interact with your API in an easy and type safe way.
 
 ## Installation
 
@@ -48,7 +47,7 @@ Write your functions
 
 ```ts
 // src/v1/functions.ts
-"use spiceflow"
+'use spiceflow';
 
 export async function spiceflowFunction() {
   return { hello: 'world' };
@@ -137,7 +136,7 @@ This plugin injects the `req` and `res` objects in an `AsyncLocalStorage` contex
 Edge function example:
 
 ```ts
-"use spiceflow"
+'use spiceflow';
 
 import { getNodejsContext } from 'spiceflow/context';
 
@@ -153,7 +152,7 @@ export async function serverAction({}) {
 You can export a function named `wrapMethod` to easily wrap all your server actions with error logging or other wrappers
 
 ```ts
-"use spiceflow"
+'use spiceflow';
 
 export function wrapMethod(fn) {
   return async (...args) => {
@@ -171,3 +170,7 @@ export async function failingFunction({}) {
   throw new Error('This function fails');
 }
 ```
+
+## Versioning
+
+You can create a `v1` folder in your project and exports your function from `index.ts`, when you want to release a breaking version of your API, you can create a new folder and change the imports in `index.ts` file. This way the sdk users will always use the latest version of your API, while old SDK users will keep the old version.
