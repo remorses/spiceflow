@@ -1,8 +1,8 @@
 import { IncomingMessage, ServerResponse } from 'http';
 import superjson from 'superjson';
-import { asyncLocalStorage } from './context-internal';
-import { JsonRpcRequest, JsonRpcResponse } from './jsonRpc';
-import { jsonRpcError } from './utils';
+import { asyncLocalStorage } from './context-internal.js';
+import { JsonRpcRequest, JsonRpcResponse } from './jsonRpc.js';
+import { jsonRpcError } from './utils.js';
 
 export type Method<P extends any[], R> = (
   ...params: P

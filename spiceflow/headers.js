@@ -1,1 +1,1 @@
-module.exports = require('./dist/headers');
+export * from './dist/headers';

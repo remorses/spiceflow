@@ -1,1 +1,1 @@
-module.exports = require('./dist/context');
+export * from './dist/context';

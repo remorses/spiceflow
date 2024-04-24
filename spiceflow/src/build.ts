@@ -1,4 +1,4 @@
-import { red } from 'picocolors';
+import pico from 'picocolors';
 import fsx from 'fs-extra';
 
 import {
@@ -12,13 +12,15 @@ import { getPackages } from '@manypkg/get-packages';
 
 import { transform } from '@babel/core';
 import { exec } from 'child_process';
-import { globSync } from 'fast-glob';
+import globSync from 'fast-glob';
 import fs from 'fs';
 import path from 'path';
-import { plugins } from '.';
-import { directive, serverEntryName } from './utils';
+import { plugins } from './index.js';
+import { camelCaseCapitalized, directive, serverEntryName } from './utils.js';
+import { createGenerator } from 'ts-json-schema-generator';
+import { WrapMethodMeta } from './server.js';
 
-export async function buildOnce({ rootDir, url }) {
+export async function buildOnce({ openapi = false, rootDir, url }) {
   console.log();
   console.log('building functions');
   if (url && !url.endsWith('/')) {
@@ -42,7 +44,7 @@ export async function buildOnce({ rootDir, url }) {
     const globBase = path.relative(cwd, rootDir);
     const globs = [path.posix.join(globBase, '**/*.{ts,tsx,js,jsx}')];
     // console.log({ globs });
-    const allPossibleFiles = globSync(globs, {
+    const allPossibleFiles = globSync.globSync(globs, {
       onlyFiles: true,
       absolute: true,
     });
@@ -105,48 +107,62 @@ export async function buildOnce({ rootDir, url }) {
 
       const actionName = path.basename(actionFile, path.extname(actionFile));
 
+      let methods = [] as WrapMethodMeta[];
       const res = transform(content || '', {
         babelrc: false,
         sourceType: 'module',
-        plugins: plugins({
-          isServer: false,
-          url,
-          rootDir,
-        }),
+        plugins: [
+          ...plugins({
+            isServer: false,
+            url,
+            onMethod(meta) {
+              methods.push(meta);
+            },
+            rootDir,
+          }),
+        ],
         filename: abs,
 
         sourceMaps: false,
       });
+
+      console.log({ methods });
       if (!res || !res.code) {
         console.error(
           `Error transforming ${actionFile}, returned nothing, maybe not an action?`,
         );
         continue;
       }
-
       const importPath =
         './' +
         path.posix.join(path.posix.dirname(actionFile), actionName + '.js');
+      const outFile = path.resolve(libOutDir, importPath);
+
       console.log(`processed ${importPath}`);
       imports.push(importPath);
       fs.mkdirSync(path.resolve(libOutDir, path.dirname(importPath)), {
         recursive: true,
       });
-      fs.writeFileSync(path.resolve(libOutDir, importPath), res.code, 'utf-8');
+      const openapiTypes =
+        `import * as methods from ${JSON.stringify(
+          './' + path.basename(importPath),
+        )}\n` +
+        methods
+          .map(
+            (x) =>
+              `export type ${camelCaseCapitalized(
+                x.name,
+              )}ReturnType = Awaited<ReturnType<typeof methods.${
+                x.name
+              }>>\n` +
+              `export type ${camelCaseCapitalized(
+                x.name,
+              )}Params = Parameters<typeof methods.${x.name}>\n`,
+          )
+          .join('\n');
+      fs.writeFileSync(openapiTypesPath(outFile), openapiTypes, 'utf-8');
+      fs.writeFileSync(outFile, res.code, 'utf-8');
     }
-
-    // const generator = createGenerator({
-    //   path: dtsOutputFilePath,
-    //   type: '*',
-    //   tsconfig: 'tsconfig.json',
-    //   skipTypeCheck: true,
-    //   functions: 'comment',
-    // });
-    // const schema = generator.createSchema();
-    // fs.writeFileSync(
-    //   path.resolve(outDir, 'schema.json'),
-    //   JSON.stringify(schema, null, 2),
-    // );
 
     const bundledPackages = (await getPackages(process.cwd())).packages.map(
       (x) => x.packageJson.name,
@@ -171,6 +187,24 @@ export async function buildOnce({ rootDir, url }) {
         outputFilePath: entryPointDts,
         tsconfigFilePath: 'tsconfig.json',
       });
+      if (!openapi) {
+        continue;
+      }
+
+      const generator = createGenerator({
+        path: openapiTypesPath(path.resolve(actionFile)),
+        type: `*`,
+        tsconfig: 'tsconfig.json',
+        minify: false,
+        discriminatorType: 'open-api',
+        skipTypeCheck: true,
+        functions: 'hide',
+      });
+      const schema = generator.createSchema();
+      fs.writeFileSync(
+        path.resolve(libOutDir, 'schema.json'),
+        JSON.stringify(schema, null, 2),
+      );
     }
   } finally {
     await fs.promises.unlink(serverEntrypoint).catch(() => null);
@@ -292,12 +326,19 @@ function runCommand(command: string) {
     exec(command, {}, (error, stdout, stderr) => {
       if (error) {
         console.log();
-        console.error(red(stdout));
-        console.error(red(stderr));
+        console.error(pico.red(stdout));
+        console.error(pico.red(stderr));
         reject(error);
       } else {
         resolve(stdout);
       }
     });
   });
+}
+
+function openapiTypesPath(outFile) {
+  return path.resolve(
+    path.dirname(outFile),
+    `${path.basename(outFile, path.extname(outFile))}-openapi.d.ts`,
+  );
 }

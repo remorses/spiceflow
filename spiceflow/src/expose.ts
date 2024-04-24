@@ -1,5 +1,5 @@
 import http from 'http';
-import { internalNodeJsHandler } from './server';
+import { internalNodeJsHandler } from './server.js';
 
 export async function exposeNodeServer({ methodsMap, basePath, port }) {
   const handler = internalNodeJsHandler({ methodsMap });

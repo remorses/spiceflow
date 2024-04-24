@@ -2,10 +2,10 @@ import * as babel from '@babel/core';
 import generate from '@babel/generator';
 import * as types from '@babel/types';
 import fs from 'fs';
-import { PluginOptions } from './babelTransformRpc';
+import { PluginOptions } from './babelTransformRpc.js';
 import { default as nodePath, default as path } from 'path';
 
-import { getFileName, logger } from './utils';
+import { getFileName, logger } from './utils.js';
 
 type Babel = { types: typeof types };
 

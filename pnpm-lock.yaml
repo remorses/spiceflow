@@ -76,7 +76,7 @@ importers:
         version: link:../server-actions-for-next-pages
       spiceflow:
         specifier: workspace:*
-        version: link:../jsonrpc-sdk
+        version: link:../spiceflow
       superjson:
         specifier: ^1.13.3
         version: 1.13.3
@@ -94,13 +94,77 @@ importers:
     dependencies:
       spiceflow:
         specifier: workspace:*
-        version: link:../jsonrpc-sdk
+        version: link:../spiceflow
     devDependencies:
       example-app:
         specifier: workspace:*
         version: link:../example-app
 
-  jsonrpc-sdk:
+  sdk-template:
+    dependencies:
+      spiceflow:
+        specifier: workspace:*
+        version: link:../spiceflow
+
+  server-actions-for-next-pages:
+    dependencies:
+      '@babel/core':
+        specifier: ^7.24.0
+        version: 7.24.0
+      '@babel/parser':
+        specifier: ^7.24.0
+        version: 7.24.0
+      '@babel/plugin-syntax-jsx':
+        specifier: ^7.23.3
+        version: 7.23.3(@babel/core@7.24.0)
+      '@babel/plugin-syntax-typescript':
+        specifier: ^7.23.3
+        version: 7.23.3(@babel/core@7.24.0)
+      '@babel/plugin-transform-typescript':
+        specifier: ^7.23.6
+        version: 7.23.6(@babel/core@7.24.0)
+      '@microsoft/api-extractor':
+        specifier: ^7.43.1
+        version: 7.43.1(@types/node@20.2.5)
+      babel-loader:
+        specifier: ^8.3.0
+        version: 8.3.0(@babel/core@7.24.0)(webpack@5.88.2)
+      cac:
+        specifier: ^6.7.14
+        version: 6.7.14
+      eventsource-parser:
+        specifier: ^1.1.2
+        version: 1.1.2
+      fast-glob:
+        specifier: ^3.3.2
+        version: 3.3.2
+      find-up:
+        specifier: ^7.0.0
+        version: 7.0.0
+      superjson:
+        specifier: ^1.13.3
+        version: 1.13.3
+      ts-json-schema-generator:
+        specifier: ^2.1.0
+        version: 2.1.0
+    devDependencies:
+      '@babel/generator':
+        specifier: ^7.23.6
+        version: 7.23.6
+      '@babel/types':
+        specifier: ^7.24.0
+        version: 7.24.0
+      '@types/babel__core':
+        specifier: ^7.20.5
+        version: 7.20.5
+      next:
+        specifier: 14.2.1
+        version: 14.2.1(@babel/core@7.24.0)(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
+      webpack:
+        specifier: ^5.88.2
+        version: 5.88.2
+
+  spiceflow:
     dependencies:
       '@babel/core':
         specifier: ^7.24.0
@@ -172,70 +236,6 @@ importers:
       webpack:
         specifier: ^5.88.2
         version: 5.91.0
-
-  sdk-template:
-    dependencies:
-      spiceflow:
-        specifier: workspace:*
-        version: link:../jsonrpc-sdk
-
-  server-actions-for-next-pages:
-    dependencies:
-      '@babel/core':
-        specifier: ^7.24.0
-        version: 7.24.0
-      '@babel/parser':
-        specifier: ^7.24.0
-        version: 7.24.0
-      '@babel/plugin-syntax-jsx':
-        specifier: ^7.23.3
-        version: 7.23.3(@babel/core@7.24.0)
-      '@babel/plugin-syntax-typescript':
-        specifier: ^7.23.3
-        version: 7.23.3(@babel/core@7.24.0)
-      '@babel/plugin-transform-typescript':
-        specifier: ^7.23.6
-        version: 7.23.6(@babel/core@7.24.0)
-      '@microsoft/api-extractor':
-        specifier: ^7.43.1
-        version: 7.43.1(@types/node@20.2.5)
-      babel-loader:
-        specifier: ^8.3.0
-        version: 8.3.0(@babel/core@7.24.0)(webpack@5.88.2)
-      cac:
-        specifier: ^6.7.14
-        version: 6.7.14
-      eventsource-parser:
-        specifier: ^1.1.2
-        version: 1.1.2
-      fast-glob:
-        specifier: ^3.3.2
-        version: 3.3.2
-      find-up:
-        specifier: ^7.0.0
-        version: 7.0.0
-      superjson:
-        specifier: ^1.13.3
-        version: 1.13.3
-      ts-json-schema-generator:
-        specifier: ^2.1.0
-        version: 2.1.0
-    devDependencies:
-      '@babel/generator':
-        specifier: ^7.23.6
-        version: 7.23.6
-      '@babel/types':
-        specifier: ^7.24.0
-        version: 7.24.0
-      '@types/babel__core':
-        specifier: ^7.20.5
-        version: 7.20.5
-      next:
-        specifier: 14.2.1
-        version: 14.2.1(@babel/core@7.24.0)(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
-      webpack:
-        specifier: ^5.88.2
-        version: 5.88.2
 
 packages:
 
@@ -2840,11 +2840,6 @@ packages:
     engines: {node: '>=10'}
     hasBin: true
 
-  terser@5.30.3:
-    resolution: {integrity: sha512-STdUgOUx8rLbMGO9IOwHLpCqolkDITFFQSMYYwKE1N2lY6MVSaeoi10z/EhWxRc6ybqoVmKSkhKYH/XUpl7vSA==}
-    engines: {node: '>=10'}
-    hasBin: true
-
   terser@5.30.4:
     resolution: {integrity: sha512-xRdd0v64a8mFK9bnsKVdoNP9GQIKUAaJPTaqEQDL4w/J8WaW4sWXXoMZ+6SimPkfT5bElreXf8m9HnmPc3E1BQ==}
     engines: {node: '>=10'}
@@ -3707,7 +3702,7 @@ snapshots:
     dependencies:
       '@jridgewell/set-array': 1.1.2
       '@jridgewell/sourcemap-codec': 1.4.15
-      '@jridgewell/trace-mapping': 0.3.18
+      '@jridgewell/trace-mapping': 0.3.25
 
   '@jridgewell/gen-mapping@0.3.5':
     dependencies:
@@ -3725,8 +3720,8 @@ snapshots:
 
   '@jridgewell/source-map@0.3.5':
     dependencies:
-      '@jridgewell/gen-mapping': 0.3.3
-      '@jridgewell/trace-mapping': 0.3.18
+      '@jridgewell/gen-mapping': 0.3.5
+      '@jridgewell/trace-mapping': 0.3.25
 
   '@jridgewell/source-map@0.3.6':
     dependencies:
@@ -5748,7 +5743,7 @@ snapshots:
 
   schema-utils@3.3.0:
     dependencies:
-      '@types/json-schema': 7.0.12
+      '@types/json-schema': 7.0.15
       ajv: 6.12.6
       ajv-keywords: 3.5.2(ajv@6.12.6)
 
@@ -5979,7 +5974,7 @@ snapshots:
       jest-worker: 27.5.1
       schema-utils: 3.3.0
       serialize-javascript: 6.0.2
-      terser: 5.30.3
+      terser: 5.30.4
       webpack: 5.91.0
 
   terser-webpack-plugin@5.3.9(webpack@5.88.2):
@@ -5998,20 +5993,12 @@ snapshots:
       commander: 2.20.3
       source-map-support: 0.5.21
 
-  terser@5.30.3:
-    dependencies:
-      '@jridgewell/source-map': 0.3.6
-      acorn: 8.11.3
-      commander: 2.20.3
-      source-map-support: 0.5.21
-
   terser@5.30.4:
     dependencies:
       '@jridgewell/source-map': 0.3.6
       acorn: 8.11.3
       commander: 2.20.3
       source-map-support: 0.5.21
-    optional: true
 
   test-exclude@6.0.0:
     dependencies:
@@ -6154,7 +6141,7 @@ snapshots:
 
   v8-to-istanbul@9.1.0:
     dependencies:
-      '@jridgewell/trace-mapping': 0.3.18
+      '@jridgewell/trace-mapping': 0.3.25
       '@types/istanbul-lib-coverage': 2.0.4
       convert-source-map: 1.9.0
 

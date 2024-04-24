@@ -1,33 +1,27 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { PluginOptions } from './babelTransformRpc';
+import { PluginOptions } from './babelTransformRpc.js';
 
-import { WrapMethod } from './server';
+import { WrapMethod, WrapMethodMeta } from './server.js';
 
 export interface WithRpcConfig {}
 
 export { WrapMethod };
 
-export function plugins({
-  isServer,
-  rootDir: nextDir,
-  url,
-}: PluginOptions) {
-  const rpcPluginOptions: PluginOptions = {
-    isServer,
-    rootDir: nextDir,
-    url,
-  };
+import pluginSyntaxJsx from '@babel/plugin-syntax-jsx';
+import pluginTransformTypescript from '@babel/plugin-transform-typescript';
+import babelTransformRpc from './babelTransformRpc.js';
+import babelDebugOutputs from './babelDebugOutputs.js';
 
+export function plugins(
+  options: PluginOptions & { onMethod?: (method: WrapMethodMeta) => void },
+) {
   return [
-    require.resolve('@babel/plugin-syntax-jsx'),
-    [require.resolve('@babel/plugin-transform-typescript'), { isTSX: true }],
-    [require.resolve('../dist/babelTransformRpc'), rpcPluginOptions],
-    process.env.DEBUG_ACTIONS && [
-      require.resolve('../dist/babelDebugOutputs'),
-      rpcPluginOptions,
-    ],
-  ].filter(Boolean) as any[];
+    pluginSyntaxJsx,
+    [pluginTransformTypescript, { isTSX: true }],
+    [babelTransformRpc(options), options],
+    process.env.DEBUG_ACTIONS && [babelDebugOutputs, options],
+  ].filter(Boolean);
 }
 
 export function findRootDir(dir: string): string {

@@ -4,6 +4,7 @@
   "description": "If GraphQL, JSON-RPC and React server actions had a baby, it would be called spiceflow",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "type": "module",
   "repository": "https://github.com/remorses/spiceflow",
   "scripts": {
     "build": "cp ../README.md ./README.md && rm -rf ./sdk-template ../sdk-template/dist ../sdk-template/node_modules && cp -r ../sdk-template ./sdk-template && rm -rf dist && tsc",

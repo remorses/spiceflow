@@ -1,7 +1,7 @@
-import { PluginPass, parse } from '@babel/core';
+import { PluginPass, parse, traverse } from '@babel/core';
 
 import { Node, types } from '@babel/core';
-import { JsonRpcError, JsonRpcErrorResponse } from './jsonRpc';
+import { JsonRpcError, JsonRpcErrorResponse } from './jsonRpc.js';
 
 const PURE_ANNOTATION = '#__PURE__';
 
@@ -40,7 +40,7 @@ export function getFileName(state: PluginPass) {
 
   return filename;
 }
-export const directive = "use spiceflow"
+export const directive = 'use spiceflow';
 
 export const serverEntryName = '_function_server_file';
 
@@ -58,4 +58,16 @@ export function jsonRpcError({
       data: null,
     },
   };
+}
+
+export function camelCaseCapitalized(str: string) {
+  // functionName -> FunctionName
+  // CamelCase -> CamelCase
+  // camelCase -> CamelCase
+
+  if (str.length === 0) {
+    return str;
+  }
+  const first = str[0].toUpperCase();
+  return first + str.slice(1);
 }

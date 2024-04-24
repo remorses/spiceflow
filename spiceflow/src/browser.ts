@@ -1,6 +1,5 @@
-import { JsonRpcRequest, JsonRpcResponse } from './jsonRpc';
 import { EventSourceParserStream } from 'eventsource-parser/stream';
-import { generate } from 'fast-glob/out/managers/tasks';
+import { JsonRpcRequest, JsonRpcResponse } from './jsonRpc.js';
 
 import superjson from 'superjson';
 
