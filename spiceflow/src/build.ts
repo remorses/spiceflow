@@ -42,7 +42,7 @@ export async function buildOnce({
     throw new Error(`Invalid url ${url}`);
   }
 
-  let browserOutDir = path.resolve('browser');
+  let browserOutDir = path.resolve('client');
 
   // await fs.promises.rm(browserOutDir, { recursive: true }).catch(() => null);
 
@@ -134,7 +134,7 @@ export async function buildOnce({
 }
 
 export async function bundleTypes({ rootDir }) {
-  const browserIndexFile = path.resolve('dist/browser/index.d.ts');
+  const browserIndexFile = path.resolve('dist/client/index.d.ts');
 
   if (!fs.existsSync(browserIndexFile)) {
     return;
@@ -174,7 +174,7 @@ export async function build(options: BuildOptions) {
       '**/node_modules/**',
       '**/dist/**',
       path.resolve(`src/server.ts`),
-      'browser/**',
+      'client/**',
     ],
     persistent: true,
   });
