@@ -58,11 +58,17 @@ cli
   .option('--basePath', 'base path for the server', { default: '/' })
   .option('--port <port>', 'Port to listen on', { default: '3333' })
   .option('--watch', 'Watch for changes')
+  .option(
+    '--skip-build',
+    'Skip building the server and SDK, you must build it yourself first',
+  )
   .action(async (options) => {
-    let { basePath, watch, port } = options;
+    let { basePath, skipBuild, watch, port } = options;
     const nodePath = process.execPath || 'node';
     const rootDir = await findRootDir(process.cwd());
-    await build({ rootDir, watch, url: `http://127.0.0.1:${port}` });
+    if (!skipBuild) {
+      await build({ rootDir, watch, url: `http://127.0.0.1:${port}` });
+    }
 
     const tempFilePath = path.resolve('_main.mjs');
 
@@ -76,7 +82,7 @@ cli
     });
     // only enable watch if it's supported by node version
     const major = parseInt(process.version.replace('v', '').split('.')[0]);
-    if (major && major < 16) {
+    if (major && major < 18) {
       console.log(`node version ${process.version} does not support --watch`);
       watch = false;
     }
