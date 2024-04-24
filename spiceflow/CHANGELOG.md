@@ -1,5 +1,12 @@
 # spiceflow
 
+## 0.0.5
+
+### Patch Changes
+
+- 3afb252: Fix tsc error on server entry file
+- Output typescript files and not js files
+
 ## 0.0.4
 
 ### Patch Changes
