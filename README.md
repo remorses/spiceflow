@@ -31,15 +31,14 @@ npm i spiceflow
 ```bash
 # create a new spiceflow project, works best in a monorepo
 npx spiceflow init --name my-api
-tree
-.
-├── package.json
-├── src
-│   ├── index.ts
-│   └── v1
-│       ├── example.ts
-│       └── generator.ts
-└── tsconfig.json
+# .
+# ├── package.json
+# ├── src
+# │   ├── index.ts
+# │   └── v1
+# │       ├── example.ts
+# │       └── generator.ts
+# └── tsconfig.json
 
 npm run serve # builds the sdk in the dist folder and starts serving your API
 npm run try-sdk # try using the sdk
@@ -47,7 +46,7 @@ npm run try-sdk # try using the sdk
 
 ## Writing your API functions
 
-Any functions exported in a file with the `'use spiceflow'` directive will be processed as an API route, each function defined in the file will be exposed as an JSON-RPC method.
+### Any functions exported in a file with the `'use spiceflow'` directive will be processed as an API route, each function defined in the file will be exposed as an JSON-RPC method.
 
 ```ts
 // src/v1/functions.ts
@@ -69,13 +68,13 @@ function sleep(ms: number) {
 }
 ```
 
-Expose the server
+### Build and serve the API
 
 ```bash
 spiceflow serve --watch
 ```
 
-Call your function from the client, these will use fetch to call the server
+### Call your function from the client, these will use fetch to communicate with the server
 
 ```ts
 import {
