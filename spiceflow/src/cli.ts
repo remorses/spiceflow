@@ -30,7 +30,15 @@ cli
     if (!name) {
       throw new Error('--name is required');
     }
-    await fsx.copy(path.resolve(__dirname, '../sdk-template'), name);
+    fsx.copySync(path.resolve(__dirname, '../sdk-template'), name, {
+      filter(pathname) {
+        return (
+          !pathname.includes('node_modules') &&
+          !pathname.includes('dist') &&
+          !pathname.endsWith('.tsbuildinfo')
+        );
+      },
+    });
     // replace the package.json name
     const packageJsonPath = path.resolve(name, 'package.json');
     const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
