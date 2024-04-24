@@ -4,7 +4,7 @@
     <br/>
     <h3>spiceflow</h3>
     <br/>
-    <p>If GraphQL, JSON-RPC and React server actions had a baby, it would be called spiceflow</p>
+    <p>If GraphQL, JSON-RPC and React server actions had a baby</p>
     <br/>
     <br/>
     
@@ -132,8 +132,6 @@ spiceflow build --url http://localhost:3000/api/spiceflow # the Next.js app url
 
 This plugin injects the `req` and `res` objects in an `AsyncLocalStorage` context, so you can access them in your server functions:
 
-Edge function example:
-
 ```ts
 'use spiceflow';
 
@@ -176,4 +174,6 @@ You can create a `v1` folder in your project and exports your function from `ind
 
 ## How it works
 
-Spiceflow `build` command transpiles the files with the `use spiceflow` directive so that any exported function will use fetch to send arguments and get the result, the the transformed files are saved in the `dist` folder. Other files are compiled to the dist directory using `tsc`. Spiceflow also bundles the type definitions with `@microsoft/api-extractor` so the generated dist files don't rely on external local packages and can be safely published to npm.
+Spiceflow `build` command transpiles the files with the `use spiceflow` directive so that any exported function will use fetch to send arguments and get the result, the the transformed files are saved in the `dist` folder.Other files are compiled to the dist directory using `tsc`.
+
+Spiceflow also bundles the type definitions with `@microsoft/api-extractor` so the generated dist files don't rely on external local packages and can be safely published to npm.
