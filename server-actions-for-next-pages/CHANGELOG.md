@@ -1,5 +1,11 @@
 # server-actions-for-next-pages
 
+## 1.1.0
+
+### Minor Changes
+
+- Fix support for async generators, betterfaster because no longer processes app dir
+
 ## 1.0.0
 
 ### Major Changes
