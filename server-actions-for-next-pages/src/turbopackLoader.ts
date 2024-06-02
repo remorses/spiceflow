@@ -8,8 +8,8 @@ export default async function (
   source: string,
   map: any,
 ) {
-  if (!process.env.DEBUG_ACTIONS) {
-    this.cacheable(true);
+  if (process.env.DEBUG_ACTIONS) {
+    this.cacheable(false);
   }
   const callback = this.async();
   if (typeof map === 'string') {
