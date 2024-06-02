@@ -1,7 +1,10 @@
 "poor man's use server";
 
-import { wrapApiHandler as _wrapApiHandler } from "server-actions-for-next-pages/dist/context-internal";
 import { createRpcMethod as _createRpcMethod, createRpcHandler as _createRpcHandler } from "server-actions-for-next-pages/dist/server.js";
+import fs from 'fs';
+import { revalidatePath } from 'next/cache';
+import { z } from 'zod';
+import { User } from '@/utils';
 import { getNodejsContext } from 'server-actions-for-next-pages/context';
 export const createUser = _createRpcMethod(async function createUser({
   name = ''
@@ -51,17 +54,33 @@ export function wrapMethod(fn) {
 /**
  * @public
  */
-export const failingFunction = _createRpcMethod(async function failingFunction({}) {
+export const failingFunction = _createRpcMethod(async function failingFunction({}: z.infer<typeof User>) {
   // throw new Error('This function fails');
 }, {
   "name": "failingFunction",
   "pathname": "/api/actions-node",
   "isGenerator": false
 }, typeof wrapMethod === 'function' ? wrapMethod : undefined);
-function sleep(ms) {
+export const sendMessage = _createRpcMethod(async function sendMessage({
+  text
+}) {
+  // console.log('edge cookies & headers', cookies(), headers());
+  await sleep(100);
+  await fs.promises.writeFile('./optimistic.json', JSON.stringify([...JSON.parse(fs.readFileSync('./optimistic.json', 'utf-8')), {
+    text,
+    sending: false
+  }], null, 2));
+  revalidatePath('/optimistic');
+  return {};
+}, {
+  "name": "sendMessage",
+  "pathname": "/api/actions-node",
+  "isGenerator": false
+}, typeof wrapMethod === 'function' ? wrapMethod : undefined);
+function sleep(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
-export default /*#__PURE__*/_wrapApiHandler(_createRpcHandler({
+export default _createRpcHandler({
   isEdge: false,
   methods: [{
     method: "createUser",
@@ -75,5 +94,9 @@ export default /*#__PURE__*/_wrapApiHandler(_createRpcHandler({
     method: "failingFunction",
     implementation: failingFunction,
     isGenerator: false
+  }, {
+    method: "sendMessage",
+    implementation: sendMessage,
+    isGenerator: false
   }]
-}), false);
+});

@@ -8,6 +8,9 @@ export default async function (
   source: string,
   map: any,
 ) {
+  if (!process.env.DEBUG_ACTIONS) {
+    this.cacheable(true);
+  }
   const callback = this.async();
   if (typeof map === 'string') {
     map = JSON.parse(map);
@@ -33,6 +36,7 @@ export default async function (
       // cwd: process.cwd(),
       inputSourceMap: map,
       sourceMaps: true,
+      compact: false,
 
       // cwd: this.context,
     });

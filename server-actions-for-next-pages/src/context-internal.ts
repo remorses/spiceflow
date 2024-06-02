@@ -19,7 +19,13 @@ import { RequestCookies } from 'next/dist/compiled/@edge-runtime/cookies';
 import { cookies, headers } from 'next/headers';
 
 interface CommonContext {
+  /**
+   * @deprecated
+   */
   cookies(): ReadonlyRequestCookies;
+  /**
+   * @deprecated
+   */
   headers(): ReadonlyHeaders;
 }
 interface NodejsContext extends CommonContext {
@@ -27,8 +33,8 @@ interface NodejsContext extends CommonContext {
   res?: ServerResponse;
 }
 interface EdgeContext extends CommonContext {
-  req?: NextRequest;
-  res?: NextResponse;
+  req?: Request;
+  res?: Response;
 }
 
 const DEFAULT_CONTEXT = {
@@ -44,22 +50,14 @@ export const asyncLocalStorage = new AsyncLocalStorage<
   NodejsContext | EdgeContext
 >();
 
-/**
- * @deprecated Use headers() and cookies() instead, exported from next-actions-for-next-pages/headers
- */
 export function getNodejsContext(): NodejsContext {
   return (asyncLocalStorage.getStore() as NodejsContext) || DEFAULT_CONTEXT;
 }
-/**
- * @deprecated Use headers() and cookies() instead, exported from next-actions-for-next-pages/headers
- */
+
 export function getEdgeContext(): EdgeContext {
   return (asyncLocalStorage.getStore() as EdgeContext) || DEFAULT_CONTEXT;
 }
 
-/**
- * @deprecated Use headers() and cookies() instead, exported from next-actions-for-next-pages/headers
- */
 export function getContext(): CommonContext {
   return asyncLocalStorage.getStore() || DEFAULT_CONTEXT;
 }

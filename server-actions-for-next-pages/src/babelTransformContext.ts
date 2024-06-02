@@ -55,7 +55,7 @@ function visitApiHandler(
       ? t.toExpression(declaration)
       : declaration;
 
-    const { isEdge } = getConfigObject(program, false) || { isEdge: false };
+    const { isEdge } = getConfigObject(program) || { isEdge: false };
     defaultExportPath.replaceWith(
       t.exportDefaultDeclaration(
         annotateAsPure(
@@ -68,73 +68,6 @@ function visitApiHandler(
       ),
     );
   }
-}
-
-function visitPage(
-  { types: t }: Babel,
-  program: babel.NodePath<babel.types.Program>,
-) {
-  const wrapGetServerSidePropsIdentifier = program.scope.generateUidIdentifier(
-    'wrapGetServerSideProps',
-  );
-
-  program.node.body.unshift(
-    t.importDeclaration(
-      [
-        t.importSpecifier(
-          wrapGetServerSidePropsIdentifier,
-          t.identifier('wrapGetServerSideProps'),
-        ),
-      ],
-      t.stringLiteral(IMPORT_PATH),
-    ),
-  );
-
-  program.traverse({
-    ExportNamedDeclaration(path) {
-      const declarationPath = path.get('declaration');
-      if (
-        declarationPath.isFunctionDeclaration() &&
-        declarationPath.get('id').isIdentifier({ name: 'getServerSideProps' })
-      ) {
-        const declaration = declarationPath.node;
-        const exportAsExpression = t.isDeclaration(declaration)
-          ? t.toExpression(declaration)
-          : declaration;
-
-        path.node.declaration = t.variableDeclaration('const', [
-          t.variableDeclarator(
-            declaration.id as babel.types.Identifier,
-            annotateAsPure(
-              t,
-              t.callExpression(wrapGetServerSidePropsIdentifier, [
-                exportAsExpression,
-              ]),
-            ),
-          ),
-        ]);
-      } else if (declarationPath.isVariableDeclaration()) {
-        const declarations = declarationPath.get('declarations');
-
-        for (const variableDeclaratorPath of declarations) {
-          if (
-            variableDeclaratorPath
-              .get('id')
-              .isIdentifier({ name: 'getServerSideProps' })
-          ) {
-            const initPath = variableDeclaratorPath.get('init');
-            if (initPath.node) {
-              initPath.replaceWith(
-                t.callExpression(wrapGetServerSidePropsIdentifier, [
-                  initPath.node,
-                ]),
-              );
-            }
-          }
-        }
-      }
-    },
-  });
 }
 
 export default function (
@@ -152,13 +85,9 @@ export default function (
 
         const { filename } = this.file.opts;
         const isApiRoute = filename && filename.startsWith(apiDir);
-        const isMiddleware =
-          filename && /(\/|\\)_middleware\.\w+$/.test(filename);
 
         if (isApiRoute) {
           visitApiHandler(babel, program);
-        } else if (!isMiddleware) {
-          visitPage(babel, program);
         }
       },
     },

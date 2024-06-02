@@ -1,6 +1,7 @@
 import { PluginPass, parse } from '@babel/core';
 
 import { Node, types } from '@babel/core';
+import { JsonRpcErrorResponse } from './jsonRpc';
 
 const PURE_ANNOTATION = '#__PURE__';
 
@@ -40,3 +41,19 @@ export function getFileName(state: PluginPass) {
   return filename;
 }
 export const directive = "poor man's use server";
+
+export function jsonRpcError({
+  id = null,
+  message,
+  code = 1,
+}): JsonRpcErrorResponse {
+  return {
+    jsonrpc: '2.0',
+    id,
+    error: {
+      code,
+      message,
+      data: null,
+    },
+  };
+}

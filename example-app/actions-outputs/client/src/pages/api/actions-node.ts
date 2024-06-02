@@ -16,3 +16,8 @@ export const failingFunction = /*#__PURE__*/_createRpcFetcher({
   "method": "failingFunction",
   "isGenerator": false
 });
+export const sendMessage = /*#__PURE__*/_createRpcFetcher({
+  "url": "/api/actions-node",
+  "method": "sendMessage",
+  "isGenerator": false
+});

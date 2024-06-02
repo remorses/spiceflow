@@ -20,13 +20,13 @@ export function withServerActions(withRpcConfig: WithRpcConfig = {}) {
       webpack(config: webpack.Configuration, options) {
         const { isServer, dev, dir } = options;
         const nextDir = findNextDir(dir);
-        const pagesDir = path.resolve(nextDir, './pages');
-        const appDir = path.resolve(nextDir, './app');
+        const pagesApiDir = path.resolve(nextDir, './pages/api');
+
         config.module = config.module || {};
         config.module.rules = config.module.rules || [];
         config.module.rules.push({
           test: /\.(tsx|ts|js|mjs|jsx)$/,
-          include: [pagesDir],
+          include: [pagesApiDir],
           use: [
             options.defaultLoaders.babel,
             {
@@ -37,25 +37,6 @@ export function withServerActions(withRpcConfig: WithRpcConfig = {}) {
                   isServer,
                   nextDir,
                   isAppDir: false,
-                  basePath: (nextConfig.basePath as string) || '/',
-                }),
-              },
-            },
-          ],
-        });
-        config.module.rules.push({
-          test: /route\.(tsx|ts|js|mjs|jsx)$/,
-          include: [appDir],
-          use: [
-            options.defaultLoaders.babel,
-            {
-              loader: 'babel-loader',
-              options: {
-                sourceMaps: dev,
-                plugins: plugins({
-                  isServer,
-                  nextDir,
-                  isAppDir: true,
                   basePath: (nextConfig.basePath as string) || '/',
                 }),
               },
@@ -88,31 +69,16 @@ export function fastCheckIfServerAction({ source, filename }) {
   return true;
 }
 
-export function plugins({
-  isServer,
-  nextDir,
-  isAppDir,
-  basePath,
-  url,
-}: RpcPluginOptions) {
-  const apiDir = path.resolve(nextDir, './pages/api');
-  const rpcPluginOptions: RpcPluginOptions = {
-    isServer,
-    nextDir,
-    url,
-    isAppDir,
-    basePath: basePath || '/',
-  };
+export function plugins(opts: RpcPluginOptions) {
+  const apiDir = path.resolve(opts.nextDir, './pages/api');
 
-  const contextPluginOptions: ContextPluginOptions = { apiDir, isServer };
   return [
-    require.resolve('@babel/plugin-syntax-jsx'),
-    [require.resolve('@babel/plugin-transform-typescript'), { isTSX: true }],
-    [require.resolve('../dist/babelTransformRpc'), rpcPluginOptions],
-    [require.resolve('../dist/babelTransformContext'), contextPluginOptions],
+    [require.resolve('@babel/plugin-syntax-typescript'), { isTSX: true }],
+    [require.resolve('../dist/babelTransformRpc'), opts],
+    [require.resolve('../dist/babelTransformContext'), opts],
     process.env.DEBUG_ACTIONS && [
       require.resolve('../dist/babelDebugOutputs'),
-      contextPluginOptions,
+      opts,
     ],
   ].filter(Boolean) as any[];
 }
@@ -129,15 +95,14 @@ function applyTurbopackOptions(nextConfig: NextConfig): void {
   const basePath = (nextConfig.basePath as string) || '/';
 
   const globs = [
-    '{./src/pages,./pages/}/**/*.{ts,tsx,js,jsx}', //
-    '{./src/app,./app/}/**/route.{ts,tsx,js,jsx}', //
+    '{./src/pages/api,./pages/api}/**/*.{ts,tsx,js,jsx}', //
+    // '{./src/app,./app/}/**/route.{ts,tsx,js,jsx}', //
   ];
   for (let glob of globs) {
     rules[glob] ??= {};
     const options: RpcPluginOptions = {
       isServer: false,
       nextDir,
-      isAppDir: glob.includes('/app'),
       basePath,
     };
     const globbed: any = rules[glob];

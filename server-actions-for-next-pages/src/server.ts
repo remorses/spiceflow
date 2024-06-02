@@ -1,8 +1,10 @@
-import { NextApiHandler } from 'next';
+import { NextApiHandler, NextApiRequest, NextApiResponse } from 'next';
+import { IncomingMessage, ServerResponse } from 'http';
 import superjson from 'superjson';
-import { JsonRpcResponse } from './jsonRpc';
+import { JsonRpcRequest, JsonRpcResponse } from './jsonRpc';
 import { NextRequest, NextResponse } from 'next/server';
-import { getEdgeContext } from './context-internal';
+import { asyncLocalStorage, getEdgeContext } from './context-internal';
+import { jsonRpcError } from './utils';
 
 export type Method<P extends any[], R> = (
   ...params: P
@@ -20,7 +22,31 @@ export interface WrapMethod {
   ): Method<P, R>;
 }
 
-// TODO wrap with context here? otherwise the headers and cookies will be missing from the context
+export function createRpcHandler({
+  methods,
+  isEdge,
+}: {
+  methods: {
+    method: string;
+    isGenerator: boolean;
+    implementation: (...params: any[]) => any;
+  }[];
+
+  isEdge?: boolean;
+}) {
+  const methodsMap: MethodsMap = Object.fromEntries(
+    methods.map(({ method, implementation, isGenerator }) => [
+      method,
+      implementation,
+    ]),
+  );
+
+  const handler = isEdge
+    ? internalEdgeHandler({ methodsMap })
+    : internalNodeJsHandler({ methodsMap });
+  return handler;
+}
+
 export function createRpcMethod<P extends any[], R>(
   method: Method<P, R>,
   meta: WrapMethodMeta,
@@ -45,114 +71,163 @@ export function createRpcMethod<P extends any[], R>(
   return (...args) => wrapped(...args);
 }
 
-export function createRpcHandler({
-  methods,
-  isEdge,
+type MethodsMap = {
+  [key: string]: Method<any, any>;
+};
+
+export function internalEdgeHandler({
+  methodsMap,
 }: {
-  methods: {
-    method: string;
-    isGenerator: boolean;
-    implementation: (...params: any[]) => any;
-  }[];
-
-  isEdge?: boolean;
+  methodsMap: MethodsMap;
 }) {
-  const methodsMap = new Map(methods.map((x) => [x.method, x]));
+  return async (req: NextRequest) => {
+    const body = await req.json();
+    const res = new Response();
+    const result = await handler({
+      methodsMap,
+      body,
 
-  if (isEdge) {
-    return async (req: NextRequest) => {
-      const { res } = await getEdgeContext();
-      const body = await req.json();
+      method: req.method,
+    });
 
-      const result = await handler({
-        methodsMap,
-        body,
-        method: req.method,
-      });
+    if (isAsyncGenerator(result)) {
+      const encoder = new TextEncoder();
+      let generatorFinished = false;
 
-      if (isAsyncIterable(result)) {
-        const encoder = new TextEncoder();
-        req.signal.addEventListener('abort', () => {
+      req.signal.addEventListener('abort', () => {
+        if (!generatorFinished) {
+          console.log(`request aborted, cancelling generator`);
           result.return?.(undefined);
-        });
-        const readableStream = new ReadableStream(
-          {
-            start(controller) {},
-            async pull(controller) {
-              for await (const value of result) {
-                controller.enqueue(
-                  encoder.encode(
-                    'data: ' + JSON.stringify(value.json) + '\n\n',
-                  ),
-                );
-              }
-              controller.close();
-            },
-
-            cancel() {},
-          },
-          // { highWaterMark: 0 },
-        );
-
-        return new Response(readableStream, {
-          headers: {
-            'content-type': 'text/event-stream',
-            'cache-control': 'no-cache',
-            connection: 'keep-alive',
-          },
-        });
-      }
-
-      const { status, json } = result;
-      return new Response(JSON.stringify(json, null, 2), {
-        status,
-        headers: res?.headers || {},
-      });
-    };
-  } else {
-    return (async (req, res) => {
-      let body = req.body;
-      if (typeof body === 'string') {
-        // if the sdk send a request without content-type header as json, it will be a string
-        body = JSON.parse(body);
-      }
-      const result = await handler({
-        methodsMap,
-        body,
-        method: req.method,
-      });
-
-      if (isAsyncIterable(result)) {
-        res.status(200);
-        res.setHeader('content-type', 'text/event-stream');
-        res.setHeader('cache-control', 'no-cache');
-        res.setHeader('connection', 'keep-alive');
-        // https://github.com/vercel/next.js/issues/9965#issuecomment-584319868
-        res.setHeader('content-encoding', 'none');
-        res.flushHeaders();
-        // handle cancellation
-        res.on('close', () => {
-          console.log(`response closed, cancelling generator`);
-          (result as AsyncIterator<any>).return?.();
-        });
-        for await (const value of result) {
-          res.write('data: ' + JSON.stringify(value.json) + '\n\n');
         }
+      });
+      const readableStream = new ReadableStream(
+        {
+          start(controller) {},
+          async pull(controller) {
+            while (true) {
+              const { done, value } = await result.next();
+              if (done) {
+                break;
+              }
+              controller.enqueue(
+                encoder.encode('data: ' + JSON.stringify(value.json) + '\n\n'),
+              );
+            }
+            generatorFinished = true;
+            controller.close();
+          },
 
-        res.end();
+          cancel() {},
+        },
+        // { highWaterMark: 0 },
+      );
+
+      return new Response(readableStream, {
+        headers: {
+          'content-type': 'text/event-stream',
+          'cache-control': 'no-cache',
+          connection: 'keep-alive',
+        },
+      });
+    }
+
+    const { status, json } = result;
+    return new Response(JSON.stringify(json, null, 2), {
+      status,
+      headers: res?.headers || {
+        'content-type': 'application/json',
+      },
+    });
+  };
+}
+
+export function internalNodeJsHandler({
+  methodsMap,
+}: {
+  methodsMap: MethodsMap;
+}) {
+  return async (req: NextApiRequest, res: NextApiResponse) => {
+    let body = req['body'];
+    if (body && typeof body === 'string') {
+      // if the sdk send a request without content-type header as json, it will be a string
+      body = JSON.parse(body);
+    }
+    if (!body) {
+      // if used outside of next.js, the body is not available
+      try {
+        body = await readReqJson(req, res);
+      } catch (error) {
+        res.writeHead(400);
+        res.end(
+          JSON.stringify(
+            jsonRpcError({ message: 'Invalid body, must be JSON' }),
+          ),
+        );
         return;
       }
-      const { status, json } = result;
-      res.status(status || 200).json(json);
-    }) satisfies NextApiHandler;
+    }
+
+    const result = await handler({
+      methodsMap,
+      body,
+
+      method: req.method!,
+    });
+
+    if (isAsyncGenerator(result)) {
+      res.writeHead(200, {
+        'content-type': 'text/event-stream',
+        'cache-control': 'no-cache',
+        connection: 'keep-alive',
+        // https://github.com/vercel/next.js/issues/9965#issuecomment-584319868
+        'content-encoding': 'none',
+      });
+
+      let generatorFinished = false;
+      // handle cancellation
+      res.on('close', () => {
+        if (!generatorFinished) {
+          console.log(`response closed, cancelling generator`);
+          (result as AsyncIterator<any>).return?.();
+        }
+      });
+      while (true) {
+        const { done, value } = await result.next();
+        if (done) {
+          break;
+        }
+        res.write('data: ' + JSON.stringify(value.json) + '\n\n');
+      }
+      generatorFinished = true;
+
+      res.end();
+      return;
+    }
+    const { status, json } = result;
+    res.writeHead(status || 200).end(JSON.stringify(json, null, 2));
+  };
+}
+
+function isAsyncGenerator(obj: any): obj is AsyncGenerator<any> {
+  return obj != null && typeof obj.next === 'function';
+}
+
+const handler = async ({
+  method,
+  methodsMap,
+
+  body,
+}: {
+  method: string;
+
+  methodsMap: MethodsMap;
+
+  body: JsonRpcRequest;
+}) => {
+  if (!methodsMap) {
+    throw new Error('No methods found');
   }
-}
 
-function isAsyncIterable(obj: any): obj is AsyncIterable<any> {
-  return obj != null && typeof obj[Symbol.asyncIterator] === 'function';
-}
-
-const handler = async ({ method, methodsMap, body }) => {
   if (method !== 'POST') {
     return {
       status: 405,
@@ -171,9 +246,10 @@ const handler = async ({ method, methodsMap, body }) => {
   }
 
   const { id, method: fn, params, meta: argsMeta } = body;
-  const requestedMethod = methodsMap.get(fn);
 
-  if (typeof requestedMethod?.implementation !== 'function') {
+  const requestedMethod = methodsMap[fn];
+
+  if (typeof requestedMethod !== 'function') {
     return {
       status: 400,
       json: {
@@ -183,7 +259,9 @@ const handler = async ({ method, methodsMap, body }) => {
           code: -32601,
           message: 'Method not found',
           data: {
-            cause: `Method "${method}" is not a function`,
+            cause: `Method "${fn}" is not a function, in ${Object.keys(
+              methodsMap,
+            ).join(', ')}`,
           },
         },
       } satisfies JsonRpcResponse,
@@ -195,8 +273,8 @@ const handler = async ({ method, methodsMap, body }) => {
       json: params,
       meta: argsMeta,
     }) as any[];
-    if (!requestedMethod.isGenerator) {
-      const result = await requestedMethod.implementation(...args);
+    const result = await requestedMethod(...args);
+    if (!isAsyncGenerator(result)) {
       const { json, meta } = superjson.serialize(result);
 
       return {
@@ -210,10 +288,13 @@ const handler = async ({ method, methodsMap, body }) => {
     }
     return (async function* () {
       // send a response for each yielded value
-      const result = await requestedMethod.implementation(...args);
 
       try {
-        for await (const value of result) {
+        while (true) {
+          const { done, value } = await result.next();
+          if (done) {
+            break;
+          }
           const { json, meta } = superjson.serialize(value);
 
           yield {
@@ -227,7 +308,7 @@ const handler = async ({ method, methodsMap, body }) => {
         }
       } catch (error) {
         const {
-          name = 'NextRpcError',
+          name = 'RpcError',
           message = `Invalid value thrown in "${method}", must be instance of Error`,
           stack = undefined,
         } = error instanceof Error ? error : {};
@@ -249,7 +330,7 @@ const handler = async ({ method, methodsMap, body }) => {
     })();
   } catch (error) {
     const {
-      name = 'NextRpcError',
+      name = 'RpcError',
       message = `Invalid value thrown in "${method}", must be instance of Error`,
       stack = undefined,
     } = error instanceof Error ? error : {};
@@ -270,3 +351,31 @@ const handler = async ({ method, methodsMap, body }) => {
     };
   }
 };
+
+function readReqJson(req: IncomingMessage, res: ServerResponse) {
+  return new Promise((resolve, reject) => {
+    let data = '';
+    req.on('data', (chunk) => {
+      data += chunk;
+    });
+    req.on('error', (err) => {
+      reject(err);
+    });
+    res.on('close', function () {
+      let aborted = !res.writableFinished;
+      if (aborted) {
+        let err = new Error('Request aborted in server action handler');
+        err.name = 'AbortError';
+        reject(err);
+      }
+    });
+    req.on('end', () => {
+      try {
+        const parsedData = JSON.parse(data);
+        resolve(parsedData);
+      } catch (error) {
+        reject(error);
+      }
+    });
+  });
+}

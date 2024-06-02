@@ -28,7 +28,7 @@ export async function* asyncGeneratorActionEdge(arg?: any) {
 }
 
 export async function edgeServerAction({}) {
-  const { req, res } = await getEdgeContext();
+  const { req, res, headers, cookies } = await getEdgeContext();
 
   // console.log('edge cookies & headers', cookies(), headers());
   res?.headers.set('x-server-action', 'true');
