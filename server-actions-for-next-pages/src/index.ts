@@ -36,7 +36,7 @@ export function withServerActions(withRpcConfig: WithRpcConfig = {}) {
                 plugins: plugins({
                   isServer,
                   nextDir,
-                  isAppDir: false,
+                  // isAppDir: false,
                   basePath: (nextConfig.basePath as string) || '/',
                 }),
               },

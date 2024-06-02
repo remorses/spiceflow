@@ -56,7 +56,7 @@ export async function extract({ nextDir, url, basePath = '', outDir }) {
         sourceType: 'module',
         plugins: plugins({
           basePath,
-          isAppDir,
+
           isServer: false,
           url,
           nextDir,
