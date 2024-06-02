@@ -14,10 +14,10 @@ import superjson from 'superjson';
 
 export default function Home() {
   // throw new Error('This function fails');
-  failingFunction({ username: 'user' }).catch((error: any) => {
-    console.error(error);
-    return error;
-  });
+  // failingFunction({ username: 'user' }).catch((error: any) => {
+  //   console.error(error);
+  //   return error;
+  // });
   const [isPending, startTransition] = useTransition();
   const [state, setState] = useState();
   useEffect(() => {
@@ -25,10 +25,7 @@ export default function Home() {
       return Promise.allSettled([
         edgeServerAction('home'),
         createUser({ name: 'test' }),
-        failingFunction({ username: 'xx' }).catch((error: any) => {
-          return { error };
-          return null;
-        }),
+        failingFunction({ username: 'xx' }),
       ]).then((x) => setState(x as any));
     });
   }, []);
