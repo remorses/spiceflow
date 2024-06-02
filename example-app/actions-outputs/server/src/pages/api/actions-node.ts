@@ -55,7 +55,7 @@ export function wrapMethod(fn) {
  * @public
  */
 export const failingFunction = _createRpcMethod(async function failingFunction({}: z.infer<typeof User>) {
-  // throw new Error('This function fails');
+  throw new Error('This function fails');
 }, {
   "name": "failingFunction",
   "pathname": "/api/actions-node",

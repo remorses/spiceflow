@@ -16,7 +16,7 @@ export default function Home() {
   // throw new Error('This function fails');
   failingFunction({ username: 'user' }).catch((error: any) => {
     console.error(error);
-    return null;
+    return error;
   });
   const [isPending, startTransition] = useTransition();
   const [state, setState] = useState();

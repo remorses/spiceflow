@@ -45,8 +45,6 @@ export const edgeServerAction = _createRpcMethod(async function edgeServerAction
   const url = req?.url;
   return {
     url,
-    cookies: cookies().toString().slice(0, 20),
-    headers: Array.from(headers().keys()).slice(0, 2),
     functionName: 'edgeServerAction'
   };
 }, {

@@ -36,8 +36,7 @@ export async function edgeServerAction({}) {
 
   return {
     url,
-    cookies: cookies().toString().slice(0, 20),
-    headers: Array.from(headers().keys()).slice(0, 2),
+    
     functionName: 'edgeServerAction',
   };
 }

@@ -44,7 +44,7 @@ export function wrapMethod(fn) {
  * @public
  */
 export async function failingFunction({}: z.infer<typeof User>) {
-  // throw new Error('This function fails');
+  throw new Error('This function fails');
 }
 
 export async function sendMessage({ text }) {
