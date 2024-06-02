@@ -31,6 +31,7 @@ export async function* asyncGeneratorActionNode(arg) {
 export function wrapMethod(fn) {
   return async (...args) => {
     try {
+      console.log('wrapMethod', fn.name)
       const res = await fn(...args);
       return res;
     } catch (error) {
