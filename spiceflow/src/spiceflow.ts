@@ -144,6 +144,7 @@ export class Elysia<
 				const params = route['params'] || {}
 				return {
 					...data,
+					router,
 					store: router.store,
 					onErrorHandlers,
 					onRequestHandlers,
@@ -939,9 +940,13 @@ export class Elysia<
 			if (!route) {
 				return this.onNoMatch(request, platform)
 			}
-			onErrorHandlers = route.onErrorHandlers
+			onErrorHandlers = this.getRouteAndParents(route.router).flatMap(
+				(x) => x.onErrorHandlers
+			)
 			const { params, store } = route
-			const onReq = route.onRequestHandlers
+			const onReq = this.getRouteAndParents(route.router).flatMap(
+				(x) => x.onRequestHandlers
+			)
 			// TODO add content type
 
 			let content = route?.hook?.content
@@ -1027,6 +1032,22 @@ export class Elysia<
 				}
 			}
 		}
+	}
+
+	private getRouteAndParents(currentRouter?: RouterTree) {
+		let root = this.routerTree
+		const parents: RouterTree[] = []
+		let current = currentRouter
+		while (current) {
+			parents.unshift(current)
+			// TODO slow
+			current = bfs(root, (node) => {
+				if (node.children.includes(current!)) {
+					return node
+				}
+			})
+		}
+		return parents.reverse()
 	}
 
 	async handleStream({
@@ -1237,9 +1258,4 @@ export async function turnHandlerResultIntoResponse(result: any) {
 	return new Response(JSON.stringify(result))
 }
 
-
-
-
 export type AnyElysia = Elysia<any, any, any, any, any, any, any, any>
-
-

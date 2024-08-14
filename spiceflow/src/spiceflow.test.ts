@@ -100,7 +100,7 @@ test('validate body works, request fails', async () => {
 
 		.post(
 			'/post',
-			({ body, redirect,  error }) => {
+			({ body, redirect, error }) => {
 				// console.log({ body })
 				expect(body).toEqual({ name: 'John' })
 			},
@@ -235,5 +235,56 @@ test('use with nested basPath works', async () => {
 		)
 		expect(res.status).toBe(200)
 		expect(await res.text()).toBe(JSON.stringify('nested'))
+	}
+})
+
+test('errors inside basPath works', async () => {
+	let onErrorTriggered = [] as string[]
+	let onReqTriggered = [] as string[]
+	const app = await new Elysia({ basePath: '/zero' })
+		.onError(({ error }) => {
+			onErrorTriggered.push('root')
+			// return new Response('root', { status: 500 })
+		})
+		.onRequest(({ request }) => {
+			onReqTriggered.push('root')
+			// return new Response('root', { status: 500 })
+		})
+
+		.use(
+			new Elysia({ basePath: '/two' })
+				.onError(({ error }) => {
+					onErrorTriggered.push('two')
+					// return new Response('two', { status: 500 })
+				})
+				.onRequest(({ request }) => {
+					onReqTriggered.push('two')
+					// return new Response('two', { status: 500 })
+				})
+				.use(
+					new Elysia({ basePath: '/nested' })
+						.onError(({ error }) => {
+							onErrorTriggered.push('nested')
+							// return new Response('nested', { status: 500 })
+						})
+						.onRequest(({ request }) => {
+							onReqTriggered.push('nested')
+							// return new Response('nested', { status: 500 })
+						})
+						.get('/ids/:id', ({ params }) => {
+							throw new Error('error message')
+						})
+				)
+		)
+
+	{
+		const res = await app.handle(
+			new Request('http://localhost/zero/two/nested/ids/nested')
+		)
+		expect(onErrorTriggered).toEqual(['nested', 'two', 'root'])
+		expect(onReqTriggered).toEqual(['nested', 'two', 'root'])
+		expect(res.status).toBe(500)
+		expect(await res.text()).toBe('error message')
+		// expect(await res.text()).toBe(JSON.stringify('nested'))
 	}
 })
