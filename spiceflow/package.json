@@ -1,7 +1,7 @@
 {
   "name": "spiceflow",
   "version": "0.0.7",
-  "description": "If GraphQL, JSON-RPC and React server actions had a baby, it would be called spiceflow",
+  "description": "Simple API framework with RPC and type safety",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "type": "module",
@@ -14,13 +14,7 @@
   "bin": "dist/cli.js",
   "files": [
     "dist",
-    "src",
-    "sdk-template",
-    "esm",
-    "context.d.ts",
-    "context.js",
-    "headers.d.ts",
-    "headers.js"
+    "src"
   ],
   "keywords": [],
   "author": "Tommaso De Rossi, morse <beats.by.morse@gmail.com>",
@@ -29,30 +23,9 @@
     "next": ">=10"
   },
   "dependencies": {
-    "@babel/core": "^7.24.0",
-    "@babel/parser": "^7.24.0",
-    "@babel/plugin-syntax-jsx": "^7.23.3",
-    "@babel/plugin-syntax-typescript": "^7.23.3",
-    "@babel/plugin-transform-typescript": "^7.23.6",
-    "@manypkg/get-packages": "^2.2.1",
-    "@microsoft/api-extractor": "^7.43.1",
-    "@types/fs-extra": "^11.0.4",
-    "cac": "^6.7.14",
-    "chokidar": "^3.6.0",
-    "eventsource-parser": "^1.1.2",
-    "fast-glob": "^3.3.2",
-    "find-up": "^7.0.0",
-    "fs-extra": "^11.2.0",
-    "picocolors": "^1.0.0",
-    "superjson": "^1.13.3"
+    "urlpattern-polyfill": "^10.0.0"
   },
   "devDependencies": {
-    "@babel/generator": "^7.23.6",
-    "@babel/types": "^7.24.0",
-    "@types/babel__core": "^7.20.5",
-    "@types/node": "20.2.5",
-    "next": "14.2.3",
-    "ts-json-schema-generator": "^2.1.1",
-    "webpack": "^5.88.2"
+    "@types/node": "20.2.5"
   }
 }

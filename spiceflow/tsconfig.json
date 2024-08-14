@@ -3,9 +3,10 @@
   "compilerOptions": {
     "rootDir": "src",
     "module": "NodeNext",
+    "lib": ["DOM", "ESNext"],
     "moduleResolution": "NodeNext",
     "resolveJsonModule": true,
-    "outDir": "dist"
+    "outDir": "dist",
   },
-  "include": ["src"]
+  "include": ["src"],
 }
