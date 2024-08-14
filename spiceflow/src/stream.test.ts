@@ -174,7 +174,7 @@ describe('Stream', () => {
 	// it('mutate set before yield is called', async () => {
 	// 	const expected = ['a', 'b', 'c']
 
-	// 	const app = new Elysia().get('/', function* () {
+	// 	const app = new Spiceflow().get('/', function* () {
 	// 		set.headers['access-control-allow-origin'] = 'http://saltyaom.com'
 
 	// 		yield 'a'
@@ -228,7 +228,7 @@ describe('Stream', () => {
 	// it('mutate set before yield is called', async () => {
 	// 	const expected = ['a', 'b', 'c']
 
-	// 	const app = new Elysia().get('/', function* () {
+	// 	const app = new Spiceflow().get('/', function* () {
 	// 		set.headers['access-control-allow-origin'] = 'http://saltyaom.com'
 
 	// 		yield 'a'
@@ -246,7 +246,7 @@ describe('Stream', () => {
 	// it('async mutate set before yield is called', async () => {
 	// 	const expected = ['a', 'b', 'c']
 
-	// 	const app = new Elysia().get('/', async function* () {
+	// 	const app = new Spiceflow().get('/', async function* () {
 	// 		set.headers['access-control-allow-origin'] = 'http://saltyaom.com'
 
 	// 		yield 'a'

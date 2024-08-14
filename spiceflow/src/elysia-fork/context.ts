@@ -99,7 +99,7 @@ export type Context<
 		// 	 *
 		// 	 * @example Migration example
 		// 	 * ```ts
-		// 	 * new Elysia()
+		// 	 * new Spiceflow()
 		// 	 *     .get(({ redirect }) => redirect('/'))
 		// 	 * ```
 		// 	 */
@@ -109,7 +109,7 @@ export type Context<
 		// 	 *
 		// 	 * Use `Context.cookie` instead
 		// 	 */
-		// 	cookie?: Record<string, ElysiaCookie>
+		// 	cookie?: Record<string, SpiceflowCookie>
 		// }
 
 		/**

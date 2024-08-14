@@ -5,7 +5,7 @@ import { Type } from '@sinclair/typebox'
 export { Type as t }
 
 import {
-	ComposeElysiaResponse,
+	ComposeSpiceflowResponse,
 	CreateEden,
 	DefinitionBase,
 	EphemeralType,
@@ -230,22 +230,7 @@ export class Spiceflow<
 	_ephemeral = {} as Ephemeral
 	_volatile = {} as Volatile
 
-	/**
-	 * ### post
-	 * Register handler for path with method [POST]
-	 *
-	 * ---
-	 * @example
-	 * ```typescript
-	 * import { Elysia, t } from 'spiceflow'
-	 *
-	 * new Elysia()
-	 *     .post('/', () => 'hi')
-	 *     .post('/with-hook', () => 'hi', {
-	 *         response: t.String()
-	 *     })
-	 * ```
-	 */
+	
 	post<
 		const Path extends string,
 		const LocalSchema extends InputSchema<
@@ -297,7 +282,7 @@ export class Spiceflow<
 							: Schema['params']
 						query: Schema['query']
 						headers: Schema['headers']
-						response: ComposeElysiaResponse<
+						response: ComposeSpiceflowResponse<
 							Schema['response'],
 							Handle
 						>
@@ -364,7 +349,7 @@ export class Spiceflow<
 							: Schema['params']
 						query: Schema['query']
 						headers: Schema['headers']
-						response: ComposeElysiaResponse<
+						response: ComposeSpiceflowResponse<
 							Schema['response'],
 							Handle
 						>
@@ -429,7 +414,7 @@ export class Spiceflow<
 							: Schema['params']
 						query: Schema['query']
 						headers: Schema['headers']
-						response: ComposeElysiaResponse<
+						response: ComposeSpiceflowResponse<
 							Schema['response'],
 							Handle
 						>
@@ -495,7 +480,7 @@ export class Spiceflow<
 							: Schema['params']
 						query: Schema['query']
 						headers: Schema['headers']
-						response: ComposeElysiaResponse<
+						response: ComposeSpiceflowResponse<
 							Schema['response'],
 							Handle
 						>
@@ -561,7 +546,7 @@ export class Spiceflow<
 							: Schema['params']
 						query: Schema['query']
 						headers: Schema['headers']
-						response: ComposeElysiaResponse<
+						response: ComposeSpiceflowResponse<
 							Schema['response'],
 							Handle
 						>
@@ -627,7 +612,7 @@ export class Spiceflow<
 							: Schema['params']
 						query: Schema['query']
 						headers: Schema['headers']
-						response: ComposeElysiaResponse<
+						response: ComposeSpiceflowResponse<
 							Schema['response'],
 							Handle
 						>
@@ -693,7 +678,7 @@ export class Spiceflow<
 							: Schema['params']
 						query: Schema['query']
 						headers: Schema['headers']
-						response: ComposeElysiaResponse<
+						response: ComposeSpiceflowResponse<
 							Schema['response'],
 							Handle
 						>
@@ -761,7 +746,7 @@ export class Spiceflow<
 							: Schema['params']
 						query: Schema['query']
 						headers: Schema['headers']
-						response: ComposeElysiaResponse<
+						response: ComposeSpiceflowResponse<
 							Schema['response'],
 							Handle
 						>
@@ -777,7 +762,7 @@ export class Spiceflow<
 	}
 
 	/**
-	 * If set to true, other Elysia handler will not inherits global life-cycle, store, decorators from the current instance
+	 * If set to true, other Spiceflow handler will not inherits global life-cycle, store, decorators from the current instance
 	 *
 	 * @default false
 	 */
@@ -789,11 +774,11 @@ export class Spiceflow<
 	// group is not needed, you can add another prefixed app instead
 	// group<
 	// 	const Prefix extends string,
-	// 	const NewElysia extends Elysia<any, any, any, any, any, any, any, any>
+	// 	const NewSpiceflow extends Spiceflow<any, any, any, any, any, any, any, any>
 	// >(
 	// 	prefix: Prefix,
 	// 	run: (
-	// 		group: Elysia<
+	// 		group: Spiceflow<
 	// 			`${BasePath}${Prefix}`,
 	// 			Scoped,
 	// 			Singleton,
@@ -803,14 +788,14 @@ export class Spiceflow<
 	// 			Ephemeral,
 	// 			Volatile
 	// 		>
-	// 	) => NewElysia
-	// ): Elysia<
+	// 	) => NewSpiceflow
+	// ): Spiceflow<
 	// 	BasePath,
 	// 	Scoped,
 	// 	Singleton,
 	// 	Definitions,
 	// 	Metadata,
-	// 	Prettify<Routes & NewElysia['_routes']>,
+	// 	Prettify<Routes & NewSpiceflow['_routes']>,
 	// 	Ephemeral,
 	// 	Volatile
 	// > {
@@ -825,21 +810,21 @@ export class Spiceflow<
 	// 	return this
 	// }
 
-	use<const NewElysia extends AnyElysia>(
-		instance: NewElysia
-	): NewElysia['_scoped'] extends false
+	use<const NewSpiceflow extends AnySpiceflow>(
+		instance: NewSpiceflow
+	): NewSpiceflow['_scoped'] extends false
 		? Spiceflow<
 				BasePath,
 				Scoped,
 				// @ts-expect-error - This is truly ideal
-				Prettify2<Singleton & NewElysia['_types']['Singleton']>,
-				Prettify2<Definitions & NewElysia['_types']['Definitions']>,
-				Prettify2<Metadata & NewElysia['_types']['Metadata']>,
+				Prettify2<Singleton & NewSpiceflow['_types']['Singleton']>,
+				Prettify2<Definitions & NewSpiceflow['_types']['Definitions']>,
+				Prettify2<Metadata & NewSpiceflow['_types']['Metadata']>,
 				BasePath extends ``
-					? Routes & NewElysia['_routes']
-					: Routes & CreateEden<BasePath, NewElysia['_routes']>,
+					? Routes & NewSpiceflow['_routes']
+					: Routes & CreateEden<BasePath, NewSpiceflow['_routes']>,
 				Ephemeral,
-				Prettify2<Volatile & NewElysia['_ephemeral']>
+				Prettify2<Volatile & NewSpiceflow['_ephemeral']>
 		  >
 		: Spiceflow<
 				BasePath,
@@ -848,8 +833,8 @@ export class Spiceflow<
 				Definitions,
 				Metadata,
 				BasePath extends ``
-					? Routes & NewElysia['_routes']
-					: Routes & CreateEden<BasePath, NewElysia['_routes']>,
+					? Routes & NewSpiceflow['_routes']
+					: Routes & CreateEden<BasePath, NewSpiceflow['_routes']>,
 				Ephemeral,
 				Volatile
 		  > {
@@ -1263,4 +1248,4 @@ export async function turnHandlerResultIntoResponse(result: any) {
 	return new Response(JSON.stringify(result))
 }
 
-export type AnyElysia = Spiceflow<any, any, any, any, any, any, any, any>
+export type AnySpiceflow = Spiceflow<any, any, any, any, any, any, any, any>

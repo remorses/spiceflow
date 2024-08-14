@@ -532,7 +532,7 @@ export const createSpiceflowClient = <
 
 	if (typeof window !== 'undefined')
 		console.warn(
-			'Elysia instance server found on client side, this is not recommended for security reason. Use generic type instead.'
+			'Spiceflow instance server found on client side, this is not recommended for security reason. Use generic type instead.'
 		)
 
 	return createProxy('http://e.ly', config, [], domain)

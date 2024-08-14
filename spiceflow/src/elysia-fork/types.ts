@@ -4,7 +4,6 @@
 
 import type { BunFile, Serve, Server, WebSocketHandler } from 'bun'
 
-
 import type {
 	TSchema,
 	TObject,
@@ -29,107 +28,6 @@ import {
 	ValidationError
 } from './error'
 import { Spiceflow } from '../spiceflow'
-
-
-export type ElysiaConfig<
-	Prefix extends string | undefined,
-	Scoped extends boolean | undefined
-> = {
-	/**
-	 * Path prefix of the instance
-	 *
-	 * @default '''
-	 */
-	prefix?: Prefix
-	/**
-	 * If set to true, other Elysia handler will not inherits global life-cycle, store, decorators from the current instance
-	 *
-	 * @default false
-	 */
-	scoped?: Scoped
-	/**
-	 * Name of the instance for debugging, and plugin deduplication purpose
-	 */
-	name?: string
-	/**
-	 * Seed for generating checksum for plugin deduplication
-	 *
-	 * @see https://elysiajs.com/essential/plugin.html#plugin-deduplication
-	 */
-	seed?: unknown
-	
-	/**
-	 * OpenAPI documentation (use in Swagger)
-	 *
-	 * @see https://swagger.io/specification/
-	 */
-	detail?: DocumentDecoration
-	/**
-	 * OpenAPI tags
-	 *
-	 * current instance' routes with tags
-	 *
-	 * @see https://swagger.io/specification/#tag-object
-	 */
-	tags?: DocumentDecoration['tags']
-	/**
-	 * Warm up Elysia before starting the server
-	 *
-	 * This will perform Ahead of Time compilation and generate code for route handlers
-	 *
-	 * If set to false, Elysia will perform Just in Time compilation
-	 *
-	 * Only required for root instance (instance which use listen) to effect
-	 *
-	 * ! If performing a benchmark, it's recommended to set this to `true`
-	 *
-	 * @default false
-	 */
-	precompile?:
-		| boolean
-		| {
-				/**
-				 * Perform dynamic code generation for route handlers before starting the server
-				 *
-				 * @default false
-				 */
-				compose?: boolean
-				/**
-				 * Perform Ahead of Time compilation for schema before starting the server
-				 *
-				 * @default false
-				 */
-				schema?: boolean
-		  }
-
-	// /**
-	//  * Override websocket configuration
-	//  *
-	//  * @see https://bun.sh/docs/api/websockets
-	//  */
-	// websocket?: Omit<
-	// 	WebSocketHandler<any>,
-	// 	'open' | 'close' | 'message' | 'drain'
-	// >
-
-	/**
-	 * Capture more detail information for each dependencies
-	 */
-	analytic?: boolean
-	/**
-	 * Enable experimental features
-	 */
-	experimental?: {}
-	/**
-	 * If enabled, the handlers will run a [clean](https://github.com/sinclairzx81/typebox?tab=readme-ov-file#clean) on incoming and outgoing bodies instead of failing directly.
-	 * This allows for sending unknown or disallowed properties in the bodies. These will simply be filtered out instead of failing the request.
-	 * This has no effect when the schemas allow additional properties.
-	 * Since this uses dynamic schema it may have an impact on performance.
-	 *
-	 * @default false
-	 */
-	normalize?: boolean
-}
 
 
 export type MaybeArray<T> = T | T[]
@@ -715,7 +613,7 @@ export type BodyHandler<
 	 *
 	 * @example
 	 * ```ts
-	 * new Elysia()
+	 * new Spiceflow()
 	 * 	   .onParse(({ contentType, request }) => {
 	 * 		     if (contentType === 'application/json')
 	 * 			     return request.json()
@@ -984,8 +882,6 @@ export interface InternalRoute {
 	hooks: LocalHook<any, any, any, any, any, any, any>
 }
 
-
-
 export type ListenCallback = (server: Server) => MaybePromise<void>
 
 export type AddPrefix<Prefix extends string, T> = {
@@ -1132,13 +1028,16 @@ export type CreateEden<
 	? _CreateEden<'index', Property>
 	: _CreateEden<Path, Property>
 
-export type ComposeElysiaResponse<Response, Handle> = Handle extends (
+export type ComposeSpiceflowResponse<Response, Handle> = Handle extends (
 	...a: any[]
 ) => infer A
-	? _ComposeElysiaResponse<Response, Replace<Awaited<A>, BunFile, File>>
-	: _ComposeElysiaResponse<Response, Replace<Awaited<Handle>, BunFile, File>>
+	? _ComposeSpiceflowResponse<Response, Replace<Awaited<A>, BunFile, File>>
+	: _ComposeSpiceflowResponse<
+			Response,
+			Replace<Awaited<Handle>, BunFile, File>
+	  >
 
-type _ComposeElysiaResponse<Response, Handle> = Prettify<
+type _ComposeSpiceflowResponse<Response, Handle> = Prettify<
 	{} extends Response
 		? {
 				200: Exclude<Handle, { [ELYSIA_RESPONSE]: any }>
@@ -1155,7 +1054,7 @@ type _ComposeElysiaResponse<Response, Handle> = Prettify<
 		: Response
 >
 
-export type MergeElysiaInstances<
+export type MergeSpiceflowInstances<
 	Instances extends Spiceflow<any, any, any, any, any, any>[] = [],
 	Prefix extends string = '',
 	Scoped extends boolean = false,
@@ -1180,7 +1079,7 @@ export type MergeElysiaInstances<
 	...infer Rest extends Spiceflow<any, any, any, any, any, any>[]
 ]
 	? Current['_types']['Scoped'] extends true
-		? MergeElysiaInstances<
+		? MergeSpiceflowInstances<
 				Rest,
 				Prefix,
 				Scoped,
@@ -1189,7 +1088,7 @@ export type MergeElysiaInstances<
 				Metadata,
 				Routes
 		  >
-		: MergeElysiaInstances<
+		: MergeSpiceflowInstances<
 				Rest,
 				Prefix,
 				Scoped,
@@ -1225,7 +1124,7 @@ export type MergeElysiaInstances<
 export type LifeCycleType = 'global' | 'local' | 'scoped'
 
 // Exclude return error()
-export type ExcludeElysiaResponse<T> = Exclude<
+export type ExcludeSpiceflowResponse<T> = Exclude<
 	undefined extends Awaited<T> ? Partial<Awaited<T>> : Awaited<T>,
 	{ [ELYSIA_RESPONSE]: any }
 >
@@ -1303,7 +1202,7 @@ export type HigherOrderFunction<
 	T extends (...arg: unknown[]) => Function = (...arg: unknown[]) => Function
 > = (fn: T, request: Request) => ReturnType<T>
 
-// new Elysia()
+// new Spiceflow()
 // 	.wrap((fn) => {
 // 		return fn()
 // 	})

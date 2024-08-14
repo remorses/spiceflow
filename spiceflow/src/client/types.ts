@@ -67,7 +67,7 @@ export namespace SpiceflowClient {
 		_routes: infer Schema extends Record<string, any>
 	}
 		? Prettify<Sign<Schema>>
-		: 'Please install Elysia before using Eden'
+		: 'Please install Spiceflow before using Eden'
 
 	export type Sign<in out Route extends Record<string, any>> = {
 		[K in keyof Route as K extends `:${string}`

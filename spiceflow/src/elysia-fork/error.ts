@@ -14,15 +14,15 @@ const env =
 		? process?.env
 		: undefined
 
-export const ERROR_CODE = Symbol('ElysiaErrorCode')
+export const ERROR_CODE = Symbol('SpiceflowErrorCode')
 export type ERROR_CODE = typeof ERROR_CODE
 
-export const ELYSIA_RESPONSE = Symbol('ElysiaResponse')
+export const ELYSIA_RESPONSE = Symbol('SpiceflowResponse')
 export type ELYSIA_RESPONSE = typeof ELYSIA_RESPONSE
 
 export const isProduction = (env?.NODE_ENV ?? env?.ENV) === 'production'
 
-export type ElysiaErrors =
+export type SpiceflowErrors =
 	| InternalServerError
 	| NotFoundError
 	| ParseError
