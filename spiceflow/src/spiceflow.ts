@@ -852,11 +852,24 @@ export class Elysia<
 				console.log('no route')
 				return this.onNoMatch(request, platform)
 			}
+			const onReq = this.onRequestHandlers
+			if (onReq.length > 0) {
+				for (const handler of onReq) {
+					const res = await handler({
+						request,
+						response,
+						platform
+					})
+					if (res) {
+						return await turnHandlerResultIntoResponse(res)
+					}
+				}
+			}
 
 			let routes = [route]
-			// Pass request/response through each route
+
 			for (const route of routes) {
-				console.log(route)
+				// console.log(route)
 				const res = route.handler({
 					request,
 					response,
