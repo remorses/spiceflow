@@ -16,7 +16,7 @@ export type HandleResponse =
 	| undefined
 	| null
 	| Response
-  | any
+	| any
 	| Promise<undefined | null | Response>
 
 /** Properties passed to route handles */
@@ -52,14 +52,4 @@ export type RoutesArray<P = Platform> = Array<Route<P>>
 /** Router class method for attaching HTTP method handles */
 export interface RouterMethod<P = Platform> {
 	(pattern: string, ...handle: Array<Handle<P>>): void
-}
-
-/** Init options for Router class */
-export interface RouterOptions<P = Platform> {
-	/** Fallback handle if an error is thrown (500 response is default) */
-	onError?: (error: unknown, request: Request, platform: P) => AsyncResponse
-	/** Fallback handle if no matches are found (404 response is default) */
-	onNoMatch?: (request: Request, platform: P) => AsyncResponse
-	/** Generate `HEAD` routes for each `GET` route added */
-	autoHead?: boolean
 }

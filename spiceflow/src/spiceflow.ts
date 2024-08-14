@@ -6,11 +6,11 @@ import type {
 	Handle,
 	RoutesArray,
 	RouterMethod,
-	RouterOptions,
 	HandleResponse,
 	HandleResolve,
 	HandleProps,
-	Platform
+	Platform,
+	AsyncResponse
 } from './types.js'
 import {
 	SingletonBase,
@@ -28,10 +28,55 @@ import {
 	ResolvePath,
 	UnwrapRoute
 } from './elysia-fork/types.js'
-import { MedleyRouter } from './router.js'
+
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore
+import OriginalRouter from '@medley/router'
+// Should be exported from `hono/router`
+
+export class MedleyRouter<T extends Function> {
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	router: any
+	name: string = 'MedleyRouter'
+
+	constructor() {
+		this.router = new OriginalRouter()
+	}
+
+	add({
+		handler,
+		method,
+		path
+	}: {
+		method: string
+		path: string
+		handler: T
+	}) {
+		const store = this.router.register(path)
+		store[method] = { handler }
+	}
+
+	match(method: string, path: string) {
+		const route = this.router.find(path)
+
+		let data = route['store'][method]
+		if (data) {
+			const { handler } = data
+			return {
+				handler,
+				params: route['params']
+			}
+		}
+
+		return null
+	}
+}
 
 type P = any
 
+type OnError = (error: unknown, request: Request, platform: P) => AsyncResponse
+
+type OnNoMatch = (request: Request, platform: P) => AsyncResponse
 /**
  * Router class
  */
@@ -67,15 +112,23 @@ export class Elysia<
 		schema: {}
 	}
 > {
-	onError: Exclude<RouterOptions<P>['onError'], undefined>
-	onNoMatch: Exclude<RouterOptions<P>['onNoMatch'], undefined>
+	onError: OnError
+	onNoMatch: OnNoMatch
 
 	router: MedleyRouter<any>
 	/**
 	 * Create a new Router
 	 * @param options {@link RouterOptions} {@link Platform}
 	 */
-	constructor(options: RouterOptions<P> = {}) {
+	constructor(
+		options: {
+			/** Fallback handle if an error is thrown (500 response is default) */
+			onError?: OnError
+
+			onNoMatch?: (request: Request, platform: P) => AsyncResponse
+			basePath?: BasePath
+		} = {}
+	) {
 		// Setup default response handles
 		this.onError =
 			options.onError ?? (() => new Response(null, { status: 500 }))
@@ -169,19 +222,9 @@ export class Elysia<
 		Ephemeral,
 		Volatile
 	> {
-		this.add('POST', path, handler as any, hook)
+		this.router.add({ method: 'POST', path, handler: handler })
 
 		return this as any
-	}
-
-	add(method: Method, pattern: string, handle: Handle<P>) {
-		if (!method) {
-			for (const m of METHODS) {
-				this.add(m, pattern, handle)
-			}
-			return
-		}
-		this.router.add(method, pattern, handle)
 	}
 
 	/**
@@ -209,7 +252,7 @@ export class Elysia<
 			// Pass request/response through each route
 			for (const route of routes) {
 				console.log(route)
-				const res = route.handle({
+				const res = route.handler({
 					request,
 					response,
 					platform
