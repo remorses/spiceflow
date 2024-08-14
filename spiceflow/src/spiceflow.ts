@@ -65,6 +65,9 @@ export class MedleyRouter<T extends Function> {
 
 	match(method: string, path: string) {
 		const route = this.router.find(path)
+		if (!route) {
+			return null
+		}
 
 		let data = route['store'][method]
 		if (data) {
