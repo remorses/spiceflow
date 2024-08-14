@@ -1,13 +1,13 @@
 {
 	"name": "spiceflow",
-	"version": "0.0.7",
+	"version": "1.0.0",
 	"description": "Simple API framework with RPC and type safety",
 	"main": "dist/index.js",
 	"types": "dist/index.d.ts",
 	"type": "module",
 	"repository": "https://github.com/remorses/spiceflow",
 	"scripts": {
-		"build": "cp ../README.md ./README.md && rm -rf ./sdk-template ../sdk-template/dist ../sdk-template/node_modules && cp -r ../sdk-template ./sdk-template && rm -rf dist && tsc",
+		"build": "cp ../README.md ./README.md && rm -rf dist && tsc",
 		"prepublishOnly": "pnpm build",
 		"watch": "tsc -w"
 	},
