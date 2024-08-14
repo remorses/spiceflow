@@ -44,11 +44,12 @@ type P = any
 
 type OnError = (error: unknown, request: Request, platform: P) => AsyncResponse
 
-type Router = {
+type RouterTree = {
 	router: OriginalRouter
 	prefix?: string
 	onRequestHandlers: Function[]
 	onErrorHandlers: OnError[]
+	children: RouterTree[]
 }
 
 type OnNoMatch = (request: Request, platform: P) => AsyncResponse
@@ -89,7 +90,7 @@ export class Elysia<
 > {
 	private onNoMatch: OnNoMatch
 	// prefix: BasePath | undefined
-	routers: Router[] = []
+	routerTree: RouterTree
 
 	add({
 		handler,
@@ -101,7 +102,7 @@ export class Elysia<
 		hook: any
 		handler: any
 	}) {
-		const router = this.routers[0]
+		const router = this.routerTree
 		if (router.prefix) {
 			path = router.prefix + path
 		}
@@ -111,17 +112,17 @@ export class Elysia<
 	}
 
 	match(method: string, path: string) {
-		for (const router of this.routers) {
+		const result = bfs(this.routerTree, (router) => {
 			if (router.prefix && !path.startsWith(router.prefix)) {
 				// console.log(
 				// 	`router prefix: ${router.prefix} does not match path: ${path}`
 				// )
-				continue
+				return
 			}
 			// console.log(`router prefix: ${router.prefix} matches path: ${path}`)
 			const route = router.router.find(path)
 			if (!route) {
-				continue
+				return
 			}
 
 			let data = route['store'][method]
@@ -138,9 +139,9 @@ export class Elysia<
 					params
 				}
 			}
-		}
+		})
 
-		return null
+		return result
 	}
 
 	/**
@@ -160,12 +161,13 @@ export class Elysia<
 
 		this.onNoMatch =
 			options.onNoMatch ?? (() => new Response(null, { status: 404 }))
-		this.routers.push({
+		this.routerTree = {
 			router: new OriginalRouter(),
 			prefix: options.basePath,
 			onRequestHandlers: [],
-			onErrorHandlers: []
-		})
+			onErrorHandlers: [],
+			children: []
+		}
 
 		// Bind router methods
 		// for (const method of METHODS) {
@@ -811,10 +813,10 @@ export class Elysia<
 				Ephemeral,
 				Volatile
 		  > {
-		const thisRouter = this.routers[0]
+		const thisRouter = this.routerTree
 		// TODO use scoped logic to add onRequest and onError on all routers if necessary, add them first
-		this.routers.push(
-			...instance.routers.map((r) => {
+		this.routerTree.children.push(
+			mapBfs(instance.routerTree, (r) => {
 				return {
 					...r,
 					prefix: (thisRouter.prefix || '') + r.prefix
@@ -841,7 +843,7 @@ export class Elysia<
 			>
 		>
 	): this {
-		const router = this.routers[0]
+		const router = this.routerTree
 
 		router.onErrorHandlers ??= []
 		router.onErrorHandlers.push(handler as any)
@@ -868,7 +870,7 @@ export class Elysia<
 			>
 		>
 	) {
-		const router = this.routers[0]
+		const router = this.routerTree
 		router.onRequestHandlers ??= []
 		router.onRequestHandlers.push(handler as any)
 
@@ -953,6 +955,37 @@ const METHODS = [
 
 /** HTTP method string */
 export type Method = (typeof METHODS)[number]
+
+function bfs<T>(
+	tree: RouterTree,
+	onNode: (node: RouterTree) => T | undefined | void
+): T | undefined {
+	const queue = [tree]
+	while (queue.length > 0) {
+		const node = queue.shift()!
+		const result = onNode(node)
+		if (result) {
+			return result
+		}
+		queue.push(...node.children)
+	}
+	return undefined
+}
+
+function mapBfs(
+	tree: RouterTree,
+	mapper: (node: RouterTree) => RouterTree
+): RouterTree {
+	const queue = [tree]
+	const result: RouterTree = { ...mapper(tree), children: [] }
+	while (queue.length > 0) {
+		const node = queue.shift()!
+		const mappedNode = mapper(node)
+		result.children.push(mappedNode)
+		queue.push(...mappedNode.children)
+	}
+	return result
+}
 
 export async function turnHandlerResultIntoResponse(result: any) {
 	// if user returns not a response, convert to json
