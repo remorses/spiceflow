@@ -1,39 +1,36 @@
 {
-  "name": "spiceflow",
-  "version": "0.0.7",
-  "description": "Simple API framework with RPC and type safety",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
-  "type": "module",
-  "repository": "https://github.com/remorses/spiceflow",
-  "scripts": {
-    "build": "cp ../README.md ./README.md && rm -rf ./sdk-template ../sdk-template/dist ../sdk-template/node_modules && cp -r ../sdk-template ./sdk-template && rm -rf dist && tsc",
-    "prepublishOnly": "pnpm build",
-    "watch": "tsc -w"
-  },
-  "bin": "dist/cli.js",
-  "files": [
-    "dist",
-    "src"
-  ],
-  "keywords": [],
-  "author": "Tommaso De Rossi, morse <beats.by.morse@gmail.com>",
-  "license": "",
-  "peerDependencies": {
-    "next": ">=10"
-  },
-  "dependencies": {
-    "@hono/medley-router": "^0.0.3",
-    "@medley/router": "^0.2.1",
-    "@sinclair/typebox": "^0.33.5",
-    "@types/bun": "^1.1.6",
-    "ajv": "^8.17.1",
-    "eventsource-parser": "^2.0.1",
-    "fast-querystring": "^1.1.2",
-    "openapi-types": "^12.1.3",
-    "urlpattern-polyfill": "^10.0.0"
-  },
-  "devDependencies": {
-    "@types/node": "20.2.5"
-  }
+	"name": "spiceflow",
+	"version": "0.0.7",
+	"description": "Simple API framework with RPC and type safety",
+	"main": "dist/index.js",
+	"types": "dist/index.d.ts",
+	"type": "module",
+	"repository": "https://github.com/remorses/spiceflow",
+	"scripts": {
+		"build": "cp ../README.md ./README.md && rm -rf ./sdk-template ../sdk-template/dist ../sdk-template/node_modules && cp -r ../sdk-template ./sdk-template && rm -rf dist && tsc",
+		"prepublishOnly": "pnpm build",
+		"watch": "tsc -w"
+	},
+	"bin": "dist/cli.js",
+	"files": [
+		"dist",
+		"src"
+	],
+	"keywords": [],
+	"author": "Tommaso De Rossi, morse <beats.by.morse@gmail.com>",
+	"license": "",
+	"peerDependencies": {
+		"next": ">=10"
+	},
+	"dependencies": {
+		"@medley/router": "^0.2.1",
+		"@sinclair/typebox": "^0.33.5",
+		"ajv": "^8.17.1",
+		"eventsource-parser": "^2.0.1",
+		"fast-querystring": "^1.1.2",
+		"openapi-types": "^12.1.3"
+	},
+	"devDependencies": {
+		"@types/node": "20.2.5"
+	}
 }
