@@ -1,4 +1,5 @@
 import { test, describe, expect } from 'vitest'
+import { Type } from '@sinclair/typebox'
 import { Elysia } from './spiceflow'
 
 test('works', async () => {
@@ -28,6 +29,101 @@ test('missing route is not found', async () => {
 		.get('/ids/:id', () => 'hi')
 		.handle(new Request('http://localhost/zxxx', { method: 'GET' }))
 	expect(res.status).toBe(404)
+})
+test('state works', async () => {
+	const res = await new Elysia()
+		.state('id', '')
+		.onRequest(({ store, request }) => {
+			store.id = 'xxx'
+		})
+		.get('/get', ({ store }) => {
+			expect(store.id).toBe('xxx')
+		})
+		.handle(new Request('http://localhost/get'))
+	expect(res.status).toBe(200)
+})
+
+test('body is parsed as json', async () => {
+	let body
+	const res = await new Elysia()
+		.state('id', '')
+
+		.post('/post', (c) => {
+			body = c.body
+			// console.log({ body })
+			return body
+		})
+		.handle(
+			new Request('http://localhost/post', {
+				method: 'POST',
+				headers: {
+					'content-type': 'application/json'
+				},
+				body: JSON.stringify({ name: 'John' })
+			})
+		)
+	expect(res.status).toBe(200)
+	expect(await res.text()).toBe(JSON.stringify({ name: 'John' }))
+})
+
+test('validate body works, request success', async () => {
+	const res = await new Elysia()
+
+		.post(
+			'/post',
+			({ body }) => {
+				// console.log({ body })
+				expect(body).toEqual({ name: 'John' })
+				return 'ok'
+			},
+			{
+				body: Type.Object({
+					name: Type.String()
+				})
+			}
+		)
+		.handle(
+			new Request('http://localhost/post', {
+				method: 'POST',
+				headers: {
+					'content-type': 'application/json'
+				},
+				body: JSON.stringify({ name: 'John' })
+			})
+		)
+	expect(res.status).toBe(200)
+	expect(await res.text()).toMatchInlineSnapshot(`""ok""`)
+})
+
+test('validate body works, request fails', async () => {
+	const res = await new Elysia()
+
+		.post(
+			'/post',
+			({ body }) => {
+				// console.log({ body })
+				expect(body).toEqual({ name: 'John' })
+			},
+			{
+				body: Type.Object({
+					name: Type.String(),
+					requiredField: Type.String()
+				})
+			}
+		)
+		.handle(
+			new Request('http://localhost/post', {
+				method: 'POST',
+				headers: {
+					'content-type': 'application/json'
+				},
+				body: JSON.stringify({ name: 'John' })
+			})
+		)
+	expect(res.status).toBe(400)
+	expect(await res.text()).toMatchInlineSnapshot(
+		`"data must have required property 'requiredField'"`
+	)
 })
 
 test('run onRequest', async () => {

@@ -1,12 +1,12 @@
 {
-  "extends": "../tsconfig.base.json",
-  "compilerOptions": {
-    "rootDir": "src",
-    "module": "ES2015",
-    "lib": ["DOM", "ESNext"],
-    "moduleResolution": "Node",
-    "resolveJsonModule": true,
-    "outDir": "dist",
-  },
-  "include": ["src"],
+	"extends": "../tsconfig.base.json",
+	"compilerOptions": {
+		"rootDir": "src",
+		"module": "ES2015",
+		"lib": ["DOM", "ESNext", "dom.iterable"],
+		"moduleResolution": "Node",
+		"resolveJsonModule": true,
+		"outDir": "dist"
+	},
+	"include": ["src"]
 }

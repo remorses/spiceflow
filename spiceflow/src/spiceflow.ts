@@ -1,4 +1,5 @@
 import 'urlpattern-polyfill'
+import parseQuery from 'fast-querystring'
 
 import { deepFreeze } from './utils.js'
 
@@ -32,12 +33,19 @@ import {
 	MaybeArray,
 	PreHandler,
 	RouteSchema,
-	ErrorHandler
+	ErrorHandler,
+	Reconcile
 } from './elysia-fork/types.js'
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
 import OriginalRouter from '@medley/router'
+import { Context } from './elysia-fork/context.js'
+import { TSchema } from '@sinclair/typebox'
+import { Value } from '@sinclair/typebox/build/cjs/value/index.js'
+import Ajv from 'ajv'
+
+const ajv = new Ajv()
 // Should be exported from `hono/router`
 
 type P = any
@@ -50,9 +58,16 @@ type RouterTree = {
 	onRequestHandlers: Function[]
 	onErrorHandlers: OnError[]
 	children: RouterTree[]
+	store: Record<any, any>
 }
 
 type OnNoMatch = (request: Request, platform: P) => AsyncResponse
+
+type InternalRouterState = {
+	hook: any
+	handler: any
+	// store: Record<any, any>
+}
 /**
  * Router class
  */
@@ -93,14 +108,12 @@ export class Elysia<
 	routerTree: RouterTree
 
 	add({
-		handler,
 		method,
-		path
-	}: {
+		path,
+		...rest
+	}: InternalRouterState & {
 		method: string
 		path: string
-		hook: any
-		handler: any
 	}) {
 		const router = this.routerTree
 		// if (router.prefix) {
@@ -108,10 +121,10 @@ export class Elysia<
 		// }
 
 		const store = router.router.register(path)
-		store[method] = { handler }
+		store[method] = { ...rest }
 	}
 
-	match(method: string, path: string) {
+	private match(method: string, path: string) {
 		const result = bfs(this.routerTree, (router) => {
 			if (router.prefix && !path.startsWith(router.prefix)) {
 				// console.log(
@@ -129,15 +142,15 @@ export class Elysia<
 				return
 			}
 
-			let data = route['store'][method]
+			let data: InternalRouterState = route['store'][method]
 			if (data) {
 				// console.log(`route found: ${method} ${path}`, route)
-				const { handler, hook } = data
+
 				const { onErrorHandlers, onRequestHandlers } = router
 				const params = route['params'] || {}
 				return {
-					handler,
-					hook,
+					...data,
+					store: router.store,
 					onErrorHandlers,
 					onRequestHandlers,
 					params
@@ -146,6 +159,33 @@ export class Elysia<
 		})
 
 		return result
+	}
+
+	state<const Name extends string | number | symbol, Value>(
+		name: Name,
+		value: Value
+	): Elysia<
+		BasePath,
+		Scoped,
+		{
+			decorator: Singleton['decorator']
+			store: Reconcile<
+				Singleton['store'],
+				{
+					[name in Name]: Value
+				}
+			>
+			derive: Singleton['derive']
+			resolve: Singleton['resolve']
+		},
+		Definitions,
+		Metadata,
+		Routes,
+		Ephemeral,
+		Volatile
+	> {
+		this.routerTree.store[name] = value
+		return this as any
 	}
 
 	/**
@@ -170,7 +210,8 @@ export class Elysia<
 			prefix: options.basePath,
 			onRequestHandlers: [],
 			onErrorHandlers: [],
-			children: []
+			children: [],
+			store: {}
 		}
 
 		// Bind router methods
@@ -893,19 +934,42 @@ export class Elysia<
 			let response: Response | undefined
 			// Get all middleware and method specific routes in order
 			let u = new URL(request.url)
-			const route = this.match(request.method, u.pathname + u.search)
+			let path = u.pathname + u.search
+			const route = this.match(request.method, path)
 			if (!route) {
 				return this.onNoMatch(request, platform)
 			}
 			onErrorHandlers = route.onErrorHandlers
+			const { params, store } = route
 			const onReq = route.onRequestHandlers
+			// TODO add content type
+
+			let content = route?.hook?.content
+			let body = await getRequestBody({ request, content })
+			let bodySchema: TSchema = route?.hook?.body
+			if (bodySchema) {
+				const validate = ajv.compile(bodySchema)
+				const valid = validate(body)
+				if (!valid) {
+					const error = ajv.errorsText(validate.errors, {
+						separator: '\n'
+					})
+					return new Response(error, {
+						status: 400,
+						headers: {
+							'content-type': 'text/plain'
+						}
+					})
+				}
+			}
 			if (onReq.length > 0) {
 				for (const handler of onReq) {
 					const res = await handler({
 						request,
 						response,
-						platform
-					})
+						store,
+						path
+					} satisfies Context<any, any, any>)
 					if (res) {
 						return await turnHandlerResultIntoResponse(res)
 					}
@@ -916,13 +980,17 @@ export class Elysia<
 
 			for (const route of routes) {
 				// console.log(route)
-				const { params } = route
+
 				const res = route.handler({
 					request,
 					response,
-					params,
-					platform
-				})
+					params: params as any,
+					store,
+					body,
+					path
+
+					// platform
+				} satisfies Context<any, any, string>)
 				return await turnHandlerResultIntoResponse(res)
 			}
 			return this.onNoMatch(request, platform)
@@ -942,6 +1010,116 @@ export class Elysia<
 			})
 		}
 	}
+}
+
+async function getRequestBody({
+	request,
+	content
+}: {
+	content
+	request: Request
+}) {
+	let body: string | Record<string, any> | undefined
+	if (request.method === 'GET' || request.method === 'HEAD') {
+		return
+	}
+	if (content) {
+		switch (content) {
+			case 'application/json':
+				body = (await request.json()) as any
+				break
+
+			case 'text/plain':
+				body = await request.text()
+				break
+
+			case 'application/x-www-form-urlencoded':
+				body = parseQuery.parse(await request.text()) as any
+				break
+
+			case 'application/octet-stream':
+				body = await request.arrayBuffer()
+				break
+
+			case 'multipart/form-data':
+				body = {}
+
+				const form = await request.formData()
+				for (const key of form.keys()) {
+					if (body[key]) continue
+
+					const value = form.getAll(key)
+					if (value.length === 1) body[key] = value[0]
+					else body[key] = value
+				}
+
+				break
+		}
+	} else {
+		let contentType = request.headers.get('content-type')
+
+		if (!contentType) {
+			return
+			// try {
+			// 	return JSON.parse(await request.text())
+			// } catch (error) {
+			// 	return
+			// }
+		}
+		const index = contentType.indexOf(';')
+		if (index !== -1) contentType = contentType.slice(0, index)
+
+		// context.contentType = contentType
+
+		// for (let i = 0; i < hooks.parse.length; i++) {
+		// 	const hook = hooks.parse[i].fn
+		// 	let temp = hook(context as any, contentType)
+		// 	if (temp instanceof Promise) temp = await temp
+
+		// 	if (temp) {
+		// 		body = temp
+		// 		break
+		// 	}
+		// }
+
+		
+		// body might be empty string thus can't use !body
+		if (body === undefined) {
+			switch (contentType) {
+				case 'application/json':
+					body = (await request.json()) as any
+					break
+
+				case 'text/plain':
+					
+					body = await request.text()
+					break
+
+				case 'application/x-www-form-urlencoded':
+					body = parseQuery.parse(await request.text())
+					break
+
+				case 'application/octet-stream':
+					body = await request.arrayBuffer()
+					break
+
+				case 'multipart/form-data':
+					body = {}
+
+					const form = await request.formData()
+					for (const key of form.keys()) {
+						if (body[key]) continue
+
+						const value = form.getAll(key)
+						if (value.length === 1) body[key] = value[0]
+						else body[key] = value
+					}
+
+					break
+			}
+		}
+	}
+	return body
 }
 
 const METHODS = [

@@ -336,10 +336,10 @@ export interface UnwrapRoute<
 	in out Definitions extends DefinitionBase['type'] = {}
 > {
 	body: UnwrapBodySchema<Schema['body'], Definitions>
-	headers: UnwrapSchema<Schema['headers'], Definitions>
-	query: UnwrapSchema<Schema['query'], Definitions>
-	params: UnwrapSchema<Schema['params'], Definitions>
-	cookie: UnwrapSchema<Schema['cookie'], Definitions>
+	// headers: UnwrapSchema<Schema['headers'], Definitions>
+	// query: UnwrapSchema<Schema['query'], Definitions>
+	// params: UnwrapSchema<Schema['params'], Definitions>
+	// cookie: UnwrapSchema<Schema['cookie'], Definitions>
 	response: Schema['response'] extends TSchema | string
 		? {
 				200: CoExist<
@@ -359,49 +359,49 @@ export interface UnwrapRoute<
 		: unknown | void
 }
 
-export interface UnwrapGroupGuardRoute<
-	in out Schema extends InputSchema<any>,
-	in out Definitions extends Record<string, unknown> = {},
-	Path extends string = ''
-> {
-	body: UnwrapBodySchema<Schema['body'], Definitions>
-	headers: UnwrapSchema<
-		Schema['headers'],
-		Definitions
-	> extends infer A extends Record<string, unknown>
-		? A
-		: undefined
-	query: UnwrapSchema<
-		Schema['query'],
-		Definitions
-	> extends infer A extends Record<string, unknown>
-		? A
-		: undefined
-	params: UnwrapSchema<
-		Schema['params'],
-		Definitions
-	> extends infer A extends Record<string, unknown>
-		? A
-		: Path extends `${string}/${':' | '*'}${string}`
-		? Record<GetPathParameter<Path>, string>
-		: never
-	cookie: UnwrapSchema<
-		Schema['cookie'],
-		Definitions
-	> extends infer A extends Record<string, unknown>
-		? A
-		: undefined
-	response: Schema['response'] extends TSchema | string
-		? UnwrapSchema<Schema['response'], Definitions>
-		: Schema['response'] extends {
-				[k in string]: TSchema | string
-		  }
-		? UnwrapSchema<
-				Schema['response'][keyof Schema['response']],
-				Definitions
-		  >
-		: unknown | void
-}
+// export interface UnwrapGroupGuardRoute<
+// 	in out Schema extends InputSchema<any>,
+// 	in out Definitions extends Record<string, unknown> = {},
+// 	Path extends string = ''
+// > {
+// 	body: UnwrapBodySchema<Schema['body'], Definitions>
+// 	headers: UnwrapSchema<
+// 		Schema['headers'],
+// 		Definitions
+// 	> extends infer A extends Record<string, unknown>
+// 		? A
+// 		: undefined
+// 	query: UnwrapSchema<
+// 		Schema['query'],
+// 		Definitions
+// 	> extends infer A extends Record<string, unknown>
+// 		? A
+// 		: undefined
+// 	params: UnwrapSchema<
+// 		Schema['params'],
+// 		Definitions
+// 	> extends infer A extends Record<string, unknown>
+// 		? A
+// 		: Path extends `${string}/${':' | '*'}${string}`
+// 		? Record<GetPathParameter<Path>, string>
+// 		: never
+// 	cookie: UnwrapSchema<
+// 		Schema['cookie'],
+// 		Definitions
+// 	> extends infer A extends Record<string, unknown>
+// 		? A
+// 		: undefined
+// 	response: Schema['response'] extends TSchema | string
+// 		? UnwrapSchema<Schema['response'], Definitions>
+// 		: Schema['response'] extends {
+// 				[k in string]: TSchema | string
+// 		  }
+// 		? UnwrapSchema<
+// 				Schema['response'][keyof Schema['response']],
+// 				Definitions
+// 		  >
+// 		: unknown | void
+// }
 
 export type HookContainer<T extends Function = Function> = {
 	checksum?: number
@@ -490,10 +490,10 @@ export type HTTPMethod =
 
 export interface InputSchema<Name extends string = string> {
 	body?: TSchema | Name
-	headers?: TObject | TNull | TUndefined | Name
-	query?: TObject | TNull | TUndefined | Name
-	params?: TObject | TNull | TUndefined | Name
-	cookie?: TObject | TNull | TUndefined | Name
+	// headers?: TObject | TNull | TUndefined | Name
+	// query?: TObject | TNull | TUndefined | Name
+	// params?: TObject | TNull | TUndefined | Name
+	// cookie?: TObject | TNull | TUndefined | Name
 	response?:
 		| TSchema
 		| Record<number, TSchema>
