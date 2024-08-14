@@ -991,7 +991,11 @@ export class Elysia<
 				// platform
 			} satisfies Context<any, any, string>)
 			if (isAsyncIterable(res)) {
-				return await this.handleStream(res, request)
+				return await this.handleStream({
+					generator: res,
+					request,
+					onErrorHandlers
+				})
 			}
 
 			return await turnHandlerResultIntoResponse(res)
@@ -1008,7 +1012,7 @@ export class Elysia<
 		}
 	}
 
-	async runErrorHandlers({
+	private async runErrorHandlers({
 		onErrorHandlers = [] as OnError[],
 		error: err,
 		request
@@ -1025,17 +1029,22 @@ export class Elysia<
 		}
 	}
 
-	async handleStream(
-		generator: Generator | AsyncGenerator,
+	async handleStream({
+		onErrorHandlers: onErrorHandlers,
+		generator,
+		request
+	}: {
+		generator: Generator | AsyncGenerator
+		onErrorHandlers: OnError[]
 		request: Request
-	) {
+	}) {
 		let init = generator.next()
 		if (init instanceof Promise) init = await init
 
 		if (init?.done) {
 			return await turnHandlerResultIntoResponse(init.value)
 		}
-		let errorHandlers = this.routerTree.onErrorHandlers
+		// let errorHandlers = this.routerTree.onErrorHandlers
 		let self = this
 		return new Response(
 			new ReadableStream({
@@ -1076,7 +1085,7 @@ export class Elysia<
 						}
 					} catch (error: any) {
 						let res = await self.runErrorHandlers({
-							onErrorHandlers: self.routerTree.onErrorHandlers,
+							onErrorHandlers: onErrorHandlers,
 							error,
 							request
 						})
@@ -1228,4 +1237,9 @@ export async function turnHandlerResultIntoResponse(result: any) {
 	return new Response(JSON.stringify(result))
 }
 
+
+
+
 export type AnyElysia = Elysia<any, any, any, any, any, any, any, any>
+
+
