@@ -44,13 +44,20 @@ type P = any
 
 type OnError = (error: unknown, request: Request, platform: P) => AsyncResponse
 
+type Router = {
+	router: OriginalRouter
+	prefix?: string
+	onRequestHandlers: Function[]
+	onErrorHandlers: OnError[]
+}
+
 type OnNoMatch = (request: Request, platform: P) => AsyncResponse
 /**
  * Router class
  */
 export class Elysia<
 	const in out BasePath extends string = '',
-	const in out Scoped extends boolean = false,
+	const in out Scoped extends boolean = true,
 	const in out Singleton extends SingletonBase = {
 		decorator: {}
 		store: {}
@@ -80,12 +87,10 @@ export class Elysia<
 		schema: {}
 	}
 > {
-	private onErrorHandlers: OnError[] = []
-	private onRequestHandlers: Function[] = []
 	private onNoMatch: OnNoMatch
-	prefix: BasePath | undefined
-	router: OriginalRouter = new OriginalRouter()
-	
+	// prefix: BasePath | undefined
+	routers: Router[] = []
+
 	add({
 		handler,
 		method,
@@ -96,23 +101,42 @@ export class Elysia<
 		hook: any
 		handler: any
 	}) {
-		const store = this.router.register(path)
+		const router = this.routers[0]
+		if (router.prefix) {
+			path = router.prefix + path
+		}
+
+		const store = router.router.register(path)
 		store[method] = { handler }
 	}
 
 	match(method: string, path: string) {
-		const route = this.router.find(path)
-		if (!route) {
-			return null
-		}
+		for (const router of this.routers) {
+			if (router.prefix && !path.startsWith(router.prefix)) {
+				console.log(
+					`router prefix: ${router.prefix} does not match path: ${path}`
+				)
+				continue
+			}
+			console.log(`router prefix: ${router.prefix} matches path: ${path}`)
+			const route = router.router.find(path)
+			if (!route) {
+				continue
+			}
 
-		let data = route['store'][method]
-		if (data) {
-			const { handler, hook } = data
-			return {
-				handler,
-				hook,
-				params: route['params']
+			let data = route['store'][method]
+			if (data) {
+				console.log(`route found: ${method} ${path}`, route)
+				const { handler, hook } = data
+				const { onErrorHandlers, onRequestHandlers } = router
+				const params = route['params'] || {}
+				return {
+					handler,
+					hook,
+					onErrorHandlers,
+					onRequestHandlers,
+					params
+				}
 			}
 		}
 
@@ -136,9 +160,12 @@ export class Elysia<
 
 		this.onNoMatch =
 			options.onNoMatch ?? (() => new Response(null, { status: 404 }))
-		this.prefix = options.basePath
-		// Setup route map
-		this.router = new OriginalRouter()
+		this.routers.push({
+			router: new OriginalRouter(),
+			prefix: options.basePath,
+			onRequestHandlers: [],
+			onErrorHandlers: []
+		})
 
 		// Bind router methods
 		// for (const method of METHODS) {
@@ -717,35 +744,44 @@ export class Elysia<
 		return this.scoped as Scoped
 	}
 
-	group<
-		const Prefix extends string,
-		const NewElysia extends Elysia<any, any, any, any, any, any, any, any>
-	>(
-		prefix: Prefix,
-		run: (
-			group: Elysia<
-				`${BasePath}${Prefix}`,
-				Scoped,
-				Singleton,
-				Definitions,
-				Metadata,
-				{},
-				Ephemeral,
-				Volatile
-			>
-		) => NewElysia
-	): Elysia<
-		BasePath,
-		Scoped,
-		Singleton,
-		Definitions,
-		Metadata,
-		Prettify<Routes & NewElysia['_routes']>,
-		Ephemeral,
-		Volatile
-	> {
-		return this
-	}
+	// group is not needed, you can add another prefixed app instead
+	// group<
+	// 	const Prefix extends string,
+	// 	const NewElysia extends Elysia<any, any, any, any, any, any, any, any>
+	// >(
+	// 	prefix: Prefix,
+	// 	run: (
+	// 		group: Elysia<
+	// 			`${BasePath}${Prefix}`,
+	// 			Scoped,
+	// 			Singleton,
+	// 			Definitions,
+	// 			Metadata,
+	// 			{},
+	// 			Ephemeral,
+	// 			Volatile
+	// 		>
+	// 	) => NewElysia
+	// ): Elysia<
+	// 	BasePath,
+	// 	Scoped,
+	// 	Singleton,
+	// 	Definitions,
+	// 	Metadata,
+	// 	Prettify<Routes & NewElysia['_routes']>,
+	// 	Ephemeral,
+	// 	Volatile
+	// > {
+	// 	let thisRouter = this.routers[0]
+	// 	this.routers.push(
+	// 		...instance.routers.map((r) => ({
+	// 			...r,
+	// 			prefix: (thisRouter.prefix || '') + r.prefix
+	// 		}))
+	// 	)
+
+	// 	return this
+	// }
 
 	use<const NewElysia extends AnyElysia>(
 		instance: NewElysia
@@ -775,6 +811,16 @@ export class Elysia<
 				Ephemeral,
 				Volatile
 		  > {
+		const thisRouter = this.routers[0]
+		// TODO use scoped logic to add onRequest and onError on all routers if necessary, add them first
+		this.routers.push(
+			...instance.routers.map((r) => {
+				return {
+					...r,
+					prefix: (thisRouter.prefix || '') + r.prefix
+				}
+			})
+		)
 		return this as any
 	}
 
@@ -795,8 +841,10 @@ export class Elysia<
 			>
 		>
 	): this {
-		this.onErrorHandlers ??= []
-		this.onErrorHandlers.push(handler as any)
+		const router = this.routers[0]
+
+		router.onErrorHandlers ??= []
+		router.onErrorHandlers.push(handler as any)
 
 		return this
 	}
@@ -820,8 +868,9 @@ export class Elysia<
 			>
 		>
 	) {
-		this.onRequestHandlers ??= []
-		this.onRequestHandlers.push(handler as any)
+		const router = this.routers[0]
+		router.onRequestHandlers ??= []
+		router.onRequestHandlers.push(handler as any)
 
 		return this
 	}
@@ -833,19 +882,17 @@ export class Elysia<
 	 */
 	async handle(request: Request, platform?: P): Promise<Response> {
 		platform ??= {} as P
+		let onErrorHandlers: OnError[] = []
 		try {
 			let response: Response | undefined
 			// Get all middleware and method specific routes in order
 			let u = new URL(request.url)
-			const route = this.match(
-				request.method,
-				u.pathname + u.search
-			)
+			const route = this.match(request.method, u.pathname + u.search)
 			if (!route) {
-				console.log('no route')
 				return this.onNoMatch(request, platform)
 			}
-			const onReq = this.onRequestHandlers
+			onErrorHandlers = route.onErrorHandlers
+			const onReq = route.onRequestHandlers
 			if (onReq.length > 0) {
 				for (const handler of onReq) {
 					const res = await handler({
@@ -863,20 +910,21 @@ export class Elysia<
 
 			for (const route of routes) {
 				// console.log(route)
+				const { params } = route
 				const res = route.handler({
 					request,
 					response,
+					params,
 					platform
 				})
 				return await turnHandlerResultIntoResponse(res)
 			}
 			return this.onNoMatch(request, platform)
 		} catch (err: any) {
-			const handlers = this.onErrorHandlers
-			if (handlers.length === 0) {
-				console.error(``, err)
+			if (onErrorHandlers.length === 0) {
+				console.error(`Spiceflow unhandled error:`, err)
 			} else {
-				for (const handler of handlers) {
+				for (const handler of onErrorHandlers) {
 					const res = handler(err, request, platform)
 					if (res instanceof Response) {
 						return res

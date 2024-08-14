@@ -61,24 +61,34 @@ test('run onRequest', async () => {
 	expect(res.status).toBe(401)
 	expect(await res.text()).toBe('ok')
 })
-test('group works', async () => {
+
+test('basPath works', async () => {
+	const res = await new Elysia({ basePath: '/one' })
+		.get('/ids/:id', () => 'hi')
+		.handle(new Request('http://localhost/one/ids/xxx', { method: 'GET' }))
+	expect(res.status).toBe(200)
+	expect(await res.text()).toBe(JSON.stringify('hi'))
+})
+
+test('use with 2 basPath works', async () => {
 	let oneOnReq = false
 	let twoOnReq = false
 	const app = await new Elysia()
-		.group('/one', () => {
-			return new Elysia()
+		.use(
+			new Elysia({ basePath: '/one' })
 				.onRequest(({ request }) => {
 					oneOnReq = true
 				})
 				.get('/ids/:id', ({ params }) => params.id)
-		})
-		.group('/two', () => {
-			return new Elysia()
+		)
+		.use(
+			new Elysia({ basePath: '/two' })
 				.onRequest((c) => {
 					twoOnReq = true
 				})
 				.get('/ids/:id', ({ params }) => params.id)
-		})
+		)
+	console.log(app.routers)
 
 	{
 		const res = await app.handle(
