@@ -4,7 +4,9 @@
 import type { Elysia } from '../spiceflow'
 import { EventSourceParserStream } from 'eventsource-parser/stream'
 
-import type { SpiceflowClient as SpiceflowClient } from './types'
+import type { SpiceflowClient } from './types'
+
+export { SpiceflowClient }
 
 import { EdenFetchError } from './errors'
 // import { EdenWS } from './ws'
