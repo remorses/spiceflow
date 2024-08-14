@@ -1,5 +1,11 @@
 # spiceflow
 
+## 1.0.1
+
+### Patch Changes
+
+-   Fix poublished package
+
 ## 1.0.0
 
 ### Major Changes
