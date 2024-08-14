@@ -1035,23 +1035,28 @@ export class Elysia<
 	}
 
 	private getRouteAndParents(currentRouter?: RouterTree) {
-		let root = this.routerTree
 		const parents: RouterTree[] = []
 		let current = currentRouter
+
+		// Perform BFS once to build a parent map
+		const parentMap = new Map<RouterTree, RouterTree>()
+		bfs(this.routerTree, (node) => {
+			for (const child of node.children) {
+				parentMap.set(child, node)
+			}
+		})
+
+		// Traverse the parent map to get the parents
 		while (current) {
 			parents.unshift(current)
-			// TODO slow
-			current = bfs(root, (node) => {
-				if (node.children.includes(current!)) {
-					return node
-				}
-			})
+			current = parentMap.get(current)
 		}
-		return parents.reverse()
+
+		return parents.reverse().filter((x) => x !== undefined)
 	}
 
 	async handleStream({
-		onErrorHandlers: onErrorHandlers,
+		onErrorHandlers,
 		generator,
 		request
 	}: {
