@@ -100,7 +100,7 @@ test('validate body works, request fails', async () => {
 
 		.post(
 			'/post',
-			({ body }) => {
+			({ body, redirect,  error }) => {
 				// console.log({ body })
 				expect(body).toEqual({ name: 'John' })
 			},

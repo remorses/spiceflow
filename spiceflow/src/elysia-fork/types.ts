@@ -131,12 +131,6 @@ export type ElysiaConfig<
 	normalize?: boolean
 }
 
-export type ValidatorLayer = {
-	global: SchemaValidator | null
-	scoped: SchemaValidator | null
-	local: SchemaValidator | null
-	getCandidate(): SchemaValidator
-}
 
 export type MaybeArray<T> = T | T[]
 export type MaybePromise<T> = T | Promise<T>
@@ -949,35 +943,35 @@ export type LocalHook<
 		 */
 		type?: ContentType
 		detail?: DocumentDecoration
-		/**
-		 * Custom body parser
-		 */
-		parse?: MaybeArray<BodyHandler<TypedRoute, Singleton>>
-		/**
-		 * Transform context's value
-		 */
-		transform?: MaybeArray<TransformHandler<TypedRoute, Singleton>>
-		/**
-		 * Execute before main handler
-		 */
-		beforeHandle?: MaybeArray<OptionalHandler<TypedRoute, Singleton>>
-		/**
-		 * Execute after main handler
-		 */
-		afterHandle?: MaybeArray<AfterHandler<TypedRoute, Singleton>>
-		/**
-		 * Execute after main handler
-		 */
-		mapResponse?: MaybeArray<MapResponse<TypedRoute, Singleton>>
-		/**
-		 * Execute after response is sent
-		 */
-		afterResponse?: MaybeArray<VoidHandler<TypedRoute, Singleton>>
-		/**
-		 * Catch error
-		 */
-		error?: MaybeArray<ErrorHandler<Errors, TypedRoute, Singleton>>
-		tags?: DocumentDecoration['tags']
+		// /**
+		//  * Custom body parser
+		//  */
+		// parse?: MaybeArray<BodyHandler<TypedRoute, Singleton>>
+		// /**
+		//  * Transform context's value
+		//  */
+		// transform?: MaybeArray<TransformHandler<TypedRoute, Singleton>>
+		// /**
+		//  * Execute before main handler
+		//  */
+		// beforeHandle?: MaybeArray<OptionalHandler<TypedRoute, Singleton>>
+		// /**
+		//  * Execute after main handler
+		//  */
+		// afterHandle?: MaybeArray<AfterHandler<TypedRoute, Singleton>>
+		// /**
+		//  * Execute after main handler
+		//  */
+		// mapResponse?: MaybeArray<MapResponse<TypedRoute, Singleton>>
+		// /**
+		//  * Execute after response is sent
+		//  */
+		// afterResponse?: MaybeArray<VoidHandler<TypedRoute, Singleton>>
+		// /**
+		//  * Catch error
+		//  */
+		// error?: MaybeArray<ErrorHandler<Errors, TypedRoute, Singleton>>
+		// tags?: DocumentDecoration['tags']
 	}
 
 export type ComposedHandler = (context: Context) => MaybePromise<Response>
@@ -990,20 +984,7 @@ export interface InternalRoute {
 	hooks: LocalHook<any, any, any, any, any, any, any>
 }
 
-export type SchemaValidator = {
-	createBody?(): TypeCheck<any>
-	createHeaders?(): TypeCheck<any>
-	createQuery?(): TypeCheck<any>
-	createParams?(): TypeCheck<any>
-	createCookie?(): TypeCheck<any>
-	createResponse?(): Record<number, TypeCheck<any>>
-	body?: TypeCheck<any>
-	headers?: TypeCheck<any>
-	query?: TypeCheck<any>
-	params?: TypeCheck<any>
-	cookie?: TypeCheck<any>
-	response?: Record<number, TypeCheck<any>>
-}
+
 
 export type ListenCallback = (server: Server) => MaybePromise<void>
 

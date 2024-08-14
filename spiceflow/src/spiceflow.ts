@@ -34,6 +34,8 @@ import { TSchema } from '@sinclair/typebox'
 import Ajv from 'ajv'
 import { Context } from './elysia-fork/context.js'
 import { isAsyncIterable } from './utils.js'
+import { redirect } from './elysia-fork/utils.js'
+import { ValidationError } from './elysia-fork/error.js'
 
 const ajv = new Ajv()
 // Should be exported from `hono/router`
@@ -921,12 +923,18 @@ export class Elysia<
 	 */
 	async handle(request: Request, platform?: P): Promise<Response> {
 		platform ??= {} as P
+		let u = new URL(request.url)
+		let path = u.pathname + u.search
+		const defaultContext = {
+			redirect,
+			error: null,
+			path
+		}
 		let onErrorHandlers: OnError[] = []
 		try {
 			let response: Response | undefined
 			// Get all middleware and method specific routes in order
-			let u = new URL(request.url)
-			let path = u.pathname + u.search
+
 			const route = this.match(request.method, path)
 			if (!route) {
 				return this.onNoMatch(request, platform)
@@ -946,6 +954,7 @@ export class Elysia<
 					const error = ajv.errorsText(validate.errors, {
 						separator: '\n'
 					})
+
 					return new Response(error, {
 						status: 400,
 						headers: {
@@ -971,6 +980,7 @@ export class Elysia<
 			// console.log(route)
 
 			const res = route.handler({
+				...defaultContext,
 				request,
 				response,
 				params: params as any,
@@ -986,19 +996,32 @@ export class Elysia<
 
 			return await turnHandlerResultIntoResponse(res)
 		} catch (err: any) {
-			if (onErrorHandlers.length === 0) {
-				console.error(`Spiceflow unhandled error:`, err)
-			} else {
-				for (const handler of onErrorHandlers) {
-					const res = handler({ error: err, request })
-					if (res instanceof Response) {
-						return res
-					}
-				}
-			}
+			let res = await this.runErrorHandlers({
+				onErrorHandlers,
+				error: err,
+				request
+			})
+			if (res) return res
 			return new Response(err?.message || 'Internal Server Error', {
 				status: 500
 			})
+		}
+	}
+
+	async runErrorHandlers({
+		onErrorHandlers = [] as OnError[],
+		error: err,
+		request
+	}) {
+		if (onErrorHandlers.length === 0) {
+			console.error(`Spiceflow unhandled error:`, err)
+		} else {
+			for (const errHandler of onErrorHandlers) {
+				const res = errHandler({ error: err, request })
+				if (res instanceof Response) {
+					return res
+				}
+			}
 		}
 	}
 
@@ -1013,6 +1036,7 @@ export class Elysia<
 			return await turnHandlerResultIntoResponse(init.value)
 		}
 		let errorHandlers = this.routerTree.onErrorHandlers
+		let self = this
 		return new Response(
 			new ReadableStream({
 				async start(controller) {
@@ -1051,11 +1075,11 @@ export class Elysia<
 							)
 						}
 					} catch (error: any) {
-						if (errorHandlers.length) {
-							for (const handler of errorHandlers) {
-								await handler({ error: error, request })
-							}
-						}
+						let res = await self.runErrorHandlers({
+							onErrorHandlers: self.routerTree.onErrorHandlers,
+							error,
+							request
+						})
 						controller.enqueue(
 							Buffer.from(
 								`event: error\ndata: ${JSON.stringify(
