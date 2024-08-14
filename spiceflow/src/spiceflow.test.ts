@@ -88,7 +88,6 @@ test('use with 2 basPath works', async () => {
 				})
 				.get('/ids/:id', ({ params }) => params.id)
 		)
-	// console.log(app.routers)
 
 	{
 		const res = await app.handle(
@@ -108,4 +107,37 @@ test('use with 2 basPath works', async () => {
 	}
 	expect(oneOnReq).toBe(true)
 	expect(twoOnReq).toBe(true)
+})
+
+test('use with nested basPath works', async () => {
+	const app = await new Elysia({ basePath: '/zero' })
+		.use(
+			new Elysia({ basePath: '/one' }).get(
+				'/ids/:id',
+				({ params }) => params.id
+			)
+		)
+		.use(
+			new Elysia({ basePath: '/two' }).use(
+				new Elysia({ basePath: '/nested' }).get(
+					'/ids/:id',
+					({ params }) => params.id
+				)
+			)
+		)
+	{
+		const res = await app.handle(
+			new Request('http://localhost/zero/one/ids/one')
+		)
+		expect(res.status).toBe(200)
+		expect(await res.text()).toBe(JSON.stringify('one'))
+	}
+
+	{
+		const res = await app.handle(
+			new Request('http://localhost/zero/two/nested/ids/nested')
+		)
+		expect(res.status).toBe(200)
+		expect(await res.text()).toBe(JSON.stringify('nested'))
+	}
 })
