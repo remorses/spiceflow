@@ -237,7 +237,7 @@ export class Elysia<
 	 * ---
 	 * @example
 	 * ```typescript
-	 * import { Elysia, t } from 'elysia'
+	 * import { Elysia, t } from 'spiceflow'
 	 *
 	 * new Elysia()
 	 *     .post('/', () => 'hi')

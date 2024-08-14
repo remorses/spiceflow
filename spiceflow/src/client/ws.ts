@@ -1,5 +1,5 @@
 import type { InputSchema } from '../elysia-fork/types'
-import type { Treaty } from './types'
+import type { SpiceflowClient } from './types'
 import { parseStringifiedValue } from './utils'
 
 export class EdenWS<in out Schema extends InputSchema<any> = {}> {
@@ -25,7 +25,7 @@ export class EdenWS<in out Schema extends InputSchema<any> = {}> {
 
 	on<K extends keyof WebSocketEventMap>(
 		type: K,
-		listener: (event: Treaty.WSEvent<K, Schema['response']>) => void,
+		listener: (event: SpiceflowClient.WSEvent<K, Schema['response']>) => void,
 		options?: boolean | AddEventListenerOptions
 	) {
 		return this.addEventListener(type, listener, options)
@@ -43,7 +43,7 @@ export class EdenWS<in out Schema extends InputSchema<any> = {}> {
 
 	subscribe(
 		onMessage: (
-			event: Treaty.WSEvent<'message', Schema['response']>
+			event: SpiceflowClient.WSEvent<'message', Schema['response']>
 		) => void,
 		options?: boolean | AddEventListenerOptions
 	) {
@@ -52,7 +52,7 @@ export class EdenWS<in out Schema extends InputSchema<any> = {}> {
 
 	addEventListener<K extends keyof WebSocketEventMap>(
 		type: K,
-		listener: (event: Treaty.WSEvent<K, Schema['response']>) => void,
+		listener: (event: SpiceflowClient.WSEvent<K, Schema['response']>) => void,
 		options?: boolean | AddEventListenerOptions
 	) {
 		this.ws.addEventListener(

@@ -1387,7 +1387,7 @@ export type HTTPHeaders = Record<string, string> & {
 
 	// Response context
 	allow?: string
-	server?: 'Elysia' | (string & {})
+	server?: 'spiceflow' | (string & {})
 
 	// Range requests
 	'accept-ranges'?: string
@@ -1438,7 +1438,7 @@ export type HTTPHeaders = Record<string, string> & {
 	'x-forwarded-for'?: string
 	'x-forwarded-host'?: string
 	'x-forwarded-proto'?: string
-	'x-powered-by'?: 'Elysia' | (string & {})
+	'x-powered-by'?: 'spiceflow' | (string & {})
 	'x-request-id'?: string
 	'x-requested-with'?: string
 	'x-robots-tag'?: string

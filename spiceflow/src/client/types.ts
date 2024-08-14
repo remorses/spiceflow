@@ -56,7 +56,7 @@ type ReplaceGeneratorWithAsyncGenerator<
 type MaybeArray<T> = T | T[]
 type MaybePromise<T> = T | Promise<T>
 
-export namespace Treaty {
+export namespace SpiceflowClient {
 	interface TreatyParam {
 		fetch?: RequestInit
 	}
