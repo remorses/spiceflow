@@ -4,7 +4,7 @@
 import type { Elysia } from '../spiceflow'
 import { EventSourceParserStream } from 'eventsource-parser/stream'
 
-import type { Treaty } from './types'
+import type { Treaty as SpiceflowClient } from './types'
 
 import { EdenFetchError } from './errors'
 // import { EdenWS } from './ws'
@@ -61,10 +61,10 @@ const createNewFile = (v: File) =>
 				}
 
 				reader.readAsArrayBuffer(v)
-			})
+		  })
 
 const processHeaders = (
-	h: Treaty.Config['headers'],
+	h: SpiceflowClient.Config['headers'],
 	path: string,
 	options: RequestInit = {},
 	headers: Record<string, string> = {}
@@ -115,61 +115,59 @@ const processHeaders = (
 }
 
 interface SSEEvent {
-    event: string;
-    data: any;
-    id?: string;
+	event: string
+	data: any
+	id?: string
 }
 
-
 export class TextDecoderStream extends TransformStream<Uint8Array, string> {
-    constructor() {
-        const decoder = new TextDecoder('utf-8', {
-            fatal: true,
-            ignoreBOM: true
-        })
-        super({
-            transform(
-                chunk: Uint8Array,
-                controller: TransformStreamDefaultController<string>
-            ) {
-                const decoded = decoder.decode(chunk, { stream: true })
-                if (decoded.length > 0) {
-                    controller.enqueue(decoded)
-                }
-            },
-            flush(controller: TransformStreamDefaultController<string>) {
-                const output = decoder.decode()
-                if (output.length > 0) {
-                    controller.enqueue(output)
-                }
-            }
-        })
-    }
+	constructor() {
+		const decoder = new TextDecoder('utf-8', {
+			fatal: true,
+			ignoreBOM: true
+		})
+		super({
+			transform(
+				chunk: Uint8Array,
+				controller: TransformStreamDefaultController<string>
+			) {
+				const decoded = decoder.decode(chunk, { stream: true })
+				if (decoded.length > 0) {
+					controller.enqueue(decoded)
+				}
+			},
+			flush(controller: TransformStreamDefaultController<string>) {
+				const output = decoder.decode()
+				if (output.length > 0) {
+					controller.enqueue(output)
+				}
+			}
+		})
+	}
 }
 
 export async function* streamSSEResponse(
-    response: Response
+	response: Response
 ): AsyncGenerator<SSEEvent> {
-    const body = response.body
-    if (!body) return
+	const body = response.body
+	if (!body) return
 
-    const eventStream = response.body
-        .pipeThrough(new TextDecoderStream())
-        .pipeThrough(new EventSourceParserStream())
+	const eventStream = response.body
+		.pipeThrough(new TextDecoderStream())
+		.pipeThrough(new EventSourceParserStream())
 
-    let reader = eventStream.getReader()
-    while (true) {
-        const { done, value: event } = await reader.read()
-        if (done) break
-        if (event?.event === 'error') {
-            throw new EdenFetchError(500, event.data)
-        }
-        if (event) {
-            yield tryParsingJson(event.data)
-        }
-    }
+	let reader = eventStream.getReader()
+	while (true) {
+		const { done, value: event } = await reader.read()
+		if (done) break
+		if (event?.event === 'error') {
+			throw new EdenFetchError(500, event.data)
+		}
+		if (event) {
+			yield tryParsingJson(event.data)
+		}
+	}
 }
-
 
 function tryParsingJson(data: string): any {
 	try {
@@ -181,7 +179,7 @@ function tryParsingJson(data: string): any {
 
 const createProxy = (
 	domain: string,
-	config: Treaty.Config,
+	config: SpiceflowClient.Config,
 	paths: string[] = [],
 	elysia?: Elysia<any, any, any, any, any, any>
 ): any =>
@@ -245,8 +243,7 @@ const createProxy = (
 							append(key, JSON.stringify(value))
 							continue
 						}
-							
-				
+
 						append(key, `${value}`)
 					}
 				}
@@ -420,7 +417,6 @@ const createProxy = (
 						new Request(url, fetchInit)
 					) ?? fetcher!(url, fetchInit))
 
-					
 					let data = null as any
 					let error = null as any
 
@@ -512,12 +508,12 @@ const createProxy = (
 		}
 	}) as any
 
-export const treaty = <
+export const createSpiceflowClient = <
 	const App extends Elysia<any, any, any, any, any, any, any, any>
 >(
 	domain: string | App,
-	config: Treaty.Config = {}
-): Treaty.Create<App> => {
+	config: SpiceflowClient.Config = {}
+): SpiceflowClient.Create<App> => {
 	if (typeof domain === 'string') {
 		if (!config.keepDomain) {
 			if (!domain.includes('://'))
@@ -540,4 +536,4 @@ export const treaty = <
 	return createProxy('http://e.ly', config, [], domain)
 }
 
-export type { Treaty }
+export type { SpiceflowClient as Treaty }

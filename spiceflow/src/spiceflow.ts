@@ -3,6 +3,10 @@ import parseQuery from 'fast-querystring'
 
 import { deepFreeze } from './utils.js'
 
+import { Type } from '@sinclair/typebox'
+
+export { Type as t }
+
 import type {
 	Handle,
 	RoutesArray,
