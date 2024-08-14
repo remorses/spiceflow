@@ -20,24 +20,6 @@ const randomArray = [
 	new Date(0),
 	{ a: 'a', b: 2, c: true, d: false, e: null, f: new Date(0) }
 ]
-const websocketPayloads = [
-	// strings
-	'str',
-	// numbers
-	1,
-	1.2,
-	// booleans
-	true,
-	false,
-	// null values
-	null,
-	// A date
-	new Date(0),
-	// A random object
-	randomObject,
-	// A random array
-	randomArray
-] as const
 
 const app = new Elysia()
 	.get('/', () => 'a')
