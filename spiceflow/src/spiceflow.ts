@@ -1023,102 +1023,46 @@ async function getRequestBody({
 	if (request.method === 'GET' || request.method === 'HEAD') {
 		return
 	}
-	if (content) {
-		switch (content) {
-			case 'application/json':
-				body = (await request.json()) as any
-				break
 
-			case 'text/plain':
-				body = await request.text()
-				break
+	const contentType =
+		content || request.headers.get('content-type')?.split(';')?.[0]
 
-			case 'application/x-www-form-urlencoded':
-				body = parseQuery.parse(await request.text()) as any
-				break
-
-			case 'application/octet-stream':
-				body = await request.arrayBuffer()
-				break
-
-			case 'multipart/form-data':
-				body = {}
-
-				const form = await request.formData()
-				for (const key of form.keys()) {
-					if (body[key]) continue
-
-					const value = form.getAll(key)
-					if (value.length === 1) body[key] = value[0]
-					else body[key] = value
-				}
-
-				break
-		}
-	} else {
-		let contentType = request.headers.get('content-type')
-
-		if (!contentType) {
-			return
-			// try {
-			// 	return JSON.parse(await request.text())
-			// } catch (error) {
-			// 	return
-			// }
-		}
-		const index = contentType.indexOf(';')
-		if (index !== -1) contentType = contentType.slice(0, index)
-
-		// context.contentType = contentType
-
-		// for (let i = 0; i < hooks.parse.length; i++) {
-		// 	const hook = hooks.parse[i].fn
-		// 	let temp = hook(context as any, contentType)
-		// 	if (temp instanceof Promise) temp = await temp
-
-		// 	if (temp) {
-		// 		body = temp
-		// 		break
-		// 	}
-		// }
-
-		
-		// body might be empty string thus can't use !body
-		if (body === undefined) {
-			switch (contentType) {
-				case 'application/json':
-					body = (await request.json()) as any
-					break
-
-				case 'text/plain':
-					
-					body = await request.text()
-					break
-
-				case 'application/x-www-form-urlencoded':
-					body = parseQuery.parse(await request.text())
-					break
-
-				case 'application/octet-stream':
-					body = await request.arrayBuffer()
-					break
-
-				case 'multipart/form-data':
-					body = {}
-
-					const form = await request.formData()
-					for (const key of form.keys()) {
-						if (body[key]) continue
-
-						const value = form.getAll(key)
-						if (value.length === 1) body[key] = value[0]
-						else body[key] = value
-					}
-
-					break
-			}
-		}
+	if (!contentType) {
+		return
 	}
+
+	switch (contentType) {
+		case 'application/json':
+			body = (await request.json()) as any
+			break
+
+		case 'text/plain':
+			body = await request.text()
+			break
+
+		case 'application/x-www-form-urlencoded':
+			body = parseQuery.parse(await request.text()) as any
+			break
+
+		case 'application/octet-stream':
+			body = await request.arrayBuffer()
+			break
+
+		case 'multipart/form-data':
+			body = {}
+
+			const form = await request.formData()
+			for (const key of form.keys()) {
+				if (body[key]) continue
+
+				const value = form.getAll(key)
+				if (value.length === 1) body[key] = value[0]
+				else body[key] = value
+			}
+
+			break
+	}
+
 	return body
 }
 
