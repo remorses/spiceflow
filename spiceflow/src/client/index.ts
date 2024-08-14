@@ -183,7 +183,7 @@ const createProxy = (
 	domain: string,
 	config: SpiceflowClient.Config,
 	paths: string[] = [],
-	elysia?: Spiceflow<any, any, any, any, any, any>
+	instance?: Spiceflow<any, any, any, any, any, any>
 ): any =>
 	new Proxy(() => {}, {
 		get(_, param: string): any {
@@ -191,7 +191,7 @@ const createProxy = (
 				domain,
 				config,
 				param === 'index' ? paths : [...paths, param],
-				elysia
+				instance
 			)
 		},
 		apply(_, __, [body, options]) {
@@ -415,7 +415,7 @@ const createProxy = (
 					}
 
 					const url = domain + path + q
-					const response = await (elysia?.handle(
+					const response = await (instance?.handle(
 						new Request(url, fetchInit)
 					) ?? fetcher!(url, fetchInit))
 
@@ -503,7 +503,7 @@ const createProxy = (
 					domain,
 					config,
 					[...paths, Object.values(body)[0] as string],
-					elysia
+					instance
 				)
 
 			return createProxy(domain, config, paths)
