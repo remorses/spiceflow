@@ -2,9 +2,9 @@
   "extends": "../tsconfig.base.json",
   "compilerOptions": {
     "rootDir": "src",
-    "module": "NodeNext",
+    "module": "ES2015",
     "lib": ["DOM", "ESNext"],
-    "moduleResolution": "NodeNext",
+    "moduleResolution": "Node",
     "resolveJsonModule": true,
     "outDir": "dist",
   },
