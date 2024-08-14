@@ -103,9 +103,9 @@ export class Elysia<
 		handler: any
 	}) {
 		const router = this.routerTree
-		if (router.prefix) {
-			path = router.prefix + path
-		}
+		// if (router.prefix) {
+		// 	path = router.prefix + path
+		// }
 
 		const store = router.router.register(path)
 		store[method] = { handler }
@@ -119,8 +119,12 @@ export class Elysia<
 				// )
 				return
 			}
+			let pathWithoutPrefix = path
+			if (router.prefix) {
+				pathWithoutPrefix = path.replace(router.prefix, '')
+			}
 			// console.log(`router prefix: ${router.prefix} matches path: ${path}`)
-			const route = router.router.find(path)
+			const route = router.router.find(pathWithoutPrefix)
 			if (!route) {
 				return
 			}
