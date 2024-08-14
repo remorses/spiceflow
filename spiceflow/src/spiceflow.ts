@@ -26,7 +26,13 @@ import {
 	LocalHook,
 	MergeSchema,
 	ResolvePath,
-	UnwrapRoute
+	UnwrapRoute,
+	Prettify2,
+	Prettify,
+	MaybeArray,
+	PreHandler,
+	RouteSchema,
+	ErrorHandler
 } from './elysia-fork/types.js'
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -50,6 +56,7 @@ export class MedleyRouter<T extends Function> {
 	}: {
 		method: string
 		path: string
+		hook: any
 		handler: T
 	}) {
 		const store = this.router.register(path)
@@ -61,9 +68,10 @@ export class MedleyRouter<T extends Function> {
 
 		let data = route['store'][method]
 		if (data) {
-			const { handler } = data
+			const { handler, hook } = data
 			return {
 				handler,
+				hook,
 				params: route['params']
 			}
 		}
@@ -112,8 +120,10 @@ export class Elysia<
 		schema: {}
 	}
 > {
-	onError: OnError
-	onNoMatch: OnNoMatch
+	private onErrorHandlers: OnError[] = []
+	private onRequestHandlers: Function[] = []
+	private onNoMatch: OnNoMatch
+	prefix: BasePath | undefined
 
 	router: MedleyRouter<any>
 	/**
@@ -123,20 +133,20 @@ export class Elysia<
 	constructor(
 		options: {
 			/** Fallback handle if an error is thrown (500 response is default) */
-			onError?: OnError
-
+			// onError?: OnError
+			scoped?: Scoped
 			onNoMatch?: (request: Request, platform: P) => AsyncResponse
 			basePath?: BasePath
 		} = {}
 	) {
-		// Setup default response handles
-		this.onError =
-			options.onError ?? (() => new Response(null, { status: 500 }))
+		this.scoped = options.scoped
+
 		this.onNoMatch =
 			options.onNoMatch ?? (() => new Response(null, { status: 404 }))
-
+		this.prefix = options.basePath
 		// Setup route map
 		this.router = new MedleyRouter()
+
 		// Bind router methods
 		// for (const method of METHODS) {
 		// 	this.#routes.set(method as Method, [])
@@ -144,6 +154,19 @@ export class Elysia<
 		// 	this[key as any] = this.#add.bind(this, method)
 		// }
 	}
+
+	_routes: Routes = {} as any
+
+	_types = {
+		Prefix: '' as BasePath,
+		Scoped: false as Scoped,
+		Singleton: {} as Singleton,
+		Definitions: {} as Definitions,
+		Metadata: {} as Metadata
+	}
+
+	_ephemeral = {} as Ephemeral
+	_volatile = {} as Volatile
 
 	/**
 	 * ### post
@@ -222,11 +245,593 @@ export class Elysia<
 		Ephemeral,
 		Volatile
 	> {
-		this.router.add({ method: 'POST', path, handler: handler })
+		this.router.add({ method: 'POST', path, handler: handler, hook })
 
 		return this as any
 	}
 
+	get<
+		const Path extends string,
+		const LocalSchema extends InputSchema<
+			keyof Definitions['type'] & string
+		>,
+		const Schema extends MergeSchema<
+			UnwrapRoute<LocalSchema, Definitions['type']>,
+			MergeSchema<
+				Volatile['schema'],
+				MergeSchema<Ephemeral['schema'], Metadata['schema']>
+			>
+		>,
+		const Macro extends Metadata['macro'],
+		const Handle extends InlineHandler<
+			Schema,
+			Singleton & {
+				derive: Ephemeral['derive'] & Volatile['derive']
+				resolve: Ephemeral['resolve'] & Volatile['resolve']
+			},
+			JoinPath<BasePath, Path>
+		>
+	>(
+		path: Path,
+		handler: Handle,
+		hook?: LocalHook<
+			LocalSchema,
+			Schema,
+			Singleton & {
+				derive: Ephemeral['derive'] & Volatile['derive']
+				resolve: Ephemeral['resolve'] & Volatile['resolve']
+			},
+			Definitions['error'],
+			Macro,
+			JoinPath<BasePath, Path>
+		>
+	): Elysia<
+		BasePath,
+		Scoped,
+		Singleton,
+		Definitions,
+		Metadata,
+		Routes &
+			CreateEden<
+				JoinPath<BasePath, Path>,
+				{
+					get: {
+						body: Schema['body']
+						params: undefined extends Schema['params']
+							? ResolvePath<Path>
+							: Schema['params']
+						query: Schema['query']
+						headers: Schema['headers']
+						response: ComposeElysiaResponse<
+							Schema['response'],
+							Handle
+						>
+					}
+				}
+			>,
+		Ephemeral,
+		Volatile
+	> {
+		this.router.add({ method: 'GET', path, handler: handler, hook })
+		return this as any
+	}
+
+	put<
+		const Path extends string,
+		const LocalSchema extends InputSchema<
+			keyof Definitions['type'] & string
+		>,
+		const Schema extends MergeSchema<
+			UnwrapRoute<LocalSchema, Definitions['type']>,
+			MergeSchema<
+				Volatile['schema'],
+				MergeSchema<Ephemeral['schema'], Metadata['schema']>
+			>
+		>,
+		const Handle extends InlineHandler<
+			Schema,
+			Singleton & {
+				derive: Ephemeral['derive'] & Volatile['derive']
+				resolve: Ephemeral['resolve'] & Volatile['resolve']
+			},
+			JoinPath<BasePath, Path>
+		>
+	>(
+		path: Path,
+		handler: Handle,
+		hook?: LocalHook<
+			LocalSchema,
+			Schema,
+			Singleton & {
+				derive: Ephemeral['derive'] & Volatile['derive']
+				resolve: Ephemeral['resolve'] & Volatile['resolve']
+			},
+			Definitions['error'],
+			Metadata['macro'],
+			JoinPath<BasePath, Path>
+		>
+	): Elysia<
+		BasePath,
+		Scoped,
+		Singleton,
+		Definitions,
+		Metadata,
+		Routes &
+			CreateEden<
+				JoinPath<BasePath, Path>,
+				{
+					put: {
+						body: Schema['body']
+						params: undefined extends Schema['params']
+							? ResolvePath<Path>
+							: Schema['params']
+						query: Schema['query']
+						headers: Schema['headers']
+						response: ComposeElysiaResponse<
+							Schema['response'],
+							Handle
+						>
+					}
+				}
+			>,
+		Ephemeral,
+		Volatile
+	> {
+		this.router.add({ method: 'PUT', path, handler: handler, hook })
+
+		return this as any
+	}
+
+	patch<
+		const Path extends string,
+		const LocalSchema extends InputSchema<
+			keyof Definitions['type'] & string
+		>,
+		const Schema extends MergeSchema<
+			UnwrapRoute<LocalSchema, Definitions['type']>,
+			MergeSchema<
+				Volatile['schema'],
+				MergeSchema<Ephemeral['schema'], Metadata['schema']>
+			>
+		>,
+		const Handle extends InlineHandler<
+			Schema,
+			Singleton & {
+				derive: Ephemeral['derive'] & Volatile['derive']
+				resolve: Ephemeral['resolve'] & Volatile['resolve']
+			},
+			JoinPath<BasePath, Path>
+		>
+	>(
+		path: Path,
+		handler: Handle,
+		hook?: LocalHook<
+			LocalSchema,
+			Schema,
+			Singleton & {
+				derive: Ephemeral['derive'] & Volatile['derive']
+				resolve: Ephemeral['resolve'] & Volatile['resolve']
+			},
+			Definitions['error'],
+			Metadata['macro'],
+			JoinPath<BasePath, Path>
+		>
+	): Elysia<
+		BasePath,
+		Scoped,
+		Singleton,
+		Definitions,
+		Metadata,
+		Routes &
+			CreateEden<
+				JoinPath<BasePath, Path>,
+				{
+					patch: {
+						body: Schema['body']
+						params: undefined extends Schema['params']
+							? ResolvePath<Path>
+							: Schema['params']
+						query: Schema['query']
+						headers: Schema['headers']
+						response: ComposeElysiaResponse<
+							Schema['response'],
+							Handle
+						>
+					}
+				}
+			>,
+		Ephemeral,
+		Volatile
+	> {
+		this.router.add({ method: 'PATCH', path, handler: handler, hook })
+
+		return this as any
+	}
+
+	delete<
+		const Path extends string,
+		const LocalSchema extends InputSchema<
+			keyof Definitions['type'] & string
+		>,
+		const Schema extends MergeSchema<
+			UnwrapRoute<LocalSchema, Definitions['type']>,
+			MergeSchema<
+				Volatile['schema'],
+				MergeSchema<Ephemeral['schema'], Metadata['schema']>
+			>
+		>,
+		const Handle extends InlineHandler<
+			Schema,
+			Singleton & {
+				derive: Ephemeral['derive'] & Volatile['derive']
+				resolve: Ephemeral['resolve'] & Volatile['resolve']
+			},
+			JoinPath<BasePath, Path>
+		>
+	>(
+		path: Path,
+		handler: Handle,
+		hook?: LocalHook<
+			LocalSchema,
+			Schema,
+			Singleton & {
+				derive: Ephemeral['derive'] & Volatile['derive']
+				resolve: Ephemeral['resolve'] & Volatile['resolve']
+			},
+			Definitions['error'],
+			Metadata['macro'],
+			JoinPath<BasePath, Path>
+		>
+	): Elysia<
+		BasePath,
+		Scoped,
+		Singleton,
+		Definitions,
+		Metadata,
+		Routes &
+			CreateEden<
+				JoinPath<BasePath, Path>,
+				{
+					delete: {
+						body: Schema['body']
+						params: undefined extends Schema['params']
+							? ResolvePath<Path>
+							: Schema['params']
+						query: Schema['query']
+						headers: Schema['headers']
+						response: ComposeElysiaResponse<
+							Schema['response'],
+							Handle
+						>
+					}
+				}
+			>,
+		Ephemeral,
+		Volatile
+	> {
+		this.router.add({ method: 'DELETE', path, handler: handler, hook })
+
+		return this as any
+	}
+
+	options<
+		const Path extends string,
+		const LocalSchema extends InputSchema<
+			keyof Definitions['type'] & string
+		>,
+		const Schema extends MergeSchema<
+			UnwrapRoute<LocalSchema, Definitions['type']>,
+			MergeSchema<
+				Volatile['schema'],
+				MergeSchema<Ephemeral['schema'], Metadata['schema']>
+			>
+		>,
+		const Handle extends InlineHandler<
+			Schema,
+			Singleton & {
+				derive: Ephemeral['derive'] & Volatile['derive']
+				resolve: Ephemeral['resolve'] & Volatile['resolve']
+			},
+			JoinPath<BasePath, Path>
+		>
+	>(
+		path: Path,
+		handler: Handle,
+		hook?: LocalHook<
+			LocalSchema,
+			Schema,
+			Singleton & {
+				derive: Ephemeral['derive'] & Volatile['derive']
+				resolve: Ephemeral['resolve'] & Volatile['resolve']
+			},
+			Definitions['error'],
+			Metadata['macro'],
+			JoinPath<BasePath, Path>
+		>
+	): Elysia<
+		BasePath,
+		Scoped,
+		Singleton,
+		Definitions,
+		Metadata,
+		Routes &
+			CreateEden<
+				JoinPath<BasePath, Path>,
+				{
+					options: {
+						body: Schema['body']
+						params: undefined extends Schema['params']
+							? ResolvePath<Path>
+							: Schema['params']
+						query: Schema['query']
+						headers: Schema['headers']
+						response: ComposeElysiaResponse<
+							Schema['response'],
+							Handle
+						>
+					}
+				}
+			>,
+		Ephemeral,
+		Volatile
+	> {
+		this.router.add({ method: 'OPTIONS', path, handler: handler, hook })
+
+		return this as any
+	}
+
+	all<
+		const Path extends string,
+		const LocalSchema extends InputSchema<
+			keyof Definitions['type'] & string
+		>,
+		const Schema extends MergeSchema<
+			UnwrapRoute<LocalSchema, Definitions['type']>,
+			MergeSchema<
+				Volatile['schema'],
+				MergeSchema<Ephemeral['schema'], Metadata['schema']>
+			>
+		>,
+		const Handle extends InlineHandler<
+			Schema,
+			Singleton & {
+				derive: Ephemeral['derive'] & Volatile['derive']
+				resolve: Ephemeral['resolve'] & Volatile['resolve']
+			},
+			JoinPath<BasePath, Path>
+		>
+	>(
+		path: Path,
+		handler: Handle,
+		hook?: LocalHook<
+			LocalSchema,
+			Schema,
+			Singleton & {
+				derive: Ephemeral['derive'] & Volatile['derive']
+				resolve: Ephemeral['resolve'] & Volatile['resolve']
+			},
+			Definitions['error'],
+			Metadata['macro'],
+			JoinPath<BasePath, Path>
+		>
+	): Elysia<
+		BasePath,
+		Scoped,
+		Singleton,
+		Definitions,
+		Metadata,
+		Routes &
+			CreateEden<
+				JoinPath<BasePath, Path>,
+				{
+					[method in string]: {
+						body: Schema['body']
+						params: undefined extends Schema['params']
+							? ResolvePath<Path>
+							: Schema['params']
+						query: Schema['query']
+						headers: Schema['headers']
+						response: ComposeElysiaResponse<
+							Schema['response'],
+							Handle
+						>
+					}
+				}
+			>,
+		Ephemeral,
+		Volatile
+	> {
+		for (const method of METHODS) {
+			this.router.add({ method, path, handler: handler, hook })
+		}
+
+		return this as any
+	}
+
+	head<
+		const Path extends string,
+		const LocalSchema extends InputSchema<
+			keyof Definitions['type'] & string
+		>,
+		const Schema extends MergeSchema<
+			UnwrapRoute<LocalSchema, Definitions['type']>,
+			MergeSchema<
+				Volatile['schema'],
+				MergeSchema<Ephemeral['schema'], Metadata['schema']>
+			>
+		>,
+		const Handle extends InlineHandler<
+			Schema,
+			Singleton & {
+				derive: Ephemeral['derive'] & Volatile['derive']
+				resolve: Ephemeral['resolve'] & Volatile['resolve']
+			},
+			JoinPath<BasePath, Path>
+		>
+	>(
+		path: Path,
+		handler: Handle,
+		hook?: LocalHook<
+			LocalSchema,
+			Schema,
+			Singleton & {
+				derive: Ephemeral['derive'] & Volatile['derive']
+				resolve: Ephemeral['resolve'] & Volatile['resolve']
+			},
+			Definitions['error'],
+			Metadata['macro'],
+			JoinPath<BasePath, Path>
+		>
+	): Elysia<
+		BasePath,
+		Scoped,
+		Singleton,
+		Definitions,
+		Metadata,
+		Routes &
+			CreateEden<
+				JoinPath<BasePath, Path>,
+				{
+					head: {
+						body: Schema['body']
+						params: undefined extends Schema['params']
+							? ResolvePath<Path>
+							: Schema['params']
+						query: Schema['query']
+						headers: Schema['headers']
+						response: ComposeElysiaResponse<
+							Schema['response'],
+							Handle
+						>
+					}
+				}
+			>,
+		Ephemeral,
+		Volatile
+	> {
+		this.router.add({ method: 'HEAD', path, handler: handler, hook })
+
+		return this as any
+	}
+
+	/**
+	 * If set to true, other Elysia handler will not inherits global life-cycle, store, decorators from the current instance
+	 *
+	 * @default false
+	 */
+	scoped?: Scoped
+	get _scoped() {
+		return this.scoped as Scoped
+	}
+
+	group<
+		const Prefix extends string,
+		const NewElysia extends Elysia<any, any, any, any, any, any, any, any>
+	>(
+		prefix: Prefix,
+		run: (
+			group: Elysia<
+				`${BasePath}${Prefix}`,
+				Scoped,
+				Singleton,
+				Definitions,
+				Metadata,
+				{},
+				Ephemeral,
+				Volatile
+			>
+		) => NewElysia
+	): Elysia<
+		BasePath,
+		Scoped,
+		Singleton,
+		Definitions,
+		Metadata,
+		Prettify<Routes & NewElysia['_routes']>,
+		Ephemeral,
+		Volatile
+	> {
+		return this
+	}
+
+	use<const NewElysia extends AnyElysia>(
+		instance: NewElysia
+	): NewElysia['_scoped'] extends false
+		? Elysia<
+				BasePath,
+				Scoped,
+				// @ts-expect-error - This is truly ideal
+				Prettify2<Singleton & NewElysia['_types']['Singleton']>,
+				Prettify2<Definitions & NewElysia['_types']['Definitions']>,
+				Prettify2<Metadata & NewElysia['_types']['Metadata']>,
+				BasePath extends ``
+					? Routes & NewElysia['_routes']
+					: Routes & CreateEden<BasePath, NewElysia['_routes']>,
+				Ephemeral,
+				Prettify2<Volatile & NewElysia['_ephemeral']>
+		  >
+		: Elysia<
+				BasePath,
+				Scoped,
+				Singleton,
+				Definitions,
+				Metadata,
+				BasePath extends ``
+					? Routes & NewElysia['_routes']
+					: Routes & CreateEden<BasePath, NewElysia['_routes']>,
+				Ephemeral,
+				Volatile
+		  > {
+		return this as any
+	}
+
+	onError<const Schema extends RouteSchema>(
+		handler: MaybeArray<
+			ErrorHandler<
+				Definitions['error'],
+				MergeSchema<
+					Schema,
+					MergeSchema<
+						Volatile['schema'],
+						MergeSchema<Ephemeral['schema'], Metadata['schema']>
+					>
+				>,
+				Singleton,
+				Ephemeral,
+				Volatile
+			>
+		>
+	): this {
+		this.onErrorHandlers ??= []
+		this.onErrorHandlers.push(handler as any)
+
+		return this
+	}
+
+	onRequest<const Schema extends RouteSchema>(
+		handler: MaybeArray<
+			PreHandler<
+				MergeSchema<
+					Schema,
+					MergeSchema<
+						Volatile['schema'],
+						MergeSchema<Ephemeral['schema'], Metadata['schema']>
+					>
+				>,
+				{
+					decorator: Singleton['decorator']
+					store: Singleton['store']
+					derive: {}
+					resolve: {}
+				}
+			>
+		>
+	) {
+		this.onRequestHandlers ??= []
+		this.onRequestHandlers.push(handler as any)
+
+		return this
+	}
 	/**
 	 * Pass a request through all matching route handles and return a response
 	 * @param request   The `Request`
@@ -260,8 +865,21 @@ export class Elysia<
 				return await turnHandlerResultIntoResponse(res)
 			}
 			return this.onNoMatch(request, platform)
-		} catch (err) {
-			return this.onError(err, request, platform)
+		} catch (err: any) {
+			const handlers = this.onErrorHandlers
+			if (handlers.length === 0) {
+				console.error(``, err)
+			} else {
+				for (const handler of handlers) {
+					const res = handler(err, request, platform)
+					if (res instanceof Response) {
+						return res
+					}
+				}
+			}
+			return new Response(err?.message || 'Internal Server Error', {
+				status: 500
+			})
 		}
 	}
 }
@@ -299,3 +917,5 @@ export async function turnHandlerResultIntoResponse(result: any) {
 
 	return new Response(JSON.stringify(result))
 }
+
+export type AnyElysia = Elysia<any, any, any, any, any, any, any, any>

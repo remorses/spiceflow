@@ -27,6 +27,7 @@ import {
 	ParseError,
 	ValidationError
 } from './error'
+import { Elysia } from '../spiceflow'
 
 type PartialServe = Partial<Serve>
 
