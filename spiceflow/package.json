@@ -9,9 +9,9 @@
 	"scripts": {
 		"build": "cp ../README.md ./README.md && rm -rf dist && tsc",
 		"prepublishOnly": "pnpm build",
+		"prepare": "pnpm build",
 		"watch": "tsc -w"
 	},
-	"bin": "dist/cli.js",
 	"files": [
 		"dist",
 		"src"
