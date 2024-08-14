@@ -1,5 +1,5 @@
 import { createSpiceflowClient } from './client'
-import { Elysia, t } from './spiceflow'
+import { Spiceflow, t } from './spiceflow'
 
 import { describe, expect, it } from 'vitest'
 
@@ -21,7 +21,7 @@ const randomArray = [
 	{ a: 'a', b: 2, c: true, d: false, e: null, f: new Date(0) }
 ]
 
-const app = new Elysia()
+const app = new Spiceflow()
 	.get('/', () => 'a')
 	.post('/', () => 'a')
 	.get('/number', () => 1)
@@ -42,7 +42,7 @@ const app = new Elysia()
 		})
 	})
 
-	.use(new Elysia({ basePath: '/nested' }).get('/data', ({ params }) => 'hi'))
+	.use(new Spiceflow({ basePath: '/nested' }).get('/data', ({ params }) => 'hi'))
 	// .get('/error', ({ error }) => error("I'm a teapot", 'Kirifuji Nagisa'), {
 	// 	response: {
 	// 		200: t.Void(),

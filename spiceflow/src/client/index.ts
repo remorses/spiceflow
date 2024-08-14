@@ -1,7 +1,7 @@
 /* eslint-disable no-extra-semi */
 /* eslint-disable no-case-declarations */
 /* eslint-disable prefer-const */
-import type { Elysia } from '../spiceflow'
+import type { Spiceflow } from '../spiceflow'
 import { EventSourceParserStream } from 'eventsource-parser/stream'
 
 import type { SpiceflowClient } from './types'
@@ -183,7 +183,7 @@ const createProxy = (
 	domain: string,
 	config: SpiceflowClient.Config,
 	paths: string[] = [],
-	elysia?: Elysia<any, any, any, any, any, any>
+	elysia?: Spiceflow<any, any, any, any, any, any>
 ): any =>
 	new Proxy(() => {}, {
 		get(_, param: string): any {
@@ -511,7 +511,7 @@ const createProxy = (
 	}) as any
 
 export const createSpiceflowClient = <
-	const App extends Elysia<any, any, any, any, any, any, any, any>
+	const App extends Spiceflow<any, any, any, any, any, any, any, any>
 >(
 	domain: string | App,
 	config: SpiceflowClient.Config = {}

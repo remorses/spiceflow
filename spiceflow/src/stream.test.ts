@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 
 import { createParser } from 'eventsource-parser'
 
-import { Elysia } from './spiceflow'
+import { Spiceflow } from './spiceflow'
 
 import { req, sleep } from './utils'
 
@@ -21,7 +21,7 @@ describe('Stream', () => {
 	it('handle stream', async () => {
 		const expected = ['a', 'b', 'c']
 
-		const app = new Elysia().get('/', async function* () {
+		const app = new Spiceflow().get('/', async function* () {
 			yield 'a'
 			await sleep(10)
 
@@ -60,7 +60,7 @@ describe('Stream', () => {
 		expect(response).toBe(textEventStream(['a', 'b', 'c']))
 	})
 	it('handle errors after yield', async () => {
-		const app = new Elysia().get('/', async function* () {
+		const app = new Spiceflow().get('/', async function* () {
 			yield 'a'
 			await sleep(10)
 
@@ -75,7 +75,7 @@ describe('Stream', () => {
 	})
 
 	it('handle errors before yield when aot is false', async () => {
-		const app = new Elysia()
+		const app = new Spiceflow()
 			.onError(({ error }) => {
 				return new Response(error.message)
 			})
@@ -89,7 +89,7 @@ describe('Stream', () => {
 	})
 
 	it.todo('handle errors before yield when aot is true', async () => {
-		const app = new Elysia()
+		const app = new Spiceflow()
 			.onError(({ error }) => {
 				return new Response(error.message)
 			})
@@ -104,7 +104,7 @@ describe('Stream', () => {
 
 	it.todo('handle errors before yield with onError', async () => {
 		const expected = 'error expected'
-		const app = new Elysia()
+		const app = new Spiceflow()
 			.onError(({}) => {
 				return new Response(expected)
 			})
@@ -120,7 +120,7 @@ describe('Stream', () => {
 	it('stop stream on canceled request', async () => {
 		const expected = ['a', 'b']
 
-		const app = new Elysia().get('/', async function* () {
+		const app = new Spiceflow().get('/', async function* () {
 			yield 'a'
 			await sleep(10)
 
@@ -195,7 +195,7 @@ describe('Stream', () => {
 			{ data: [1, 2, 3] },
 			{ result: [4, 5, 6] }
 		]
-		const app = new Elysia().get('/', async function* ({}) {
+		const app = new Spiceflow().get('/', async function* ({}) {
 			for (const obj of objects) {
 				yield obj
 			}
@@ -262,7 +262,7 @@ describe('Stream', () => {
 	// })
 
 	it('return value if not yield', async () => {
-		const app = new Elysia()
+		const app = new Spiceflow()
 			.get('/', function* () {
 				return 'hello'
 			})
@@ -282,7 +282,7 @@ describe('Stream', () => {
 	})
 
 	it('return async value if not yield', async () => {
-		const app = new Elysia()
+		const app = new Spiceflow()
 			.get('/', function* () {
 				return 'hello'
 			})
@@ -306,7 +306,7 @@ describe('Stream', () => {
 		const expectedResponse = JSON.stringify([...expected])
 		let i = 0
 
-		const app = new Elysia().get('/', async function* () {
+		const app = new Spiceflow().get('/', async function* () {
 			yield expected[0]
 			await sleep(10)
 

@@ -28,7 +28,7 @@ import {
 	ParseError,
 	ValidationError
 } from './error'
-import { Elysia } from '../spiceflow'
+import { Spiceflow } from '../spiceflow'
 
 
 export type ElysiaConfig<
@@ -752,7 +752,7 @@ export type AfterResponseHandler<
 ) => MaybePromise<void>
 
 export type GracefulHandler<
-	in Instance extends Elysia<any, any, any, any, any, any, any, any>
+	in Instance extends Spiceflow<any, any, any, any, any, any, any, any>
 > = (data: Instance) => any
 
 export type ErrorHandler<
@@ -1156,7 +1156,7 @@ type _ComposeElysiaResponse<Response, Handle> = Prettify<
 >
 
 export type MergeElysiaInstances<
-	Instances extends Elysia<any, any, any, any, any, any>[] = [],
+	Instances extends Spiceflow<any, any, any, any, any, any>[] = [],
 	Prefix extends string = '',
 	Scoped extends boolean = false,
 	Singleton extends SingletonBase = {
@@ -1176,8 +1176,8 @@ export type MergeElysiaInstances<
 	},
 	Routes extends RouteBase = {}
 > = Instances extends [
-	infer Current extends Elysia<any, any, any, any, any, any>,
-	...infer Rest extends Elysia<any, any, any, any, any, any>[]
+	infer Current extends Spiceflow<any, any, any, any, any, any>,
+	...infer Rest extends Spiceflow<any, any, any, any, any, any>[]
 ]
 	? Current['_types']['Scoped'] extends true
 		? MergeElysiaInstances<
@@ -1201,7 +1201,7 @@ export type MergeElysiaInstances<
 						? Current['_routes']
 						: AddPrefix<Prefix, Current['_routes']>)
 		  >
-	: Elysia<
+	: Spiceflow<
 			Prefix,
 			Scoped,
 			{
@@ -1231,7 +1231,7 @@ export type ExcludeElysiaResponse<T> = Exclude<
 >
 
 export type InferContext<
-	T extends Elysia<any, any, any, any, any, any, any, any>,
+	T extends Spiceflow<any, any, any, any, any, any, any, any>,
 	Path extends string = T['_types']['Prefix'],
 	Schema extends RouteSchema = T['_types']['Metadata']['schema']
 > = Context<
@@ -1244,7 +1244,7 @@ export type InferContext<
 >
 
 export type InferHandler<
-	T extends Elysia<any, any, any, any, any, any, any, any>,
+	T extends Spiceflow<any, any, any, any, any, any, any, any>,
 	Path extends string = T['_types']['Prefix'],
 	Schema extends RouteSchema = T['_types']['Metadata']['schema']
 > = InlineHandler<

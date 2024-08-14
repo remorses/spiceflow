@@ -65,7 +65,7 @@ type InternalRouterState = {
 /**
  * Router class
  */
-export class Elysia<
+export class Spiceflow<
 	const in out BasePath extends string = '',
 	const in out Scoped extends boolean = true,
 	const in out Singleton extends SingletonBase = {
@@ -159,7 +159,7 @@ export class Elysia<
 	state<const Name extends string | number | symbol, Value>(
 		name: Name,
 		value: Value
-	): Elysia<
+	): Spiceflow<
 		BasePath,
 		Scoped,
 		{
@@ -280,7 +280,7 @@ export class Elysia<
 			Metadata['macro'],
 			JoinPath<BasePath, Path>
 		>
-	): Elysia<
+	): Spiceflow<
 		BasePath,
 		Scoped,
 		Singleton,
@@ -347,7 +347,7 @@ export class Elysia<
 			Macro,
 			JoinPath<BasePath, Path>
 		>
-	): Elysia<
+	): Spiceflow<
 		BasePath,
 		Scoped,
 		Singleton,
@@ -412,7 +412,7 @@ export class Elysia<
 			Metadata['macro'],
 			JoinPath<BasePath, Path>
 		>
-	): Elysia<
+	): Spiceflow<
 		BasePath,
 		Scoped,
 		Singleton,
@@ -478,7 +478,7 @@ export class Elysia<
 			Metadata['macro'],
 			JoinPath<BasePath, Path>
 		>
-	): Elysia<
+	): Spiceflow<
 		BasePath,
 		Scoped,
 		Singleton,
@@ -544,7 +544,7 @@ export class Elysia<
 			Metadata['macro'],
 			JoinPath<BasePath, Path>
 		>
-	): Elysia<
+	): Spiceflow<
 		BasePath,
 		Scoped,
 		Singleton,
@@ -610,7 +610,7 @@ export class Elysia<
 			Metadata['macro'],
 			JoinPath<BasePath, Path>
 		>
-	): Elysia<
+	): Spiceflow<
 		BasePath,
 		Scoped,
 		Singleton,
@@ -676,7 +676,7 @@ export class Elysia<
 			Metadata['macro'],
 			JoinPath<BasePath, Path>
 		>
-	): Elysia<
+	): Spiceflow<
 		BasePath,
 		Scoped,
 		Singleton,
@@ -744,7 +744,7 @@ export class Elysia<
 			Metadata['macro'],
 			JoinPath<BasePath, Path>
 		>
-	): Elysia<
+	): Spiceflow<
 		BasePath,
 		Scoped,
 		Singleton,
@@ -828,7 +828,7 @@ export class Elysia<
 	use<const NewElysia extends AnyElysia>(
 		instance: NewElysia
 	): NewElysia['_scoped'] extends false
-		? Elysia<
+		? Spiceflow<
 				BasePath,
 				Scoped,
 				// @ts-expect-error - This is truly ideal
@@ -841,7 +841,7 @@ export class Elysia<
 				Ephemeral,
 				Prettify2<Volatile & NewElysia['_ephemeral']>
 		  >
-		: Elysia<
+		: Spiceflow<
 				BasePath,
 				Scoped,
 				Singleton,
@@ -1263,4 +1263,4 @@ export async function turnHandlerResultIntoResponse(result: any) {
 	return new Response(JSON.stringify(result))
 }
 
-export type AnyElysia = Elysia<any, any, any, any, any, any, any, any>
+export type AnyElysia = Spiceflow<any, any, any, any, any, any, any, any>

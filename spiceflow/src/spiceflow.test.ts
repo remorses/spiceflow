@@ -1,23 +1,23 @@
 import { test, describe, expect } from 'vitest'
 import { Type } from '@sinclair/typebox'
-import { Elysia } from './spiceflow'
+import { Spiceflow } from './spiceflow'
 
 test('works', async () => {
-	const res = await new Elysia()
+	const res = await new Spiceflow()
 		.post('/xxx', () => 'hi')
 		.handle(new Request('http://localhost/xxx', { method: 'POST' }))
 	expect(res.status).toBe(200)
 	expect(await res.text()).toBe(JSON.stringify('hi'))
 })
 test('dynamic route', async () => {
-	const res = await new Elysia()
+	const res = await new Spiceflow()
 		.post('/ids/:id', () => 'hi')
 		.handle(new Request('http://localhost/ids/xxx', { method: 'POST' }))
 	expect(res.status).toBe(200)
 	expect(await res.text()).toBe(JSON.stringify('hi'))
 })
 test('GET dynamic route', async () => {
-	const res = await new Elysia()
+	const res = await new Spiceflow()
 		.get('/ids/:id', () => 'hi')
 		.handle(new Request('http://localhost/ids/xxx', { method: 'GET' }))
 	expect(res.status).toBe(200)
@@ -25,13 +25,13 @@ test('GET dynamic route', async () => {
 })
 
 test('missing route is not found', async () => {
-	const res = await new Elysia()
+	const res = await new Spiceflow()
 		.get('/ids/:id', () => 'hi')
 		.handle(new Request('http://localhost/zxxx', { method: 'GET' }))
 	expect(res.status).toBe(404)
 })
 test('state works', async () => {
-	const res = await new Elysia()
+	const res = await new Spiceflow()
 		.state('id', '')
 		.onRequest(({ store, request }) => {
 			store.id = 'xxx'
@@ -45,7 +45,7 @@ test('state works', async () => {
 
 test('body is parsed as json', async () => {
 	let body
-	const res = await new Elysia()
+	const res = await new Spiceflow()
 		.state('id', '')
 
 		.post('/post', (c) => {
@@ -67,7 +67,7 @@ test('body is parsed as json', async () => {
 })
 
 test('validate body works, request success', async () => {
-	const res = await new Elysia()
+	const res = await new Spiceflow()
 
 		.post(
 			'/post',
@@ -96,7 +96,7 @@ test('validate body works, request success', async () => {
 })
 
 test('validate body works, request fails', async () => {
-	const res = await new Elysia()
+	const res = await new Spiceflow()
 
 		.post(
 			'/post',
@@ -127,7 +127,7 @@ test('validate body works, request fails', async () => {
 })
 
 test('run onRequest', async () => {
-	const res = await new Elysia()
+	const res = await new Spiceflow()
 		.onRequest(({ request }) => {
 			expect(request.method).toBe('HEAD')
 			return new Response('ok', { status: 401 })
@@ -143,7 +143,7 @@ test('run onRequest', async () => {
 })
 
 test('run onRequest', async () => {
-	const res = await new Elysia()
+	const res = await new Spiceflow()
 		.onRequest(({ request }) => {
 			expect(request.method).toBe('HEAD')
 			return new Response('ok', { status: 401 })
@@ -159,7 +159,7 @@ test('run onRequest', async () => {
 })
 
 test('basPath works', async () => {
-	const res = await new Elysia({ basePath: '/one' })
+	const res = await new Spiceflow({ basePath: '/one' })
 		.get('/ids/:id', () => 'hi')
 		.handle(new Request('http://localhost/one/ids/xxx', { method: 'GET' }))
 	expect(res.status).toBe(200)
@@ -169,16 +169,16 @@ test('basPath works', async () => {
 test('use with 2 basPath works', async () => {
 	let oneOnReq = false
 	let twoOnReq = false
-	const app = await new Elysia()
+	const app = await new Spiceflow()
 		.use(
-			new Elysia({ basePath: '/one' })
+			new Spiceflow({ basePath: '/one' })
 				.onRequest(({ request }) => {
 					oneOnReq = true
 				})
 				.get('/ids/:id', ({ params }) => params.id)
 		)
 		.use(
-			new Elysia({ basePath: '/two' })
+			new Spiceflow({ basePath: '/two' })
 				.onRequest((c) => {
 					twoOnReq = true
 				})
@@ -206,16 +206,16 @@ test('use with 2 basPath works', async () => {
 })
 
 test('use with nested basPath works', async () => {
-	const app = await new Elysia({ basePath: '/zero' })
+	const app = await new Spiceflow({ basePath: '/zero' })
 		.use(
-			new Elysia({ basePath: '/one' }).get(
+			new Spiceflow({ basePath: '/one' }).get(
 				'/ids/:id',
 				({ params }) => params.id
 			)
 		)
 		.use(
-			new Elysia({ basePath: '/two' }).use(
-				new Elysia({ basePath: '/nested' }).get(
+			new Spiceflow({ basePath: '/two' }).use(
+				new Spiceflow({ basePath: '/nested' }).get(
 					'/ids/:id',
 					({ params }) => params.id
 				)
@@ -241,7 +241,7 @@ test('use with nested basPath works', async () => {
 test('errors inside basPath works', async () => {
 	let onErrorTriggered = [] as string[]
 	let onReqTriggered = [] as string[]
-	const app = await new Elysia({ basePath: '/zero' })
+	const app = await new Spiceflow({ basePath: '/zero' })
 		.onError(({ error }) => {
 			onErrorTriggered.push('root')
 			// return new Response('root', { status: 500 })
@@ -252,7 +252,7 @@ test('errors inside basPath works', async () => {
 		})
 
 		.use(
-			new Elysia({ basePath: '/two' })
+			new Spiceflow({ basePath: '/two' })
 				.onError(({ error }) => {
 					onErrorTriggered.push('two')
 					// return new Response('two', { status: 500 })
@@ -262,7 +262,7 @@ test('errors inside basPath works', async () => {
 					// return new Response('two', { status: 500 })
 				})
 				.use(
-					new Elysia({ basePath: '/nested' })
+					new Spiceflow({ basePath: '/nested' })
 						.onError(({ error }) => {
 							onErrorTriggered.push('nested')
 							// return new Response('nested', { status: 500 })

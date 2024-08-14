@@ -1,5 +1,5 @@
 /// <reference lib="dom" />
-import type { Elysia } from '../spiceflow'
+import type { Spiceflow } from '../spiceflow'
 // import { EdenWS } from './ws'
 // import type { IsNever, Not, Prettify } from '../types'
 import { EdenFetchError } from './errors'
@@ -62,7 +62,7 @@ export namespace SpiceflowClient {
 	}
 
 	export type Create<
-		App extends Elysia<any, any, any, any, any, any, any, any>
+		App extends Spiceflow<any, any, any, any, any, any, any, any>
 	> = App extends {
 		_routes: infer Schema extends Record<string, any>
 	}
