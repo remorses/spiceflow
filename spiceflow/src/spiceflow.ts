@@ -40,49 +40,6 @@ import {
 import OriginalRouter from '@medley/router'
 // Should be exported from `hono/router`
 
-export class MedleyRouter<T extends Function> {
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	router: any
-	name: string = 'MedleyRouter'
-
-	constructor() {
-		this.router = new OriginalRouter()
-	}
-
-	add({
-		handler,
-		method,
-		path
-	}: {
-		method: string
-		path: string
-		hook: any
-		handler: T
-	}) {
-		const store = this.router.register(path)
-		store[method] = { handler }
-	}
-
-	match(method: string, path: string) {
-		const route = this.router.find(path)
-		if (!route) {
-			return null
-		}
-
-		let data = route['store'][method]
-		if (data) {
-			const { handler, hook } = data
-			return {
-				handler,
-				hook,
-				params: route['params']
-			}
-		}
-
-		return null
-	}
-}
-
 type P = any
 
 type OnError = (error: unknown, request: Request, platform: P) => AsyncResponse
@@ -127,8 +84,41 @@ export class Elysia<
 	private onRequestHandlers: Function[] = []
 	private onNoMatch: OnNoMatch
 	prefix: BasePath | undefined
+	router: OriginalRouter = new OriginalRouter()
+	
+	add({
+		handler,
+		method,
+		path
+	}: {
+		method: string
+		path: string
+		hook: any
+		handler: any
+	}) {
+		const store = this.router.register(path)
+		store[method] = { handler }
+	}
 
-	router: MedleyRouter<any>
+	match(method: string, path: string) {
+		const route = this.router.find(path)
+		if (!route) {
+			return null
+		}
+
+		let data = route['store'][method]
+		if (data) {
+			const { handler, hook } = data
+			return {
+				handler,
+				hook,
+				params: route['params']
+			}
+		}
+
+		return null
+	}
+
 	/**
 	 * Create a new Router
 	 * @param options {@link RouterOptions} {@link Platform}
@@ -148,7 +138,7 @@ export class Elysia<
 			options.onNoMatch ?? (() => new Response(null, { status: 404 }))
 		this.prefix = options.basePath
 		// Setup route map
-		this.router = new MedleyRouter()
+		this.router = new OriginalRouter()
 
 		// Bind router methods
 		// for (const method of METHODS) {
@@ -248,7 +238,7 @@ export class Elysia<
 		Ephemeral,
 		Volatile
 	> {
-		this.router.add({ method: 'POST', path, handler: handler, hook })
+		this.add({ method: 'POST', path, handler: handler, hook })
 
 		return this as any
 	}
@@ -315,7 +305,7 @@ export class Elysia<
 		Ephemeral,
 		Volatile
 	> {
-		this.router.add({ method: 'GET', path, handler: handler, hook })
+		this.add({ method: 'GET', path, handler: handler, hook })
 		return this as any
 	}
 
@@ -380,7 +370,7 @@ export class Elysia<
 		Ephemeral,
 		Volatile
 	> {
-		this.router.add({ method: 'PUT', path, handler: handler, hook })
+		this.add({ method: 'PUT', path, handler: handler, hook })
 
 		return this as any
 	}
@@ -446,7 +436,7 @@ export class Elysia<
 		Ephemeral,
 		Volatile
 	> {
-		this.router.add({ method: 'PATCH', path, handler: handler, hook })
+		this.add({ method: 'PATCH', path, handler: handler, hook })
 
 		return this as any
 	}
@@ -512,7 +502,7 @@ export class Elysia<
 		Ephemeral,
 		Volatile
 	> {
-		this.router.add({ method: 'DELETE', path, handler: handler, hook })
+		this.add({ method: 'DELETE', path, handler: handler, hook })
 
 		return this as any
 	}
@@ -578,7 +568,7 @@ export class Elysia<
 		Ephemeral,
 		Volatile
 	> {
-		this.router.add({ method: 'OPTIONS', path, handler: handler, hook })
+		this.add({ method: 'OPTIONS', path, handler: handler, hook })
 
 		return this as any
 	}
@@ -645,7 +635,7 @@ export class Elysia<
 		Volatile
 	> {
 		for (const method of METHODS) {
-			this.router.add({ method, path, handler: handler, hook })
+			this.add({ method, path, handler: handler, hook })
 		}
 
 		return this as any
@@ -712,7 +702,7 @@ export class Elysia<
 		Ephemeral,
 		Volatile
 	> {
-		this.router.add({ method: 'HEAD', path, handler: handler, hook })
+		this.add({ method: 'HEAD', path, handler: handler, hook })
 
 		return this as any
 	}
@@ -847,7 +837,7 @@ export class Elysia<
 			let response: Response | undefined
 			// Get all middleware and method specific routes in order
 			let u = new URL(request.url)
-			const route = this.router.match(
+			const route = this.match(
 				request.method,
 				u.pathname + u.search
 			)
