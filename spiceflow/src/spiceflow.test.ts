@@ -88,7 +88,7 @@ test('use with 2 basPath works', async () => {
 				})
 				.get('/ids/:id', ({ params }) => params.id)
 		)
-	console.log(app.routers)
+	// console.log(app.routers)
 
 	{
 		const res = await app.handle(

@@ -113,12 +113,12 @@ export class Elysia<
 	match(method: string, path: string) {
 		for (const router of this.routers) {
 			if (router.prefix && !path.startsWith(router.prefix)) {
-				console.log(
-					`router prefix: ${router.prefix} does not match path: ${path}`
-				)
+				// console.log(
+				// 	`router prefix: ${router.prefix} does not match path: ${path}`
+				// )
 				continue
 			}
-			console.log(`router prefix: ${router.prefix} matches path: ${path}`)
+			// console.log(`router prefix: ${router.prefix} matches path: ${path}`)
 			const route = router.router.find(path)
 			if (!route) {
 				continue
@@ -126,7 +126,7 @@ export class Elysia<
 
 			let data = route['store'][method]
 			if (data) {
-				console.log(`route found: ${method} ${path}`, route)
+				// console.log(`route found: ${method} ${path}`, route)
 				const { handler, hook } = data
 				const { onErrorHandlers, onRequestHandlers } = router
 				const params = route['params'] || {}
