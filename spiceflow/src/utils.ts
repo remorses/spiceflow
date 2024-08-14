@@ -10,3 +10,17 @@ export const deepFreeze = (value: any) => {
 
 export const req = (path: string, options?: RequestInit) =>
 	new Request(`http://localhost${path}`, options)
+
+export function isAsyncIterable(obj: any): obj is AsyncGenerator<any> {
+	return (
+		typeof obj === 'object' &&
+		typeof obj.next === 'function' &&
+		typeof obj.return === 'function' &&
+		typeof obj.throw === 'function' &&
+		typeof obj.return === 'function'
+	)
+}
+
+export function sleep(ms: number) {
+	return new Promise((resolve) => setTimeout(resolve, ms))
+}

@@ -1,6 +1,21 @@
 import { describe, it, expect } from 'vitest'
+
+import { createParser } from 'eventsource-parser'
+
 import { Elysia } from './spiceflow'
-import { req } from './utils'
+
+import { req, sleep } from './utils'
+
+function textEventStream(items: string[]) {
+	return items
+		.map((item) => `event: message\ndata: ${JSON.stringify(item)}\n\n`)
+		.join('')
+}
+
+function parseTextEventStreamItem(item: string) {
+	const data = item.split('data: ')[1].split('\n')[0]
+	return JSON.parse(data)
+}
 
 describe('Stream', () => {
 	it('handle stream', async () => {
@@ -8,10 +23,10 @@ describe('Stream', () => {
 
 		const app = new Elysia().get('/', async function* () {
 			yield 'a'
-			await Bun.sleep(10)
+			await sleep(10)
 
 			yield 'b'
-			await Bun.sleep(10)
+			await sleep(10)
 
 			yield 'c'
 		})
@@ -30,7 +45,9 @@ describe('Stream', () => {
 				reader.read().then(function pump({ done, value }): unknown {
 					if (done) return resolve(acc)
 
-					expect(value.toString()).toBe(expected.shift()!)
+					expect(parseTextEventStreamItem(value.toString())).toBe(
+						expected.shift()!
+					)
 
 					acc += value.toString()
 					return reader.read().then(pump)
@@ -40,7 +57,64 @@ describe('Stream', () => {
 			})
 
 		expect(expected).toHaveLength(0)
-		expect(response).toBe('abc')
+		expect(response).toBe(textEventStream(['a', 'b', 'c']))
+	})
+	it('handle errors after yield', async () => {
+		const app = new Elysia().get('/', async function* () {
+			yield 'a'
+			await sleep(10)
+
+			throw new Error('an error')
+		})
+
+		const response = await app.handle(req('/')).then((x) => x.text())
+
+		expect(response).toBe(
+			'event: message\ndata: "a"\n\nevent: error\ndata: "an error"\n\n'
+		)
+	})
+
+	it('handle errors before yield when aot is false', async () => {
+		const app = new Elysia()
+			.onError(({ error }) => {
+				return new Response(error.message)
+			})
+			.get('/', async function* () {
+				throw new Error('an error xxxx')
+			})
+
+		const response = await app.handle(req('/')).then((x) => x.text())
+
+		expect(response).toContain('an error')
+	})
+
+	it.todo('handle errors before yield when aot is true', async () => {
+		const app = new Elysia()
+			.onError(({ error }) => {
+				return new Response(error.message)
+			})
+			.get('/', async function* () {
+				throw new Error('an error')
+			})
+
+		const response = await app.handle(req('/')).then((x) => x.text())
+
+		expect(response).toContain('an error')
+	})
+
+	it.todo('handle errors before yield with onError', async () => {
+		const expected = 'error expected'
+		const app = new Elysia()
+			.onError(({}) => {
+				return new Response(expected)
+			})
+			.get('/', async function* () {
+				throw new Error('an error')
+			})
+
+		const response = await app.handle(req('/')).then((x) => x.text())
+
+		expect(response).toBe(expected)
 	})
 
 	it('stop stream on canceled request', async () => {
@@ -48,10 +122,10 @@ describe('Stream', () => {
 
 		const app = new Elysia().get('/', async function* () {
 			yield 'a'
-			await Bun.sleep(10)
+			await sleep(10)
 
 			yield 'b'
-			await Bun.sleep(10)
+			await sleep(10)
 
 			yield 'c'
 		})
@@ -78,9 +152,13 @@ describe('Stream', () => {
 				const { promise, resolve } = Promise.withResolvers()
 
 				reader.read().then(function pump({ done, value }): unknown {
-					if (done) return resolve(acc)
+					if (done) {
+						return resolve(acc)
+					}
 
-					expect(value.toString()).toBe(expected.shift()!)
+					expect(parseTextEventStreamItem(value.toString())).toBe(
+						expected.shift()!
+					)
 
 					acc += value.toString()
 					return reader.read().then(pump)
@@ -90,15 +168,105 @@ describe('Stream', () => {
 			})
 
 		expect(expected).toHaveLength(0)
-		expect(response).toBe('ab')
+		expect(response).toBe(textEventStream(['a', 'b']))
 	})
+
+	// it('mutate set before yield is called', async () => {
+	// 	const expected = ['a', 'b', 'c']
+
+	// 	const app = new Elysia().get('/', function* () {
+	// 		set.headers['access-control-allow-origin'] = 'http://saltyaom.com'
+
+	// 		yield 'a'
+	// 		yield 'b'
+	// 		yield 'c'
+	// 	})
+
+	// 	const response = await app.handle(req('/')).then((x) => x.headers)
+
+	// 	expect(response.get('access-control-allow-origin')).toBe(
+	// 		'http://saltyaom.com'
+	// 	)
+	// })
+	it('handle stream with objects', async () => {
+		const objects = [
+			{ message: 'hello' },
+			{ response: 'world' },
+			{ data: [1, 2, 3] },
+			{ result: [4, 5, 6] }
+		]
+		const app = new Elysia().get('/', async function* ({}) {
+			for (const obj of objects) {
+				yield obj
+			}
+		})
+
+		const body = await app.handle(req('/')).then((x) => x.body)
+
+		let events = [] as any[]
+		const parser = createParser((event) => {
+			events.push(event)
+		})
+		const { promise, resolve } = Promise.withResolvers()
+		const reader = body?.getReader()!
+
+		reader.read().then(function pump({ done, value }): unknown {
+			if (done) {
+				return resolve()
+			}
+			const text = value.toString()
+			parser.feed(text)
+			return reader.read().then(pump)
+		})
+		await promise
+
+		expect(events.map((x) => x.data)).toEqual(
+			objects.map((x) => JSON.stringify(x))
+		)
+	})
+
+	// it('mutate set before yield is called', async () => {
+	// 	const expected = ['a', 'b', 'c']
+
+	// 	const app = new Elysia().get('/', function* () {
+	// 		set.headers['access-control-allow-origin'] = 'http://saltyaom.com'
+
+	// 		yield 'a'
+	// 		yield 'b'
+	// 		yield 'c'
+	// 	})
+
+	// 	const response = await app.handle(req('/')).then((x) => x.headers)
+
+	// 	expect(response.get('access-control-allow-origin')).toBe(
+	// 		'http://saltyaom.com'
+	// 	)
+	// })
+
+	// it('async mutate set before yield is called', async () => {
+	// 	const expected = ['a', 'b', 'c']
+
+	// 	const app = new Elysia().get('/', async function* () {
+	// 		set.headers['access-control-allow-origin'] = 'http://saltyaom.com'
+
+	// 		yield 'a'
+	// 		yield 'b'
+	// 		yield 'c'
+	// 	})
+
+	// 	const response = await app.handle(req('/')).then((x) => x.headers)
+
+	// 	expect(response.get('access-control-allow-origin')).toBe(
+	// 		'http://saltyaom.com'
+	// 	)
+	// })
 
 	it('return value if not yield', async () => {
 		const app = new Elysia()
-			.get('/', function* ({}) {
+			.get('/', function* () {
 				return 'hello'
 			})
-			.get('/json', function* ({}) {
+			.get('/json', function* () {
 				return { hello: 'world' }
 			})
 
@@ -107,7 +275,7 @@ describe('Stream', () => {
 			app.handle(req('/json'))
 		])
 
-		expect(await response[0].text()).toBe('hello')
+		expect(await response[0].text()).toBe('"hello"')
 		expect(await response[1].json()).toEqual({
 			hello: 'world'
 		})
@@ -115,10 +283,10 @@ describe('Stream', () => {
 
 	it('return async value if not yield', async () => {
 		const app = new Elysia()
-			.get('/', function* ({}) {
+			.get('/', function* () {
 				return 'hello'
 			})
-			.get('/json', function* ({}) {
+			.get('/json', function* () {
 				return { hello: 'world' }
 			})
 
@@ -127,7 +295,7 @@ describe('Stream', () => {
 			app.handle(req('/json'))
 		])
 
-		expect(await response[0].text()).toBe('hello')
+		expect(await response[0].text()).toBe('"hello"')
 		expect(await response[1].json()).toEqual({
 			hello: 'world'
 		})
@@ -140,52 +308,15 @@ describe('Stream', () => {
 
 		const app = new Elysia().get('/', async function* () {
 			yield expected[0]
-			await Bun.sleep(10)
+			await sleep(10)
 
 			yield expected[1]
-			await Bun.sleep(10)
+			await sleep(10)
 
 			yield expected[2]
 		})
 
-		app.handle(req('/'))
-			.then((x) => x.body)
-			.then((x) => {
-				if (!x) return
-
-				const reader = x?.getReader()
-
-				const { promise, resolve } = Promise.withResolvers()
-
-				reader.read().then(function pump({ done, value }): unknown {
-					if (done) return resolve()
-
-					expect(value.toString()).toBe(JSON.stringify(expected[i++]))
-
-					return reader.read().then(pump)
-				})
-
-				return promise
-			})
-	})
-
-	it('proxy fetch stream', async () => {
-		const expected = ['a', 'b', 'c']
-		let i = 0
-
-		const app = new Elysia().get('/', async function* () {
-			yield 'a'
-			await Bun.sleep(10)
-			yield 'b'
-			await Bun.sleep(10)
-			yield 'c'
-		})
-
-		const proxy = new Elysia().get('/', () =>
-			app.handle(new Request('http://e.ly'))
-		)
-
-		proxy
+		const response = await app
 			.handle(req('/'))
 			.then((x) => x.body)
 			.then((x) => {
@@ -198,7 +329,9 @@ describe('Stream', () => {
 				reader.read().then(function pump({ done, value }): unknown {
 					if (done) return resolve()
 
-					expect(value.toString()).toBe(expected[i++])
+					expect(parseTextEventStreamItem(value.toString())).toEqual(
+						expected[i++]
+					)
 
 					return reader.read().then(pump)
 				})

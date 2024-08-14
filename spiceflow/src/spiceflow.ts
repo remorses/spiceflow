@@ -1,60 +1,48 @@
-import 'urlpattern-polyfill'
 import parseQuery from 'fast-querystring'
-
-import { deepFreeze } from './utils.js'
+import 'urlpattern-polyfill'
 
 import { Type } from '@sinclair/typebox'
 
 export { Type as t }
 
-import type {
-	Handle,
-	RoutesArray,
-	RouterMethod,
-	HandleResponse,
-	HandleResolve,
-	HandleProps,
-	Platform,
-	AsyncResponse
-} from './types.js'
 import {
-	SingletonBase,
-	DefinitionBase,
-	MetadataBase,
-	RouteBase,
-	EphemeralType,
 	ComposeElysiaResponse,
 	CreateEden,
+	DefinitionBase,
+	EphemeralType,
+	ErrorHandler,
 	InlineHandler,
 	InputSchema,
 	JoinPath,
 	LocalHook,
-	MergeSchema,
-	ResolvePath,
-	UnwrapRoute,
-	Prettify2,
-	Prettify,
 	MaybeArray,
+	MergeSchema,
+	MetadataBase,
 	PreHandler,
+	Prettify2,
+	Reconcile,
+	ResolvePath,
+	RouteBase,
 	RouteSchema,
-	ErrorHandler,
-	Reconcile
+	SingletonBase,
+	UnwrapRoute
 } from './elysia-fork/types.js'
+import type { AsyncResponse, Platform } from './types.js'
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
 import OriginalRouter from '@medley/router'
-import { Context } from './elysia-fork/context.js'
 import { TSchema } from '@sinclair/typebox'
-import { Value } from '@sinclair/typebox/build/cjs/value/index.js'
 import Ajv from 'ajv'
+import { Context } from './elysia-fork/context.js'
+import { isAsyncIterable } from './utils.js'
 
 const ajv = new Ajv()
 // Should be exported from `hono/router`
 
 type P = any
 
-type OnError = (error: unknown, request: Request, platform: P) => AsyncResponse
+type OnError = (x: { error: any; request: Request }) => AsyncResponse
 
 type RouterTree = {
 	router: OriginalRouter
@@ -980,30 +968,29 @@ export class Elysia<
 				}
 			}
 
-			let routes = [route]
+			// console.log(route)
 
-			for (const route of routes) {
-				// console.log(route)
+			const res = route.handler({
+				request,
+				response,
+				params: params as any,
+				store,
+				body,
+				path
 
-				const res = route.handler({
-					request,
-					response,
-					params: params as any,
-					store,
-					body,
-					path
-
-					// platform
-				} satisfies Context<any, any, string>)
-				return await turnHandlerResultIntoResponse(res)
+				// platform
+			} satisfies Context<any, any, string>)
+			if (isAsyncIterable(res)) {
+				return await handleStream(res, request)
 			}
-			return this.onNoMatch(request, platform)
+
+			return await turnHandlerResultIntoResponse(res)
 		} catch (err: any) {
 			if (onErrorHandlers.length === 0) {
 				console.error(`Spiceflow unhandled error:`, err)
 			} else {
 				for (const handler of onErrorHandlers) {
-					const res = handler(err, request, platform)
+					const res = handler({ error: err, request })
 					if (res instanceof Response) {
 						return res
 					}
@@ -1136,3 +1123,80 @@ export async function turnHandlerResultIntoResponse(result: any) {
 }
 
 export type AnyElysia = Elysia<any, any, any, any, any, any, any, any>
+
+const handleStream = async (
+	generator: Generator | AsyncGenerator,
+	request?: Request
+) => {
+	let init = generator.next()
+	if (init instanceof Promise) init = await init
+
+	if (init?.done) {
+		return await turnHandlerResultIntoResponse(init.value)
+	}
+
+	return new Response(
+		new ReadableStream({
+			async start(controller) {
+				let end = false
+
+				request?.signal.addEventListener('abort', () => {
+					end = true
+
+					try {
+						controller.close()
+					} catch {
+						// nothing
+					}
+				})
+
+				if (init?.value !== undefined && init?.value !== null)
+					controller.enqueue(
+						Buffer.from(
+							`event: message\ndata: ${JSON.stringify(
+								init.value
+							)}\n\n`
+						)
+					)
+
+				try {
+					for await (const chunk of generator) {
+						if (end) break
+						if (chunk === undefined || chunk === null) continue
+
+						controller.enqueue(
+							Buffer.from(
+								`event: message\ndata: ${JSON.stringify(
+									chunk
+								)}\n\n`
+							)
+						)
+					}
+				} catch (error: any) {
+					controller.enqueue(
+						Buffer.from(
+							`event: error\ndata: ${JSON.stringify(
+								error.message || error.name || 'Error'
+							)}\n\n`
+						)
+					)
+				}
+
+				try {
+					controller.close()
+				} catch {
+					// nothing
+				}
+			}
+		}),
+		{
+			// TODO add headers somehow
+			headers: {
+				// Manually set transfer-encoding for direct response, eg. app.handle, eden
+				'transfer-encoding': 'chunked',
+				'content-type': 'text/event-stream; charset=utf-8'
+				// ...set?.headers
+			}
+		}
+	)
+}
