@@ -81,9 +81,9 @@ const app = new Elysia()
 			})
 		}
 	)
-	.get('/formdata', () => ({
-		image: Bun.file('./test/kyuukurarin.mp4')
-	}))
+	// .get('/formdata', () => ({
+	// 	image: Bun.file('./test/kyuukurarin.mp4')
+	// }))
 
 	.get('/stream', function* stream() {
 		yield 'a'

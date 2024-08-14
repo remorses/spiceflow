@@ -4,6 +4,7 @@
 
 import type { BunFile, Serve, Server, WebSocketHandler } from 'bun'
 
+
 import type {
 	TSchema,
 	TObject,
@@ -29,7 +30,6 @@ import {
 } from './error'
 import { Elysia } from '../spiceflow'
 
-type PartialServe = Partial<Serve>
 
 export type ElysiaConfig<
 	Prefix extends string | undefined,
@@ -57,12 +57,7 @@ export type ElysiaConfig<
 	 * @see https://elysiajs.com/essential/plugin.html#plugin-deduplication
 	 */
 	seed?: unknown
-	/**
-	 * Bun serve
-	 *
-	 * @see https://bun.sh/docs/api/http
-	 */
-	serve?: PartialServe
+	
 	/**
 	 * OpenAPI documentation (use in Swagger)
 	 *
@@ -107,15 +102,15 @@ export type ElysiaConfig<
 				schema?: boolean
 		  }
 
-	/**
-	 * Override websocket configuration
-	 *
-	 * @see https://bun.sh/docs/api/websockets
-	 */
-	websocket?: Omit<
-		WebSocketHandler<any>,
-		'open' | 'close' | 'message' | 'drain'
-	>
+	// /**
+	//  * Override websocket configuration
+	//  *
+	//  * @see https://bun.sh/docs/api/websockets
+	//  */
+	// websocket?: Omit<
+	// 	WebSocketHandler<any>,
+	// 	'open' | 'close' | 'message' | 'drain'
+	// >
 
 	/**
 	 * Capture more detail information for each dependencies

@@ -185,8 +185,8 @@ export namespace Treaty {
 		onRequest?: MaybeArray<
 			(
 				path: string,
-				options: FetchRequestInit
-			) => MaybePromise<FetchRequestInit | void>
+				options: RequestInit
+			) => MaybePromise<RequestInit | void>
 		>
 		onResponse?: MaybeArray<(response: Response) => MaybePromise<unknown>>
 		keepDomain?: boolean
@@ -202,7 +202,7 @@ export namespace Treaty {
 				error: null
 				response: Response
 				status: number
-				headers: FetchRequestInit['headers']
+				headers: RequestInit['headers']
 		  }
 		| {
 				data: null
@@ -216,7 +216,7 @@ export namespace Treaty {
 					  }[Exclude<keyof Res, 200>]
 				response: Response
 				status: number
-				headers: FetchRequestInit['headers']
+				headers: RequestInit['headers']
 		  }
 
 	export interface OnMessage<Data = unknown> extends MessageEvent {

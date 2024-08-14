@@ -207,7 +207,7 @@ describe('Stream', () => {
 		const parser = createParser((event) => {
 			events.push(event)
 		})
-		const { promise, resolve } = Promise.withResolvers()
+		const { promise, resolve } = Promise.withResolvers<void>()
 		const reader = body?.getReader()!
 
 		reader.read().then(function pump({ done, value }): unknown {
@@ -324,7 +324,7 @@ describe('Stream', () => {
 
 				const reader = x?.getReader()
 
-				const { promise, resolve } = Promise.withResolvers()
+				const { promise, resolve } = Promise.withResolvers<void>()
 
 				reader.read().then(function pump({ done, value }): unknown {
 					if (done) return resolve()

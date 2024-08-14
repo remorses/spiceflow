@@ -1,5 +1,3 @@
-import type { Server } from 'bun'
-
 import type {
 	StatusMap,
 	InvertedStatusMap,
@@ -17,9 +15,9 @@ import { error } from './error.js'
 
 type InvertedStatusMapKey = keyof InvertedStatusMap
 
-type WithoutNullableKeys<Type> = {
-	[Key in keyof Type]-?: NonNullable<Type[Key]>
-}
+// type WithoutNullableKeys<Type> = {
+// 	[Key in keyof Type]-?: NonNullable<Type[Key]>
+// }
 
 export type ErrorContext<
 	in out Route extends RouteSchema = {},
@@ -41,13 +39,9 @@ export type ErrorContext<
 				? ResolvePath<Path>
 				: { [key in string]: string }
 			: Route['params']
-		
-		
 
-		server: Server | null
+		// server: Server | null
 		redirect: Redirect
-
-		
 
 		/**
 		 * Path extracted from incoming URL
@@ -85,15 +79,14 @@ export type Context<
 > = Prettify<
 	{
 		body: Route['body']
-		
+
 		params: undefined extends Route['params']
 			? Path extends `${string}/${':' | '*'}${string}`
 				? ResolvePath<Path>
 				: never
 			: Route['params']
-		
 
-		server: Server | null
+		// server: Server | null
 		redirect: Redirect
 
 		// set: {
@@ -138,10 +131,10 @@ export type Context<
 		request: Request
 		store: Singleton['store']
 		response?: Route['response']
-    } & ({} extends Route['response']
+	} & ({} extends Route['response']
 		? {
 				error: typeof error
-			}
+		  }
 		: {
 				error: <
 					const Code extends
@@ -153,9 +146,9 @@ export type Context<
 					const T extends Code extends keyof Route['response']
 						? Route['response'][Code]
 						: Code extends keyof StatusMap
-							? // @ts-ignore StatusMap[Code] always valid because Code generic check
-								Route['response'][StatusMap[Code]]
-							: never
+						? // @ts-ignore StatusMap[Code] always valid because Code generic check
+						  Route['response'][StatusMap[Code]]
+						: never
 				>(
 					code: Code,
 					response: T
@@ -170,7 +163,7 @@ export type Context<
 							: Code]: T
 					}
 				}
-			}) &
+		  }) &
 		Singleton['decorator'] &
 		Singleton['derive'] &
 		Singleton['resolve']
@@ -190,7 +183,7 @@ export type PreContext<
 		request: Request
 
 		redirect: Redirect
-		server: Server | null
+		// server: Server | null
 
 		// set: {
 		// 	headers: HTTPHeaders
