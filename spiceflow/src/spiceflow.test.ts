@@ -61,3 +61,41 @@ test('run onRequest', async () => {
 	expect(res.status).toBe(401)
 	expect(await res.text()).toBe('ok')
 })
+test('group works', async () => {
+	let oneOnReq = false
+	let twoOnReq = false
+	const app = await new Elysia()
+		.group('/one', () => {
+			return new Elysia()
+				.onRequest(({ request }) => {
+					oneOnReq = true
+				})
+				.get('/ids/:id', ({ params }) => params.id)
+		})
+		.group('/two', () => {
+			return new Elysia()
+				.onRequest((c) => {
+					twoOnReq = true
+				})
+				.get('/ids/:id', ({ params }) => params.id)
+		})
+
+	{
+		const res = await app.handle(
+			new Request('http://localhost/one/ids/one')
+		)
+		expect(res.status).toBe(200)
+
+		expect(await res.text()).toBe(JSON.stringify('one'))
+	}
+	{
+		const res = await app.handle(
+			new Request('http://localhost/two/ids/two')
+		)
+		expect(res.status).toBe(200)
+
+		expect(await res.text()).toBe(JSON.stringify('two'))
+	}
+	expect(oneOnReq).toBe(true)
+	expect(twoOnReq).toBe(true)
+})
