@@ -105,7 +105,7 @@ const app = new Elysia()
 
 const client = createSpiceflowClient(app)
 
-describe('Treaty2', () => {
+describe('client', () => {
 	it('get index', async () => {
 		const { data, error } = await client.index.get()
 
@@ -182,6 +182,35 @@ describe('Treaty2', () => {
 		const { data } = await client.nested.data.get()
 
 		expect(data).toEqual('hi')
+	})
+
+	it('stream ', async () => {
+		const { data } = await client.stream.get()
+		let all = ''
+		for await (const chunk of data!) {
+			// console.log(chunk)
+			all += chunk + '-'
+		}
+		expect(all).toEqual('a-b-c-')
+	})
+	it('stream async', async () => {
+		const { data } = await client['stream-async'].get()
+		let all = ''
+		for await (const chunk of data!) {
+			// console.log(chunk)
+			all += chunk + '-'
+		}
+		expect(all).toEqual('a-b-c-')
+	})
+
+	it('stream return', async () => {
+		const { data } = await client['stream-return'].get()
+		expect(data).toEqual('a')
+	})
+	it('stream return async', async () => {
+		const { data } = await client['stream-return-async'].get()
+		// console.log(data)
+		expect(data).toEqual('a')
 	})
 
 	// it('handle error', async () => {
