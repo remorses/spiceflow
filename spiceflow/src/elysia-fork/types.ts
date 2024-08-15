@@ -8,7 +8,7 @@ import type {
 	Static,
 	StaticDecode,
 	TAnySchema,
-	TSchema
+	TSchema,
 } from '@sinclair/typebox'
 import type { TypeCheck, ValueError } from '@sinclair/typebox/compiler'
 import type { BunFile, Server } from 'bun'
@@ -23,7 +23,7 @@ import {
 	InvalidCookieSignature,
 	NotFoundError,
 	ParseError,
-	ValidationError
+	ValidationError,
 } from './error'
 import { ZodTypeAny } from 'zod'
 
@@ -90,7 +90,7 @@ export type Reconcile<
 	B extends Object,
 	Override extends boolean = false,
 	// Detect Stack limit, eg. circular dependency
-	Stack extends number[] = []
+	Stack extends number[] = [],
 > = Stack['length'] extends 16
 	? A
 	: Override extends true
@@ -189,7 +189,7 @@ export type TypeSchema = TSchema | ZodTypeAny
 
 export type UnwrapSchema<
 	Schema extends TypeSchema | string | undefined,
-	Definitions extends Record<string, unknown> = {}
+	Definitions extends Record<string, unknown> = {},
 > = undefined extends Schema
 	? unknown
 	: Schema extends ZodTypeAny
@@ -206,7 +206,7 @@ export type UnwrapSchema<
 
 export interface UnwrapRoute<
 	in out Schema extends InputSchema<any>,
-	in out Definitions extends DefinitionBase['type'] = {}
+	in out Definitions extends DefinitionBase['type'] = {},
 > {
 	body: UnwrapSchema<Schema['body'], Definitions>
 	// headers: UnwrapSchema<Schema['headers'], Definitions>
@@ -332,7 +332,7 @@ export interface InputSchema<Name extends string = string> {
 
 export interface MergeSchema<
 	in out A extends RouteSchema,
-	in out B extends RouteSchema
+	in out B extends RouteSchema,
 > {
 	body: undefined extends A['body'] ? B['body'] : A['body']
 	headers: undefined extends A['headers'] ? B['headers'] : A['headers']
@@ -356,9 +356,9 @@ export type Handler<
 		derive: {}
 		resolve: {}
 	},
-	Path extends string = ''
+	Path extends string = '',
 > = (
-	context: Context<Route, Singleton, Path>
+	context: Context<Route, Singleton, Path>,
 ) => MaybePromise<
 	{} extends Route['response']
 		? unknown
@@ -400,48 +400,31 @@ export type InlineHandler<
 		resolve: {}
 	},
 	Path extends string = '',
-	MacroContext = {}
-> =
-	| ((
-			context: MacroContext extends Record<
-				string | number | symbol,
-				unknown
-			>
-				? Prettify<MacroContext & Context<Route, Singleton, Path>>
-				: Context<Route, Singleton, Path>
-	  ) =>
-			| Response
-			| MaybePromise<
-					{} extends Route['response']
-						? unknown
-						:
-								| (Route['response'] extends { 200: any }
-										? Route['response']
-										: string | number | boolean | Object)
-								| Route['response'][keyof Route['response']]
-								| {
-										[Status in keyof Route['response']]: {
-											_type: Record<
-												Status,
-												Route['response'][Status]
-											>
-											[ELYSIA_RESPONSE]: Status
-										}
-								  }[keyof Route['response']]
-			  >)
-	| ({} extends Route['response']
-			? string | number | boolean | Object
-			:
-					| (Route['response'] extends { 200: any }
-							? Route['response']
-							: string | number | boolean | Object)
-					| Route['response'][keyof Route['response']]
-					| {
-							[Status in keyof Route['response']]: {
-								_type: Record<Status, Route['response'][Status]>
-								[ELYSIA_RESPONSE]: Status
-							}
-					  }[keyof Route['response']])
+	MacroContext = {},
+> = (
+	context: MacroContext extends Record<string | number | symbol, unknown>
+		? Prettify<MacroContext & Context<Route, Singleton, Path>>
+		: Context<Route, Singleton, Path>,
+) =>
+	| Response
+	| MaybePromise<
+			{} extends Route['response']
+				? unknown
+				:
+						| (Route['response'] extends { 200: any }
+								? Route['response']
+								: string | number | boolean | Object)
+						| Route['response'][keyof Route['response']]
+						| {
+								[Status in keyof Route['response']]: {
+									_type: Record<
+										Status,
+										Route['response'][Status]
+									>
+									[ELYSIA_RESPONSE]: Status
+								}
+						  }[keyof Route['response']]
+	  >
 
 export type OptionalHandler<
 	in out Route extends RouteSchema = {},
@@ -451,9 +434,9 @@ export type OptionalHandler<
 		derive: {}
 		resolve: {}
 	},
-	Path extends string = ''
+	Path extends string = '',
 > = Handler<Route, Singleton, Path> extends (
-	context: infer Context
+	context: infer Context,
 ) => infer Returned
 	? (context: Context) => Returned | MaybePromise<void>
 	: never
@@ -466,16 +449,16 @@ export type AfterHandler<
 		derive: {}
 		resolve: {}
 	},
-	Path extends string = ''
+	Path extends string = '',
 > = Handler<Route, Singleton, Path> extends (
-	context: infer Context
+	context: infer Context,
 ) => infer Returned
 	? (
 			context: Prettify<
 				{
 					response: Route['response']
 				} & Context
-			>
+			>,
 	  ) => Returned | MaybePromise<void>
 	: never
 
@@ -487,7 +470,7 @@ export type MapResponse<
 		derive: {}
 		resolve: {}
 	},
-	Path extends string = ''
+	Path extends string = '',
 > = Handler<
 	Omit<Route, 'response'> & {
 		response: MaybePromise<Response | undefined | unknown>
@@ -507,7 +490,7 @@ export type VoidHandler<
 		store: {}
 		derive: {}
 		resolve: {}
-	}
+	},
 > = (context: Context<Route, Singleton>) => MaybePromise<void>
 
 export type TransformHandler<
@@ -518,7 +501,7 @@ export type TransformHandler<
 		derive: {}
 		resolve: {}
 	},
-	BasePath extends string = ''
+	BasePath extends string = '',
 > = {
 	(
 		context: Prettify<
@@ -529,7 +512,7 @@ export type TransformHandler<
 				},
 				BasePath
 			>
-		>
+		>,
 	): MaybePromise<void>
 }
 
@@ -541,7 +524,7 @@ export type BodyHandler<
 		derive: {}
 		resolve: {}
 	},
-	Path extends string = ''
+	Path extends string = '',
 > = (
 	context: Prettify<
 		{
@@ -562,7 +545,7 @@ export type BodyHandler<
 	 *     })
 	 * ```
 	 */
-	contentType: string
+	contentType: string,
 ) => MaybePromise<any>
 
 export type PreHandler<
@@ -572,7 +555,7 @@ export type PreHandler<
 		store: {}
 		derive: {}
 		resolve: {}
-	}
+	},
 > = (context: PreContext<Singleton>) => MaybePromise<Route['response'] | void>
 
 export type AfterResponseHandler<
@@ -582,17 +565,17 @@ export type AfterResponseHandler<
 		store: {}
 		derive: {}
 		resolve: {}
-	}
+	},
 > = (
 	context: Prettify<
 		Context<Route, Singleton> & {
 			response: Route['response']
 		}
-	>
+	>,
 ) => MaybePromise<void>
 
 export type GracefulHandler<
-	in Instance extends Spiceflow<any, any, any, any, any, any, any, any>
+	in Instance extends Spiceflow<any, any, any, any, any, any, any, any>,
 > = (data: Instance) => any
 
 export type ErrorHandler<
@@ -615,7 +598,7 @@ export type ErrorHandler<
 		derive: {}
 		resolve: {}
 		schema: {}
-	}
+	},
 > = (
 	context: ErrorContext<
 		Route,
@@ -738,7 +721,7 @@ export type ErrorHandler<
 								Volatile['resolve']
 						>
 			  >
-		)
+		),
 ) => any | Promise<any>
 
 export type Isolate<T> = {
@@ -767,7 +750,7 @@ export type LocalHook<
 				params: undefined extends Schema['params']
 					? ResolvePath<Path>
 					: Schema['params']
-		  }
+		  },
 > = (LocalSchema extends {} ? LocalSchema : Isolate<LocalSchema>) &
 	Extension & {
 		/**
@@ -890,54 +873,54 @@ export interface MacroManager<
 		derive: {}
 		resolve: {}
 	},
-	in out Errors extends Record<string, Error> = {}
+	in out Errors extends Record<string, Error> = {},
 > {
 	onParse(fn: MaybeArray<BodyHandler<TypedRoute, Singleton>>): unknown
 	onParse(
 		options: MacroOptions,
-		fn: MaybeArray<BodyHandler<TypedRoute, Singleton>>
+		fn: MaybeArray<BodyHandler<TypedRoute, Singleton>>,
 	): unknown
 
 	onTransform(fn: MaybeArray<VoidHandler<TypedRoute, Singleton>>): unknown
 	onTransform(
 		options: MacroOptions,
-		fn: MaybeArray<VoidHandler<TypedRoute, Singleton>>
+		fn: MaybeArray<VoidHandler<TypedRoute, Singleton>>,
 	): unknown
 
 	onBeforeHandle(
-		fn: MaybeArray<OptionalHandler<TypedRoute, Singleton>>
+		fn: MaybeArray<OptionalHandler<TypedRoute, Singleton>>,
 	): unknown
 	onBeforeHandle(
 		options: MacroOptions,
-		fn: MaybeArray<OptionalHandler<TypedRoute, Singleton>>
+		fn: MaybeArray<OptionalHandler<TypedRoute, Singleton>>,
 	): unknown
 
 	onAfterHandle(fn: MaybeArray<AfterHandler<TypedRoute, Singleton>>): unknown
 	onAfterHandle(
 		options: MacroOptions,
-		fn: MaybeArray<AfterHandler<TypedRoute, Singleton>>
+		fn: MaybeArray<AfterHandler<TypedRoute, Singleton>>,
 	): unknown
 
 	onError(
-		fn: MaybeArray<ErrorHandler<Errors, TypedRoute, Singleton>>
+		fn: MaybeArray<ErrorHandler<Errors, TypedRoute, Singleton>>,
 	): unknown
 	onError(
 		options: MacroOptions,
-		fn: MaybeArray<ErrorHandler<Errors, TypedRoute, Singleton>>
+		fn: MaybeArray<ErrorHandler<Errors, TypedRoute, Singleton>>,
 	): unknown
 
 	mapResponse(fn: MaybeArray<MapResponse<TypedRoute, Singleton>>): unknown
 	mapResponse(
 		options: MacroOptions,
-		fn: MaybeArray<MapResponse<TypedRoute, Singleton>>
+		fn: MaybeArray<MapResponse<TypedRoute, Singleton>>,
 	): unknown
 
 	onAfterResponse(
-		fn: MaybeArray<AfterResponseHandler<TypedRoute, Singleton>>
+		fn: MaybeArray<AfterResponseHandler<TypedRoute, Singleton>>,
 	): unknown
 	onAfterResponse(
 		options: MacroOptions,
-		fn: MaybeArray<AfterResponseHandler<TypedRoute, Singleton>>
+		fn: MaybeArray<AfterResponseHandler<TypedRoute, Singleton>>,
 	): unknown
 
 	events: {
@@ -952,7 +935,7 @@ export type MacroQueue = HookContainer<
 
 type _CreateEden<
 	Path extends string,
-	Property extends Record<string, unknown> = {}
+	Property extends Record<string, unknown> = {},
 > = Path extends `${infer Start}/${infer Rest}`
 	? {
 			[x in Start]: _CreateEden<Rest, Property>
@@ -963,7 +946,7 @@ type _CreateEden<
 
 export type CreateEden<
 	Path extends string,
-	Property extends Record<string, unknown> = {}
+	Property extends Record<string, unknown> = {},
 > = Path extends `/${infer Rest}`
 	? _CreateEden<Rest, Property>
 	: Path extends ''
@@ -1015,10 +998,10 @@ export type MergeSpiceflowInstances<
 		macro: {}
 		macroFn: {}
 	},
-	Routes extends RouteBase = {}
+	Routes extends RouteBase = {},
 > = Instances extends [
 	infer Current extends Spiceflow<any, any, any, any, any, any>,
-	...infer Rest extends Spiceflow<any, any, any, any, any, any>[]
+	...infer Rest extends Spiceflow<any, any, any, any, any, any>[],
 ]
 	? Current['_types']['Scoped'] extends true
 		? MergeSpiceflowInstances<
@@ -1074,7 +1057,7 @@ export type ExcludeSpiceflowResponse<T> = Exclude<
 export type InferContext<
 	T extends Spiceflow<any, any, any, any, any, any, any, any>,
 	Path extends string = T['_types']['Prefix'],
-	Schema extends RouteSchema = T['_types']['Metadata']['schema']
+	Schema extends RouteSchema = T['_types']['Metadata']['schema'],
 > = Context<
 	MergeSchema<Schema, T['_types']['Metadata']['schema']>,
 	T['_types']['Singleton'] & {
@@ -1087,7 +1070,7 @@ export type InferContext<
 export type InferHandler<
 	T extends Spiceflow<any, any, any, any, any, any, any, any>,
 	Path extends string = T['_types']['Prefix'],
-	Schema extends RouteSchema = T['_types']['Metadata']['schema']
+	Schema extends RouteSchema = T['_types']['Metadata']['schema'],
 > = InlineHandler<
 	MergeSchema<Schema, T['_types']['Metadata']['schema']>,
 	T['_types']['Singleton'] & {
@@ -1122,7 +1105,7 @@ export type UnionToIntersect<U> = (
 
 export type ResolveMacroContext<
 	Macro extends BaseMacro,
-	MacroFn extends BaseMacroFn
+	MacroFn extends BaseMacroFn,
 > = UnionToIntersect<
 	{
 		[K in keyof Macro]-?: undefined extends Macro[K]
@@ -1141,7 +1124,7 @@ export type ResolveMacroContext<
 export type ContextAppendType = 'append' | 'override'
 
 export type HigherOrderFunction<
-	T extends (...arg: unknown[]) => Function = (...arg: unknown[]) => Function
+	T extends (...arg: unknown[]) => Function = (...arg: unknown[]) => Function,
 > = (fn: T, request: Request) => ReturnType<T>
 
 // new Spiceflow()

@@ -10,6 +10,8 @@ import {
 	DefinitionBase,
 	EphemeralType,
 	ErrorHandler,
+	Handler,
+	HTTPMethod,
 	InlineHandler,
 	InputSchema,
 	JoinPath,
@@ -72,15 +74,18 @@ type RouterTree = {
 	onRequestHandlers: Function[]
 	onErrorHandlers: OnError[]
 	children: RouterTree[]
+	routes: InternalRoute[]
 	// default store for the router, used as default for context.store
 	store: Record<any, any>
 }
 
 type OnNoMatch = (request: Request, platform: P) => AsyncResponse
 
-type InternalRouterState = {
-	hook: any
-	handler: any
+export type InternalRoute = {
+	method: HTTPMethod
+	path: string
+	handler: InlineHandler<any, any, any>
+	hooks: LocalHook<any, any, any, any, any, any, any>
 	validate?: ValidateFunction
 	// store: Record<any, any>
 }
@@ -121,14 +126,20 @@ export class Spiceflow<
 > {
 	private onNoMatch: OnNoMatch
 	// prefix: BasePath | undefined
-	routerTree: RouterTree
+	private routerTree: RouterTree
 
-	add({
+	getAllRoutes() {
+		const allApps = bfs(this.routerTree) || []
+		const allRoutes = allApps.flatMap((x) => x.routes)
+		return allRoutes
+	}
+
+	private add({
 		method,
 		path,
-		hook,
+		hooks,
 		...rest
-	}: InternalRouterState & {
+	}: InternalRoute & {
 		method: string
 		path: string
 	}) {
@@ -137,7 +148,7 @@ export class Spiceflow<
 		// 	path = router.prefix + path
 		// }
 
-		let bodySchema: TypeSchema = hook?.body
+		let bodySchema: TypeSchema = hooks?.body
 		let validate: ValidateFunction | undefined
 
 		if (bodySchema instanceof z.ZodType) {
@@ -149,11 +160,20 @@ export class Spiceflow<
 		}
 
 		const store = router.router.register(path)
-		store[method] = { ...rest, hook, validate }
+		let route: InternalRoute = {
+			...rest,
+			method,
+			path,
+			// handler,
+			hooks,
+			validate,
+		}
+		router.routes.push(route)
+		store[method] = route
 	}
 
 	private match(method: string, path: string) {
-		const result = bfs(this.routerTree, (router) => {
+		const result = bfsFind(this.routerTree, (router) => {
 			if (router.prefix && !path.startsWith(router.prefix)) {
 				// console.log(
 				// 	`router prefix: ${router.prefix} does not match path: ${path}`
@@ -170,7 +190,7 @@ export class Spiceflow<
 				return
 			}
 
-			let data: InternalRouterState = route['store'][method]
+			let data: InternalRoute = route['store'][method]
 			if (data) {
 				// console.log(`route found: ${method} ${path}`, route)
 
@@ -223,8 +243,7 @@ export class Spiceflow<
 	 */
 	constructor(
 		options: {
-			/** Fallback handle if an error is thrown (500 response is default) */
-			// onError?: OnError
+			name?: string
 			scoped?: Scoped
 			onNoMatch?: (request: Request, platform: P) => AsyncResponse
 			basePath?: BasePath
@@ -241,6 +260,7 @@ export class Spiceflow<
 			onErrorHandlers: [],
 			children: [],
 			store: {},
+			routes: [],
 		}
 
 		// Bind router methods
@@ -325,7 +345,7 @@ export class Spiceflow<
 		Ephemeral,
 		Volatile
 	> {
-		this.add({ method: 'POST', path, handler: handler, hook })
+		this.add({ method: 'POST', path, handler: handler, hooks: hook })
 
 		return this as any
 	}
@@ -392,7 +412,7 @@ export class Spiceflow<
 		Ephemeral,
 		Volatile
 	> {
-		this.add({ method: 'GET', path, handler: handler, hook })
+		this.add({ method: 'GET', path, handler: handler, hooks: hook })
 		return this as any
 	}
 
@@ -457,7 +477,7 @@ export class Spiceflow<
 		Ephemeral,
 		Volatile
 	> {
-		this.add({ method: 'PUT', path, handler: handler, hook })
+		this.add({ method: 'PUT', path, handler: handler, hooks: hook })
 
 		return this as any
 	}
@@ -523,7 +543,7 @@ export class Spiceflow<
 		Ephemeral,
 		Volatile
 	> {
-		this.add({ method: 'PATCH', path, handler: handler, hook })
+		this.add({ method: 'PATCH', path, handler: handler, hooks: hook })
 
 		return this as any
 	}
@@ -589,7 +609,7 @@ export class Spiceflow<
 		Ephemeral,
 		Volatile
 	> {
-		this.add({ method: 'DELETE', path, handler: handler, hook })
+		this.add({ method: 'DELETE', path, handler: handler, hooks: hook })
 
 		return this as any
 	}
@@ -655,7 +675,7 @@ export class Spiceflow<
 		Ephemeral,
 		Volatile
 	> {
-		this.add({ method: 'OPTIONS', path, handler: handler, hook })
+		this.add({ method: 'OPTIONS', path, handler: handler, hooks: hook })
 
 		return this as any
 	}
@@ -722,7 +742,7 @@ export class Spiceflow<
 		Volatile
 	> {
 		for (const method of METHODS) {
-			this.add({ method, path, handler: handler, hook })
+			this.add({ method, path, handler: handler, hooks: hook })
 		}
 
 		return this as any
@@ -789,7 +809,7 @@ export class Spiceflow<
 		Ephemeral,
 		Volatile
 	> {
-		this.add({ method: 'HEAD', path, handler: handler, hook })
+		this.add({ method: 'HEAD', path, handler: handler, hooks: hook })
 
 		return this as any
 	}
@@ -799,7 +819,7 @@ export class Spiceflow<
 	 *
 	 * @default false
 	 */
-	scoped?: Scoped
+	private scoped?: Scoped
 	get _scoped() {
 		return this.scoped as Scoped
 	}
@@ -968,7 +988,7 @@ export class Spiceflow<
 			let store = { ...defaultStore }
 			// TODO add content type
 
-			let content = route?.hook?.content
+			let content = route?.hooks?.content
 			let body = await getRequestBody({ request, content })
 
 			if (route.validate) {
@@ -1060,7 +1080,7 @@ export class Spiceflow<
 
 		// Perform BFS once to build a parent map
 		const parentMap = new Map<RouterTree, RouterTree>()
-		bfs(this.routerTree, (node) => {
+		bfsFind(this.routerTree, (node) => {
 			for (const child of node.children) {
 				parentMap.set(child, node)
 			}
@@ -1075,7 +1095,7 @@ export class Spiceflow<
 		return parents.reverse().filter((x) => x !== undefined)
 	}
 
-	async handleStream({
+	private async handleStream({
 		onErrorHandlers,
 		generator,
 		request,
@@ -1234,20 +1254,36 @@ const METHODS = [
 /** HTTP method string */
 export type Method = (typeof METHODS)[number]
 
-function bfs<T>(
+function bfsFind<T>(
 	tree: RouterTree,
 	onNode: (node: RouterTree) => T | undefined | void,
 ): T | undefined {
 	const queue = [tree]
+
 	while (queue.length > 0) {
 		const node = queue.shift()!
+
 		const result = onNode(node)
 		if (result) {
 			return result
 		}
 		queue.push(...node.children)
 	}
-	return undefined
+	return
+}
+function bfs<T>(tree: RouterTree) {
+	const queue = [tree]
+	let nodes: RouterTree[] = []
+	while (queue.length > 0) {
+		const node = queue.shift()!
+		if (node) {
+			nodes.push(node)
+		}
+		// const result = onNode(node)
+
+		queue.push(...node.children)
+	}
+	return nodes
 }
 
 function mapBfs(
