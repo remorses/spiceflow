@@ -52,6 +52,7 @@ type RouterTree = {
 	onRequestHandlers: Function[]
 	onErrorHandlers: OnError[]
 	children: RouterTree[]
+	// default store for the router, used as default for context.store
 	store: Record<any, any>
 }
 
@@ -230,7 +231,6 @@ export class Spiceflow<
 	_ephemeral = {} as Ephemeral
 	_volatile = {} as Volatile
 
-	
 	post<
 		const Path extends string,
 		const LocalSchema extends InputSchema<
@@ -928,10 +928,11 @@ export class Spiceflow<
 			onErrorHandlers = this.getRouteAndParents(route.router).flatMap(
 				(x) => x.onErrorHandlers
 			)
-			const { params, store } = route
-			const onReq = this.getRouteAndParents(route.router).flatMap(
+			const { params, store: defaultStore } = route
+			const onReqHandlers = this.getRouteAndParents(route.router).flatMap(
 				(x) => x.onRequestHandlers
 			)
+			let store = { ...defaultStore }
 			// TODO add content type
 
 			let content = route?.hook?.content
@@ -953,8 +954,8 @@ export class Spiceflow<
 					})
 				}
 			}
-			if (onReq.length > 0) {
-				for (const handler of onReq) {
+			if (onReqHandlers.length > 0) {
+				for (const handler of onReqHandlers) {
 					const res = await handler({
 						request,
 						response,
