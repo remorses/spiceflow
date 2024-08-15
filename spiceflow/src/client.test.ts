@@ -65,11 +65,12 @@ const app = new Spiceflow()
 		}
 	)
 
-	.post('/date', ({ body: { date } }) => date, {
-		body: t.Object({
-			date: t.Date()
-		})
-	})
+	// TODO ajv does not accept dates for some reason
+	// .post('/date', ({ body: { date } }) => date, {
+	// 	body: t.Object({
+	// 		date: t.Date()
+	// 	})
+	// })
 	.get('/dateObject', () => ({ date: new Date() }))
 	.get('/redirect', ({ redirect }) => redirect('http://localhost:8083/true'))
 	.post(

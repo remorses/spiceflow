@@ -1,23 +1,21 @@
 // https://github.com/remorses/elysia/blob/main/src/types.ts#L6
+import z from 'zod'
 
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
-import type { BunFile, Serve, Server, WebSocketHandler } from 'bun'
-
 import type {
-	TSchema,
-	TObject,
+	OptionalKind,
 	Static,
-	TAnySchema,
-	TNull,
-	TUndefined,
 	StaticDecode,
-	OptionalKind
+	TAnySchema,
+	TSchema
 } from '@sinclair/typebox'
 import type { TypeCheck, ValueError } from '@sinclair/typebox/compiler'
+import type { BunFile, Server } from 'bun'
 
 import type { OpenAPIV3 } from 'openapi-types'
 
+import { Spiceflow } from '../spiceflow'
 import type { Context, ErrorContext, PreContext } from './context'
 import {
 	ELYSIA_RESPONSE,
@@ -27,8 +25,7 @@ import {
 	ParseError,
 	ValidationError
 } from './error'
-import { Spiceflow } from '../spiceflow'
-
+import { ZodTypeAny } from 'zod'
 
 export type MaybeArray<T> = T | T[]
 export type MaybePromise<T> = T | Promise<T>
@@ -188,29 +185,18 @@ type OptionalField = {
 	[OptionalKind]: 'Optional'
 }
 
+export type TypeSchema = TSchema | ZodTypeAny
+
 export type UnwrapSchema<
-	Schema extends TSchema | string | undefined,
+	Schema extends TypeSchema | string | undefined,
 	Definitions extends Record<string, unknown> = {}
 > = undefined extends Schema
 	? unknown
+	: Schema extends ZodTypeAny
+	? z.infer<Schema>
 	: Schema extends TSchema
 	? Schema extends OptionalField
 		? Prettify<Partial<Static<Schema>>>
-		: StaticDecode<Schema>
-	: Schema extends string
-	? Definitions extends Record<Schema, infer NamedSchema>
-		? NamedSchema
-		: Definitions
-	: unknown
-
-export type UnwrapBodySchema<
-	Schema extends TSchema | string | undefined,
-	Definitions extends Record<string, unknown> = {}
-> = undefined extends Schema
-	? unknown
-	: Schema extends TSchema
-	? Schema extends OptionalField
-		? Prettify<Partial<Static<Schema>>> | null
 		: StaticDecode<Schema>
 	: Schema extends string
 	? Definitions extends Record<Schema, infer NamedSchema>
@@ -222,12 +208,12 @@ export interface UnwrapRoute<
 	in out Schema extends InputSchema<any>,
 	in out Definitions extends DefinitionBase['type'] = {}
 > {
-	body: UnwrapBodySchema<Schema['body'], Definitions>
+	body: UnwrapSchema<Schema['body'], Definitions>
 	// headers: UnwrapSchema<Schema['headers'], Definitions>
 	// query: UnwrapSchema<Schema['query'], Definitions>
 	// params: UnwrapSchema<Schema['params'], Definitions>
 	// cookie: UnwrapSchema<Schema['cookie'], Definitions>
-	response: Schema['response'] extends TSchema | string
+	response: Schema['response'] extends TypeSchema | string
 		? {
 				200: CoExist<
 					UnwrapSchema<Schema['response'], Definitions>,
@@ -235,7 +221,7 @@ export interface UnwrapRoute<
 					BunFile
 				>
 		  }
-		: Schema['response'] extends Record<number, TAnySchema | string>
+		: Schema['response'] extends Record<number, TypeSchema | string>
 		? {
 				[k in keyof Schema['response']]: CoExist<
 					UnwrapSchema<Schema['response'][k], Definitions>,
@@ -245,50 +231,6 @@ export interface UnwrapRoute<
 		  }
 		: unknown | void
 }
-
-// export interface UnwrapGroupGuardRoute<
-// 	in out Schema extends InputSchema<any>,
-// 	in out Definitions extends Record<string, unknown> = {},
-// 	Path extends string = ''
-// > {
-// 	body: UnwrapBodySchema<Schema['body'], Definitions>
-// 	headers: UnwrapSchema<
-// 		Schema['headers'],
-// 		Definitions
-// 	> extends infer A extends Record<string, unknown>
-// 		? A
-// 		: undefined
-// 	query: UnwrapSchema<
-// 		Schema['query'],
-// 		Definitions
-// 	> extends infer A extends Record<string, unknown>
-// 		? A
-// 		: undefined
-// 	params: UnwrapSchema<
-// 		Schema['params'],
-// 		Definitions
-// 	> extends infer A extends Record<string, unknown>
-// 		? A
-// 		: Path extends `${string}/${':' | '*'}${string}`
-// 		? Record<GetPathParameter<Path>, string>
-// 		: never
-// 	cookie: UnwrapSchema<
-// 		Schema['cookie'],
-// 		Definitions
-// 	> extends infer A extends Record<string, unknown>
-// 		? A
-// 		: undefined
-// 	response: Schema['response'] extends TSchema | string
-// 		? UnwrapSchema<Schema['response'], Definitions>
-// 		: Schema['response'] extends {
-// 				[k in string]: TSchema | string
-// 		  }
-// 		? UnwrapSchema<
-// 				Schema['response'][keyof Schema['response']],
-// 				Definitions
-// 		  >
-// 		: unknown | void
-// }
 
 export type HookContainer<T extends Function = Function> = {
 	checksum?: number
@@ -376,16 +318,16 @@ export type HTTPMethod =
 	| 'ALL'
 
 export interface InputSchema<Name extends string = string> {
-	body?: TSchema | Name
+	body?: TypeSchema | Name
 	// headers?: TObject | TNull | TUndefined | Name
 	// query?: TObject | TNull | TUndefined | Name
 	// params?: TObject | TNull | TUndefined | Name
 	// cookie?: TObject | TNull | TUndefined | Name
 	response?:
-		| TSchema
-		| Record<number, TSchema>
+		| TypeSchema
+		| Record<number, TypeSchema>
 		| Name
-		| Record<number, Name | TSchema>
+		| Record<number, Name | TypeSchema>
 }
 
 export interface MergeSchema<

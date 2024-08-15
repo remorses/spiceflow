@@ -24,20 +24,40 @@ import {
 	RouteBase,
 	RouteSchema,
 	SingletonBase,
-	UnwrapRoute
+	TypeSchema,
+	UnwrapRoute,
 } from './elysia-fork/types.js'
+import addFormats from 'ajv-formats'
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
 import OriginalRouter from '@medley/router'
 import { TSchema } from '@sinclair/typebox'
-import Ajv from 'ajv'
+import Ajv, { ValidateFunction } from 'ajv'
 import { Context } from './elysia-fork/context.js'
 import { isAsyncIterable } from './utils.js'
 import { redirect } from './elysia-fork/utils.js'
 import { ValidationError } from './elysia-fork/error.js'
+import { zodToJsonSchema } from 'zod-to-json-schema'
+import { z } from 'zod'
 
-const ajv = new Ajv()
+const ajv = addFormats(new Ajv({ useDefaults: true }), [
+	'date-time',
+	'time',
+	'date',
+	'email',
+	'hostname',
+	'ipv4',
+	'ipv6',
+	'uri',
+	'uri-reference',
+	'uuid',
+	'uri-template',
+	'json-pointer',
+	'relative-json-pointer',
+	'regex',
+])
+
 // Should be exported from `hono/router`
 
 type P = any
@@ -61,6 +81,7 @@ type OnNoMatch = (request: Request, platform: P) => AsyncResponse
 type InternalRouterState = {
 	hook: any
 	handler: any
+	validate?: ValidateFunction
 	// store: Record<any, any>
 }
 /**
@@ -96,7 +117,7 @@ export class Spiceflow<
 		derive: {}
 		resolve: {}
 		schema: {}
-	}
+	},
 > {
 	private onNoMatch: OnNoMatch
 	// prefix: BasePath | undefined
@@ -105,6 +126,7 @@ export class Spiceflow<
 	add({
 		method,
 		path,
+		hook,
 		...rest
 	}: InternalRouterState & {
 		method: string
@@ -115,8 +137,19 @@ export class Spiceflow<
 		// 	path = router.prefix + path
 		// }
 
+		let bodySchema: TypeSchema = hook?.body
+		let validate: ValidateFunction | undefined
+
+		if (bodySchema instanceof z.ZodType) {
+			let jsonSchema = zodToJsonSchema(bodySchema, {})
+			validate = ajv.compile(jsonSchema)
+		} else if (bodySchema) {
+			// console.log(bodySchema)
+			validate = ajv.compile(bodySchema)
+		}
+
 		const store = router.router.register(path)
-		store[method] = { ...rest }
+		store[method] = { ...rest, hook, validate }
 	}
 
 	private match(method: string, path: string) {
@@ -149,7 +182,7 @@ export class Spiceflow<
 					store: router.store,
 					onErrorHandlers,
 					onRequestHandlers,
-					params
+					params,
 				}
 			}
 		})
@@ -159,7 +192,7 @@ export class Spiceflow<
 
 	state<const Name extends string | number | symbol, Value>(
 		name: Name,
-		value: Value
+		value: Value,
 	): Spiceflow<
 		BasePath,
 		Scoped,
@@ -195,7 +228,7 @@ export class Spiceflow<
 			scoped?: Scoped
 			onNoMatch?: (request: Request, platform: P) => AsyncResponse
 			basePath?: BasePath
-		} = {}
+		} = {},
 	) {
 		this.scoped = options.scoped
 
@@ -207,7 +240,7 @@ export class Spiceflow<
 			onRequestHandlers: [],
 			onErrorHandlers: [],
 			children: [],
-			store: {}
+			store: {},
 		}
 
 		// Bind router methods
@@ -225,7 +258,7 @@ export class Spiceflow<
 		Scoped: false as Scoped,
 		Singleton: {} as Singleton,
 		Definitions: {} as Definitions,
-		Metadata: {} as Metadata
+		Metadata: {} as Metadata,
 	}
 
 	_ephemeral = {} as Ephemeral
@@ -250,7 +283,7 @@ export class Spiceflow<
 				resolve: Ephemeral['resolve'] & Volatile['resolve']
 			},
 			JoinPath<BasePath, Path>
-		>
+		>,
 	>(
 		path: Path,
 		handler: Handle,
@@ -264,7 +297,7 @@ export class Spiceflow<
 			Definitions['error'],
 			Metadata['macro'],
 			JoinPath<BasePath, Path>
-		>
+		>,
 	): Spiceflow<
 		BasePath,
 		Scoped,
@@ -317,7 +350,7 @@ export class Spiceflow<
 				resolve: Ephemeral['resolve'] & Volatile['resolve']
 			},
 			JoinPath<BasePath, Path>
-		>
+		>,
 	>(
 		path: Path,
 		handler: Handle,
@@ -331,7 +364,7 @@ export class Spiceflow<
 			Definitions['error'],
 			Macro,
 			JoinPath<BasePath, Path>
-		>
+		>,
 	): Spiceflow<
 		BasePath,
 		Scoped,
@@ -382,7 +415,7 @@ export class Spiceflow<
 				resolve: Ephemeral['resolve'] & Volatile['resolve']
 			},
 			JoinPath<BasePath, Path>
-		>
+		>,
 	>(
 		path: Path,
 		handler: Handle,
@@ -396,7 +429,7 @@ export class Spiceflow<
 			Definitions['error'],
 			Metadata['macro'],
 			JoinPath<BasePath, Path>
-		>
+		>,
 	): Spiceflow<
 		BasePath,
 		Scoped,
@@ -448,7 +481,7 @@ export class Spiceflow<
 				resolve: Ephemeral['resolve'] & Volatile['resolve']
 			},
 			JoinPath<BasePath, Path>
-		>
+		>,
 	>(
 		path: Path,
 		handler: Handle,
@@ -462,7 +495,7 @@ export class Spiceflow<
 			Definitions['error'],
 			Metadata['macro'],
 			JoinPath<BasePath, Path>
-		>
+		>,
 	): Spiceflow<
 		BasePath,
 		Scoped,
@@ -514,7 +547,7 @@ export class Spiceflow<
 				resolve: Ephemeral['resolve'] & Volatile['resolve']
 			},
 			JoinPath<BasePath, Path>
-		>
+		>,
 	>(
 		path: Path,
 		handler: Handle,
@@ -528,7 +561,7 @@ export class Spiceflow<
 			Definitions['error'],
 			Metadata['macro'],
 			JoinPath<BasePath, Path>
-		>
+		>,
 	): Spiceflow<
 		BasePath,
 		Scoped,
@@ -580,7 +613,7 @@ export class Spiceflow<
 				resolve: Ephemeral['resolve'] & Volatile['resolve']
 			},
 			JoinPath<BasePath, Path>
-		>
+		>,
 	>(
 		path: Path,
 		handler: Handle,
@@ -594,7 +627,7 @@ export class Spiceflow<
 			Definitions['error'],
 			Metadata['macro'],
 			JoinPath<BasePath, Path>
-		>
+		>,
 	): Spiceflow<
 		BasePath,
 		Scoped,
@@ -646,7 +679,7 @@ export class Spiceflow<
 				resolve: Ephemeral['resolve'] & Volatile['resolve']
 			},
 			JoinPath<BasePath, Path>
-		>
+		>,
 	>(
 		path: Path,
 		handler: Handle,
@@ -660,7 +693,7 @@ export class Spiceflow<
 			Definitions['error'],
 			Metadata['macro'],
 			JoinPath<BasePath, Path>
-		>
+		>,
 	): Spiceflow<
 		BasePath,
 		Scoped,
@@ -714,7 +747,7 @@ export class Spiceflow<
 				resolve: Ephemeral['resolve'] & Volatile['resolve']
 			},
 			JoinPath<BasePath, Path>
-		>
+		>,
 	>(
 		path: Path,
 		handler: Handle,
@@ -728,7 +761,7 @@ export class Spiceflow<
 			Definitions['error'],
 			Metadata['macro'],
 			JoinPath<BasePath, Path>
-		>
+		>,
 	): Spiceflow<
 		BasePath,
 		Scoped,
@@ -811,7 +844,7 @@ export class Spiceflow<
 	// }
 
 	use<const NewSpiceflow extends AnySpiceflow>(
-		instance: NewSpiceflow
+		instance: NewSpiceflow,
 	): NewSpiceflow['_scoped'] extends false
 		? Spiceflow<
 				BasePath,
@@ -844,9 +877,9 @@ export class Spiceflow<
 			mapBfs(instance.routerTree, (r) => {
 				return {
 					...r,
-					prefix: (thisRouter.prefix || '') + r.prefix
+					prefix: (thisRouter.prefix || '') + r.prefix,
 				}
-			})
+			}),
 		)
 		return this as any
 	}
@@ -866,7 +899,7 @@ export class Spiceflow<
 				Ephemeral,
 				Volatile
 			>
-		>
+		>,
 	): this {
 		const router = this.routerTree
 
@@ -893,7 +926,7 @@ export class Spiceflow<
 					resolve: {}
 				}
 			>
-		>
+		>,
 	) {
 		const router = this.routerTree
 		router.onRequestHandlers ??= []
@@ -914,7 +947,7 @@ export class Spiceflow<
 		const defaultContext = {
 			redirect,
 			error: null,
-			path
+			path,
 		}
 		let onErrorHandlers: OnError[] = []
 		try {
@@ -926,31 +959,32 @@ export class Spiceflow<
 				return this.onNoMatch(request, platform)
 			}
 			onErrorHandlers = this.getRouteAndParents(route.router).flatMap(
-				(x) => x.onErrorHandlers
+				(x) => x.onErrorHandlers,
 			)
 			const { params, store: defaultStore } = route
 			const onReqHandlers = this.getRouteAndParents(route.router).flatMap(
-				(x) => x.onRequestHandlers
+				(x) => x.onRequestHandlers,
 			)
 			let store = { ...defaultStore }
 			// TODO add content type
 
 			let content = route?.hook?.content
 			let body = await getRequestBody({ request, content })
-			let bodySchema: TSchema = route?.hook?.body
-			if (bodySchema) {
-				const validate = ajv.compile(bodySchema)
-				const valid = validate(body)
+
+			if (route.validate) {
+				// TODO move compile to the router
+
+				const valid = route.validate(body)
 				if (!valid) {
-					const error = ajv.errorsText(validate.errors, {
-						separator: '\n'
+					const error = ajv.errorsText(route.validate.errors, {
+						separator: '\n',
 					})
 
 					return new Response(error, {
 						status: 400,
 						headers: {
-							'content-type': 'text/plain'
-						}
+							'content-type': 'text/plain',
+						},
 					})
 				}
 			}
@@ -960,7 +994,7 @@ export class Spiceflow<
 						request,
 						response,
 						store,
-						path
+						path,
 					} satisfies Context<any, any, any>)
 					if (res) {
 						return await turnHandlerResultIntoResponse(res)
@@ -977,7 +1011,7 @@ export class Spiceflow<
 				params: params as any,
 				store,
 				body,
-				path
+				path,
 
 				// platform
 			} satisfies Context<any, any, string>)
@@ -985,7 +1019,7 @@ export class Spiceflow<
 				return await this.handleStream({
 					generator: res,
 					request,
-					onErrorHandlers
+					onErrorHandlers,
 				})
 			}
 
@@ -994,11 +1028,11 @@ export class Spiceflow<
 			let res = await this.runErrorHandlers({
 				onErrorHandlers,
 				error: err,
-				request
+				request,
 			})
 			if (res) return res
 			return new Response(err?.message || 'Internal Server Error', {
-				status: 500
+				status: 500,
 			})
 		}
 	}
@@ -1006,7 +1040,7 @@ export class Spiceflow<
 	private async runErrorHandlers({
 		onErrorHandlers = [] as OnError[],
 		error: err,
-		request
+		request,
 	}) {
 		if (onErrorHandlers.length === 0) {
 			console.error(`Spiceflow unhandled error:`, err)
@@ -1044,7 +1078,7 @@ export class Spiceflow<
 	async handleStream({
 		onErrorHandlers,
 		generator,
-		request
+		request,
 	}: {
 		generator: Generator | AsyncGenerator
 		onErrorHandlers: OnError[]
@@ -1077,9 +1111,9 @@ export class Spiceflow<
 						controller.enqueue(
 							Buffer.from(
 								`event: message\ndata: ${JSON.stringify(
-									init.value
-								)}\n\n`
-							)
+									init.value,
+								)}\n\n`,
+							),
 						)
 
 					try {
@@ -1090,23 +1124,23 @@ export class Spiceflow<
 							controller.enqueue(
 								Buffer.from(
 									`event: message\ndata: ${JSON.stringify(
-										chunk
-									)}\n\n`
-								)
+										chunk,
+									)}\n\n`,
+								),
 							)
 						}
 					} catch (error: any) {
 						let res = await self.runErrorHandlers({
 							onErrorHandlers: onErrorHandlers,
 							error,
-							request
+							request,
 						})
 						controller.enqueue(
 							Buffer.from(
 								`event: error\ndata: ${JSON.stringify(
-									error.message || error.name || 'Error'
-								)}\n\n`
-							)
+									error.message || error.name || 'Error',
+								)}\n\n`,
+							),
 						)
 					}
 
@@ -1115,24 +1149,24 @@ export class Spiceflow<
 					} catch {
 						// nothing
 					}
-				}
+				},
 			}),
 			{
 				// TODO add headers somehow
 				headers: {
 					// Manually set transfer-encoding for direct response, eg. app.handle, eden
 					'transfer-encoding': 'chunked',
-					'content-type': 'text/event-stream; charset=utf-8'
+					'content-type': 'text/event-stream; charset=utf-8',
 					// ...set?.headers
-				}
-			}
+				},
+			},
 		)
 	}
 }
 
 async function getRequestBody({
 	request,
-	content
+	content,
 }: {
 	content
 	request: Request
@@ -1194,7 +1228,7 @@ const METHODS = [
 	'PATCH',
 	'POST',
 	'PUT',
-	'TRACE'
+	'TRACE',
 ] as const
 
 /** HTTP method string */
@@ -1202,7 +1236,7 @@ export type Method = (typeof METHODS)[number]
 
 function bfs<T>(
 	tree: RouterTree,
-	onNode: (node: RouterTree) => T | undefined | void
+	onNode: (node: RouterTree) => T | undefined | void,
 ): T | undefined {
 	const queue = [tree]
 	while (queue.length > 0) {
@@ -1218,7 +1252,7 @@ function bfs<T>(
 
 function mapBfs(
 	tree: RouterTree,
-	mapper: (node: RouterTree) => RouterTree
+	mapper: (node: RouterTree) => RouterTree,
 ): RouterTree {
 	const queue = [tree]
 	const result: RouterTree = { ...mapper(tree), children: [] }
