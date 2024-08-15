@@ -136,7 +136,14 @@ export class Spiceflow<
 	getAllRoutes() {
 		let root = this.routerTree.currentRoot || this.routerTree
 		const allApps = bfs(root) || []
-		const allRoutes = allApps.flatMap((x) => x.routes)
+		const allRoutes = allApps.flatMap((x) => {
+			const prefix = this.getRouteAndParents(x)
+				.map((x) => x.prefix)
+				.reverse()
+				.join('')
+
+			return x.routes.map((x) => ({ ...x, path: prefix + x.path }))
+		})
 		return allRoutes
 	}
 
@@ -1085,9 +1092,10 @@ export class Spiceflow<
 		const parents: RouterTree[] = []
 		let current = currentRouter
 
+		let root = this.routerTree.currentRoot || this.routerTree
 		// Perform BFS once to build a parent map
 		const parentMap = new Map<number, RouterTree>()
-		bfsFind(this.routerTree, (node) => {
+		bfsFind(root, (node) => {
 			for (const child of node.children) {
 				parentMap.set(child.id, node)
 			}
