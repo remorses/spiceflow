@@ -79,6 +79,7 @@ type RouterTree = {
 	routes: InternalRoute[]
 	// default store for the router, used as default for context.store
 	store: Record<any, any>
+	currentRoot?: RouterTree
 }
 
 type OnNoMatch = (request: Request, platform: P) => AsyncResponse
@@ -133,7 +134,8 @@ export class Spiceflow<
 	private routerTree: RouterTree
 
 	getAllRoutes() {
-		const allApps = bfs(this.routerTree) || []
+		let root = this.routerTree.currentRoot || this.routerTree
+		const allApps = bfs(root) || []
 		const allRoutes = allApps.flatMap((x) => x.routes)
 		return allRoutes
 	}
@@ -178,7 +180,9 @@ export class Spiceflow<
 	}
 
 	private match(method: string, path: string) {
+		let root = this.routerTree
 		const result = bfsFind(this.routerTree, (router) => {
+			router.currentRoot = root
 			let prefix = this.getRouteAndParents(router)
 				.map((x) => x.prefix)
 				.reverse()
@@ -1077,7 +1081,7 @@ export class Spiceflow<
 		}
 	}
 
-	protected getRouteAndParents(currentRouter?: RouterTree) {
+	private getRouteAndParents(currentRouter?: RouterTree) {
 		const parents: RouterTree[] = []
 		let current = currentRouter
 
@@ -1312,8 +1316,11 @@ export async function turnHandlerResultIntoResponse(result: any) {
 	// }
 	// if user returns an object, convert to json
 
-	return new Response(JSON.stringify(result))
+	return new Response(JSON.stringify(result, null, 2), {
+		headers: {
+			'content-type': 'application/json',
+		},
+	})
 }
 
 export type AnySpiceflow = Spiceflow<any, any, any, any, any, any, any, any>
-

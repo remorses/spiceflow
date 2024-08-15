@@ -365,7 +365,7 @@ export const openapi = <Path extends string = '/openapi'>({
 							path: route.path,
 							// @ts-ignore
 							models: app.definitions?.type,
-							contentType: route.hooks.type,
+							contentType: route.hooks?.type,
 						})
 					})
 					return
@@ -378,7 +378,7 @@ export const openapi = <Path extends string = '/openapi'>({
 					path: route.path,
 					// @ts-ignore
 					models: app.definitions?.type,
-					contentType: route.hooks.type,
+					contentType: route.hooks?.type,
 				})
 			})
 		}

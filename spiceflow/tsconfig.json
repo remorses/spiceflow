@@ -5,6 +5,8 @@
 		"module": "ES2015",
 		"lib": ["DOM", "ESNext", "dom.iterable"],
 		"moduleResolution": "Node",
+		"declarationMap": true,
+		"sourceMap": true,
 		"resolveJsonModule": true,
 		"outDir": "dist"
 	},
