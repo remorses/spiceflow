@@ -87,6 +87,8 @@ export type InternalRoute = {
 	handler: InlineHandler<any, any, any>
 	hooks: LocalHook<any, any, any, any, any, any, any>
 	validate?: ValidateFunction
+	prefix: string
+
 	// store: Record<any, any>
 }
 /**
@@ -138,11 +140,9 @@ export class Spiceflow<
 		method,
 		path,
 		hooks,
+		handler,
 		...rest
-	}: InternalRoute & {
-		method: string
-		path: string
-	}) {
+	}: Partial<InternalRoute>) {
 		const router = this.routerTree
 		// if (router.prefix) {
 		// 	path = router.prefix + path
@@ -162,9 +162,12 @@ export class Spiceflow<
 		const store = router.router.register(path)
 		let route: InternalRoute = {
 			...rest,
-			method,
-			path,
-			// handler,
+
+			prefix: router.prefix || '',
+			method: (method || '') as any,
+			path: path || '',
+			// prefix,
+			handler: handler!,
 			hooks,
 			validate,
 		}
@@ -894,9 +897,11 @@ export class Spiceflow<
 		const thisRouter = this.routerTree
 		// TODO use scoped logic to add onRequest and onError on all routers if necessary, add them first
 		this.routerTree.children.push(
-			mapBfs(instance.routerTree, (r) => {
+			mapTree(instance.routerTree, (r) => {
+				// console.log(r)
 				return {
 					...r,
+					// TODO add all parents prefix, not only the root one
 					prefix: (thisRouter.prefix || '') + r.prefix,
 				}
 			}),
@@ -1285,20 +1290,13 @@ function bfs<T>(tree: RouterTree) {
 	}
 	return nodes
 }
-
-function mapBfs(
+function mapTree<T>(
 	tree: RouterTree,
-	mapper: (node: RouterTree) => RouterTree,
-): RouterTree {
-	const queue = [tree]
-	const result: RouterTree = { ...mapper(tree), children: [] }
-	while (queue.length > 0) {
-		const node = queue.shift()!
-		const mappedNode = mapper(node)
-		result.children.push(mappedNode)
-		queue.push(...mappedNode.children)
-	}
-	return result
+	mapper: (node: RouterTree) => T,
+): T & { children: (T & { children: any[] })[] } {
+	const mappedNode = mapper(tree) as T & { children: any[] }
+	mappedNode.children = tree.children.map((child) => mapTree(child, mapper))
+	return mappedNode
 }
 
 export async function turnHandlerResultIntoResponse(result: any) {

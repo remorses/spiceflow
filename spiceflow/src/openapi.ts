@@ -1,13 +1,13 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 import { JSONSchemaType } from 'ajv'
-import { InternalRoute, Spiceflow } from '../'
+import { InternalRoute, Spiceflow } from '.'
 
 import type { OpenAPIV3 } from 'openapi-types'
 
 let excludeMethods = ['OPTIONS']
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import type { HTTPMethod, LocalHook, TypeSchema } from '../elysia-fork/types'
+import type { HTTPMethod, LocalHook, TypeSchema } from './elysia-fork/types'
 
 import { Kind, type TSchema } from '@sinclair/typebox'
 
@@ -310,7 +310,7 @@ export const registerSchemaPath = ({
  *
  * @see https://github.com/elysiajs/elysia-swagger
  */
-export const openapi = async <Path extends string = '/openapi'>({
+export const openapi = <Path extends string = '/openapi'>({
 	path,
 	documentation = {},
 }: {

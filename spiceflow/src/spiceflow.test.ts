@@ -57,10 +57,10 @@ test('body is parsed as json', async () => {
 			new Request('http://localhost/post', {
 				method: 'POST',
 				headers: {
-					'content-type': 'application/json'
+					'content-type': 'application/json',
 				},
-				body: JSON.stringify({ name: 'John' })
-			})
+				body: JSON.stringify({ name: 'John' }),
+			}),
 		)
 	expect(res.status).toBe(200)
 	expect(await res.text()).toBe(JSON.stringify({ name: 'John' }))
@@ -78,18 +78,18 @@ test('validate body works, request success', async () => {
 			},
 			{
 				body: Type.Object({
-					name: Type.String()
-				})
-			}
+					name: Type.String(),
+				}),
+			},
 		)
 		.handle(
 			new Request('http://localhost/post', {
 				method: 'POST',
 				headers: {
-					'content-type': 'application/json'
+					'content-type': 'application/json',
 				},
-				body: JSON.stringify({ name: 'John' })
-			})
+				body: JSON.stringify({ name: 'John' }),
+			}),
 		)
 	expect(res.status).toBe(200)
 	expect(await res.text()).toMatchInlineSnapshot(`""ok""`)
@@ -107,22 +107,22 @@ test('validate body works, request fails', async () => {
 			{
 				body: Type.Object({
 					name: Type.String(),
-					requiredField: Type.String()
-				})
-			}
+					requiredField: Type.String(),
+				}),
+			},
 		)
 		.handle(
 			new Request('http://localhost/post', {
 				method: 'POST',
 				headers: {
-					'content-type': 'application/json'
+					'content-type': 'application/json',
 				},
-				body: JSON.stringify({ name: 'John' })
-			})
+				body: JSON.stringify({ name: 'John' }),
+			}),
 		)
 	expect(res.status).toBe(400)
 	expect(await res.text()).toMatchInlineSnapshot(
-		`"data must have required property 'requiredField'"`
+		`"data must have required property 'requiredField'"`,
 	)
 })
 
@@ -165,6 +165,18 @@ test('basPath works', async () => {
 	expect(res.status).toBe(200)
 	expect(await res.text()).toBe(JSON.stringify('hi'))
 })
+test('basPath works with use', async () => {
+	let app = new Spiceflow({ basePath: '/one' })
+		.get('/ids/:id', () => 'hi')
+		.use(new Spiceflow({}).get('/two', () => 'hi'))
+	const res = await app.handle(
+		new Request('http://localhost/one/two', { method: 'GET' }),
+	)
+	let routes = app.getAllRoutes()
+	expect(routes.map((x) => x.path)).toEqual(['/ids/:id', '/two'])
+	expect(res.status).toBe(200)
+	expect(await res.text()).toBe(JSON.stringify('hi'))
+})
 
 test('use with 2 basPath works', async () => {
 	let oneOnReq = false
@@ -175,19 +187,19 @@ test('use with 2 basPath works', async () => {
 				.onRequest(({ request }) => {
 					oneOnReq = true
 				})
-				.get('/ids/:id', ({ params }) => params.id)
+				.get('/ids/:id', ({ params }) => params.id),
 		)
 		.use(
 			new Spiceflow({ basePath: '/two' })
 				.onRequest((c) => {
 					twoOnReq = true
 				})
-				.get('/ids/:id', ({ params }) => params.id)
+				.get('/ids/:id', ({ params }) => params.id),
 		)
 
 	{
 		const res = await app.handle(
-			new Request('http://localhost/one/ids/one')
+			new Request('http://localhost/one/ids/one'),
 		)
 		expect(res.status).toBe(200)
 
@@ -195,7 +207,7 @@ test('use with 2 basPath works', async () => {
 	}
 	{
 		const res = await app.handle(
-			new Request('http://localhost/two/ids/two')
+			new Request('http://localhost/two/ids/two'),
 		)
 		expect(res.status).toBe(200)
 
@@ -210,20 +222,20 @@ test('use with nested basPath works', async () => {
 		.use(
 			new Spiceflow({ basePath: '/one' }).get(
 				'/ids/:id',
-				({ params }) => params.id
-			)
+				({ params }) => params.id,
+			),
 		)
 		.use(
 			new Spiceflow({ basePath: '/two' }).use(
 				new Spiceflow({ basePath: '/nested' }).get(
 					'/ids/:id',
-					({ params }) => params.id
-				)
-			)
+					({ params }) => params.id,
+				),
+			),
 		)
 	{
 		const res = await app.handle(
-			new Request('http://localhost/zero/one/ids/one')
+			new Request('http://localhost/zero/one/ids/one'),
 		)
 		expect(res.status).toBe(200)
 		expect(await res.text()).toBe(JSON.stringify('one'))
@@ -231,7 +243,7 @@ test('use with nested basPath works', async () => {
 
 	{
 		const res = await app.handle(
-			new Request('http://localhost/zero/two/nested/ids/nested')
+			new Request('http://localhost/zero/two/nested/ids/nested'),
 		)
 		expect(res.status).toBe(200)
 		expect(await res.text()).toBe(JSON.stringify('nested'))
@@ -273,13 +285,13 @@ test('errors inside basPath works', async () => {
 						})
 						.get('/ids/:id', ({ params }) => {
 							throw new Error('error message')
-						})
-				)
+						}),
+				),
 		)
 
 	{
 		const res = await app.handle(
-			new Request('http://localhost/zero/two/nested/ids/nested')
+			new Request('http://localhost/zero/two/nested/ids/nested'),
 		)
 		expect(onErrorTriggered).toEqual(['nested', 'two', 'root'])
 		expect(onReqTriggered).toEqual(['nested', 'two', 'root'])
