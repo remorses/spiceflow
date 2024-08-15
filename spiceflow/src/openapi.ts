@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 import { JSONSchemaType } from 'ajv'
-import { InternalRoute, Spiceflow } from '.'
+import { InternalRoute, Spiceflow } from './spiceflow'
 
 import type { OpenAPIV3 } from 'openapi-types'
 
