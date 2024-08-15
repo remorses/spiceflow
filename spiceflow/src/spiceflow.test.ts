@@ -1,6 +1,6 @@
 import { test, describe, expect } from 'vitest'
 import { Type } from '@sinclair/typebox'
-import { Spiceflow } from './spiceflow'
+import { bfs, Spiceflow } from './spiceflow'
 
 test('works', async () => {
 	const res = await new Spiceflow()
@@ -166,16 +166,50 @@ test('basPath works', async () => {
 	expect(await res.text()).toBe(JSON.stringify('hi'))
 })
 test('basPath works with use', async () => {
+	let app = new Spiceflow({ basePath: '/one' }).use(
+		new Spiceflow({})
+			.get('/two', () => 'hi')
+			.use(
+				new Spiceflow({ basePath: '/three' }).get('/four', () => 'hi'),
+			),
+	)
+	{
+		const res = await app.handle(
+			new Request('http://localhost/one/two', { method: 'GET' }),
+		)
+
+		expect(res.status).toBe(200)
+		expect(await res.text()).toBe(JSON.stringify('hi'))
+	}
+	{
+		const res = await app.handle(
+			new Request('http://localhost/one/three/four', { method: 'GET' }),
+		)
+		expect(res.status).toBe(200)
+		expect(await res.text()).toBe(JSON.stringify('hi'))
+	}
+})
+
+test('getRouteAndParents', async () => {
 	let app = new Spiceflow({ basePath: '/one' })
 		.get('/ids/:id', () => 'hi')
-		.use(new Spiceflow({}).get('/two', () => 'hi'))
-	const res = await app.handle(
-		new Request('http://localhost/one/two', { method: 'GET' }),
-	)
-	let routes = app.getAllRoutes()
-	expect(routes.map((x) => x.path)).toEqual(['/ids/:id', '/two'])
-	expect(res.status).toBe(200)
-	expect(await res.text()).toBe(JSON.stringify('hi'))
+		.use(
+			new Spiceflow({ basePath: '/two' }).use(
+				new Spiceflow({ basePath: '/three' }).get('/four', () => 'hi'),
+			),
+		)
+
+	let routers = bfs(app['routerTree'])
+	let last = routers[routers.length - 1]
+
+	expect(app['getRouteAndParents'](last).map((x) => x.prefix))
+		.toMatchInlineSnapshot(`
+			[
+			  "/three",
+			  "/two",
+			  "/one",
+			]
+		`)
 })
 
 test('use with 2 basPath works', async () => {

@@ -30,6 +30,7 @@ import {
 	UnwrapRoute,
 } from './elysia-fork/types.js'
 import addFormats from 'ajv-formats'
+let globalIndex = 0
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
@@ -69,6 +70,7 @@ type AsyncResponse = Response | Promise<Response>
 type OnError = (x: { error: any; request: Request }) => AsyncResponse
 
 type RouterTree = {
+	id: number
 	router: OriginalRouter
 	prefix?: string
 	onRequestHandlers: Function[]
@@ -177,15 +179,19 @@ export class Spiceflow<
 
 	private match(method: string, path: string) {
 		const result = bfsFind(this.routerTree, (router) => {
-			if (router.prefix && !path.startsWith(router.prefix)) {
+			let prefix = this.getRouteAndParents(router)
+				.map((x) => x.prefix)
+				.reverse()
+				.join('')
+			if (prefix && !path.startsWith(prefix)) {
 				// console.log(
 				// 	`router prefix: ${router.prefix} does not match path: ${path}`
 				// )
 				return
 			}
 			let pathWithoutPrefix = path
-			if (router.prefix) {
-				pathWithoutPrefix = path.replace(router.prefix, '')
+			if (prefix) {
+				pathWithoutPrefix = path.replace(prefix, '')
 			}
 			// console.log(`router prefix: ${router.prefix} matches path: ${path}`)
 			const route = router.router.find(pathWithoutPrefix)
@@ -257,6 +263,7 @@ export class Spiceflow<
 		this.onNoMatch =
 			options.onNoMatch ?? (() => new Response(null, { status: 404 }))
 		this.routerTree = {
+			id: globalIndex++,
 			router: new OriginalRouter(),
 			prefix: options.basePath,
 			onRequestHandlers: [],
@@ -896,16 +903,7 @@ export class Spiceflow<
 		  > {
 		const thisRouter = this.routerTree
 		// TODO use scoped logic to add onRequest and onError on all routers if necessary, add them first
-		this.routerTree.children.push(
-			mapTree(instance.routerTree, (r) => {
-				// console.log(r)
-				return {
-					...r,
-					// TODO add all parents prefix, not only the root one
-					prefix: (thisRouter.prefix || '') + r.prefix,
-				}
-			}),
-		)
+		this.routerTree.children.push(instance.routerTree)
 		return this as any
 	}
 
@@ -1079,25 +1077,25 @@ export class Spiceflow<
 		}
 	}
 
-	private getRouteAndParents(currentRouter?: RouterTree) {
+	protected getRouteAndParents(currentRouter?: RouterTree) {
 		const parents: RouterTree[] = []
 		let current = currentRouter
 
 		// Perform BFS once to build a parent map
-		const parentMap = new Map<RouterTree, RouterTree>()
+		const parentMap = new Map<number, RouterTree>()
 		bfsFind(this.routerTree, (node) => {
 			for (const child of node.children) {
-				parentMap.set(child, node)
+				parentMap.set(child.id, node)
 			}
 		})
 
 		// Traverse the parent map to get the parents
 		while (current) {
-			parents.unshift(current)
-			current = parentMap.get(current)
+			parents.push(current)
+			current = parentMap.get(current.id)
 		}
 
-		return parents.reverse().filter((x) => x !== undefined)
+		return parents.filter((x) => x !== undefined)
 	}
 
 	private async handleStream({
@@ -1276,7 +1274,7 @@ function bfsFind<T>(
 	}
 	return
 }
-function bfs<T>(tree: RouterTree) {
+export function bfs(tree: RouterTree) {
 	const queue = [tree]
 	let nodes: RouterTree[] = []
 	while (queue.length > 0) {
@@ -1318,3 +1316,4 @@ export async function turnHandlerResultIntoResponse(result: any) {
 }
 
 export type AnySpiceflow = Spiceflow<any, any, any, any, any, any, any, any>
+
