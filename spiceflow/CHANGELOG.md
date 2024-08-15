@@ -1,5 +1,11 @@
 # spiceflow
 
+## 1.0.2
+
+### Patch Changes
+
+-   Fixes onRequest ordering and many other issues
+
 ## 1.0.1
 
 ### Patch Changes
