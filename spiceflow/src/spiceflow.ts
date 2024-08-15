@@ -992,13 +992,14 @@ export class Spiceflow<
 			if (!route) {
 				return this.onNoMatch(request, platform)
 			}
-			onErrorHandlers = this.getRouteAndParents(route.router).flatMap(
-				(x) => x.onErrorHandlers,
-			)
+			onErrorHandlers = this.getRouteAndParents(route.router)
+				.reverse()
+				.flatMap((x) => x.onErrorHandlers)
 			const { params, store: defaultStore } = route
-			const onReqHandlers = this.getRouteAndParents(route.router).flatMap(
-				(x) => x.onRequestHandlers,
-			)
+			const onReqHandlers = this.getRouteAndParents(route.router)
+				.reverse()
+				.flatMap((x) => x.onRequestHandlers)
+			console.log({ onReqHandlers })
 			let store = { ...defaultStore }
 			// TODO add content type
 
@@ -1088,6 +1089,7 @@ export class Spiceflow<
 		}
 	}
 
+	// get the route parents, the order is starting from the current router and going up to the root
 	private getRouteAndParents(currentRouter?: RouterTree) {
 		const parents: RouterTree[] = []
 		let current = currentRouter
