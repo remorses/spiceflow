@@ -999,7 +999,7 @@ export class Spiceflow<
 			const onReqHandlers = this.getRouteAndParents(route.router)
 				.reverse()
 				.flatMap((x) => x.onRequestHandlers)
-			console.log({ onReqHandlers })
+			// console.log({ onReqHandlers })
 			let store = { ...defaultStore }
 			// TODO add content type
 
