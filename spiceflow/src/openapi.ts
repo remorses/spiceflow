@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 import { JSONSchemaType } from 'ajv'
-import { InternalRoute, Spiceflow } from './spiceflow'
+import { InternalRoute, isZodSchema, Spiceflow } from './spiceflow'
+import { ZodType } from 'zod'
 
 import type { OpenAPIV3 } from 'openapi-types'
 
@@ -416,7 +417,7 @@ export const openapi = <Path extends string = '/openapi'>({
 }
 
 function getJsonSchema(schema: TypeSchema): JSONSchemaType<any> {
-	if (schema instanceof z.ZodType) {
+	if (isZodSchema(schema)) {
 		let jsonSchema = zodToJsonSchema(schema, {})
 		return jsonSchema as any
 	}

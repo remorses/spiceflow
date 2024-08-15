@@ -42,7 +42,7 @@ import { isAsyncIterable } from './utils.js'
 import { redirect } from './elysia-fork/utils.js'
 import { ValidationError } from './elysia-fork/error.js'
 import { zodToJsonSchema } from 'zod-to-json-schema'
-import { z } from 'zod'
+import { z, ZodType } from 'zod'
 
 const ajv = addFormats(new Ajv({ useDefaults: true }), [
 	'date-time',
@@ -162,7 +162,7 @@ export class Spiceflow<
 		let bodySchema: TypeSchema = hooks?.body
 		let validate: ValidateFunction | undefined
 
-		if (bodySchema instanceof z.ZodType) {
+		if (isZodSchema(bodySchema)) {
 			let jsonSchema = zodToJsonSchema(bodySchema, {})
 			validate = ajv.compile(jsonSchema)
 		} else if (bodySchema) {
@@ -1332,3 +1332,15 @@ export async function turnHandlerResultIntoResponse(result: any) {
 }
 
 export type AnySpiceflow = Spiceflow<any, any, any, any, any, any, any, any>
+
+export function isZodSchema(value: unknown): value is ZodType {
+	return (
+		value instanceof z.ZodType ||
+		(typeof value === 'object' &&
+			value !== null &&
+			'parse' in value &&
+			'safeParse' in value &&
+			'optional' in value &&
+			'nullable' in value)
+	)
+}
