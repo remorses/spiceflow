@@ -89,7 +89,10 @@ export type InternalRoute = {
 	path: string
 	handler: InlineHandler<any, any, any>
 	hooks: LocalHook<any, any, any, any, any, any, any>
-	validate?: ValidateFunction
+	validateBody?: ValidateFunction
+	validateQuery?: ValidateFunction
+	validateParams?: ValidateFunction
+
 	prefix: string
 
 	// store: Record<any, any>
@@ -160,15 +163,9 @@ export class Spiceflow<
 		// }
 
 		let bodySchema: TypeSchema = hooks?.body
-		let validate: ValidateFunction | undefined
-
-		if (isZodSchema(bodySchema)) {
-			let jsonSchema = zodToJsonSchema(bodySchema, {})
-			validate = ajv.compile(jsonSchema)
-		} else if (bodySchema) {
-			// console.log(bodySchema)
-			validate = ajv.compile(bodySchema)
-		}
+		let validateBody = getValidateFunction(bodySchema)
+		let validateQuery = getValidateFunction(hooks?.query)
+		let validateParams = getValidateFunction(hooks?.params)
 
 		const store = router.router.register(path)
 		let route: InternalRoute = {
@@ -180,7 +177,9 @@ export class Spiceflow<
 			// prefix,
 			handler: handler!,
 			hooks,
-			validate,
+			validateBody,
+			validateParams,
+			validateQuery,
 		}
 		router.routes.push(route)
 		store[method] = route
@@ -216,7 +215,7 @@ export class Spiceflow<
 
 				const { onErrorHandlers, onRequestHandlers } = router
 				const params = route['params'] || {}
-				// TODO validate params with the params schema
+
 				return {
 					...data,
 					router,
@@ -356,7 +355,7 @@ export class Spiceflow<
 							? ResolvePath<Path>
 							: Schema['params']
 						query: Schema['query']
-						
+
 						response: ComposeSpiceflowResponse<
 							Schema['response'],
 							Handle
@@ -423,7 +422,7 @@ export class Spiceflow<
 							? ResolvePath<Path>
 							: Schema['params']
 						query: Schema['query']
-						
+
 						response: ComposeSpiceflowResponse<
 							Schema['response'],
 							Handle
@@ -488,7 +487,7 @@ export class Spiceflow<
 							? ResolvePath<Path>
 							: Schema['params']
 						query: Schema['query']
-						
+
 						response: ComposeSpiceflowResponse<
 							Schema['response'],
 							Handle
@@ -554,7 +553,7 @@ export class Spiceflow<
 							? ResolvePath<Path>
 							: Schema['params']
 						query: Schema['query']
-						
+
 						response: ComposeSpiceflowResponse<
 							Schema['response'],
 							Handle
@@ -620,7 +619,7 @@ export class Spiceflow<
 							? ResolvePath<Path>
 							: Schema['params']
 						query: Schema['query']
-						
+
 						response: ComposeSpiceflowResponse<
 							Schema['response'],
 							Handle
@@ -686,7 +685,7 @@ export class Spiceflow<
 							? ResolvePath<Path>
 							: Schema['params']
 						query: Schema['query']
-						
+
 						response: ComposeSpiceflowResponse<
 							Schema['response'],
 							Handle
@@ -752,7 +751,7 @@ export class Spiceflow<
 							? ResolvePath<Path>
 							: Schema['params']
 						query: Schema['query']
-						
+
 						response: ComposeSpiceflowResponse<
 							Schema['response'],
 							Handle
@@ -820,7 +819,7 @@ export class Spiceflow<
 							? ResolvePath<Path>
 							: Schema['params']
 						query: Schema['query']
-						
+
 						response: ComposeSpiceflowResponse<
 							Schema['response'],
 							Handle
@@ -997,7 +996,7 @@ export class Spiceflow<
 			onErrorHandlers = this.getRouteAndParents(route.router)
 				.reverse()
 				.flatMap((x) => x.onErrorHandlers)
-			const { params, store: defaultStore } = route
+			let { params, store: defaultStore } = route
 			const onReqHandlers = this.getRouteAndParents(route.router)
 				.reverse()
 				.flatMap((x) => x.onRequestHandlers)
@@ -1008,12 +1007,15 @@ export class Spiceflow<
 			let content = route?.hooks?.content
 			// let body = await getRequestBody({ request, content })
 
-			if (route.validate) {
+			if (route.validateBody) {
 				// TODO don't clone the request
 				let typedRequest = new TypedRequest(request)
-				typedRequest.validate = route.validate
+				typedRequest.validateBody = route.validateBody
 				request = typedRequest
 			}
+
+			let query = parseQuery.parse((u.search || '').slice(1))
+
 			if (onReqHandlers.length > 0) {
 				for (const handler of onReqHandlers) {
 					const res = await handler({
@@ -1021,12 +1023,16 @@ export class Spiceflow<
 						response,
 						store,
 						path,
+						query,
 					} satisfies Context<any, any, any>)
 					if (res) {
 						return await turnHandlerResultIntoResponse(res)
 					}
 				}
 			}
+
+			query = runValidation(query, route.validateQuery)
+			params = runValidation(params, route.validateParams)
 
 			// console.log(route)
 
@@ -1036,6 +1042,7 @@ export class Spiceflow<
 				response,
 				params: params as any,
 				store,
+				query,
 				// body,
 				path,
 
@@ -1282,29 +1289,11 @@ function bfsFind<T>(
 	return
 }
 export class TypedRequest<T = any> extends Request {
-	validate?: ValidateFunction
+	validateBody?: ValidateFunction
 
 	async json(): Promise<T> {
 		const body = (await super.json()) as Promise<T>
-		return this.validateBody(body)
-	}
-
-	// async formData(): Promise<T> {
-	// 	const formData = await super.formData()
-	// 	const body = Object.fromEntries(formData) as T
-	// 	return this.validateBody(body)
-	// }
-
-	private validateBody(body: any): T {
-		if (!this.validate) return body
-		const valid = this.validate(body)
-		if (!valid) {
-			const error = ajv.errorsText(this.validate.errors, {
-				separator: '\n',
-			})
-			throw new ValidationError(error)
-		}
-		return body as T
+		return runValidation(body, this.validateBody)
 	}
 }
 
@@ -1365,4 +1354,27 @@ export function isZodSchema(value: unknown): value is ZodType {
 			'optional' in value &&
 			'nullable' in value)
 	)
+}
+
+function getValidateFunction(schema: TypeSchema) {
+	if (isZodSchema(schema)) {
+		let jsonSchema = zodToJsonSchema(schema, {})
+		return ajv.compile(jsonSchema)
+	}
+
+	if (schema) {
+		return ajv.compile(schema)
+	}
+}
+
+function runValidation(value: any, validate?: ValidateFunction) {
+	if (!validate) return value
+	const valid = validate(value)
+	if (!valid) {
+		const error = ajv.errorsText(validate.errors, {
+			separator: '\n',
+		})
+		throw new ValidationError(error)
+	}
+	return value
 }
