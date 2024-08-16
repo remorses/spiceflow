@@ -34,6 +34,7 @@ test('GET with query, untyped', async () => {
 	expect(res.status).toBe(200)
 	expect(await res.json()).toEqual('hi')
 })
+
 test('GET with query, zod, fails validation', async () => {
 	const res = await new Spiceflow()
 		.get(
@@ -50,6 +51,7 @@ test('GET with query, zod, fails validation', async () => {
 		.handle(new Request('http://localhost/query?id=hi', { method: 'GET' }))
 	expect(res.status).toBe(422)
 })
+
 test('GET with query and zod', async () => {
 	const res = await new Spiceflow()
 		.get(

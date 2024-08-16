@@ -130,7 +130,7 @@ export type Context<
 		 *
 		 * @example '/id/:id'
 		 */
-		route: string
+		// route: string
 		request: TypedRequest<Route['body']>
 		store: Singleton['store']
 		response?: Route['response']
