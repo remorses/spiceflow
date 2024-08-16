@@ -24,6 +24,36 @@ test('GET dynamic route', async () => {
 	expect(res.status).toBe(200)
 	expect(await res.json()).toEqual('hi')
 })
+
+test('GET with query, untyped', async () => {
+	const res = await new Spiceflow()
+		.get('/query', ({ query }) => {
+			return query.id
+		})
+		.handle(new Request('http://localhost/ids?id=hi', { method: 'GET' }))
+	expect(res.status).toBe(200)
+	expect(await res.json()).toEqual('hi')
+})
+test('GET with query and zod', async () => {
+	const res = await new Spiceflow()
+		.get(
+			'/query',
+			({ query }) => {
+				return query.id
+				// @ts-expect-error
+				void query.sdfsd
+			},
+			{
+				query: z.object({
+					id: z.string(),
+				}),
+			},
+		)
+		.handle(new Request('http://localhost/ids?id=hi', { method: 'GET' }))
+	expect(res.status).toBe(200)
+	expect(await res.json()).toEqual('hi')
+})
+
 test('GET dynamic route, params are typed', async () => {
 	const res = await new Spiceflow()
 		.get('/ids/:id', ({ params }) => {

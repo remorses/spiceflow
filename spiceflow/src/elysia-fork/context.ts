@@ -32,9 +32,9 @@ export type ErrorContext<
 > = Prettify<
 	{
 		// body: Route['body']
-		// query: undefined extends Route['query']
-		// 	? Record<string, string | undefined>
-		// 	: Route['query']
+		query: undefined extends Route['query']
+			? Record<string, string | undefined>
+			: Route['query']
 		params: undefined extends Route['params']
 			? Path extends `${string}/${':' | '*'}${string}`
 				? ResolvePath<Path>
@@ -80,7 +80,9 @@ export type Context<
 > = Prettify<
 	{
 		// body: Route['body']
-
+		query: undefined extends Route['query']
+			? Record<string, string | undefined>
+			: Route['query']
 		params: undefined extends Route['params']
 			? Path extends `${string}/${':' | '*'}${string}`
 				? ResolvePath<Path>
