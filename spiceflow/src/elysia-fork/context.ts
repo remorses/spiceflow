@@ -11,7 +11,7 @@ import type {
 	SingletonBase,
 	HTTPHeaders,
 } from './types.js'
-import { error } from './error.js'
+
 import { TypedRequest } from '../spiceflow.js'
 
 type InvertedStatusMapKey = keyof InvertedStatusMap
@@ -32,9 +32,9 @@ export type ErrorContext<
 > = Prettify<
 	{
 		// body: Route['body']
-		query: undefined extends Route['query']
-			? Record<string, string | undefined>
-			: Route['query']
+		// query: undefined extends Route['query']
+		// 	? Record<string, string | undefined>
+		// 	: Route['query']
 		params: undefined extends Route['params']
 			? Path extends `${string}/${':' | '*'}${string}`
 				? ResolvePath<Path>
@@ -132,40 +132,7 @@ export type Context<
 		request: TypedRequest<Route['body']>
 		store: Singleton['store']
 		response?: Route['response']
-	} & ({} extends Route['response']
-		? {
-				error: typeof error
-		  }
-		: {
-				error: <
-					const Code extends
-						| keyof Route['response']
-						| InvertedStatusMap[Extract<
-								InvertedStatusMapKey,
-								keyof Route['response']
-						  >],
-					const T extends Code extends keyof Route['response']
-						? Route['response'][Code]
-						: Code extends keyof StatusMap
-						? // @ts-ignore StatusMap[Code] always valid because Code generic check
-						  Route['response'][StatusMap[Code]]
-						: never,
-				>(
-					code: Code,
-					response: T,
-				) => {
-					// [ELYSIA_RESPONSE]: Code extends keyof StatusMap
-					// 	? StatusMap[Code]
-					// 	: Code
-					response: T
-					_type: {
-						[ERROR_CODE in Code extends keyof StatusMap
-							? StatusMap[Code]
-							: Code]: T
-					}
-				}
-		  }) &
-		Singleton['decorator'] &
+	} & Singleton['decorator'] &
 		Singleton['derive'] &
 		Singleton['resolve']
 >
@@ -192,6 +159,6 @@ export type PreContext<
 		// 	redirect?: string
 		// }
 
-		error: typeof error
+		// error: typeof error
 	} & Singleton['decorator']
 >

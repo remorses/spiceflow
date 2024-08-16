@@ -19,10 +19,13 @@ import { Spiceflow } from '../spiceflow'
 import type { Context, ErrorContext, PreContext } from './context'
 import {
 	ELYSIA_RESPONSE,
+	
 	InternalServerError,
-	InvalidCookieSignature,
+	
 	NotFoundError,
+	
 	ParseError,
+	
 	ValidationError,
 } from './error'
 import { ZodTypeAny } from 'zod'
@@ -686,22 +689,22 @@ export type ErrorHandler<
 								Volatile['resolve']
 						>
 			  >
-			| Prettify<
-					{
-						request: Request
-						code: 'INVALID_COOKIE_SIGNATURE'
-						error: Readonly<InvalidCookieSignature>
-					} & NeverKey<
-						Singleton['derive'] &
-							Ephemeral['derive'] &
-							Volatile['derive']
-					> &
-						NeverKey<
-							Singleton['derive'] &
-								Ephemeral['resolve'] &
-								Volatile['resolve']
-						>
-			  >
+			// | Prettify<
+			// 		{
+			// 			request: Request
+			// 			code: 'INVALID_COOKIE_SIGNATURE'
+			// 			error: Readonly<InvalidCookieSignature>
+			// 		} & NeverKey<
+			// 			Singleton['derive'] &
+			// 				Ephemeral['derive'] &
+			// 				Volatile['derive']
+			// 		> &
+			// 			NeverKey<
+			// 				Singleton['derive'] &
+			// 					Ephemeral['resolve'] &
+			// 					Volatile['resolve']
+			// 			>
+			//   >
 			| Prettify<
 					{
 						[K in keyof T]: {

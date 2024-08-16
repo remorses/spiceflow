@@ -101,7 +101,7 @@ test('validate body works, request fails', async () => {
 
 		.post(
 			'/post',
-			async ({ request, redirect, error }) => {
+			async ({ request, redirect }) => {
 				// console.log({request})
 				let body = await request.json()
 				expect(body).toEqual({ name: 'John' })
@@ -122,7 +122,7 @@ test('validate body works, request fails', async () => {
 				body: JSON.stringify({ name: 'John' }),
 			}),
 		)
-	expect(res.status).toBe(400)
+	expect(res.status).toBe(422)
 	expect(await res.text()).toMatchInlineSnapshot(
 		`"data must have required property 'requiredField'"`,
 	)

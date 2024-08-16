@@ -1050,14 +1050,16 @@ export class Spiceflow<
 
 			return await turnHandlerResultIntoResponse(res)
 		} catch (err: any) {
+			if (err instanceof Response) return err
 			let res = await this.runErrorHandlers({
 				onErrorHandlers,
 				error: err,
 				request,
 			})
 			if (res) return res
+			let status = err?.status ?? 500
 			return new Response(err?.message || 'Internal Server Error', {
-				status: 500,
+				status,
 			})
 		}
 	}
@@ -1299,7 +1301,7 @@ export class TypedRequest<T = any> extends Request {
 			const error = ajv.errorsText(this.validate.errors, {
 				separator: '\n',
 			})
-			throw new Error(error) // TODO: use validation error class
+			throw new ValidationError(error)
 		}
 		return body as T
 	}
