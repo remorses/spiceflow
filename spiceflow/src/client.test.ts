@@ -116,7 +116,7 @@ const client = createSpiceflowClient(app)
 
 describe('client', () => {
 	it('get index', async () => {
-		const { data, error } = await client.index.get()
+		const { data, error } = await client.index.get({})
 
 		expect(data).toBe('a')
 		expect(error).toBeNull()

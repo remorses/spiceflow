@@ -356,7 +356,7 @@ export class Spiceflow<
 							? ResolvePath<Path>
 							: Schema['params']
 						query: Schema['query']
-						headers: Schema['headers']
+						
 						response: ComposeSpiceflowResponse<
 							Schema['response'],
 							Handle
@@ -423,7 +423,7 @@ export class Spiceflow<
 							? ResolvePath<Path>
 							: Schema['params']
 						query: Schema['query']
-						headers: Schema['headers']
+						
 						response: ComposeSpiceflowResponse<
 							Schema['response'],
 							Handle
@@ -488,7 +488,7 @@ export class Spiceflow<
 							? ResolvePath<Path>
 							: Schema['params']
 						query: Schema['query']
-						headers: Schema['headers']
+						
 						response: ComposeSpiceflowResponse<
 							Schema['response'],
 							Handle
@@ -554,7 +554,7 @@ export class Spiceflow<
 							? ResolvePath<Path>
 							: Schema['params']
 						query: Schema['query']
-						headers: Schema['headers']
+						
 						response: ComposeSpiceflowResponse<
 							Schema['response'],
 							Handle
@@ -620,7 +620,7 @@ export class Spiceflow<
 							? ResolvePath<Path>
 							: Schema['params']
 						query: Schema['query']
-						headers: Schema['headers']
+						
 						response: ComposeSpiceflowResponse<
 							Schema['response'],
 							Handle
@@ -686,7 +686,7 @@ export class Spiceflow<
 							? ResolvePath<Path>
 							: Schema['params']
 						query: Schema['query']
-						headers: Schema['headers']
+						
 						response: ComposeSpiceflowResponse<
 							Schema['response'],
 							Handle
@@ -752,7 +752,7 @@ export class Spiceflow<
 							? ResolvePath<Path>
 							: Schema['params']
 						query: Schema['query']
-						headers: Schema['headers']
+						
 						response: ComposeSpiceflowResponse<
 							Schema['response'],
 							Handle
@@ -820,7 +820,7 @@ export class Spiceflow<
 							? ResolvePath<Path>
 							: Schema['params']
 						query: Schema['query']
-						headers: Schema['headers']
+						
 						response: ComposeSpiceflowResponse<
 							Schema['response'],
 							Handle

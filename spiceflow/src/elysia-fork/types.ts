@@ -8,6 +8,7 @@ import type {
 	Static,
 	StaticDecode,
 	TAnySchema,
+	TObject,
 	TSchema,
 } from '@sinclair/typebox'
 import type { TypeCheck, ValueError } from '@sinclair/typebox/compiler'
@@ -19,16 +20,12 @@ import { Spiceflow } from '../spiceflow'
 import type { Context, ErrorContext, PreContext } from './context'
 import {
 	ELYSIA_RESPONSE,
-	
 	InternalServerError,
-	
 	NotFoundError,
-	
 	ParseError,
-	
 	ValidationError,
 } from './error'
-import { ZodTypeAny } from 'zod'
+import { ZodTypeAny, ZodObject } from 'zod'
 
 export type MaybeArray<T> = T | T[]
 export type MaybePromise<T> = T | Promise<T>
@@ -177,10 +174,10 @@ export interface MetadataBase {
 
 export interface RouteSchema {
 	body?: unknown
-	headers?: unknown
+	// headers?: unknown
 	query?: unknown
 	params?: unknown
-	cookie?: unknown
+	// cookie?: unknown
 	response?: unknown
 }
 
@@ -189,6 +186,8 @@ type OptionalField = {
 }
 
 export type TypeSchema = TSchema | ZodTypeAny
+
+export type TypeObject = TObject | ZodObject<any, any, any>
 
 export type UnwrapSchema<
 	Schema extends TypeSchema | string | undefined,
@@ -213,7 +212,7 @@ export interface UnwrapRoute<
 > {
 	body: UnwrapSchema<Schema['body'], Definitions>
 	// headers: UnwrapSchema<Schema['headers'], Definitions>
-	// query: UnwrapSchema<Schema['query'], Definitions>
+	query: UnwrapSchema<Schema['query'], Definitions>
 	params: UnwrapSchema<Schema['params'], Definitions>
 	// cookie: UnwrapSchema<Schema['cookie'], Definitions>
 	response: Schema['response'] extends TypeSchema | string
@@ -323,8 +322,8 @@ export type HTTPMethod =
 export interface InputSchema<Name extends string = string> {
 	body?: TypeSchema | Name
 	// headers?: TObject | TNull | TUndefined | Name
-	// query?: TObject | TNull | TUndefined | Name
-	params?: TypeSchema | Name
+	query?: TypeObject | Name
+	params?: TypeObject | Name
 	// cookie?: TObject | TNull | TUndefined | Name
 	response?:
 		| TypeSchema
@@ -338,10 +337,10 @@ export interface MergeSchema<
 	in out B extends RouteSchema,
 > {
 	body: undefined extends A['body'] ? B['body'] : A['body']
-	headers: undefined extends A['headers'] ? B['headers'] : A['headers']
+	// headers: undefined extends A['headers'] ? B['headers'] : A['headers']
 	query: undefined extends A['query'] ? B['query'] : A['query']
 	params: undefined extends A['params'] ? B['params'] : A['params']
-	cookie: undefined extends A['cookie'] ? B['cookie'] : A['cookie']
+	// cookie: undefined extends A['cookie'] ? B['cookie'] : A['cookie']
 	response: {} extends A['response']
 		? {} extends B['response']
 			? {}

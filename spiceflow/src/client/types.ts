@@ -32,7 +32,7 @@ type And<A extends boolean, B extends boolean> = A extends true
 	: false
 
 type ReplaceGeneratorWithAsyncGenerator<
-	in out RecordType extends Record<string, unknown>
+	in out RecordType extends Record<string, unknown>,
 > = {
 	[K in keyof RecordType]: RecordType[K] extends Generator<
 		infer A,
@@ -62,7 +62,7 @@ export namespace SpiceflowClient {
 	}
 
 	export type Create<
-		App extends Spiceflow<any, any, any, any, any, any, any, any>
+		App extends Spiceflow<any, any, any, any, any, any, any, any>,
 	> = App extends {
 		_routes: infer Schema extends Record<string, any>
 	}
@@ -89,24 +89,19 @@ export namespace SpiceflowClient {
 				: never
 			: Route[K] extends {
 					body: infer Body
-					headers: infer Headers
+					// headers: infer Headers
 					params: any
 					query: infer Query
 					response: infer Response extends Record<number, unknown>
 			  }
-			? (undefined extends Headers
-					? { headers?: Record<string, unknown> }
-					: {
-							headers: Headers
-					  }) &
-					(undefined extends Query
-						? { query?: Record<string, unknown> }
-						: { query: Query }) extends infer Param
+			? { headers?: Record<string, unknown> } & (undefined extends Query
+					? { query?: Record<string, unknown> }
+					: { query: Query }) extends infer Param
 				? {} extends Param
 					? undefined extends Body
 						? K extends 'get' | 'head'
 							? (
-									options?: Prettify<Param & TreatyParam>
+									options?: Prettify<Param & TreatyParam>,
 							  ) => Promise<
 									TreatyResponse<
 										ReplaceGeneratorWithAsyncGenerator<Response>
@@ -114,7 +109,7 @@ export namespace SpiceflowClient {
 							  >
 							: (
 									body?: Body,
-									options?: Prettify<Param & TreatyParam>
+									options?: Prettify<Param & TreatyParam>,
 							  ) => Promise<
 									TreatyResponse<
 										ReplaceGeneratorWithAsyncGenerator<Response>
@@ -124,7 +119,7 @@ export namespace SpiceflowClient {
 								body: Body extends Record<string, unknown>
 									? ReplaceBlobWithFiles<Body>
 									: Body,
-								options?: Prettify<Param & TreatyParam>
+								options?: Prettify<Param & TreatyParam>,
 						  ) => Promise<
 								TreatyResponse<
 									ReplaceGeneratorWithAsyncGenerator<Response>
@@ -132,7 +127,7 @@ export namespace SpiceflowClient {
 						  >
 					: K extends 'get' | 'head'
 					? (
-							options: Prettify<Param & TreatyParam>
+							options: Prettify<Param & TreatyParam>,
 					  ) => Promise<
 							TreatyResponse<
 								ReplaceGeneratorWithAsyncGenerator<Response>
@@ -142,7 +137,7 @@ export namespace SpiceflowClient {
 							body: Body extends Record<string, unknown>
 								? ReplaceBlobWithFiles<Body>
 								: Body,
-							options: Prettify<Param & TreatyParam>
+							options: Prettify<Param & TreatyParam>,
 					  ) => Promise<
 							TreatyResponse<
 								ReplaceGeneratorWithAsyncGenerator<Response>
@@ -179,13 +174,13 @@ export namespace SpiceflowClient {
 			| RequestInit['headers']
 			| ((
 					path: string,
-					options: RequestInit
+					options: RequestInit,
 			  ) => RequestInit['headers'] | void)
 		>
 		onRequest?: MaybeArray<
 			(
 				path: string,
-				options: RequestInit
+				options: RequestInit,
 			) => MaybePromise<RequestInit | void>
 		>
 		onResponse?: MaybeArray<(response: Response) => MaybePromise<unknown>>
@@ -226,7 +221,7 @@ export namespace SpiceflowClient {
 
 	export type WSEvent<
 		K extends keyof WebSocketEventMap,
-		Data = unknown
+		Data = unknown,
 	> = K extends 'message' ? OnMessage<Data> : WebSocketEventMap[K]
 }
 
