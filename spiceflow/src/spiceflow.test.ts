@@ -28,12 +28,27 @@ test('GET dynamic route', async () => {
 test('GET with query, untyped', async () => {
 	const res = await new Spiceflow()
 		.get('/query', ({ query }) => {
-			
 			return query.id
 		})
 		.handle(new Request('http://localhost/query?id=hi', { method: 'GET' }))
 	expect(res.status).toBe(200)
 	expect(await res.json()).toEqual('hi')
+})
+test('GET with query, zod, fails validation', async () => {
+	const res = await new Spiceflow()
+		.get(
+			'/query',
+			({ query }) => {
+				return query.id
+			},
+			{
+				query: z.object({
+					id: z.number(),
+				}),
+			},
+		)
+		.handle(new Request('http://localhost/query?id=hi', { method: 'GET' }))
+	expect(res.status).toBe(422)
 })
 test('GET with query and zod', async () => {
 	const res = await new Spiceflow()
