@@ -1,7 +1,7 @@
 import type {
 	StatusMap,
 	InvertedStatusMap,
-	redirect as Redirect
+	redirect as Redirect,
 } from './utils.js'
 
 import type {
@@ -9,9 +9,10 @@ import type {
 	Prettify,
 	ResolvePath,
 	SingletonBase,
-	HTTPHeaders
+	HTTPHeaders,
 } from './types.js'
 import { error } from './error.js'
+import { TypedRequest } from '../spiceflow.js'
 
 type InvertedStatusMapKey = keyof InvertedStatusMap
 
@@ -27,10 +28,10 @@ export type ErrorContext<
 		derive: {}
 		resolve: {}
 	},
-	Path extends string = ''
+	Path extends string = '',
 > = Prettify<
 	{
-		body: Route['body']
+		// body: Route['body']
 		query: undefined extends Route['query']
 			? Record<string, string | undefined>
 			: Route['query']
@@ -58,10 +59,10 @@ export type ErrorContext<
 		 *
 		 * @example '/id/:id'
 		 */
-		route: string
-		request: Request
+		// route: string
+		request: TypedRequest<Route['body']>
 		store: Singleton['store']
-		response: Route['response']
+		// response: Route['response']
 	} & Singleton['decorator'] &
 		Singleton['derive'] &
 		Singleton['resolve']
@@ -75,10 +76,10 @@ export type Context<
 		derive: {}
 		resolve: {}
 	},
-	Path extends string = ''
+	Path extends string = '',
 > = Prettify<
 	{
-		body: Route['body']
+		// body: Route['body']
 
 		params: undefined extends Route['params']
 			? Path extends `${string}/${':' | '*'}${string}`
@@ -128,7 +129,7 @@ export type Context<
 		 * @example '/id/:id'
 		 */
 		route: string
-		request: Request
+		request: TypedRequest<Route['body']>
 		store: Singleton['store']
 		response?: Route['response']
 	} & ({} extends Route['response']
@@ -148,10 +149,10 @@ export type Context<
 						: Code extends keyof StatusMap
 						? // @ts-ignore StatusMap[Code] always valid because Code generic check
 						  Route['response'][StatusMap[Code]]
-						: never
+						: never,
 				>(
 					code: Code,
-					response: T
+					response: T,
 				) => {
 					// [ELYSIA_RESPONSE]: Code extends keyof StatusMap
 					// 	? StatusMap[Code]
@@ -176,7 +177,7 @@ export type PreContext<
 		store: {}
 		derive: {}
 		resolve: {}
-	}
+	},
 > = Prettify<
 	{
 		store: Singleton['store']

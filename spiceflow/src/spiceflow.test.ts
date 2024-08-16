@@ -48,9 +48,9 @@ test('body is parsed as json', async () => {
 	const res = await new Spiceflow()
 		.state('id', '')
 
-		.post('/post', (c) => {
-			body = c.body
-			// console.log({ body })
+		.post('/post', async (c) => {
+			body = await c.request.json()
+			// console.log({request})
 			return body
 		})
 		.handle(
@@ -71,8 +71,9 @@ test('validate body works, request success', async () => {
 
 		.post(
 			'/post',
-			({ body }) => {
-				// console.log({ body })
+			async ({ request }) => {
+				// console.log({request})
+				let body = await request.json()
 				expect(body).toEqual({ name: 'John' })
 				return 'ok'
 			},
@@ -100,8 +101,9 @@ test('validate body works, request fails', async () => {
 
 		.post(
 			'/post',
-			({ body, redirect, error }) => {
-				// console.log({ body })
+			async ({ request, redirect, error }) => {
+				// console.log({request})
+				let body = await request.json()
 				expect(body).toEqual({ name: 'John' })
 			},
 			{

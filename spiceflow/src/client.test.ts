@@ -9,7 +9,7 @@ const randomObject = {
 	c: true,
 	d: false,
 	e: null,
-	f: new Date(0)
+	f: new Date(0),
 }
 const randomArray = [
 	'a',
@@ -18,7 +18,7 @@ const randomArray = [
 	false,
 	null,
 	new Date(0),
-	{ a: 'a', b: 2, c: true, d: false, e: null, f: new Date(0) }
+	{ a: 'a', b: 2, c: true, d: false, e: null, f: new Date(0) },
 ]
 
 const app = new Spiceflow()
@@ -27,22 +27,30 @@ const app = new Spiceflow()
 	.get('/number', () => 1)
 	.get('/true', () => true)
 	.get('/false', () => false)
-	.post('/array', ({ body }) => body, {
-		body: t.Array(t.String())
+	.post('/array', async ({ request }) => await request.json(), {
+		body: t.Array(t.String()),
 	})
-	.post('/mirror', ({ body }) => body)
-	.post('/body', ({ body }) => body, {
-		body: t.String()
+	.post('/mirror', async ({ request }) => await request.json())
+	.post('/body', async ({ request }) => await request.text(), {
+		body: t.String(),
 	})
-	.delete('/empty', ({ body }) => ({ body: body ?? null }))
-	.post('/deep/nested/mirror', ({ body }) => body, {
+	.delete('/empty', async ({ request }) => {
+		const body = await request.text()
+		return { body: body || null }
+	})
+	.post('/deep/nested/mirror', async ({ request }) => await request.json(), {
 		body: t.Object({
 			username: t.String(),
-			password: t.String()
-		})
+			password: t.String(),
+		}),
 	})
 
-	.use(new Spiceflow({ basePath: '/nested' }).get('/data', ({ params }) => 'hi'))
+	.use(
+		new Spiceflow({ basePath: '/nested' }).get(
+			'/data',
+			({ params }) => 'hi',
+		),
+	)
 	// .get('/error', ({ error }) => error("I'm a teapot", 'Kirifuji Nagisa'), {
 	// 	response: {
 	// 		200: t.Void(),
@@ -59,10 +67,10 @@ const app = new Spiceflow()
 		{
 			response: {
 				200: t.Object({
-					x: t.String()
-				})
-			}
-		}
+					x: t.String(),
+				}),
+			},
+		},
 	)
 
 	// TODO ajv does not accept dates for some reason
@@ -78,9 +86,9 @@ const app = new Spiceflow()
 		({ redirect }) => redirect('http://localhost:8083/true'),
 		{
 			body: t.Object({
-				username: t.String()
-			})
-		}
+				username: t.String(),
+			}),
+		},
 	)
 	// .get('/formdata', () => ({
 	// 	image: Bun.file('./test/kyuukurarin.mp4')

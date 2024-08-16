@@ -11,13 +11,14 @@ test('body is parsed as json', async () => {
 
 		.post(
 			'/post',
-			(c) => {
-				name = c.body.name
+			async (c) => {
+				const body = await c.request.json()
+				name = body.name
 				// @ts-expect-error
-				c.body.nonExistingField
+				body.nonExistingField
 				return {
 					name,
-					nameEcho: c.body.name,
+					nameEcho: body.name,
 					// add: 3,
 				}
 			},
@@ -33,13 +34,14 @@ test('body is parsed as json', async () => {
 		)
 		.post(
 			'/post2',
-			(c) => {
-				name = c.body.name
+			async (c) => {
+				const body = await c.request.json()
+				name = body.name
 				// @ts-expect-error
-				c.body.nonExistingField
+				body.nonExistingField
 				return {
 					name,
-					nameEcho: c.body.name,
+					nameEcho: body.name,
 				}
 			},
 			{

@@ -976,6 +976,7 @@ export class Spiceflow<
 	 */
 	async handle(request: Request, platform?: P): Promise<Response> {
 		platform ??= {} as P
+
 		let u = new URL(request.url)
 		let path = u.pathname + u.search
 		const defaultContext = {
@@ -1004,24 +1005,13 @@ export class Spiceflow<
 			// TODO add content type
 
 			let content = route?.hooks?.content
-			let body = await getRequestBody({ request, content })
+			// let body = await getRequestBody({ request, content })
 
 			if (route.validate) {
 				// TODO move compile to the router
-
-				const valid = route.validate(body)
-				if (!valid) {
-					const error = ajv.errorsText(route.validate.errors, {
-						separator: '\n',
-					})
-
-					return new Response(error, {
-						status: 400,
-						headers: {
-							'content-type': 'text/plain',
-						},
-					})
-				}
+				let typedRequest = new TypedRequest(request)
+				typedRequest.validate = route.validate
+				request = typedRequest
 			}
 			if (onReqHandlers.length > 0) {
 				for (const handler of onReqHandlers) {
@@ -1045,7 +1035,7 @@ export class Spiceflow<
 				response,
 				params: params as any,
 				store,
-				body,
+				// body,
 				path,
 
 				// platform
@@ -1288,6 +1278,23 @@ function bfsFind<T>(
 	}
 	return
 }
+export class TypedRequest<T> extends Request {
+	validate?: ValidateFunction
+	async json(): Promise<T> {
+		const body = (await super.json()) as Promise<T>
+		if (!this.validate) return body
+		const valid = this.validate?.(body)
+		if (!valid) {
+			const error = ajv.errorsText(this.validate?.errors, {
+				separator: '\n',
+			})
+			// TODO use validation error class
+			throw new Error(error)
+		}
+		return body
+	}
+}
+
 export function bfs(tree: RouterTree) {
 	const queue = [tree]
 	let nodes: RouterTree[] = []
