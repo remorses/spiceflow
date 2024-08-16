@@ -1008,7 +1008,7 @@ export class Spiceflow<
 			// let body = await getRequestBody({ request, content })
 
 			if (route.validate) {
-				// TODO move compile to the router
+				// TODO don't clone the request
 				let typedRequest = new TypedRequest(request)
 				typedRequest.validate = route.validate
 				request = typedRequest
@@ -1191,59 +1191,59 @@ export class Spiceflow<
 	}
 }
 
-async function getRequestBody({
-	request,
-	content,
-}: {
-	content
-	request: Request
-}) {
-	let body: string | Record<string, any> | undefined
-	if (request.method === 'GET' || request.method === 'HEAD') {
-		return
-	}
+// async function getRequestBody({
+// 	request,
+// 	content,
+// }: {
+// 	content
+// 	request: Request
+// }) {
+// 	let body: string | Record<string, any> | undefined
+// 	if (request.method === 'GET' || request.method === 'HEAD') {
+// 		return
+// 	}
 
-	const contentType =
-		content || request.headers.get('content-type')?.split(';')?.[0]
+// 	const contentType =
+// 		content || request.headers.get('content-type')?.split(';')?.[0]
 
-	if (!contentType) {
-		return
-	}
+// 	if (!contentType) {
+// 		return
+// 	}
 
-	switch (contentType) {
-		case 'application/json':
-			body = (await request.json()) as any
-			break
+// 	switch (contentType) {
+// 		case 'application/json':
+// 			body = (await request.json()) as any
+// 			break
 
-		case 'text/plain':
-			body = await request.text()
-			break
+// 		case 'text/plain':
+// 			body = await request.text()
+// 			break
 
-		case 'application/x-www-form-urlencoded':
-			body = parseQuery.parse(await request.text()) as any
-			break
+// 		case 'application/x-www-form-urlencoded':
+// 			body = parseQuery.parse(await request.text()) as any
+// 			break
 
-		case 'application/octet-stream':
-			body = await request.arrayBuffer()
-			break
+// 		case 'application/octet-stream':
+// 			body = await request.arrayBuffer()
+// 			break
 
-		case 'multipart/form-data':
-			body = {}
+// 		case 'multipart/form-data':
+// 			body = {}
 
-			const form = await request.formData()
-			for (const key of form.keys()) {
-				if (body[key]) continue
+// 			const form = await request.formData()
+// 			for (const key of form.keys()) {
+// 				if (body[key]) continue
 
-				const value = form.getAll(key)
-				if (value.length === 1) body[key] = value[0]
-				else body[key] = value
-			}
+// 				const value = form.getAll(key)
+// 				if (value.length === 1) body[key] = value[0]
+// 				else body[key] = value
+// 			}
 
-			break
-	}
+// 			break
+// 	}
 
-	return body
-}
+// 	return body
+// }
 
 const METHODS = [
 	'ALL',
@@ -1278,20 +1278,30 @@ function bfsFind<T>(
 	}
 	return
 }
-export class TypedRequest<T> extends Request {
+export class TypedRequest<T = any> extends Request {
 	validate?: ValidateFunction
+
 	async json(): Promise<T> {
 		const body = (await super.json()) as Promise<T>
+		return this.validateBody(body)
+	}
+
+	// async formData(): Promise<T> {
+	// 	const formData = await super.formData()
+	// 	const body = Object.fromEntries(formData) as T
+	// 	return this.validateBody(body)
+	// }
+
+	private validateBody(body: any): T {
 		if (!this.validate) return body
-		const valid = this.validate?.(body)
+		const valid = this.validate(body)
 		if (!valid) {
-			const error = ajv.errorsText(this.validate?.errors, {
+			const error = ajv.errorsText(this.validate.errors, {
 				separator: '\n',
 			})
-			// TODO use validation error class
-			throw new Error(error)
+			throw new Error(error) // TODO: use validation error class
 		}
-		return body
+		return body as T
 	}
 }
 
