@@ -214,7 +214,7 @@ export interface UnwrapRoute<
 	body: UnwrapSchema<Schema['body'], Definitions>
 	// headers: UnwrapSchema<Schema['headers'], Definitions>
 	// query: UnwrapSchema<Schema['query'], Definitions>
-	// params: UnwrapSchema<Schema['params'], Definitions>
+	params: UnwrapSchema<Schema['params'], Definitions>
 	// cookie: UnwrapSchema<Schema['cookie'], Definitions>
 	response: Schema['response'] extends TypeSchema | string
 		? {
@@ -324,7 +324,7 @@ export interface InputSchema<Name extends string = string> {
 	body?: TypeSchema | Name
 	// headers?: TObject | TNull | TUndefined | Name
 	// query?: TObject | TNull | TUndefined | Name
-	// params?: TObject | TNull | TUndefined | Name
+	params?: TypeSchema | Name
 	// cookie?: TObject | TNull | TUndefined | Name
 	response?:
 		| TypeSchema

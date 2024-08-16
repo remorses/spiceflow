@@ -216,6 +216,7 @@ export class Spiceflow<
 
 				const { onErrorHandlers, onRequestHandlers } = router
 				const params = route['params'] || {}
+				// TODO validate params with the params schema
 				return {
 					...data,
 					router,
