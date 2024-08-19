@@ -1,5 +1,5 @@
-import { createSpiceflowClient } from './client'
-import { Spiceflow, t } from './spiceflow'
+import { createSpiceflowClient } from './client/index.js'
+import { Spiceflow, t } from './spiceflow.js'
 
 import { describe, expect, it } from 'vitest'
 

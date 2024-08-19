@@ -16,15 +16,15 @@ import type { BunFile, Server } from 'bun'
 
 import type { OpenAPIV3 } from 'openapi-types'
 
-import { Spiceflow } from '../spiceflow'
-import type { Context, ErrorContext, PreContext } from './context'
+import { Spiceflow } from '../spiceflow.js'
+import type { Context, ErrorContext, PreContext } from './context.js'
 import {
 	ELYSIA_RESPONSE,
 	InternalServerError,
 	NotFoundError,
 	ParseError,
 	ValidationError,
-} from './error'
+} from './error.js'
 import { ZodTypeAny, ZodObject } from 'zod'
 
 export type MaybeArray<T> = T | T[]

@@ -1,9 +1,9 @@
 /// <reference lib="dom" />
-import type { Spiceflow } from '../spiceflow'
+import type { Spiceflow } from '../spiceflow.js'
 // import { EdenWS } from './ws'
 // import type { IsNever, Not, Prettify } from '../types'
-import { EdenFetchError } from './errors'
-import { EdenWS } from './ws'
+import { EdenFetchError } from './errors.js'
+import { EdenWS } from './ws.js'
 
 export type Prettify<T> = {
 	[K in keyof T]: T[K]

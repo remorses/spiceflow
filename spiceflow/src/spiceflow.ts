@@ -44,22 +44,25 @@ import { ValidationError } from './elysia-fork/error.js'
 import { zodToJsonSchema } from 'zod-to-json-schema'
 import { z, ZodType } from 'zod'
 
-const ajv = addFormats(new Ajv({ useDefaults: true }), [
-	'date-time',
-	'time',
-	'date',
-	'email',
-	'hostname',
-	'ipv4',
-	'ipv6',
-	'uri',
-	'uri-reference',
-	'uuid',
-	'uri-template',
-	'json-pointer',
-	'relative-json-pointer',
-	'regex',
-])
+const ajv = (addFormats.default || addFormats)(
+	new (Ajv.default || Ajv)({ useDefaults: true }),
+	[
+		'date-time',
+		'time',
+		'date',
+		'email',
+		'hostname',
+		'ipv4',
+		'ipv6',
+		'uri',
+		'uri-reference',
+		'uuid',
+		'uri-template',
+		'json-pointer',
+		'relative-json-pointer',
+		'regex',
+	],
+)
 
 // Should be exported from `hono/router`
 

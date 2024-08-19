@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 import { JSONSchemaType } from 'ajv'
-import { InternalRoute, isZodSchema, Spiceflow } from './spiceflow'
+import { InternalRoute, isZodSchema, Spiceflow } from './spiceflow.js'
 import { ZodType } from 'zod'
 
 import type { OpenAPIV3 } from 'openapi-types'
@@ -8,7 +8,7 @@ import type { OpenAPIV3 } from 'openapi-types'
 let excludeMethods = ['OPTIONS']
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import type { HTTPMethod, LocalHook, TypeSchema } from './elysia-fork/types'
+import type { HTTPMethod, LocalHook, TypeSchema } from './elysia-fork/types.js'
 
 import { Kind, type TSchema } from '@sinclair/typebox'
 
@@ -418,7 +418,8 @@ export const openapi = <Path extends string = '/openapi'>({
 
 function getJsonSchema(schema: TypeSchema): JSONSchemaType<any> {
 	if (isZodSchema(schema)) {
-		let jsonSchema = zodToJsonSchema(schema, {})
+		let fn = zodToJsonSchema.default ?? zodToJsonSchema
+		let jsonSchema = fn(schema, {})
 		return jsonSchema as any
 	}
 

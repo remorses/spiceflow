@@ -1,7 +1,7 @@
 import { test, describe, expect } from 'vitest'
 import { Type } from '@sinclair/typebox'
-import { Spiceflow } from './spiceflow'
-import { req } from './utils'
+import { Spiceflow } from './spiceflow.js'
+import { req } from './utils.js'
 import { z } from 'zod'
 
 test('body is parsed as json', async () => {

@@ -1,16 +1,16 @@
 /* eslint-disable no-extra-semi */
 /* eslint-disable no-case-declarations */
 /* eslint-disable prefer-const */
-import type { Spiceflow } from '../spiceflow'
+import type { Spiceflow } from '../spiceflow.js'
 import { EventSourceParserStream } from 'eventsource-parser/stream'
 
-import type { SpiceflowClient } from './types'
+import type { SpiceflowClient } from './types.js'
 
 export { SpiceflowClient }
 
-import { EdenFetchError } from './errors'
+import { EdenFetchError } from './errors.js'
 // import { EdenWS } from './ws'
-import { parseStringifiedValue } from './utils'
+import { parseStringifiedValue } from './utils.js'
 
 const method = [
 	'get',

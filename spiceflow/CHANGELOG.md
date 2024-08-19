@@ -1,5 +1,11 @@
 # spiceflow
 
+## 1.0.5
+
+### Patch Changes
+
+-   Use nodejs es module support
+
 ## 1.0.4
 
 ### Patch Changes

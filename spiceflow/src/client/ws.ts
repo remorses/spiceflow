@@ -1,6 +1,6 @@
-import type { InputSchema } from '../elysia-fork/types'
-import type { SpiceflowClient } from './types'
-import { parseStringifiedValue } from './utils'
+import type { InputSchema } from '../elysia-fork/types.js'
+import type { SpiceflowClient } from './types.js'
+import { parseStringifiedValue } from './utils.js'
 
 export class EdenWS<in out Schema extends InputSchema<any> = {}> {
 	ws: WebSocket

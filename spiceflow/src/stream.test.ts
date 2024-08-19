@@ -2,9 +2,9 @@ import { describe, it, expect } from 'vitest'
 
 import { createParser } from 'eventsource-parser'
 
-import { Spiceflow } from './spiceflow'
+import { Spiceflow } from './spiceflow.js'
 
-import { req, sleep } from './utils'
+import { req, sleep } from './utils.js'
 
 function textEventStream(items: string[]) {
 	return items

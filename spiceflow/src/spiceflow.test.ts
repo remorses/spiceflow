@@ -1,6 +1,6 @@
 import { test, describe, expect } from 'vitest'
 import { Type } from '@sinclair/typebox'
-import { bfs, Spiceflow } from './spiceflow'
+import { bfs, Spiceflow } from './spiceflow.js'
 import { z } from 'zod'
 
 test('works', async () => {
