@@ -36,14 +36,17 @@ importers:
         specifier: ^0.2.1
         version: 0.2.1
       '@sinclair/typebox':
-        specifier: ^0.33.5
-        version: 0.33.5
+        specifier: ^0.33.7
+        version: 0.33.7
       ajv:
         specifier: ^8.17.1
         version: 8.17.1
       ajv-formats:
         specifier: ^3.0.1
         version: 3.0.1(ajv@8.17.1)
+      bun-types:
+        specifier: ^1.1.24
+        version: 1.1.24
       eventsource-parser:
         specifier: ^2.0.1
         version: 2.0.1
@@ -63,9 +66,6 @@ importers:
         specifier: ^3.23.2
         version: 3.23.2(zod@3.23.8)
     devDependencies:
-      '@types/bun':
-        specifier: ^1.1.6
-        version: 1.1.6
       '@types/node':
         specifier: 20.2.5
         version: 20.2.5
@@ -553,11 +553,8 @@ packages:
   '@sinclair/typebox@0.27.8':
     resolution: {integrity: sha512-+Fj43pSMwJs4KRrH/938Uf+uAELIgVBmQzg/q1YG10djyfA3TnrU8N8XzqCh/okZdszqBQTZf96idMfE5lnwTA==}
 
-  '@sinclair/typebox@0.33.5':
-    resolution: {integrity: sha512-Su72K2ckxefWQiDKzvykqah4Mg7k3uFX3qjFDsQ8NRfH/EMk+bUQsZJznaXSxmJoP50eSSqLWbX8I8TJfHC0gg==}
-
-  '@types/bun@1.1.6':
-    resolution: {integrity: sha512-uJgKjTdX0GkWEHZzQzFsJkWp5+43ZS7HC8sZPFnOwnSo1AsNl2q9o2bFeS23disNDqbggEgyFkKCHl/w8iZsMA==}
+  '@sinclair/typebox@0.33.7':
+    resolution: {integrity: sha512-et38XPs6GMoB6XugH+Spp/HRv5gHYffw7rXC3caen/dIKC7Q6sqs6eEH9Yd9UKziUkOQdrLr9OXUULAc+pRMng==}
 
   '@types/estree@1.0.5':
     resolution: {integrity: sha512-/kYRxGDLWzHOB7q+wtSUQlFrtcdUccpfy+X+9iMBpHK8QLLhx2wIPYuS5DYtR9Wa/YlZAbIovy7qVdB1Aq6Lyw==}
@@ -696,8 +693,8 @@ packages:
   buffer-from@1.1.2:
     resolution: {integrity: sha512-E+XQCRwSbaaiChtv6k6Dwgc+bx+Bs6vuKJHHl5kox/BaKbhiXzqQOwK4cO22yElGp2OCmjwVhT3HmxgyPGnJfQ==}
 
-  bun-types@1.1.17:
-    resolution: {integrity: sha512-Z4+OplcSd/YZq7ZsrfD00DKJeCwuNY96a1IDJyR73+cTBaFIS7SC6LhpY/W3AMEXO9iYq5NJ58WAwnwL1p5vKg==}
+  bun-types@1.1.24:
+    resolution: {integrity: sha512-UNEcYawHWOVw9GYQdOgjJvTQduYlPckmRMqpBqfkWpUzeK2CZfEP/JOYBH6SMypyfkNg/Zsqf0olN6vMrSPg3w==}
 
   c8@7.14.0:
     resolution: {integrity: sha512-i04rtkkcNcCf7zsQcSv/T9EbUn4RXQ6mropeMcjFOsQXQ0iGLAr/xT6TImQg4+U9hmNpN9XdvPkjUL1IzbgxJw==}
@@ -2353,11 +2350,7 @@ snapshots:
 
   '@sinclair/typebox@0.27.8': {}
 
-  '@sinclair/typebox@0.33.5': {}
-
-  '@types/bun@1.1.6':
-    dependencies:
-      bun-types: 1.1.17
+  '@sinclair/typebox@0.33.7': {}
 
   '@types/estree@1.0.5': {}
 
@@ -2503,7 +2496,7 @@ snapshots:
   buffer-from@1.1.2:
     optional: true
 
-  bun-types@1.1.17:
+  bun-types@1.1.24:
     dependencies:
       '@types/node': 20.12.14
       '@types/ws': 8.5.12

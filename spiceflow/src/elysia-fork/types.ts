@@ -1,6 +1,8 @@
 // https://github.com/remorses/elysia/blob/main/src/types.ts#L6
+/// <reference types="bun-types" />
 import z from 'zod'
 
+import type { BunFile, Server } from 'bun'
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
 import type {
@@ -12,7 +14,6 @@ import type {
 	TSchema,
 } from '@sinclair/typebox'
 import type { TypeCheck, ValueError } from '@sinclair/typebox/compiler'
-import type { BunFile, Server } from 'bun'
 
 import type { OpenAPIV3 } from 'openapi-types'
 
