@@ -21,10 +21,10 @@ const method = [
 	'options',
 	'head',
 	'connect',
-	'subscribe'
+	'subscribe',
 ] as const
 
-const locals = ['localhost', '127.0.0.1', '0.0.0.0']
+
 
 const isServer = typeof FileList === 'undefined'
 
@@ -57,7 +57,7 @@ const createNewFile = (v: File) =>
 				reader.onload = () => {
 					const file = new File([reader.result!], v.name, {
 						lastModified: v.lastModified,
-						type: v.type
+						type: v.type,
 					})
 					resolve(file)
 				}
@@ -69,7 +69,7 @@ const processHeaders = (
 	h: SpiceflowClient.Config['headers'],
 	path: string,
 	options: RequestInit = {},
-	headers: Record<string, string> = {}
+	headers: Record<string, string> = {},
 ): Record<string, string> => {
 	if (Array.isArray(h)) {
 		for (const value of h)
@@ -91,7 +91,7 @@ const processHeaders = (
 
 	switch (typeof h) {
 		case 'function':
-			if (h instanceof Headers)
+			if (typeof Headers !== 'undefined' && h instanceof Headers)
 				return processHeaders(h, path, options, headers)
 
 			const v = h(path, options)
@@ -99,7 +99,7 @@ const processHeaders = (
 			return headers
 
 		case 'object':
-			if (h instanceof Headers) {
+			if (typeof Headers !== 'undefined' && h instanceof Headers) {
 				h.forEach((value, key) => {
 					headers[key.toLowerCase()] = value
 				})
@@ -126,12 +126,12 @@ export class TextDecoderStream extends TransformStream<Uint8Array, string> {
 	constructor() {
 		const decoder = new TextDecoder('utf-8', {
 			fatal: true,
-			ignoreBOM: true
+			ignoreBOM: true,
 		})
 		super({
 			transform(
 				chunk: Uint8Array,
-				controller: TransformStreamDefaultController<string>
+				controller: TransformStreamDefaultController<string>,
 			) {
 				const decoded = decoder.decode(chunk, { stream: true })
 				if (decoded.length > 0) {
@@ -143,13 +143,13 @@ export class TextDecoderStream extends TransformStream<Uint8Array, string> {
 				if (output.length > 0) {
 					controller.enqueue(output)
 				}
-			}
+			},
 		})
 	}
 }
 
 export async function* streamSSEResponse(
-	response: Response
+	response: Response,
 ): AsyncGenerator<SSEEvent> {
 	const body = response.body
 	if (!body) return
@@ -183,7 +183,7 @@ const createProxy = (
 	domain: string,
 	config: SpiceflowClient.Config,
 	paths: string[] = [],
-	instance?: Spiceflow<any, any, any, any, any, any>
+	instance?: Spiceflow<any, any, any, any, any, any>,
 ): any =>
 	new Proxy(() => {}, {
 		get(_, param: string): any {
@@ -191,7 +191,7 @@ const createProxy = (
 				domain,
 				config,
 				param === 'index' ? paths : [...paths, param],
-				instance
+				instance,
 			)
 		},
 		apply(_, __, [body, options]) {
@@ -206,11 +206,10 @@ const createProxy = (
 				const path = '/' + methodPaths.join('/')
 
 				let {
-					fetcher = fetch,
+					fetch: fetcher = fetch,
 					headers,
 					onRequest,
 					onResponse,
-					fetch: conf
 				} = config
 
 				const isGetOrHead =
@@ -231,7 +230,7 @@ const createProxy = (
 						q +=
 							(q ? '&' : '?') +
 							`${encodeURIComponent(key)}=${encodeURIComponent(
-								value
+								value,
 							)}`
 					}
 
@@ -274,8 +273,8 @@ const createProxy = (
 					let fetchInit = {
 						method: method?.toUpperCase(),
 						body,
-						...conf,
-						headers
+						// ...conf,
+						headers,
 					} satisfies RequestInit
 
 					fetchInit.headers = {
@@ -284,8 +283,8 @@ const createProxy = (
 							// For GET and HEAD, options is moved to body (1st param)
 							isGetOrHead ? body?.headers : options?.headers,
 							path,
-							fetchInit
-						)
+							fetchInit,
+						),
 					}
 
 					const fetchOpts =
@@ -295,7 +294,7 @@ const createProxy = (
 
 					fetchInit = {
 						...fetchInit,
-						...fetchOpts
+						...fetchOpts,
 					}
 
 					if (isGetOrHead) delete fetchInit.body
@@ -315,9 +314,9 @@ const createProxy = (
 										...processHeaders(
 											temp.headers,
 											path,
-											fetchInit
-										)
-									}
+											fetchInit,
+										),
+									},
 								}
 						}
 					}
@@ -330,7 +329,7 @@ const createProxy = (
 
 						// FormData is 1 level deep
 						for (const [key, field] of Object.entries(
-							fetchInit.body
+							fetchInit.body,
 						)) {
 							if (isServer) {
 								formData.append(key, field as any)
@@ -341,7 +340,7 @@ const createProxy = (
 							if (field instanceof File) {
 								formData.append(
 									key,
-									await createNewFile(field as any)
+									await createNewFile(field as any),
 								)
 
 								continue
@@ -351,7 +350,7 @@ const createProxy = (
 								for (let i = 0; i < field.length; i++)
 									formData.append(
 										key as any,
-										await createNewFile((field as any)[i])
+										await createNewFile((field as any)[i]),
 									)
 
 								continue
@@ -365,7 +364,7 @@ const createProxy = (
 										key as any,
 										value instanceof File
 											? await createNewFile(value)
-											: value
+											: value,
 									)
 								}
 
@@ -407,16 +406,16 @@ const createProxy = (
 										...processHeaders(
 											temp.headers,
 											path,
-											fetchInit
-										)
-									} as Record<string, string>
+											fetchInit,
+										),
+									} as Record<string, string>,
 								}
 						}
 					}
 
 					const url = domain + path + q
 					const response = await (instance?.handle(
-						new Request(url, fetchInit)
+						new Request(url, fetchInit),
 					) ?? fetcher!(url, fetchInit))
 
 					let data = null as any
@@ -448,7 +447,7 @@ const createProxy = (
 							error,
 							response,
 							status: response.status,
-							headers: response.headers
+							headers: response.headers,
 						}
 					}
 
@@ -493,7 +492,7 @@ const createProxy = (
 						error,
 						response,
 						status: response.status,
-						headers: response.headers
+						headers: response.headers,
 					}
 				})()
 			}
@@ -503,36 +502,28 @@ const createProxy = (
 					domain,
 					config,
 					[...paths, Object.values(body)[0] as string],
-					instance
+					instance,
 				)
 
 			return createProxy(domain, config, paths)
-		}
+		},
 	}) as any
 
 export const createSpiceflowClient = <
-	const App extends Spiceflow<any, any, any, any, any, any, any, any>
+	const App extends Spiceflow<any, any, any, any, any, any, any, any>,
 >(
 	domain: string | App,
-	config: SpiceflowClient.Config = {}
+	config: SpiceflowClient.Config = {},
 ): SpiceflowClient.Create<App> => {
 	if (typeof domain === 'string') {
-		if (!config.keepDomain) {
-			if (!domain.includes('://'))
-				domain =
-					(locals.find((v) => (domain as string).includes(v))
-						? 'http://'
-						: 'https://') + domain
-
-			if (domain.endsWith('/')) domain = domain.slice(0, -1)
-		}
+		if (domain.endsWith('/')) domain = domain.slice(0, -1)
 
 		return createProxy(domain, config)
 	}
 
 	if (typeof window !== 'undefined')
 		console.warn(
-			'Spiceflow instance server found on client side, this is not recommended for security reason. Use generic type instead.'
+			'Spiceflow instance server found on client side, this is not recommended for security reason. Use generic type instead.',
 		)
 
 	return createProxy('http://e.ly', config, [], domain)

@@ -168,8 +168,8 @@ export namespace SpiceflowClient {
 		: never
 
 	export interface Config {
-		fetch?: Omit<RequestInit, 'headers' | 'method'>
-		fetcher?: typeof fetch
+		// fetch?: Omit<RequestInit, 'headers' | 'method'>
+		fetch?: typeof fetch
 		headers?: MaybeArray<
 			| RequestInit['headers']
 			| ((
@@ -184,7 +184,7 @@ export namespace SpiceflowClient {
 			) => MaybePromise<RequestInit | void>
 		>
 		onResponse?: MaybeArray<(response: Response) => MaybePromise<unknown>>
-		keepDomain?: boolean
+		// keepDomain?: boolean
 	}
 
 	// type UnwrapAwaited<T extends Record<number, unknown>> = {

@@ -1,5 +1,17 @@
 # spiceflow
 
+## 1.0.4
+
+### Patch Changes
+
+-   Better client config
+
+## 1.0.3
+
+### Patch Changes
+
+-   Updates
+
 ## 1.0.2
 
 ### Patch Changes

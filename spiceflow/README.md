@@ -4,7 +4,8 @@
     <br/>
     <h3>spiceflow</h3>
     <br/>
-    <p>API framework fast, simple and type safe</p>
+    <p>fast, simple and type safe API framework</p>
+    <p>still in alpha, use at your own risk</p>
     <br/>
     <br/>
 </div>
@@ -94,7 +95,6 @@ app.get(
 )
 ```
 
-
 ## Generate RPC Client
 
 ```typescript
@@ -103,7 +103,7 @@ import { createSpiceflowClient } from 'spiceflow/client'
 const client = createSpiceflowClient<typeof app>('http://localhost:3000')
 
 // Now you can use the client with full type safety
-const {data: user} = await client.users.get({ params: { id: '123' } })
+const { data: user } = await client.users.get({ params: { id: '123' } })
 ```
 
 ## Mounting Sub-Apps
