@@ -1,5 +1,11 @@
 # spiceflow
 
+## 1.0.6
+
+### Patch Changes
+
+-   Fix types without intsalling bun types
+
 ## 1.0.5
 
 ### Patch Changes
