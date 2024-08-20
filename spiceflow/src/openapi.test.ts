@@ -68,6 +68,25 @@ test('openapi response', async () => {
 				}),
 			},
 		)
+		.post(
+			'/queryParams',
+			async (c) => {
+				const query = c.query
+				return query
+			},
+			{
+				detail: {
+					description: 'This is a post',
+					operationId: 'postQueryParamsXXX',
+				},
+				body: z.object({
+					name: z.string(),
+				}),
+				response: z.object({
+					name: z.string().optional(),
+				}),
+			},
+		)
 		.use(
 			new Spiceflow({ basePath: '/two' }).get(
 				'/ids/:id',
@@ -192,6 +211,48 @@ test('openapi response', async () => {
 		            },
 		          },
 		        ],
+		        "responses": {
+		          "200": {
+		            "$schema": "http://json-schema.org/draft-07/schema#",
+		            "content": {
+		              "application/json": {
+		                "schema": {
+		                  "properties": {
+		                    "name": {
+		                      "type": "string",
+		                    },
+		                  },
+		                  "type": "object",
+		                },
+		              },
+		            },
+		          },
+		        },
+		      },
+		      "post": {
+		        "description": "This is a post",
+		        "operationId": "postQueryParamsXXX",
+		        "parameters": [],
+		        "requestBody": {
+		          "content": {
+		            "application/json": {
+		              "schema": {
+		                "$schema": "http://json-schema.org/draft-07/schema#",
+		                "additionalProperties": false,
+		                "properties": {
+		                  "name": {
+		                    "type": "string",
+		                  },
+		                },
+		                "required": [
+		                  "name",
+		                ],
+		                "type": "object",
+		              },
+		            },
+		          },
+		          "required": true,
+		        },
 		        "responses": {
 		          "200": {
 		            "$schema": "http://json-schema.org/draft-07/schema#",
