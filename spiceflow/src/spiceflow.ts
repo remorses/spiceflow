@@ -14,6 +14,7 @@ import {
 	HTTPMethod,
 	InlineHandler,
 	InputSchema,
+	IsAny,
 	JoinPath,
 	LocalHook,
 	MaybeArray,
@@ -889,20 +890,8 @@ export class Spiceflow<
 
 	use<const NewSpiceflow extends AnySpiceflow>(
 		instance: NewSpiceflow,
-	): NewSpiceflow['_scoped'] extends false
-		? Spiceflow<
-				BasePath,
-				Scoped,
-				// @ts-expect-error - This is truly ideal
-				Prettify2<Singleton & NewSpiceflow['_types']['Singleton']>,
-				Prettify2<Definitions & NewSpiceflow['_types']['Definitions']>,
-				Prettify2<Metadata & NewSpiceflow['_types']['Metadata']>,
-				BasePath extends ``
-					? Routes & NewSpiceflow['_routes']
-					: Routes & CreateEden<BasePath, NewSpiceflow['_routes']>,
-				Ephemeral,
-				Prettify2<Volatile & NewSpiceflow['_ephemeral']>
-		  >
+	): IsAny<NewSpiceflow> extends true
+		? this
 		: Spiceflow<
 				BasePath,
 				Scoped,

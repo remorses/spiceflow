@@ -380,7 +380,7 @@ export type Replace<Original, Target, With> = IsAny<Target> extends true
 	? With
 	: Original
 
-type IsAny<T> = 0 extends 1 & T ? true : false
+export type IsAny<T> = 0 extends 1 & T ? true : false
 
 export type CoExist<Original, Target, With> = IsAny<Target> extends true
 	? Original
