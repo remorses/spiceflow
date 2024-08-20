@@ -18,7 +18,16 @@ test('openapi response', async () => {
 		.use(
 			new Spiceflow({ basePath: '/one' }).get(
 				'/ids/:id',
-				({ params }) => params.id,
+				({ params }) => {
+					if (Math.random() < 0.5) {
+						// TODO add a way to set status
+
+						return {
+							message: 'sdf',
+						}
+					}
+					return params.id
+				},
 				{
 					response: {
 						200: z.string(),
