@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/ban-ts-comment */
 import { JSONSchemaType } from 'ajv'
 import { InternalRoute, isZodSchema, Spiceflow } from './spiceflow.js'
 import { ZodType } from 'zod'
@@ -6,11 +5,8 @@ import { ZodType } from 'zod'
 import type { OpenAPIV3 } from 'openapi-types'
 
 let excludeMethods = ['OPTIONS']
-/* eslint-disable @typescript-eslint/ban-ts-comment */
-/* eslint-disable @typescript-eslint/no-unused-vars */
-import type { HTTPMethod, LocalHook, TypeSchema } from './elysia-fork/types.js'
 
-import { Kind, type TSchema } from '@sinclair/typebox'
+import type { HTTPMethod, LocalHook, TypeSchema } from './elysia-fork/types.js'
 
 import deepClone from 'lodash.clonedeep'
 import { z } from 'zod'
@@ -143,14 +139,19 @@ export const registerSchemaPath = ({
 			? [contentType]
 			: contentType ?? ['application/json']
 
-	const bodySchema = hook?.body
+	const bodySchema = getJsonSchema(hook?.body)
 	const paramsSchema = hook?.params
 	// const headerSchema = hook?.headers
 	const querySchema = hook?.query
-	let responseSchema = hook?.response as unknown as OpenAPIV3.ResponsesObject
+	let responseSchema = hook?.response as unknown as TypeSchema
+	let openapiResponse: OpenAPIV3.ResponsesObject = {}
 
 	if (typeof responseSchema === 'object') {
-		if (Kind in responseSchema) {
+		const isStatusMap = Object.keys(responseSchema).every(
+			(key) => typeof key === 'number' || Number.isInteger(Number(key)),
+		)
+		if (!isStatusMap) {
+			let jsonSchema = getJsonSchema(responseSchema)
 			const {
 				type,
 				properties,
@@ -158,13 +159,9 @@ export const registerSchemaPath = ({
 				additionalProperties,
 				patternProperties,
 				...rest
-			} = responseSchema as typeof responseSchema & {
-				type: string
-				properties: Object
-				required: string[]
-			}
+			} = jsonSchema
 
-			responseSchema = {
+			openapiResponse = {
 				'200': {
 					...rest,
 					description: rest.description as any,
@@ -175,71 +172,64 @@ export const registerSchemaPath = ({
 									type,
 									properties,
 									patternProperties,
-									items: responseSchema.items,
+									items: jsonSchema.items,
 									required,
 							  } as any)
-							: responseSchema,
+							: jsonSchema,
 					),
 				},
 			}
 		} else {
-			Object.entries(responseSchema as Record<string, TSchema>).forEach(
-				([key, value]) => {
-					if (typeof value === 'string') {
-						if (!models[value]) return
+			Object.entries(
+				responseSchema as Record<string, TypeSchema>,
+			).forEach(([key, value]) => {
+				if (typeof value === 'string') {
+					if (!models[value]) return
 
-						// eslint-disable-next-line @typescript-eslint/no-unused-vars
-						const {
-							type,
-							properties,
-							required,
-							additionalProperties: _1,
-							patternProperties: _2,
-							...rest
-						} = models[value] as TSchema & {
-							type: string
-							properties: Object
-							required: string[]
-						}
+					// eslint-disable-next-line @typescript-eslint/no-unused-vars
+					const {
+						type,
+						properties,
+						required,
+						additionalProperties: _1,
+						patternProperties: _2,
+						...rest
+					} = getJsonSchema(models[value])
 
-						responseSchema[key] = {
-							...rest,
-							description: rest.description as any,
-							content: mapTypesResponse(contentTypes, value),
-						}
-					} else {
-						const {
-							type,
-							properties,
-							required,
-							additionalProperties,
-							patternProperties,
-							...rest
-						} = value as typeof value & {
-							type: string
-							properties: Object
-							required: string[]
-						}
-
-						responseSchema[key] = {
-							...rest,
-							description: rest.description as any,
-							content: mapTypesResponse(
-								contentTypes,
-								type === 'object' || type === 'array'
-									? ({
-											type,
-											properties,
-											patternProperties,
-											items: value.items,
-											required,
-									  } as any)
-									: value,
-							),
-						}
+					openapiResponse[key] = {
+						...rest,
+						description: rest.description as any,
+						content: mapTypesResponse(contentTypes, value),
 					}
-				},
-			)
+				} else {
+					const schema = getJsonSchema(value)
+					const {
+						type,
+						properties,
+						required,
+						additionalProperties,
+						patternProperties,
+						...rest
+					} = schema
+
+					openapiResponse[key] = {
+						...rest,
+						description: rest.description as any,
+						content: mapTypesResponse(
+							contentTypes,
+							type === 'object' || type === 'array'
+								? ({
+										type,
+										properties,
+										patternProperties,
+										items: rest.items,
+										required,
+								  } as any)
+								: schema,
+						),
+					}
+				}
+			})
 		}
 	} else if (typeof responseSchema === 'string') {
 		if (!(responseSchema in models)) return
@@ -252,13 +242,9 @@ export const registerSchemaPath = ({
 			additionalProperties: _1,
 			patternProperties: _2,
 			...rest
-		} = models[responseSchema] as TSchema & {
-			type: string
-			properties: Object
-			required: string[]
-		}
+		} = getJsonSchema(models[responseSchema])
 
-		responseSchema = {
+		openapiResponse = {
 			// @ts-ignore
 			'200': {
 				...rest,
@@ -279,9 +265,9 @@ export const registerSchemaPath = ({
 			...((paramsSchema || querySchema || bodySchema
 				? ({ parameters } as any)
 				: {}) satisfies OpenAPIV3.ParameterObject),
-			...(responseSchema
+			...(openapiResponse
 				? {
-						responses: responseSchema,
+						responses: openapiResponse,
 				  }
 				: {}),
 			operationId:
@@ -312,10 +298,10 @@ export const registerSchemaPath = ({
  * @see https://github.com/elysiajs/elysia-swagger
  */
 export const openapi = <Path extends string = '/openapi'>({
-	path,
+	path = '/openapi' as Path,
 	documentation = {},
 }: {
-	path: Path
+	path?: Path
 	/**
 	 * Customize Swagger config, refers to Swagger 2.0 config
 	 *
@@ -326,7 +312,7 @@ export const openapi = <Path extends string = '/openapi'>({
 		| 'x-express-openapi-additional-middleware'
 		| 'x-express-openapi-validation-strict'
 	>
-}) => {
+} = {}) => {
 	const schema = {}
 	let totalRoutes = 0
 
@@ -392,7 +378,7 @@ export const openapi = <Path extends string = '/openapi'>({
 				// 	(tag) => !excludeTags?.includes(tag?.name),
 				// ),
 				info: {
-					title: 'Elysia Documentation',
+					title: 'Spiceflow Documentation',
 					description: 'Development documentation',
 					version: '0.0.0',
 					...documentation.info,
@@ -417,6 +403,7 @@ export const openapi = <Path extends string = '/openapi'>({
 }
 
 function getJsonSchema(schema: TypeSchema): JSONSchemaType<any> {
+	if (!schema) return undefined as any
 	if (isZodSchema(schema)) {
 		let fn = zodToJsonSchema.default ?? zodToJsonSchema
 		let jsonSchema = fn(schema, {})
