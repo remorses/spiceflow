@@ -969,7 +969,7 @@ export class Spiceflow<
 	async handle(request: Request, platform?: P): Promise<Response> {
 		platform ??= {} as P
 
-		let u = new URL(request.url)
+		let u = new URL(request.url, 'http://localhost')
 		let path = u.pathname + u.search
 		const defaultContext = {
 			redirect,
