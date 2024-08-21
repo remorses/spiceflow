@@ -20,6 +20,9 @@ test('dynamic route', async () => {
 test('GET dynamic route', async () => {
 	const res = await new Spiceflow()
 		.get('/ids/:id', () => 'hi')
+		.post('/ids/:id', ({ params: { id } }) => id, {
+			params: z.object({ id: z.string() }),
+		})
 		.handle(new Request('http://localhost/ids/xxx', { method: 'GET' }))
 	expect(res.status).toBe(200)
 	expect(await res.json()).toEqual('hi')
@@ -319,7 +322,7 @@ test('use with 2 basPath works', async () => {
 					twoOnReq = true
 					onReqCalled.push('two')
 				})
-				.get('/ids/:id', ({ params }) => params.id),
+				.get('/ids/:id', ({ params }) => params.id, {}),
 		)
 
 	{

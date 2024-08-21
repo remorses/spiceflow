@@ -24,8 +24,6 @@ const method = [
 	'subscribe',
 ] as const
 
-
-
 const isServer = typeof FileList === 'undefined'
 
 const isFile = (v: any) => {
@@ -510,7 +508,7 @@ const createProxy = (
 	}) as any
 
 export const createSpiceflowClient = <
-	const App extends Spiceflow<any, any, any, any, any, any, any, any>,
+	const App extends Spiceflow<any, any, any, any, any, any>,
 >(
 	domain: string | App,
 	config: SpiceflowClient.Config = {},

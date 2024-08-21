@@ -8,15 +8,13 @@ import type {
 	OptionalKind,
 	Static,
 	StaticDecode,
-	TAnySchema,
 	TObject,
 	TSchema,
 } from '@sinclair/typebox'
-import type { TypeCheck, ValueError } from '@sinclair/typebox/compiler'
 
 import type { OpenAPIV3 } from 'openapi-types'
 
-import { Spiceflow } from './spiceflow.js'
+import { ZodObject, ZodTypeAny } from 'zod'
 import type { Context, ErrorContext, PreContext } from './context.js'
 import {
 	ELYSIA_RESPONSE,
@@ -25,7 +23,7 @@ import {
 	ParseError,
 	ValidationError,
 } from './error.js'
-import { ZodTypeAny, ZodObject } from 'zod'
+import { AnySpiceflow, Spiceflow } from './spiceflow.js'
 
 export type MaybeArray<T> = T | T[]
 export type MaybePromise<T> = T | Promise<T>
@@ -147,16 +145,7 @@ export type Reconcile<
 	: never
 
 export interface SingletonBase {
-	decorator: Record<string, unknown>
 	store: Record<string, unknown>
-	derive: Record<string, unknown>
-	resolve: Record<string, unknown>
-}
-
-export interface EphemeralType {
-	derive: SingletonBase['derive']
-	resolve: SingletonBase['resolve']
-	schema: MetadataBase['schema']
 }
 
 export interface DefinitionBase {
@@ -174,10 +163,8 @@ export interface MetadataBase {
 
 export interface RouteSchema {
 	body?: unknown
-	// headers?: unknown
 	query?: unknown
 	params?: unknown
-	// cookie?: unknown
 	response?: unknown
 }
 
@@ -211,10 +198,8 @@ export interface UnwrapRoute<
 	in out Definitions extends DefinitionBase['type'] = {},
 > {
 	body: UnwrapSchema<Schema['body'], Definitions>
-	// headers: UnwrapSchema<Schema['headers'], Definitions>
 	query: UnwrapSchema<Schema['query'], Definitions>
 	params: UnwrapSchema<Schema['params'], Definitions>
-	// cookie: UnwrapSchema<Schema['cookie'], Definitions>
 	response: Schema['response'] extends TypeSchema | string
 		? {
 				200: CoExist<
@@ -299,10 +284,8 @@ export type HTTPMethod =
 
 export interface InputSchema<Name extends string = string> {
 	body?: TypeSchema | Name
-	// headers?: TObject | TNull | TUndefined | Name
 	query?: TypeObject | Name
 	params?: TypeObject | Name
-	// cookie?: TObject | TNull | TUndefined | Name
 	response?:
 		| TypeSchema
 		| Record<number, TypeSchema>
@@ -315,10 +298,8 @@ export interface MergeSchema<
 	in out B extends RouteSchema,
 > {
 	body: undefined extends A['body'] ? B['body'] : A['body']
-	// headers: undefined extends A['headers'] ? B['headers'] : A['headers']
 	query: undefined extends A['query'] ? B['query'] : A['query']
 	params: undefined extends A['params'] ? B['params'] : A['params']
-	// cookie: undefined extends A['cookie'] ? B['cookie'] : A['cookie']
 	response: {} extends A['response']
 		? {} extends B['response']
 			? {}
@@ -333,8 +314,6 @@ export type Handler<
 	in out Singleton extends SingletonBase = {
 		decorator: {}
 		store: {}
-		derive: {}
-		resolve: {}
 	},
 	Path extends string = '',
 > = (
@@ -376,8 +355,6 @@ export type InlineHandler<
 	Singleton extends SingletonBase = {
 		decorator: {}
 		store: {}
-		derive: {}
-		resolve: {}
 	},
 	Path extends string = '',
 	MacroContext = {},
@@ -411,8 +388,6 @@ export type OptionalHandler<
 	in out Singleton extends SingletonBase = {
 		decorator: {}
 		store: {}
-		derive: {}
-		resolve: {}
 	},
 	Path extends string = '',
 > = Handler<Route, Singleton, Path> extends (
@@ -426,8 +401,6 @@ export type AfterHandler<
 	in out Singleton extends SingletonBase = {
 		decorator: {}
 		store: {}
-		derive: {}
-		resolve: {}
 	},
 	Path extends string = '',
 > = Handler<Route, Singleton, Path> extends (
@@ -447,8 +420,6 @@ export type MapResponse<
 	in out Singleton extends SingletonBase = {
 		decorator: {}
 		store: {}
-		derive: {}
-		resolve: {}
 	},
 	Path extends string = '',
 > = Handler<
@@ -468,8 +439,6 @@ export type VoidHandler<
 	in out Singleton extends SingletonBase = {
 		decorator: {}
 		store: {}
-		derive: {}
-		resolve: {}
 	},
 > = (context: Context<Route, Singleton>) => MaybePromise<void>
 
@@ -478,8 +447,6 @@ export type TransformHandler<
 	in out Singleton extends SingletonBase = {
 		decorator: {}
 		store: {}
-		derive: {}
-		resolve: {}
 	},
 	BasePath extends string = '',
 > = {
@@ -501,8 +468,6 @@ export type BodyHandler<
 	in out Singleton extends SingletonBase = {
 		decorator: {}
 		store: {}
-		derive: {}
-		resolve: {}
 	},
 	Path extends string = '',
 > = (
@@ -533,8 +498,6 @@ export type PreHandler<
 	in out Singleton extends SingletonBase = {
 		decorator: {}
 		store: {}
-		derive: {}
-		resolve: {}
 	},
 > = (context: PreContext<Singleton>) => MaybePromise<Route['response'] | void>
 
@@ -543,8 +506,6 @@ export type AfterResponseHandler<
 	in out Singleton extends SingletonBase = {
 		decorator: {}
 		store: {}
-		derive: {}
-		resolve: {}
 	},
 > = (
 	context: Prettify<
@@ -554,39 +515,21 @@ export type AfterResponseHandler<
 	>,
 ) => MaybePromise<void>
 
-export type GracefulHandler<
-	in Instance extends Spiceflow<any, any, any, any, any, any, any, any>,
-> = (data: Instance) => any
+// export type GracefulHandler<
+// 	in Instance extends AnySpiceflow,
+// > = (data: Instance) => any
 
 export type ErrorHandler<
 	in out T extends Record<string, Error> = {},
 	in out Route extends RouteSchema = {},
 	in out Singleton extends SingletonBase = {
-		decorator: {}
 		store: {}
-		derive: {}
-		resolve: {}
-	},
-	// ? scoped
-	in out Ephemeral extends EphemeralType = {
-		derive: {}
-		resolve: {}
-		schema: {}
-	},
-	// ? local
-	in out Volatile extends EphemeralType = {
-		derive: {}
-		resolve: {}
-		schema: {}
 	},
 > = (
 	context: ErrorContext<
 		Route,
 		{
 			store: Singleton['store']
-			decorator: Singleton['decorator']
-			derive: {}
-			resolve: {}
 		}
 	> &
 		(
@@ -595,93 +538,36 @@ export type ErrorHandler<
 						request: Request
 						code: 'UNKNOWN'
 						error: Readonly<Error>
-					} & Partial<
-						Singleton['derive'] &
-							Ephemeral['derive'] &
-							Volatile['derive']
-					> &
-						Partial<
-							Singleton['derive'] &
-								Ephemeral['resolve'] &
-								Volatile['resolve']
-						>
+					} & Partial<Singleton['store']>
 			  >
 			| Prettify<
 					{
 						request: Request
 						code: 'VALIDATION'
 						error: Readonly<ValidationError>
-					} & Singleton['derive'] &
-						Ephemeral['derive'] &
-						Volatile['derive'] &
-						NeverKey<
-							Singleton['derive'] &
-								Ephemeral['resolve'] &
-								Volatile['resolve']
-						>
+					} & Singleton['store']
 			  >
 			| Prettify<
 					{
 						request: Request
 						code: 'NOT_FOUND'
 						error: Readonly<NotFoundError>
-					} & NeverKey<
-						Singleton['derive'] &
-							Ephemeral['derive'] &
-							Volatile['derive']
-					> &
-						NeverKey<
-							Singleton['derive'] &
-								Ephemeral['resolve'] &
-								Volatile['resolve']
-						>
+					} & NeverKey<Singleton['store']>
 			  >
 			| Prettify<
 					{
 						request: Request
 						code: 'PARSE'
 						error: Readonly<ParseError>
-					} & Singleton['derive'] &
-						Ephemeral['derive'] &
-						Volatile['derive'] &
-						NeverKey<
-							Singleton['derive'] &
-								Ephemeral['resolve'] &
-								Volatile['resolve']
-						>
+					} & Singleton['store']
 			  >
 			| Prettify<
 					{
 						request: Request
 						code: 'INTERNAL_SERVER_ERROR'
 						error: Readonly<InternalServerError>
-					} & Partial<
-						Singleton['derive'] &
-							Ephemeral['derive'] &
-							Volatile['derive']
-					> &
-						Partial<
-							Singleton['derive'] &
-								Ephemeral['resolve'] &
-								Volatile['resolve']
-						>
+					} & Partial<Singleton['store']>
 			  >
-			// | Prettify<
-			// 		{
-			// 			request: Request
-			// 			code: 'INVALID_COOKIE_SIGNATURE'
-			// 			error: Readonly<InvalidCookieSignature>
-			// 		} & NeverKey<
-			// 			Singleton['derive'] &
-			// 				Ephemeral['derive'] &
-			// 				Volatile['derive']
-			// 		> &
-			// 			NeverKey<
-			// 				Singleton['derive'] &
-			// 					Ephemeral['resolve'] &
-			// 					Volatile['resolve']
-			// 			>
-			//   >
 			| Prettify<
 					{
 						[K in keyof T]: {
@@ -690,16 +576,7 @@ export type ErrorHandler<
 							error: Readonly<T[K]>
 						}
 					}[keyof T] &
-						Partial<
-							Singleton['derive'] &
-								Ephemeral['derive'] &
-								Volatile['derive']
-						> &
-						Partial<
-							Singleton['derive'] &
-								Ephemeral['resolve'] &
-								Volatile['resolve']
-						>
+						Partial<Singleton['store']>
 			  >
 		),
 ) => any | Promise<any>
@@ -775,27 +652,6 @@ export type AddSuffixCapitalize<Suffix extends string, T> = {
 	[K in keyof T as `${K & string}${Capitalize<Suffix>}`]: T[K]
 }
 
-export type Checksum = {
-	name?: string
-	seed?: unknown
-	checksum: number
-	stack?: string
-	routes?: InternalRoute[]
-	decorators?: SingletonBase['decorator']
-	store?: SingletonBase['store']
-	type?: DefinitionBase['type']
-	error?: DefinitionBase['error']
-	dependencies?: Record<string, Checksum[]>
-	derive?: {
-		fn: string
-		stack: string
-	}[]
-	resolve?: {
-		fn: string
-		stack: string
-	}[]
-}
-
 export type BaseMacro = Record<
 	string,
 	string | number | boolean | Object | undefined | null
@@ -855,8 +711,6 @@ export type MergeSpiceflowInstances<
 	Singleton extends SingletonBase = {
 		decorator: {}
 		store: {}
-		derive: {}
-		resolve: {}
 	},
 	Definitions extends DefinitionBase = {
 		type: {}
@@ -898,10 +752,7 @@ export type MergeSpiceflowInstances<
 			Prefix,
 			Scoped,
 			{
-				decorator: Prettify<Singleton['decorator']>
 				store: Prettify<Singleton['store']>
-				derive: Prettify<Singleton['derive']>
-				resolve: Prettify<Singleton['resolve']>
 			},
 			{
 				type: Prettify<Definitions['type']>

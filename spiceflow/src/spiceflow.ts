@@ -4,13 +4,12 @@ import { Type } from '@sinclair/typebox'
 
 export { Type as t }
 
+import addFormats from 'ajv-formats'
 import {
 	ComposeSpiceflowResponse,
 	CreateEden,
 	DefinitionBase,
-	EphemeralType,
 	ErrorHandler,
-	Handler,
 	HTTPMethod,
 	InlineHandler,
 	InputSchema,
@@ -21,7 +20,6 @@ import {
 	MergeSchema,
 	MetadataBase,
 	PreHandler,
-	Prettify2,
 	Reconcile,
 	ResolvePath,
 	RouteBase,
@@ -30,20 +28,17 @@ import {
 	TypeSchema,
 	UnwrapRoute,
 } from './types.js'
-import addFormats from 'ajv-formats'
 let globalIndex = 0
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
 import OriginalRouter from '@medley/router'
-import { TSchema } from '@sinclair/typebox'
 import Ajv, { ValidateFunction } from 'ajv'
-import { Context } from './context.js'
-import { isAsyncIterable } from './utils.js'
-import { redirect } from './utils.js'
-import { NotFoundError, ValidationError } from './error.js'
-import { zodToJsonSchema } from 'zod-to-json-schema'
 import { z, ZodType } from 'zod'
+import { zodToJsonSchema } from 'zod-to-json-schema'
+import { Context } from './context.js'
+import { NotFoundError, ValidationError } from './error.js'
+import { isAsyncIterable, redirect } from './utils.js'
 
 const ajv = (addFormats.default || addFormats)(
 	new (Ajv.default || Ajv)({ useDefaults: true }),
@@ -96,10 +91,7 @@ export class Spiceflow<
 	const in out BasePath extends string = '',
 	const in out Scoped extends boolean = true,
 	const in out Singleton extends SingletonBase = {
-		decorator: {}
 		store: {}
-		derive: {}
-		resolve: {}
 	},
 	const in out Definitions extends DefinitionBase = {
 		type: {}
@@ -111,18 +103,6 @@ export class Spiceflow<
 		macroFn: {}
 	},
 	const out Routes extends RouteBase = {},
-	// ? scoped
-	const in out Ephemeral extends EphemeralType = {
-		derive: {}
-		resolve: {}
-		schema: {}
-	},
-	// ? local
-	const in out Volatile extends EphemeralType = {
-		derive: {}
-		resolve: {}
-		schema: {}
-	},
 > {
 	private id: number = globalIndex++
 	private router: MedleyRouter = new OriginalRouter()
@@ -226,21 +206,16 @@ export class Spiceflow<
 		BasePath,
 		Scoped,
 		{
-			decorator: Singleton['decorator']
 			store: Reconcile<
 				Singleton['store'],
 				{
 					[name in Name]: Value
 				}
 			>
-			derive: Singleton['derive']
-			resolve: Singleton['resolve']
 		},
 		Definitions,
 		Metadata,
-		Routes,
-		Ephemeral,
-		Volatile
+		Routes
 	> {
 		this.defaultStore[name] = value
 		return this as any
@@ -273,27 +248,15 @@ export class Spiceflow<
 		Metadata: {} as Metadata,
 	}
 
-	_ephemeral = {} as Ephemeral
-	_volatile = {} as Volatile
-
 	post<
 		const Path extends string,
 		const LocalSchema extends InputSchema<
 			keyof Definitions['type'] & string
 		>,
-		const Schema extends MergeSchema<
-			UnwrapRoute<LocalSchema, Definitions['type']>,
-			MergeSchema<
-				Volatile['schema'],
-				MergeSchema<Ephemeral['schema'], Metadata['schema']>
-			>
-		>,
+		const Schema extends UnwrapRoute<LocalSchema, Definitions['type']>,
 		const Handle extends InlineHandler<
 			Schema,
-			Singleton & {
-				derive: Ephemeral['derive'] & Volatile['derive']
-				resolve: Ephemeral['resolve'] & Volatile['resolve']
-			},
+			Singleton,
 			JoinPath<BasePath, Path>
 		>,
 	>(
@@ -302,10 +265,7 @@ export class Spiceflow<
 		hook?: LocalHook<
 			LocalSchema,
 			Schema,
-			Singleton & {
-				derive: Ephemeral['derive'] & Volatile['derive']
-				resolve: Ephemeral['resolve'] & Volatile['resolve']
-			},
+			Singleton,
 			Definitions['error'],
 			Metadata['macro'],
 			JoinPath<BasePath, Path>
@@ -332,9 +292,7 @@ export class Spiceflow<
 						>
 					}
 				}
-			>,
-		Ephemeral,
-		Volatile
+			>
 	> {
 		this.add({ method: 'POST', path, handler: handler, hooks: hook })
 
@@ -346,20 +304,11 @@ export class Spiceflow<
 		const LocalSchema extends InputSchema<
 			keyof Definitions['type'] & string
 		>,
-		const Schema extends MergeSchema<
-			UnwrapRoute<LocalSchema, Definitions['type']>,
-			MergeSchema<
-				Volatile['schema'],
-				MergeSchema<Ephemeral['schema'], Metadata['schema']>
-			>
-		>,
+		const Schema extends UnwrapRoute<LocalSchema, Definitions['type']>,
 		const Macro extends Metadata['macro'],
 		const Handle extends InlineHandler<
 			Schema,
-			Singleton & {
-				derive: Ephemeral['derive'] & Volatile['derive']
-				resolve: Ephemeral['resolve'] & Volatile['resolve']
-			},
+			Singleton,
 			JoinPath<BasePath, Path>
 		>,
 	>(
@@ -368,10 +317,7 @@ export class Spiceflow<
 		hook?: LocalHook<
 			LocalSchema,
 			Schema,
-			Singleton & {
-				derive: Ephemeral['derive'] & Volatile['derive']
-				resolve: Ephemeral['resolve'] & Volatile['resolve']
-			},
+			Singleton,
 			Definitions['error'],
 			Macro,
 			JoinPath<BasePath, Path>
@@ -399,9 +345,7 @@ export class Spiceflow<
 						>
 					}
 				}
-			>,
-		Ephemeral,
-		Volatile
+			>
 	> {
 		this.add({ method: 'GET', path, handler: handler, hooks: hook })
 		return this as any
@@ -412,19 +356,10 @@ export class Spiceflow<
 		const LocalSchema extends InputSchema<
 			keyof Definitions['type'] & string
 		>,
-		const Schema extends MergeSchema<
-			UnwrapRoute<LocalSchema, Definitions['type']>,
-			MergeSchema<
-				Volatile['schema'],
-				MergeSchema<Ephemeral['schema'], Metadata['schema']>
-			>
-		>,
+		const Schema extends UnwrapRoute<LocalSchema, Definitions['type']>,
 		const Handle extends InlineHandler<
 			Schema,
-			Singleton & {
-				derive: Ephemeral['derive'] & Volatile['derive']
-				resolve: Ephemeral['resolve'] & Volatile['resolve']
-			},
+			Singleton,
 			JoinPath<BasePath, Path>
 		>,
 	>(
@@ -433,10 +368,7 @@ export class Spiceflow<
 		hook?: LocalHook<
 			LocalSchema,
 			Schema,
-			Singleton & {
-				derive: Ephemeral['derive'] & Volatile['derive']
-				resolve: Ephemeral['resolve'] & Volatile['resolve']
-			},
+			Singleton,
 			Definitions['error'],
 			Metadata['macro'],
 			JoinPath<BasePath, Path>
@@ -464,9 +396,7 @@ export class Spiceflow<
 						>
 					}
 				}
-			>,
-		Ephemeral,
-		Volatile
+			>
 	> {
 		this.add({ method: 'PUT', path, handler: handler, hooks: hook })
 
@@ -478,19 +408,10 @@ export class Spiceflow<
 		const LocalSchema extends InputSchema<
 			keyof Definitions['type'] & string
 		>,
-		const Schema extends MergeSchema<
-			UnwrapRoute<LocalSchema, Definitions['type']>,
-			MergeSchema<
-				Volatile['schema'],
-				MergeSchema<Ephemeral['schema'], Metadata['schema']>
-			>
-		>,
+		const Schema extends UnwrapRoute<LocalSchema, Definitions['type']>,
 		const Handle extends InlineHandler<
 			Schema,
-			Singleton & {
-				derive: Ephemeral['derive'] & Volatile['derive']
-				resolve: Ephemeral['resolve'] & Volatile['resolve']
-			},
+			Singleton,
 			JoinPath<BasePath, Path>
 		>,
 	>(
@@ -499,10 +420,7 @@ export class Spiceflow<
 		hook?: LocalHook<
 			LocalSchema,
 			Schema,
-			Singleton & {
-				derive: Ephemeral['derive'] & Volatile['derive']
-				resolve: Ephemeral['resolve'] & Volatile['resolve']
-			},
+			Singleton,
 			Definitions['error'],
 			Metadata['macro'],
 			JoinPath<BasePath, Path>
@@ -530,9 +448,7 @@ export class Spiceflow<
 						>
 					}
 				}
-			>,
-		Ephemeral,
-		Volatile
+			>
 	> {
 		this.add({ method: 'PATCH', path, handler: handler, hooks: hook })
 
@@ -544,19 +460,10 @@ export class Spiceflow<
 		const LocalSchema extends InputSchema<
 			keyof Definitions['type'] & string
 		>,
-		const Schema extends MergeSchema<
-			UnwrapRoute<LocalSchema, Definitions['type']>,
-			MergeSchema<
-				Volatile['schema'],
-				MergeSchema<Ephemeral['schema'], Metadata['schema']>
-			>
-		>,
+		const Schema extends UnwrapRoute<LocalSchema, Definitions['type']>,
 		const Handle extends InlineHandler<
 			Schema,
-			Singleton & {
-				derive: Ephemeral['derive'] & Volatile['derive']
-				resolve: Ephemeral['resolve'] & Volatile['resolve']
-			},
+			Singleton,
 			JoinPath<BasePath, Path>
 		>,
 	>(
@@ -565,10 +472,7 @@ export class Spiceflow<
 		hook?: LocalHook<
 			LocalSchema,
 			Schema,
-			Singleton & {
-				derive: Ephemeral['derive'] & Volatile['derive']
-				resolve: Ephemeral['resolve'] & Volatile['resolve']
-			},
+			Singleton,
 			Definitions['error'],
 			Metadata['macro'],
 			JoinPath<BasePath, Path>
@@ -596,9 +500,7 @@ export class Spiceflow<
 						>
 					}
 				}
-			>,
-		Ephemeral,
-		Volatile
+			>
 	> {
 		this.add({ method: 'DELETE', path, handler: handler, hooks: hook })
 
@@ -610,19 +512,10 @@ export class Spiceflow<
 		const LocalSchema extends InputSchema<
 			keyof Definitions['type'] & string
 		>,
-		const Schema extends MergeSchema<
-			UnwrapRoute<LocalSchema, Definitions['type']>,
-			MergeSchema<
-				Volatile['schema'],
-				MergeSchema<Ephemeral['schema'], Metadata['schema']>
-			>
-		>,
+		const Schema extends UnwrapRoute<LocalSchema, Definitions['type']>,
 		const Handle extends InlineHandler<
 			Schema,
-			Singleton & {
-				derive: Ephemeral['derive'] & Volatile['derive']
-				resolve: Ephemeral['resolve'] & Volatile['resolve']
-			},
+			Singleton,
 			JoinPath<BasePath, Path>
 		>,
 	>(
@@ -631,10 +524,7 @@ export class Spiceflow<
 		hook?: LocalHook<
 			LocalSchema,
 			Schema,
-			Singleton & {
-				derive: Ephemeral['derive'] & Volatile['derive']
-				resolve: Ephemeral['resolve'] & Volatile['resolve']
-			},
+			Singleton,
 			Definitions['error'],
 			Metadata['macro'],
 			JoinPath<BasePath, Path>
@@ -662,9 +552,7 @@ export class Spiceflow<
 						>
 					}
 				}
-			>,
-		Ephemeral,
-		Volatile
+			>
 	> {
 		this.add({ method: 'OPTIONS', path, handler: handler, hooks: hook })
 
@@ -676,19 +564,10 @@ export class Spiceflow<
 		const LocalSchema extends InputSchema<
 			keyof Definitions['type'] & string
 		>,
-		const Schema extends MergeSchema<
-			UnwrapRoute<LocalSchema, Definitions['type']>,
-			MergeSchema<
-				Volatile['schema'],
-				MergeSchema<Ephemeral['schema'], Metadata['schema']>
-			>
-		>,
+		const Schema extends UnwrapRoute<LocalSchema, Definitions['type']>,
 		const Handle extends InlineHandler<
 			Schema,
-			Singleton & {
-				derive: Ephemeral['derive'] & Volatile['derive']
-				resolve: Ephemeral['resolve'] & Volatile['resolve']
-			},
+			Singleton,
 			JoinPath<BasePath, Path>
 		>,
 	>(
@@ -697,10 +576,7 @@ export class Spiceflow<
 		hook?: LocalHook<
 			LocalSchema,
 			Schema,
-			Singleton & {
-				derive: Ephemeral['derive'] & Volatile['derive']
-				resolve: Ephemeral['resolve'] & Volatile['resolve']
-			},
+			Singleton,
 			Definitions['error'],
 			Metadata['macro'],
 			JoinPath<BasePath, Path>
@@ -728,9 +604,7 @@ export class Spiceflow<
 						>
 					}
 				}
-			>,
-		Ephemeral,
-		Volatile
+			>
 	> {
 		for (const method of METHODS) {
 			this.add({ method, path, handler: handler, hooks: hook })
@@ -744,19 +618,10 @@ export class Spiceflow<
 		const LocalSchema extends InputSchema<
 			keyof Definitions['type'] & string
 		>,
-		const Schema extends MergeSchema<
-			UnwrapRoute<LocalSchema, Definitions['type']>,
-			MergeSchema<
-				Volatile['schema'],
-				MergeSchema<Ephemeral['schema'], Metadata['schema']>
-			>
-		>,
+		const Schema extends UnwrapRoute<LocalSchema, Definitions['type']>,
 		const Handle extends InlineHandler<
 			Schema,
-			Singleton & {
-				derive: Ephemeral['derive'] & Volatile['derive']
-				resolve: Ephemeral['resolve'] & Volatile['resolve']
-			},
+			Singleton,
 			JoinPath<BasePath, Path>
 		>,
 	>(
@@ -765,10 +630,7 @@ export class Spiceflow<
 		hook?: LocalHook<
 			LocalSchema,
 			Schema,
-			Singleton & {
-				derive: Ephemeral['derive'] & Volatile['derive']
-				resolve: Ephemeral['resolve'] & Volatile['resolve']
-			},
+			Singleton,
 			Definitions['error'],
 			Metadata['macro'],
 			JoinPath<BasePath, Path>
@@ -796,20 +658,14 @@ export class Spiceflow<
 						>
 					}
 				}
-			>,
-		Ephemeral,
-		Volatile
+			>
 	> {
 		this.add({ method: 'HEAD', path, handler: handler, hooks: hook })
 
 		return this as any
 	}
 
-	/**
-	 * If set to true, other Spiceflow handler will not inherits global life-cycle, store, decorators from the current instance
-	 *
-	 * @default false
-	 */
+	
 	private scoped?: Scoped
 	get _scoped() {
 		return this.scoped as Scoped
@@ -866,25 +722,14 @@ export class Spiceflow<
 				Metadata,
 				BasePath extends ``
 					? Routes & NewSpiceflow['_routes']
-					: Routes & CreateEden<BasePath, NewSpiceflow['_routes']>,
-				Ephemeral,
-				Volatile
+					: Routes & CreateEden<BasePath, NewSpiceflow['_routes']>
 		  >
 	use<const Schema extends RouteSchema>(
 		handler: MaybeArray<
 			PreHandler<
-				MergeSchema<
-					Schema,
-					MergeSchema<
-						Volatile['schema'],
-						MergeSchema<Ephemeral['schema'], Metadata['schema']>
-					>
-				>,
+				Schema,
 				{
-					decorator: Singleton['decorator']
 					store: Singleton['store']
-					derive: {}
-					resolve: {}
 				}
 			>
 		>,
@@ -902,19 +747,7 @@ export class Spiceflow<
 
 	onError<const Schema extends RouteSchema>(
 		handler: MaybeArray<
-			ErrorHandler<
-				Definitions['error'],
-				MergeSchema<
-					Schema,
-					MergeSchema<
-						Volatile['schema'],
-						MergeSchema<Ephemeral['schema'], Metadata['schema']>
-					>
-				>,
-				Singleton,
-				Ephemeral,
-				Volatile
-			>
+			ErrorHandler<Definitions['error'], Schema, Singleton>
 		>,
 	): this {
 		this.onErrorHandlers ??= []
@@ -989,6 +822,8 @@ export class Spiceflow<
 						store,
 						path,
 						query,
+						params,
+						redirect,
 					} satisfies Context<any, any, any>)
 					if (res) {
 						return await turnHandlerResultIntoResponse(res)
@@ -1006,13 +841,14 @@ export class Spiceflow<
 				request,
 				response,
 				params: params as any,
+				redirect,
 				store,
 				query,
 				// body,
 				path,
 
 				// platform
-			} satisfies Context<any, any, string>)
+			} satisfies Context<any, any, any>)
 			if (isAsyncIterable(res)) {
 				return await this.handleStream({
 					generator: res,
@@ -1300,7 +1136,7 @@ export async function turnHandlerResultIntoResponse(result: any) {
 	})
 }
 
-export type AnySpiceflow = Spiceflow<any, any, any, any, any, any, any, any>
+export type AnySpiceflow = Spiceflow<any, any, any, any, any, any>
 
 export function isZodSchema(value: unknown): value is ZodType {
 	return (

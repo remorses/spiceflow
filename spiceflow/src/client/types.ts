@@ -13,12 +13,6 @@ export type IsNever<T> = [T] extends [never] ? true : false
 
 type Files = File | FileList
 
-// type Replace<RecordType, TargetType, GenericType> = {
-//     [K in keyof RecordType]: RecordType[K] extends TargetType
-//         ? GenericType
-//         : RecordType[K]
-// }
-
 type ReplaceBlobWithFiles<in out RecordType extends Record<string, unknown>> = {
 	[K in keyof RecordType]: RecordType[K] extends Blob | Blob[]
 		? Files
@@ -61,13 +55,12 @@ export namespace SpiceflowClient {
 		fetch?: RequestInit
 	}
 
-	export type Create<
-		App extends Spiceflow<any, any, any, any, any, any, any, any>,
-	> = App extends {
-		_routes: infer Schema extends Record<string, any>
-	}
-		? Prettify<Sign<Schema>>
-		: 'Please install Spiceflow before using Eden'
+	export type Create<App extends Spiceflow<any, any, any, any, any, any>> =
+		App extends {
+			_routes: infer Schema extends Record<string, any>
+		}
+			? Prettify<Sign<Schema>>
+			: 'Please install Spiceflow before using Eden'
 
 	export type Sign<in out Route extends Record<string, any>> = {
 		[K in keyof Route as K extends `:${string}`

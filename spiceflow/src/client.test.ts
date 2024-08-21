@@ -199,7 +199,7 @@ describe('client', () => {
 		expect(data).toEqual('a')
 	})
 	it('stream return async', async () => {
-		const { data } = await client['stream-return-async'].get()
+		const { data } = await client['stream-return-async'].get({})
 		// console.log(data)
 		expect(data).toEqual('a')
 	})
