@@ -306,6 +306,7 @@ test('use with 2 basPath works', async () => {
 		})
 		.use(
 			new Spiceflow({ basePath: '/one' })
+
 				.onRequest(({ request }) => {
 					oneOnReq = true
 					onReqCalled.push('one')

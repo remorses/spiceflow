@@ -3,7 +3,6 @@
 import z from 'zod'
 
 import type { BunFile, Server } from 'bun'
-/* eslint-disable @typescript-eslint/no-unused-vars */
 
 import type {
 	OptionalKind,
@@ -233,28 +232,6 @@ export interface UnwrapRoute<
 				>
 		  }
 		: unknown | void
-}
-
-export type HookContainer<T extends Function = Function> = {
-	checksum?: number
-	scope?: LifeCycleType
-	subType?: 'derive' | 'resolve' | 'mapDerive' | 'mapResolve' | (string & {})
-	fn: T
-}
-
-export interface LifeCycleStore {
-	type?: ContentType
-	start: HookContainer<GracefulHandler<any>>[]
-	request: HookContainer<PreHandler<any, any>>[]
-	parse: HookContainer<BodyHandler<any, any>>[]
-	transform: HookContainer<TransformHandler<any, any>>[]
-	beforeHandle: HookContainer<OptionalHandler<any, any>>[]
-	afterHandle: HookContainer<AfterHandler<any, any>>[]
-	mapResponse: HookContainer<MapResponse<any, any>>[]
-	afterResponse: HookContainer<AfterResponseHandler<any, any>>[]
-	// trace: HookContainer<TraceHandler<any, any>>[]
-	error: HookContainer<ErrorHandler<any, any, any>>[]
-	stop: HookContainer<GracefulHandler<any>>[]
 }
 
 export type LifeCycleEvent =
@@ -768,36 +745,6 @@ export type LocalHook<
 		 * - 'arraybuffer': parse body as readable stream
 		 */
 		type?: ContentType
-		detail?: DocumentDecoration
-		// /**
-		//  * Custom body parser
-		//  */
-		// parse?: MaybeArray<BodyHandler<TypedRoute, Singleton>>
-		// /**
-		//  * Transform context's value
-		//  */
-		// transform?: MaybeArray<TransformHandler<TypedRoute, Singleton>>
-		// /**
-		//  * Execute before main handler
-		//  */
-		// beforeHandle?: MaybeArray<OptionalHandler<TypedRoute, Singleton>>
-		// /**
-		//  * Execute after main handler
-		//  */
-		// afterHandle?: MaybeArray<AfterHandler<TypedRoute, Singleton>>
-		// /**
-		//  * Execute after main handler
-		//  */
-		// mapResponse?: MaybeArray<MapResponse<TypedRoute, Singleton>>
-		// /**
-		//  * Execute after response is sent
-		//  */
-		// afterResponse?: MaybeArray<VoidHandler<TypedRoute, Singleton>>
-		// /**
-		//  * Catch error
-		//  */
-		// error?: MaybeArray<ErrorHandler<Errors, TypedRoute, Singleton>>
-		// tags?: DocumentDecoration['tags']
 	}
 
 export type ComposedHandler = (context: Context) => MaybePromise<Response>
@@ -854,87 +801,6 @@ export type BaseMacro = Record<
 	string | number | boolean | Object | undefined | null
 >
 export type BaseMacroFn = Record<string, (...a: any) => unknown>
-
-export type MacroToProperty<in out T extends BaseMacroFn> = Prettify<{
-	[K in keyof T]: T[K] extends Function
-		? T[K] extends (a: infer Params) => any
-			? Params | undefined
-			: T[K]
-		: T[K]
-}>
-
-interface MacroOptions {
-	insert?: 'before' | 'after'
-	stack?: 'global' | 'local'
-}
-
-export interface MacroManager<
-	in out TypedRoute extends RouteSchema = {},
-	in out Singleton extends SingletonBase = {
-		decorator: {}
-		store: {}
-		derive: {}
-		resolve: {}
-	},
-	in out Errors extends Record<string, Error> = {},
-> {
-	onParse(fn: MaybeArray<BodyHandler<TypedRoute, Singleton>>): unknown
-	onParse(
-		options: MacroOptions,
-		fn: MaybeArray<BodyHandler<TypedRoute, Singleton>>,
-	): unknown
-
-	onTransform(fn: MaybeArray<VoidHandler<TypedRoute, Singleton>>): unknown
-	onTransform(
-		options: MacroOptions,
-		fn: MaybeArray<VoidHandler<TypedRoute, Singleton>>,
-	): unknown
-
-	onBeforeHandle(
-		fn: MaybeArray<OptionalHandler<TypedRoute, Singleton>>,
-	): unknown
-	onBeforeHandle(
-		options: MacroOptions,
-		fn: MaybeArray<OptionalHandler<TypedRoute, Singleton>>,
-	): unknown
-
-	onAfterHandle(fn: MaybeArray<AfterHandler<TypedRoute, Singleton>>): unknown
-	onAfterHandle(
-		options: MacroOptions,
-		fn: MaybeArray<AfterHandler<TypedRoute, Singleton>>,
-	): unknown
-
-	onError(
-		fn: MaybeArray<ErrorHandler<Errors, TypedRoute, Singleton>>,
-	): unknown
-	onError(
-		options: MacroOptions,
-		fn: MaybeArray<ErrorHandler<Errors, TypedRoute, Singleton>>,
-	): unknown
-
-	mapResponse(fn: MaybeArray<MapResponse<TypedRoute, Singleton>>): unknown
-	mapResponse(
-		options: MacroOptions,
-		fn: MaybeArray<MapResponse<TypedRoute, Singleton>>,
-	): unknown
-
-	onAfterResponse(
-		fn: MaybeArray<AfterResponseHandler<TypedRoute, Singleton>>,
-	): unknown
-	onAfterResponse(
-		options: MacroOptions,
-		fn: MaybeArray<AfterResponseHandler<TypedRoute, Singleton>>,
-	): unknown
-
-	events: {
-		global: Prettify<LifeCycleStore & RouteSchema>
-		local: Prettify<LifeCycleStore & RouteSchema>
-	}
-}
-
-export type MacroQueue = HookContainer<
-	(manager: MacroManager<any, any, any>) => unknown
->
 
 type _CreateEden<
 	Path extends string,
@@ -1051,89 +917,13 @@ export type MergeSpiceflowInstances<
 
 export type LifeCycleType = 'global' | 'local' | 'scoped'
 
-// Exclude return error()
-export type ExcludeSpiceflowResponse<T> = Exclude<
-	undefined extends Awaited<T> ? Partial<Awaited<T>> : Awaited<T>,
-	{ [ELYSIA_RESPONSE]: any }
->
-
-export type InferContext<
-	T extends Spiceflow<any, any, any, any, any, any, any, any>,
-	Path extends string = T['_types']['Prefix'],
-	Schema extends RouteSchema = T['_types']['Metadata']['schema'],
-> = Context<
-	MergeSchema<Schema, T['_types']['Metadata']['schema']>,
-	T['_types']['Singleton'] & {
-		derive: T['_ephemeral']['derive'] & T['_volatile']['derive']
-		resolve: T['_ephemeral']['resolve'] & T['_volatile']['resolve']
-	},
-	Path
->
-
-export type InferHandler<
-	T extends Spiceflow<any, any, any, any, any, any, any, any>,
-	Path extends string = T['_types']['Prefix'],
-	Schema extends RouteSchema = T['_types']['Metadata']['schema'],
-> = InlineHandler<
-	MergeSchema<Schema, T['_types']['Metadata']['schema']>,
-	T['_types']['Singleton'] & {
-		derive: T['_ephemeral']['derive'] & T['_volatile']['derive']
-		resolve: T['_ephemeral']['resolve'] & T['_volatile']['resolve']
-	},
-	Path
->
-
-export interface ModelValidatorError extends ValueError {
-	summary: string
-}
-
-// @ts-ignore trust me bro
-export interface ModelValidator<T> extends TypeCheck<T> {
-	parse(a: T): T
-	safeParse(a: T):
-		| { success: true; data: T; error: null }
-		| {
-				success: true
-				data: null
-				error: string
-				errors: ModelValidatorError[]
-		  }
-}
-
 export type UnionToIntersect<U> = (
 	U extends unknown ? (arg: U) => 0 : never
 ) extends (arg: infer I) => 0
 	? I
 	: never
 
-export type ResolveMacroContext<
-	Macro extends BaseMacro,
-	MacroFn extends BaseMacroFn,
-> = UnionToIntersect<
-	{
-		[K in keyof Macro]-?: undefined extends Macro[K]
-			? never
-			: K extends keyof MacroFn
-			? ReturnType<MacroFn[K]> extends infer A extends Record<
-					string | number | symbol,
-					unknown
-			  >
-				? A
-				: never
-			: never
-	}[keyof Macro]
->
-
 export type ContextAppendType = 'append' | 'override'
-
-export type HigherOrderFunction<
-	T extends (...arg: unknown[]) => Function = (...arg: unknown[]) => Function,
-> = (fn: T, request: Request) => ReturnType<T>
-
-// new Spiceflow()
-// 	.wrap((fn) => {
-// 		return fn()
-// 	})
 
 export type HTTPHeaders = Record<string, string> & {
 	// Authentication

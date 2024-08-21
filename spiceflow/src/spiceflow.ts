@@ -126,14 +126,19 @@ export class Spiceflow<
 	private onNoMatch: OnNoMatch
 	private id: number = globalIndex++
 	private router: OriginalRouter = new OriginalRouter()
-	prefix?: string
 	private onRequestHandlers: Function[] = []
 	private onErrorHandlers: OnError[] = []
 	private routes: InternalRoute[] = []
 	private defaultStore: Record<any, any> = {}
 	private topLevelApp?: AnySpiceflow
+
+	/** @internal */
+	prefix?: string
+
+	/** @internal */
 	childrenApps: AnySpiceflow[] = []
 
+	/** @internal */
 	getAllRoutes() {
 		let root = this.topLevelApp || this
 		const allApps = bfs(root) || []
