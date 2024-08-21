@@ -123,9 +123,9 @@ export class Spiceflow<
 		let root = this.topLevelApp || this
 		const allApps = bfs(root) || []
 		const allRoutes = allApps.flatMap((x) => {
-			const prefix = this.getRouteAndParents(x)
+			const prefix = this.getAppAndParents(x)
 				.map((x) => x.prefix)
-				.reverse()
+
 				.join('')
 
 			return x.routes.map((x) => ({ ...x, path: prefix + x.path }))
@@ -166,9 +166,9 @@ export class Spiceflow<
 		let root = this
 		const result = bfsFind(this, (app) => {
 			app.topLevelApp = root
-			let prefix = this.getRouteAndParents(app)
+			let prefix = this.getAppAndParents(app)
 				.map((x) => x.prefix)
-				.reverse()
+
 				.join('')
 			if (prefix && !path.startsWith(prefix)) {
 				return
@@ -664,10 +664,7 @@ export class Spiceflow<
 		return this as any
 	}
 
-	private scoped?: Scoped
-	get _scoped() {
-		return this.scoped as Scoped
-	}
+	private scoped?: Scoped = true as Scoped
 
 	// group is not needed, you can add another prefixed app instead
 	// group<
@@ -787,16 +784,16 @@ export class Spiceflow<
 					status: 404,
 				})
 			}
-			onErrorHandlers = this.getRouteAndParents(route.app)
-				.reverse()
-				.flatMap((x) => x.onErrorHandlers)
+			onErrorHandlers = this.getAppsInScope(route.app).flatMap(
+				(x) => x.onErrorHandlers,
+			)
 			let {
 				params,
 				app: { defaultStore },
 			} = route
-			const middlewares = this.getRouteAndParents(route.app)
-				.reverse()
-				.flatMap((x) => x.middlewares)
+			const middlewares = this.getAppsInScope(route.app).flatMap(
+				(x) => x.middlewares,
+			)
 			// console.log({ onReqHandlers })
 			let store = { ...defaultStore }
 
@@ -899,13 +896,12 @@ export class Spiceflow<
 		}
 	}
 
-	// get the route parents, the order is starting from the current router and going up to the root
-	private getRouteAndParents(currentRouter?: AnySpiceflow) {
+	private getAppAndParents(currentApp?: AnySpiceflow) {
 		const parents: AnySpiceflow[] = []
-		let current = currentRouter
+		let current = currentApp
 
 		let root = this.topLevelApp || this
-		// Perform BFS once to build a parent map
+
 		const parentMap = new Map<number, AnySpiceflow>()
 		bfsFind(root, (node) => {
 			for (const child of node.childrenApps) {
@@ -915,11 +911,31 @@ export class Spiceflow<
 
 		// Traverse the parent map to get the parents
 		while (current) {
-			parents.push(current)
+			parents.unshift(current)
 			current = parentMap.get(current.id)
 		}
 
 		return parents.filter((x) => x !== undefined)
+	}
+
+	private getAppsInScope(currentApp?: AnySpiceflow) {
+		const withParents = this.getAppAndParents(currentApp)
+
+		let root = this.topLevelApp || this
+		const wantedOrder = bfs(root)
+		const scopeFalseApps = wantedOrder.filter((x) => x.scoped === false)
+		let appsInScope = [] as AnySpiceflow[]
+		for (const app of wantedOrder) {
+			if (scopeFalseApps.includes(app)) {
+				appsInScope.push(app)
+				continue
+			}
+			if (withParents.includes(app)) {
+				appsInScope.push(app)
+				continue
+			}
+		}
+		return appsInScope
 	}
 
 	private async handleStream({

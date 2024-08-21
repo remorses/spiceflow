@@ -149,7 +149,7 @@ app.onError(({ error }) => {
 ## Middleware
 
 ```typescript
-app.onRequest(({ request }) => {
+app.use(({ request }) => {
 	console.log(`Received ${request.method} request to ${request.url}`)
 })
 ```

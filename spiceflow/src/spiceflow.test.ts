@@ -28,8 +28,6 @@ test('GET dynamic route', async () => {
 	expect(await res.json()).toEqual('hi')
 })
 
-
-
 test('GET with query, untyped', async () => {
 	const res = await new Spiceflow()
 		.get('/query', ({ query }) => {
@@ -292,15 +290,69 @@ test('getRouteAndParents', async () => {
 	let routers = bfs(app)
 	let last = routers[routers.length - 1]
 
-	expect(app['getRouteAndParents'](last).map((x) => x.prefix))
+	expect(app['getAppAndParents'](last).map((x) => x.prefix))
 		.toMatchInlineSnapshot(`
 			[
-			  "/three",
-			  "/two",
 			  "/one",
+			  "/two",
+			  "/three",
 			]
 		`)
 })
+
+test('getAppsInScope include all parent apps', async () => {
+	let app = new Spiceflow({ basePath: '/one' })
+		.get('/ids/:id', () => 'hi')
+		.use(
+			new Spiceflow({ basePath: '/two' }).use(
+				new Spiceflow({ basePath: '/three' }).use(
+					new Spiceflow({ basePath: '/four' })
+						.get('/five', () => 'hi')
+						.use(({ request }) => {}),
+				),
+			),
+		)
+
+	let routers = bfs(app)
+	let secondLast = routers[routers.length - 2]
+
+	expect(app['getAppsInScope'](secondLast).map((x) => x.prefix))
+		.toMatchInlineSnapshot(`
+			[
+			  "/one",
+			  "/two",
+			  "/three",
+			]
+		`)
+})
+
+test('getAppsInScope include all parent apps and non scoped apps', async () => {
+	let app = new Spiceflow({ basePath: '/one' })
+		.get('/ids/:id', () => 'hi')
+		.use(
+			new Spiceflow({ basePath: '/two' }).use(
+				new Spiceflow({ basePath: '/three' }).use(
+					new Spiceflow({ basePath: '/four', scoped: false })
+						.get('/five', () => 'hi')
+						.use(({ request }) => {}),
+				),
+			),
+		)
+
+	let routers = bfs(app)
+	let secondLast = routers[routers.length - 2]
+
+	expect(app['getAppsInScope'](secondLast).map((x) => x.prefix))
+		.toMatchInlineSnapshot(`
+			[
+			  "/one",
+			  "/two",
+			  "/three",
+			  "/four",
+			]
+		`)
+})
+
 test('use with 2 basPath works', async () => {
 	let oneOnReq = false
 	let twoOnReq = false
