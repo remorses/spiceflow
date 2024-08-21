@@ -869,10 +869,35 @@ export class Spiceflow<
 					: Routes & CreateEden<BasePath, NewSpiceflow['_routes']>,
 				Ephemeral,
 				Volatile
-		  > {
-		// TODO use scoped logic to add onRequest and onError on all routers if necessary, add them first
-		this.childrenApps.push(instance)
-		return this as any
+		  >
+	use<const Schema extends RouteSchema>(
+		handler: MaybeArray<
+			PreHandler<
+				MergeSchema<
+					Schema,
+					MergeSchema<
+						Volatile['schema'],
+						MergeSchema<Ephemeral['schema'], Metadata['schema']>
+					>
+				>,
+				{
+					decorator: Singleton['decorator']
+					store: Singleton['store']
+					derive: {}
+					resolve: {}
+				}
+			>
+		>,
+	): this
+
+	use(appOrHandler) {
+		if (appOrHandler instanceof Spiceflow) {
+			this.childrenApps.push(appOrHandler)
+		} else if (typeof appOrHandler === 'function') {
+			this.onRequestHandlers ??= []
+			this.onRequestHandlers.push(appOrHandler)
+		}
+		return this
 	}
 
 	onError<const Schema extends RouteSchema>(
@@ -898,30 +923,6 @@ export class Spiceflow<
 		return this
 	}
 
-	onRequest<const Schema extends RouteSchema>(
-		handler: MaybeArray<
-			PreHandler<
-				MergeSchema<
-					Schema,
-					MergeSchema<
-						Volatile['schema'],
-						MergeSchema<Ephemeral['schema'], Metadata['schema']>
-					>
-				>,
-				{
-					decorator: Singleton['decorator']
-					store: Singleton['store']
-					derive: {}
-					resolve: {}
-				}
-			>
-		>,
-	) {
-		this.onRequestHandlers ??= []
-		this.onRequestHandlers.push(handler as any)
-
-		return this
-	}
 	/**
 	 * Pass a request through all matching route handles and return a response
 	 * @param request   The `Request`

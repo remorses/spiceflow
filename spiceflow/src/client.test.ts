@@ -3,24 +3,6 @@ import { Spiceflow, t } from './spiceflow.js'
 
 import { describe, expect, it } from 'vitest'
 
-const randomObject = {
-	a: 'a',
-	b: 2,
-	c: true,
-	d: false,
-	e: null,
-	f: new Date(0),
-}
-const randomArray = [
-	'a',
-	2,
-	true,
-	false,
-	null,
-	new Date(0),
-	{ a: 'a', b: 2, c: true, d: false, e: null, f: new Date(0) },
-]
-
 const app = new Spiceflow()
 	.get('/', () => 'a')
 	.post('/', () => 'a')

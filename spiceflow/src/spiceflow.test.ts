@@ -115,7 +115,7 @@ test('missing route is not found', async () => {
 test('state works', async () => {
 	const res = await new Spiceflow()
 		.state('id', '')
-		.onRequest(({ store, request }) => {
+		.use(({ store, request }) => {
 			store.id = 'xxx'
 		})
 		.get('/get', ({ store }) => {
@@ -210,13 +210,13 @@ test('validate body works, request fails', async () => {
 	)
 })
 
-test('run onRequest', async () => {
+test('run use', async () => {
 	const res = await new Spiceflow()
-		.onRequest(({ request }) => {
+		.use(({ request }) => {
 			expect(request.method).toBe('HEAD')
 			return new Response('ok', { status: 401 })
 		})
-		.onRequest(({ request }) => {
+		.use(({ request }) => {
 			expect(request.method).toBe('HEAD')
 			return 'second one'
 		})
@@ -226,13 +226,13 @@ test('run onRequest', async () => {
 	expect(await res.text()).toBe('ok')
 })
 
-test('run onRequest', async () => {
+test('run use', async () => {
 	const res = await new Spiceflow()
-		.onRequest(({ request }) => {
+		.use(({ request }) => {
 			expect(request.method).toBe('HEAD')
 			return new Response('ok', { status: 401 })
 		})
-		.onRequest(({ request }) => {
+		.use(({ request }) => {
 			expect(request.method).toBe('HEAD')
 			return 'second one'
 		})
@@ -301,13 +301,13 @@ test('use with 2 basPath works', async () => {
 	let twoOnReq = false
 	let onReqCalled: string[] = []
 	const app = await new Spiceflow()
-		.onRequest(({ request }) => {
+		.use(({ request }) => {
 			onReqCalled.push('root')
 		})
 		.use(
 			new Spiceflow({ basePath: '/one' })
 
-				.onRequest(({ request }) => {
+				.use(({ request }) => {
 					oneOnReq = true
 					onReqCalled.push('one')
 				})
@@ -315,7 +315,7 @@ test('use with 2 basPath works', async () => {
 		)
 		.use(
 			new Spiceflow({ basePath: '/two' })
-				.onRequest((c) => {
+				.use((c) => {
 					twoOnReq = true
 					onReqCalled.push('two')
 				})
@@ -384,7 +384,7 @@ test('errors inside basPath works', async () => {
 			onErrorTriggered.push('root')
 			// return new Response('root', { status: 500 })
 		})
-		.onRequest(({ request }) => {
+		.use(({ request }) => {
 			onReqTriggered.push('root')
 			// return new Response('root', { status: 500 })
 		})
@@ -395,7 +395,7 @@ test('errors inside basPath works', async () => {
 					onErrorTriggered.push('two')
 					// return new Response('two', { status: 500 })
 				})
-				.onRequest(({ request }) => {
+				.use(({ request }) => {
 					onReqTriggered.push('two')
 					// return new Response('two', { status: 500 })
 				})
@@ -405,7 +405,7 @@ test('errors inside basPath works', async () => {
 							onErrorTriggered.push('nested')
 							// return new Response('nested', { status: 500 })
 						})
-						.onRequest(({ request }) => {
+						.use(({ request }) => {
 							onReqTriggered.push('nested')
 							// return new Response('nested', { status: 500 })
 						})
