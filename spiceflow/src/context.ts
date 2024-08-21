@@ -12,7 +12,7 @@ import type {
 	HTTPHeaders,
 } from './types.js'
 
-import { TypedRequest } from '../spiceflow.js'
+import { TypedRequest } from './spiceflow.js'
 
 type InvertedStatusMapKey = keyof InvertedStatusMap
 

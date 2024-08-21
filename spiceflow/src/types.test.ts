@@ -3,7 +3,7 @@ import { Type } from '@sinclair/typebox'
 import { bfs, Spiceflow } from './spiceflow.js'
 import { z } from 'zod'
 import { createSpiceflowClient } from './client/index.js'
-import { Prettify } from './elysia-fork/types.js'
+import { Prettify } from './types.js'
 
 test('`use` on non Spiceflow return', async () => {
 	function nonSpiceflowReturn() {

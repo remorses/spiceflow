@@ -1,4 +1,4 @@
-import type { InputSchema } from '../elysia-fork/types.js'
+import type { InputSchema } from '../types.js'
 import type { SpiceflowClient } from './types.js'
 import { parseStringifiedValue } from './utils.js'
 

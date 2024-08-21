@@ -6,7 +6,7 @@ import type { OpenAPIV3 } from 'openapi-types'
 
 let excludeMethods = ['OPTIONS']
 
-import type { HTTPMethod, LocalHook, TypeSchema } from './elysia-fork/types.js'
+import type { HTTPMethod, LocalHook, TypeSchema } from './types.js'
 
 import deepClone from 'lodash.clonedeep'
 import { z } from 'zod'

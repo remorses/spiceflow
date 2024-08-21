@@ -29,7 +29,7 @@ import {
 	SingletonBase,
 	TypeSchema,
 	UnwrapRoute,
-} from './elysia-fork/types.js'
+} from './types.js'
 import addFormats from 'ajv-formats'
 let globalIndex = 0
 
@@ -38,10 +38,10 @@ let globalIndex = 0
 import OriginalRouter from '@medley/router'
 import { TSchema } from '@sinclair/typebox'
 import Ajv, { ValidateFunction } from 'ajv'
-import { Context } from './elysia-fork/context.js'
+import { Context } from './context.js'
 import { isAsyncIterable } from './utils.js'
-import { redirect } from './elysia-fork/utils.js'
-import { ValidationError } from './elysia-fork/error.js'
+import { redirect } from './utils.js'
+import { ValidationError } from './error.js'
 import { zodToJsonSchema } from 'zod-to-json-schema'
 import { z, ZodType } from 'zod'
 
