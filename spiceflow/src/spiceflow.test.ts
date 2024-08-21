@@ -284,7 +284,7 @@ test('getRouteAndParents', async () => {
 			),
 		)
 
-	let routers = bfs(app['routerTree'])
+	let routers = bfs(app)
 	let last = routers[routers.length - 1]
 
 	expect(app['getRouteAndParents'](last).map((x) => x.prefix))

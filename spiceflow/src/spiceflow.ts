@@ -73,19 +73,6 @@ type AsyncResponse = Response | Promise<Response>
 
 type OnError = (x: { error: any; request: Request }) => AsyncResponse
 
-type RouterTree = {
-	id: number
-	router: OriginalRouter
-	prefix?: string
-	onRequestHandlers: Function[]
-	onErrorHandlers: OnError[]
-	children: RouterTree[]
-	routes: InternalRoute[]
-	// default store for the router, used as default for context.store
-	store: Record<any, any>
-	currentRoot?: RouterTree
-}
-
 type OnNoMatch = (request: Request, platform: P) => AsyncResponse
 
 export type InternalRoute = {
@@ -137,11 +124,18 @@ export class Spiceflow<
 	},
 > {
 	private onNoMatch: OnNoMatch
-	// prefix: BasePath | undefined
-	private routerTree: RouterTree
+	private id: number = globalIndex++
+	private router: OriginalRouter = new OriginalRouter()
+	prefix?: string
+	private onRequestHandlers: Function[] = []
+	private onErrorHandlers: OnError[] = []
+	private routes: InternalRoute[] = []
+	private defaultStore: Record<any, any> = {}
+	private topLevelApp?: AnySpiceflow
+	childrenApps: AnySpiceflow[] = []
 
 	getAllRoutes() {
-		let root = this.routerTree.currentRoot || this.routerTree
+		let root = this.topLevelApp || this
 		const allApps = bfs(root) || []
 		const allRoutes = allApps.flatMap((x) => {
 			const prefix = this.getRouteAndParents(x)
@@ -161,53 +155,43 @@ export class Spiceflow<
 		handler,
 		...rest
 	}: Partial<InternalRoute>) {
-		const router = this.routerTree
-		// if (router.prefix) {
-		// 	path = router.prefix + path
-		// }
-
 		let bodySchema: TypeSchema = hooks?.body
 		let validateBody = getValidateFunction(bodySchema)
 		let validateQuery = getValidateFunction(hooks?.query)
 		let validateParams = getValidateFunction(hooks?.params)
 
-		const store = router.router.register(path)
+		const store = this.router.register(path)
 		let route: InternalRoute = {
 			...rest,
 
-			prefix: router.prefix || '',
+			prefix: this.prefix || '',
 			method: (method || '') as any,
 			path: path || '',
-			// prefix,
 			handler: handler!,
 			hooks,
 			validateBody,
 			validateParams,
 			validateQuery,
 		}
-		router.routes.push(route)
+		this.routes.push(route)
 		store[method] = route
 	}
 
 	private match(method: string, path: string) {
-		let root = this.routerTree
-		const result = bfsFind(this.routerTree, (router) => {
-			router.currentRoot = root
+		let root = this
+		const result = bfsFind(this, (router) => {
+			router.topLevelApp = root
 			let prefix = this.getRouteAndParents(router)
 				.map((x) => x.prefix)
 				.reverse()
 				.join('')
 			if (prefix && !path.startsWith(prefix)) {
-				// console.log(
-				// 	`router prefix: ${router.prefix} does not match path: ${path}`
-				// )
 				return
 			}
 			let pathWithoutPrefix = path
 			if (prefix) {
 				pathWithoutPrefix = path.replace(prefix, '')
 			}
-			// console.log(`router prefix: ${router.prefix} matches path: ${path}`)
 			const route = router.router.find(pathWithoutPrefix)
 			if (!route) {
 				return
@@ -215,15 +199,13 @@ export class Spiceflow<
 
 			let data: InternalRoute = route['store'][method]
 			if (data) {
-				// console.log(`route found: ${method} ${path}`, route)
-
 				const { onErrorHandlers, onRequestHandlers } = router
 				const params = route['params'] || {}
 
 				return {
 					...data,
 					router,
-					store: router.store,
+					store: router.defaultStore,
 					onErrorHandlers,
 					onRequestHandlers,
 					params,
@@ -257,7 +239,7 @@ export class Spiceflow<
 		Ephemeral,
 		Volatile
 	> {
-		this.routerTree.store[name] = value
+		this.defaultStore[name] = value
 		return this as any
 	}
 
@@ -277,23 +259,7 @@ export class Spiceflow<
 
 		this.onNoMatch =
 			options.onNoMatch ?? (() => new Response(null, { status: 404 }))
-		this.routerTree = {
-			id: globalIndex++,
-			router: new OriginalRouter(),
-			prefix: options.basePath,
-			onRequestHandlers: [],
-			onErrorHandlers: [],
-			children: [],
-			store: {},
-			routes: [],
-		}
-
-		// Bind router methods
-		// for (const method of METHODS) {
-		// 	this.#routes.set(method as Method, [])
-		// 	const key = method.toLowerCase() as Lowercase<Method>
-		// 	this[key as any] = this.#add.bind(this, method)
-		// }
+		this.prefix = options.basePath
 	}
 
 	_routes: Routes = {} as any
@@ -359,7 +325,6 @@ export class Spiceflow<
 							? ResolvePath<Path>
 							: Schema['params']
 						query: Schema['query']
-
 						response: ComposeSpiceflowResponse<
 							Schema['response'],
 							Handle
@@ -904,9 +869,8 @@ export class Spiceflow<
 				Ephemeral,
 				Volatile
 		  > {
-		const thisRouter = this.routerTree
 		// TODO use scoped logic to add onRequest and onError on all routers if necessary, add them first
-		this.routerTree.children.push(instance.routerTree)
+		this.childrenApps.push(instance)
 		return this as any
 	}
 
@@ -927,10 +891,8 @@ export class Spiceflow<
 			>
 		>,
 	): this {
-		const router = this.routerTree
-
-		router.onErrorHandlers ??= []
-		router.onErrorHandlers.push(handler as any)
+		this.onErrorHandlers ??= []
+		this.onErrorHandlers.push(handler as any)
 
 		return this
 	}
@@ -954,9 +916,8 @@ export class Spiceflow<
 			>
 		>,
 	) {
-		const router = this.routerTree
-		router.onRequestHandlers ??= []
-		router.onRequestHandlers.push(handler as any)
+		this.onRequestHandlers ??= []
+		this.onRequestHandlers.push(handler as any)
 
 		return this
 	}
@@ -1082,15 +1043,15 @@ export class Spiceflow<
 	}
 
 	// get the route parents, the order is starting from the current router and going up to the root
-	private getRouteAndParents(currentRouter?: RouterTree) {
-		const parents: RouterTree[] = []
+	private getRouteAndParents(currentRouter?: AnySpiceflow) {
+		const parents: AnySpiceflow[] = []
 		let current = currentRouter
 
-		let root = this.routerTree.currentRoot || this.routerTree
+		let root = this.topLevelApp || this
 		// Perform BFS once to build a parent map
-		const parentMap = new Map<number, RouterTree>()
+		const parentMap = new Map<number, AnySpiceflow>()
 		bfsFind(root, (node) => {
-			for (const child of node.children) {
+			for (const child of node.childrenApps) {
 				parentMap.set(child.id, node)
 			}
 		})
@@ -1264,8 +1225,8 @@ const METHODS = [
 export type Method = (typeof METHODS)[number]
 
 function bfsFind<T>(
-	tree: RouterTree,
-	onNode: (node: RouterTree) => T | undefined | void,
+	tree: AnySpiceflow,
+	onNode: (node: AnySpiceflow) => T | undefined | void,
 ): T | undefined {
 	const queue = [tree]
 
@@ -1276,7 +1237,7 @@ function bfsFind<T>(
 		if (result) {
 			return result
 		}
-		queue.push(...node.children)
+		queue.push(...node.childrenApps)
 	}
 	return
 }
@@ -1289,9 +1250,9 @@ export class TypedRequest<T = any> extends Request {
 	}
 }
 
-export function bfs(tree: RouterTree) {
+export function bfs(tree: AnySpiceflow) {
 	const queue = [tree]
-	let nodes: RouterTree[] = []
+	let nodes: AnySpiceflow[] = []
 	while (queue.length > 0) {
 		const node = queue.shift()!
 		if (node) {
@@ -1299,19 +1260,12 @@ export function bfs(tree: RouterTree) {
 		}
 		// const result = onNode(node)
 
-		queue.push(...node.children)
+		if (node?.childrenApps?.length) {
+			queue.push(...node.childrenApps)
+		}
 	}
 	return nodes
 }
-function mapTree<T>(
-	tree: RouterTree,
-	mapper: (node: RouterTree) => T,
-): T & { children: (T & { children: any[] })[] } {
-	const mappedNode = mapper(tree) as T & { children: any[] }
-	mappedNode.children = tree.children.map((child) => mapTree(child, mapper))
-	return mappedNode
-}
-
 export async function turnHandlerResultIntoResponse(result: any) {
 	// if user returns not a response, convert to json
 	if (result instanceof Response) {
