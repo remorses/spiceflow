@@ -1,5 +1,11 @@
 # spiceflow
 
+## 1.1.0
+
+### Minor Changes
+
+-   Replce onRequest with use
+
 ## 1.0.8
 
 ### Patch Changes
