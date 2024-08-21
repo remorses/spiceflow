@@ -15,7 +15,7 @@ import type {
 import type { OpenAPIV3 } from 'openapi-types'
 
 import { ZodObject, ZodTypeAny } from 'zod'
-import type { Context, ErrorContext, PreContext } from './context.js'
+import type { Context, ErrorContext, MiddlewareContext } from './context.js'
 import {
 	ELYSIA_RESPONSE,
 	InternalServerError,
@@ -493,13 +493,16 @@ export type BodyHandler<
 	contentType: string,
 ) => MaybePromise<any>
 
-export type PreHandler<
+export type MiddlewareHandler<
 	in out Route extends RouteSchema = {},
 	in out Singleton extends SingletonBase = {
 		decorator: {}
 		store: {}
 	},
-> = (context: PreContext<Singleton>) => MaybePromise<Route['response'] | void>
+> = (
+	context: MiddlewareContext<Singleton>,
+	next: () => Promise<Response | void>,
+) => MaybePromise<Route['response'] | void>
 
 export type AfterResponseHandler<
 	in out Route extends RouteSchema = {},

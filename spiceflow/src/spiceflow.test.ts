@@ -28,6 +28,8 @@ test('GET dynamic route', async () => {
 	expect(await res.json()).toEqual('hi')
 })
 
+
+
 test('GET with query, untyped', async () => {
 	const res = await new Spiceflow()
 		.get('/query', ({ query }) => {

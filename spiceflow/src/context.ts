@@ -14,12 +14,6 @@ import type {
 
 import { TypedRequest } from './spiceflow.js'
 
-type InvertedStatusMapKey = keyof InvertedStatusMap
-
-// type WithoutNullableKeys<Type> = {
-// 	[Key in keyof Type]-?: NonNullable<Type[Key]>
-// }
-
 export type ErrorContext<
 	in out Route extends RouteSchema = {},
 	in out Singleton extends SingletonBase = {
@@ -87,29 +81,6 @@ export type Context<
 	// server: Server | null
 	redirect: Redirect
 
-	// set: {
-	// 	headers: HTTPHeaders
-	// 	status?: number | keyof StatusMap
-	// 	/**
-	// 	 * @deprecated Use inline redirect instead
-	// 	 *
-	// 	 * Will be removed in 1.2.0
-	// 	 *
-	// 	 * @example Migration example
-	// 	 * ```ts
-	// 	 * new Spiceflow()
-	// 	 *     .get(({ redirect }) => redirect('/'))
-	// 	 * ```
-	// 	 */
-	// 	redirect?: string
-	// 	/**
-	// 	 * ! Internal Property
-	// 	 *
-	// 	 * Use `Context.cookie` instead
-	// 	 */
-	// 	cookie?: Record<string, SpiceflowCookie>
-	// }
-
 	/**
 	 * Path extracted from incoming URL
 	 *
@@ -132,16 +103,17 @@ export type Context<
 }>
 
 // Use to mimic request before mapping route
-export type PreContext<
+export type MiddlewareContext<
 	in out Singleton extends SingletonBase = {
 		decorator: {}
 		store: {}
-		derive: {}
-		resolve: {}
 	},
 > = Prettify<{
 	store: Singleton['store']
 	request: Request
+	path: string
+	query?: Record<string, string | undefined>
+	params?: Record<string, string | undefined>
 
 	redirect: Redirect
 	// server: Server | null

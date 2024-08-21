@@ -19,7 +19,7 @@ import {
 	MaybeArray,
 	MergeSchema,
 	MetadataBase,
-	PreHandler,
+	MiddlewareHandler,
 	Reconcile,
 	ResolvePath,
 	RouteBase,
@@ -36,7 +36,7 @@ import OriginalRouter from '@medley/router'
 import Ajv, { ValidateFunction } from 'ajv'
 import { z, ZodType } from 'zod'
 import { zodToJsonSchema } from 'zod-to-json-schema'
-import { Context } from './context.js'
+import { Context, MiddlewareContext } from './context.js'
 import { NotFoundError, ValidationError } from './error.js'
 import { isAsyncIterable, redirect } from './utils.js'
 
@@ -106,7 +106,7 @@ export class Spiceflow<
 > {
 	private id: number = globalIndex++
 	private router: MedleyRouter = new OriginalRouter()
-	private onRequestHandlers: Function[] = []
+	private middlewares: Function[] = []
 	private onErrorHandlers: OnError[] = []
 	private routes: InternalRoute[] = []
 	private defaultStore: Record<any, any> = {}
@@ -184,7 +184,6 @@ export class Spiceflow<
 
 			let internalRoute: InternalRoute = route['store'][method]
 			if (internalRoute) {
-				const { onErrorHandlers, onRequestHandlers } = app
 				const params = route['params'] || {}
 
 				const res = {
@@ -665,7 +664,6 @@ export class Spiceflow<
 		return this as any
 	}
 
-	
 	private scoped?: Scoped
 	get _scoped() {
 		return this.scoped as Scoped
@@ -726,7 +724,7 @@ export class Spiceflow<
 		  >
 	use<const Schema extends RouteSchema>(
 		handler: MaybeArray<
-			PreHandler<
+			MiddlewareHandler<
 				Schema,
 				{
 					store: Singleton['store']
@@ -739,8 +737,8 @@ export class Spiceflow<
 		if (appOrHandler instanceof Spiceflow) {
 			this.childrenApps.push(appOrHandler)
 		} else if (typeof appOrHandler === 'function') {
-			this.onRequestHandlers ??= []
-			this.onRequestHandlers.push(appOrHandler)
+			this.middlewares ??= []
+			this.middlewares.push(appOrHandler)
 		}
 		return this
 	}
@@ -773,7 +771,6 @@ export class Spiceflow<
 		const root = this.topLevelApp || this
 		let onErrorHandlers: OnError[] = []
 		try {
-			let response: Response | undefined
 			// Get all middleware and method specific routes in order
 
 			const route = this.match(request.method, path)
@@ -797,9 +794,9 @@ export class Spiceflow<
 				params,
 				app: { defaultStore },
 			} = route
-			const onReqHandlers = this.getRouteAndParents(route.app)
+			const middlewares = this.getRouteAndParents(route.app)
 				.reverse()
-				.flatMap((x) => x.onRequestHandlers)
+				.flatMap((x) => x.middlewares)
 			// console.log({ onReqHandlers })
 			let store = { ...defaultStore }
 
@@ -814,50 +811,62 @@ export class Spiceflow<
 
 			let query = parseQuery.parse((u.search || '').slice(1))
 
-			if (onReqHandlers.length > 0) {
-				for (const handler of onReqHandlers) {
-					const res = await handler({
+			let index = 0
+
+			const next = async () => {
+				if (index < middlewares.length) {
+					const middleware = middlewares[index]
+					index++
+					let context = {
 						request,
-						response,
 						store,
 						path,
 						query,
 						params,
 						redirect,
-					} satisfies Context<any, any, any>)
-					if (res) {
-						return await turnHandlerResultIntoResponse(res)
+					} satisfies MiddlewareContext<any>
+					const result = await middleware(context, next)
+
+					if (!result && index < middlewares.length) {
+						return await next()
+					} else if (result) {
+						return await turnHandlerResultIntoResponse(result)
 					}
 				}
-			}
 
-			query = runValidation(query, route.internalRoute?.validateQuery)
-			params = runValidation(params, route.internalRoute?.validateParams)
+				query = runValidation(query, route.internalRoute?.validateQuery)
+				params = runValidation(
+					params,
+					route.internalRoute?.validateParams,
+				)
 
-			// console.log(route)
+				// console.log(route)
 
-			const res = route.internalRoute?.handler({
-				...defaultContext,
-				request,
-				response,
-				params: params as any,
-				redirect,
-				store,
-				query,
-				// body,
-				path,
-
-				// platform
-			} satisfies Context<any, any, any>)
-			if (isAsyncIterable(res)) {
-				return await this.handleStream({
-					generator: res,
+				const res = route.internalRoute?.handler({
+					...defaultContext,
 					request,
-					onErrorHandlers,
-				})
-			}
+					params: params as any,
+					redirect,
+					store,
+					query,
+					// body,
+					path,
 
-			return await turnHandlerResultIntoResponse(res)
+					// platform
+				} satisfies Context<any, any, any>)
+				if (isAsyncIterable(res)) {
+					return await this.handleStream({
+						generator: res,
+						request,
+						onErrorHandlers,
+					})
+				}
+
+				return await turnHandlerResultIntoResponse(res)
+			}
+			const response = await next()
+
+			return response
 		} catch (err: any) {
 			if (err instanceof Response) return err
 			let res = await this.runErrorHandlers({
