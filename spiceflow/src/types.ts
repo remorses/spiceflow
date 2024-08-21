@@ -610,6 +610,7 @@ export type LocalHook<
 		  },
 > = (LocalSchema extends {} ? LocalSchema : Isolate<LocalSchema>) &
 	Extension & {
+		detail?: DocumentDecoration
 		/**
 		 * Short for 'Content-Type'
 		 *
