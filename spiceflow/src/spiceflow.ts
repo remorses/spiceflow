@@ -41,7 +41,7 @@ import Ajv, { ValidateFunction } from 'ajv'
 import { Context } from './context.js'
 import { isAsyncIterable } from './utils.js'
 import { redirect } from './utils.js'
-import { ValidationError } from './error.js'
+import { NotFoundError, ValidationError } from './error.js'
 import { zodToJsonSchema } from 'zod-to-json-schema'
 import { z, ZodType } from 'zod'
 
@@ -67,13 +67,9 @@ const ajv = (addFormats.default || addFormats)(
 
 // Should be exported from `hono/router`
 
-type P = any
-
 type AsyncResponse = Response | Promise<Response>
 
 type OnError = (x: { error: any; request: Request }) => AsyncResponse
-
-type OnNoMatch = (request: Request, platform: P) => AsyncResponse
 
 export type InternalRoute = {
 	method: HTTPMethod
@@ -87,6 +83,11 @@ export type InternalRoute = {
 	prefix: string
 
 	// store: Record<any, any>
+}
+
+type MedleyRouter = {
+	find: (path: string) => InternalRoute | undefined
+	register: (path: string | undefined) => Record<string, InternalRoute>
 }
 /**
  * Router class
@@ -123,9 +124,8 @@ export class Spiceflow<
 		schema: {}
 	},
 > {
-	private onNoMatch: OnNoMatch
 	private id: number = globalIndex++
-	private router: OriginalRouter = new OriginalRouter()
+	private router: MedleyRouter = new OriginalRouter()
 	private onRequestHandlers: Function[] = []
 	private onErrorHandlers: OnError[] = []
 	private routes: InternalRoute[] = []
@@ -179,14 +179,14 @@ export class Spiceflow<
 			validateQuery,
 		}
 		this.routes.push(route)
-		store[method] = route
+		store[method!] = route
 	}
 
 	private match(method: string, path: string) {
 		let root = this
-		const result = bfsFind(this, (router) => {
-			router.topLevelApp = root
-			let prefix = this.getRouteAndParents(router)
+		const result = bfsFind(this, (app) => {
+			app.topLevelApp = root
+			let prefix = this.getRouteAndParents(app)
 				.map((x) => x.prefix)
 				.reverse()
 				.join('')
@@ -197,24 +197,22 @@ export class Spiceflow<
 			if (prefix) {
 				pathWithoutPrefix = path.replace(prefix, '')
 			}
-			const route = router.router.find(pathWithoutPrefix)
+			const route = app.router.find(pathWithoutPrefix)
 			if (!route) {
 				return
 			}
 
-			let data: InternalRoute = route['store'][method]
-			if (data) {
-				const { onErrorHandlers, onRequestHandlers } = router
+			let internalRoute: InternalRoute = route['store'][method]
+			if (internalRoute) {
+				const { onErrorHandlers, onRequestHandlers } = app
 				const params = route['params'] || {}
 
-				return {
-					...data,
-					router,
-					store: router.defaultStore,
-					onErrorHandlers,
-					onRequestHandlers,
+				const res = {
+					app,
+					internalRoute: internalRoute,
 					params,
 				}
+				return res
 			}
 		})
 
@@ -256,14 +254,12 @@ export class Spiceflow<
 		options: {
 			name?: string
 			scoped?: Scoped
-			onNoMatch?: (request: Request, platform: P) => AsyncResponse
+
 			basePath?: BasePath
 		} = {},
 	) {
 		this.scoped = options.scoped
 
-		this.onNoMatch =
-			options.onNoMatch ?? (() => new Response(null, { status: 404 }))
 		this.prefix = options.basePath
 	}
 
@@ -932,9 +928,7 @@ export class Spiceflow<
 	 * @param platform  Platform specific context {@link Platform}
 	 * @returns The final `Response`
 	 */
-	async handle(request: Request, platform?: P): Promise<Response> {
-		platform ??= {} as P
-
+	async handle(request: Request): Promise<Response> {
 		let u = new URL(request.url, 'http://localhost')
 		let path = u.pathname + u.search
 		const defaultContext = {
@@ -942,33 +936,45 @@ export class Spiceflow<
 			error: null,
 			path,
 		}
+		const root = this.topLevelApp || this
 		let onErrorHandlers: OnError[] = []
 		try {
 			let response: Response | undefined
 			// Get all middleware and method specific routes in order
 
 			const route = this.match(request.method, path)
+
 			if (!route) {
-				return this.onNoMatch(request, platform)
+				const error = new NotFoundError()
+				const res = await this.runErrorHandlers({
+					onErrorHandlers,
+					error,
+					request,
+				})
+				if (res) return res
+				return new Response(`Not Found`, {
+					status: 404,
+				})
 			}
-			onErrorHandlers = this.getRouteAndParents(route.router)
+			onErrorHandlers = this.getRouteAndParents(route.app)
 				.reverse()
 				.flatMap((x) => x.onErrorHandlers)
-			let { params, store: defaultStore } = route
-			const onReqHandlers = this.getRouteAndParents(route.router)
+			let {
+				params,
+				app: { defaultStore },
+			} = route
+			const onReqHandlers = this.getRouteAndParents(route.app)
 				.reverse()
 				.flatMap((x) => x.onRequestHandlers)
 			// console.log({ onReqHandlers })
 			let store = { ...defaultStore }
-			// TODO add content type
 
-			let content = route?.hooks?.content
-			// let body = await getRequestBody({ request, content })
+			let content = route?.internalRoute?.hooks?.content
 
-			if (route.validateBody) {
+			if (route.internalRoute?.validateBody) {
 				// TODO don't clone the request
 				let typedRequest = new TypedRequest(request)
-				typedRequest.validateBody = route.validateBody
+				typedRequest.validateBody = route.internalRoute?.validateBody
 				request = typedRequest
 			}
 
@@ -989,12 +995,12 @@ export class Spiceflow<
 				}
 			}
 
-			query = runValidation(query, route.validateQuery)
-			params = runValidation(params, route.validateParams)
+			query = runValidation(query, route.internalRoute?.validateQuery)
+			params = runValidation(params, route.internalRoute?.validateParams)
 
 			// console.log(route)
 
-			const res = route.handler({
+			const res = route.internalRoute?.handler({
 				...defaultContext,
 				request,
 				response,

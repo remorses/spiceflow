@@ -1,2 +1,1 @@
-export * from './spiceflow.js'
-export { Static } from '@sinclair/typebox'
+export { Spiceflow, AnySpiceflow } from './spiceflow.js'
