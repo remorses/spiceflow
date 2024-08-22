@@ -1,5 +1,17 @@
 # spiceflow
 
+## 1.1.2
+
+### Patch Changes
+
+-   maybe fix bun
+
+## 1.1.1
+
+### Patch Changes
+
+-   add listen()
+
 ## 1.1.0
 
 ### Minor Changes

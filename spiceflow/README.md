@@ -79,18 +79,16 @@ app.post(
 ```typescript
 import { z } from 'zod'
 
-const userResponseSchema = z.object({
-	id: z.number(),
-	name: z.string(),
-})
-
 app.get(
 	'/users/:id',
 	({ params }) => {
 		return { id: Number(params.id), name: 'John Doe' }
 	},
 	{
-		response: userResponseSchema,
+		response: z.object({
+			id: z.number(),
+			name: z.string(),
+		}),
 	},
 )
 ```
@@ -154,4 +152,21 @@ app.use(({ request }) => {
 })
 ```
 
-For more advanced usage and configuration options, please refer to the official documentation.
+## Modifying Response with Middleware
+
+Middleware in Spiceflow can be used to modify the response before it's sent to the client. This is useful for adding headers, transforming the response body, or performing any other operations on the response.
+
+Here's an example of how to modify the response using middleware:
+
+```ts
+app.use(async ({}, next) => {
+	const response = await next()
+	if (response) {
+		// Add a custom header to all responses
+		response.headers.set('X-Powered-By', 'Spiceflow')
+	}
+	return response
+}).get('/example', () => {
+	return { message: 'Hello, World!' }
+})
+```

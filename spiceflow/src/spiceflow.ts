@@ -954,6 +954,7 @@ export class Spiceflow<
 				port,
 				development: !isProduction,
 				hostname,
+				reusePort: true,
 				error(error) {
 					console.error(error)
 					return new Response('Internal Server Error', {
@@ -965,6 +966,9 @@ export class Spiceflow<
 					const res = await this.handle(request)
 					return res
 				},
+			})
+			process.on('beforeExit', () => {
+				server.stop()
 			})
 			console.log(`Listening on http://localhost:${port}`)
 			return server
