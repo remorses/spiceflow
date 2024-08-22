@@ -924,3 +924,6 @@ export type JoinPath<A extends string, B extends string> = `${A}${B extends '/'
 	: B extends `/${string}`
 	? B
 	: B}`
+
+export type PartialWithRequired<T, K extends keyof T> = Partial<Omit<T, K>> &
+	Pick<T, K>

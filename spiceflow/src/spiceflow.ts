@@ -74,14 +74,18 @@ export type InternalRoute = {
 	validateBody?: ValidateFunction
 	validateQuery?: ValidateFunction
 	validateParams?: ValidateFunction
-
 	prefix: string
 
 	// store: Record<any, any>
 }
 
 type MedleyRouter = {
-	find: (path: string) => InternalRoute | undefined
+	find: (path: string) =>
+		| {
+				store: Record<string, InternalRoute> //
+				params: Record<string, any>
+		  }
+		| undefined
 	register: (path: string | undefined) => Record<string, InternalRoute>
 }
 /**
@@ -125,7 +129,6 @@ export class Spiceflow<
 		const allRoutes = allApps.flatMap((x) => {
 			const prefix = this.getAppAndParents(x)
 				.map((x) => x.prefix)
-
 				.join('')
 
 			return x.routes.map((x) => ({ ...x, path: prefix + x.path }))
@@ -148,7 +151,6 @@ export class Spiceflow<
 		const store = this.router.register(path)
 		let route: InternalRoute = {
 			...rest,
-
 			prefix: this.prefix || '',
 			method: (method || '') as any,
 			path: path || '',
@@ -168,7 +170,6 @@ export class Spiceflow<
 			app.topLevelApp = root
 			let prefix = this.getAppAndParents(app)
 				.map((x) => x.prefix)
-
 				.join('')
 			if (prefix && !path.startsWith(prefix)) {
 				return
@@ -177,14 +178,14 @@ export class Spiceflow<
 			if (prefix) {
 				pathWithoutPrefix = path.replace(prefix, '')
 			}
-			const route = app.router.find(pathWithoutPrefix)
-			if (!route) {
+			const medleyRoute = app.router.find(pathWithoutPrefix)
+			if (!medleyRoute) {
 				return
 			}
 
-			let internalRoute: InternalRoute = route['store'][method]
+			let internalRoute: InternalRoute = medleyRoute.store[method]
 			if (internalRoute) {
-				const params = route['params'] || {}
+				const params = medleyRoute.params || {}
 
 				const res = {
 					app,
@@ -900,10 +901,13 @@ export class Spiceflow<
 	}
 
 	private getAppAndParents(currentApp?: AnySpiceflow) {
+		let root = this.topLevelApp || this
+
+		if (!root.childrenApps.length) {
+			return [root]
+		}
 		const parents: AnySpiceflow[] = []
 		let current = currentApp
-
-		let root = this.topLevelApp || this
 
 		const parentMap = new Map<number, AnySpiceflow>()
 		bfsFind(root, (node) => {
@@ -922,9 +926,12 @@ export class Spiceflow<
 	}
 
 	private getAppsInScope(currentApp?: AnySpiceflow) {
+		let root = this.topLevelApp || this
+		if (!root.childrenApps.length) {
+			return [root]
+		}
 		const withParents = this.getAppAndParents(currentApp)
 
-		let root = this.topLevelApp || this
 		const wantedOrder = bfs(root)
 		const scopeFalseApps = wantedOrder.filter((x) => x.scoped === false)
 		let appsInScope = [] as AnySpiceflow[]
