@@ -37,7 +37,7 @@ import Ajv, { ValidateFunction } from 'ajv'
 import { z, ZodType } from 'zod'
 import { zodToJsonSchema } from 'zod-to-json-schema'
 import { Context, MiddlewareContext } from './context.js'
-import { NotFoundError, ValidationError } from './error.js'
+import { isProduction, NotFoundError, ValidationError } from './error.js'
 import { isAsyncIterable, redirect } from './utils.js'
 
 const ajv = (addFormats.default || addFormats)(
@@ -774,7 +774,7 @@ export class Spiceflow<
 			const route = this.match(request.method, path)
 
 			if (!route) {
-				const error = new NotFoundError()
+				const error = new NotFoundError(`${path} not found`)
 				const res = await this.runErrorHandlers({
 					onErrorHandlers,
 					error,
@@ -948,7 +948,31 @@ export class Spiceflow<
 		return appsInScope
 	}
 
-	async listen(port: number, hostname: string = '0.0.0.0') {
+	async listen(port: number, hostname: string = '127.0.0.1') {
+		if (typeof Bun !== 'undefined') {
+			const server = Bun.serve({
+				port,
+				development: !isProduction,
+				hostname,
+				error(error) {
+					console.error(error)
+					return new Response('Internal Server Error', {
+						status: 500,
+					})
+				},
+
+				fetch: async (request) => {
+					const res = await this.handle(request)
+					return res
+				},
+			})
+			console.log(`Listening on http://localhost:${port}`)
+			return server
+		}
+		return this.listenNode(port, hostname)
+	}
+
+	async listenNode(port: number, hostname: string = '0.0.0.0') {
 		const { Readable } = await import('stream')
 		const { createServer } = await import('http')
 
@@ -1011,6 +1035,7 @@ export class Spiceflow<
 
 		await new Promise((resolve, reject) => {
 			server.listen(port, hostname, () => {
+				console.log(`Listening on http://localhost:${port}`)
 				resolve(null)
 			})
 		})
@@ -1220,6 +1245,7 @@ export function bfs(tree: AnySpiceflow) {
 	return nodes
 }
 export async function turnHandlerResultIntoResponse(result: any) {
+	// if (result === undefined) return new Response('', { status: 404 })
 	// if user returns not a response, convert to json
 	if (result instanceof Response) {
 		return result
@@ -1234,7 +1260,7 @@ export async function turnHandlerResultIntoResponse(result: any) {
 	// }
 	// if user returns an object, convert to json
 
-	return new Response(JSON.stringify(result, null, 2), {
+	return new Response(JSON.stringify(result ?? null, null, 2), {
 		headers: {
 			'content-type': 'application/json',
 		},
