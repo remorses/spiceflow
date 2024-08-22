@@ -950,6 +950,19 @@ export class Spiceflow<
 			const { signal } = abortController
 
 			req.on('close', () => abortController.abort())
+			req.on('error', (err) => {
+				abortController.abort()
+			})
+			req.on('aborted', (err) => {
+				abortController.abort()
+			})
+			// this is how you see when a request is aborted in Node.js, laughable
+			res.on('close', function () {
+				let aborted = !res.writableFinished
+				if (aborted) {
+					abortController.abort()
+				}
+			})
 
 			const url = new URL(
 				req.url || '',
