@@ -946,6 +946,11 @@ export class Spiceflow<
 		const { createServer } = await import('http')
 
 		const server = createServer(async (req, res) => {
+			const abortController = new AbortController()
+			const { signal } = abortController
+
+			req.on('close', () => abortController.abort())
+
 			const url = new URL(
 				req.url || '',
 				`http://${req.headers.host || hostname || 'localhost'}`,
@@ -957,6 +962,7 @@ export class Spiceflow<
 					req.method !== 'GET' && req.method !== 'HEAD'
 						? (Readable.toWeb(req) as any)
 						: null,
+				signal,
 			})
 
 			try {
