@@ -801,7 +801,10 @@ export class Spiceflow<
 
 			if (route.internalRoute?.validateBody) {
 				// TODO don't clone the request
-				let typedRequest = new TypedRequest(request)
+				let typedRequest =
+					request instanceof TypedRequest
+						? request
+						: new TypedRequest(request)
 				typedRequest.validateBody = route.internalRoute?.validateBody
 				request = typedRequest
 			}
@@ -936,6 +939,57 @@ export class Spiceflow<
 			}
 		}
 		return appsInScope
+	}
+
+	async listen(port: number, hostname: string = '0.0.0.0') {
+		const { Readable } = await import('stream')
+		const { createServer } = await import('http')
+
+		const server = createServer(async (req, res) => {
+			const url = new URL(
+				req.url || '',
+				`http://${req.headers.host || hostname || 'localhost'}`,
+			)
+			const typedRequest = new TypedRequest(url.toString(), {
+				method: req.method,
+				headers: req.headers as HeadersInit,
+				body:
+					req.method !== 'GET' && req.method !== 'HEAD'
+						? (Readable.toWeb(req) as any)
+						: null,
+			})
+
+			try {
+				const response = await this.handle(typedRequest)
+
+				res.statusCode = response.status
+				for (const [key, value] of response.headers) {
+					res.setHeader(key, value)
+				}
+
+				if (response.body) {
+					const reader = response.body.getReader()
+					while (true) {
+						const { done, value } = await reader.read()
+						if (done) break
+						res.write(value)
+					}
+				}
+				res.end()
+			} catch (error) {
+				console.error('Error handling request:', error)
+				res.statusCode = 500
+				res.end('Internal Server Error')
+			}
+		})
+
+		await new Promise((resolve, reject) => {
+			server.listen(port, hostname, () => {
+				resolve(null)
+			})
+		})
+
+		return server
 	}
 
 	private async handleStream({
