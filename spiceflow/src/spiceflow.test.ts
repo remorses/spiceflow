@@ -28,6 +28,59 @@ test('GET dynamic route', async () => {
 	expect(await res.json()).toEqual('hi')
 })
 
+test('onError does not fire on 404', async () => {
+	let errorFired = false
+	const app = new Spiceflow()
+		.get('/test', () => 'Hello')
+		.onError(() => {
+			errorFired = true
+			return new Response('Error', { status: 500 })
+		})
+
+	const res = await app.handle(
+		new Request('http://localhost/non-existent', { method: 'GET' }),
+	)
+
+	expect(res.status).toBe(404)
+	expect(errorFired).toBe(false)
+	expect(await res.text()).toBe('Not Found')
+})
+
+test('onError fires on validation errors', async () => {
+	let errorMessage = ''
+	const app = new Spiceflow()
+		.post(
+			'/test',
+			async ({ request }) => {
+				await request.json()
+				return 'Success'
+			},
+			{
+				body: z.object({
+					name: z.string(),
+				}),
+			},
+		)
+		.onError(({ error }) => {
+			errorMessage = error.message
+			return new Response('Error', { status: 400 })
+		})
+
+	const res = await app.handle(
+		new Request('http://localhost/test', {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json',
+			},
+			body: JSON.stringify({ name: 1 }), // Invalid type for 'name'
+		}),
+	)
+
+	expect(res.status).toBe(400)
+	expect(errorMessage).toContain('data/name must be string')
+	expect(await res.text()).toBe('Error')
+})
+
 test.todo('HEAD uses GET route, does not add body', async () => {
 	const app = new Spiceflow().get('/ids/:id', () => {
 		console.trace('GET')

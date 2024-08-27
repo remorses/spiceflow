@@ -856,6 +856,7 @@ export class Spiceflow<
 				error: err,
 				request,
 			})
+			if (res instanceof Response) return res
 
 			let status = err?.status ?? 500
 			res ||= new Response(err?.message || 'Internal Server Error', {
