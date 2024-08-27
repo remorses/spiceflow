@@ -718,13 +718,11 @@ export class Spiceflow<
 					: Routes & CreateEden<BasePath, NewSpiceflow['_routes']>
 		  >
 	use<const Schema extends RouteSchema>(
-		handler: MaybeArray<
-			MiddlewareHandler<
-				Schema,
-				{
-					state: Singleton['state']
-				}
-			>
+		handler: MiddlewareHandler<
+			Schema,
+			{
+				state: Singleton['state']
+			}
 		>,
 	): this
 

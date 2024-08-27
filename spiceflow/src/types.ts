@@ -473,9 +473,7 @@ export type BodyHandler<
 
 export type MiddlewareHandler<
 	in out Route extends RouteSchema = {},
-	in out Singleton extends SingletonBase = {
-		state: {}
-	},
+	in out Singleton extends SingletonBase = any,
 > = (
 	context: MiddlewareContext<Singleton>,
 	next: () => Promise<Response>,

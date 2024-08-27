@@ -13,8 +13,14 @@ function request(path, method = 'GET') {
 }
 describe('cors middleware', () => {
 	const app = new Spiceflow()
+		.state('x', 1)
 		.use(cors())
-		.get('/ids/:id', () => 'hi')
+		.get('/ids/:id', ({ state }) => {
+			state.x
+			// @ts-expect-error
+			state.y
+			return 'hi'
+		})
 		.post('/ids/:id', ({ params: { id } }) => id, {
 			params: z.object({ id: z.string() }),
 		})
