@@ -171,6 +171,7 @@ export class Spiceflow<
 
 	private match(method: string, path: string) {
 		let root = this
+		let foundApp: AnySpiceflow | undefined
 		const result = bfsFind(this, (app) => {
 			app.topLevelApp = root
 			let prefix = this.getAppAndParents(app)
@@ -185,6 +186,7 @@ export class Spiceflow<
 			}
 			const medleyRoute = app.router.find(pathWithoutPrefix)
 			if (!medleyRoute) {
+				foundApp = app
 				return
 			}
 
@@ -238,21 +240,11 @@ export class Spiceflow<
 					params: medleyRoute.params,
 				}
 			}
-			return {
-				app,
-				internalRoute: {
-					hooks: {},
-					handler: notFoundHandler,
-					method,
-					path,
-				} as InternalRoute,
-				params: medleyRoute.params,
-			}
 		})
 
 		return (
 			result || {
-				app: root,
+				app: foundApp || root,
 				internalRoute: {
 					hooks: {},
 					handler: notFoundHandler,
