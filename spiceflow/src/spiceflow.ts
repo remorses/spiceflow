@@ -90,9 +90,6 @@ const notFoundHandler = (c) => {
 	return new Response('Not Found', { status: 404 })
 }
 
-/**
- * Router class
- */
 export class Spiceflow<
 	const in out BasePath extends string = '',
 	const in out Scoped extends boolean = true,
@@ -153,7 +150,6 @@ export class Spiceflow<
 		const store = this.router.register(path)
 		let route: InternalRoute = {
 			...rest,
-			// prefix: this.prefix || '',
 			method: (method || '') as any,
 			path: path || '',
 			handler: handler!,
@@ -709,45 +705,6 @@ export class Spiceflow<
 
 	private scoped?: Scoped = true as Scoped
 
-	// group is not needed, you can add another prefixed app instead
-	// group<
-	// 	const Prefix extends string,
-	// 	const NewSpiceflow extends Spiceflow<any, any, any, any, any, any, any, any>
-	// >(
-	// 	prefix: Prefix,
-	// 	run: (
-	// 		group: Spiceflow<
-	// 			`${BasePath}${Prefix}`,
-	// 			Scoped,
-	// 			Singleton,
-	// 			Definitions,
-	// 			Metadata,
-	// 			{},
-	// 			Ephemeral,
-	// 			Volatile
-	// 		>
-	// 	) => NewSpiceflow
-	// ): Spiceflow<
-	// 	BasePath,
-	// 	Scoped,
-	// 	Singleton,
-	// 	Definitions,
-	// 	Metadata,
-	// 	Prettify<Routes & NewSpiceflow['_routes']>,
-	// 	Ephemeral,
-	// 	Volatile
-	// > {
-	// 	let thisRouter = this.routers[0]
-	// 	this.routers.push(
-	// 		...instance.routers.map((r) => ({
-	// 			...r,
-	// 			prefix: (thisRouter.prefix || '') + r.prefix
-	// 		}))
-	// 	)
-
-	// 	return this
-	// }
-
 	use<const NewSpiceflow extends AnySpiceflow>(
 		instance: NewSpiceflow,
 	): IsAny<NewSpiceflow> extends true
@@ -794,12 +751,6 @@ export class Spiceflow<
 		return this
 	}
 
-	/**
-	 * Pass a request through all matching route handles and return a response
-	 * @param request   The `Request`
-	 * @param platform  Platform specific context {@link Platform}
-	 * @returns The final `Response`
-	 */
 	async handle(request: Request): Promise<Response> {
 		let u = new URL(request.url, 'http://localhost')
 		let path = u.pathname + u.search

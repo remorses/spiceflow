@@ -48,3 +48,4 @@ test('`use` on Spiceflow return', async () => {
 	expect(res.status).toBe(200)
 	expect(await res.json()).toEqual('hi')
 })
+
