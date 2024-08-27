@@ -1,5 +1,17 @@
 # spiceflow
 
+## 1.1.5
+
+### Patch Changes
+
+-   fix params and query being stale after validation
+
+## 1.1.4
+
+### Patch Changes
+
+-   Fix middleware calling handler many times
+
 ## 1.1.3
 
 ### Patch Changes

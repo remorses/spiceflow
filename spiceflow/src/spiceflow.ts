@@ -764,16 +764,13 @@ export class Spiceflow<
 
 			const route = this.match(request.method, path)
 
-			onErrorHandlers = this.getAppsInScope(route.app).flatMap(
-				(x) => x.onErrorHandlers,
-			)
+			const appsInScope = this.getAppsInScope(route.app)
+			onErrorHandlers = appsInScope.flatMap((x) => x.onErrorHandlers)
 			let {
-				params,
+				params: _params,
 				app: { defaultState: defaultStore },
 			} = route
-			const middlewares = this.getAppsInScope(route.app).flatMap(
-				(x) => x.middlewares,
-			)
+			const middlewares = appsInScope.flatMap((x) => x.middlewares)
 			// console.log({ onReqHandlers })
 			let state = { ...defaultStore }
 
@@ -789,16 +786,14 @@ export class Spiceflow<
 				request = typedRequest
 			}
 
-			let query = parseQuery.parse((u.search || '').slice(1))
-
 			let index = 0
 			let context = {
 				...defaultContext,
 				request,
 				state,
 				path,
-				query,
-				params,
+				query: parseQuery.parse((u.search || '').slice(1)),
+				params: _params,
 				redirect,
 			} satisfies MiddlewareContext<any>
 			let handlerResponse: Response | undefined
@@ -818,9 +813,12 @@ export class Spiceflow<
 					return handlerResponse
 				}
 
-				query = runValidation(query, route.internalRoute?.validateQuery)
-				params = runValidation(
-					params,
+				context.query = runValidation(
+					context.query,
+					route.internalRoute?.validateQuery,
+				)
+				context.params = runValidation(
+					context.params,
 					route.internalRoute?.validateParams,
 				)
 

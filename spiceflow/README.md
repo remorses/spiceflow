@@ -36,9 +36,7 @@ npm install spiceflow
 ```typescript
 import { Spiceflow } from 'spiceflow'
 
-const app = new Spiceflow()
-
-app.get('/hello', () => 'Hello, World!')
+const app = new Spiceflow().get('/hello', () => 'Hello, World!')
 
 app.listen(3000)
 ```
@@ -58,18 +56,16 @@ app.get('/users/:id', ({ params }) => {
 ```typescript
 import { z } from 'zod'
 
-const userSchema = z.object({
-	name: z.string(),
-	email: z.string().email(),
-})
-
 app.post(
 	'/users',
 	({ body }) => {
 		return `Created user: ${body.name}`
 	},
 	{
-		body: userSchema,
+		body: z.object({
+			name: z.string(),
+			email: z.string().email(),
+		}),
 	},
 )
 ```
@@ -107,11 +103,9 @@ const { data: user } = await client.users.get({ params: { id: '123' } })
 ## Mounting Sub-Apps
 
 ```typescript
-const usersApp = new Spiceflow()
-usersApp.get('/', () => 'Users list')
-
 const mainApp = new Spiceflow()
-mainApp.use('/users', usersApp)
+	.post('/users', ({ body }) => `Created user: ${body.name}`)
+	.use(new Spiceflow().get('/', () => 'Users list'))
 ```
 
 ## Base Path
@@ -159,14 +153,51 @@ Middleware in Spiceflow can be used to modify the response before it's sent to t
 Here's an example of how to modify the response using middleware:
 
 ```ts
-app.use(async ({}, next) => {
-	const response = await next()
-	if (response) {
-		// Add a custom header to all responses
-		response.headers.set('X-Powered-By', 'Spiceflow')
-	}
-	return response
-}).get('/example', () => {
-	return { message: 'Hello, World!' }
-})
+
+new Spiceflow()
+	.use(async ({ request }, next) => {
+		const response = await next()
+		if (response) {
+			// Add a custom header to all responses
+			response.headers.set('X-Powered-By', 'Spiceflow')
+		}
+		return response
+	})
+	.get('/example', () => {
+		return { message: 'Hello, World!' }
+	})
+```
+
+## Generating OpenAPI Schema
+
+```typescript
+import { openapi } from 'spiceflow/openapi'
+
+const app = new Spiceflow()
+	.use(openapi({ path: '/openapi.json' }))
+	.get('/hello', () => 'Hello, World!', {
+		query: z.object({
+			name: z.string(),
+			age: z.number(),
+		}),
+		response: z.string(),
+	})
+	.post('/user', {
+		body: z.object({
+			name: z.string(),
+			email: z.string().email(),
+		}),
+	})
+
+const openapiSchema = await (
+	await app.handle(new Request('http://localhost:3000/openapi.json'))
+).json()
+```
+
+## Adding CORS Headers
+
+```typescript
+import { cors } from 'spiceflow/cors'
+
+const app = new Spiceflow().use(cors()).get('/hello', () => 'Hello, World!')
 ```
