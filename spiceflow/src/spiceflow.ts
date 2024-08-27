@@ -202,18 +202,6 @@ export class Spiceflow<
 				}
 				return res
 			}
-			if (method === 'OPTIONS') {
-				return {
-					app,
-					internalRoute: {
-						hooks: {},
-						handler: () => new Response(),
-						method,
-						path,
-					} as InternalRoute,
-					params: medleyRoute.params,
-				}
-			}
 			if (method === 'HEAD') {
 				let internalRouteGet: InternalRoute = medleyRoute.store['GET']
 				if (!internalRouteGet?.handler) {
