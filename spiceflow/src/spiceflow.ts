@@ -72,14 +72,12 @@ export type InternalRoute = {
 	validateQuery?: ValidateFunction
 	validateParams?: ValidateFunction
 	// prefix: string
-
-	// store: Record<any, any>
 }
 
 type MedleyRouter = {
 	find: (path: string) =>
 		| {
-				store: Record<string, InternalRoute> //
+				state: Record<string, InternalRoute> //
 				params: Record<string, any>
 		  }
 		| undefined
@@ -94,7 +92,7 @@ export class Spiceflow<
 	const in out BasePath extends string = '',
 	const in out Scoped extends boolean = true,
 	const in out Singleton extends SingletonBase = {
-		store: {}
+		state: {}
 	},
 	const in out Definitions extends DefinitionBase = {
 		type: {}
@@ -112,7 +110,7 @@ export class Spiceflow<
 	private middlewares: Function[] = []
 	private onErrorHandlers: OnError[] = []
 	private routes: InternalRoute[] = []
-	private defaultStore: Record<any, any> = {}
+	private defaultState: Record<any, any> = {}
 	private topLevelApp?: AnySpiceflow
 
 	/** @internal */
@@ -183,7 +181,7 @@ export class Spiceflow<
 				return
 			}
 
-			let internalRoute: InternalRoute = medleyRoute.store[method]
+			let internalRoute: InternalRoute = medleyRoute.state[method]
 
 			if (internalRoute) {
 				const params = medleyRoute.params || {}
@@ -196,7 +194,7 @@ export class Spiceflow<
 				return res
 			}
 			if (method === 'HEAD') {
-				let internalRouteGet: InternalRoute = medleyRoute.store['GET']
+				let internalRouteGet: InternalRoute = medleyRoute.state['GET']
 				if (!internalRouteGet?.handler) {
 					return
 				}
@@ -244,8 +242,8 @@ export class Spiceflow<
 		BasePath,
 		Scoped,
 		{
-			store: Reconcile<
-				Singleton['store'],
+			state: Reconcile<
+				Singleton['state'],
 				{
 					[name in Name]: Value
 				}
@@ -255,7 +253,7 @@ export class Spiceflow<
 		Metadata,
 		Routes
 	> {
-		this.defaultStore[name] = value
+		this.defaultState[name] = value
 		return this as any
 	}
 
@@ -724,7 +722,7 @@ export class Spiceflow<
 			MiddlewareHandler<
 				Schema,
 				{
-					store: Singleton['store']
+					state: Singleton['state']
 				}
 			>
 		>,
@@ -771,13 +769,13 @@ export class Spiceflow<
 			)
 			let {
 				params,
-				app: { defaultStore },
+				app: { defaultState: defaultStore },
 			} = route
 			const middlewares = this.getAppsInScope(route.app).flatMap(
 				(x) => x.middlewares,
 			)
 			// console.log({ onReqHandlers })
-			let store = { ...defaultStore }
+			let state = { ...defaultStore }
 
 			let content = route?.internalRoute?.hooks?.content
 
@@ -801,7 +799,7 @@ export class Spiceflow<
 					index++
 					let context = {
 						request,
-						store,
+						state,
 						path,
 						query,
 						params,
@@ -829,7 +827,7 @@ export class Spiceflow<
 					request,
 					params: params as any,
 					redirect,
-					store,
+					state: state,
 					query,
 					// body,
 					path,

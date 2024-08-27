@@ -17,7 +17,7 @@ import { SpiceflowRequest } from './spiceflow.js'
 export type ErrorContext<
 	in out Route extends RouteSchema = {},
 	in out Singleton extends SingletonBase = {
-		store: {}
+		state: {}
 		derive: {}
 		resolve: {}
 	},
@@ -53,14 +53,14 @@ export type ErrorContext<
 	 */
 	// route: string
 	request: SpiceflowRequest<Route['body']>
-	store: Singleton['store']
+	state: Singleton['state']
 	// response: Route['response']
 }>
 
 export type Context<
 	in out Route extends RouteSchema = {},
 	in out Singleton extends SingletonBase = {
-		store: {}
+		state: {}
 		derive: {}
 		resolve: {}
 	},
@@ -81,17 +81,17 @@ export type Context<
 	path: string
 
 	request: SpiceflowRequest<Route['body']>
-	store: Singleton['store']
+	state: Singleton['state']
 	response?: Route['response']
 }>
 
 // Use to mimic request before mapping route
 export type MiddlewareContext<
 	in out Singleton extends SingletonBase = {
-		store: {}
+		state: {}
 	},
 > = Prettify<{
-	store: Singleton['store']
+	state: Singleton['state']
 	request: Request
 	path: string
 	query?: Record<string, string | undefined>

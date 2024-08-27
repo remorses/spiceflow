@@ -144,7 +144,7 @@ export type Reconcile<
 	: never
 
 export interface SingletonBase {
-	store: Record<string, unknown>
+	state: Record<string, unknown>
 }
 
 export interface DefinitionBase {
@@ -311,7 +311,7 @@ export interface MergeSchema<
 export type Handler<
 	in out Route extends RouteSchema = {},
 	in out Singleton extends SingletonBase = {
-		store: {}
+		state: {}
 	},
 	Path extends string = '',
 > = (
@@ -351,7 +351,7 @@ export type CoExist<Original, Target, With> = IsAny<Target> extends true
 export type InlineHandler<
 	Route extends RouteSchema = {},
 	Singleton extends SingletonBase = {
-		store: {}
+		state: {}
 	},
 	Path extends string = '',
 	MacroContext = {},
@@ -383,7 +383,7 @@ export type InlineHandler<
 export type OptionalHandler<
 	in out Route extends RouteSchema = {},
 	in out Singleton extends SingletonBase = {
-		store: {}
+		state: {}
 	},
 	Path extends string = '',
 > = Handler<Route, Singleton, Path> extends (
@@ -395,7 +395,7 @@ export type OptionalHandler<
 export type AfterHandler<
 	in out Route extends RouteSchema = {},
 	in out Singleton extends SingletonBase = {
-		store: {}
+		state: {}
 	},
 	Path extends string = '',
 > = Handler<Route, Singleton, Path> extends (
@@ -413,7 +413,7 @@ export type AfterHandler<
 export type MapResponse<
 	in out Route extends RouteSchema = {},
 	in out Singleton extends SingletonBase = {
-		store: {}
+		state: {}
 	},
 	Path extends string = '',
 > = Handler<
@@ -431,14 +431,14 @@ export type MapResponse<
 export type VoidHandler<
 	in out Route extends RouteSchema = {},
 	in out Singleton extends SingletonBase = {
-		store: {}
+		state: {}
 	},
 > = (context: Context<Route, Singleton>) => MaybePromise<void>
 
 export type TransformHandler<
 	in out Route extends RouteSchema = {},
 	in out Singleton extends SingletonBase = {
-		store: {}
+		state: {}
 	},
 	BasePath extends string = '',
 > = {
@@ -458,7 +458,7 @@ export type TransformHandler<
 export type BodyHandler<
 	in out Route extends RouteSchema = {},
 	in out Singleton extends SingletonBase = {
-		store: {}
+		state: {}
 	},
 	Path extends string = '',
 > = (
@@ -474,7 +474,7 @@ export type BodyHandler<
 export type MiddlewareHandler<
 	in out Route extends RouteSchema = {},
 	in out Singleton extends SingletonBase = {
-		store: {}
+		state: {}
 	},
 > = (
 	context: MiddlewareContext<Singleton>,
@@ -484,7 +484,7 @@ export type MiddlewareHandler<
 export type AfterResponseHandler<
 	in out Route extends RouteSchema = {},
 	in out Singleton extends SingletonBase = {
-		store: {}
+		state: {}
 	},
 > = (
 	context: Prettify<
@@ -502,13 +502,13 @@ export type ErrorHandler<
 	in out T extends Record<string, Error> = {},
 	in out Route extends RouteSchema = {},
 	in out Singleton extends SingletonBase = {
-		store: {}
+		state: {}
 	},
 > = (
 	context: ErrorContext<
 		Route,
 		{
-			store: Singleton['store']
+			state: Singleton['state']
 		}
 	> &
 		(
@@ -517,35 +517,35 @@ export type ErrorHandler<
 						request: Request
 						code: 'UNKNOWN'
 						error: Readonly<Error>
-					} & Partial<Singleton['store']>
+					} & Partial<Singleton['state']>
 			  >
 			| Prettify<
 					{
 						request: Request
 						code: 'VALIDATION'
 						error: Readonly<ValidationError>
-					} & Singleton['store']
+					} & Singleton['state']
 			  >
 			// | Prettify<
 			// 		{
 			// 			request: Request
 			// 			code: 'NOT_FOUND'
 			// 			error: Readonly<NotFoundError>
-			// 		} & NeverKey<Singleton['store']>
+			// 		} & NeverKey<Singleton['state']>
 			//   >
 			| Prettify<
 					{
 						request: Request
 						code: 'PARSE'
 						error: Readonly<ParseError>
-					} & Singleton['store']
+					} & Singleton['state']
 			  >
 			| Prettify<
 					{
 						request: Request
 						code: 'INTERNAL_SERVER_ERROR'
 						error: Readonly<InternalServerError>
-					} & Partial<Singleton['store']>
+					} & Partial<Singleton['state']>
 			  >
 			| Prettify<
 					{
@@ -555,7 +555,7 @@ export type ErrorHandler<
 							error: Readonly<T[K]>
 						}
 					}[keyof T] &
-						Partial<Singleton['store']>
+						Partial<Singleton['state']>
 			  >
 		),
 ) => any | Promise<any>
@@ -689,7 +689,7 @@ export type MergeSpiceflowInstances<
 	Prefix extends string = '',
 	Scoped extends boolean = false,
 	Singleton extends SingletonBase = {
-		store: {}
+		state: {}
 	},
 	Definitions extends DefinitionBase = {
 		type: {}
@@ -731,7 +731,7 @@ export type MergeSpiceflowInstances<
 			Prefix,
 			Scoped,
 			{
-				store: Prettify<Singleton['store']>
+				state: Prettify<Singleton['state']>
 			},
 			{
 				type: Prettify<Definitions['type']>

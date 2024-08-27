@@ -195,11 +195,11 @@ test('missing route is not found', async () => {
 test('state works', async () => {
 	const res = await new Spiceflow()
 		.state('id', '')
-		.use(({ store, request }) => {
-			store.id = 'xxx'
+		.use(({ state, request }) => {
+			state.id = 'xxx'
 		})
-		.get('/get', ({ store }) => {
-			expect(store.id).toBe('xxx')
+		.get('/get', ({ state: state }) => {
+			expect(state.id).toBe('xxx')
 		})
 		.handle(new Request('http://localhost/get'))
 	expect(res.status).toBe(200)
