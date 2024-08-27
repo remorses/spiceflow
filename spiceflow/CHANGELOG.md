@@ -1,5 +1,11 @@
 # spiceflow
 
+## 1.1.7
+
+### Patch Changes
+
+-   Fix type for middleware
+
 ## 1.1.6
 
 ### Patch Changes
