@@ -784,9 +784,9 @@ export class Spiceflow<
 			if (route.internalRoute?.validateBody) {
 				// TODO don't clone the request
 				let typedRequest =
-					request instanceof TypedRequest
+					request instanceof SpiceflowRequest
 						? request
-						: new TypedRequest(request)
+						: new SpiceflowRequest(request)
 				typedRequest.validateBody = route.internalRoute?.validateBody
 				request = typedRequest
 			}
@@ -985,7 +985,7 @@ export class Spiceflow<
 				req.url || '',
 				`http://${req.headers.host || hostname || 'localhost'}`,
 			)
-			const typedRequest = new TypedRequest(url.toString(), {
+			const typedRequest = new SpiceflowRequest(url.toString(), {
 				method: req.method,
 				headers: req.headers as HeadersInit,
 				body:
@@ -1205,7 +1205,7 @@ function bfsFind<T>(
 	}
 	return
 }
-export class TypedRequest<T = any> extends Request {
+export class SpiceflowRequest<T = any> extends Request {
 	validateBody?: ValidateFunction
 
 	async json(): Promise<T> {

@@ -1,5 +1,12 @@
 # spiceflow
 
+## 1.1.3
+
+### Patch Changes
+
+-   Run middleware for 404, handle HEAD and OPTIONS
+-   Added package.json exports
+
 ## 1.1.2
 
 ### Patch Changes

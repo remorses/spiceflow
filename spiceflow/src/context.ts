@@ -12,7 +12,7 @@ import type {
 	HTTPHeaders,
 } from './types.js'
 
-import { TypedRequest } from './spiceflow.js'
+import { SpiceflowRequest } from './spiceflow.js'
 
 export type ErrorContext<
 	in out Route extends RouteSchema = {},
@@ -53,7 +53,7 @@ export type ErrorContext<
 	 * @example '/id/:id'
 	 */
 	// route: string
-	request: TypedRequest<Route['body']>
+	request: SpiceflowRequest<Route['body']>
 	store: Singleton['store']
 	// response: Route['response']
 }>
@@ -97,7 +97,7 @@ export type Context<
 	 * @example '/id/:id'
 	 */
 	// route: string
-	request: TypedRequest<Route['body']>
+	request: SpiceflowRequest<Route['body']>
 	store: Singleton['store']
 	response?: Route['response']
 }>
