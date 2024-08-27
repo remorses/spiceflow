@@ -513,6 +513,7 @@ test('use with nested basPath works', async () => {
 test('errors inside basPath works', async () => {
 	let onErrorTriggered = [] as string[]
 	let onReqTriggered = [] as string[]
+	let handlerCalledNTimes = 0
 	const app = await new Spiceflow({ basePath: '/zero' })
 		.onError(({ error }) => {
 			onErrorTriggered.push('root')
@@ -544,6 +545,7 @@ test('errors inside basPath works', async () => {
 							// return new Response('nested', { status: 500 })
 						})
 						.get('/ids/:id', ({ params }) => {
+							handlerCalledNTimes++
 							throw new Error('error message')
 						}),
 				),
@@ -553,6 +555,7 @@ test('errors inside basPath works', async () => {
 		const res = await app.handle(
 			new Request('http://localhost/zero/two/nested/ids/nested'),
 		)
+		expect(handlerCalledNTimes).toBe(1)
 		expect(onErrorTriggered).toEqual(['root', 'two', 'nested'])
 		expect(onReqTriggered).toEqual(['root', 'two', 'nested'])
 		expect(res.status).toBe(500)
