@@ -17,7 +17,6 @@ import { SpiceflowRequest } from './spiceflow.js'
 export type ErrorContext<
 	in out Route extends RouteSchema = {},
 	in out Singleton extends SingletonBase = {
-		
 		store: {}
 		derive: {}
 		resolve: {}
@@ -61,14 +60,12 @@ export type ErrorContext<
 export type Context<
 	in out Route extends RouteSchema = {},
 	in out Singleton extends SingletonBase = {
-		
 		store: {}
 		derive: {}
 		resolve: {}
 	},
 	Path extends string = '',
 > = Prettify<{
-	// body: Route['body']
 	query: undefined extends Route['query']
 		? Record<string, string | undefined>
 		: Route['query']
@@ -81,22 +78,8 @@ export type Context<
 	// server: Server | null
 	redirect: Redirect
 
-	/**
-	 * Path extracted from incoming URL
-	 *
-	 * Represent a value extracted from URL
-	 *
-	 * @example '/id/9'
-	 */
 	path: string
-	/**
-	 * Path as registered to router
-	 *
-	 * Represent a path registered to a router, not a URL
-	 *
-	 * @example '/id/:id'
-	 */
-	// route: string
+
 	request: SpiceflowRequest<Route['body']>
 	store: Singleton['store']
 	response?: Route['response']
@@ -105,7 +88,6 @@ export type Context<
 // Use to mimic request before mapping route
 export type MiddlewareContext<
 	in out Singleton extends SingletonBase = {
-		
 		store: {}
 	},
 > = Prettify<{
