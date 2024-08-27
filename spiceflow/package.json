@@ -6,6 +6,24 @@
 	"types": "dist/index.d.ts",
 	"type": "module",
 	"repository": "https://github.com/remorses/spiceflow",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"default": "./dist/index.js"
+		},
+		"./cors": {
+			"types": "./dist/cors.d.ts",
+			"default": "./dist/cors.js"
+		},
+		"./client": {
+			"types": "./dist/client.d.ts",
+			"default": "./dist/client.js"
+		},
+		"./dist/*": {
+			"types": "./dist/*.d.ts",
+			"default": "./dist/*.js"
+		}
+	},
 	"scripts": {
 		"build": "cp ../README.md ./README.md && rm -rf dist && tsc",
 		"prepublishOnly": "pnpm build",
