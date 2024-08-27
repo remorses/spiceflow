@@ -77,7 +77,7 @@ export type InternalRoute = {
 type MedleyRouter = {
 	find: (path: string) =>
 		| {
-				state: Record<string, InternalRoute> //
+				store: Record<string, InternalRoute> //
 				params: Record<string, any>
 		  }
 		| undefined
@@ -181,7 +181,7 @@ export class Spiceflow<
 				return
 			}
 
-			let internalRoute: InternalRoute = medleyRoute.state[method]
+			let internalRoute: InternalRoute = medleyRoute.store[method]
 
 			if (internalRoute) {
 				const params = medleyRoute.params || {}
@@ -194,7 +194,7 @@ export class Spiceflow<
 				return res
 			}
 			if (method === 'HEAD') {
-				let internalRouteGet: InternalRoute = medleyRoute.state['GET']
+				let internalRouteGet: InternalRoute = medleyRoute.store['GET']
 				if (!internalRouteGet?.handler) {
 					return
 				}
@@ -792,26 +792,30 @@ export class Spiceflow<
 			let query = parseQuery.parse((u.search || '').slice(1))
 
 			let index = 0
-
+			let context = {
+				...defaultContext,
+				request,
+				state,
+				path,
+				query,
+				params,
+				redirect,
+			} satisfies MiddlewareContext<any>
+			let handlerResponse: Response | undefined
 			const next = async () => {
 				if (index < middlewares.length) {
 					const middleware = middlewares[index]
 					index++
-					let context = {
-						request,
-						state,
-						path,
-						query,
-						params,
-						redirect,
-					} satisfies MiddlewareContext<any>
+
 					const result = await middleware(context, next)
 
 					if (!result && index < middlewares.length) {
-						return await next()
 					} else if (result) {
 						return await turnHandlerResultIntoResponse(result)
 					}
+				}
+				if (handlerResponse) {
+					return handlerResponse
 				}
 
 				query = runValidation(query, route.internalRoute?.validateQuery)
@@ -820,20 +824,7 @@ export class Spiceflow<
 					route.internalRoute?.validateParams,
 				)
 
-				// console.log(route)
-
-				const res = route.internalRoute?.handler({
-					...defaultContext,
-					request,
-					params: params as any,
-					redirect,
-					state: state,
-					query,
-					// body,
-					path,
-
-					// platform
-				} satisfies Context<any, any, any>)
+				const res = route.internalRoute?.handler(context)
 				if (isAsyncIterable(res)) {
 					return await this.handleStream({
 						generator: res,
@@ -842,7 +833,8 @@ export class Spiceflow<
 					})
 				}
 
-				return await turnHandlerResultIntoResponse(res)
+				handlerResponse = await turnHandlerResultIntoResponse(res)
+				return handlerResponse
 			}
 			const response = await next()
 

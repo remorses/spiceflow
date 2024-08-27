@@ -144,3 +144,32 @@ test('middleware changes handler response body', async () => {
 	expect(middlewaresCalled).toEqual(['first', 'second'])
 	expect(await res.json()).toEqual('HELLO WORLD')
 })
+
+test('mutating response returned by next without returning it works', async () => {
+	let handlerCalledTimes = 0
+	const res = await new Spiceflow()
+		.use(async (ctx, next) => {
+			const response = await next()
+			if (response) {
+				response.headers.set('X-Custom-Header', 'Modified')
+			}
+			// Not returning the response, letting it pass through
+		})
+		.use(async (ctx, next) => {
+			const response = await next()
+			if (response) {
+				response.headers.set('X-Another-Header', 'Added')
+			}
+		})
+		.get('/test', () => {
+			handlerCalledTimes++
+			return 'hello world'
+		})
+		.handle(new Request('http://localhost/test'))
+
+	expect(res.status).toBe(200)
+	expect(handlerCalledTimes).toBe(1)
+	expect(await res.json()).toBe('hello world')
+	expect(res.headers.get('X-Custom-Header')).toBe('Modified')
+	expect(res.headers.get('X-Another-Header')).toBe('Added')
+})
