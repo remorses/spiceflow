@@ -82,6 +82,29 @@ test('middleware stops other middlewares', async () => {
 	expect(await res.text()).toEqual('ok')
 })
 
+test('calling next and then returning a new response works', async () => {
+	let middlewaresCalled = [] as string[]
+	const res = await new Spiceflow()
+		.use(async (ctx, next) => {
+			middlewaresCalled.push('first')
+			await next()
+			return new Response('middleware response')
+		})
+		.use(async (ctx, next) => {
+			middlewaresCalled.push('second')
+			return next()
+		})
+		.get('/ids/:id', () => {
+			middlewaresCalled.push('handler')
+			return 'handler response'
+		})
+
+		.handle(new Request('http://localhost/ids/xxx', { method: 'GET' }))
+	expect(res.status).toBe(200)
+	expect(middlewaresCalled).toEqual(['first', 'second', 'handler'])
+	expect(await res.text()).toEqual('middleware response')
+})
+
 test('middleware changes handler response body', async () => {
 	let middlewaresCalled = [] as string[]
 	const res = await new Spiceflow()

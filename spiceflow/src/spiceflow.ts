@@ -74,7 +74,7 @@ export type InternalRoute = {
 	validateBody?: ValidateFunction
 	validateQuery?: ValidateFunction
 	validateParams?: ValidateFunction
-	prefix: string
+	// prefix: string
 
 	// store: Record<any, any>
 }
@@ -151,7 +151,7 @@ export class Spiceflow<
 		const store = this.router.register(path)
 		let route: InternalRoute = {
 			...rest,
-			prefix: this.prefix || '',
+			// prefix: this.prefix || '',
 			method: (method || '') as any,
 			path: path || '',
 			handler: handler!,
@@ -184,6 +184,18 @@ export class Spiceflow<
 			}
 
 			let internalRoute: InternalRoute = medleyRoute.store[method]
+			if (!internalRoute && method === 'OPTIONS') {
+				return {
+					app,
+					internalRoute: {
+						hooks: {},
+						handler: () => new Response(),
+						method,
+						path,
+					},
+					params: medleyRoute.params,
+				}
+			}
 			if (internalRoute) {
 				const params = medleyRoute.params || {}
 
