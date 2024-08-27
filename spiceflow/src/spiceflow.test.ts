@@ -28,6 +28,30 @@ test('GET dynamic route', async () => {
 	expect(await res.json()).toEqual('hi')
 })
 
+test.todo('HEAD uses GET route, does not add body', async () => {
+	const app = new Spiceflow().get('/ids/:id', () => {
+		console.trace('GET')
+		return {
+			message: 'hi',
+			length: 10,
+		}
+	})
+
+	const res = await app.handle(
+		new Request('http://localhost/ids/xxx', { method: 'HEAD' }),
+	)
+	expect(res.status).toBe(200)
+	// expect(res.headers.get('Content-Length')).toBe('10')
+	expect(await res.text()).toBe('')
+
+	// Compare with GET to ensure HEAD is using GET route
+	const getRes = await app.handle(
+		new Request('http://localhost/ids/xxx', { method: 'GET' }),
+	)
+	expect(getRes.status).toBe(200)
+	expect(await getRes.json()).toEqual({ message: 'hi', length: 10 })
+})
+
 test('GET with query, untyped', async () => {
 	const res = await new Spiceflow()
 		.get('/query', ({ query }) => {

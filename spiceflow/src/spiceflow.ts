@@ -88,6 +88,11 @@ type MedleyRouter = {
 		| undefined
 	register: (path: string | undefined) => Record<string, InternalRoute>
 }
+
+const notFoundHandler = (c) => {
+	return new Response('Not Found', { status: 404 })
+}
+
 /**
  * Router class
  */
@@ -184,18 +189,7 @@ export class Spiceflow<
 			}
 
 			let internalRoute: InternalRoute = medleyRoute.store[method]
-			if (!internalRoute && method === 'OPTIONS') {
-				return {
-					app,
-					internalRoute: {
-						hooks: {},
-						handler: () => new Response(),
-						method,
-						path,
-					},
-					params: medleyRoute.params,
-				}
-			}
+
 			if (internalRoute) {
 				const params = medleyRoute.params || {}
 
@@ -206,9 +200,68 @@ export class Spiceflow<
 				}
 				return res
 			}
+			if (method === 'OPTIONS') {
+				return {
+					app,
+					internalRoute: {
+						hooks: {},
+						handler: () => new Response(),
+						method,
+						path,
+					} as InternalRoute,
+					params: medleyRoute.params,
+				}
+			}
+			if (method === 'HEAD') {
+				let internalRouteGet: InternalRoute = medleyRoute.store['GET']
+				if (!internalRouteGet?.handler) {
+					return
+				}
+				return {
+					app,
+					internalRoute: {
+						hooks: {},
+						handler: async (c) => {
+							const response = await internalRouteGet.handler(c)
+							if (response instanceof Response) {
+								return new Response('', {
+									status: response.status,
+									statusText: response.statusText,
+									headers: response.headers,
+								})
+							}
+							return new Response(null, { status: 200 })
+						},
+						method,
+						path,
+					} as InternalRoute,
+					params: medleyRoute.params,
+				}
+			}
+			return {
+				app,
+				internalRoute: {
+					hooks: {},
+					handler: notFoundHandler,
+					method,
+					path,
+				} as InternalRoute,
+				params: medleyRoute.params,
+			}
 		})
 
-		return result
+		return (
+			result || {
+				app: root,
+				internalRoute: {
+					hooks: {},
+					handler: notFoundHandler,
+					method,
+					path,
+				} as InternalRoute,
+				params: {},
+			}
+		)
 	}
 
 	state<const Name extends string | number | symbol, Value>(
@@ -785,18 +838,6 @@ export class Spiceflow<
 
 			const route = this.match(request.method, path)
 
-			if (!route) {
-				const error = new NotFoundError(`${path} not found`)
-				const res = await this.runErrorHandlers({
-					onErrorHandlers,
-					error,
-					request,
-				})
-				if (res) return res
-				return new Response(`Not Found`, {
-					status: 404,
-				})
-			}
 			onErrorHandlers = this.getAppsInScope(route.app).flatMap(
 				(x) => x.onErrorHandlers,
 			)
@@ -887,11 +928,12 @@ export class Spiceflow<
 				error: err,
 				request,
 			})
-			if (res) return res
+
 			let status = err?.status ?? 500
-			return new Response(err?.message || 'Internal Server Error', {
+			res ||= new Response(err?.message || 'Internal Server Error', {
 				status,
 			})
+			return res
 		}
 	}
 

@@ -1,8 +1,7 @@
-import { test, describe, expect } from 'vitest'
-import { Type } from '@sinclair/typebox'
-import { bfs, Spiceflow } from './spiceflow.js'
-import { cors } from './cors.js'
+import { describe, expect, test } from 'vitest'
 import { z } from 'zod'
+import { cors } from './cors.js'
+import { Spiceflow } from './spiceflow.js'
 
 function request(path, method = 'GET') {
 	return new Request(`http://localhost/${path}`, {

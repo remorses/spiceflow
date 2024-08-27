@@ -23,6 +23,22 @@ test('middleware with next changes the response', async () => {
 	expect(await res.json()).toEqual('hi')
 	expect(res.headers.get('x-test')).toBe('ok')
 })
+test('middleware next returns a response even for 404, if there are no routes', async () => {
+	const res = await new Spiceflow()
+		.use(async ({ request }, next) => {
+			expect(request.method).toBe('GET')
+			const res = await next()
+			expect(res).toBeInstanceOf(Response)
+			if (res) {
+				res.headers.set('x-test', 'ok')
+			}
+			return res
+		})
+		.handle(new Request('http://localhost/non-existent', { method: 'GET' }))
+	expect(res.status).toBe(404)
+	expect(res.headers.get('x-test')).toBe('ok')
+	expect(await res.text()).toContain('Not Found')
+})
 
 test('middleware without next runs the next middleware and handler', async () => {
 	let middlewaresCalled = [] as string[]
