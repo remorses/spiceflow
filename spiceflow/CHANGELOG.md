@@ -1,5 +1,11 @@
 # spiceflow
 
+## 1.1.6
+
+### Patch Changes
+
+-   b73eb5a: fix middleware
+
 ## 1.1.5
 
 ### Patch Changes
