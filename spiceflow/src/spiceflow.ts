@@ -826,11 +826,12 @@ export class Spiceflow<
 
 				const res = route.internalRoute?.handler(context)
 				if (isAsyncIterable(res)) {
-					return await this.handleStream({
+					handlerResponse = await this.handleStream({
 						generator: res,
 						request,
 						onErrorHandlers,
 					})
+					return handlerResponse
 				}
 
 				handlerResponse = await turnHandlerResultIntoResponse(res)
