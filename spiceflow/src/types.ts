@@ -312,7 +312,7 @@ export interface MergeSchema<
 export type Handler<
 	in out Route extends RouteSchema = {},
 	in out Singleton extends SingletonBase = {
-		decorator: {}
+		
 		store: {}
 	},
 	Path extends string = '',
@@ -353,7 +353,7 @@ export type CoExist<Original, Target, With> = IsAny<Target> extends true
 export type InlineHandler<
 	Route extends RouteSchema = {},
 	Singleton extends SingletonBase = {
-		decorator: {}
+		
 		store: {}
 	},
 	Path extends string = '',
@@ -386,7 +386,7 @@ export type InlineHandler<
 export type OptionalHandler<
 	in out Route extends RouteSchema = {},
 	in out Singleton extends SingletonBase = {
-		decorator: {}
+		
 		store: {}
 	},
 	Path extends string = '',
@@ -399,7 +399,7 @@ export type OptionalHandler<
 export type AfterHandler<
 	in out Route extends RouteSchema = {},
 	in out Singleton extends SingletonBase = {
-		decorator: {}
+		
 		store: {}
 	},
 	Path extends string = '',
@@ -418,7 +418,7 @@ export type AfterHandler<
 export type MapResponse<
 	in out Route extends RouteSchema = {},
 	in out Singleton extends SingletonBase = {
-		decorator: {}
+		
 		store: {}
 	},
 	Path extends string = '',
@@ -437,7 +437,7 @@ export type MapResponse<
 export type VoidHandler<
 	in out Route extends RouteSchema = {},
 	in out Singleton extends SingletonBase = {
-		decorator: {}
+		
 		store: {}
 	},
 > = (context: Context<Route, Singleton>) => MaybePromise<void>
@@ -445,7 +445,7 @@ export type VoidHandler<
 export type TransformHandler<
 	in out Route extends RouteSchema = {},
 	in out Singleton extends SingletonBase = {
-		decorator: {}
+		
 		store: {}
 	},
 	BasePath extends string = '',
@@ -466,7 +466,7 @@ export type TransformHandler<
 export type BodyHandler<
 	in out Route extends RouteSchema = {},
 	in out Singleton extends SingletonBase = {
-		decorator: {}
+		
 		store: {}
 	},
 	Path extends string = '',
@@ -496,18 +496,18 @@ export type BodyHandler<
 export type MiddlewareHandler<
 	in out Route extends RouteSchema = {},
 	in out Singleton extends SingletonBase = {
-		decorator: {}
+		
 		store: {}
 	},
 > = (
 	context: MiddlewareContext<Singleton>,
-	next: () => Promise<Response | void>,
+	next: () => Promise<Response>,
 ) => MaybePromise<Route['response'] | void>
 
 export type AfterResponseHandler<
 	in out Route extends RouteSchema = {},
 	in out Singleton extends SingletonBase = {
-		decorator: {}
+		
 		store: {}
 	},
 > = (
@@ -713,7 +713,7 @@ export type MergeSpiceflowInstances<
 	Prefix extends string = '',
 	Scoped extends boolean = false,
 	Singleton extends SingletonBase = {
-		decorator: {}
+		
 		store: {}
 	},
 	Definitions extends DefinitionBase = {

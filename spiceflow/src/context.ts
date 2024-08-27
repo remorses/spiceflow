@@ -17,7 +17,7 @@ import { TypedRequest } from './spiceflow.js'
 export type ErrorContext<
 	in out Route extends RouteSchema = {},
 	in out Singleton extends SingletonBase = {
-		decorator: {}
+		
 		store: {}
 		derive: {}
 		resolve: {}
@@ -61,7 +61,7 @@ export type ErrorContext<
 export type Context<
 	in out Route extends RouteSchema = {},
 	in out Singleton extends SingletonBase = {
-		decorator: {}
+		
 		store: {}
 		derive: {}
 		resolve: {}
@@ -105,7 +105,7 @@ export type Context<
 // Use to mimic request before mapping route
 export type MiddlewareContext<
 	in out Singleton extends SingletonBase = {
-		decorator: {}
+		
 		store: {}
 	},
 > = Prettify<{
