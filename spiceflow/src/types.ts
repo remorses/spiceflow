@@ -19,11 +19,10 @@ import type { Context, ErrorContext, MiddlewareContext } from './context.js'
 import {
 	ELYSIA_RESPONSE,
 	InternalServerError,
-	NotFoundError,
 	ParseError,
 	ValidationError,
 } from './error.js'
-import { AnySpiceflow, Spiceflow } from './spiceflow.js'
+import { Spiceflow } from './spiceflow.js'
 
 export type MaybeArray<T> = T | T[]
 export type MaybePromise<T> = T | Promise<T>
@@ -312,7 +311,6 @@ export interface MergeSchema<
 export type Handler<
 	in out Route extends RouteSchema = {},
 	in out Singleton extends SingletonBase = {
-		
 		store: {}
 	},
 	Path extends string = '',
@@ -353,7 +351,6 @@ export type CoExist<Original, Target, With> = IsAny<Target> extends true
 export type InlineHandler<
 	Route extends RouteSchema = {},
 	Singleton extends SingletonBase = {
-		
 		store: {}
 	},
 	Path extends string = '',
@@ -386,7 +383,6 @@ export type InlineHandler<
 export type OptionalHandler<
 	in out Route extends RouteSchema = {},
 	in out Singleton extends SingletonBase = {
-		
 		store: {}
 	},
 	Path extends string = '',
@@ -399,7 +395,6 @@ export type OptionalHandler<
 export type AfterHandler<
 	in out Route extends RouteSchema = {},
 	in out Singleton extends SingletonBase = {
-		
 		store: {}
 	},
 	Path extends string = '',
@@ -418,7 +413,6 @@ export type AfterHandler<
 export type MapResponse<
 	in out Route extends RouteSchema = {},
 	in out Singleton extends SingletonBase = {
-		
 		store: {}
 	},
 	Path extends string = '',
@@ -437,7 +431,6 @@ export type MapResponse<
 export type VoidHandler<
 	in out Route extends RouteSchema = {},
 	in out Singleton extends SingletonBase = {
-		
 		store: {}
 	},
 > = (context: Context<Route, Singleton>) => MaybePromise<void>
@@ -445,7 +438,6 @@ export type VoidHandler<
 export type TransformHandler<
 	in out Route extends RouteSchema = {},
 	in out Singleton extends SingletonBase = {
-		
 		store: {}
 	},
 	BasePath extends string = '',
@@ -466,7 +458,6 @@ export type TransformHandler<
 export type BodyHandler<
 	in out Route extends RouteSchema = {},
 	in out Singleton extends SingletonBase = {
-		
 		store: {}
 	},
 	Path extends string = '',
@@ -476,27 +467,13 @@ export type BodyHandler<
 			contentType: string
 		} & Context<Route, Singleton, Path>
 	>,
-	/**
-	 * @deprecated
-	 *
-	 * use `context.contentType` instead
-	 *
-	 * @example
-	 * ```ts
-	 * new Spiceflow()
-	 * 	   .onParse(({ contentType, request }) => {
-	 * 		     if (contentType === 'application/json')
-	 * 			     return request.json()
-	 *     })
-	 * ```
-	 */
+
 	contentType: string,
 ) => MaybePromise<any>
 
 export type MiddlewareHandler<
 	in out Route extends RouteSchema = {},
 	in out Singleton extends SingletonBase = {
-		
 		store: {}
 	},
 > = (
@@ -507,7 +484,6 @@ export type MiddlewareHandler<
 export type AfterResponseHandler<
 	in out Route extends RouteSchema = {},
 	in out Singleton extends SingletonBase = {
-		
 		store: {}
 	},
 > = (
@@ -550,13 +526,13 @@ export type ErrorHandler<
 						error: Readonly<ValidationError>
 					} & Singleton['store']
 			  >
-			| Prettify<
-					{
-						request: Request
-						code: 'NOT_FOUND'
-						error: Readonly<NotFoundError>
-					} & NeverKey<Singleton['store']>
-			  >
+			// | Prettify<
+			// 		{
+			// 			request: Request
+			// 			code: 'NOT_FOUND'
+			// 			error: Readonly<NotFoundError>
+			// 		} & NeverKey<Singleton['store']>
+			//   >
 			| Prettify<
 					{
 						request: Request
@@ -713,7 +689,6 @@ export type MergeSpiceflowInstances<
 	Prefix extends string = '',
 	Scoped extends boolean = false,
 	Singleton extends SingletonBase = {
-		
 		store: {}
 	},
 	Definitions extends DefinitionBase = {

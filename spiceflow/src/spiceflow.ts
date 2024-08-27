@@ -17,7 +17,6 @@ import {
 	JoinPath,
 	LocalHook,
 	MaybeArray,
-	MergeSchema,
 	MetadataBase,
 	MiddlewareHandler,
 	Reconcile,
@@ -30,14 +29,12 @@ import {
 } from './types.js'
 let globalIndex = 0
 
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore
 import OriginalRouter from '@medley/router'
 import Ajv, { ValidateFunction } from 'ajv'
 import { z, ZodType } from 'zod'
 import { zodToJsonSchema } from 'zod-to-json-schema'
 import { Context, MiddlewareContext } from './context.js'
-import { isProduction, NotFoundError, ValidationError } from './error.js'
+import { isProduction, ValidationError } from './error.js'
 import { isAsyncIterable, redirect } from './utils.js'
 
 const ajv = (addFormats.default || addFormats)(

@@ -1,5 +1,3 @@
-
-
 // ? Cloudflare worker support
 const env =
 	// @ts-ignore
@@ -23,11 +21,6 @@ export class ValidationError extends Error {
 	status = 422
 }
 
-export class NotFoundError extends Error {
-	code = 'NOT_FOUND'
-	status = 404
-}
-
 export class ParseError extends Error {
 	code = 'PARSE'
 	status = 400
@@ -37,4 +30,3 @@ export class InternalServerError extends Error {
 	code = 'INTERNAL_SERVER_ERROR'
 	status = 500
 }
-
