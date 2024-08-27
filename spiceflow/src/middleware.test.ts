@@ -23,6 +23,37 @@ test('middleware with next changes the response', async () => {
 	expect(await res.json()).toEqual('hi')
 	expect(res.headers.get('x-test')).toBe('ok')
 })
+
+// test('child app that adds state also adds state in the parent app', async () => {
+// 	const app = new Spiceflow()
+// 		.state('parentState', 'parent value')
+// 		.get('/', ({ state }) => {
+// 			state.childState
+// 			return 'hi'
+// 		})
+// 		.use(
+// 			new Spiceflow({ scoped: false })
+// 				.state('childState', 'child value')
+// 				.get('/child', ({ state }) => {
+// 					return {
+// 						childState: state.childState,
+// 						parentState: (state as any).parentState,
+// 					}
+// 				}),
+// 		)
+
+// 	const res = await app.handle(
+// 		new Request('http://localhost/child', { method: 'GET' }),
+// 	)
+
+// 	expect(res.status).toBe(200)
+// 	const body = await res.json()
+// 	expect(body).toEqual({
+// 		childState: 'child value',
+// 		parentState: 'parent value',
+// 	})
+// })
+
 test('middleware next returns a response even for 404, if there are no routes', async () => {
 	const res = await new Spiceflow()
 		.use(async ({ request }, next) => {
