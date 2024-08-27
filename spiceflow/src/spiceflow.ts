@@ -805,6 +805,7 @@ export class Spiceflow<
 					const result = await middleware(context, next)
 
 					if (!result && index < middlewares.length) {
+						return await next()
 					} else if (result) {
 						return await turnHandlerResultIntoResponse(result)
 					}
