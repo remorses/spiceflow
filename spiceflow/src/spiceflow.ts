@@ -766,11 +766,11 @@ export class Spiceflow<
 			onErrorHandlers = appsInScope.flatMap((x) => x.onErrorHandlers)
 			let {
 				params: _params,
-				app: { defaultState: defaultStore },
+				app: { defaultState },
 			} = route
 			const middlewares = appsInScope.flatMap((x) => x.middlewares)
 			// console.log({ onReqHandlers })
-			let state = { ...defaultStore }
+			let state = { ...defaultState }
 
 			let content = route?.internalRoute?.hooks?.content
 
