@@ -770,7 +770,7 @@ export class Spiceflow<
 			} = route
 			const middlewares = appsInScope.flatMap((x) => x.middlewares)
 			// console.log({ onReqHandlers })
-			let state = { ...defaultState }
+			let state = structuredClone(defaultState)
 
 			let content = route?.internalRoute?.hooks?.content
 
