@@ -24,6 +24,33 @@ test('middleware with next changes the response', async () => {
 	expect(res.headers.get('x-test')).toBe('ok')
 })
 
+test('middleware state is not shared between requests', async () => {
+	const app = await new Spiceflow()
+		.state('x', -1)
+		.use(async ({ request, state, query }, next) => {
+			state.x = Number(query?.x || -1)
+		})
+		.get('/get', ({ state }) => {
+			return state.x
+		})
+	async function first() {
+		const res = await app.handle(new Request('http://localhost/get?x=1'))
+		expect(res.status).toBe(200)
+		expect(await res.json()).toEqual(1)
+	}
+	async function second() {
+		const res = await app.handle(new Request('http://localhost/get?x=2'))
+		expect(res.status).toBe(200)
+		expect(await res.json()).toEqual(2)
+	}
+	await Promise.all(
+		new Array(100).fill(0).map((_, i) => {
+			if (i % 2 === 0) return first()
+			return second()
+		}),
+	)
+})
+
 // test('child app that adds state also adds state in the parent app', async () => {
 // 	const app = new Spiceflow()
 // 		.state('parentState', 'parent value')
