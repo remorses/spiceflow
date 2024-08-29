@@ -46,7 +46,7 @@ describe('Stream', () => {
 					if (done) return resolve(acc)
 
 					expect(parseTextEventStreamItem(value.toString())).toBe(
-						expected.shift()!
+						expected.shift()!,
 					)
 
 					acc += value.toString()
@@ -70,7 +70,7 @@ describe('Stream', () => {
 		const response = await app.handle(req('/')).then((x) => x.text())
 
 		expect(response).toBe(
-			'event: message\ndata: "a"\n\nevent: error\ndata: "an error"\n\n'
+			'event: message\ndata: "a"\n\nevent: error\ndata: "an error"\n\n',
 		)
 	})
 
@@ -139,8 +139,8 @@ describe('Stream', () => {
 		const response = await app
 			.handle(
 				new Request('http://e.ly', {
-					signal: controller.signal
-				})
+					signal: controller.signal,
+				}),
 			)
 			.then((x) => x.body)
 			.then((x) => {
@@ -157,7 +157,7 @@ describe('Stream', () => {
 					}
 
 					expect(parseTextEventStreamItem(value.toString())).toBe(
-						expected.shift()!
+						expected.shift()!,
 					)
 
 					acc += value.toString()
@@ -193,7 +193,7 @@ describe('Stream', () => {
 			{ message: 'hello' },
 			{ response: 'world' },
 			{ data: [1, 2, 3] },
-			{ result: [4, 5, 6] }
+			{ result: [4, 5, 6] },
 		]
 		const app = new Spiceflow().get('/', async function* ({}) {
 			for (const obj of objects) {
@@ -221,7 +221,7 @@ describe('Stream', () => {
 		await promise
 
 		expect(events.map((x) => x.data)).toEqual(
-			objects.map((x) => JSON.stringify(x))
+			objects.map((x) => JSON.stringify(x)),
 		)
 	})
 
@@ -272,12 +272,12 @@ describe('Stream', () => {
 
 		const response = await Promise.all([
 			app.handle(req('/')),
-			app.handle(req('/json'))
+			app.handle(req('/json')),
 		])
 
 		expect(await response[0].text()).toBe('"hello"')
 		expect(await response[1].json()).toEqual({
-			hello: 'world'
+			hello: 'world',
 		})
 	})
 
@@ -292,12 +292,12 @@ describe('Stream', () => {
 
 		const response = await Promise.all([
 			app.handle(req('/')),
-			app.handle(req('/json'))
+			app.handle(req('/json')),
 		])
 
 		expect(await response[0].text()).toBe('"hello"')
 		expect(await response[1].json()).toEqual({
-			hello: 'world'
+			hello: 'world',
 		})
 	})
 
@@ -330,7 +330,7 @@ describe('Stream', () => {
 					if (done) return resolve()
 
 					expect(parseTextEventStreamItem(value.toString())).toEqual(
-						expected[i++]
+						expected[i++],
 					)
 
 					return reader.read().then(pump)

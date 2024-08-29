@@ -659,7 +659,7 @@ export type CreateEden<
 export type ComposeSpiceflowResponse<Response, Handle> = Handle extends (
 	...a: any[]
 ) => infer A
-	? _ComposeSpiceflowResponse<Response, Replace<Awaited<A>, BunFile, File>>
+	? _ComposeSpiceflowResponse<Response, Awaited<A>>
 	: _ComposeSpiceflowResponse<
 			Response,
 			Replace<Awaited<Handle>, BunFile, File>

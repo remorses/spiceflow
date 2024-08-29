@@ -40,7 +40,7 @@ test('`use` on Spiceflow return', async () => {
 	let client = createSpiceflowClient(app)
 	client.xxx.post()
 	client.usePost.post()
-	
+
 	type ClientType = Prettify<typeof client>
 	// @ts-expect-error
 	client.something
@@ -49,3 +49,27 @@ test('`use` on Spiceflow return', async () => {
 	expect(await res.json()).toEqual('hi')
 })
 
+test('async generator type with client', async () => {
+	const app = new Spiceflow().get('/stream', async function* () {
+		yield { message: 'Hello' }
+		yield { message: 'World' }
+	})
+
+	const client = createSpiceflowClient(app)
+
+	const streamResponse = await client.stream.get()
+	if (streamResponse.error) {
+		throw streamResponse.error
+	}
+
+	// Type check: each yielded item should have the 'message' property
+	for await (const item of streamResponse.data) {
+		// @ts-expect-error
+		item.something
+
+		item.message
+
+		expect(item).toHaveProperty('message')
+		expect(typeof item.message).toBe('string')
+	}
+})
