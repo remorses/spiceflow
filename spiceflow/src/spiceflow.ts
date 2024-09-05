@@ -982,6 +982,9 @@ export class Spiceflow<
 						? (Readable.toWeb(req) as any)
 						: null,
 				signal,
+				// @ts-ignore
+				duplex: 'half',
+				// keepalive: true,
 			})
 
 			try {
