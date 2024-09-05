@@ -5,7 +5,7 @@
     <h3>spiceflow</h3>
     <br/>
     <p>fast, simple and type safe API framework</p>
-    <p>still in beta</p>
+    <p>still in beata</p>
     <br/>
     <br/>
 </div>

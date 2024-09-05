@@ -1216,7 +1216,9 @@ export function isZodSchema(value: unknown): value is ZodType {
 
 function getValidateFunction(schema: TypeSchema) {
   if (isZodSchema(schema)) {
-    let jsonSchema = zodToJsonSchema(schema, {})
+    let jsonSchema = zodToJsonSchema(schema, {
+      removeAdditionalStrategy: 'strict',
+    })
     return ajv.compile(jsonSchema)
   }
 
