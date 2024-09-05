@@ -1,5 +1,11 @@
 # spiceflow
 
+## 1.1.8
+
+### Patch Changes
+
+-   Fix request getting always aborted in Nodejs, fix Nodejs listener for POST requests, fix middleware not setting result Response in some cases
+
 ## 1.1.7
 
 ### Patch Changes
