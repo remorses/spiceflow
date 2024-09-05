@@ -235,3 +235,54 @@ import { Spiceflow } from 'spiceflow'
 
 const app = new Spiceflow().use(cors()).get('/hello', () => 'Hello, World!')
 ```
+
+## Proxy requests
+
+```ts
+import { Spiceflow } from 'spiceflow'
+import { MiddlewareHandler } from 'spiceflow/dist/types'
+
+const app = new Spiceflow()
+
+function createProxyMiddleware({
+  target,
+  changeOrigin = false,
+}): MiddlewareHandler {
+  return async (context) => {
+    const { request } = context
+    const url = new URL(request.url)
+
+    const proxyReq = new Request(
+      new URL(url.pathname + url.search, target),
+      request,
+    )
+
+    if (changeOrigin) {
+      proxyReq.headers.set('origin', new URL(target).origin || '')
+    }
+    console.log('proxying', proxyReq.url)
+    const res = await fetch(proxyReq)
+
+    return res
+  }
+}
+
+app.use(
+  createProxyMiddleware({
+    target: 'https://api.openai.com',
+    changeOrigin: true,
+  }),
+)
+
+// or with a basePath
+app.use(
+  new Spiceflow({ basePath: '/v1/completions' }).use(
+    createProxyMiddleware({
+      target: 'https://api.openai.com',
+      changeOrigin: true,
+    }),
+  ),
+)
+
+app.listen(3030)
+```
