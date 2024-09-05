@@ -5,7 +5,7 @@
     <h3>spiceflow</h3>
     <br/>
     <p>fast, simple and type safe API framework</p>
-    <p>still in alpha, use at your own risk</p>
+    <p>still in beta</p>
     <br/>
     <br/>
 </div>
@@ -48,22 +48,16 @@ app.listen(3000)
 
 ## Requests and Responses
 
-### GET Request
-
-```ts
-app.get('/users/:id', ({ params }) => {
-  return `User ID: ${params.id}`
-})
-```
-
 ### POST Request with Body Schema
 
 ```ts
 import { z } from 'zod'
+import { Spiceflow } from 'spiceflow'
 
-app.post(
+new Spiceflow().post(
   '/users',
-  ({ body }) => {
+  async ({ request }) => {
+    const body = await request.json() // here body has type { name: string, email: string }
     return `Created user: ${body.name}`
   },
   {
@@ -79,8 +73,9 @@ app.post(
 
 ```ts
 import { z } from 'zod'
+import { Spiceflow } from 'spiceflow'
 
-app.get(
+new Spiceflow().get(
   '/users/:id',
   ({ params }) => {
     return { id: Number(params.id), name: 'John Doe' }
@@ -89,6 +84,9 @@ app.get(
     response: z.object({
       id: z.number(),
       name: z.string(),
+    }),
+    params: z.object({
+      id: z.string(),
     }),
   },
 )
@@ -140,7 +138,9 @@ app.get('/hello', () => 'Hello') // Accessible at /api/v1/hello
 Async generators will create a server sent event response.
 
 ```ts
-app.get('/stream', async function* () {
+import { Spiceflow } from 'spiceflow'
+
+new Spiceflow().get('/stream', async function* () {
   yield 'Start'
   await new Promise((resolve) => setTimeout(resolve, 1000))
   yield 'Middle'
@@ -152,7 +152,9 @@ app.get('/stream', async function* () {
 ## Error Handling
 
 ```ts
-app.onError(({ error }) => {
+import { Spiceflow } from 'spiceflow'
+
+new Spiceflow().onError(({ error }) => {
   console.error(error)
   return new Response('An error occurred', { status: 500 })
 })
@@ -161,7 +163,9 @@ app.onError(({ error }) => {
 ## Middleware
 
 ```ts
-app.use(({ request }) => {
+import { Spiceflow } from 'spiceflow'
+
+new Spiceflow().use(({ request }) => {
   console.log(`Received ${request.method} request to ${request.url}`)
 })
 ```
@@ -193,6 +197,8 @@ new Spiceflow()
 
 ```ts
 import { openapi } from 'spiceflow/openapi'
+import { Spiceflow } from 'spiceflow'
+import { z } from 'zod'
 
 const app = new Spiceflow()
   .use(openapi({ path: '/openapi.json' }))
@@ -203,12 +209,18 @@ const app = new Spiceflow()
     }),
     response: z.string(),
   })
-  .post('/user', {
-    body: z.object({
-      name: z.string(),
-      email: z.string().email(),
-    }),
-  })
+  .post(
+    '/user',
+    () => {
+      return new Response('Hello, World!')
+    },
+    {
+      body: z.object({
+        name: z.string(),
+        email: z.string().email(),
+      }),
+    },
+  )
 
 const openapiSchema = await (
   await app.handle(new Request('http://localhost:3000/openapi.json'))
@@ -219,6 +231,58 @@ const openapiSchema = await (
 
 ```ts
 import { cors } from 'spiceflow/cors'
+import { Spiceflow } from 'spiceflow'
 
 const app = new Spiceflow().use(cors()).get('/hello', () => 'Hello, World!')
+```
+
+## Proxy requests
+
+```ts
+import { Spiceflow } from 'spiceflow'
+import { MiddlewareHandler } from 'spiceflow/dist/types'
+
+const app = new Spiceflow()
+
+function createProxyMiddleware({
+  target,
+  changeOrigin = false,
+}): MiddlewareHandler {
+  return async (context) => {
+    const { request } = context
+    const url = new URL(request.url)
+
+    const proxyReq = new Request(
+      new URL(url.pathname + url.search, target),
+      request,
+    )
+
+    if (changeOrigin) {
+      proxyReq.headers.set('origin', new URL(target).origin || '')
+    }
+    console.log('proxying', proxyReq.url)
+    const res = await fetch(proxyReq)
+
+    return res
+  }
+}
+
+app.use(
+  createProxyMiddleware({
+    target: 'https://api.openai.com',
+    changeOrigin: true,
+  }),
+)
+
+// or with a basePath
+app.use(
+  new Spiceflow({ basePath: '/v1/completions' }).use(
+    createProxyMiddleware({
+      target: 'https://api.openai.com',
+      changeOrigin: true,
+    }),
+  ),
+)
+
+app.listen(3030)
 ```
