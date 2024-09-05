@@ -24,6 +24,51 @@ test('middleware with next changes the response', async () => {
 	expect(res.headers.get('x-test')).toBe('ok')
 })
 
+test('middleware with no handlers works', async () => {
+	const res = await new Spiceflow()
+		.use(async ({ request }, next) => {
+			expect(request.method).toBe('GET')
+			// expect(res).toBeInstanceOf(Response)
+			return new Response('ok')
+		})
+
+		.handle(new Request('http://localhost/ids/xxx', { method: 'GET' }))
+	expect(res.status).toBe(200)
+	expect(await res.text()).toEqual('ok')
+})
+test('middleware calling next() without returning it works', async () => {
+	const res = await new Spiceflow()
+		.use(async ({ request }, next) => {
+			expect(request.method).toBe('GET')
+			// expect(res).toBeInstanceOf(Response)
+			await next()
+		})
+		.use(async ({ request }, next) => {
+			expect(request.method).toBe('GET')
+			// expect(res).toBeInstanceOf(Response)
+			return new Response('"hi"')
+		})
+		.get('/ids/:id', () => 'not hi')
+
+		.handle(new Request('http://localhost/ids/xxx', { method: 'GET' }))
+	expect(res.status).toBe(200)
+	expect(await res.json()).toEqual('hi')
+})
+test('middleware calling next() without returning it, calls handler', async () => {
+	const res = await new Spiceflow()
+		.use(async ({ request }, next) => {
+			expect(request.method).toBe('GET')
+			// expect(res).toBeInstanceOf(Response)
+			await next()
+		})
+
+		.get('/ids/:id', () => 'hi')
+
+		.handle(new Request('http://localhost/ids/xxx', { method: 'GET' }))
+	expect(res.status).toBe(200)
+	expect(await res.json()).toEqual('hi')
+})
+
 test('middleware state is not shared between requests', async () => {
 	const app = await new Spiceflow()
 		.state('x', -1)
