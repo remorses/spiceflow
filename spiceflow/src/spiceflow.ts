@@ -955,7 +955,6 @@ export class Spiceflow<
 			const abortController = new AbortController()
 			const { signal } = abortController
 
-			req.on('close', () => abortController.abort())
 			req.on('error', (err) => {
 				abortController.abort()
 			})
