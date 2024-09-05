@@ -4,151 +4,151 @@
 
 ### Patch Changes
 
--   Fix request getting always aborted in Nodejs, fix Nodejs listener for POST requests, fix middleware not setting result Response in some cases
+- Fix request getting always aborted in Nodejs, fix Nodejs listener for POST requests, fix middleware not setting result Response in some cases
 
 ## 1.1.7
 
 ### Patch Changes
 
--   Fix type for middleware
+- Fix type for middleware
 
 ## 1.1.6
 
 ### Patch Changes
 
--   b73eb5a: fix middleware
+- b73eb5a: fix middleware
 
 ## 1.1.5
 
 ### Patch Changes
 
--   fix params and query being stale after validation
+- fix params and query being stale after validation
 
 ## 1.1.4
 
 ### Patch Changes
 
--   Fix middleware calling handler many times
+- Fix middleware calling handler many times
 
 ## 1.1.3
 
 ### Patch Changes
 
--   Run middleware for 404, handle HEAD and OPTIONS
--   Added package.json exports
+- Run middleware for 404, handle HEAD and OPTIONS
+- Added package.json exports
 
 ## 1.1.2
 
 ### Patch Changes
 
--   maybe fix bun
+- maybe fix bun
 
 ## 1.1.1
 
 ### Patch Changes
 
--   add listen()
+- add listen()
 
 ## 1.1.0
 
 ### Minor Changes
 
--   Replce onRequest with use
+- Replce onRequest with use
 
 ## 1.0.8
 
 ### Patch Changes
 
--   Fix url
+- Fix url
 
 ## 1.0.7
 
 ### Patch Changes
 
--   Fix openapi, fix types for use
+- Fix openapi, fix types for use
 
 ## 1.0.6
 
 ### Patch Changes
 
--   Fix types without intsalling bun types
+- Fix types without intsalling bun types
 
 ## 1.0.5
 
 ### Patch Changes
 
--   Use nodejs es module support
+- Use nodejs es module support
 
 ## 1.0.4
 
 ### Patch Changes
 
--   Better client config
+- Better client config
 
 ## 1.0.3
 
 ### Patch Changes
 
--   Updates
+- Updates
 
 ## 1.0.2
 
 ### Patch Changes
 
--   Fixes onRequest ordering and many other issues
+- Fixes onRequest ordering and many other issues
 
 ## 1.0.1
 
 ### Patch Changes
 
--   Fix poublished package
+- Fix poublished package
 
 ## 1.0.0
 
 ### Major Changes
 
--   Init
+- Init
 
 ## 0.0.7
 
 ### Patch Changes
 
--   remove the .js extension in the dynamic import
+- remove the .js extension in the dynamic import
 
 ## 0.0.6
 
 ### Patch Changes
 
--   Deduplicate the server methodsMap
+- Deduplicate the server methodsMap
 
 ## 0.0.5
 
 ### Patch Changes
 
--   3afb252: Fix tsc error on server entry file
--   Output typescript files and not js files
+- 3afb252: Fix tsc error on server entry file
+- Output typescript files and not js files
 
 ## 0.0.4
 
 ### Patch Changes
 
--   Fix \_\_dirname
--   Removed big dep ts-json-schema-generator
+- Fix \_\_dirname
+- Removed big dep ts-json-schema-generator
 
 ## 0.0.3
 
 ### Patch Changes
 
--   Fix \_\_dirname
+- Fix \_\_dirname
 
 ## 0.0.2
 
 ### Patch Changes
 
--   Added experimental --openapi
+- Added experimental --openapi
 
 ## 0.0.1
 
 ### Patch Changes
 
--   0eef621: Initial release
+- 0eef621: Initial release

@@ -4,371 +4,369 @@ import { bfs, Spiceflow } from './spiceflow.js'
 import { z } from 'zod'
 
 test('works', async () => {
-	const res = await new Spiceflow()
-		.post('/xxx', () => 'hi')
-		.handle(new Request('http://localhost/xxx', { method: 'POST' }))
-	expect(res.status).toBe(200)
-	expect(await res.json()).toEqual('hi')
+  const res = await new Spiceflow()
+    .post('/xxx', () => 'hi')
+    .handle(new Request('http://localhost/xxx', { method: 'POST' }))
+  expect(res.status).toBe(200)
+  expect(await res.json()).toEqual('hi')
 })
 test('dynamic route', async () => {
-	const res = await new Spiceflow()
-		.post('/ids/:id', () => 'hi')
-		.handle(new Request('http://localhost/ids/xxx', { method: 'POST' }))
-	expect(res.status).toBe(200)
-	expect(await res.json()).toEqual('hi')
+  const res = await new Spiceflow()
+    .post('/ids/:id', () => 'hi')
+    .handle(new Request('http://localhost/ids/xxx', { method: 'POST' }))
+  expect(res.status).toBe(200)
+  expect(await res.json()).toEqual('hi')
 })
 test('GET dynamic route', async () => {
-	const res = await new Spiceflow()
-		.get('/ids/:id', () => 'hi')
-		.post('/ids/:id', ({ params: { id } }) => id, {
-			params: z.object({ id: z.string() }),
-		})
-		.handle(new Request('http://localhost/ids/xxx', { method: 'GET' }))
-	expect(res.status).toBe(200)
-	expect(await res.json()).toEqual('hi')
+  const res = await new Spiceflow()
+    .get('/ids/:id', () => 'hi')
+    .post('/ids/:id', ({ params: { id } }) => id, {
+      params: z.object({ id: z.string() }),
+    })
+    .handle(new Request('http://localhost/ids/xxx', { method: 'GET' }))
+  expect(res.status).toBe(200)
+  expect(await res.json()).toEqual('hi')
 })
 
 test('onError does not fire on 404', async () => {
-	let errorFired = false
-	const app = new Spiceflow()
-		.get('/test', () => 'Hello')
-		.onError(() => {
-			errorFired = true
-			return new Response('Error', { status: 500 })
-		})
+  let errorFired = false
+  const app = new Spiceflow()
+    .get('/test', () => 'Hello')
+    .onError(() => {
+      errorFired = true
+      return new Response('Error', { status: 500 })
+    })
 
-	const res = await app.handle(
-		new Request('http://localhost/non-existent', { method: 'GET' }),
-	)
+  const res = await app.handle(
+    new Request('http://localhost/non-existent', { method: 'GET' }),
+  )
 
-	expect(res.status).toBe(404)
-	expect(errorFired).toBe(false)
-	expect(await res.text()).toBe('Not Found')
+  expect(res.status).toBe(404)
+  expect(errorFired).toBe(false)
+  expect(await res.text()).toBe('Not Found')
 })
 
 test('onError fires on validation errors', async () => {
-	let errorMessage = ''
-	const app = new Spiceflow()
-		.post(
-			'/test',
-			async ({ request }) => {
-				await request.json()
-				return 'Success'
-			},
-			{
-				body: z.object({
-					name: z.string(),
-				}),
-			},
-		)
-		.onError(({ error }) => {
-			errorMessage = error.message
-			return new Response('Error', { status: 400 })
-		})
+  let errorMessage = ''
+  const app = new Spiceflow()
+    .post(
+      '/test',
+      async ({ request }) => {
+        await request.json()
+        return 'Success'
+      },
+      {
+        body: z.object({
+          name: z.string(),
+        }),
+      },
+    )
+    .onError(({ error }) => {
+      errorMessage = error.message
+      return new Response('Error', { status: 400 })
+    })
 
-	const res = await app.handle(
-		new Request('http://localhost/test', {
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json',
-			},
-			body: JSON.stringify({ name: 1 }), // Invalid type for 'name'
-		}),
-	)
+  const res = await app.handle(
+    new Request('http://localhost/test', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ name: 1 }), // Invalid type for 'name'
+    }),
+  )
 
-	expect(res.status).toBe(400)
-	expect(errorMessage).toContain('data/name must be string')
-	expect(await res.text()).toBe('Error')
+  expect(res.status).toBe(400)
+  expect(errorMessage).toContain('data/name must be string')
+  expect(await res.text()).toBe('Error')
 })
 
 test.todo('HEAD uses GET route, does not add body', async () => {
-	const app = new Spiceflow().get('/ids/:id', () => {
-		console.trace('GET')
-		return {
-			message: 'hi',
-			length: 10,
-		}
-	})
+  const app = new Spiceflow().get('/ids/:id', () => {
+    console.trace('GET')
+    return {
+      message: 'hi',
+      length: 10,
+    }
+  })
 
-	const res = await app.handle(
-		new Request('http://localhost/ids/xxx', { method: 'HEAD' }),
-	)
-	expect(res.status).toBe(200)
-	// expect(res.headers.get('Content-Length')).toBe('10')
-	expect(await res.text()).toBe('')
+  const res = await app.handle(
+    new Request('http://localhost/ids/xxx', { method: 'HEAD' }),
+  )
+  expect(res.status).toBe(200)
+  // expect(res.headers.get('Content-Length')).toBe('10')
+  expect(await res.text()).toBe('')
 
-	// Compare with GET to ensure HEAD is using GET route
-	const getRes = await app.handle(
-		new Request('http://localhost/ids/xxx', { method: 'GET' }),
-	)
-	expect(getRes.status).toBe(200)
-	expect(await getRes.json()).toEqual({ message: 'hi', length: 10 })
+  // Compare with GET to ensure HEAD is using GET route
+  const getRes = await app.handle(
+    new Request('http://localhost/ids/xxx', { method: 'GET' }),
+  )
+  expect(getRes.status).toBe(200)
+  expect(await getRes.json()).toEqual({ message: 'hi', length: 10 })
 })
 
 test('GET with query, untyped', async () => {
-	const res = await new Spiceflow()
-		.get('/query', ({ query }) => {
-			return query.id
-		})
-		.handle(new Request('http://localhost/query?id=hi', { method: 'GET' }))
-	expect(res.status).toBe(200)
-	expect(await res.json()).toEqual('hi')
+  const res = await new Spiceflow()
+    .get('/query', ({ query }) => {
+      return query.id
+    })
+    .handle(new Request('http://localhost/query?id=hi', { method: 'GET' }))
+  expect(res.status).toBe(200)
+  expect(await res.json()).toEqual('hi')
 })
 
 test('GET with query, zod, fails validation', async () => {
-	const res = await new Spiceflow()
-		.get(
-			'/query',
-			({ query }) => {
-				return query.id
-			},
-			{
-				query: z.object({
-					id: z.number(),
-				}),
-			},
-		)
-		.handle(new Request('http://localhost/query?id=hi', { method: 'GET' }))
-	expect(res.status).toBe(422)
+  const res = await new Spiceflow()
+    .get(
+      '/query',
+      ({ query }) => {
+        return query.id
+      },
+      {
+        query: z.object({
+          id: z.number(),
+        }),
+      },
+    )
+    .handle(new Request('http://localhost/query?id=hi', { method: 'GET' }))
+  expect(res.status).toBe(422)
 })
 
 test('GET with query and zod', async () => {
-	const res = await new Spiceflow()
-		.get(
-			'/query',
-			({ query }) => {
-				return query.id
-				// @ts-expect-error
-				void query.sdfsd
-			},
-			{
-				query: z.object({
-					id: z.string(),
-				}),
-			},
-		)
-		.handle(new Request('http://localhost/query?id=hi', { method: 'GET' }))
-	expect(res.status).toBe(200)
-	expect(await res.json()).toEqual('hi')
+  const res = await new Spiceflow()
+    .get(
+      '/query',
+      ({ query }) => {
+        return query.id
+        // @ts-expect-error
+        void query.sdfsd
+      },
+      {
+        query: z.object({
+          id: z.string(),
+        }),
+      },
+    )
+    .handle(new Request('http://localhost/query?id=hi', { method: 'GET' }))
+  expect(res.status).toBe(200)
+  expect(await res.json()).toEqual('hi')
 })
 
 test('GET dynamic route, params are typed', async () => {
-	const res = await new Spiceflow()
-		.get('/ids/:id', ({ params }) => {
-			let id = params.id
-			// @ts-expect-error
-			params.sdfsd
-			return id
-		})
-		.handle(new Request('http://localhost/ids/hi', { method: 'GET' }))
-	expect(res.status).toBe(200)
-	expect(await res.json()).toEqual('hi')
+  const res = await new Spiceflow()
+    .get('/ids/:id', ({ params }) => {
+      let id = params.id
+      // @ts-expect-error
+      params.sdfsd
+      return id
+    })
+    .handle(new Request('http://localhost/ids/hi', { method: 'GET' }))
+  expect(res.status).toBe(200)
+  expect(await res.json()).toEqual('hi')
 })
 
 test('GET dynamic route, params are typed with schema', async () => {
-	const res = await new Spiceflow()
-		.get(
-			'/ids/:id',
-			({ params }) => {
-				let id = params.id
-				// @ts-expect-error
-				params.sdfsd
-				return id
-			},
-			{
-				params: z.object({
-					id: z.string(),
-				}),
-			},
-		)
-		.handle(new Request('http://localhost/ids/hi', { method: 'GET' }))
-	expect(res.status).toBe(200)
-	expect(await res.json()).toEqual('hi')
+  const res = await new Spiceflow()
+    .get(
+      '/ids/:id',
+      ({ params }) => {
+        let id = params.id
+        // @ts-expect-error
+        params.sdfsd
+        return id
+      },
+      {
+        params: z.object({
+          id: z.string(),
+        }),
+      },
+    )
+    .handle(new Request('http://localhost/ids/hi', { method: 'GET' }))
+  expect(res.status).toBe(200)
+  expect(await res.json()).toEqual('hi')
 })
 
 test('missing route is not found', async () => {
-	const res = await new Spiceflow()
-		.get('/ids/:id', () => 'hi')
-		.handle(new Request('http://localhost/zxxx', { method: 'GET' }))
-	expect(res.status).toBe(404)
+  const res = await new Spiceflow()
+    .get('/ids/:id', () => 'hi')
+    .handle(new Request('http://localhost/zxxx', { method: 'GET' }))
+  expect(res.status).toBe(404)
 })
 test('state works', async () => {
-	const res = await new Spiceflow()
-		.state('id', '')
-		.use(({ state, request }) => {
-			state.id = 'xxx'
-		})
-		.get('/get', ({ state: state }) => {
-			expect(state.id).toBe('xxx')
-		})
-		.handle(new Request('http://localhost/get'))
-	expect(res.status).toBe(200)
+  const res = await new Spiceflow()
+    .state('id', '')
+    .use(({ state, request }) => {
+      state.id = 'xxx'
+    })
+    .get('/get', ({ state: state }) => {
+      expect(state.id).toBe('xxx')
+    })
+    .handle(new Request('http://localhost/get'))
+  expect(res.status).toBe(200)
 })
 
 test('body is parsed as json', async () => {
-	let body
-	const res = await new Spiceflow()
-		.state('id', '')
+  let body
+  const res = await new Spiceflow()
+    .state('id', '')
 
-		.post('/post', async (c) => {
-			body = await c.request.json()
-			// console.log({request})
-			return body
-		})
-		.handle(
-			new Request('http://localhost/post', {
-				method: 'POST',
-				headers: {
-					'content-type': 'application/json',
-				},
-				body: JSON.stringify({ name: 'John' }),
-			}),
-		)
-	expect(res.status).toBe(200)
-	expect(await res.json()).toEqual({ name: 'John' })
+    .post('/post', async (c) => {
+      body = await c.request.json()
+      // console.log({request})
+      return body
+    })
+    .handle(
+      new Request('http://localhost/post', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({ name: 'John' }),
+      }),
+    )
+  expect(res.status).toBe(200)
+  expect(await res.json()).toEqual({ name: 'John' })
 })
 
 test('validate body works, request success', async () => {
-	const res = await new Spiceflow()
+  const res = await new Spiceflow()
 
-		.post(
-			'/post',
-			async ({ request }) => {
-				// console.log({request})
-				let body = await request.json()
-				expect(body).toEqual({ name: 'John' })
-				return 'ok'
-			},
-			{
-				body: Type.Object({
-					name: Type.String(),
-				}),
-			},
-		)
-		.handle(
-			new Request('http://localhost/post', {
-				method: 'POST',
-				headers: {
-					'content-type': 'application/json',
-				},
-				body: JSON.stringify({ name: 'John' }),
-			}),
-		)
-	expect(res.status).toBe(200)
-	expect(await res.text()).toMatchInlineSnapshot(`""ok""`)
+    .post(
+      '/post',
+      async ({ request }) => {
+        // console.log({request})
+        let body = await request.json()
+        expect(body).toEqual({ name: 'John' })
+        return 'ok'
+      },
+      {
+        body: Type.Object({
+          name: Type.String(),
+        }),
+      },
+    )
+    .handle(
+      new Request('http://localhost/post', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({ name: 'John' }),
+      }),
+    )
+  expect(res.status).toBe(200)
+  expect(await res.text()).toMatchInlineSnapshot(`""ok""`)
 })
 
 test('validate body works, request fails', async () => {
-	const res = await new Spiceflow()
+  const res = await new Spiceflow()
 
-		.post(
-			'/post',
-			async ({ request, redirect }) => {
-				// console.log({request})
-				let body = await request.json()
-				expect(body).toEqual({ name: 'John' })
-			},
-			{
-				body: Type.Object({
-					name: Type.String(),
-					requiredField: Type.String(),
-				}),
-			},
-		)
-		.handle(
-			new Request('http://localhost/post', {
-				method: 'POST',
-				headers: {
-					'content-type': 'application/json',
-				},
-				body: JSON.stringify({ name: 'John' }),
-			}),
-		)
-	expect(res.status).toBe(422)
-	expect(await res.text()).toMatchInlineSnapshot(
-		`"data must have required property 'requiredField'"`,
-	)
+    .post(
+      '/post',
+      async ({ request, redirect }) => {
+        // console.log({request})
+        let body = await request.json()
+        expect(body).toEqual({ name: 'John' })
+      },
+      {
+        body: Type.Object({
+          name: Type.String(),
+          requiredField: Type.String(),
+        }),
+      },
+    )
+    .handle(
+      new Request('http://localhost/post', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({ name: 'John' }),
+      }),
+    )
+  expect(res.status).toBe(422)
+  expect(await res.text()).toMatchInlineSnapshot(
+    `"data must have required property 'requiredField'"`,
+  )
 })
 
 test('run use', async () => {
-	const res = await new Spiceflow()
-		.use(({ request }) => {
-			expect(request.method).toBe('HEAD')
-			return new Response('ok', { status: 401 })
-		})
-		.use(({ request }) => {
-			expect(request.method).toBe('HEAD')
-			return 'second one'
-		})
-		.head('/ids/:id', () => 'hi')
-		.handle(new Request('http://localhost/ids/zxxx', { method: 'HEAD' }))
-	expect(res.status).toBe(401)
-	expect(await res.text()).toBe('ok')
+  const res = await new Spiceflow()
+    .use(({ request }) => {
+      expect(request.method).toBe('HEAD')
+      return new Response('ok', { status: 401 })
+    })
+    .use(({ request }) => {
+      expect(request.method).toBe('HEAD')
+      return 'second one'
+    })
+    .head('/ids/:id', () => 'hi')
+    .handle(new Request('http://localhost/ids/zxxx', { method: 'HEAD' }))
+  expect(res.status).toBe(401)
+  expect(await res.text()).toBe('ok')
 })
 
 test('run use', async () => {
-	const res = await new Spiceflow()
-		.use(({ request }) => {
-			expect(request.method).toBe('HEAD')
-			return new Response('ok', { status: 401 })
-		})
-		.use(({ request }) => {
-			expect(request.method).toBe('HEAD')
-			return 'second one'
-		})
-		.head('/ids/:id', () => 'hi')
-		.handle(new Request('http://localhost/ids/zxxx', { method: 'HEAD' }))
-	expect(res.status).toBe(401)
-	expect(await res.text()).toBe('ok')
+  const res = await new Spiceflow()
+    .use(({ request }) => {
+      expect(request.method).toBe('HEAD')
+      return new Response('ok', { status: 401 })
+    })
+    .use(({ request }) => {
+      expect(request.method).toBe('HEAD')
+      return 'second one'
+    })
+    .head('/ids/:id', () => 'hi')
+    .handle(new Request('http://localhost/ids/zxxx', { method: 'HEAD' }))
+  expect(res.status).toBe(401)
+  expect(await res.text()).toBe('ok')
 })
 
 test('basPath works', async () => {
-	const res = await new Spiceflow({ basePath: '/one' })
-		.get('/ids/:id', () => 'hi')
-		.handle(new Request('http://localhost/one/ids/xxx', { method: 'GET' }))
-	expect(res.status).toBe(200)
-	expect(await res.json()).toEqual('hi')
+  const res = await new Spiceflow({ basePath: '/one' })
+    .get('/ids/:id', () => 'hi')
+    .handle(new Request('http://localhost/one/ids/xxx', { method: 'GET' }))
+  expect(res.status).toBe(200)
+  expect(await res.json()).toEqual('hi')
 })
 
 test('basPath works with use', async () => {
-	let app = new Spiceflow({ basePath: '/one' }).use(
-		new Spiceflow({})
-			.get('/two', () => 'hi')
-			.use(
-				new Spiceflow({ basePath: '/three' }).get('/four', () => 'hi'),
-			),
-	)
-	{
-		const res = await app.handle(
-			new Request('http://localhost/one/two', { method: 'GET' }),
-		)
+  let app = new Spiceflow({ basePath: '/one' }).use(
+    new Spiceflow({})
+      .get('/two', () => 'hi')
+      .use(new Spiceflow({ basePath: '/three' }).get('/four', () => 'hi')),
+  )
+  {
+    const res = await app.handle(
+      new Request('http://localhost/one/two', { method: 'GET' }),
+    )
 
-		expect(res.status).toBe(200)
-		expect(await res.json()).toEqual('hi')
-	}
-	{
-		const res = await app.handle(
-			new Request('http://localhost/one/three/four', { method: 'GET' }),
-		)
-		expect(res.status).toBe(200)
-		expect(await res.json()).toEqual('hi')
-	}
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual('hi')
+  }
+  {
+    const res = await app.handle(
+      new Request('http://localhost/one/three/four', { method: 'GET' }),
+    )
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual('hi')
+  }
 })
 
 test('getRouteAndParents', async () => {
-	let app = new Spiceflow({ basePath: '/one' })
-		.get('/ids/:id', () => 'hi')
-		.use(
-			new Spiceflow({ basePath: '/two' }).use(
-				new Spiceflow({ basePath: '/three' }).get('/four', () => 'hi'),
-			),
-		)
+  let app = new Spiceflow({ basePath: '/one' })
+    .get('/ids/:id', () => 'hi')
+    .use(
+      new Spiceflow({ basePath: '/two' }).use(
+        new Spiceflow({ basePath: '/three' }).get('/four', () => 'hi'),
+      ),
+    )
 
-	let routers = bfs(app)
-	let last = routers[routers.length - 1]
+  let routers = bfs(app)
+  let last = routers[routers.length - 1]
 
-	expect(app['getAppAndParents'](last).map((x) => x.prefix))
-		.toMatchInlineSnapshot(`
+  expect(app['getAppAndParents'](last).map((x) => x.prefix))
+    .toMatchInlineSnapshot(`
 			[
 			  "/one",
 			  "/two",
@@ -378,23 +376,23 @@ test('getRouteAndParents', async () => {
 })
 
 test('getAppsInScope include all parent apps', async () => {
-	let app = new Spiceflow({ basePath: '/one' })
-		.get('/ids/:id', () => 'hi')
-		.use(
-			new Spiceflow({ basePath: '/two' }).use(
-				new Spiceflow({ basePath: '/three' }).use(
-					new Spiceflow({ basePath: '/four' })
-						.get('/five', () => 'hi')
-						.use(({ request }) => {}),
-				),
-			),
-		)
+  let app = new Spiceflow({ basePath: '/one' })
+    .get('/ids/:id', () => 'hi')
+    .use(
+      new Spiceflow({ basePath: '/two' }).use(
+        new Spiceflow({ basePath: '/three' }).use(
+          new Spiceflow({ basePath: '/four' })
+            .get('/five', () => 'hi')
+            .use(({ request }) => {}),
+        ),
+      ),
+    )
 
-	let routers = bfs(app)
-	let secondLast = routers[routers.length - 2]
+  let routers = bfs(app)
+  let secondLast = routers[routers.length - 2]
 
-	expect(app['getAppsInScope'](secondLast).map((x) => x.prefix))
-		.toMatchInlineSnapshot(`
+  expect(app['getAppsInScope'](secondLast).map((x) => x.prefix))
+    .toMatchInlineSnapshot(`
 			[
 			  "/one",
 			  "/two",
@@ -404,23 +402,23 @@ test('getAppsInScope include all parent apps', async () => {
 })
 
 test('getAppsInScope include all parent apps and non scoped apps', async () => {
-	let app = new Spiceflow({ basePath: '/one' })
-		.get('/ids/:id', () => 'hi')
-		.use(
-			new Spiceflow({ basePath: '/two' }).use(
-				new Spiceflow({ basePath: '/three' }).use(
-					new Spiceflow({ basePath: '/four', scoped: false })
-						.get('/five', () => 'hi')
-						.use(({ request }) => {}),
-				),
-			),
-		)
+  let app = new Spiceflow({ basePath: '/one' })
+    .get('/ids/:id', () => 'hi')
+    .use(
+      new Spiceflow({ basePath: '/two' }).use(
+        new Spiceflow({ basePath: '/three' }).use(
+          new Spiceflow({ basePath: '/four', scoped: false })
+            .get('/five', () => 'hi')
+            .use(({ request }) => {}),
+        ),
+      ),
+    )
 
-	let routers = bfs(app)
-	let secondLast = routers[routers.length - 2]
+  let routers = bfs(app)
+  let secondLast = routers[routers.length - 2]
 
-	expect(app['getAppsInScope'](secondLast).map((x) => x.prefix))
-		.toMatchInlineSnapshot(`
+  expect(app['getAppsInScope'](secondLast).map((x) => x.prefix))
+    .toMatchInlineSnapshot(`
 			[
 			  "/one",
 			  "/two",
@@ -431,135 +429,131 @@ test('getAppsInScope include all parent apps and non scoped apps', async () => {
 })
 
 test('use with 2 basPath works', async () => {
-	let oneOnReq = false
-	let twoOnReq = false
-	let onReqCalled: string[] = []
-	const app = await new Spiceflow()
-		.use(({ request }) => {
-			onReqCalled.push('root')
-		})
-		.use(
-			new Spiceflow({ basePath: '/one' })
+  let oneOnReq = false
+  let twoOnReq = false
+  let onReqCalled: string[] = []
+  const app = await new Spiceflow()
+    .use(({ request }) => {
+      onReqCalled.push('root')
+    })
+    .use(
+      new Spiceflow({ basePath: '/one' })
 
-				.use(({ request }) => {
-					oneOnReq = true
-					onReqCalled.push('one')
-				})
-				.get('/ids/:id', ({ params }) => params.id),
-		)
-		.use(
-			new Spiceflow({ basePath: '/two' })
-				.use((c) => {
-					twoOnReq = true
-					onReqCalled.push('two')
-				})
-				.get('/ids/:id', ({ params }) => params.id, {}),
-		)
+        .use(({ request }) => {
+          oneOnReq = true
+          onReqCalled.push('one')
+        })
+        .get('/ids/:id', ({ params }) => params.id),
+    )
+    .use(
+      new Spiceflow({ basePath: '/two' })
+        .use((c) => {
+          twoOnReq = true
+          onReqCalled.push('two')
+        })
+        .get('/ids/:id', ({ params }) => params.id, {}),
+    )
 
-	{
-		const res = await app.handle(
-			new Request('http://localhost/one/ids/one'),
-		)
-		expect(res.status).toBe(200)
+  {
+    const res = await app.handle(new Request('http://localhost/one/ids/one'))
+    expect(res.status).toBe(200)
 
-		expect(await res.json()).toEqual('one')
-	}
-	expect(onReqCalled).toEqual(['root', 'one'])
-	{
-		const res = await app.handle(
-			new Request('http://localhost/two/ids/two'),
-		)
-		expect(res.status).toBe(200)
+    expect(await res.json()).toEqual('one')
+  }
+  expect(onReqCalled).toEqual(['root', 'one'])
+  {
+    const res = await app.handle(new Request('http://localhost/two/ids/two'))
+    expect(res.status).toBe(200)
 
-		expect(await res.json()).toEqual('two')
-	}
-	expect(oneOnReq).toBe(true)
-	expect(twoOnReq).toBe(true)
+    expect(await res.json()).toEqual('two')
+  }
+  expect(oneOnReq).toBe(true)
+  expect(twoOnReq).toBe(true)
 })
 
 test('use with nested basPath works', async () => {
-	const app = await new Spiceflow({ basePath: '/zero' })
-		.use(
-			new Spiceflow({ basePath: '/one' }).get(
-				'/ids/:id',
-				({ params }) => params.id,
-			),
-		)
-		.use(
-			new Spiceflow({ basePath: '/two' }).use(
-				new Spiceflow({ basePath: '/nested' }).get(
-					'/ids/:id',
-					({ params }) => params.id,
-				),
-			),
-		)
-	{
-		const res = await app.handle(
-			new Request('http://localhost/zero/one/ids/one'),
-		)
-		expect(res.status).toBe(200)
-		expect(await res.json()).toEqual('one')
-	}
+  const app = await new Spiceflow({ basePath: '/zero' })
+    .use(
+      new Spiceflow({ basePath: '/one' }).get(
+        '/ids/:id',
+        ({ params }) => params.id,
+      ),
+    )
+    .use(
+      new Spiceflow({ basePath: '/two' }).use(
+        new Spiceflow({ basePath: '/nested' }).get(
+          '/ids/:id',
+          ({ params }) => params.id,
+        ),
+      ),
+    )
+  {
+    const res = await app.handle(
+      new Request('http://localhost/zero/one/ids/one'),
+    )
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual('one')
+  }
 
-	{
-		const res = await app.handle(
-			new Request('http://localhost/zero/two/nested/ids/nested'),
-		)
-		expect(res.status).toBe(200)
-		expect(await res.json()).toEqual('nested')
-	}
+  {
+    const res = await app.handle(
+      new Request('http://localhost/zero/two/nested/ids/nested'),
+    )
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual('nested')
+  }
 })
 
 test('errors inside basPath works', async () => {
-	let onErrorTriggered = [] as string[]
-	let onReqTriggered = [] as string[]
-	let handlerCalledNTimes = 0
-	const app = await new Spiceflow({ basePath: '/zero' })
-		.onError(({ error }) => {
-			onErrorTriggered.push('root')
-			// return new Response('root', { status: 500 })
-		})
-		.use(({ request }) => {
-			onReqTriggered.push('root')
-			// return new Response('root', { status: 500 })
-		})
+  let onErrorTriggered = [] as string[]
+  let onReqTriggered = [] as string[]
+  let handlerCalledNTimes = 0
+  const app = await new Spiceflow({ basePath: '/zero' })
+    .onError(({ error }) => {
+      onErrorTriggered.push('root')
+      // return new Response('root', { status: 500 })
+    })
+    .use(({ request }) => {
+      onReqTriggered.push('root')
+      // return new Response('root', { status: 500 })
+    })
 
-		.use(
-			new Spiceflow({ basePath: '/two' })
-				.onError(({ error }) => {
-					onErrorTriggered.push('two')
-					// return new Response('two', { status: 500 })
-				})
-				.use(({ request }) => {
-					onReqTriggered.push('two')
-					// return new Response('two', { status: 500 })
-				})
-				.use(
-					new Spiceflow({ basePath: '/nested' })
-						.onError(({ error }) => {
-							onErrorTriggered.push('nested')
-							// return new Response('nested', { status: 500 })
-						})
-						.use(({ request }) => {
-							onReqTriggered.push('nested')
-							// return new Response('nested', { status: 500 })
-						})
-						.get('/ids/:id', ({ params }) => {
-							handlerCalledNTimes++
-							throw new Error('error message')
-						}),
-				),
-		)
+    .use(
+      new Spiceflow({ basePath: '/two' })
+        .onError(({ error }) => {
+          onErrorTriggered.push('two')
+          // return new Response('two', { status: 500 })
+        })
+        .use(({ request }) => {
+          onReqTriggered.push('two')
+          // return new Response('two', { status: 500 })
+        })
+        .use(
+          new Spiceflow({ basePath: '/nested' })
+            .onError(({ error }) => {
+              onErrorTriggered.push('nested')
+              // return new Response('nested', { status: 500 })
+            })
+            .use(({ request }) => {
+              onReqTriggered.push('nested')
+              // return new Response('nested', { status: 500 })
+            })
+            .get('/ids/:id', ({ params }) => {
+              handlerCalledNTimes++
+              throw new Error('error message')
+            }),
+        ),
+    )
 
-	{
-		const res = await app.handle(
-			new Request('http://localhost/zero/two/nested/ids/nested'),
-		)
-		expect(handlerCalledNTimes).toBe(1)
-		expect(onErrorTriggered).toEqual(['root', 'two', 'nested'])
-		expect(onReqTriggered).toEqual(['root', 'two', 'nested'])
-		expect(res.status).toBe(500)
-		expect(await res.text()).toBe('error message')
-		// expect(await res.json()).toEqual('nested'))
-	}
+  {
+    const res = await app.handle(
+      new Request('http://localhost/zero/two/nested/ids/nested'),
+    )
+    expect(handlerCalledNTimes).toBe(1)
+    expect(onErrorTriggered).toEqual(['root', 'two', 'nested'])
+    expect(onReqTriggered).toEqual(['root', 'two', 'nested'])
+    expect(res.status).toBe(500)
+    expect(await res.text()).toBe('error message')
+    // expect(await res.json()).toEqual('nested'))
+  }
 })

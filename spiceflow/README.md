@@ -16,14 +16,14 @@ Spiceflow is a lightweight, type-safe API framework for building web services us
 
 ## Features
 
--   Type safety
--   OpenAPI compatibility
--   RPC client generation
--   Simple and intuitive API
--   Uses web standards for requests and responses
--   Supports async generators for streaming
--   Modular design with `.use()` for mounting sub-apps
--   Base path support
+- Type safety
+- OpenAPI compatibility
+- RPC client generation
+- Simple and intuitive API
+- Uses web standards for requests and responses
+- Supports async generators for streaming
+- Modular design with `.use()` for mounting sub-apps
+- Base path support
 
 ## Installation
 
@@ -47,7 +47,7 @@ app.listen(3000)
 
 ```typescript
 app.get('/users/:id', ({ params }) => {
-	return `User ID: ${params.id}`
+  return `User ID: ${params.id}`
 })
 ```
 
@@ -57,16 +57,16 @@ app.get('/users/:id', ({ params }) => {
 import { z } from 'zod'
 
 app.post(
-	'/users',
-	({ body }) => {
-		return `Created user: ${body.name}`
-	},
-	{
-		body: z.object({
-			name: z.string(),
-			email: z.string().email(),
-		}),
-	},
+  '/users',
+  ({ body }) => {
+    return `Created user: ${body.name}`
+  },
+  {
+    body: z.object({
+      name: z.string(),
+      email: z.string().email(),
+    }),
+  },
 )
 ```
 
@@ -76,16 +76,16 @@ app.post(
 import { z } from 'zod'
 
 app.get(
-	'/users/:id',
-	({ params }) => {
-		return { id: Number(params.id), name: 'John Doe' }
-	},
-	{
-		response: z.object({
-			id: z.number(),
-			name: z.string(),
-		}),
-	},
+  '/users/:id',
+  ({ params }) => {
+    return { id: Number(params.id), name: 'John Doe' }
+  },
+  {
+    response: z.object({
+      id: z.number(),
+      name: z.string(),
+    }),
+  },
 )
 ```
 
@@ -104,8 +104,8 @@ const { data: user } = await client.users.get({ params: { id: '123' } })
 
 ```typescript
 const mainApp = new Spiceflow()
-	.post('/users', ({ body }) => `Created user: ${body.name}`)
-	.use(new Spiceflow().get('/', () => 'Users list'))
+  .post('/users', ({ body }) => `Created user: ${body.name}`)
+  .use(new Spiceflow().get('/', () => 'Users list'))
 ```
 
 ## Base Path
@@ -121,11 +121,11 @@ Async generators will create a server sent event response.
 
 ```typescript
 app.get('/stream', async function* () {
-	yield 'Start'
-	await new Promise((resolve) => setTimeout(resolve, 1000))
-	yield 'Middle'
-	await new Promise((resolve) => setTimeout(resolve, 1000))
-	yield 'End'
+  yield 'Start'
+  await new Promise((resolve) => setTimeout(resolve, 1000))
+  yield 'Middle'
+  await new Promise((resolve) => setTimeout(resolve, 1000))
+  yield 'End'
 })
 ```
 
@@ -133,8 +133,8 @@ app.get('/stream', async function* () {
 
 ```typescript
 app.onError(({ error }) => {
-	console.error(error)
-	return new Response('An error occurred', { status: 500 })
+  console.error(error)
+  return new Response('An error occurred', { status: 500 })
 })
 ```
 
@@ -142,7 +142,7 @@ app.onError(({ error }) => {
 
 ```typescript
 app.use(({ request }) => {
-	console.log(`Received ${request.method} request to ${request.url}`)
+  console.log(`Received ${request.method} request to ${request.url}`)
 })
 ```
 
@@ -153,19 +153,18 @@ Middleware in Spiceflow can be used to modify the response before it's sent to t
 Here's an example of how to modify the response using middleware:
 
 ```ts
-
 new Spiceflow()
-	.use(async ({ request }, next) => {
-		const response = await next()
-		if (response) {
-			// Add a custom header to all responses
-			response.headers.set('X-Powered-By', 'Spiceflow')
-		}
-		return response
-	})
-	.get('/example', () => {
-		return { message: 'Hello, World!' }
-	})
+  .use(async ({ request }, next) => {
+    const response = await next()
+    if (response) {
+      // Add a custom header to all responses
+      response.headers.set('X-Powered-By', 'Spiceflow')
+    }
+    return response
+  })
+  .get('/example', () => {
+    return { message: 'Hello, World!' }
+  })
 ```
 
 ## Generating OpenAPI Schema
@@ -174,23 +173,23 @@ new Spiceflow()
 import { openapi } from 'spiceflow/openapi'
 
 const app = new Spiceflow()
-	.use(openapi({ path: '/openapi.json' }))
-	.get('/hello', () => 'Hello, World!', {
-		query: z.object({
-			name: z.string(),
-			age: z.number(),
-		}),
-		response: z.string(),
-	})
-	.post('/user', {
-		body: z.object({
-			name: z.string(),
-			email: z.string().email(),
-		}),
-	})
+  .use(openapi({ path: '/openapi.json' }))
+  .get('/hello', () => 'Hello, World!', {
+    query: z.object({
+      name: z.string(),
+      age: z.number(),
+    }),
+    response: z.string(),
+  })
+  .post('/user', {
+    body: z.object({
+      name: z.string(),
+      email: z.string().email(),
+    }),
+  })
 
 const openapiSchema = await (
-	await app.handle(new Request('http://localhost:3000/openapi.json'))
+  await app.handle(new Request('http://localhost:3000/openapi.json'))
 ).json()
 ```
 

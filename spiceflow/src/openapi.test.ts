@@ -4,104 +4,104 @@ import { openapi } from './openapi.js'
 import { z } from 'zod'
 
 test('openapi response', async () => {
-	const app = await new Spiceflow()
-		.use(
-			openapi({
-				documentation: {
-					info: {
-						title: 'Spiceflow Docs',
-						version: '0.0.0',
-					},
-				},
-			}),
-		)
-		.use(
-			new Spiceflow({ basePath: '/one' }).get(
-				'/ids/:id',
-				({ params }) => {
-					if (Math.random() < 0.5) {
-						// TODO add a way to set status
+  const app = await new Spiceflow()
+    .use(
+      openapi({
+        documentation: {
+          info: {
+            title: 'Spiceflow Docs',
+            version: '0.0.0',
+          },
+        },
+      }),
+    )
+    .use(
+      new Spiceflow({ basePath: '/one' }).get(
+        '/ids/:id',
+        ({ params }) => {
+          if (Math.random() < 0.5) {
+            // TODO add a way to set status
 
-						return {
-							message: 'sdf',
-						}
-					}
-					return params.id
-				},
-				{
-					response: {
-						200: z.string(),
-						404: z.object({
-							message: z.string(),
-						}),
-					},
-				},
-			),
-		)
-		.patch(
-			'/addBody',
-			async (c) => {
-				let body = await c.request.json()
-				return body
-			},
-			{
-				body: z.object({
-					name: z.string(),
-				}),
-				response: z.object({
-					name: z.string().optional(),
-				}),
-			},
-		)
-		.get(
-			'/queryParams',
-			async (c) => {
-				const query = c.query
-				return query
-			},
-			{
-				query: z.object({
-					name: z.string(),
-				}),
-				response: z.object({
-					name: z.string().optional(),
-				}),
-			},
-		)
-		.post(
-			'/queryParams',
-			async (c) => {
-				const query = c.query
-				return query
-			},
-			{
-				detail: {
-					description: 'This is a post',
-					operationId: 'postQueryParamsXXX',
-				},
-				body: z.object({
-					name: z.string(),
-				}),
-				response: z.object({
-					name: z.string().optional(),
-				}),
-			},
-		)
-		.use(
-			new Spiceflow({ basePath: '/two' }).get(
-				'/ids/:id',
-				({ params }) => params.id,
-				{
-					params: z.object({
-						id: z.string(),
-					}),
-				},
-			),
-		)
-	const openapiSchema = await app
-		.handle(new Request('http://localhost/openapi'))
-		.then((x) => x.json())
-	expect(openapiSchema).toMatchInlineSnapshot(`
+            return {
+              message: 'sdf',
+            }
+          }
+          return params.id
+        },
+        {
+          response: {
+            200: z.string(),
+            404: z.object({
+              message: z.string(),
+            }),
+          },
+        },
+      ),
+    )
+    .patch(
+      '/addBody',
+      async (c) => {
+        let body = await c.request.json()
+        return body
+      },
+      {
+        body: z.object({
+          name: z.string(),
+        }),
+        response: z.object({
+          name: z.string().optional(),
+        }),
+      },
+    )
+    .get(
+      '/queryParams',
+      async (c) => {
+        const query = c.query
+        return query
+      },
+      {
+        query: z.object({
+          name: z.string(),
+        }),
+        response: z.object({
+          name: z.string().optional(),
+        }),
+      },
+    )
+    .post(
+      '/queryParams',
+      async (c) => {
+        const query = c.query
+        return query
+      },
+      {
+        detail: {
+          description: 'This is a post',
+          operationId: 'postQueryParamsXXX',
+        },
+        body: z.object({
+          name: z.string(),
+        }),
+        response: z.object({
+          name: z.string().optional(),
+        }),
+      },
+    )
+    .use(
+      new Spiceflow({ basePath: '/two' }).get(
+        '/ids/:id',
+        ({ params }) => params.id,
+        {
+          params: z.object({
+            id: z.string(),
+          }),
+        },
+      ),
+    )
+  const openapiSchema = await app
+    .handle(new Request('http://localhost/openapi'))
+    .then((x) => x.json())
+  expect(openapiSchema).toMatchInlineSnapshot(`
 		{
 		  "components": {
 		    "schemas": {},
