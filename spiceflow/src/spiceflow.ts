@@ -737,7 +737,7 @@ export class Spiceflow<
         let typedRequest =
           request instanceof SpiceflowRequest
             ? request
-            : new SpiceflowRequest(request)
+            : new SpiceflowRequest(u, request)
         typedRequest.validateBody = route.internalRoute?.validateBody
         request = typedRequest
       }
