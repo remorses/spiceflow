@@ -35,7 +35,7 @@ import { z, ZodType } from 'zod'
 import { zodToJsonSchema } from 'zod-to-json-schema'
 import { Context, MiddlewareContext } from './context.js'
 import { isProduction, ValidationError } from './error.js'
-import { isAsyncIterable, redirect } from './utils.js'
+import { isAsyncIterable, isResponse, redirect } from './utils.js'
 
 const ajv = (addFormats.default || addFormats)(
   new (Ajv.default || Ajv)({ useDefaults: true }),
@@ -204,7 +204,7 @@ export class Spiceflow<
             hooks: {},
             handler: async (c) => {
               const response = await internalRouteGet.handler(c)
-              if (response instanceof Response) {
+              if (isResponse(response)) {
                 return new Response('', {
                   status: response.status,
                   statusText: response.statusText,
@@ -759,7 +759,7 @@ export class Spiceflow<
           index++
 
           const result = await middleware(context, next)
-          if (result instanceof Response) {
+          if (isResponse(result)) {
             handlerResponse = result
           }
           if (!result && index < middlewares.length) {
@@ -798,13 +798,13 @@ export class Spiceflow<
 
       return response
     } catch (err: any) {
-      if (err instanceof Response) return err
+      if (isResponse(err)) return err
       let res = await this.runErrorHandlers({
         onErrorHandlers,
         error: err,
         request,
       })
-      if (res instanceof Response) return res
+      if (isResponse(res)) return res
 
       let status = err?.status ?? 500
       res ||= new Response(err?.message || 'Internal Server Error', {
@@ -824,7 +824,7 @@ export class Spiceflow<
     } else {
       for (const errHandler of onErrorHandlers) {
         const res = errHandler({ error: err, request })
-        if (res instanceof Response) {
+        if (isResponse(res)) {
           return res
         }
       }
@@ -1177,27 +1177,14 @@ export function bfs(tree: AnySpiceflow) {
   }
   return nodes
 }
+
 export async function turnHandlerResultIntoResponse(result: any) {
   // if (result === undefined) return new Response('', { status: 404 })
   // if user returns not a response, convert to json
-  if (result instanceof Response) {
+  if (isResponse(result)) {
     return result
   }
-  if (
-    result &&
-    typeof result === 'object' &&
-    'status' in result &&
-    'headers' in result &&
-    'body' in result
-  ) {
-    console.warn(
-      'spiceflow WARNING: you returned a Response that does not satisfy instanceof Response, probably because of some dumb polyfill\n',
-      result,
-    )
-    // Handle response-like objects
-    const { status, headers, body } = result
-    return new Response(body, { status, headers })
-  }
+
   // if user returns a promise, await it
   if (result instanceof Promise) {
     result = await result

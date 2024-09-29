@@ -1,5 +1,11 @@
 # spiceflow
 
+## 1.1.11
+
+### Patch Changes
+
+- FIx instanceof Response again for all cases
+
 ## 1.1.10
 
 ### Patch Changes

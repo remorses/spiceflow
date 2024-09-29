@@ -1,4 +1,5 @@
 import { MiddlewareHandler } from './types.js'
+import { isResponse } from './utils.js'
 
 type Env = {}
 type Context<E extends Env = Env> = {}
@@ -81,7 +82,7 @@ export const serveStatic = <E extends Env = Env>(
       }
     }
 
-    if (content instanceof Response) {
+    if (isResponse(content)) {
       return content
     }
 

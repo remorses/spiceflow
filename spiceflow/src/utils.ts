@@ -108,3 +108,25 @@ export const redirect = (
 ) => Response.redirect(url, status)
 
 export type redirect = typeof redirect
+
+export function isResponse(result: any): result is Response {
+  if (result instanceof Response) {
+    return true
+  }
+  if (
+    result &&
+    typeof result === 'object' &&
+    'status' in result &&
+    'headers' in result &&
+    'body' in result
+  ) {
+    console.warn(
+      'spiceflow WARNING: you returned a Response that does not satisfy instanceof Response, probably because of some dumb polyfill\n',
+      result,
+    )
+
+    return true
+  }
+
+  return false
+}
