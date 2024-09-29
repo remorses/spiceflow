@@ -1,5 +1,11 @@
 # spiceflow
 
+## 1.1.10
+
+### Patch Changes
+
+- Fix case where response is not instance of Response, in cases where stupid Remix polyfills response because they are retarded
+
 ## 1.1.9
 
 ### Patch Changes
