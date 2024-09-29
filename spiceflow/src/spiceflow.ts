@@ -1183,6 +1183,21 @@ export async function turnHandlerResultIntoResponse(result: any) {
   if (result instanceof Response) {
     return result
   }
+  if (
+    result &&
+    typeof result === 'object' &&
+    'status' in result &&
+    'headers' in result &&
+    'body' in result
+  ) {
+    console.warn(
+      'spiceflow WARNING: you returned a Response that does not satisfy instanceof Response, probably because of some dumb polyfill\n',
+      result,
+    )
+    // Handle response-like objects
+    const { status, headers, body } = result
+    return new Response(body, { status, headers })
+  }
   // if user returns a promise, await it
   if (result instanceof Promise) {
     result = await result
