@@ -1179,21 +1179,14 @@ export function bfs(tree: AnySpiceflow) {
 }
 
 export async function turnHandlerResultIntoResponse(result: any) {
-  // if (result === undefined) return new Response('', { status: 404 })
-  // if user returns not a response, convert to json
-  if (isResponse(result)) {
-    return result
-  }
-
   // if user returns a promise, await it
   if (result instanceof Promise) {
     result = await result
   }
-  // // if user returns a string, convert to json
-  // if (typeof result === 'string') {
-  // 	result = new Response(result)
-  // }
-  // if user returns an object, convert to json
+
+  if (isResponse(result)) {
+    return result
+  }
 
   return new Response(JSON.stringify(result ?? null, null, 2), {
     headers: {
