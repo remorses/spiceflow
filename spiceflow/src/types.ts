@@ -647,7 +647,7 @@ type _CreateEden<
       [x in Path]: Property
     }
 
-export type CreateEden<
+export type CreateClient<
   Path extends string,
   Property extends Record<string, unknown> = {},
 > = Path extends `/${infer Rest}`

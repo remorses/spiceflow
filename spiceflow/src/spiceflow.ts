@@ -7,7 +7,7 @@ export { Type as t }
 import addFormats from 'ajv-formats'
 import {
   ComposeSpiceflowResponse,
-  CreateEden,
+  CreateClient,
   DefinitionBase,
   ErrorHandler,
   HTTPMethod,
@@ -311,7 +311,7 @@ export class Spiceflow<
     Definitions,
     Metadata,
     Routes &
-      CreateEden<
+      CreateClient<
         JoinPath<BasePath, Path>,
         {
           post: {
@@ -358,7 +358,7 @@ export class Spiceflow<
     Definitions,
     Metadata,
     Routes &
-      CreateEden<
+      CreateClient<
         JoinPath<BasePath, Path>,
         {
           get: {
@@ -404,7 +404,7 @@ export class Spiceflow<
     Definitions,
     Metadata,
     Routes &
-      CreateEden<
+      CreateClient<
         JoinPath<BasePath, Path>,
         {
           put: {
@@ -451,7 +451,7 @@ export class Spiceflow<
     Definitions,
     Metadata,
     Routes &
-      CreateEden<
+      CreateClient<
         JoinPath<BasePath, Path>,
         {
           patch: {
@@ -498,7 +498,7 @@ export class Spiceflow<
     Definitions,
     Metadata,
     Routes &
-      CreateEden<
+      CreateClient<
         JoinPath<BasePath, Path>,
         {
           delete: {
@@ -545,7 +545,7 @@ export class Spiceflow<
     Definitions,
     Metadata,
     Routes &
-      CreateEden<
+      CreateClient<
         JoinPath<BasePath, Path>,
         {
           options: {
@@ -592,7 +592,7 @@ export class Spiceflow<
     Definitions,
     Metadata,
     Routes &
-      CreateEden<
+      CreateClient<
         JoinPath<BasePath, Path>,
         {
           [method in string]: {
@@ -641,7 +641,7 @@ export class Spiceflow<
     Definitions,
     Metadata,
     Routes &
-      CreateEden<
+      CreateClient<
         JoinPath<BasePath, Path>,
         {
           head: {
@@ -675,7 +675,7 @@ export class Spiceflow<
         Metadata,
         BasePath extends ``
           ? Routes & NewSpiceflow['_routes']
-          : Routes & CreateEden<BasePath, NewSpiceflow['_routes']>
+          : Routes & CreateClient<BasePath, NewSpiceflow['_routes']>
       >
   use<const Schema extends RouteSchema>(
     handler: MiddlewareHandler<
