@@ -1,9 +1,7 @@
 /// <reference lib="dom" />
 import type { Spiceflow } from '../spiceflow.js'
-// import { EdenWS } from './ws'
-// import type { IsNever, Not, Prettify } from '../types'
-import { EdenFetchError } from './errors.js'
-import { EdenWS } from './ws.js'
+
+import { SpiceflowFetchError } from './errors.js'
 
 export type Prettify<T> = {
   [K in keyof T]: T[K]
@@ -36,15 +34,15 @@ type ReplaceGeneratorWithAsyncGenerator<
     ? And<Not<IsNever<A>>, void extends B ? true : false> extends true
       ? AsyncGenerator<A, B, C>
       : And<IsNever<A>, void extends B ? false : true> extends true
-        ? B
-        : AsyncGenerator<A, B, C> | B
+      ? B
+      : AsyncGenerator<A, B, C> | B
     : RecordType[K] extends AsyncGenerator<infer A, infer B, infer C>
-      ? And<Not<IsNever<A>>, void extends B ? true : false> extends true
-        ? AsyncGenerator<A, B, C>
-        : And<IsNever<A>, void extends B ? false : true> extends true
-          ? B
-          : AsyncGenerator<A, B, C> | B
-      : RecordType[K]
+    ? And<Not<IsNever<A>>, void extends B ? true : false> extends true
+      ? AsyncGenerator<A, B, C>
+      : And<IsNever<A>, void extends B ? false : true> extends true
+      ? B
+      : AsyncGenerator<A, B, C> | B
+    : RecordType[K]
 } & {}
 
 type MaybeArray<T> = T | T[]
@@ -63,88 +61,73 @@ export namespace SpiceflowClient {
       : 'Please install Spiceflow before using Eden'
 
   export type Sign<in out Route extends Record<string, any>> = {
-    [K in keyof Route as K extends `:${string}`
-      ? never
-      : K]: K extends 'subscribe' // ? Websocket route
-      ? (undefined extends Route['subscribe']['headers']
-          ? { headers?: Record<string, unknown> }
-          : {
-              headers: Route['subscribe']['headers']
-            }) &
-          (undefined extends Route['subscribe']['query']
-            ? { query?: Record<string, unknown> }
-            : {
-                query: Route['subscribe']['query']
-              }) extends infer Param
+    [K in keyof Route as K extends `:${string}` ? never : K]: Route[K] extends {
+      body: infer Body
+      // headers: infer Headers
+      params: any
+      query: infer Query
+      response: infer Response extends Record<number, unknown>
+    }
+      ? { headers?: Record<string, unknown> } & (undefined extends Query
+          ? { query?: Record<string, unknown> }
+          : { query: Query }) extends infer Param
         ? {} extends Param
-          ? (options?: Param) => EdenWS<Route['subscribe']>
-          : (options?: Param) => EdenWS<Route['subscribe']>
-        : never
-      : Route[K] extends {
-            body: infer Body
-            // headers: infer Headers
-            params: any
-            query: infer Query
-            response: infer Response extends Record<number, unknown>
-          }
-        ? { headers?: Record<string, unknown> } & (undefined extends Query
-            ? { query?: Record<string, unknown> }
-            : { query: Query }) extends infer Param
-          ? {} extends Param
-            ? undefined extends Body
-              ? K extends 'get' | 'head'
-                ? (
-                    options?: Prettify<Param & TreatyParam>,
-                  ) => Promise<
-                    TreatyResponse<ReplaceGeneratorWithAsyncGenerator<Response>>
-                  >
-                : (
-                    body?: Body,
-                    options?: Prettify<Param & TreatyParam>,
-                  ) => Promise<
-                    TreatyResponse<ReplaceGeneratorWithAsyncGenerator<Response>>
-                  >
-              : (
-                  body: Body extends Record<string, unknown>
-                    ? ReplaceBlobWithFiles<Body>
-                    : Body,
+          ? undefined extends Body
+            ? K extends 'get' | 'head'
+              ? (
                   options?: Prettify<Param & TreatyParam>,
                 ) => Promise<
                   TreatyResponse<ReplaceGeneratorWithAsyncGenerator<Response>>
                 >
-            : K extends 'get' | 'head'
-              ? (
-                  options: Prettify<Param & TreatyParam>,
-                ) => Promise<
-                  TreatyResponse<ReplaceGeneratorWithAsyncGenerator<Response>>
-                >
               : (
-                  body: Body extends Record<string, unknown>
-                    ? ReplaceBlobWithFiles<Body>
-                    : Body,
-                  options: Prettify<Param & TreatyParam>,
+                  body?: Body,
+                  options?: Prettify<Param & TreatyParam>,
                 ) => Promise<
                   TreatyResponse<ReplaceGeneratorWithAsyncGenerator<Response>>
                 >
-          : never
-        : CreateParams<Route[K]>
+            : (
+                body: Body extends Record<string, unknown>
+                  ? ReplaceBlobWithFiles<Body>
+                  : Body,
+                options?: Prettify<Param & TreatyParam>,
+              ) => Promise<
+                TreatyResponse<ReplaceGeneratorWithAsyncGenerator<Response>>
+              >
+          : K extends 'get' | 'head'
+          ? (
+              options: Prettify<Param & TreatyParam>,
+            ) => Promise<
+              TreatyResponse<ReplaceGeneratorWithAsyncGenerator<Response>>
+            >
+          : (
+              body: Body extends Record<string, unknown>
+                ? ReplaceBlobWithFiles<Body>
+                : Body,
+              options: Prettify<Param & TreatyParam>,
+            ) => Promise<
+              TreatyResponse<ReplaceGeneratorWithAsyncGenerator<Response>>
+            >
+        : never
+      : CreateParams<Route[K]>
   }
 
-  type CreateParams<Route extends Record<string, any>> =
-    Extract<keyof Route, `:${string}`> extends infer Path extends string
-      ? IsNever<Path> extends true
-        ? Prettify<Sign<Route>>
-        : // ! DO NOT USE PRETTIFY ON THIS LINE, OTHERWISE FUNCTION CALLING WILL BE OMITTED
-          (((params: {
-            [param in Path extends `:${infer Param}`
-              ? Param extends `${infer Param}?`
-                ? Param
-                : Param
-              : never]: string | number
-          }) => Prettify<Sign<Route[Path]>> & CreateParams<Route[Path]>) &
-            Prettify<Sign<Route>>) &
-            (Path extends `:${string}?` ? CreateParams<Route[Path]> : {})
-      : never
+  type CreateParams<Route extends Record<string, any>> = Extract<
+    keyof Route,
+    `:${string}`
+  > extends infer Path extends string
+    ? IsNever<Path> extends true
+      ? Prettify<Sign<Route>>
+      : // ! DO NOT USE PRETTIFY ON THIS LINE, OTHERWISE FUNCTION CALLING WILL BE OMITTED
+        (((params: {
+          [param in Path extends `:${infer Param}`
+            ? Param extends `${infer Param}?`
+              ? Param
+              : Param
+            : never]: string | number
+        }) => Prettify<Sign<Route[Path]>> & CreateParams<Route[Path]>) &
+          Prettify<Sign<Route>>) &
+          (Path extends `:${string}?` ? CreateParams<Route[Path]> : {})
+    : never
 
   export interface Config {
     // fetch?: Omit<RequestInit, 'headers' | 'method'>
@@ -175,9 +158,9 @@ export namespace SpiceflowClient {
     | {
         data: null
         error: Exclude<keyof Res, 200> extends never
-          ? EdenFetchError<number, any>
+          ? SpiceflowFetchError<number, any>
           : {
-              [Status in keyof Res]: EdenFetchError<Status, Res[Status]>
+              [Status in keyof Res]: SpiceflowFetchError<Status, Res[Status]>
             }[Exclude<keyof Res, 200>]
         response: Response
         status: number

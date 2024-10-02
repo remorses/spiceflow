@@ -1,4 +1,4 @@
-export class EdenFetchError<
+export class SpiceflowFetchError<
   Status = number,
   Value extends any = any,
 > extends Error {

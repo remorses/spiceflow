@@ -8,8 +8,8 @@ import type { SpiceflowClient } from './types.js'
 
 export { SpiceflowClient }
 
-import { EdenFetchError } from './errors.js'
-// import { EdenWS } from './ws'
+import { SpiceflowFetchError } from './errors.js'
+
 import { parseStringifiedValue } from './utils.js'
 
 const method = [
@@ -161,7 +161,7 @@ export async function* streamSSEResponse(
     const { done, value: event } = await reader.read()
     if (done) break
     if (event?.event === 'error') {
-      throw new EdenFetchError(500, event.data)
+      throw new SpiceflowFetchError(500, event.data)
     }
     if (event) {
       yield tryParsingJson(event.data)
@@ -236,26 +236,6 @@ const createProxy = (
             append(key, `${value}`)
           }
         }
-
-        // if (method === 'subscribe') {
-        // 	const url =
-        // 		domain.replace(
-        // 			/^([^]+):\/\//,
-        // 			domain.startsWith('https://')
-        // 				? 'wss://'
-        // 				: domain.startsWith('http://')
-        // 					? 'ws://'
-        // 					: locals.find((v) =>
-        // 								(domain as string).includes(v)
-        // 						  )
-        // 						? 'ws://'
-        // 						: 'wss://'
-        // 		) +
-        // 		path +
-        // 		q
-
-        // 	return new EdenWS(url)
-        // }
 
         return (async () => {
           let fetchInit = {
@@ -404,8 +384,8 @@ const createProxy = (
                   break
                 }
               } catch (err) {
-                if (err instanceof EdenFetchError) error = err
-                else error = new EdenFetchError(err?.['status'] || 422, err)
+                if (err instanceof SpiceflowFetchError) error = err
+                else error = new SpiceflowFetchError(err?.['status'] || 422, err)
 
                 break
               }
@@ -449,7 +429,7 @@ const createProxy = (
           }
 
           if (response.status >= 300 || response.status < 200) {
-            error = new EdenFetchError(response.status, data)
+            error = new SpiceflowFetchError(response.status, data)
             data = null
           }
 

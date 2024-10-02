@@ -636,12 +636,12 @@ export type BaseMacro = Record<
 >
 export type BaseMacroFn = Record<string, (...a: any) => unknown>
 
-type _CreateEden<
+type _CreateClient<
   Path extends string,
   Property extends Record<string, unknown> = {},
 > = Path extends `${infer Start}/${infer Rest}`
   ? {
-      [x in Start]: _CreateEden<Rest, Property>
+      [x in Start]: _CreateClient<Rest, Property>
     }
   : {
       [x in Path]: Property
@@ -651,10 +651,10 @@ export type CreateClient<
   Path extends string,
   Property extends Record<string, unknown> = {},
 > = Path extends `/${infer Rest}`
-  ? _CreateEden<Rest, Property>
+  ? _CreateClient<Rest, Property>
   : Path extends ''
-    ? _CreateEden<'index', Property>
-    : _CreateEden<Path, Property>
+    ? _CreateClient<'index', Property>
+    : _CreateClient<Path, Property>
 
 export type ComposeSpiceflowResponse<Response, Handle> = Handle extends (
   ...a: any[]
