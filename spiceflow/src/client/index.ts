@@ -405,7 +405,7 @@ const createProxy = (
                 }
               } catch (err) {
                 if (err instanceof EdenFetchError) error = err
-                else error = new EdenFetchError(422, err)
+                else error = new EdenFetchError(err?.['status'] || 422, err)
 
                 break
               }
