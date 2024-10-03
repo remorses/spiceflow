@@ -77,13 +77,13 @@ export namespace SpiceflowClient {
               ? (
                   options?: Prettify<Param & TreatyParam>,
                 ) => Promise<
-                  TreatyResponse<ReplaceGeneratorWithAsyncGenerator<Response>>
+                  ClientResponse<ReplaceGeneratorWithAsyncGenerator<Response>>
                 >
               : (
                   body?: Body,
                   options?: Prettify<Param & TreatyParam>,
                 ) => Promise<
-                  TreatyResponse<ReplaceGeneratorWithAsyncGenerator<Response>>
+                  ClientResponse<ReplaceGeneratorWithAsyncGenerator<Response>>
                 >
             : (
                 body: Body extends Record<string, unknown>
@@ -91,13 +91,13 @@ export namespace SpiceflowClient {
                   : Body,
                 options?: Prettify<Param & TreatyParam>,
               ) => Promise<
-                TreatyResponse<ReplaceGeneratorWithAsyncGenerator<Response>>
+                ClientResponse<ReplaceGeneratorWithAsyncGenerator<Response>>
               >
           : K extends 'get' | 'head'
           ? (
               options: Prettify<Param & TreatyParam>,
             ) => Promise<
-              TreatyResponse<ReplaceGeneratorWithAsyncGenerator<Response>>
+              ClientResponse<ReplaceGeneratorWithAsyncGenerator<Response>>
             >
           : (
               body: Body extends Record<string, unknown>
@@ -105,7 +105,7 @@ export namespace SpiceflowClient {
                 : Body,
               options: Prettify<Param & TreatyParam>,
             ) => Promise<
-              TreatyResponse<ReplaceGeneratorWithAsyncGenerator<Response>>
+              ClientResponse<ReplaceGeneratorWithAsyncGenerator<Response>>
             >
         : never
       : CreateParams<Route[K]>
@@ -147,7 +147,7 @@ export namespace SpiceflowClient {
   //     [K in keyof T]: Awaited<T[K]>
   // }
 
-  export type TreatyResponse<Res extends Record<number, unknown>> =
+  export type ClientResponse<Res extends Record<number, unknown>> =
     | {
         data: Res[200]
         error: null
