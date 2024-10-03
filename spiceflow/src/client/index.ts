@@ -385,7 +385,8 @@ const createProxy = (
                 }
               } catch (err) {
                 if (err instanceof SpiceflowFetchError) error = err
-                else error = new SpiceflowFetchError(err?.['status'] || 422, err)
+                else
+                  error = new SpiceflowFetchError(err?.['status'] || 422, err)
 
                 break
               }
@@ -475,4 +476,4 @@ export const createSpiceflowClient = <
   return createProxy('http://e.ly', config, [], domain)
 }
 
-export type { SpiceflowClient as Treaty }
+

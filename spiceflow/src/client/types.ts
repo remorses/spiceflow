@@ -49,7 +49,7 @@ type MaybeArray<T> = T | T[]
 type MaybePromise<T> = T | Promise<T>
 
 export namespace SpiceflowClient {
-  interface TreatyParam {
+  interface ClientParam {
     fetch?: RequestInit
   }
 
@@ -75,13 +75,13 @@ export namespace SpiceflowClient {
           ? undefined extends Body
             ? K extends 'get' | 'head'
               ? (
-                  options?: Prettify<Param & TreatyParam>,
+                  options?: Prettify<Param & ClientParam>,
                 ) => Promise<
                   ClientResponse<ReplaceGeneratorWithAsyncGenerator<Response>>
                 >
               : (
                   body?: Body,
-                  options?: Prettify<Param & TreatyParam>,
+                  options?: Prettify<Param & ClientParam>,
                 ) => Promise<
                   ClientResponse<ReplaceGeneratorWithAsyncGenerator<Response>>
                 >
@@ -89,13 +89,13 @@ export namespace SpiceflowClient {
                 body: Body extends Record<string, unknown>
                   ? ReplaceBlobWithFiles<Body>
                   : Body,
-                options?: Prettify<Param & TreatyParam>,
+                options?: Prettify<Param & ClientParam>,
               ) => Promise<
                 ClientResponse<ReplaceGeneratorWithAsyncGenerator<Response>>
               >
           : K extends 'get' | 'head'
           ? (
-              options: Prettify<Param & TreatyParam>,
+              options: Prettify<Param & ClientParam>,
             ) => Promise<
               ClientResponse<ReplaceGeneratorWithAsyncGenerator<Response>>
             >
@@ -103,7 +103,7 @@ export namespace SpiceflowClient {
               body: Body extends Record<string, unknown>
                 ? ReplaceBlobWithFiles<Body>
                 : Body,
-              options: Prettify<Param & TreatyParam>,
+              options: Prettify<Param & ClientParam>,
             ) => Promise<
               ClientResponse<ReplaceGeneratorWithAsyncGenerator<Response>>
             >
