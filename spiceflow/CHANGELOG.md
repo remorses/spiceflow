@@ -1,5 +1,11 @@
 # spiceflow
 
+## 1.1.13
+
+### Patch Changes
+
+- Changed some client type names
+
 ## 1.1.12
 
 ### Patch Changes
