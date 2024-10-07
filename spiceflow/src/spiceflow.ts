@@ -767,6 +767,7 @@ export class Spiceflow<
       })
       return res
     }
+
     const next = async () => {
       try {
         if (index < middlewares.length) {
