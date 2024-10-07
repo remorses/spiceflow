@@ -276,3 +276,29 @@ test('mutating response returned by next without returning it works', async () =
   expect(res.headers.get('X-Custom-Header')).toBe('Modified')
   expect(res.headers.get('X-Another-Header')).toBe('Added')
 })
+
+
+test('middleware returning response and subsequent middleware adding header', async () => {
+  const res = await new Spiceflow()
+    .use(async (ctx, next) => {
+      // This middleware returns a response directly
+      return new Response('Response from first middleware', { status: 200 })
+    })
+    .use(async (ctx, next) => {
+      // This middleware calls next() and adds a header
+      const response = await next()
+      if (response) {
+        response.headers.set('X-Added-Header', 'HeaderValue')
+      }
+      return response
+    })
+    .get('/test', () => {
+      // This handler should not be called
+      return 'This should not be returned'
+    })
+    .handle(new Request('http://localhost/test'))
+
+  expect(res.status).toBe(200)
+  expect(await res.text()).toBe('Response from first middleware')
+  expect(res.headers.get('X-Added-Header')).toBe('HeaderValue')
+})

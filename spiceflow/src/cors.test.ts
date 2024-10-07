@@ -63,6 +63,20 @@ test('CORS headers are set when an error is thrown', async () => {
   expect(errorRouteCallCount).toBe(1)
 })
 
+test('CORS headers are set for OPTIONS request when an error is thrown', async () => {
+  let errorRouteCallCount = 0;
+  const errorApp = new Spiceflow().use(cors()).options('/error', () => {
+    errorRouteCallCount++;
+    throw new Error('Test error')
+  })
+
+  const res = await errorApp.handle(request('error', 'OPTIONS'))
+  expect(res.status).toBe(204)
+  expect(res.headers.get('Access-Control-Allow-Origin')).toBe('*')
+  expect(res.headers.get('Access-Control-Allow-Methods')).toBe('GET,HEAD,PUT,POST,DELETE,PATCH')
+  expect(errorRouteCallCount).toBe(1)
+})
+
 // TODO should middleware errors be handled? errors can be a way to short circuit other middlewares
 test('CORS headers are set when an error is thrown in middleware', async () => {
   let errorRouteCallCount = 0;
