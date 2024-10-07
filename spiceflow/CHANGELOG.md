@@ -1,5 +1,11 @@
 # spiceflow
 
+## 1.1.14
+
+### Patch Changes
+
+- Run middleware on errors
+
 ## 1.1.13
 
 ### Patch Changes

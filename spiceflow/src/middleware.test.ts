@@ -36,6 +36,8 @@ test('middleware with no handlers works', async () => {
   expect(res.status).toBe(200)
   expect(await res.text()).toEqual('ok')
 })
+
+
 test('middleware calling next() without returning it works', async () => {
   const res = await new Spiceflow()
     .use(async ({ request }, next) => {
@@ -329,3 +331,47 @@ test('middleware returning response and middleware adding header with mounted Sp
   expect(await res.text()).toBe('Response from mounted Spiceflow')
   expect(res.headers.get('X-Added-Header')).toBe('HeaderValue')
 })
+
+
+test('each middleware and route is called exactly once if an error is thrown', async () => {
+  const callOrder: string[] = []
+
+  const app = new Spiceflow()
+    .use(async (ctx, next) => {
+      callOrder.push('middleware1')
+      await next()
+    })
+    .use(async (ctx, next) => {
+      callOrder.push('middleware2')
+      await next()
+    })
+    .get('/test', () => {
+      callOrder.push('route')
+      throw new Error('Route response')
+      return 'Route response'
+    })
+    .use(async (ctx, next) => {
+      callOrder.push('middleware3')
+      await next()
+    })
+
+  const res = await app.handle(new Request('http://localhost/test'))
+
+  expect(res.status).toBe(500)
+  expect(await res.text()).toBe('Route response')
+  expect(callOrder).toEqual(['middleware1', 'middleware2', 'middleware3', 'route'])
+  
+  // Check that each middleware and route is called exactly once
+  const counts = callOrder.reduce((acc, item) => {
+    acc[item] = (acc[item] || 0) + 1
+    return acc
+  }, {} as Record<string, number>)
+
+  expect(counts).toEqual({
+    middleware1: 1,
+    middleware2: 1,
+    middleware3: 1,
+    route: 1
+  })
+})
+
