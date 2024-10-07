@@ -707,6 +707,7 @@ export class Spiceflow<
 
   async handle(request: Request): Promise<Response> {
     let u = new URL(request.url, 'http://localhost')
+    const self = this
     let path = u.pathname + u.search
     const defaultContext = {
       redirect,
@@ -715,45 +716,59 @@ export class Spiceflow<
     }
     const root = this.topLevelApp || this
     let onErrorHandlers: OnError[] = []
-    try {
-      // Get all middleware and method specific routes in order
 
-      const route = this.match(request.method, path)
+    const route = this.match(request.method, path)
 
-      const appsInScope = this.getAppsInScope(route.app)
-      onErrorHandlers = appsInScope.flatMap((x) => x.onErrorHandlers)
-      let {
-        params: _params,
-        app: { defaultState },
-      } = route
-      const middlewares = appsInScope.flatMap((x) => x.middlewares)
-      // console.log({ onReqHandlers })
-      let state = structuredClone(defaultState)
+    const appsInScope = this.getAppsInScope(route.app)
+    onErrorHandlers = appsInScope.flatMap((x) => x.onErrorHandlers)
+    let {
+      params: _params,
+      app: { defaultState },
+    } = route
+    const middlewares = appsInScope.flatMap((x) => x.middlewares)
 
-      let content = route?.internalRoute?.hooks?.content
+    let state = structuredClone(defaultState)
 
-      if (route.internalRoute?.validateBody) {
-        // TODO don't clone the request
-        let typedRequest =
-          request instanceof SpiceflowRequest
-            ? request
-            : new SpiceflowRequest(u, request)
-        typedRequest.validateBody = route.internalRoute?.validateBody
-        request = typedRequest
-      }
+    let content = route?.internalRoute?.hooks?.content
 
-      let index = 0
-      let context = {
-        ...defaultContext,
+    if (route.internalRoute?.validateBody) {
+      // TODO don't clone the request
+      let typedRequest =
+        request instanceof SpiceflowRequest
+          ? request
+          : new SpiceflowRequest(u, request)
+      typedRequest.validateBody = route.internalRoute?.validateBody
+      request = typedRequest
+    }
+
+    let index = 0
+    let context = {
+      ...defaultContext,
+      request,
+      state,
+      path,
+      query: parseQuery.parse((u.search || '').slice(1)),
+      params: _params,
+      redirect,
+    } satisfies MiddlewareContext<any>
+    let handlerResponse: Response | undefined
+    async function getResForError(err: any) {
+      if (isResponse(err)) return err
+      let res = await self.runErrorHandlers({
+        onErrorHandlers,
+        error: err,
         request,
-        state,
-        path,
-        query: parseQuery.parse((u.search || '').slice(1)),
-        params: _params,
-        redirect,
-      } satisfies MiddlewareContext<any>
-      let handlerResponse: Response | undefined
-      const next = async () => {
+      })
+      if (isResponse(res)) return res
+
+      let status = err?.status ?? 500
+      res ||= new Response(err?.message || 'Internal Server Error', {
+        status,
+      })
+      return res
+    }
+    const next = async () => {
+      try {
         if (index < middlewares.length) {
           const middleware = middlewares[index]
           index++
@@ -781,7 +796,7 @@ export class Spiceflow<
           route.internalRoute?.validateParams,
         )
 
-        const res = route.internalRoute?.handler(context)
+        const res = await route.internalRoute?.handler(context)
         if (isAsyncIterable(res)) {
           handlerResponse = await this.handleStream({
             generator: res,
@@ -790,28 +805,16 @@ export class Spiceflow<
           })
           return handlerResponse
         }
-
         handlerResponse = await turnHandlerResultIntoResponse(res)
         return handlerResponse
+      } catch (err) {
+        handlerResponse = await getResForError(err)
+        return await next()
       }
-      const response = await next()
-
-      return response
-    } catch (err: any) {
-      if (isResponse(err)) return err
-      let res = await this.runErrorHandlers({
-        onErrorHandlers,
-        error: err,
-        request,
-      })
-      if (isResponse(res)) return res
-
-      let status = err?.status ?? 500
-      res ||= new Response(err?.message || 'Internal Server Error', {
-        status,
-      })
-      return res
     }
+    const response = await next()
+
+    return response
   }
 
   private async runErrorHandlers({
