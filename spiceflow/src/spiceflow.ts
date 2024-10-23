@@ -145,6 +145,8 @@ export class Spiceflow<
     let validateQuery = getValidateFunction(hooks?.query)
     let validateParams = getValidateFunction(hooks?.params)
 
+    // remove trailing slash which can cause problems
+    path = path?.replace(/\/$/, '') || '/'
     const store = this.router.register(path)
     let route: InternalRoute = {
       ...rest,
@@ -163,12 +165,14 @@ export class Spiceflow<
   private match(method: string, path: string) {
     let root = this
     let foundApp: AnySpiceflow | undefined
+    // remove trailing slash which can cause problems
+    path = path.replace(/\/$/, '') || '/'
     const result = bfsFind(this, (app) => {
       app.topLevelApp = root
       let prefix = this.getAppAndParents(app)
         .map((x) => x.prefix)
         .join('')
-        // .replace(/\/$/, '')
+        .replace(/\/$/, '')
       if (prefix && !path.startsWith(prefix)) {
         return
       }
@@ -176,7 +180,7 @@ export class Spiceflow<
       if (prefix) {
         pathWithoutPrefix = path.replace(prefix, '') || '/'
       }
-      console.log({ pathWithoutPrefix })
+
       const medleyRoute = app.router.find(pathWithoutPrefix)
       if (!medleyRoute) {
         foundApp = app

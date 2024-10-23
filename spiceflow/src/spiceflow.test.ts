@@ -558,14 +558,12 @@ test('errors inside basPath works', async () => {
   }
 })
 
-
 test('basepath with root route', async () => {
   let handlerCalled = false
-  const app = new Spiceflow({ basePath: '/api' })
-    .get('/', ({ request }) => {
-      handlerCalled = true
-      return new Response('Root route of API')
-    })
+  const app = new Spiceflow({ basePath: '/api' }).get('/', ({ request }) => {
+    handlerCalled = true
+    return new Response('Root route of API')
+  })
 
   const res = await app.handle(new Request('http://localhost/api'))
   expect(handlerCalled).toBe(true)
@@ -577,4 +575,49 @@ test('basepath with root route', async () => {
   const res2 = await app.handle(new Request('http://localhost/api/other'))
   expect(handlerCalled).toBe(false)
   expect(res2.status).toBe(404)
+})
+
+describe('Trailing slashes and base paths', () => {
+  test('App without trailing slash, request with trailing slash', async () => {
+    const app = new Spiceflow({ basePath: '/api' }).get(
+      '/users',
+      () => new Response('Users list'),
+    )
+
+    const res = await app.handle(new Request('http://localhost/api/users/'))
+    expect(res.status).toBe(200)
+    expect(await res.text()).toBe('Users list')
+  })
+
+  test('App with trailing slash, request without trailing slash', async () => {
+    const app = new Spiceflow({ basePath: '/api/' }).get(
+      '/users/',
+      () => new Response('Users list'),
+    )
+
+    const res = await app.handle(new Request('http://localhost/api/users'))
+    expect(res.status).toBe(200)
+    expect(await res.text()).toBe('Users list')
+  })
+
+  test('Nested routes with and without trailing slashes', async () => {
+    const app = new Spiceflow({ basePath: '/api' }).use(
+      new Spiceflow()
+        .get('/products', () => new Response('Products list'))
+        .get('/categories/', () => new Response('Categories list')),
+    )
+
+    const resProducts = await app.handle(
+      new Request('http://localhost/api/products/'),
+    )
+    expect(resProducts.status).toBe(200)
+    expect(await resProducts.text()).toBe('Products list')
+
+    const resCategories = await app.handle(
+      new Request('http://localhost/api/categories'),
+    )
+    expect(resCategories.status).toBe(200)
+    expect(await resCategories.text()).toBe('Categories list')
+  })
+
 })
