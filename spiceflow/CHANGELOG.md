@@ -1,5 +1,11 @@
 # spiceflow
 
+## 1.1.15
+
+### Patch Changes
+
+- Fix trailing slashes problems, fix index route with base path
+
 ## 1.1.14
 
 ### Patch Changes
