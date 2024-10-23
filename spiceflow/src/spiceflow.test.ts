@@ -557,3 +557,24 @@ test('errors inside basPath works', async () => {
     // expect(await res.json()).toEqual('nested'))
   }
 })
+
+
+test('basepath with root route', async () => {
+  let handlerCalled = false
+  const app = new Spiceflow({ basePath: '/api' })
+    .get('/', ({ request }) => {
+      handlerCalled = true
+      return new Response('Root route of API')
+    })
+
+  const res = await app.handle(new Request('http://localhost/api'))
+  expect(handlerCalled).toBe(true)
+  expect(res.status).toBe(200)
+  expect(await res.text()).toBe('Root route of API')
+
+  // Test that non-root paths are not matched
+  handlerCalled = false
+  const res2 = await app.handle(new Request('http://localhost/api/other'))
+  expect(handlerCalled).toBe(false)
+  expect(res2.status).toBe(404)
+})

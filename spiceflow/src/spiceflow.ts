@@ -168,13 +168,15 @@ export class Spiceflow<
       let prefix = this.getAppAndParents(app)
         .map((x) => x.prefix)
         .join('')
+        // .replace(/\/$/, '')
       if (prefix && !path.startsWith(prefix)) {
         return
       }
       let pathWithoutPrefix = path
       if (prefix) {
-        pathWithoutPrefix = path.replace(prefix, '')
+        pathWithoutPrefix = path.replace(prefix, '') || '/'
       }
+      console.log({ pathWithoutPrefix })
       const medleyRoute = app.router.find(pathWithoutPrefix)
       if (!medleyRoute) {
         foundApp = app
