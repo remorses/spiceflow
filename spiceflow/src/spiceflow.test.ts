@@ -2,6 +2,7 @@ import { test, describe, expect } from 'vitest'
 import { Type } from '@sinclair/typebox'
 import { bfs, Spiceflow } from './spiceflow.js'
 import { z } from 'zod'
+import { createSpiceflowClient } from './client/index.js'
 
 test('works', async () => {
   const res = await new Spiceflow()
@@ -619,5 +620,34 @@ describe('Trailing slashes and base paths', () => {
     expect(resCategories.status).toBe(200)
     expect(await resCategories.text()).toBe('Categories list')
   })
+})
 
+test('async generators handle non-ASCII characters correctly', async () => {
+  const app = new Spiceflow()
+    .get('/cyrillic', async function* () {
+      yield 'Привет' // Hello in Russian
+      yield 'Κόσμος' // World in Greek
+    })
+    .get('/mixed-scripts', async function* () {
+      // Mix of Cyrillic and Greek letters that look like Latin
+      yield { text: 'РΡ' } // Cyrillic and Greek P
+      yield { text: 'ΟО' } // Greek and Cyrillic O
+      yield { text: 'КΚ' } // Cyrillic and Greek K
+    })
+
+  const client = createSpiceflowClient(app)
+
+  const { data: cyrillicData } = await client.cyrillic.get()
+  let cyrillicText = ''
+  for await (const chunk of cyrillicData!) {
+    cyrillicText += chunk
+  }
+  expect(cyrillicText).toBe('ПриветΚόσμος')
+
+  const { data: mixedData } = await client['mixed-scripts'].get()
+  const mixedResults = [] as any[]
+  for await (const chunk of mixedData!) {
+    mixedResults.push(chunk)
+  }
+  expect(mixedResults).toEqual([{ text: 'РΡ' }, { text: 'ΟО' }, { text: 'КΚ' }])
 })
