@@ -1,4 +1,3 @@
-// @ts-nocheck
 "poor man's use server";
 
 import { wrapGetServerSideProps as _wrapGetServerSideProps } from "server-actions-for-next-pages/dist/context-internal";
