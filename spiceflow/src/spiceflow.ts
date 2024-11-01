@@ -145,6 +145,13 @@ export class Spiceflow<
     let validateQuery = getValidateFunction(hooks?.query)
     let validateParams = getValidateFunction(hooks?.params)
 
+    if (typeof handler === 'function' && !handler.name) {
+      Object.defineProperty(handler, 'name', {
+        value: path,
+        configurable: true,
+      })
+    }
+
     // remove trailing slash which can cause problems
     path = path?.replace(/\/$/, '') || '/'
     const store = this.router.register(path)
