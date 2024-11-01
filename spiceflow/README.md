@@ -97,12 +97,116 @@ new Spiceflow().get(
 ```ts
 import { createSpiceflowClient } from 'spiceflow/client'
 import { Spiceflow } from 'spiceflow'
+import { z } from 'zod'
 
-const app = new Spiceflow().get('/hello/:id', () => 'Hello, World!')
+const app = new Spiceflow()
+  .get('/hello/:id', () => 'Hello, World!', {
+    query: z.object({ name: z.string().optional() }),
+  })
+  .post(
+    '/users',
+    async ({ request }) => {
+      const body = await request.json()
+      return { id: 1, name: body.name }
+    },
+    {
+      body: z.object({
+        name: z.string(),
+      }),
+      response: z.object({
+        id: z.number(),
+        name: z.string(),
+      }),
+    },
+  )
+  .get('/stream', async function* () {
+    for (let i = 0; i < 3; i++) {
+      yield `Message ${i}`
+      await new Promise((r) => setTimeout(r, 1000))
+    }
+  })
 
 const client = createSpiceflowClient<typeof app>('http://localhost:3000')
 
-const { data, error } = await client.hello({ id: '' }).get()
+// GET request
+const { data: helloData, error: helloError } = await client
+  .hello({ id: '123' })
+  .get({ query: { name: 'John' } })
+// Always check error before using data
+if (!helloError) {
+  console.log(helloData) // 'Hello, World!'
+}
+
+// POST request with body
+const { data: userData, error: userError } = await client.users.post({
+  name: 'John',
+})
+
+// Always check error before using data
+if (!userError) {
+  console.log(userData.id, userData.name)
+}
+{
+  // Stream request
+  const { error, data } = await client.stream.get()
+  if (error) {
+    throw error
+  }
+  for await (const message of data) {
+    console.log(message) // Message 0, Message 1, Message 2
+  }
+}
+{
+  // Pass AbortController to cancel requests
+  const controller = new AbortController()
+  const { data, error } = await client.users.post(
+    { name: 'John' },
+    { fetch: { signal: controller.signal } },
+  )
+
+  // Cancel request after 2 seconds
+  setTimeout(() => controller.abort(), 2000)
+}
+```
+
+### RPC Client with Base Path
+
+```ts
+import { Spiceflow } from 'spiceflow'
+import { z } from 'zod'
+import { createSpiceflowClient } from 'spiceflow/client'
+
+// RPC client with base path
+const app = new Spiceflow({ basePath: '/api/v1' })
+  .get('/hello/:id', () => 'Hello')
+  .post(
+    '/users',
+    async ({ request }) => {
+      const body = await request.json()
+      return { id: 1, name: body.name }
+    },
+    {
+      body: z.object({
+        name: z.string(),
+      }),
+    },
+  )
+
+const client = createSpiceflowClient<typeof app>('http://localhost:3000')
+
+// Base path segments become properties in the client
+const { data, error } = await client.api.v1.hello({ id: '123' }).get()
+if (!error) {
+  console.log(data) // 'Hello'
+}
+
+// POST request also uses the base path
+const { data: userData, error: userError } = await client.api.v1.users.post({
+  name: 'John',
+})
+if (!userError) {
+  console.log(userData.id, userData.name)
+}
 ```
 
 ## Mounting Sub-Apps
