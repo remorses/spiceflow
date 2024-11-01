@@ -38,7 +38,7 @@
     "@babel/generator": "^7.23.6",
     "@babel/types": "^7.24.0",
     "@types/babel__core": "^7.20.5",
-    "next": "14.2.1",
+    "next": "15.0.2",
     "webpack": "^5.88.2"
   }
 }
