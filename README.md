@@ -46,6 +46,25 @@ const app = new Spiceflow()
 app.listen(3000)
 ```
 
+> Notice that you should never declare app separately and add routes later, that way you lose the type safety. Instead always declare all routes in one place.
+
+```ts
+// This is an example of what NOT to do when using Spiceflow
+
+import { Spiceflow } from 'spiceflow'
+
+// Do NOT declare the app separately and add routes later
+const app = new Spiceflow()
+
+// Do NOT do this! Adding routes separately like this will lose type safety
+app.get('/hello', () => 'Hello, World!')
+app.post('/echo', async ({ request }) => {
+  const body = await request.json()
+  return body
+})
+
+```
+
 ## Requests and Responses
 
 ### POST Request with Body Schema
@@ -69,6 +88,10 @@ new Spiceflow().post(
 )
 ```
 
+> Notice that to get the body of the request, you need to call `request.json()` to parse the body as JSON.
+> Spiceflow does not parse the Body automatically, there is no body field in the Spiceflow route argument, instead you call either `request.json()` or `request.formData()` to get the body and validate it at the same time. This works by wrapping the request in a `SpiceflowRequest` instance, which has a `json()` and `formData()` method that parse the body and validate it. The returned data will have the correct schema type instead of `any`.
+
+
 ### Response Schema
 
 ```ts
@@ -77,10 +100,14 @@ import { Spiceflow } from 'spiceflow'
 
 new Spiceflow().get(
   '/users/:id',
-  ({ params }) => {
-    return { id: Number(params.id), name: 'John Doe' }
+  ({ request, params }) => {
+    const typedJson = await request.json() // this body will have the correct type
+    return { id: Number(params.id), name: typedJson.name }
   },
   {
+    body: z.object({
+      name: z.string(),
+    }),
     response: z.object({
       id: z.number(),
       name: z.string(),
@@ -97,12 +124,68 @@ new Spiceflow().get(
 ```ts
 import { createSpiceflowClient } from 'spiceflow/client'
 import { Spiceflow } from 'spiceflow'
+import { z } from 'zod'
 
-const app = new Spiceflow().get('/hello/:id', () => 'Hello, World!')
+// Define the app with multiple routes and features
+const app = new Spiceflow()
+  .get('/hello/:id', ({ params }) => `Hello, ${params.id}!`)
+  .post(
+    '/users',
+    async ({ request }) => {
+      const body = await request.json() // here body has type { name?: string, email?: string }
+      return `Created user: ${body.name}`
+    },
+    {
+      body: z.object({
+        name: z.string().optional(),
+        email: z.string().email().optional(),
+      }),
+    },
+  )
+  .get('/stream', async function* () {
+    yield 'Start'
+    await new Promise((resolve) => setTimeout(resolve, 1000))
+    yield 'Middle'
+    await new Promise((resolve) => setTimeout(resolve, 1000))
+    yield 'End'
+  })
 
+// Create the client
 const client = createSpiceflowClient<typeof app>('http://localhost:3000')
 
-const { data, error } = await client.hello({ id: '' }).get()
+// Example usage of the client
+async function exampleUsage() {
+  // GET request
+  const { data: helloData, error: helloError } = await client
+    .hello({ id: 'World' })
+    .get()
+  if (helloError) {
+    console.error('Error fetching hello:', helloError)
+  } else {
+    console.log('Hello response:', helloData)
+  }
+
+  // POST request
+  const { data: userData, error: userError } = await client.users.post({
+    name: 'John Doe',
+    email: 'john.doe@example.com',
+  })
+  if (userError) {
+    console.error('Error creating user:', userError)
+  } else {
+    console.log('User creation response:', userData)
+  }
+
+  // Async generator (streaming) request
+  const { data: streamData, error: streamError } = await client.stream.get()
+  if (streamError) {
+    console.error('Error fetching stream:', streamError)
+  } else {
+    for await (const chunk of streamData) {
+      console.log('Stream chunk:', chunk)
+    }
+  }
+}
 ```
 
 ## Mounting Sub-Apps
@@ -140,13 +223,42 @@ Async generators will create a server sent event response.
 ```ts
 import { Spiceflow } from 'spiceflow'
 
-new Spiceflow().get('/stream', async function* () {
-  yield 'Start'
+const app = new Spiceflow().get('/sseStream', async function* () {
+  yield { message: 'Start' }
   await new Promise((resolve) => setTimeout(resolve, 1000))
-  yield 'Middle'
+  yield { message: 'Middle' }
   await new Promise((resolve) => setTimeout(resolve, 1000))
-  yield 'End'
+  yield { message: 'End' }
 })
+
+// Server-Sent Events (SSE) format
+// The server will send events in the following format:
+// data: {"message":"Start"}
+// data: {"message":"Middle"}
+// data: {"message":"End"}
+
+// Example response output:
+// data: {"message":"Start"}
+// data: {"message":"Middle"}
+// data: {"message":"End"}
+
+// Client usage example with RPC client
+import { createSpiceflowClient } from 'spiceflow/client'
+
+const client = createSpiceflowClient<typeof app>('http://localhost:3000')
+
+async function fetchStream() {
+  const response = await client.sseStream.get()
+  if (response.error) {
+    console.error('Error fetching stream:', response.error)
+  } else {
+    for await (const chunk of response.data) {
+      console.log('Stream chunk:', chunk)
+    }
+  }
+}
+
+fetchStream()
 ```
 
 ## Error Handling
@@ -285,4 +397,40 @@ app.use(
 )
 
 app.listen(3030)
+```
+
+### Authorization Middleware
+
+You can handle authorization in a middleware, for example here the code checks if the user is logged in and if not, it throws an error. You can use the state to track request data, in this case the state keeps a reference to the session.
+
+```ts
+import { z } from 'zod'
+import { Spiceflow } from 'spiceflow'
+
+new Spiceflow()
+  .state('session', null as Session | null)
+  .use(async ({ request: req, state }, next) => {
+    const res = new Response()
+
+    const { session } = await getSession({ req, res })
+    if (!session) {
+      return
+    }
+    state.session = session
+    const response = await next()
+
+    const cookies = res.headers.getSetCookie()
+    for (const cookie of cookies) {
+      response.headers.append('Set-Cookie', cookie)
+    }
+
+    return response
+  })
+  .post('/protected', async ({ state }) => {
+    const { session } = state
+    if (!session) {
+      throw new Error('Not logged in')
+    }
+    return { ok: true }
+  })
 ```
