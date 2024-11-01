@@ -31,7 +31,7 @@ interface EdgeContext extends CommonContext {
   res?: NextResponse;
 }
 
-const DEFAULT_CONTEXT = {
+const DEFAULT_CONTEXT: any = {
   headers() {
     return headers();
   },

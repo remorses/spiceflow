@@ -1,5 +1,11 @@
 # server-actions-for-next-pages
 
+## 1.2.1
+
+### Patch Changes
+
+- Restore to wroking version
+
 ## 1.0.0
 
 ### Major Changes
