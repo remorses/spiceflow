@@ -1,5 +1,4 @@
 import { NextApiHandler } from 'next';
-import superjson from 'superjson';
 import { JsonRpcResponse } from './jsonRpc';
 import { NextRequest, NextResponse } from 'next/server';
 import { getEdgeContext } from './context-internal';
@@ -42,12 +41,17 @@ export function createRpcMethod<P extends any[], R>(
   return async (...args) => wrapped(...args);
 }
 
+let superjson: typeof import('superjson');
+
 export function createRpcHandler(
   methodsInit: [string, (...params: any[]) => Promise<any>][],
   isEdge?: boolean,
 ) {
   const methods = new Map(methodsInit);
   const handler = async ({ method, body }) => {
+    if (!superjson) {
+      superjson = await import('superjson').then((x) => x.default || x);
+    }
     if (method !== 'POST') {
       return {
         status: 405,
@@ -126,7 +130,6 @@ export function createRpcHandler(
   };
   if (isEdge) {
     return async (req: NextRequest) => {
-      
       const { res } = await getEdgeContext();
       const body = await req.json();
 
@@ -142,8 +145,7 @@ export function createRpcHandler(
     };
   } else {
     return (async (req, res) => {
-      
-      const body = req.body
+      const body = req.body;
       const { status, json } = await handler({
         body,
         method: req.method,
