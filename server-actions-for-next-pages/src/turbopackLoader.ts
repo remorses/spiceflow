@@ -14,7 +14,6 @@ export default async function (
   }
   try {
     const options = this.getOptions();
-    
 
     const res = transform(source || '', {
       babelrc: false,
@@ -30,9 +29,8 @@ export default async function (
     });
 
     if (res) {
-      const sourcemap = JSON.stringify(res.map, null, 2);
       // logger.log('sourcemap', sourcemap);
-      callback(null, res?.code || '', sourcemap || undefined);
+      callback(null, res?.code || '', res.map || undefined);
     } else {
       logger.error('no result');
       callback(null, source, map);

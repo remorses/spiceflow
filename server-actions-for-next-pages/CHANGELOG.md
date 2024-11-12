@@ -1,5 +1,11 @@
 # server-actions-for-next-pages
 
+## 1.3.1
+
+### Patch Changes
+
+- Fix sourcemap output
+
 ## 1.3.0
 
 ### Minor Changes
