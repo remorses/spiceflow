@@ -1,5 +1,11 @@
 # server-actions-for-next-pages
 
+## 1.3.0
+
+### Minor Changes
+
+- Use dynamic import to support superjson 2.0
+
 ## 1.2.1
 
 ### Patch Changes

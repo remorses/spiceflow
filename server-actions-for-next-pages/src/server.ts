@@ -2,6 +2,8 @@ import { NextApiHandler } from 'next';
 import { JsonRpcResponse } from './jsonRpc';
 import { NextRequest, NextResponse } from 'next/server';
 import { getEdgeContext } from './context-internal';
+// @ts-ignore
+import type SuperJSON from 'superjson';
 
 export type Method<P extends any[], R> = (...params: P) => Promise<R>;
 export type WrapMethodMeta = {
@@ -41,7 +43,7 @@ export function createRpcMethod<P extends any[], R>(
   return async (...args) => wrapped(...args);
 }
 
-let superjson: typeof import('superjson');
+let superjson: SuperJSON;
 
 export function createRpcHandler(
   methodsInit: [string, (...params: any[]) => Promise<any>][],
@@ -50,7 +52,9 @@ export function createRpcHandler(
   const methods = new Map(methodsInit);
   const handler = async ({ method, body }) => {
     if (!superjson) {
-      superjson = await import('superjson').then((x) => x.default || x);
+      superjson = (await import('superjson').then(
+        (x) => x.default || x,
+      )) as SuperJSON;
     }
     if (method !== 'POST') {
       return {
