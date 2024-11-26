@@ -375,21 +375,14 @@ const createProxy = (
           if (onResponse) {
             if (!Array.isArray(onResponse)) onResponse = [onResponse]
 
-            for (const value of onResponse)
-              try {
-                const temp = await value(response.clone())
+            for (const value of onResponse) {
+              const temp = await value(response.clone())
 
-                if (temp !== undefined && temp !== null) {
-                  data = temp
-                  break
-                }
-              } catch (err) {
-                if (err instanceof SpiceflowFetchError) error = err
-                else
-                  error = new SpiceflowFetchError(err?.['status'] || 422, err)
-
-                break
-              }
+              // if (temp !== undefined && temp !== null) {
+              //   data = temp
+              //   break
+              // }
+            }
           }
 
           if (data !== null) {
@@ -475,5 +468,3 @@ export const createSpiceflowClient = <
 
   return createProxy('http://e.ly', config, [], domain)
 }
-
-
