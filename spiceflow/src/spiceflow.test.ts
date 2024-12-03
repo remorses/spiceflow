@@ -651,3 +651,34 @@ test('async generators handle non-ASCII characters correctly', async () => {
   }
   expect(mixedResults).toEqual([{ text: 'РΡ' }, { text: 'ΟО' }, { text: 'КΚ' }])
 })
+
+test('can pass additional props to body schema', async () => {
+  const app = new Spiceflow().post('/user', ({ request }) => request.json(), {
+    body: z.object({
+      name: z.string(),
+      age: z.number(),
+      email: z.string().email(),
+    }),
+  })
+
+  const res = await app.handle(
+    new Request('http://localhost/user', {
+      method: 'POST',
+
+      body: JSON.stringify({
+        name: 'John',
+        age: 25,
+        email: 'john@example.com',
+        additionalProp: 'extra data',
+      }),
+    }),
+  )
+
+  expect(res.status).toBe(200)
+  expect(await res.json()).toEqual({
+    name: 'John',
+    age: 25,
+    email: 'john@example.com',
+    additionalProp: 'extra data',
+  })
+})
