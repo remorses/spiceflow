@@ -33,7 +33,7 @@ export default async function (
       callback(null, res?.code || '', res.map || undefined);
     } else {
       logger.error('no result');
-      callback(null, source, map);
+      callback(null, source,);
     }
   } catch (e: any) {
     logger.error(e);
