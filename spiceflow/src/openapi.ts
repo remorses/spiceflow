@@ -137,7 +137,7 @@ export const registerSchemaPath = ({
   const contentTypes =
     typeof contentType === 'string'
       ? [contentType]
-      : (contentType ?? ['application/json'])
+      : contentType ?? ['application/json']
 
   const bodySchema = getJsonSchema(hook?.body)
   const paramsSchema = hook?.params
@@ -164,7 +164,7 @@ export const registerSchemaPath = ({
       openapiResponse = {
         '200': {
           ...rest,
-          description: rest.description as any,
+          description: (rest.description as any) || '',
           content: mapTypesResponse(
             contentTypes,
             type === 'object' || type === 'array'
@@ -213,7 +213,7 @@ export const registerSchemaPath = ({
 
             openapiResponse[key] = {
               ...rest,
-              description: rest.description as any,
+              description: rest.description as any || '',
               content: mapTypesResponse(
                 contentTypes,
                 type === 'object' || type === 'array'
@@ -247,7 +247,9 @@ export const registerSchemaPath = ({
     openapiResponse = {
       // @ts-ignore
       '200': {
+        description: '',
         ...rest,
+
         content: mapTypesResponse(contentTypes, responseSchema),
       },
     }
@@ -265,7 +267,7 @@ export const registerSchemaPath = ({
       ...((paramsSchema || querySchema || bodySchema
         ? ({ parameters } as any)
         : {}) satisfies OpenAPIV3.ParameterObject),
-      ...(openapiResponse
+      ...(!isObjEmpty(openapiResponse)
         ? {
             responses: openapiResponse,
           }
@@ -371,7 +373,7 @@ export const openapi = <Path extends string = '/openapi'>({
     }
 
     return {
-      openapi: '3.0.3',
+      openapi: '3.1.3',
       ...{
         ...documentation,
         // tags: documentation.tags?.filter(
@@ -411,4 +413,8 @@ function getJsonSchema(schema: TypeSchema): JSONSchemaType<any> {
   }
 
   return schema as any
+}
+
+function isObjEmpty(obj: Record<string, any>) {
+  return obj === undefined || Object.keys(obj).length === 0
 }
