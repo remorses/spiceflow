@@ -1,9 +1,6 @@
 "poor man's use server";
 
-import { revalidatePath } from 'next/cache';
 import { getNodejsContext } from 'server-actions-for-next-pages/context';
-import { getContext } from 'server-actions-for-next-pages/context';
-import { cookies, headers } from 'server-actions-for-next-pages/headers';
 
 export async function createUser({ name = '' }) {
   const { req, res } = await getNodejsContext();
