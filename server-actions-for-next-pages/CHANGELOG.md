@@ -1,5 +1,11 @@
 # server-actions-for-next-pages
 
+## 1.4.0
+
+### Minor Changes
+
+- Add support for async generators
+
 ## 1.3.1
 
 ### Patch Changes
