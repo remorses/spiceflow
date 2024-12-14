@@ -1,9 +1,38 @@
 import { JsonRpcRequest } from './jsonRpc';
-
+import { EventSourceParserStream } from 'eventsource-parser/stream';
 
 type NextRpcCall = (...params: any[]) => any;
 
 let nextId = 1;
+async function* yieldServerSentEvents(response: Response, superjson: any) {
+  if (!response.body) {
+    throw new Error('Response body is null');
+  }
+
+  const eventStream = response.body
+    .pipeThrough(new TextDecoderStream())
+    .pipeThrough(new EventSourceParserStream());
+
+  const reader = eventStream.getReader();
+
+  while (true) {
+    const { done, value: event } = await reader.read();
+    if (done) break;
+
+    if (event?.event === 'error') {
+      throw new Error(event.data);
+    }
+
+    if (event) {
+      const data = JSON.parse(event.data);
+      const deserialized = superjson.deserialize({
+        json: data.result,
+        meta: data.meta,
+      });
+      yield deserialized;
+    }
+  }
+}
 
 export function createRpcFetcher(url: string, method: string): NextRpcCall {
   return async function rpcFetch(...args) {
@@ -26,6 +55,7 @@ export function createRpcFetcher(url: string, method: string): NextRpcCall {
         'content-type': 'application/json',
       },
     });
+
     if (res.status === 502) {
       const statusError = new Error('Unexpected HTTP status ' + res.status);
       const json = await res.json();
@@ -38,7 +68,11 @@ export function createRpcFetcher(url: string, method: string): NextRpcCall {
 
       throw statusError;
     }
-    {
+
+    const contentType = res.headers.get('content-type');
+    if (contentType?.includes('text/event-stream')) {
+      return await yieldServerSentEvents(res, superjson.default);
+    } else {
       const json = await res.json();
       const deserialized = superjson.deserialize({
         json: json.result,

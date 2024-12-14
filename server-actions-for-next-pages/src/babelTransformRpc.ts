@@ -229,6 +229,10 @@ export default function (
           ]);
         };
 
+        function isAsyncFunction(node: babel.types.Function) {
+          return node.async || node.generator;
+        }
+
         for (const statement of program.get('body')) {
           if (statement.isExportNamedDeclaration()) {
             const declaration = statement.get('declaration');
@@ -240,9 +244,9 @@ export default function (
               if (methodName === 'wrapMethod') {
                 continue;
               }
-              if (!declaration.node.async) {
+              if (!isAsyncFunction(declaration.node)) {
                 throw declaration.buildCodeFrameError(
-                  'rpc exports must be async functions',
+                  'rpc exports must be async functions or async generators',
                 );
               }
 
@@ -295,9 +299,9 @@ export default function (
                       continue;
                     }
                   }
-                  if (!init.node.async) {
+                  if (!isAsyncFunction(init.node)) {
                     throw init.buildCodeFrameError(
-                      'rpc exports must be async functions',
+                      'rpc exports must be async functions or async generators',
                     );
                   }
 

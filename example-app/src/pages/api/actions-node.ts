@@ -27,6 +27,15 @@ export function wrapMethod(fn) {
   };
 }
 
+export async function* generateNumbers() {
+  let count = 0;
+  while (count < 10) {
+    await sleep(1000); // Using the existing sleep function
+    yield { count };
+    count++;
+  }
+}
+
 export async function failingFunction({}) {
   throw new Error('This function fails');
 }

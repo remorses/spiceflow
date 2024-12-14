@@ -45,6 +45,10 @@ export function createRpcMethod<P extends any[], R>(
 
 let superjson: SuperJSON;
 
+function serializeStreamMessage(json: any, meta: any) {
+  return `data: ${JSON.stringify({ result: json, meta })}\n\n`;
+}
+
 export function createRpcHandler(
   methodsInit: [string, (...params: any[]) => Promise<any>][],
   isEdge?: boolean,
@@ -99,8 +103,21 @@ export function createRpcHandler(
         meta: argsMeta,
       }) as any[];
       const result = await requestedFn(...args);
-      const { json, meta } = superjson.serialize(result);
 
+      // Check if result is an async iterable
+      if (result && typeof result[Symbol.asyncIterator] === 'function') {
+        return {
+          isStream: true,
+          generator: result,
+          headers: {
+            'content-type': 'text/event-stream',
+            'cache-control': 'no-cache',
+            connection: 'keep-alive',
+          },
+        };
+      }
+
+      const { json, meta } = superjson.serialize(result);
       return {
         json: {
           jsonrpc: '2.0',
@@ -137,11 +154,47 @@ export function createRpcHandler(
       const { res } = await getEdgeContext();
       const body = await req.json();
 
-      const { status, json } = await handler({
+      const result = await handler({
         body,
         method: req.method,
       });
 
+      if ('isStream' in result) {
+        const response = new Response(
+          new ReadableStream({
+            async start(controller) {
+              const encoder = new TextEncoder();
+              try {
+                for await (const chunk of result.generator) {
+                  const { json, meta } = superjson.serialize(chunk);
+                  controller.enqueue(
+                    encoder.encode(serializeStreamMessage(json, meta)),
+                  );
+                }
+                controller.close();
+              } catch (error) {
+                const errorMessage =
+                  error instanceof Error ? error.message : String(error);
+                controller.enqueue(
+                  encoder.encode(`event: error\ndata: ${errorMessage}\n\n`),
+                );
+                controller.close();
+              }
+            },
+          }),
+          {
+            headers: {
+              ...result.headers,
+              ...(res?.headers || {}),
+              'content-encoding': 'none',
+              'content-type': 'text/event-stream',
+            } as any,
+          },
+        );
+        return response;
+      }
+
+      const { status, json } = result;
       return new Response(JSON.stringify(json, null, 2), {
         status,
         headers: res?.headers || {},
@@ -150,10 +203,44 @@ export function createRpcHandler(
   } else {
     return (async (req, res) => {
       const body = req.body;
-      const { status, json } = await handler({
+      const result = await handler({
         body,
         method: req.method,
       });
+
+      if ('isStream' in result) {
+        let generatorFinished = false;
+        res.on('close', () => {
+          if (generatorFinished) return;
+          console.log(`response closed, cancelling generator`);
+          (result.generator as AsyncIterator<any>).return?.();
+        });
+
+        res.writeHead(200, {
+          ...result.headers,
+          'cache-control': 'no-cache',
+          connection: 'keep-alive',
+          // https://github.com/vercel/next.js/issues/9965#issuecomment-584319868
+
+          'content-encoding': 'none',
+          'content-type': 'text/event-stream',
+        });
+        try {
+          for await (const chunk of result.generator) {
+            const { json, meta } = superjson.serialize(chunk);
+            res.write(serializeStreamMessage(json, meta));
+          }
+        } catch (error) {
+          const errorMessage =
+            error instanceof Error ? error.message : String(error);
+          res.write(`event: error\ndata: ${errorMessage}\n\n`);
+        }
+        generatorFinished = true;
+        res.end();
+        return;
+      }
+
+      const { status, json } = result;
       res.status(status || 200).json(json);
     }) satisfies NextApiHandler;
   }
