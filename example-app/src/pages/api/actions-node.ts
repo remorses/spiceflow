@@ -1,6 +1,9 @@
 "poor man's use server";
 
-import { getNodejsContext } from 'server-actions-for-next-pages/context';
+import {
+  getContext,
+  getNodejsContext,
+} from 'server-actions-for-next-pages/context';
 
 export async function createUser({ name = '' }) {
   const { req, res } = await getNodejsContext();
@@ -28,6 +31,8 @@ export function wrapMethod(fn) {
 }
 
 export async function* generateNumbers() {
+  const { request } = getContext();
+  console.log('request', request?.url);
   let count = 0;
   while (count < 10) {
     await sleep(1000); // Using the existing sleep function

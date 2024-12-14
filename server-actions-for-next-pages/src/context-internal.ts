@@ -1,4 +1,5 @@
 import { AsyncLocalStorage } from 'async_hooks';
+import * as http from 'http';
 import type {
   NextApiHandler,
   GetServerSideProps,
@@ -21,14 +22,17 @@ import { cookies, headers } from 'next/headers';
 interface CommonContext {
   cookies(): ReadonlyRequestCookies;
   headers(): ReadonlyHeaders;
+  request?: Request;
 }
 interface NodejsContext extends CommonContext {
   req?: IncomingMessage;
   res?: ServerResponse;
+  request?: Request;
 }
 interface EdgeContext extends CommonContext {
   req?: NextRequest;
   res?: NextResponse;
+  request?: Request;
 }
 
 const DEFAULT_CONTEXT: any = {
@@ -63,12 +67,66 @@ export function getEdgeContext(): EdgeContext {
 export function getContext(): CommonContext {
   return asyncLocalStorage.getStore() || DEFAULT_CONTEXT;
 }
+function createHeaders(req: http.IncomingMessage): Headers {
+  let headers = new Headers();
+
+  let rawHeaders = req.rawHeaders;
+  for (let i = 0; i < rawHeaders.length; i += 2) {
+    headers.append(rawHeaders[i], rawHeaders[i + 1]);
+  }
+
+  return headers;
+}
+
+function createRequest(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+): Request {
+  let controller = new AbortController();
+  res.on('close', () => {
+    controller.abort();
+  });
+
+  let method = req.method ?? 'GET';
+  let headers = createHeaders(req);
+
+  let protocol =
+    'encrypted' in req.socket && req.socket.encrypted ? 'https:' : 'http:';
+  let host = headers.get('Host') ?? 'localhost';
+  let url = new URL(req.url!, `${protocol}//${host}`);
+
+  let init: RequestInit = { method, headers, signal: controller.signal };
+
+  if (method !== 'GET' && method !== 'HEAD') {
+    init.body = new ReadableStream({
+      start(controller) {
+        req.on('data', (chunk) => {
+          controller.enqueue(
+            new Uint8Array(chunk.buffer, chunk.byteOffset, chunk.byteLength),
+          );
+        });
+        req.on('end', () => {
+          controller.close();
+        });
+      },
+    });
+
+    // init.duplex = 'half' must be set when body is a ReadableStream, and Node follows the spec.
+    // However, this property is not defined in the TypeScript types for RequestInit, so we have
+    // to cast it here in order to set it without a type error.
+    // See https://fetch.spec.whatwg.org/#dom-requestinit-duplex
+    (init as { duplex: 'half' }).duplex = 'half';
+  }
+
+  return new Request(url, init);
+}
 
 export function wrapApiHandler(handler: Function, isEdge) {
   if (isEdge) {
     return async (req) => {
       const res = new Response('');
       const context = {
+        request: new Request(req.url, req),
         req,
         res,
         cookies() {
@@ -83,6 +141,7 @@ export function wrapApiHandler(handler: Function, isEdge) {
   }
   return (req, res) => {
     const asyncCtx: NodejsContext = {
+      request: createRequest(req, res),
       req,
       res,
       cookies() {
