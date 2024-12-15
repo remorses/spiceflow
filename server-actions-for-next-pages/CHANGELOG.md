@@ -1,5 +1,11 @@
 # server-actions-for-next-pages
 
+## 1.5.0
+
+### Minor Changes
+
+- Add request to context
+
 ## 1.4.0
 
 ### Minor Changes
