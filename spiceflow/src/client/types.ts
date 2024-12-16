@@ -12,7 +12,12 @@ export type IsNever<T> = [T] extends [never] ? true : false
 type Files = File | FileList
 
 type ReplaceBlobWithFiles<in out RecordType extends Record<string, unknown>> = {
-  [K in keyof RecordType]: RecordType[K] extends Blob | Blob[]
+  [K in keyof RecordType]: RecordType[K] extends any
+    ? RecordType[K]
+    : RecordType[K] extends
+        | Blob
+        | Blob[]
+        | { arrayBuffer: () => Promise<ArrayBuffer> }
     ? Files
     : RecordType[K]
 } & {}

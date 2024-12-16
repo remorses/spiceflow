@@ -1,3 +1,4 @@
+import { z } from 'zod'
 import { createSpiceflowClient } from './client/index.js'
 import { Spiceflow, t } from './spiceflow.js'
 
@@ -15,6 +16,9 @@ const app = new Spiceflow()
   .post('/mirror', async ({ request }) => await request.json())
   .post('/body', async ({ request }) => await request.text(), {
     body: t.String(),
+  })
+  .post('/zodAny', async ({ request }) => await request.json(), {
+    body: z.object({ body: z.array(z.any()) }),
   })
   .delete('/empty', async ({ request }) => {
     const body = await request.text()
@@ -195,6 +199,13 @@ describe('client', () => {
     const { data } = await client['stream-return-async'].get({})
     // console.log(data)
     expect(data).toEqual('a')
+  })
+  it('post zodAny', async () => {
+    const body = [{ key: 'value' }, 123, 'string', true, null]
+
+    const { data } = await client.zodAny.post({ body })
+
+    expect(data).toEqual(body)
   })
 
   // it('handle error', async () => {
