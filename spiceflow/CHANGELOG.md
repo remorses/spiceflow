@@ -1,5 +1,11 @@
 # spiceflow
 
+## 1.1.17
+
+### Patch Changes
+
+- Fix ReplaceBlobWithFiles
+
 ## 1.1.16
 
 ### Patch Changes
