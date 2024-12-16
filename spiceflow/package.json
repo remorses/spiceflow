@@ -47,7 +47,6 @@
 		"@sinclair/typebox": "^0.33.7",
 		"ajv": "^8.17.1",
 		"ajv-formats": "^3.0.1",
-		"bun-types": "^1.1.24",
 		"eventsource-parser": "^2.0.1",
 		"fast-querystring": "^1.1.2",
 		"lodash.clonedeep": "^4.5.0",

@@ -897,7 +897,9 @@ export class Spiceflow<
   }
 
   async listen(port: number, hostname: string = '127.0.0.1') {
+    // @ts-ignore
     if (typeof Bun !== 'undefined') {
+      // @ts-ignore
       const server = Bun.serve({
         port,
         development: !isProduction,

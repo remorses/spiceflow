@@ -1,8 +1,7 @@
 // https://github.com/remorses/elysia/blob/main/src/types.ts#L6
-/// <reference types="bun-types" />
+
 import z from 'zod'
 
-import type { BunFile, Server } from 'bun'
 
 import type {
   OptionalKind,
@@ -202,19 +201,11 @@ export interface UnwrapRoute<
   params: UnwrapSchema<Schema['params'], Definitions>
   response: Schema['response'] extends TypeSchema | string
     ? {
-        200: CoExist<
-          UnwrapSchema<Schema['response'], Definitions>,
-          File,
-          BunFile
-        >
+        200: UnwrapSchema<Schema['response'], Definitions>
       }
     : Schema['response'] extends Record<number, TypeSchema | string>
       ? {
-          [k in keyof Schema['response']]: CoExist<
-            UnwrapSchema<Schema['response'][k], Definitions>,
-            File,
-            BunFile
-          >
+          [k in keyof Schema['response']]: UnwrapSchema<Schema['response'][k], Definitions>
         }
       : unknown | void
 }
@@ -612,7 +603,7 @@ export interface InternalRoute {
   hooks: LocalHook<any, any, any, any, any, any, any>
 }
 
-export type ListenCallback = (server: Server) => MaybePromise<void>
+
 
 export type AddPrefix<Prefix extends string, T> = {
   [K in keyof T as Prefix extends string ? `${Prefix}${K & string}` : K]: T[K]
@@ -660,7 +651,7 @@ export type ComposeSpiceflowResponse<Response, Handle> = Handle extends (
   ...a: any[]
 ) => infer A
   ? _ComposeSpiceflowResponse<Response, Awaited<A>>
-  : _ComposeSpiceflowResponse<Response, Replace<Awaited<Handle>, BunFile, File>>
+  : _ComposeSpiceflowResponse<Response, Awaited<Handle>>
 
 type _ComposeSpiceflowResponse<Response, Handle> = Prettify<
   {} extends Response
