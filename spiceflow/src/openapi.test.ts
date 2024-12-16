@@ -102,193 +102,196 @@ test('openapi response', async () => {
     .handle(new Request('http://localhost/openapi'))
     .then((x) => x.json())
   expect(openapiSchema).toMatchInlineSnapshot(`
-		{
-		  "components": {
-		    "schemas": {},
-		  },
-		  "info": {
-		    "description": "Development documentation",
-		    "title": "Spiceflow Docs",
-		    "version": "0.0.0",
-		  },
-		  "openapi": "3.0.3",
-		  "paths": {
-		    "/addBody": {
-		      "patch": {
-		        "operationId": "patchAddBody",
-		        "parameters": [],
-		        "requestBody": {
-		          "content": {
-		            "application/json": {
-		              "schema": {
-		                "$schema": "http://json-schema.org/draft-07/schema#",
-		                "additionalProperties": false,
-		                "properties": {
-		                  "name": {
-		                    "type": "string",
-		                  },
-		                },
-		                "required": [
-		                  "name",
-		                ],
-		                "type": "object",
-		              },
-		            },
-		          },
-		          "required": true,
-		        },
-		        "responses": {
-		          "200": {
-		            "$schema": "http://json-schema.org/draft-07/schema#",
-		            "content": {
-		              "application/json": {
-		                "schema": {
-		                  "properties": {
-		                    "name": {
-		                      "type": "string",
-		                    },
-		                  },
-		                  "type": "object",
-		                },
-		              },
-		            },
-		          },
-		        },
-		      },
-		    },
-		    "/one/ids/{id}": {
-		      "get": {
-		        "operationId": "getOneIdsById",
-		        "responses": {
-		          "200": {
-		            "$schema": "http://json-schema.org/draft-07/schema#",
-		            "content": {
-		              "application/json": {
-		                "schema": {
-		                  "$schema": "http://json-schema.org/draft-07/schema#",
-		                  "type": "string",
-		                },
-		              },
-		            },
-		          },
-		          "404": {
-		            "$schema": "http://json-schema.org/draft-07/schema#",
-		            "content": {
-		              "application/json": {
-		                "schema": {
-		                  "properties": {
-		                    "message": {
-		                      "type": "string",
-		                    },
-		                  },
-		                  "required": [
-		                    "message",
-		                  ],
-		                  "type": "object",
-		                },
-		              },
-		            },
-		          },
-		        },
-		      },
-		    },
-		    "/openapi": {
-		      "get": {
-		        "operationId": "getOpenapi",
-		        "responses": {},
-		      },
-		    },
-		    "/queryParams": {
-		      "get": {
-		        "operationId": "getQueryParams",
-		        "parameters": [
-		          {
-		            "in": "query",
-		            "name": "name",
-		            "required": true,
-		            "schema": {
-		              "type": "string",
-		            },
-		          },
-		        ],
-		        "responses": {
-		          "200": {
-		            "$schema": "http://json-schema.org/draft-07/schema#",
-		            "content": {
-		              "application/json": {
-		                "schema": {
-		                  "properties": {
-		                    "name": {
-		                      "type": "string",
-		                    },
-		                  },
-		                  "type": "object",
-		                },
-		              },
-		            },
-		          },
-		        },
-		      },
-		      "post": {
-		        "description": "This is a post",
-		        "operationId": "postQueryParamsXXX",
-		        "parameters": [],
-		        "requestBody": {
-		          "content": {
-		            "application/json": {
-		              "schema": {
-		                "$schema": "http://json-schema.org/draft-07/schema#",
-		                "additionalProperties": false,
-		                "properties": {
-		                  "name": {
-		                    "type": "string",
-		                  },
-		                },
-		                "required": [
-		                  "name",
-		                ],
-		                "type": "object",
-		              },
-		            },
-		          },
-		          "required": true,
-		        },
-		        "responses": {
-		          "200": {
-		            "$schema": "http://json-schema.org/draft-07/schema#",
-		            "content": {
-		              "application/json": {
-		                "schema": {
-		                  "properties": {
-		                    "name": {
-		                      "type": "string",
-		                    },
-		                  },
-		                  "type": "object",
-		                },
-		              },
-		            },
-		          },
-		        },
-		      },
-		    },
-		    "/two/ids/{id}": {
-		      "get": {
-		        "operationId": "getTwoIdsById",
-		        "parameters": [
-		          {
-		            "in": "path",
-		            "name": "id",
-		            "required": true,
-		            "schema": {
-		              "type": "string",
-		            },
-		          },
-		        ],
-		        "responses": {},
-		      },
-		    },
-		  },
-		}
-	`)
+    {
+      "components": {
+        "schemas": {},
+      },
+      "info": {
+        "description": "Development documentation",
+        "title": "Spiceflow Docs",
+        "version": "0.0.0",
+      },
+      "openapi": "3.1.3",
+      "paths": {
+        "/addBody": {
+          "patch": {
+            "operationId": "patchAddBody",
+            "parameters": [],
+            "requestBody": {
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$schema": "http://json-schema.org/draft-07/schema#",
+                    "additionalProperties": false,
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                      },
+                    },
+                    "required": [
+                      "name",
+                    ],
+                    "type": "object",
+                  },
+                },
+              },
+              "required": true,
+            },
+            "responses": {
+              "200": {
+                "$schema": "http://json-schema.org/draft-07/schema#",
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "properties": {
+                        "name": {
+                          "type": "string",
+                        },
+                      },
+                      "type": "object",
+                    },
+                  },
+                },
+                "description": "",
+              },
+            },
+          },
+        },
+        "/one/ids/{id}": {
+          "get": {
+            "operationId": "getOneIdsById",
+            "responses": {
+              "200": {
+                "$schema": "http://json-schema.org/draft-07/schema#",
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "$schema": "http://json-schema.org/draft-07/schema#",
+                      "type": "string",
+                    },
+                  },
+                },
+                "description": "",
+              },
+              "404": {
+                "$schema": "http://json-schema.org/draft-07/schema#",
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "properties": {
+                        "message": {
+                          "type": "string",
+                        },
+                      },
+                      "required": [
+                        "message",
+                      ],
+                      "type": "object",
+                    },
+                  },
+                },
+                "description": "",
+              },
+            },
+          },
+        },
+        "/openapi": {
+          "get": {
+            "operationId": "getOpenapi",
+          },
+        },
+        "/queryParams": {
+          "get": {
+            "operationId": "getQueryParams",
+            "parameters": [
+              {
+                "in": "query",
+                "name": "name",
+                "required": true,
+                "schema": {
+                  "type": "string",
+                },
+              },
+            ],
+            "responses": {
+              "200": {
+                "$schema": "http://json-schema.org/draft-07/schema#",
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "properties": {
+                        "name": {
+                          "type": "string",
+                        },
+                      },
+                      "type": "object",
+                    },
+                  },
+                },
+                "description": "",
+              },
+            },
+          },
+          "post": {
+            "description": "This is a post",
+            "operationId": "postQueryParamsXXX",
+            "parameters": [],
+            "requestBody": {
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$schema": "http://json-schema.org/draft-07/schema#",
+                    "additionalProperties": false,
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                      },
+                    },
+                    "required": [
+                      "name",
+                    ],
+                    "type": "object",
+                  },
+                },
+              },
+              "required": true,
+            },
+            "responses": {
+              "200": {
+                "$schema": "http://json-schema.org/draft-07/schema#",
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "properties": {
+                        "name": {
+                          "type": "string",
+                        },
+                      },
+                      "type": "object",
+                    },
+                  },
+                },
+                "description": "",
+              },
+            },
+          },
+        },
+        "/two/ids/{id}": {
+          "get": {
+            "operationId": "getTwoIdsById",
+            "parameters": [
+              {
+                "in": "path",
+                "name": "id",
+                "required": true,
+                "schema": {
+                  "type": "string",
+                },
+              },
+            ],
+          },
+        },
+      },
+    }
+  `)
 })
