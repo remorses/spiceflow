@@ -1,5 +1,11 @@
 # spiceflow
 
+## 1.1.16
+
+### Patch Changes
+
+- Removed bun types references, fix type inference
+
 ## 1.1.15
 
 ### Patch Changes
