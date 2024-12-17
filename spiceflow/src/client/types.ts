@@ -31,11 +31,9 @@ type And<A extends boolean, B extends boolean> = A extends true
 type ReplaceGeneratorWithAsyncGenerator<
   in out RecordType extends Record<string, unknown>,
 > = {
-  [K in keyof RecordType]: RecordType[K] extends Generator<
-    infer A,
-    infer B,
-    infer C
-  >
+  [K in keyof RecordType]: RecordType[K] extends any
+    ? RecordType[K]
+    : RecordType[K] extends Generator<infer A, infer B, infer C>
     ? And<Not<IsNever<A>>, void extends B ? true : false> extends true
       ? AsyncGenerator<A, B, C>
       : And<IsNever<A>, void extends B ? false : true> extends true

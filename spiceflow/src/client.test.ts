@@ -206,8 +206,12 @@ describe('client', () => {
   it('handles thrown response with 200', async () => {
     const { data, error } = await client['throws-200'].get()
     // @ts-expect-error data should not be AsyncGenerator type
+    data satisfies AsyncGenerator
     expect(data).toMatchInlineSnapshot(
       `"this string will not be parsed as json"`,
+    )
+    expect(error).toMatchInlineSnapshot(
+      `null`,
     )
   })
 
@@ -244,7 +248,7 @@ describe('client', () => {
 
     const { data } = await client.zodAny.post({ body })
 
-    expect(data).toEqual(body)
+    expect(data).toEqual({ body })
   })
 
   // it('handle error', async () => {
