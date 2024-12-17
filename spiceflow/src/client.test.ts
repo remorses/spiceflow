@@ -30,7 +30,20 @@ const app = new Spiceflow()
       password: t.String(),
     }),
   })
-
+  .get('/throws', () => {
+    throw new Response('Custom error', { status: 400 })
+  })
+  .get('/throws-307', () => {
+    throw new Response('Redirect', {
+      status: 307,
+      headers: { location: 'http://example.com' },
+    })
+  })
+  .get('/throws-200', () => {
+    throw new Response('this string will not be parsed as json', {
+      status: 200,
+    })
+  })
   .use(
     new Spiceflow({ basePath: '/nested' }).get('/data', ({ params }) => 'hi'),
   )
@@ -170,6 +183,32 @@ describe('client', () => {
     const { data } = await client.nested.data.get()
 
     expect(data).toEqual('hi')
+  })
+
+  it('handles thrown response', async () => {
+    const { data, error } = await client.throws.get()
+
+    expect(data).toBeNull()
+    expect(error).toBeDefined()
+    expect(error?.status).toBe(400)
+    expect(error?.message).toBe('Custom error')
+  })
+
+  it('handles thrown response with 307', async () => {
+    const { data, error } = await client['throws-307'].get()
+
+    expect(data).toBeNull()
+    expect(error).toBeDefined()
+    expect(error?.status).toBe(307)
+    expect(error?.message).toBe('Redirect')
+  })
+
+  it('handles thrown response with 200', async () => {
+    const { data, error } = await client['throws-200'].get()
+    // @ts-expect-error data should not be AsyncGenerator type
+    expect(data).toMatchInlineSnapshot(
+      `"this string will not be parsed as json"`,
+    )
   })
 
   it('stream ', async () => {
