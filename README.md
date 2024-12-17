@@ -332,6 +332,35 @@ async function handleErrors() {
 }
 ```
 
+## Using the client server side, without network requests
+
+When using the client server-side, you can pass the Spiceflow app instance directly to `createSpiceflowClient()` instead of providing a URL. This allows you to make "virtual" requests that are handled directly by the app without making actual network requests. This is useful for testing, generating documentation, or any other scenario where you want to interact with your API endpoints programmatically without setting up a server.
+
+Here's an example:
+
+```tsx
+import { Spiceflow } from 'spiceflow'
+import { createSpiceflowClient } from 'spiceflow/client'
+import { openapi } from 'spiceflow/openapi'
+import { writeFile } from 'node:fs/promises'
+
+const app = new Spiceflow()
+  .use(openapi({ path: '/openapi' }))
+  .get('/users', () => [
+    { id: 1, name: 'John' },
+    { id: 2, name: 'Jane' },
+  ])
+  .post('/users', ({ request }) => request.json())
+
+// Create client by passing app instance directly
+const client = createSpiceflowClient(app)
+
+// Get OpenAPI schema and write to disk
+const { data } = await client.openapi.get()
+await writeFile('openapi.json', JSON.stringify(data, null, 2))
+console.log('OpenAPI schema saved to openapi.json')
+```
+
 ## Modifying Response with Middleware
 
 Middleware in Spiceflow can be used to modify the response before it's sent to the client. This is useful for adding headers, transforming the response body, or performing any other operations on the response.
