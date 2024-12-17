@@ -1,5 +1,11 @@
 # spiceflow
 
+## 1.1.18
+
+### Patch Changes
+
+- Fix type inference when nothing is returned from route
+
 ## 1.1.17
 
 ### Patch Changes
