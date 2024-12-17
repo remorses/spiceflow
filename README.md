@@ -62,7 +62,6 @@ app.post('/echo', async ({ request }) => {
   const body = await request.json()
   return body
 })
-
 ```
 
 ## Requests and Responses
@@ -90,7 +89,6 @@ new Spiceflow().post(
 
 > Notice that to get the body of the request, you need to call `request.json()` to parse the body as JSON.
 > Spiceflow does not parse the Body automatically, there is no body field in the Spiceflow route argument, instead you call either `request.json()` or `request.formData()` to get the body and validate it at the same time. This works by wrapping the request in a `SpiceflowRequest` instance, which has a `json()` and `formData()` method that parse the body and validate it. The returned data will have the correct schema type instead of `any`.
-
 
 ### Response Schema
 
@@ -280,6 +278,58 @@ import { Spiceflow } from 'spiceflow'
 new Spiceflow().use(({ request }) => {
   console.log(`Received ${request.method} request to ${request.url}`)
 })
+```
+
+## How errors are handled in Spiceflow client
+
+The Spiceflow client provides type-safe error handling by returning either a `data` or `error` property. When using the client:
+
+- Thrown errors appear in the `error` field
+- Response objects can be thrown or returned
+- Responses with status codes 200-299 appear in the `data` field
+- Responses with status codes <200 or ≥300 appear in the `error` field
+
+The example below demonstrates handling different types of responses:
+
+```ts
+import { Spiceflow } from 'spiceflow'
+import { createSpiceflowClient } from 'spiceflow/client'
+
+const app = new Spiceflow()
+  .get('/error', () => {
+    throw new Error('Something went wrong')
+  })
+  .get('/unauthorized', () => {
+    return new Response('Unauthorized access', { status: 401 })
+  })
+  .get('/success', () => {
+    throw new Response('Success message', { status: 200 })
+  })
+
+const client = createSpiceflowClient<typeof app>('http://localhost:3000')
+
+async function handleErrors() {
+  const errorResponse = await client.error.get()
+  console.log('Calling error endpoint...')
+  // Logs: Error occurred: Something went wrong
+  if (errorResponse.error) {
+    console.error('Error occurred:', errorResponse.error)
+  }
+
+  const unauthorizedResponse = await client.unauthorized.get()
+  console.log('Calling unauthorized endpoint...')
+  // Logs: Unauthorized: Unauthorized access (Status: 401)
+  if (unauthorizedResponse.error) {
+    console.error('Unauthorized:', unauthorizedResponse.error)
+  }
+
+  const successResponse = await client.success.get()
+  console.log('Calling success endpoint...')
+  // Logs: Success: Success message
+  if (successResponse.data) {
+    console.log('Success:', successResponse.data)
+  }
+}
 ```
 
 ## Modifying Response with Middleware
