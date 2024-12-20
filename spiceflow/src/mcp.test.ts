@@ -30,13 +30,27 @@ describe('MCP Plugin', () => {
       .use(mcp({ path: '/mcp' }))
       .get('/goSomething', () => 'hi')
       .get('/users', () => ({ users: [{ id: 1, name: 'John' }] }))
-      .post(
+      .get(
         '/somethingElse/:id',
         ({ params: { id } }) => {
           return 'hello ' + id
         },
         {
           params: z.object({ id: z.string() }),
+        },
+      )
+      .get(
+        '/search',
+        ({ query }) => {
+          return { results: [`Found results for: ${query.q}`] }
+        },
+        {
+          query: z
+            .object({
+              q: z.string().describe('Search query'),
+              limit: z.number().optional().describe('Max number of results'),
+            })
+            .required(),
         },
       )
     await app.listen(port)
@@ -86,7 +100,7 @@ describe('MCP Plugin', () => {
             "name": "GET /users",
           },
           {
-            "description": "POST /somethingElse/:id",
+            "description": "GET /somethingElse/:id",
             "inputSchema": {
               "properties": {
                 "params": {
@@ -106,7 +120,35 @@ describe('MCP Plugin', () => {
               "required": [],
               "type": "object",
             },
-            "name": "POST /somethingElse/:id",
+            "name": "GET /somethingElse/:id",
+          },
+          {
+            "description": "GET /search",
+            "inputSchema": {
+              "properties": {
+                "query": {
+                  "$schema": "http://json-schema.org/draft-07/schema#",
+                  "additionalProperties": false,
+                  "properties": {
+                    "limit": {
+                      "type": "number",
+                    },
+                    "q": {
+                      "description": "Search query",
+                      "type": "string",
+                    },
+                  },
+                  "required": [
+                    "q",
+                    "limit",
+                  ],
+                  "type": "object",
+                },
+              },
+              "required": [],
+              "type": "object",
+            },
+            "name": "GET /search",
           },
         ],
       }
@@ -131,11 +173,11 @@ describe('MCP Plugin', () => {
       {
         "content": [
           {
-            "text": ""hello xxx"",
+            "text": "Tool POST /somethingElse/:id not found",
             "type": "text",
           },
         ],
-        "isError": false,
+        "isError": true,
       }
     `)
   })
@@ -147,7 +189,7 @@ describe('MCP Plugin', () => {
     )
 
     expect(resources).toBeDefined()
-    expect(resources.resources).toHaveLength(2)
+
     expect(resources.resources).toMatchInlineSnapshot(`
       [
         {

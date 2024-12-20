@@ -176,9 +176,27 @@ export const mcp = <Path extends string = '/mcp'>({
           }
         }
       })
-      const getRoutes = routes.filter((route) => route.method === 'GET')
+      const resourcesRoutes = routes.filter((route) => {
+        // Only GET routes
+        if (route.method !== 'GET') return false
+
+        // Filter out routes with URL params
+        if (route.path.includes(':')) return false
+
+        // Filter out routes with required query params
+        const querySchema = route.hooks?.query
+
+        if (querySchema) {
+          const jsonSchema = getJsonSchema(querySchema)
+          if (jsonSchema?.required?.length) {
+            return false
+          }
+        }
+
+        return true
+      })
       server.setRequestHandler(ListResourcesRequestSchema, async () => {
-        const resources = getRoutes.map((route) => ({
+        const resources = resourcesRoutes.map((route) => ({
           uri: new URL(route.path, `http://${request.headers.get('host')}`)
             .href,
           mimeType: 'application/json',
@@ -191,7 +209,7 @@ export const mcp = <Path extends string = '/mcp'>({
         const resourceUrl = new URL(request.params.uri)
         const path = resourceUrl.pathname
 
-        const route = getRoutes.find(
+        const route = resourcesRoutes.find(
           (route) => route.path === path && route.method === 'GET',
         )
         if (!route) {
