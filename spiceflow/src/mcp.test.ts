@@ -9,6 +9,7 @@ import {
   ListToolsRequestSchema,
   ListToolsResultSchema,
   ReadResourceResultSchema,
+  CallToolResultSchema,
 } from '@modelcontextprotocol/sdk/types.js'
 import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js'
 import { z } from 'zod'
@@ -27,9 +28,15 @@ describe(
       const app = new Spiceflow()
         .use(mcp({ path: '/mcp' }))
         .get('/goSomething', () => 'hi')
-        .post('/somethingElse', ({ params: { id } }) => id, {
-          params: z.object({ id: z.string() }),
-        })
+        .post(
+          '/somethingElse/:id',
+          ({ params: { id } }) => {
+            return 'hello ' + id
+          },
+          {
+            params: z.object({ id: z.string() }),
+          },
+        )
       await app.listen(port)
       console.log('using mcp client')
 
@@ -72,7 +79,7 @@ describe(
               "name": "GET /goSomething",
             },
             {
-              "description": "POST /somethingElse",
+              "description": "POST /somethingElse/:id",
               "inputSchema": {
                 "properties": {
                   "params": {
@@ -92,7 +99,7 @@ describe(
                 "required": [],
                 "type": "object",
               },
-              "name": "POST /somethingElse",
+              "name": "POST /somethingElse/:id",
             },
           ],
         }
@@ -103,18 +110,30 @@ describe(
         {
           method: 'tools/call',
           params: {
-            name: 'POST /somethingElse',
+            name: 'POST /somethingElse/:id',
             arguments: {
-              id: 'xxx',
+              params: { id: 'xxx' },
             },
           },
         },
-        ReadResourceResultSchema,
+        CallToolResultSchema,
       )
 
+      console.log(resourceContent.content)
       // Validate the resource content response
       expect(resourceContent).toBeDefined()
       expect(resourceContent).toHaveProperty('content')
+      expect(resourceContent).toMatchInlineSnapshot(`
+        {
+          "content": [
+            {
+              "text": ""hello xxx"",
+              "type": "text",
+            },
+          ],
+          "isError": false,
+        }
+      `)
     })
   },
   1000 * 2,

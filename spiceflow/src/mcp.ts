@@ -107,10 +107,11 @@ export const mcp = <Path extends string = '/mcp'>({
       server.setRequestHandler(CallToolRequestSchema, async (request) => {
         console.log('showing schema')
         const toolName = request.params.name
-        const { path, method } = getPathFromToolName(toolName)
+        let { path, method } = getPathFromToolName(toolName)
 
         const route = routes.find(
-          (r) => r.method.toLowerCase() === method && r.path === path,
+          (r) =>
+            r.method.toUpperCase() === method.toUpperCase() && r.path === path,
         )
 
         if (!route) {
@@ -123,6 +124,11 @@ export const mcp = <Path extends string = '/mcp'>({
         try {
           const { body, query, params } = request.params.arguments || {}
 
+          if (params) {
+            Object.entries(params).forEach(([key, value]) => {
+              path = path.replace(`:${key}`, encodeURIComponent(String(value)))
+            })
+          }
           const url = new URL(`http://localhost${path}`)
           if (query) {
             Object.entries(query).forEach(([key, value]) => {
@@ -130,7 +136,7 @@ export const mcp = <Path extends string = '/mcp'>({
             })
           }
 
-          const response = await app.handle(
+          const response = await app.topLevelApp!.handle(
             new Request(url, {
               method: route.method,
               headers: {
@@ -140,16 +146,20 @@ export const mcp = <Path extends string = '/mcp'>({
             }),
           )
 
+          const isError = !response.ok
+
           const contentType = response.headers.get('content-type')
           if (contentType?.includes('application/json')) {
             const json = await response.json()
             return {
+              isError,
               content: [{ type: 'text', text: JSON.stringify(json, null, 2) }],
             }
           }
 
           const text = await response.text()
           return {
+            isError,
             content: [{ type: 'text', text }],
           }
         } catch (error: any) {
