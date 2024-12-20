@@ -4,7 +4,9 @@ import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js'
 
 import {
   CallToolRequestSchema,
+  ListResourcesRequestSchema,
   ListToolsRequestSchema,
+  ReadResourceRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js'
 import { Spiceflow } from './spiceflow.js'
 import { InternalRoute } from './types.js'
@@ -25,7 +27,10 @@ export const mcp = <Path extends string = '/mcp'>({
   name = 'spiceflow',
   version = '1.0.0',
 } = {}) => {
-  const server = new Server({ name, version }, { capabilities: { tools: {} } })
+  const server = new Server(
+    { name, version },
+    { capabilities: { tools: {}, resources: {} } },
+  )
 
   const transports = new Map<string, SSEServerTransportSpiceflow>()
   // Get all routes from the parent app
@@ -167,6 +172,61 @@ export const mcp = <Path extends string = '/mcp'>({
             content: [{ type: 'text', text: error.message || 'Unknown error' }],
             isError: true,
           }
+        }
+      })
+      const getRoutes = routes.filter((route) => route.method === 'GET')
+      server.setRequestHandler(ListResourcesRequestSchema, async () => {
+        const resources = getRoutes.map((route) => ({
+          uri: new URL(route.path, `http://${request.headers.get('host')}`)
+            .href,
+          mimeType: 'application/json',
+          name: `GET ${route.path}`,
+        }))
+        return { resources }
+      })
+
+      server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
+        const resourceUrl = new URL(request.params.uri)
+        const path = resourceUrl.pathname
+
+        const route = getRoutes.find(
+          (route) => route.path === path && route.method === 'GET',
+        )
+        if (!route) {
+          throw new Error('Resource not found')
+        }
+
+        const response = await app.topLevelApp!.handle(
+          new Request(resourceUrl, {
+            method: 'GET',
+            headers: {
+              'content-type': 'application/json',
+            },
+          }),
+        )
+
+        const contentType = response.headers.get('content-type')
+        const text = await response.text()
+        if (contentType?.includes('application/json')) {
+          return {
+            contents: [
+              {
+                uri: request.params.uri,
+                mimeType: 'application/json',
+                text: text,
+              },
+            ],
+          }
+        }
+
+        return {
+          contents: [
+            {
+              uri: request.params.uri,
+              mimeType: 'text/plain',
+              text,
+            },
+          ],
         }
       })
 
