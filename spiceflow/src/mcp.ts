@@ -91,6 +91,7 @@ export const mcp = <Path extends string = '/mcp'>({
                 /\//g,
                 '_',
               )}`,
+
               description:
                 route.hooks?.detail?.description ||
                 `${route.method} ${route.path}`,

@@ -6,6 +6,8 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 
 import {
   ListResourcesResultSchema,
+  ListToolsRequestSchema,
+  ListToolsResultSchema,
   ReadResourceResultSchema,
 } from '@modelcontextprotocol/sdk/types.js'
 import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js'
@@ -24,8 +26,8 @@ describe(
 
       const app = new Spiceflow()
         .use(mcp({ path: '/mcp' }))
-        .get('/ids/:id', () => 'hi')
-        .post('/ids/:id', ({ params: { id } }) => id, {
+        .get('/goSomething', () => 'hi')
+        .post('/somethingElse', ({ params: { id } }) => id, {
           params: z.object({ id: z.string() }),
         })
       await app.listen(port)
@@ -51,22 +53,69 @@ describe(
 
       // List available resources
       const resources = await client.request(
-        { method: 'resources/list' },
-        ListResourcesResultSchema,
+        { method: 'tools/list' },
+        ListToolsResultSchema,
       )
 
-      console.log({ resources })
-      return
-      // Validate the resources response
       expect(resources).toBeDefined()
       expect(resources).toHaveProperty('tools')
+      expect(resources).toMatchInlineSnapshot(`
+        {
+          "tools": [
+            {
+              "description": "GET /goSomething",
+              "inputSchema": {
+                "properties": {},
+                "required": [],
+                "type": "object",
+              },
+              "name": "get__goSomething",
+            },
+            {
+              "description": "POST /somethingElse",
+              "inputSchema": {
+                "properties": {
+                  "params": {
+                    "$schema": "http://json-schema.org/draft-07/schema#",
+                    "additionalProperties": false,
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                      },
+                    },
+                    "required": [
+                      "id",
+                    ],
+                    "type": "object",
+                  },
+                },
+                "required": [],
+                "type": "object",
+              },
+              "name": "post__somethingElse",
+            },
+            {
+              "description": "POST /mcp/message",
+              "inputSchema": {
+                "properties": {},
+                "required": [],
+                "type": "object",
+              },
+              "name": "post__mcp_message",
+            },
+          ],
+        }
+      `)
 
       // Read a specific resource
       const resourceContent = await client.request(
         {
-          method: 'resources/read',
+          method: 'tools/call',
           params: {
-            uri: 'file:///example.txt',
+            name: 'somethingElse',
+            arguments: {
+              id: 'xxx',
+            },
           },
         },
         ReadResourceResultSchema,
