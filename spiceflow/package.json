@@ -61,6 +61,7 @@
 	},
 	"devDependencies": {
 		"@types/node": "22.7.4",
-		"eventsource": "^3.0.2"
+		"eventsource": "^3.0.2",
+		"js-yaml": "^4.1.0"
 	}
 }

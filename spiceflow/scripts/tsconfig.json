@@ -1,0 +1,15 @@
+{
+	"extends": "../../tsconfig.base.json",
+	"compilerOptions": {
+
+		"module": "NodeNext",
+		"lib": ["DOM", "ESNext", "dom.iterable"],
+		"moduleResolution": "NodeNext",
+		"declarationMap": true,
+		"sourceMap": true,
+		"noEmit": true,
+		"resolveJsonModule": true,
+		"outDir": "dist"
+	},
+	"include": ["*"]
+}
