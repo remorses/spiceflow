@@ -69,7 +69,7 @@ describe(
                 "required": [],
                 "type": "object",
               },
-              "name": "get__goSomething",
+              "name": "GET /goSomething",
             },
             {
               "description": "POST /somethingElse",
@@ -92,16 +92,7 @@ describe(
                 "required": [],
                 "type": "object",
               },
-              "name": "post__somethingElse",
-            },
-            {
-              "description": "POST /mcp/message",
-              "inputSchema": {
-                "properties": {},
-                "required": [],
-                "type": "object",
-              },
-              "name": "post__mcp_message",
+              "name": "POST /somethingElse",
             },
           ],
         }
@@ -112,7 +103,7 @@ describe(
         {
           method: 'tools/call',
           params: {
-            name: 'somethingElse',
+            name: 'POST /somethingElse',
             arguments: {
               id: 'xxx',
             },

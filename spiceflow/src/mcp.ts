@@ -60,8 +60,10 @@ export const mcp = <Path extends string = '/mcp'>({
         console.log('got post')
         return await transport.handlePostMessage(request)
       }
-      let routes = app.getAllRoutes().filter((x) => x.path !== path)
-      // console.log('routes', routes)
+      let routes = app
+        .getAllRoutes()
+        .filter((x) => x.path !== path && x.path !== messagePath)
+      // console.log('routes', routes);
 
       server.setRequestHandler(ListToolsRequestSchema, async () => {
         console.log('list tools')
@@ -87,10 +89,7 @@ export const mcp = <Path extends string = '/mcp'>({
             }
 
             return {
-              name: `${route.method.toLowerCase()}_${route.path.replace(
-                /\//g,
-                '_',
-              )}`,
+              name: getRouteName({ method: route.method, path: route.path }),
 
               description:
                 route.hooks?.detail?.description ||
@@ -108,8 +107,7 @@ export const mcp = <Path extends string = '/mcp'>({
       server.setRequestHandler(CallToolRequestSchema, async (request) => {
         console.log('showing schema')
         const toolName = request.params.name
-        const [method, ...pathParts] = toolName.split('_')
-        const path = '/' + pathParts.join('/')
+        const { path, method } = getPathFromToolName(toolName)
 
         const route = routes.find(
           (r) => r.method.toLowerCase() === method && r.path === path,
@@ -166,4 +164,27 @@ export const mcp = <Path extends string = '/mcp'>({
     })
 
   return app
+}
+
+function getRouteName({
+  method,
+  path,
+}: {
+  method: string
+  path: string
+}): string {
+  return `${method.toUpperCase()} ${path}`
+}
+
+function getPathFromToolName(toolName: string): {
+  path: string
+  method: string
+} {
+  const parts = toolName.split(' ')
+  if (parts.length < 2) {
+    throw new Error('Invalid tool name format')
+  }
+  const method = parts[0].toUpperCase()
+  const path = parts.slice(1).join(' ')
+  return { path, method }
 }
