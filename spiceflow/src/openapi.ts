@@ -61,7 +61,7 @@ export const mapProperties = (
 
 const mapTypesResponse = (
   types: string[],
-  schema:
+  schema?:
     | string
     | {
         type: string
@@ -111,33 +111,28 @@ export const generateOperationId = (method: string, paths: string) => {
 
 export const registerSchemaPath = ({
   schema,
-  path,
-  method,
-  hook,
+  route,
   models,
 }: {
   schema: Partial<OpenAPIV3.PathsObject>
-  contentType?: string | string[]
-  path: string
-  method: HTTPMethod
-  hook?: LocalHook<any, any, any, any, any, any, any>
+  route: InternalRoute
   models: Record<string, TypeSchema>
 }) => {
-  if (hook) hook = deepClone(hook)
+  const hook = route.hooks ? deepClone(route.hooks) : undefined
 
   // TODO if a route uses an async generator, add text/event-stream. if a roue does not add an explicit schema, use all possible content types
-  const contentType = hook?.type ?? [
+  const _contentType = hook?.type ?? [
     'application/json',
     // 'multipart/form-data',
     // 'text/plain',
   ]
 
-  path = toOpenAPIPath(path)
+  const path = toOpenAPIPath(route.path)
 
   const contentTypes =
-    typeof contentType === 'string'
-      ? [contentType]
-      : contentType ?? ['application/json']
+    typeof _contentType === 'string'
+      ? [_contentType]
+      : _contentType ?? ['application/json']
 
   const bodySchema = getJsonSchema(hook?.body)
   const paramsSchema = hook?.params
@@ -213,7 +208,7 @@ export const registerSchemaPath = ({
 
             openapiResponse[key] = {
               ...rest,
-              description: rest.description as any || '',
+              description: (rest.description as any) || '',
               content: mapTypesResponse(
                 contentTypes,
                 type === 'object' || type === 'array'
@@ -255,6 +250,16 @@ export const registerSchemaPath = ({
     }
   }
 
+  if (isAsyncGenerator(route.handler)) {
+    openapiResponse = {
+      '200': {
+        description: '',
+
+        content: mapTypesResponse(['text/event-stream']),
+      },
+    }
+  }
+
   const parameters = [
     // ...mapProperties('header', headerSchema, models),
     ...mapProperties('path', paramsSchema, models),
@@ -263,7 +268,12 @@ export const registerSchemaPath = ({
 
   schema[path] = {
     ...(schema[path] ? schema[path] : {}),
-    [method.toLowerCase()]: {
+    [route.method.toLowerCase()]: {
+      ...(isAsyncGenerator(route.handler)
+        ? {
+            'x-fern-streaming': true,
+          }
+        : {}),
       ...((paramsSchema || querySchema || bodySchema
         ? ({ parameters } as any)
         : {}) satisfies OpenAPIV3.ParameterObject),
@@ -273,7 +283,7 @@ export const registerSchemaPath = ({
           }
         : {}),
       operationId:
-        hook?.detail?.operationId ?? generateOperationId(method, path),
+        hook?.detail?.operationId ?? generateOperationId(route.method, path),
       ...hook?.detail,
       ...(bodySchema
         ? {
@@ -349,12 +359,9 @@ export const openapi = <Path extends string = '/openapi'>({
           ALLOWED_METHODS.forEach((method) => {
             registerSchemaPath({
               schema,
-              hook: route.hooks,
-              method,
-              path: route.path,
+              route: { ...route, method },
               // @ts-ignore
               models: app.definitions?.type,
-              contentType: route.hooks?.type,
             })
           })
           return
@@ -362,12 +369,9 @@ export const openapi = <Path extends string = '/openapi'>({
 
         registerSchemaPath({
           schema,
-          hook: route.hooks,
-          method: route.method,
-          path: route.path,
+          route,
           // @ts-ignore
           models: app.definitions?.type,
-          contentType: route.hooks?.type,
         })
       })
     }
@@ -417,4 +421,12 @@ function getJsonSchema(schema: TypeSchema): JSONSchemaType<any> {
 
 function isObjEmpty(obj: Record<string, any>) {
   return obj === undefined || Object.keys(obj).length === 0
+}
+
+function isAsyncGenerator(fn: any): boolean {
+  return (
+    fn &&
+    typeof fn === 'function' &&
+    fn.constructor?.name === 'AsyncGeneratorFunction'
+  )
 }

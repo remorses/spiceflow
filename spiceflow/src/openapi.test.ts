@@ -87,6 +87,23 @@ test('openapi response', async () => {
         }),
       },
     )
+    .get(
+      '/stream',
+      async function* () {
+        for (let i = 0; i < 3; i++) {
+          yield { count: i }
+          await new Promise((resolve) => setTimeout(resolve, 10))
+        }
+      },
+      {
+        detail: {
+          description: 'This is a stream',
+        },
+        // response: z.object({
+        //   count: z.number(),
+        // }),
+      },
+    )
     .use(
       new Spiceflow({ basePath: '/two' }).get(
         '/ids/:id',
@@ -274,6 +291,23 @@ test('openapi response', async () => {
                 "description": "",
               },
             },
+          },
+        },
+        "/stream": {
+          "get": {
+            "description": "This is a stream",
+            "operationId": "getStream",
+            "responses": {
+              "200": {
+                "content": {
+                  "text/event-stream": {
+                    "schema": {},
+                  },
+                },
+                "description": "",
+              },
+            },
+            "x-fern-streaming": true,
           },
         },
         "/two/ids/{id}": {
