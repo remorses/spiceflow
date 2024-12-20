@@ -265,26 +265,35 @@ export const registerSchemaPath = ({
     ...mapProperties('path', paramsSchema, models),
     ...mapProperties('query', querySchema, models),
   ]
-
   schema[path] = {
-    ...(schema[path] ? schema[path] : {}),
+    // Merge with existing path schema if it exists
+    ...(schema[path] ?? {}),
     [route.method.toLowerCase()]: {
-      ...(isAsyncGenerator(route.handler)
+      // Add streaming flag for async generators
+      ...(isAsyncGenerator(route.handler) && {
+        'x-fern-streaming': true,
+      }),
+
+      // Add parameters if any schemas are defined
+      ...(paramsSchema || querySchema || bodySchema
         ? {
-            'x-fern-streaming': true,
+            parameters,
           }
         : {}),
-      ...((paramsSchema || querySchema || bodySchema
-        ? ({ parameters } as any)
-        : {}) satisfies OpenAPIV3.ParameterObject),
-      ...(!isObjEmpty(openapiResponse)
-        ? {
-            responses: openapiResponse,
-          }
-        : {}),
+
+      // Add responses if defined
+      ...(!isObjEmpty(openapiResponse) && {
+        responses: openapiResponse,
+      }),
+
+      // Set operation ID from hook detail or generate one
       operationId:
         hook?.detail?.operationId ?? generateOperationId(route.method, path),
+
+      // Add any additional details from hook
       ...hook?.detail,
+
+      // Add request body if body schema exists
       ...(bodySchema
         ? {
             requestBody: {
