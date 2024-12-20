@@ -44,6 +44,7 @@
 	"license": "",
 	"dependencies": {
 		"@medley/router": "^0.2.1",
+		"@modelcontextprotocol/sdk": "^1.0.4",
 		"@sinclair/typebox": "^0.33.7",
 		"ajv": "^8.17.1",
 		"ajv-formats": "^3.0.1",
