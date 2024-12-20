@@ -12,6 +12,17 @@ import deepClone from 'lodash.clonedeep'
 import { z } from 'zod'
 import zodToJsonSchema from 'zod-to-json-schema'
 
+export const extractParamNames = (path: string): string[] => {
+  return path.split('/').reduce((params: string[], segment) => {
+    if (segment.startsWith(':')) {
+      let param = segment.slice(1)
+      if (param.endsWith('?')) param = param.slice(0, -1)
+      params.push(param)
+    }
+    return params
+  }, [])
+}
+
 export const toOpenAPIPath = (path: string) =>
   path
     .split('/')
@@ -131,7 +142,19 @@ export const registerSchemaPath = ({
   const path = toOpenAPIPath(route.path)
 
   const bodySchema = getJsonSchema(hook?.body)
-  const paramsSchema = hook?.params
+  let paramsSchema = hook?.params
+  if (route.path.includes(':') && !paramsSchema) {
+    const paramNames = extractParamNames(route.path)
+    if (paramNames.length) {
+      // Create a schema object with string parameters for each URL param
+      const paramSchemaObject = {}
+      for (const param of paramNames) {
+        paramSchemaObject[param] = z.string()
+      }
+      paramsSchema = z.object(paramSchemaObject)
+    }
+  }
+
   // const headerSchema = hook?.headers
   const querySchema = hook?.query
   let responseSchema = hook?.response as unknown as TypeSchema

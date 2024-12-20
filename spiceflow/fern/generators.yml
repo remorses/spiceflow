@@ -1,0 +1,18 @@
+# yaml-language-server: $schema=https://schema.buildwithfern.dev/generators-yml.json
+
+# https://github.com/cartesia-ai/docs/blob/main/fern/generators.yml
+default-group: local
+groups:
+  local:
+    generators:
+      - name: fernapi/fern-typescript-node-sdk
+        version: 0.39.3
+        config:
+          allowCustomFetcher: true
+          skipResponseValidation: true
+          # includeApiReference: true
+        output:
+          location: local-file-system
+          path: ../scripts/sdk-typescript
+api:
+  path: openapi/openapi.yml

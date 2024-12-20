@@ -30,12 +30,6 @@ paths:
       operationId: getStream
   /users/{id}:
     get:
-      parameters:
-        - schema:
-            type: string
-          in: path
-          name: id
-          required: true
       operationId: getUsersById
   /users:
     post:
