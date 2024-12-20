@@ -513,3 +513,78 @@ new Spiceflow()
     return { ok: true }
   })
 ```
+
+## Model Context Protocol (MCP)
+
+Spiceflow includes a Model Context Protocol (MCP) plugin that exposes your API routes as tools and resources that can be used by AI language models like Claude. The MCP plugin makes it easy to let AI assistants interact with your API endpoints in a controlled way.
+
+When you mount the MCP plugin (default path is `/mcp`), it automatically:
+
+- Exposes all your routes as callable tools with proper input validation
+- Exposes GET routes without query/path parameters as `resources`
+- Provides an SSE-based transport for real-time communication
+- Handles serialization of requests and responses
+
+This makes it simple to let AI models like Claude discover and call your API endpoints programmatically. Here's an example:
+
+```tsx
+// Import the MCP plugin and client
+import { mcp } from 'spiceflow/mcp'
+import { Client } from '@modelcontextprotocol/sdk/client/index.js'
+import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js'
+import { Spiceflow } from 'spiceflow'
+import {
+  ListToolsResultSchema,
+  CallToolResultSchema,
+  ListResourcesResultSchema,
+} from '@modelcontextprotocol/sdk/types.js'
+
+// Create a new app with some example routes
+const app = new Spiceflow()
+  // Mount the MCP plugin at /mcp (default path)
+  .use(mcp())
+  // These routes will be available as tools
+  .get('/hello', () => 'Hello World')
+  .get('/users/:id', ({ params }) => ({ id: params.id }))
+  .post('/echo', async ({ request }) => {
+    const body = await request.json()
+    return body
+  })
+
+// Start the server
+app.listen(3000)
+
+// Example client usage:
+const transport = new SSEClientTransport(new URL('http://localhost:3000/mcp'))
+
+const client = new Client(
+  { name: 'example-client', version: '1.0.0' },
+  { capabilities: {} },
+)
+
+await client.connect(transport)
+
+// List available tools
+const tools = await client.request(
+  { method: 'tools/list' },
+  ListToolsResultSchema,
+)
+
+// Call a tool
+const result = await client.request(
+  {
+    method: 'tools/call',
+    params: {
+      name: 'GET /hello',
+      arguments: {},
+    },
+  },
+  CallToolResultSchema,
+)
+
+// List available resources (only GET /hello is exposed since it has no params)
+const resources = await client.request(
+  { method: 'resources/list' },
+  ListResourcesResultSchema,
+)
+```

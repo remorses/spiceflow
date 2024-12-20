@@ -15,6 +15,10 @@
 			"types": "./dist/cors.d.ts",
 			"default": "./dist/cors.js"
 		},
+		"./mcp": {
+			"types": "./dist/mcp.d.ts",
+			"default": "./dist/mcp.js"
+		},
 		"./client": {
 			"types": "./dist/client/index.d.ts",
 			"default": "./dist/client/index.js"
