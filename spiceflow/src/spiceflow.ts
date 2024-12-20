@@ -896,7 +896,7 @@ export class Spiceflow<
     return appsInScope
   }
 
-  async listen(port: number, hostname: string = '127.0.0.1') {
+  async listen(port: number, hostname: string = '0.0.0.0') {
     // @ts-ignore
     if (typeof Bun !== 'undefined') {
       // @ts-ignore

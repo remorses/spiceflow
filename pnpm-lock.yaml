@@ -76,6 +76,9 @@ importers:
       '@types/node':
         specifier: 22.7.4
         version: 22.7.4
+      eventsource:
+        specifier: ^3.0.2
+        version: 3.0.2
 
 packages:
 
@@ -914,6 +917,14 @@ packages:
 
   eventsource-parser@2.0.1:
     resolution: {integrity: sha512-gMaRLm5zejEH9mNXC54AnIteFI9YwL/q5JKMdBnoG+lEI1JWVGFVk0Taaj9Xb5SKgzIBDZoQX5IzMe44ILWODg==}
+    engines: {node: '>=18.0.0'}
+
+  eventsource-parser@3.0.0:
+    resolution: {integrity: sha512-T1C0XCUimhxVQzW4zFipdx0SficT651NnkR0ZSH3yQwh+mFMdLfgjABVi4YtMTtaL4s168593DaoaRLMqryavA==}
+    engines: {node: '>=18.0.0'}
+
+  eventsource@3.0.2:
+    resolution: {integrity: sha512-YolzkJNxsTL3tCJMWFxpxtG2sCjbZ4LQUBUrkdaJK0ub0p6lmJt+2+1SwhKjLc652lpH9L/79Ptez972H9tphw==}
     engines: {node: '>=18.0.0'}
 
   execa@8.0.1:
@@ -2849,6 +2860,12 @@ snapshots:
       '@types/estree': 1.0.5
 
   eventsource-parser@2.0.1: {}
+
+  eventsource-parser@3.0.0: {}
+
+  eventsource@3.0.2:
+    dependencies:
+      eventsource-parser: 3.0.0
 
   execa@8.0.1:
     dependencies:
