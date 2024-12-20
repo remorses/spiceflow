@@ -104,6 +104,23 @@ test('openapi response', async () => {
         // }),
       },
     )
+    .get(
+      '/streamWithSchema',
+      async function* () {
+        for (let i = 0; i < 3; i++) {
+          yield { count: i }
+          await new Promise((resolve) => setTimeout(resolve, 10))
+        }
+      },
+      {
+        detail: {
+          description: 'This is a stream with schema',
+        },
+        response: z.object({
+          count: z.number(),
+        }),
+      },
+    )
     .use(
       new Spiceflow({ basePath: '/two' }).get(
         '/ids/:id',
@@ -297,17 +314,39 @@ test('openapi response', async () => {
           "get": {
             "description": "This is a stream",
             "operationId": "getStream",
+            "x-fern-streaming": {
+              "format": "sse",
+            },
+          },
+        },
+        "/streamWithSchema": {
+          "get": {
+            "description": "This is a stream with schema",
+            "operationId": "getStreamWithSchema",
             "responses": {
               "200": {
+                "$schema": "http://json-schema.org/draft-07/schema#",
                 "content": {
-                  "text/event-stream": {
-                    "schema": {},
+                  "application/json": {
+                    "schema": {
+                      "properties": {
+                        "count": {
+                          "type": "number",
+                        },
+                      },
+                      "required": [
+                        "count",
+                      ],
+                      "type": "object",
+                    },
                   },
                 },
                 "description": "",
               },
             },
-            "x-fern-streaming": true,
+            "x-fern-streaming": {
+              "format": "sse",
+            },
           },
         },
         "/two/ids/{id}": {

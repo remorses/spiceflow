@@ -120,19 +120,15 @@ export const registerSchemaPath = ({
 }) => {
   const hook = route.hooks ? deepClone(route.hooks) : undefined
 
-  // TODO if a route uses an async generator, add text/event-stream. if a roue does not add an explicit schema, use all possible content types
-  const _contentType = hook?.type ?? [
-    'application/json',
-    // 'multipart/form-data',
-    // 'text/plain',
-  ]
+  let contentTypes = ['application/json']
+
+  if (isAsyncGenerator(route.handler) && !route.hooks?.response) {
+    contentTypes = ['text/event-stream']
+  } else if (hook?.type) {
+    contentTypes = Array.isArray(hook.type) ? hook.type : [hook.type]
+  }
 
   const path = toOpenAPIPath(route.path)
-
-  const contentTypes =
-    typeof _contentType === 'string'
-      ? [_contentType]
-      : _contentType ?? ['application/json']
 
   const bodySchema = getJsonSchema(hook?.body)
   const paramsSchema = hook?.params
@@ -250,16 +246,6 @@ export const registerSchemaPath = ({
     }
   }
 
-  if (isAsyncGenerator(route.handler)) {
-    openapiResponse = {
-      '200': {
-        description: '',
-
-        content: mapTypesResponse(['text/event-stream']),
-      },
-    }
-  }
-
   const parameters = [
     // ...mapProperties('header', headerSchema, models),
     ...mapProperties('path', paramsSchema, models),
@@ -271,7 +257,9 @@ export const registerSchemaPath = ({
     [route.method.toLowerCase()]: {
       // Add streaming flag for async generators
       ...(isAsyncGenerator(route.handler) && {
-        'x-fern-streaming': true,
+        'x-fern-streaming': {
+          format: 'sse',
+        },
       }),
 
       // Add parameters if any schemas are defined
