@@ -25,7 +25,6 @@ export class SSEServerTransportSpiceflow implements Transport {
    * Creates a new SSE server transport, which will direct the client to POST messages to the relative or absolute URL identified by `_endpoint`.
    */
   constructor(endpoint: string) {
-    console.log('Constructor called with endpoint:', endpoint)
     this._sessionId = randomUUID()
     this._endpoint = endpoint
   }
@@ -36,7 +35,6 @@ export class SSEServerTransportSpiceflow implements Transport {
    * This should be called when a GET request is made to establish the SSE stream.
    */
   async start(): Promise<void> {
-    console.log('start method called')
     if (this.response) {
       throw new Error(
         'SSEServerTransport already started! If using Server class, note that connect() calls start() automatically.',
@@ -84,7 +82,6 @@ export class SSEServerTransportSpiceflow implements Transport {
     req: Request,
     parsedBody?: unknown,
   ): Promise<Response> {
-    console.log('handlePostMessage method called')
     if (!this.response) {
       const message = 'SSE connection not established'
       throw new Error(message)
@@ -107,7 +104,6 @@ export class SSEServerTransportSpiceflow implements Transport {
    * Handle a client message, regardless of how it arrived. This can be used to inform the server of messages that arrive via a means different than HTTP POST.
    */
   async handleMessage(message: unknown): Promise<void> {
-    console.log('handleMessage method called')
     let parsedMessage: JSONRPCMessage
     try {
       parsedMessage = JSONRPCMessageSchema.parse(message)
@@ -120,7 +116,6 @@ export class SSEServerTransportSpiceflow implements Transport {
   }
 
   async close(): Promise<void> {
-    console.log('close method called')
     if (this._writableStream) {
       await this._writableStream.close()
     }
@@ -130,7 +125,6 @@ export class SSEServerTransportSpiceflow implements Transport {
   }
 
   async send(message: JSONRPCMessage): Promise<void> {
-    console.log('send method called')
     if (!this._writableStream) {
       throw new Error('Not connected')
     }
@@ -149,7 +143,6 @@ export class SSEServerTransportSpiceflow implements Transport {
    * This can be used to route incoming POST requests.
    */
   get sessionId(): string {
-    console.log('sessionId getter called')
     return this._sessionId
   }
 }

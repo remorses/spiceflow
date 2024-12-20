@@ -29,13 +29,11 @@ export const mcp = <Path extends string = '/mcp'>({
       capabilities: {
         tools: {},
         resources: {},
-        // logging: {}
       },
     },
   )
 
   const transports = new Map<string, SSEServerTransportSpiceflow>()
-  // Get all routes from the parent app
   const messagePath = path + '/message'
   let app = new Spiceflow({ name: 'mcp' })
     .post(messagePath, async ({ request, query }) => {
@@ -64,23 +62,19 @@ export const mcp = <Path extends string = '/mcp'>({
       })
 
       if (request.method === 'POST') {
-        console.log('got post')
         return await transport.handlePostMessage(request)
       }
       let routes = app
         .getAllRoutes()
         .filter((x) => x.path !== path && x.path !== messagePath)
-      // console.log('routes', routes);
 
       server.setRequestHandler(ListToolsRequestSchema, async () => {
-        console.log('list tools')
         return {
           tools: routes.map((route) => {
             const bodySchema = getJsonSchema(route.hooks?.body)
             const querySchema = getJsonSchema(route.hooks?.query)
             const paramsSchema = getJsonSchema(route.hooks?.params)
 
-            // Combine all parameters into one schema
             const properties: Record<string, any> = {}
             const required: string[] = []
 
@@ -112,7 +106,6 @@ export const mcp = <Path extends string = '/mcp'>({
       })
 
       server.setRequestHandler(CallToolRequestSchema, async (request) => {
-        console.log('showing schema')
         const toolName = request.params.name
         let { path, method } = getPathFromToolName(toolName)
 
@@ -177,13 +170,10 @@ export const mcp = <Path extends string = '/mcp'>({
         }
       })
       const resourcesRoutes = routes.filter((route) => {
-        // Only GET routes
         if (route.method !== 'GET') return false
 
-        // Filter out routes with URL params
         if (route.path.includes(':')) return false
 
-        // Filter out routes with required query params
         const querySchema = route.hooks?.query
 
         if (querySchema) {
