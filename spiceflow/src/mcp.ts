@@ -1,6 +1,4 @@
 import { Server } from '@modelcontextprotocol/sdk/server/index.js'
-import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
-import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js'
 
 import {
   CallToolRequestSchema,
@@ -8,11 +6,9 @@ import {
   ListToolsRequestSchema,
   ReadResourceRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js'
-import { Spiceflow } from './spiceflow.js'
-import { InternalRoute } from './types.js'
-import { isZodSchema } from './spiceflow.js'
 import { zodToJsonSchema } from 'zod-to-json-schema'
 import { SSEServerTransportSpiceflow } from './mcp-transport.js'
+import { isZodSchema, Spiceflow } from './spiceflow.js'
 
 function getJsonSchema(schema: any) {
   if (!schema) return undefined
@@ -29,7 +25,13 @@ export const mcp = <Path extends string = '/mcp'>({
 } = {}) => {
   const server = new Server(
     { name, version },
-    { capabilities: { tools: {}, resources: {} } },
+    {
+      capabilities: {
+        tools: {},
+        resources: {},
+        // logging: {}
+      },
+    },
   )
 
   const transports = new Map<string, SSEServerTransportSpiceflow>()
