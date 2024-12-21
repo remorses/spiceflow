@@ -39,7 +39,7 @@ paths:
         '200':
           description: ''
           content:
-            '*/*':
+            application/json:
               schema:
                 type: object
                 properties:
@@ -56,7 +56,7 @@ paths:
             '*/*':
               schema: {}
       tags:
-        - x
+        - example-tag
       summary: Stream Endpoint
       description: |2-
 
@@ -85,7 +85,7 @@ paths:
             '*/*':
               schema: {}
       tags:
-        - x
+        - example-tag
   /users:
     post:
       parameters: []
@@ -93,7 +93,7 @@ paths:
         '200':
           description: ''
           content:
-            '*/*':
+            application/json:
               schema:
                 type: object
                 properties:
@@ -142,7 +142,7 @@ paths:
             '*/*':
               schema: {}
       tags:
-        - x
+        - example-tag
       summary: Error Endpoint
       description: Always throws an error for testing error handling
   /errorWithSchema:
@@ -151,7 +151,7 @@ paths:
         '200':
           description: ''
           content:
-            '*/*':
+            application/json:
               schema:
                 type: object
                 properties:
@@ -165,7 +165,7 @@ paths:
             '*/*':
               schema: {}
       tags:
-        - x
+        - example-tag
       description: Always throws an error for testing error handling
   /upload:
     post:

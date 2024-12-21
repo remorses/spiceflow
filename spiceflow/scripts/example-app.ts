@@ -72,7 +72,7 @@ const app = new Spiceflow()
         timestamp: z.number(),
       }),
       detail: {
-        tags: ['x'],
+        tags: ['example-tag'],
         summary: 'Stream Endpoint',
         description: `
         Returns an async generator when used in the sdk
@@ -93,7 +93,7 @@ const app = new Spiceflow()
     },
     {
       detail: {
-        tags: ['x'],
+        tags: ['example-tag'],
       },
     },
   )
@@ -126,7 +126,7 @@ const app = new Spiceflow()
     },
     {
       detail: {
-        tags: ['x'],
+        tags: ['example-tag'],
         summary: 'Error Endpoint',
         description: 'Always throws an error for testing error handling',
       },
@@ -142,7 +142,7 @@ const app = new Spiceflow()
     },
     {
       detail: {
-        tags: ['x'],
+        tags: ['example-tag'],
         description: 'Always throws an error for testing error handling',
       },
       response: z.object({

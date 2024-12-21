@@ -8,8 +8,8 @@ colors:
   accentPrimary: '#ffffff'
   background: '#000000'
 logo:
-  dark: ./white-horizontal.png
-  light: ./black-horizontal.png
+  # dark: ./white-horizontal.png
+  # light: ./black-horizontal.png
   height: 28
 navbar-links:
   - type: minimal
@@ -36,6 +36,16 @@ tabs:
     icon: fa-regular fa-code
     skip-slug: true
 navigation:
+  - tab: reference
+    layout:
+      - api: API Reference
+        paginated: true
+        flattened: true
+        layout:
+          - stream: []
+
+        snippets:
+          typescript: 'example-sdk'
   - tab: docs
     layout:
       - section: Get Started
@@ -46,14 +56,3 @@ navigation:
           - page: Make an API request
             path: docs/get-started/make-an-api-request.mdx
             icon: fa-paper-plane
-  - tab: reference
-
-    layout:
-      - api: API Reference
-        paginated: true
-        flattened: true
-        layout:
-          - stream: []
-
-        snippets:
-          typescript: 'example-sdk'
