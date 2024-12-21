@@ -25,6 +25,7 @@ import { Spiceflow } from './spiceflow.js'
 
 export type MaybeArray<T> = T | T[]
 export type MaybePromise<T> = T | Promise<T>
+export type MaybePromiseIterable<T> = T | Promise<T> | AsyncIterable<T>
 
 export type ObjectValues<T extends object> = T[keyof T]
 
@@ -80,7 +81,7 @@ type IsBothObject<A, B> =
     : false
 
 type IsClass<V> = V extends abstract new (...args: any) => any ? true : false
-type And<A, B> = A extends true ? (B extends true ? true : false) : false
+
 
 export type Reconcile<
   A extends Object,
@@ -353,7 +354,7 @@ export type InlineHandler<
     : Context<Route, Singleton, Path>,
 ) =>
   | Response
-  | MaybePromise<
+  | MaybePromiseIterable<
       {} extends Route['response']
         ? unknown
         :
