@@ -122,6 +122,29 @@ test('openapi response', async () => {
         }),
       },
     )
+    .post(
+      '/formWithSchemaForm',
+      () => {
+        const formData = new FormData()
+        formData.append('name', 'test')
+        formData.append('age', '25')
+        return new Response(formData, {
+          headers: {
+            'content-type': 'multipart/form-data',
+          },
+        })
+      },
+      {
+        detail: {
+          description: 'This returns form data with schema',
+        },
+        response: z.object({
+          name: z.string(),
+          age: z.string(),
+        }),
+        type: 'multipart/form-data',
+      },
+    )
     .use(
       new Spiceflow({ basePath: '/two' }).get(
         '/ids/:id',
@@ -183,6 +206,37 @@ test('openapi response', async () => {
                           "type": "string",
                         },
                       },
+                      "type": "object",
+                    },
+                  },
+                },
+                "description": "",
+              },
+            },
+          },
+        },
+        "/formWithSchemaForm": {
+          "post": {
+            "description": "This returns form data with schema",
+            "operationId": "postFormWithSchemaForm",
+            "responses": {
+              "200": {
+                "$schema": "http://json-schema.org/draft-07/schema#",
+                "content": {
+                  "multipart/form-data": {
+                    "schema": {
+                      "properties": {
+                        "age": {
+                          "type": "string",
+                        },
+                        "name": {
+                          "type": "string",
+                        },
+                      },
+                      "required": [
+                        "name",
+                        "age",
+                      ],
                       "type": "object",
                     },
                   },
