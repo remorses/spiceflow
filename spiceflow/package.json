@@ -34,8 +34,8 @@
 	},
 	"scripts": {
 		"build": "cp ../README.md ./README.md && rm -rf dist && tsc",
-		"prepublishOnly": "pnpm build",
-		"fern-sdk": "pnpm tsx scripts/openapi-fern.ts && fern generate --preview --group local --force",
+		"prepublishOnly": "pnpm build", 
+		"fern-sdk": "pnpm tsx scripts/openapi-fern.ts && fern generate --group local --force && echo '{\"type\": \"commonjs\"}' > scripts/sdk-typescript/package.json",
 		"test": "pnpm vitest",
 		"prepare": "pnpm build",
 		"watch": "tsc -w"

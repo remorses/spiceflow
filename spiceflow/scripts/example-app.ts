@@ -41,21 +41,29 @@ const app = new Spiceflow()
         email: z.string().email(),
         age: z.number().min(0).max(120),
       }),
+      response: z.object({
+        message: z.string(),
+        data: z.any(),
+      }),
     },
   )
-  .post(
-    '/upload',
-    async (c) => {
-      const formData = await c.request.formData()
-      const file = formData.get('file')
-      return {
-        message: 'File uploaded',
-        filename: file instanceof File ? file.name : 'unknown',
-      }
-    },
-    {
-      //   type: 'formdata',
-    },
-  )
+//   .post(
+//     '/upload',
+//     async (c) => {
+//       const formData = await c.request.formData()
+//       const file = formData.get('file')
+//       return {
+//         message: 'File uploaded',
+//         filename: file instanceof File ? file.name : 'unknown',
+//       }
+//     },
+//     {
+//       body: z.object({
+//         file: z.instanceof(File),
+//       }),
+
+//       //   type: 'formdata',
+//     },
+//   )
 
 export { app }

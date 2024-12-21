@@ -3,7 +3,7 @@ import { ExampleSdkClient } from './sdk-typescript'
 
 async function main() {
   const port = 3340
-  await app.listen(port)
+  let server = await app.listen(port)
   const sdk = new ExampleSdkClient({
     environment: 'http://localhost:' + port,
   })
@@ -30,10 +30,11 @@ async function main() {
   )
 
   // Upload data
-  console.log('Upload data:', await sdk.postUpload())
+  //   console.log('Upload data:', await sdk.postUpload())
 
   // Get OpenAPI spec
   console.log('Get OpenAPI spec:', await sdk.getOpenapi())
+  await server.close()
 }
 
 main().catch(console.error)
