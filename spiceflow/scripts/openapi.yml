@@ -2,7 +2,7 @@ openapi: 3.1.3
 servers:
   - url: https://api.com
 x-fern-global-headers:
-  - header: authorization
+  - header: Authorization
     name: Authorization
 security:
   - bearerAuth: []
@@ -70,6 +70,16 @@ paths:
           content:
             text/plain:
               schema: {}
+      tags:
+        - x
+      summary: Stream Endpoint
+      description: |2-
+
+                Returns an async generator when used in the sdk
+
+                - Uses server sent events
+                - But also has a response schema
+                
   /users/{id}:
     get:
       parameters:
@@ -95,6 +105,8 @@ paths:
           content:
             text/plain:
               schema: {}
+      tags:
+        - x
   /users:
     post:
       parameters: []

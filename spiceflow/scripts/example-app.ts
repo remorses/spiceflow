@@ -13,7 +13,8 @@ const app = new Spiceflow()
 
       'x-fern-global-headers': [
         {
-          header: 'authorization',
+          header: 'Authorization',
+          // optional: false,
           name: 'Authorization',
         },
       ],
@@ -69,6 +70,16 @@ const app = new Spiceflow()
         count: z.number(),
         timestamp: z.number(),
       }),
+      detail: {
+        tags: ['x'],
+        summary: 'Stream Endpoint',
+        description: `
+        Returns an async generator when used in the sdk
+
+        - Uses server sent events
+        - But also has a response schema
+        `,
+      },
     },
   )
   .get(
@@ -80,7 +91,9 @@ const app = new Spiceflow()
       }
     },
     {
-      detail: {},
+      detail: {
+        tags: ['x'],
+      },
     },
   )
   .post(
