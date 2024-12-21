@@ -661,4 +661,8 @@ const stream = await sdk.getStream()
 for await (const data of stream) {
   console.log('Stream data:', data)
 }
+
+// Simple GET request
+const response = await sdk.getUsers()
+console.log('Users:', response)
 ```
