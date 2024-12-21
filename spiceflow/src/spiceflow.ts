@@ -780,6 +780,9 @@ export class Spiceflow<
       let status = err?.status ?? 500
       res ||= new Response(err?.message || 'Internal Server Error', {
         status,
+        headers: {
+          'content-type': 'text/plain',
+        },
       })
       return res
     }

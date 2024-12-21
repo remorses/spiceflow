@@ -3,7 +3,23 @@ import { z } from 'zod'
 import { openapi } from '../src/openapi.js'
 
 const app = new Spiceflow()
-  .use(openapi())
+  .use(
+    openapi({
+      additional: {
+        components: {
+          securitySchemes: {
+            // https://buildwithfern.com/learn/api-definition/openapi/authentication
+            bearerAuth: {
+              type: 'http',
+              scheme: 'bearer',
+              bearerFormat: 'JWT',
+              description: 'Enter your JWT token',
+            },
+          },
+        },
+      },
+    }),
+  )
   .get('/', () => 'Hello World')
   .get(
     '/stream',
@@ -14,6 +30,7 @@ const app = new Spiceflow()
       }
     },
     {
+      detail: {},
       response: z.object({
         count: z.number(),
         timestamp: z.number(),

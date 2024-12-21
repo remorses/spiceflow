@@ -7,7 +7,7 @@ test('openapi response', async () => {
   const app = await new Spiceflow()
     .use(
       openapi({
-        documentation: {
+        additional: {
           info: {
             title: 'Spiceflow Docs',
             version: '0.0.0',

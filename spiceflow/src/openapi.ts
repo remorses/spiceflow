@@ -158,7 +158,27 @@ export const registerSchemaPath = ({
   // const headerSchema = hook?.headers
   const querySchema = hook?.query
   let responseSchema = hook?.response as unknown as TypeSchema
-  let openapiResponse: OpenAPIV3.ResponsesObject = {}
+  const defaultResponseSchema: OpenAPIV3.ResponsesObject = {
+    '500': {
+      description: 'Internal Server Error',
+      content: {
+        'text/plain': {
+          schema: {
+            type: 'string',
+          },
+        },
+      },
+    },
+    '200': {
+      description: '',
+      content: {
+        '*/*': {
+          schema: {},
+        },
+      },
+    },
+  }
+  let openapiResponse: OpenAPIV3.ResponsesObject = defaultResponseSchema
 
   if (typeof responseSchema === 'object') {
     const isStatusMap = Object.keys(responseSchema).every(
@@ -176,6 +196,7 @@ export const registerSchemaPath = ({
       } = jsonSchema
 
       openapiResponse = {
+        ...defaultResponseSchema,
         '200': {
           ...rest,
           description: (rest.description as any) || '',
@@ -259,6 +280,7 @@ export const registerSchemaPath = ({
     } = getJsonSchema(models[responseSchema])
 
     openapiResponse = {
+      ...defaultResponseSchema,
       // @ts-ignore
       '200': {
         description: '',
@@ -331,15 +353,11 @@ export const registerSchemaPath = ({
  */
 export const openapi = <Path extends string = '/openapi'>({
   path = '/openapi' as Path,
-  documentation = {},
+  additional = {},
 }: {
   path?: Path
-  /**
-   * Customize Swagger config, refers to Swagger 2.0 config
-   *
-   * @see https://swagger.io/specification/v2/
-   */
-  documentation?: Omit<
+
+  additional?: Omit<
     Partial<OpenAPIV3.Document>,
     | 'x-express-openapi-additional-middleware'
     | 'x-express-openapi-validation-strict'
@@ -399,7 +417,7 @@ export const openapi = <Path extends string = '/openapi'>({
     return {
       openapi: '3.1.3',
       ...{
-        ...documentation,
+        ...additional,
         // tags: documentation.tags?.filter(
         // 	(tag) => !excludeTags?.includes(tag?.name),
         // ),
@@ -407,19 +425,19 @@ export const openapi = <Path extends string = '/openapi'>({
           title: 'Spiceflow Documentation',
           description: 'Development documentation',
           version: '0.0.0',
-          ...documentation.info,
+          ...additional.info,
         },
       },
       paths: {
         ...schema,
-        ...documentation.paths,
+        ...additional.paths,
       },
       components: {
-        ...documentation.components,
+        ...additional.components,
         schemas: {
           // @ts-ignore
           ...app.definitions?.type,
-          ...documentation.components?.schemas,
+          ...additional.components?.schemas,
         },
       },
     } satisfies OpenAPIV3.Document
@@ -433,10 +451,12 @@ function getJsonSchema(schema: TypeSchema): JSONSchemaType<any> {
   if (isZodSchema(schema)) {
     let fn = zodToJsonSchema.default ?? zodToJsonSchema
     let jsonSchema = fn(schema, {})
-    return jsonSchema as any
+    const { $schema, ...rest } = jsonSchema
+    return rest as any
   }
 
-  return schema as any
+  const { $schema, ...rest } = schema as any
+  return rest as any
 }
 
 function isObjEmpty(obj: Record<string, any>) {
