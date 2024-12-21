@@ -10,7 +10,7 @@ const app = new Spiceflow()
     async function* () {
       for (let i = 0; i < 5; i++) {
         yield { count: i, timestamp: Date.now() }
-        await new Promise((resolve) => setTimeout(resolve, 1000))
+        await new Promise((resolve) => setTimeout(resolve, 10))
       }
     },
     {
@@ -43,13 +43,19 @@ const app = new Spiceflow()
       }),
     },
   )
-  .post('/upload', async (c) => {
-    const formData = await c.request.formData()
-    const file = formData.get('file')
-    return {
-      message: 'File uploaded',
-      filename: file instanceof File ? file.name : 'unknown',
-    }
-  })
+  .post(
+    '/upload',
+    async (c) => {
+      const formData = await c.request.formData()
+      const file = formData.get('file')
+      return {
+        message: 'File uploaded',
+        filename: file instanceof File ? file.name : 'unknown',
+      }
+    },
+    {
+      type: 'formdata',
+    },
+  )
 
 export { app }

@@ -1,15 +1,15 @@
 {
-	"extends": "../../tsconfig.base.json",
-	"compilerOptions": {
-
-		"module": "NodeNext",
-		"lib": ["DOM", "ESNext", "dom.iterable"],
-		"moduleResolution": "NodeNext",
-		"declarationMap": true,
-		"sourceMap": true,
-		"noEmit": true,
-		"resolveJsonModule": true,
-		"outDir": "dist"
-	},
-	"include": ["*"]
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "lib": ["DOM", "ESNext", "dom.iterable"],
+    "moduleResolution": "bundler",
+    "declarationMap": true,
+    "sourceMap": true,
+    "noEmit": true,
+    "allowJs": true,
+    "resolveJsonModule": true,
+    "outDir": "dist"
+  },
+  "include": ["*"]
 }
