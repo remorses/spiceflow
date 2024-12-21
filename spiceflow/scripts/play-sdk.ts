@@ -9,7 +9,7 @@ async function main() {
     token: '123',
   })
   // Get index
-  console.log('Get index:', await sdk.getIndex())
+  console.log('Get index:', await sdk.get())
 
   // Get stream data
   const stream = await sdk.getStream()
@@ -18,7 +18,7 @@ async function main() {
   }
 
   // Get user by ID
-  console.log('Get user by ID:', await sdk.getUsersById('123'))
+  console.log('Get user by ID:', await sdk.getUsersId('123'))
 
   // Create new user
   console.log(

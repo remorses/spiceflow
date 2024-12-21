@@ -12,7 +12,7 @@ import deepClone from 'lodash.clonedeep'
 import { z } from 'zod'
 import zodToJsonSchema from 'zod-to-json-schema'
 
-export const extractParamNames = (path: string): string[] => {
+const extractParamNames = (path: string): string[] => {
   return path.split('/').reduce((params: string[], segment) => {
     if (segment.startsWith(':')) {
       let param = segment.slice(1)
@@ -23,7 +23,7 @@ export const extractParamNames = (path: string): string[] => {
   }, [])
 }
 
-export const toOpenAPIPath = (path: string) =>
+const toOpenAPIPath = (path: string) =>
   path
     .split('/')
     .map((x) => {
@@ -37,7 +37,7 @@ export const toOpenAPIPath = (path: string) =>
     })
     .join('/')
 
-export const mapProperties = (
+const mapProperties = (
   name: string,
   schema: TypeSchema | string | undefined,
   models: Record<string, TypeSchema>,
@@ -101,10 +101,10 @@ const mapTypesResponse = (
   return responses
 }
 
-export const capitalize = (word: string) =>
+const capitalize = (word: string) =>
   word.charAt(0).toUpperCase() + word.slice(1)
 
-export const generateOperationId = (method: string, paths: string) => {
+const generateOperationId = (method: string, paths: string) => {
   let operationId = method.toLowerCase()
 
   if (paths === '/') return operationId + 'Index'
@@ -120,7 +120,7 @@ export const generateOperationId = (method: string, paths: string) => {
   return operationId
 }
 
-export const registerSchemaPath = ({
+const registerSchemaPath = ({
   schema,
   route,
   models,

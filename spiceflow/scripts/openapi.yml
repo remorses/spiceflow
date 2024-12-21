@@ -31,7 +31,6 @@ paths:
           content:
             text/plain:
               schema: {}
-      operationId: getIndex
   /stream:
     get:
       x-fern-streaming:
@@ -62,7 +61,6 @@ paths:
           content:
             text/plain:
               schema: {}
-      operationId: getStream
   /users/{id}:
     get:
       parameters:
@@ -88,7 +86,6 @@ paths:
           content:
             text/plain:
               schema: {}
-      operationId: getUsersById
   /users:
     post:
       parameters: []
@@ -116,7 +113,6 @@ paths:
           content:
             text/plain:
               schema: {}
-      operationId: postUsers
       requestBody:
         required: true
         content:
@@ -158,7 +154,6 @@ paths:
           content:
             text/plain:
               schema: {}
-      operationId: postUpload
       requestBody:
         required: true
         content:
@@ -191,4 +186,3 @@ paths:
           content:
             text/plain:
               schema: {}
-      operationId: getOpenapi
