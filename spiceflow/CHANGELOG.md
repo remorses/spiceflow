@@ -1,5 +1,11 @@
 # spiceflow
 
+## 1.2.0
+
+### Minor Changes
+
+- Errors are now JSON object responses, added mcp plugin to add model context protocol support, added x-fern types for openapi, added support for response schema in async generator routes
+
 ## 1.1.18
 
 ### Patch Changes

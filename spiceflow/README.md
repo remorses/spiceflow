@@ -5,7 +5,7 @@
     <h3>spiceflow</h3>
     <br/>
     <p>fast, simple and type safe API framework</p>
-    <p>still in beata</p>
+    
     <br/>
     <br/>
 </div>
@@ -18,6 +18,7 @@ Spiceflow is a lightweight, type-safe API framework for building web services us
 
 - Type safety
 - OpenAPI compatibility
+- Native support for [Fern](https://github.com/fern-api/fern) docs and SDK generation
 - RPC client generation
 - Simple and intuitive API
 - Uses web standards for requests and responses
@@ -62,7 +63,6 @@ app.post('/echo', async ({ request }) => {
   const body = await request.json()
   return body
 })
-
 ```
 
 ## Requests and Responses
@@ -90,7 +90,6 @@ new Spiceflow().post(
 
 > Notice that to get the body of the request, you need to call `request.json()` to parse the body as JSON.
 > Spiceflow does not parse the Body automatically, there is no body field in the Spiceflow route argument, instead you call either `request.json()` or `request.formData()` to get the body and validate it at the same time. This works by wrapping the request in a `SpiceflowRequest` instance, which has a `json()` and `formData()` method that parse the body and validate it. The returned data will have the correct schema type instead of `any`.
-
 
 ### Response Schema
 
@@ -282,6 +281,88 @@ new Spiceflow().use(({ request }) => {
 })
 ```
 
+## How errors are handled in Spiceflow client
+
+The Spiceflow client provides type-safe error handling by returning either a `data` or `error` property. When using the client:
+
+- Thrown errors appear in the `error` field
+- Response objects can be thrown or returned
+- Responses with status codes 200-299 appear in the `data` field
+- Responses with status codes <200 or ≥300 appear in the `error` field
+
+The example below demonstrates handling different types of responses:
+
+```ts
+import { Spiceflow } from 'spiceflow'
+import { createSpiceflowClient } from 'spiceflow/client'
+
+const app = new Spiceflow()
+  .get('/error', () => {
+    throw new Error('Something went wrong')
+  })
+  .get('/unauthorized', () => {
+    return new Response('Unauthorized access', { status: 401 })
+  })
+  .get('/success', () => {
+    throw new Response('Success message', { status: 200 })
+    return ''
+  })
+
+const client = createSpiceflowClient<typeof app>('http://localhost:3000')
+
+async function handleErrors() {
+  const errorResponse = await client.error.get()
+  console.log('Calling error endpoint...')
+  // Logs: Error occurred: Something went wrong
+  if (errorResponse.error) {
+    console.error('Error occurred:', errorResponse.error)
+  }
+
+  const unauthorizedResponse = await client.unauthorized.get()
+  console.log('Calling unauthorized endpoint...')
+  // Logs: Unauthorized: Unauthorized access (Status: 401)
+  if (unauthorizedResponse.error) {
+    console.error('Unauthorized:', unauthorizedResponse.error)
+  }
+
+  const successResponse = await client.success.get()
+  console.log('Calling success endpoint...')
+  // Logs: Success: Success message
+  if (successResponse.data) {
+    console.log('Success:', successResponse.data)
+  }
+}
+```
+
+## Using the client server side, without network requests
+
+When using the client server-side, you can pass the Spiceflow app instance directly to `createSpiceflowClient()` instead of providing a URL. This allows you to make "virtual" requests that are handled directly by the app without making actual network requests. This is useful for testing, generating documentation, or any other scenario where you want to interact with your API endpoints programmatically without setting up a server.
+
+Here's an example:
+
+```tsx
+import { Spiceflow } from 'spiceflow'
+import { createSpiceflowClient } from 'spiceflow/client'
+import { openapi } from 'spiceflow/openapi'
+import { writeFile } from 'node:fs/promises'
+
+const app = new Spiceflow()
+  .use(openapi({ path: '/openapi' }))
+  .get('/users', () => [
+    { id: 1, name: 'John' },
+    { id: 2, name: 'Jane' },
+  ])
+  .post('/users', ({ request }) => request.json())
+
+// Create client by passing app instance directly
+const client = createSpiceflowClient(app)
+
+// Get OpenAPI schema and write to disk
+const { data } = await client.openapi.get()
+await writeFile('openapi.json', JSON.stringify(data, null, 2))
+console.log('OpenAPI schema saved to openapi.json')
+```
+
 ## Modifying Response with Middleware
 
 Middleware in Spiceflow can be used to modify the response before it's sent to the client. This is useful for adding headers, transforming the response body, or performing any other operations on the response.
@@ -433,4 +514,156 @@ new Spiceflow()
     }
     return { ok: true }
   })
+```
+
+## Model Context Protocol (MCP)
+
+Spiceflow includes a Model Context Protocol (MCP) plugin that exposes your API routes as tools and resources that can be used by AI language models like Claude. The MCP plugin makes it easy to let AI assistants interact with your API endpoints in a controlled way.
+
+When you mount the MCP plugin (default path is `/mcp`), it automatically:
+
+- Exposes all your routes as callable tools with proper input validation
+- Exposes GET routes without query/path parameters as `resources`
+- Provides an SSE-based transport for real-time communication
+- Handles serialization of requests and responses
+
+This makes it simple to let AI models like Claude discover and call your API endpoints programmatically. Here's an example:
+
+```tsx
+// Import the MCP plugin and client
+import { mcp } from 'spiceflow/mcp'
+import { Client } from '@modelcontextprotocol/sdk/client/index.js'
+import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js'
+import { Spiceflow } from 'spiceflow'
+import {
+  ListToolsResultSchema,
+  CallToolResultSchema,
+  ListResourcesResultSchema,
+} from '@modelcontextprotocol/sdk/types.js'
+
+// Create a new app with some example routes
+const app = new Spiceflow()
+  // Mount the MCP plugin at /mcp (default path)
+  .use(mcp())
+  // These routes will be available as tools
+  .get('/hello', () => 'Hello World')
+  .get('/users/:id', ({ params }) => ({ id: params.id }))
+  .post('/echo', async ({ request }) => {
+    const body = await request.json()
+    return body
+  })
+
+// Start the server
+app.listen(3000)
+
+// Example client usage:
+const transport = new SSEClientTransport(new URL('http://localhost:3000/mcp'))
+
+const client = new Client(
+  { name: 'example-client', version: '1.0.0' },
+  { capabilities: {} },
+)
+
+await client.connect(transport)
+
+// List available tools
+const tools = await client.request(
+  { method: 'tools/list' },
+  ListToolsResultSchema,
+)
+
+// Call a tool
+const result = await client.request(
+  {
+    method: 'tools/call',
+    params: {
+      name: 'GET /hello',
+      arguments: {},
+    },
+  },
+  CallToolResultSchema,
+)
+
+// List available resources (only GET /hello is exposed since it has no params)
+const resources = await client.request(
+  { method: 'resources/list' },
+  ListResourcesResultSchema,
+)
+```
+
+## Generating Fern docs and SDK
+
+Spiceflow has native support for Fern docs and SDK generation using openapi plugin.
+
+The openapi types also have additional types for `x-fern` extensions to help you customize your docs and SDK.
+
+Here is an example script to help you generate an openapi.yml file that you can then use with Fern:
+
+```ts
+import fs from 'fs'
+import path from 'path'
+import yaml from 'js-yaml'
+import { Spiceflow } from 'spiceflow'
+import { openapi } from 'spiceflow/openapi'
+import { createSpiceflowClient } from 'spiceflow/client'
+
+const app = new Spiceflow()
+  .use(openapi({ path: '/openapi' }))
+  .get('/hello', () => 'Hello World')
+
+async function main() {
+  console.log('Creating Spiceflow client...')
+  const client = createSpiceflowClient(app)
+
+  console.log('Fetching OpenAPI spec...')
+  const { data: openapiJson, error } = await client.openapi.get()
+  if (error) {
+    console.error('Failed to fetch OpenAPI spec:', error)
+    throw error
+  }
+
+  const outputPath = path.resolve('./openapi.yml')
+  console.log('Writing OpenAPI spec to', outputPath)
+  fs.writeFileSync(
+    outputPath,
+    yaml.dump(openapiJson, {
+      indent: 2,
+      lineWidth: -1,
+    }),
+  )
+  console.log('Successfully wrote OpenAPI spec')
+}
+
+main().catch((e) => {
+  console.error('Failed to generate OpenAPI spec:', e)
+  process.exit(1)
+})
+```
+
+Then follow Fern docs to generate the SDK and docs. You will need to create some Fern yml config files.
+
+You can take a look at the [`scripts/example-app.ts`](spiceflow/scripts/example-app.ts) file for an example app that generates the docs and SDK.
+
+## Fern SDK streaming support
+
+When you use an async generator in your app, Spiceflow will automatically add the required `x-fern` extensions to the OpenAPI spec to support streaming.
+
+Here is what streaming looks like in the Fern generated SDK:
+
+```ts
+import { ExampleSdkClient } from './sdk-typescript'
+
+const sdk = new ExampleSdkClient({
+  environment: 'http://localhost:3000',
+})
+
+// Get stream data
+const stream = await sdk.getStream()
+for await (const data of stream) {
+  console.log('Stream data:', data)
+}
+
+// Simple GET request
+const response = await sdk.getUsers()
+console.log('Users:', response)
 ```
