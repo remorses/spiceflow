@@ -304,6 +304,7 @@ const app = new Spiceflow()
   })
   .get('/success', () => {
     throw new Response('Success message', { status: 200 })
+    return ''
   })
 
 const client = createSpiceflowClient<typeof app>('http://localhost:3000')
@@ -588,3 +589,56 @@ const resources = await client.request(
   ListResourcesResultSchema,
 )
 ```
+
+## Generating Fern docs and SDK
+
+Spiceflow has native support for Fern docs and SDK generation using openapi plugin.
+
+The openapi types also have additional types for `x-fern` extensions to help you customize your docs and SDK.
+
+Here is an example script to help you generate an openapi.yml file that you can then use with Fern:
+
+```ts
+import fs from 'fs'
+import path from 'path'
+import yaml from 'js-yaml'
+import { Spiceflow } from 'spiceflow'
+import { openapi } from 'spiceflow/openapi'
+import { createSpiceflowClient } from 'spiceflow/client'
+
+const app = new Spiceflow()
+  .use(openapi({ path: '/openapi' }))
+  .get('/hello', () => 'Hello World')
+
+async function main() {
+  console.log('Creating Spiceflow client...')
+  const client = createSpiceflowClient(app)
+
+  console.log('Fetching OpenAPI spec...')
+  const { data: openapiJson, error } = await client.openapi.get()
+  if (error) {
+    console.error('Failed to fetch OpenAPI spec:', error)
+    throw error
+  }
+
+  const outputPath = path.resolve('./openapi.yml')
+  console.log('Writing OpenAPI spec to', outputPath)
+  fs.writeFileSync(
+    outputPath,
+    yaml.dump(openapiJson, {
+      indent: 2,
+      lineWidth: -1,
+    }),
+  )
+  console.log('Successfully wrote OpenAPI spec')
+}
+
+main().catch((e) => {
+  console.error('Failed to generate OpenAPI spec:', e)
+  process.exit(1)
+})
+```
+
+Then follow Fern docs to generate the SDK and docs. You will need to create some Fern yml config files.
+
+You can take a look at the [`scripts/example-app.ts`](spiceflow/scripts/example-app.ts) file for an example app that generates the docs and SDK.
