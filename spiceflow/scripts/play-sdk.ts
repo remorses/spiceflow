@@ -12,13 +12,13 @@ async function main() {
   console.log('Get index:', await sdk.one.take())
 
   // Get stream data
-  const stream = await sdk.getStream()
+  const stream = await sdk.x.streamEndpoint()
   for await (const data of stream) {
     console.log('Stream data:', data)
   }
 
   // Get user by ID
-  console.log('Get user by ID:', await sdk.getUsersId('123'))
+  console.log('Get user by ID:', await sdk.x.getUsersId('123'))
 
   // Create new user
   console.log(
@@ -34,6 +34,11 @@ async function main() {
     'Upload data:',
     await sdk.postUpload({ file: Buffer.from('sdfsdf').toString('base64') }),
   )
+
+  const err1 = await sdk.x.errorEndpoint().catch((e) => e)
+  console.log('Error 1:', err1)
+  const err2 = await sdk.x.getErrorWithSchema().catch((e) => e)
+  console.log('Error 2:', err2)
 
   // Get OpenAPI spec
   // console.log('Get OpenAPI spec:', await sdk.getOpenapi())

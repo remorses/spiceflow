@@ -207,19 +207,9 @@ test('openapi response', async () => {
                 },
                 "description": "",
               },
-              "500": {
-                "content": {
-                  "text/plain": {
-                    "schema": {
-                      "type": "string",
-                    },
-                  },
-                },
-                "description": "Internal Server Error",
-              },
               "default": {
                 "content": {
-                  "text/plain": {
+                  "*/*": {
                     "schema": {},
                   },
                 },
@@ -254,19 +244,9 @@ test('openapi response', async () => {
                 },
                 "description": "",
               },
-              "500": {
-                "content": {
-                  "text/plain": {
-                    "schema": {
-                      "type": "string",
-                    },
-                  },
-                },
-                "description": "Internal Server Error",
-              },
               "default": {
                 "content": {
-                  "text/plain": {
+                  "*/*": {
                     "schema": {},
                   },
                 },
@@ -316,19 +296,9 @@ test('openapi response', async () => {
                 },
                 "description": "",
               },
-              "500": {
-                "content": {
-                  "text/plain": {
-                    "schema": {
-                      "type": "string",
-                    },
-                  },
-                },
-                "description": "Internal Server Error",
-              },
               "default": {
                 "content": {
-                  "text/plain": {
+                  "*/*": {
                     "schema": {},
                   },
                 },
@@ -348,19 +318,9 @@ test('openapi response', async () => {
                 },
                 "description": "",
               },
-              "500": {
-                "content": {
-                  "text/plain": {
-                    "schema": {
-                      "type": "string",
-                    },
-                  },
-                },
-                "description": "Internal Server Error",
-              },
               "default": {
                 "content": {
-                  "text/plain": {
+                  "*/*": {
                     "schema": {},
                   },
                 },
@@ -397,19 +357,9 @@ test('openapi response', async () => {
                 },
                 "description": "",
               },
-              "500": {
-                "content": {
-                  "text/plain": {
-                    "schema": {
-                      "type": "string",
-                    },
-                  },
-                },
-                "description": "Internal Server Error",
-              },
               "default": {
                 "content": {
-                  "text/plain": {
+                  "*/*": {
                     "schema": {},
                   },
                 },
@@ -456,19 +406,9 @@ test('openapi response', async () => {
                 },
                 "description": "",
               },
-              "500": {
-                "content": {
-                  "text/plain": {
-                    "schema": {
-                      "type": "string",
-                    },
-                  },
-                },
-                "description": "Internal Server Error",
-              },
               "default": {
                 "content": {
-                  "text/plain": {
+                  "*/*": {
                     "schema": {},
                   },
                 },
@@ -489,19 +429,9 @@ test('openapi response', async () => {
                 },
                 "description": "",
               },
-              "500": {
-                "content": {
-                  "text/plain": {
-                    "schema": {
-                      "type": "string",
-                    },
-                  },
-                },
-                "description": "Internal Server Error",
-              },
               "default": {
                 "content": {
-                  "text/plain": {
+                  "*/*": {
                     "schema": {},
                   },
                 },
@@ -535,19 +465,9 @@ test('openapi response', async () => {
                 },
                 "description": "",
               },
-              "500": {
-                "content": {
-                  "text/plain": {
-                    "schema": {
-                      "type": "string",
-                    },
-                  },
-                },
-                "description": "Internal Server Error",
-              },
               "default": {
                 "content": {
-                  "text/plain": {
+                  "*/*": {
                     "schema": {},
                   },
                 },
@@ -580,19 +500,9 @@ test('openapi response', async () => {
                 },
                 "description": "",
               },
-              "500": {
-                "content": {
-                  "text/plain": {
-                    "schema": {
-                      "type": "string",
-                    },
-                  },
-                },
-                "description": "Internal Server Error",
-              },
               "default": {
                 "content": {
-                  "text/plain": {
+                  "*/*": {
                     "schema": {},
                   },
                 },

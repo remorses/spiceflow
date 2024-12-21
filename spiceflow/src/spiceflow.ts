@@ -778,12 +778,15 @@ export class Spiceflow<
       if (isResponse(res)) return res
 
       let status = err?.status ?? 500
-      res ||= new Response(err?.message || 'Internal Server Error', {
-        status,
-        headers: {
-          'content-type': 'text/plain',
+      res ||= new Response(
+        JSON.stringify({ message: err?.message || 'Internal Server Error' }),
+        {
+          status,
+          headers: {
+            'content-type': 'application/json',
+          },
         },
-      })
+      )
       return res
     }
 
@@ -920,9 +923,12 @@ export class Spiceflow<
         reusePort: true,
         error(error) {
           console.error(error)
-          return new Response('Internal Server Error', {
-            status: 500,
-          })
+          return new Response(
+            JSON.stringify({ message: 'Internal Server Error' }),
+            {
+              status: 500,
+            },
+          )
         },
 
         fetch: async (request) => {
@@ -998,7 +1004,7 @@ export class Spiceflow<
       } catch (error) {
         console.error('Error handling request:', error)
         res.statusCode = 500
-        res.end('Internal Server Error')
+        res.end(JSON.stringify({ message: 'Internal Server Error' }))
       }
     })
 

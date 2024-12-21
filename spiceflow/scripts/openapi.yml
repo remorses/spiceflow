@@ -1,9 +1,6 @@
 openapi: 3.1.3
 servers:
   - url: https://api.com
-x-fern-global-headers:
-  - header: Authorization
-    name: Authorization
 security:
   - bearerAuth: []
 components:
@@ -27,16 +24,10 @@ paths:
           content:
             '*/*':
               schema: {}
-        '500':
-          description: Internal Server Error
-          content:
-            text/plain:
-              schema:
-                type: string
         default:
           description: ''
           content:
-            text/plain:
+            '*/*':
               schema: {}
       x-fern-sdk-group-name: one
       x-fern-sdk-method-name: take
@@ -48,7 +39,7 @@ paths:
         '200':
           description: ''
           content:
-            application/json:
+            '*/*':
               schema:
                 type: object
                 properties:
@@ -59,16 +50,10 @@ paths:
                 required:
                   - count
                   - timestamp
-        '500':
-          description: Internal Server Error
-          content:
-            text/plain:
-              schema:
-                type: string
         default:
           description: ''
           content:
-            text/plain:
+            '*/*':
               schema: {}
       tags:
         - x
@@ -94,16 +79,10 @@ paths:
           content:
             '*/*':
               schema: {}
-        '500':
-          description: Internal Server Error
-          content:
-            text/plain:
-              schema:
-                type: string
         default:
           description: ''
           content:
-            text/plain:
+            '*/*':
               schema: {}
       tags:
         - x
@@ -114,7 +93,7 @@ paths:
         '200':
           description: ''
           content:
-            application/json:
+            '*/*':
               schema:
                 type: object
                 properties:
@@ -123,16 +102,10 @@ paths:
                   data: {}
                 required:
                   - message
-        '500':
-          description: Internal Server Error
-          content:
-            text/plain:
-              schema:
-                type: string
         default:
           description: ''
           content:
-            text/plain:
+            '*/*':
               schema: {}
       requestBody:
         required: true
@@ -155,6 +128,45 @@ paths:
                 - email
                 - age
               additionalProperties: false
+  /error:
+    get:
+      responses:
+        '200':
+          description: ''
+          content:
+            '*/*':
+              schema: {}
+        default:
+          description: ''
+          content:
+            '*/*':
+              schema: {}
+      tags:
+        - x
+      summary: Error Endpoint
+      description: Always throws an error for testing error handling
+  /errorWithSchema:
+    get:
+      responses:
+        '200':
+          description: ''
+          content:
+            '*/*':
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
+        default:
+          description: ''
+          content:
+            '*/*':
+              schema: {}
+      tags:
+        - x
+      description: Always throws an error for testing error handling
   /upload:
     post:
       parameters: []
@@ -164,16 +176,10 @@ paths:
           content:
             '*/*':
               schema: {}
-        '500':
-          description: Internal Server Error
-          content:
-            text/plain:
-              schema:
-                type: string
         default:
           description: ''
           content:
-            text/plain:
+            '*/*':
               schema: {}
       requestBody:
         required: true
@@ -196,14 +202,8 @@ paths:
           content:
             '*/*':
               schema: {}
-        '500':
-          description: Internal Server Error
-          content:
-            text/plain:
-              schema:
-                type: string
         default:
           description: ''
           content:
-            text/plain:
+            '*/*':
               schema: {}

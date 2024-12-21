@@ -103,7 +103,7 @@ test('onError fires on validation errors', async () => {
 
   expect(res.status).toBe(400)
   expect(errorMessage).toContain('data/name must be string')
-  expect(await res.text()).toBe('Error')
+  expect(await res.text()).toMatchInlineSnapshot(`"Error"`)
 })
 
 test.todo('HEAD uses GET route, does not add body', async () => {
@@ -311,7 +311,7 @@ test('validate body works, request fails', async () => {
     )
   expect(res.status).toBe(422)
   expect(await res.text()).toMatchInlineSnapshot(
-    `"data must have required property 'requiredField'"`,
+    `"{"message":"data must have required property 'requiredField'"}"`,
   )
 })
 
@@ -578,7 +578,7 @@ test('errors inside basPath works', async () => {
     expect(onErrorTriggered).toEqual(['root', 'two', 'nested'])
     expect(onReqTriggered).toEqual(['root', 'two', 'nested'])
     expect(res.status).toBe(500)
-    expect(await res.text()).toBe('error message')
+    expect(await res.text()).toMatchInlineSnapshot(`"{"message":"error message"}"`)
     // expect(await res.json()).toEqual('nested'))
   }
 })

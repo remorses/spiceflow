@@ -11,13 +11,13 @@ const app = new Spiceflow()
         },
       ],
 
-      'x-fern-global-headers': [
-        {
-          header: 'Authorization',
-          // optional: false,
-          name: 'Authorization',
-        },
-      ],
+      // 'x-fern-global-headers': [
+      //   {
+      //     header: 'Authorization',
+      //     // optional: false,
+      //     name: 'Authorization',
+      //   },
+      // ],
       security: [
         {
           bearerAuth: [],
@@ -29,6 +29,7 @@ const app = new Spiceflow()
           bearerAuth: {
             type: 'http',
             scheme: 'bearer',
+
             bearerFormat: 'JWT',
             description: 'Enter your JWT token',
           },
@@ -42,12 +43,12 @@ const app = new Spiceflow()
     }
     const auth = c.request.headers.get('authorization')
     if (!auth) {
-      throw new Response('Unauthorized', {
-        headers: {
-          'content-type': 'text/plain',
-        },
-        status: 401,
-      })
+      // throw new Response('Unauthorized', {
+      //   headers: {
+      //     'content-type': 'text/plain',
+      //   },
+      //   status: 401,
+      // })
     }
     return next()
   })
@@ -115,6 +116,37 @@ const app = new Spiceflow()
       response: z.object({
         message: z.string(),
         data: z.any(),
+      }),
+    },
+  )
+  .get(
+    '/error',
+    async () => {
+      throw new Error('This is a test error')
+    },
+    {
+      detail: {
+        tags: ['x'],
+        summary: 'Error Endpoint',
+        description: 'Always throws an error for testing error handling',
+      },
+      // response: z.object({
+      //   message: z.string(),
+      // }),
+    },
+  )
+  .get(
+    '/errorWithSchema',
+    async () => {
+      throw new Error('This is a test error with schema too')
+    },
+    {
+      detail: {
+        tags: ['x'],
+        description: 'Always throws an error for testing error handling',
+      },
+      response: z.object({
+        message: z.string(),
       }),
     },
   )

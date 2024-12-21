@@ -159,25 +159,25 @@ const registerSchemaPath = ({
   const querySchema = hook?.query
   let responseSchema = hook?.response as unknown as TypeSchema
   const defaultResponseSchema: OpenAPIV3.ResponsesObject = {
-    '500': {
-      description: 'Internal Server Error',
-      content: {
-        'text/plain': {
-          schema: {
-            type: 'string',
-          },
-        },
-      },
-    },
-    default: {
+    // '500': {
+    //   description: 'Internal Server Error',
+    //   content: {
+    //     'text/plain': {
+    //       schema: {
+    //         type: 'string',
+    //       },
+    //     },
+    //   },
+    // },
+    '200': {
       description: '',
       content: {
-        'text/plain': {
+        '*/*': {
           schema: {},
         },
       },
     },
-    '200': {
+    default: {
       description: '',
       content: {
         '*/*': {
