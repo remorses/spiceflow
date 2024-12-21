@@ -224,12 +224,12 @@ export type LifeCycleEvent =
 
 export type ContentType = MaybeArray<
   | (string & {})
-  | 'none'
-  | 'text'
-  | 'json'
-  | 'formdata'
-  | 'urlencoded'
-  | 'arrayBuffer'
+  // | 'none'
+  // | 'text'
+  // | 'json'
+  // | 'formdata'
+  // | 'urlencoded'
+  // | 'arrayBuffer'
   | 'text/plain'
   | 'application/json'
   | 'multipart/form-data'

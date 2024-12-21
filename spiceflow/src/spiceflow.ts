@@ -7,6 +7,7 @@ export { Type as t }
 import addFormats from 'ajv-formats'
 import {
   ComposeSpiceflowResponse,
+  ContentType,
   CreateClient,
   DefinitionBase,
   ErrorHandler,
@@ -66,6 +67,7 @@ type OnError = (x: { error: any; request: Request }) => AsyncResponse
 export type InternalRoute = {
   method: HTTPMethod
   path: string
+  type: ContentType
   handler: InlineHandler<any, any, any>
   hooks: LocalHook<any, any, any, any, any, any, any>
   validateBody?: ValidateFunction
@@ -157,6 +159,7 @@ export class Spiceflow<
     const store = this.router.register(path)
     let route: InternalRoute = {
       ...rest,
+      type: hooks?.type || '',
       method: (method || '') as any,
       path: path || '',
       handler: handler!,
@@ -794,7 +797,10 @@ export class Spiceflow<
           if (!result && index < middlewares.length) {
             return await next()
           } else if (result) {
-            return await turnHandlerResultIntoResponse(result)
+            return await turnHandlerResultIntoResponse(
+              result,
+              route.internalRoute,
+            )
           }
         }
         if (handlerResponse) {
@@ -816,10 +822,14 @@ export class Spiceflow<
             generator: res,
             request,
             onErrorHandlers,
+            route: route.internalRoute,
           })
           return handlerResponse
         }
-        handlerResponse = await turnHandlerResultIntoResponse(res)
+        handlerResponse = await turnHandlerResultIntoResponse(
+          res,
+          route.internalRoute,
+        )
         return handlerResponse
       } catch (err) {
         handlerResponse = await getResForError(err)
@@ -1003,16 +1013,18 @@ export class Spiceflow<
     onErrorHandlers,
     generator,
     request,
+    route,
   }: {
     generator: Generator | AsyncGenerator
     onErrorHandlers: OnError[]
     request: Request
+    route: InternalRoute
   }) {
     let init = generator.next()
     if (init instanceof Promise) init = await init
 
     if (init?.done) {
-      return await turnHandlerResultIntoResponse(init.value)
+      return await turnHandlerResultIntoResponse(init.value, route)
     }
     // let errorHandlers = this.routerTree.onErrorHandlers
     let self = this
@@ -1197,7 +1209,10 @@ export function bfs(tree: AnySpiceflow) {
   return nodes
 }
 
-export async function turnHandlerResultIntoResponse(result: any) {
+export async function turnHandlerResultIntoResponse(
+  result: any,
+  route: InternalRoute,
+) {
   // if user returns a promise, await it
   if (result instanceof Promise) {
     result = await result
@@ -1207,6 +1222,52 @@ export async function turnHandlerResultIntoResponse(result: any) {
     return result
   }
 
+  if (route.type) {
+    if (route.type?.includes('multipart/form-data')) {
+      if (!(result instanceof Response)) {
+        throw new Error(
+          `Invalid form data returned from route handler ${
+            route.path
+          } - expected Response but got ${
+            result?.constructor?.name || typeof result
+          }. FormData cannot be returned directly - it must be wrapped in a Response object with the appropriate content-type header.`,
+        )
+      }
+    }
+    if (route.type?.includes('application/x-www-form-urlencoded')) {
+      if (!(result instanceof URLSearchParams)) {
+        throw new Error(
+          `Invalid URL encoded data returned from route handler ${
+            route.path
+          } - expected URLSearchParams but got ${
+            result?.constructor?.name || typeof result
+          }`,
+        )
+      }
+      return new Response(result, {
+        headers: {
+          'content-type': 'application/x-www-form-urlencoded',
+        },
+      })
+    }
+
+    if (route.type?.includes('text/plain')) {
+      if (typeof result !== 'string') {
+        throw new Error(
+          `Invalid text returned from route handler ${
+            route.path
+          } - expected string but got ${
+            result?.constructor?.name || typeof result
+          }`,
+        )
+      }
+      return new Response(result, {
+        headers: {
+          'content-type': 'text/plain',
+        },
+      })
+    }
+  }
   return new Response(JSON.stringify(result ?? null, null, 2), {
     headers: {
       'content-type': 'application/json',

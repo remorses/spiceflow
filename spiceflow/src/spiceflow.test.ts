@@ -18,6 +18,30 @@ test('dynamic route', async () => {
   expect(res.status).toBe(200)
   expect(await res.json()).toEqual('hi')
 })
+test('handler returns url encoded data', async () => {
+  const params = new URLSearchParams()
+  params.append('name', 'test')
+  params.append('value', '123')
+
+  const res = await new Spiceflow()
+    .post('/form', () => params, {
+      type: 'application/x-www-form-urlencoded',
+    })
+    .handle(
+      new Request('http://localhost/form', {
+        method: 'POST',
+      }),
+    )
+
+  expect(res.status).toBe(200)
+  expect(res.headers.get('content-type')).toBe(
+    'application/x-www-form-urlencoded',
+  )
+  const text = await res.text()
+  const responseParams = new URLSearchParams(text)
+  expect(responseParams.get('name')).toBe('test')
+  expect(responseParams.get('value')).toBe('123')
+})
 test('GET dynamic route', async () => {
   const res = await new Spiceflow()
     .get('/ids/:id', () => 'hi')

@@ -195,6 +195,16 @@ test('openapi response', async () => {
         "/one/ids/{id}": {
           "get": {
             "operationId": "getOneIdsById",
+            "parameters": [
+              {
+                "in": "path",
+                "name": "id",
+                "required": true,
+                "schema": {
+                  "type": "string",
+                },
+              },
+            ],
             "responses": {
               "200": {
                 "$schema": "http://json-schema.org/draft-07/schema#",
