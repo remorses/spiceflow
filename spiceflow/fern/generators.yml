@@ -5,15 +5,15 @@ default-group: local
 groups:
   local:
     generators:
-      - name: fernapi/fern-typescript-node-sdk
-        version: 0.39.3
-        config:
-          namespaceExport: ExampleSdk
-          allowCustomFetcher: true
-          skipResponseValidation: true
-          # includeApiReference: true
-        output:
-          location: local-file-system
-          path: ../scripts/sdk-typescript
+    - name: fernapi/fern-typescript-node-sdk
+      version: 0.39.3
+      config:
+        namespaceExport: ExampleSdk
+        allowCustomFetcher: true
+        skipResponseValidation: true
+        # includeApiReference: true
+      output:
+        location: local-file-system
+        path: ../scripts/sdk-typescript
 api:
   path: ../scripts/openapi.yml
