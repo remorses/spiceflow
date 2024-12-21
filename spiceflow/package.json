@@ -36,6 +36,7 @@
     "build": "cp ../README.md ./README.md && rm -rf dist && tsc",
     "prepublishOnly": "pnpm build",
     "gen-openapi": "pnpm tsx scripts/openapi-fern.ts",
+    "docs:dev": "pnpm run gen-openapi && fern docs dev",
     "fern-sdk": "pnpm run gen-openapi && fern generate --force && echo '{\"type\": \"commonjs\"}' > scripts/sdk-typescript/package.json",
     "fern-docs": "pnpm run gen-openapi && fern generate --docs --force",
     "test": "pnpm vitest",

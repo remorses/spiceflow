@@ -360,16 +360,27 @@ const registerSchemaPath = ({
  */
 export const openapi = <Path extends string = '/openapi'>({
   path = '/openapi' as Path,
-  additional = {},
+  ...additional
 }: {
   path?: Path
-
-  additional?: Omit<
-    Partial<OpenAPIV3.Document>,
-    | 'x-express-openapi-additional-middleware'
-    | 'x-express-openapi-validation-strict'
-  >
-} = {}) => {
+} & Omit<
+  Partial<OpenAPIV3.Document>,
+  | 'x-express-openapi-additional-middleware'
+  | 'x-express-openapi-validation-strict'
+> & {
+    'x-fern-global-headers'?: Array<{
+      header: string
+      name: string
+      optional?: boolean
+    }>
+    'x-fern-version'?: {
+      version: {
+        header: string
+        default: string
+        values: string[]
+      }
+    }
+  } = {}) => {
   const schema = {}
   let totalRoutes = 0
 

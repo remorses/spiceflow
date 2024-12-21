@@ -9,7 +9,7 @@ async function main() {
     token: '123',
   })
   // Get index
-  console.log('Get index:', await sdk.get())
+  console.log('Get index:', await sdk.one.take())
 
   // Get stream data
   const stream = await sdk.getStream()

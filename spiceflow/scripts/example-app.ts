@@ -5,16 +5,31 @@ import { openapi } from '../src/openapi.js'
 const app = new Spiceflow()
   .use(
     openapi({
-      additional: {
-        components: {
-          securitySchemes: {
-            // https://buildwithfern.com/learn/api-definition/openapi/authentication
-            bearerAuth: {
-              type: 'http',
-              scheme: 'bearer',
-              bearerFormat: 'JWT',
-              description: 'Enter your JWT token',
-            },
+      servers: [
+        {
+          url: 'https://api.com',
+        },
+      ],
+
+      'x-fern-global-headers': [
+        {
+          header: 'authorization',
+          name: 'Authorization',
+        },
+      ],
+      security: [
+        {
+          bearerAuth: [],
+        },
+      ],
+      components: {
+        securitySchemes: {
+          // https://buildwithfern.com/learn/api-definition/openapi/authentication
+          bearerAuth: {
+            type: 'http',
+            scheme: 'bearer',
+            bearerFormat: 'JWT',
+            description: 'Enter your JWT token',
           },
         },
       },
@@ -35,7 +50,12 @@ const app = new Spiceflow()
     }
     return next()
   })
-  .get('/', () => 'Hello World')
+  .get('/', () => 'Hello World', {
+    detail: {
+      'x-fern-sdk-group-name': 'one',
+      'x-fern-sdk-method-name': 'take',
+    },
+  })
   .get(
     '/stream',
     async function* () {
@@ -45,19 +65,24 @@ const app = new Spiceflow()
       }
     },
     {
-      detail: {},
       response: z.object({
         count: z.number(),
         timestamp: z.number(),
       }),
     },
   )
-  .get('/users/:id', (c) => {
-    return {
-      id: c.params.id,
-      name: c.query.name || 'Anonymous',
-    }
-  })
+  .get(
+    '/users/:id',
+    (c) => {
+      return {
+        id: c.params.id,
+        name: c.query.name || 'Anonymous',
+      }
+    },
+    {
+      detail: {},
+    },
+  )
   .post(
     '/users',
     async (c) => {
@@ -68,6 +93,7 @@ const app = new Spiceflow()
       }
     },
     {
+      detail: {},
       body: z.object({
         name: z.string(),
         email: z.string().email(),
@@ -90,6 +116,7 @@ const app = new Spiceflow()
       }
     },
     {
+      detail: {},
       body: z.object({
         file: z.string().base64(),
       }),

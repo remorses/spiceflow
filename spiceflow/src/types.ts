@@ -555,6 +555,10 @@ export type DocumentDecoration = Partial<OpenAPIV3.OperationObject> & {
    * Pass `true` to hide route from OpenAPI/swagger document
    * */
   hide?: boolean
+  // 'x-fern-type-name'?: string
+  'x-fern-sdk-group-name'?: string | string[]
+  'x-fern-sdk-method-name'?: string
+  'x-fern-webhook'?: boolean
 }
 
 export type LocalHook<

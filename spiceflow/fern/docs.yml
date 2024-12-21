@@ -52,5 +52,8 @@ navigation:
       - api: API Reference
         paginated: true
         flattened: true
+        layout:
+          - stream: []
+
         snippets:
           typescript: 'example-sdk'
