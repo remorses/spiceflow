@@ -1,8 +1,56 @@
+# yaml-language-server: $schema=https://schema.buildwithfern.dev/docs-yml.json
+# example: https://github.com/cartesia-ai/docs/blob/96b8e3a8f14eb6add68dee116c03248f1ae84957/fern/docs.yml#L4
 instances:
   - url: https://remorses.docs.buildwithfern.com
 title: remorses | Documentation
-navigation:
-  - api: API Reference
+
 colors:
   accentPrimary: '#ffffff'
   background: '#000000'
+logo:
+  dark: ./white-horizontal.png
+  light: ./black-horizontal.png
+  height: 28
+navbar-links:
+  - type: minimal
+    text: Homepage
+    url: https://cartesia.ai
+  - type: minimal
+    text: Discord
+    url: https://discord.gg/cartesia
+  - type: filled
+    text: Playground
+    url: https://play.cartesia.ai
+layout:
+  tabs-placement: header
+  searchbar-placement: header
+tabs:
+  docs:
+    display-name: Documentation
+    slug: docs
+    icon: fa-regular fa-file-alt
+    skip-slug: true
+  reference:
+    display-name: API Reference
+    slug: reference
+    icon: fa-regular fa-code
+    skip-slug: true
+navigation:
+  - tab: docs
+    layout:
+      - section: Get Started
+        contents:
+          - page: Overview
+            path: docs/get-started/overview.mdx
+            icon: fa-browser
+          - page: Make an API request
+            path: docs/get-started/make-an-api-request.mdx
+            icon: fa-paper-plane
+  - tab: reference
+
+    layout:
+      - api: API Reference
+        paginated: true
+        flattened: true
+        snippets:
+          typescript: 'example-sdk'
