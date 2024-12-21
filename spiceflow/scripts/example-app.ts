@@ -20,6 +20,16 @@ const app = new Spiceflow()
       },
     }),
   )
+  .use(async (c, next) => {
+    if (c.path === '/openapi') {
+      return next()
+    }
+    const auth = c.request.headers.get('authorization')
+    if (!auth) {
+      throw new Response('Unauthorized', { status: 401 })
+    }
+    return next()
+  })
   .get('/', () => 'Hello World')
   .get(
     '/stream',

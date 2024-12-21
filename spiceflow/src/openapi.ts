@@ -169,6 +169,14 @@ export const registerSchemaPath = ({
         },
       },
     },
+    default: {
+      description: '',
+      content: {
+        'text/plain': {
+          schema: {},
+        },
+      },
+    },
     '200': {
       description: '',
       content: {

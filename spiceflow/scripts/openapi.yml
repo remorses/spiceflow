@@ -26,6 +26,11 @@ paths:
             text/plain:
               schema:
                 type: string
+        default:
+          description: ''
+          content:
+            text/plain:
+              schema: {}
       operationId: getIndex
   /stream:
     get:
@@ -52,6 +57,11 @@ paths:
             text/plain:
               schema:
                 type: string
+        default:
+          description: ''
+          content:
+            text/plain:
+              schema: {}
       operationId: getStream
   /users/{id}:
     get:
@@ -73,6 +83,11 @@ paths:
             text/plain:
               schema:
                 type: string
+        default:
+          description: ''
+          content:
+            text/plain:
+              schema: {}
       operationId: getUsersById
   /users:
     post:
@@ -96,6 +111,11 @@ paths:
             text/plain:
               schema:
                 type: string
+        default:
+          description: ''
+          content:
+            text/plain:
+              schema: {}
       operationId: postUsers
       requestBody:
         required: true
@@ -132,4 +152,9 @@ paths:
             text/plain:
               schema:
                 type: string
+        default:
+          description: ''
+          content:
+            text/plain:
+              schema: {}
       operationId: getOpenapi
