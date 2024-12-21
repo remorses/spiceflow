@@ -642,3 +642,23 @@ main().catch((e) => {
 Then follow Fern docs to generate the SDK and docs. You will need to create some Fern yml config files.
 
 You can take a look at the [`scripts/example-app.ts`](spiceflow/scripts/example-app.ts) file for an example app that generates the docs and SDK.
+
+## Fern SDK streaming support
+
+When you use an async generator in your app, Spiceflow will automatically add the required `x-fern` extensions to the OpenAPI spec to support streaming.
+
+Here is what streaming looks like in the Fern generated SDK:
+
+```ts
+import { ExampleSdkClient } from './sdk-typescript'
+
+const sdk = new ExampleSdkClient({
+  environment: 'http://localhost:3000',
+})
+
+// Get stream data
+const stream = await sdk.getStream()
+for await (const data of stream) {
+  console.log('Stream data:', data)
+}
+```
