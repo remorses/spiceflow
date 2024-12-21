@@ -5,7 +5,7 @@
     <h3>spiceflow</h3>
     <br/>
     <p>fast, simple and type safe API framework</p>
-    <p>still in beata</p>
+    
     <br/>
     <br/>
 </div>
@@ -18,6 +18,7 @@ Spiceflow is a lightweight, type-safe API framework for building web services us
 
 - Type safety
 - OpenAPI compatibility
+- Native support for [Fern](https://github.com/fern-api/fern) docs and SDK generation
 - RPC client generation
 - Simple and intuitive API
 - Uses web standards for requests and responses
