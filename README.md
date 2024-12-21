@@ -5,7 +5,6 @@
     <h3>spiceflow</h3>
     <br/>
     <p>fast, simple and type safe API framework</p>
-    
     <br/>
     <br/>
 </div>
