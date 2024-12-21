@@ -38,8 +38,9 @@
     "gen-openapi": "pnpm tsx scripts/openapi-fern.ts",
     "docs:dev": "pnpm run gen-openapi && fern docs dev",
     "docs:prod": "pnpm run gen-openapi && fern generate --docs --force",
-    "fern-sdk": "pnpm run gen-openapi && fern generate --force && echo '{\"type\": \"commonjs\"}' > scripts/sdk-typescript/package.json",
+    "fern-sdk": "pnpm run gen-openapi && fern generate --force ",
     "fern-docs": "pnpm run gen-openapi && fern generate --docs --force",
+	"play-sdk:build": "pnpm vite build --config ./scripts/play-sdk.vite.ts",
     "test": "pnpm vitest",
     "prepare": "pnpm build",
     "watch": "tsc -w"

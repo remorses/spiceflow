@@ -204,8 +204,10 @@ describe('Stream', () => {
     const body = await app.handle(req('/')).then((x) => x.body)
 
     let events = [] as any[]
-    const parser = createParser((event) => {
-      events.push(event)
+    const parser = createParser({
+      onEvent: (event) => {
+        events.push(event)
+      },
     })
     const { promise, resolve } = Promise.withResolvers<void>()
     const reader = body?.getReader()!

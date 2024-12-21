@@ -5,7 +5,6 @@
     <h3>spiceflow</h3>
     <br/>
     <p>fast, simple and type safe API framework</p>
-    
     <br/>
     <br/>
 </div>
@@ -16,13 +15,14 @@ Spiceflow is a lightweight, type-safe API framework for building web services us
 
 ## Features
 
-- Type safety
-- OpenAPI compatibility
-- Native support for [Fern](https://github.com/fern-api/fern) docs and SDK generation
-- RPC client generation
+- Type safe schema based validation via Zod
+- Can easily generate OpenAPI document based on your routes
+- Native support for [Fern](https://github.com/fern-api/fern) to generate docs and SDKs (see example docs [here](https://remorses.docs.buildwithfern.com))
+- Support for [Model Context Protocol](https://modelcontextprotocol.io/) to easily wire your app with LLMs
+- Type safe RPC client generation
 - Simple and intuitive API
 - Uses web standards for requests and responses
-- Supports async generators for streaming
+- Supports async generators for streaming via server sent events
 - Modular design with `.use()` for mounting sub-apps
 - Base path support
 
@@ -34,6 +34,8 @@ npm install spiceflow
 
 ## Basic Usage
 
+Objects returned from route handlers are automatically serialized to JSON
+
 ```ts
 import { Spiceflow } from 'spiceflow'
 
@@ -41,20 +43,20 @@ const app = new Spiceflow()
   .get('/hello', () => 'Hello, World!')
   .post('/echo', async ({ request }) => {
     const body = await request.json()
-    return body
+    return { echo: body }
   })
 
 app.listen(3000)
 ```
 
-> Notice that you should never declare app separately and add routes later, that way you lose the type safety. Instead always declare all routes in one place.
+> Never declare app and add routes separately, that way you lose the type safety. Instead always append routes with .post and .get in a single expression.
 
 ```ts
 // This is an example of what NOT to do when using Spiceflow
 
 import { Spiceflow } from 'spiceflow'
 
-// Do NOT declare the app separately and add routes later
+// DO NOT declare the app separately and add routes later
 const app = new Spiceflow()
 
 // Do NOT do this! Adding routes separately like this will lose type safety

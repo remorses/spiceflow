@@ -10,13 +10,25 @@ groups:
         version: 0.39.3
 
         config:
+          # https://github.com/fern-api/fern/blob/43cf7986d5ed3b0196516daa63437986e1535b5c/generators/typescript/sdk/cli/src/custom-config/schema/SdkCustomConfigSchema.ts#L3
+          # outputSourceFiles: true
+          allowCustomFetcher: false
+          bundle: true
           namespaceExport: ExampleSdk
-          allowCustomFetcher: true
+          outputEsm: true
           skipResponseValidation: true
+
+          packageJson:
+            type: module
+            name: example-sdk
           # includeApiReference: true
+        # github:
+        #   mode: 'push'
+        #   repository: remorses/example-spiceflow-fern-sdk
         output:
           # package-name: example-sdk
           location: local-file-system
           path: ../scripts/sdk-typescript
+
 api:
   path: ../scripts/openapi.yml
