@@ -7,11 +7,9 @@ test('openapi response', async () => {
   const app = await new Spiceflow()
     .use(
       openapi({
-        additional: {
-          info: {
-            title: 'Spiceflow Docs',
-            version: '0.0.0',
-          },
+        info: {
+          title: 'Spiceflow Docs',
+          version: '0.0.0',
         },
       }),
     )
@@ -173,13 +171,11 @@ test('openapi response', async () => {
       "paths": {
         "/addBody": {
           "patch": {
-            "operationId": "patchAddBody",
             "parameters": [],
             "requestBody": {
               "content": {
                 "application/json": {
                   "schema": {
-                    "$schema": "http://json-schema.org/draft-07/schema#",
                     "additionalProperties": false,
                     "properties": {
                       "name": {
@@ -197,7 +193,6 @@ test('openapi response', async () => {
             },
             "responses": {
               "200": {
-                "$schema": "http://json-schema.org/draft-07/schema#",
                 "content": {
                   "application/json": {
                     "schema": {
@@ -212,16 +207,32 @@ test('openapi response', async () => {
                 },
                 "description": "",
               },
+              "500": {
+                "content": {
+                  "text/plain": {
+                    "schema": {
+                      "type": "string",
+                    },
+                  },
+                },
+                "description": "Internal Server Error",
+              },
+              "default": {
+                "content": {
+                  "text/plain": {
+                    "schema": {},
+                  },
+                },
+                "description": "",
+              },
             },
           },
         },
         "/formWithSchemaForm": {
           "post": {
             "description": "This returns form data with schema",
-            "operationId": "postFormWithSchemaForm",
             "responses": {
               "200": {
-                "$schema": "http://json-schema.org/draft-07/schema#",
                 "content": {
                   "multipart/form-data": {
                     "schema": {
@@ -243,12 +254,29 @@ test('openapi response', async () => {
                 },
                 "description": "",
               },
+              "500": {
+                "content": {
+                  "text/plain": {
+                    "schema": {
+                      "type": "string",
+                    },
+                  },
+                },
+                "description": "Internal Server Error",
+              },
+              "default": {
+                "content": {
+                  "text/plain": {
+                    "schema": {},
+                  },
+                },
+                "description": "",
+              },
             },
           },
         },
         "/one/ids/{id}": {
           "get": {
-            "operationId": "getOneIdsById",
             "parameters": [
               {
                 "in": "path",
@@ -261,11 +289,9 @@ test('openapi response', async () => {
             ],
             "responses": {
               "200": {
-                "$schema": "http://json-schema.org/draft-07/schema#",
                 "content": {
                   "application/json": {
                     "schema": {
-                      "$schema": "http://json-schema.org/draft-07/schema#",
                       "type": "string",
                     },
                   },
@@ -273,7 +299,6 @@ test('openapi response', async () => {
                 "description": "",
               },
               "404": {
-                "$schema": "http://json-schema.org/draft-07/schema#",
                 "content": {
                   "application/json": {
                     "schema": {
@@ -291,17 +316,61 @@ test('openapi response', async () => {
                 },
                 "description": "",
               },
+              "500": {
+                "content": {
+                  "text/plain": {
+                    "schema": {
+                      "type": "string",
+                    },
+                  },
+                },
+                "description": "Internal Server Error",
+              },
+              "default": {
+                "content": {
+                  "text/plain": {
+                    "schema": {},
+                  },
+                },
+                "description": "",
+              },
             },
           },
         },
         "/openapi": {
           "get": {
-            "operationId": "getOpenapi",
+            "responses": {
+              "200": {
+                "content": {
+                  "*/*": {
+                    "schema": {},
+                  },
+                },
+                "description": "",
+              },
+              "500": {
+                "content": {
+                  "text/plain": {
+                    "schema": {
+                      "type": "string",
+                    },
+                  },
+                },
+                "description": "Internal Server Error",
+              },
+              "default": {
+                "content": {
+                  "text/plain": {
+                    "schema": {},
+                  },
+                },
+                "description": "",
+              },
+            },
           },
         },
         "/queryParams": {
           "get": {
-            "operationId": "getQueryParams",
             "parameters": [
               {
                 "in": "query",
@@ -314,7 +383,6 @@ test('openapi response', async () => {
             ],
             "responses": {
               "200": {
-                "$schema": "http://json-schema.org/draft-07/schema#",
                 "content": {
                   "application/json": {
                     "schema": {
@@ -329,6 +397,24 @@ test('openapi response', async () => {
                 },
                 "description": "",
               },
+              "500": {
+                "content": {
+                  "text/plain": {
+                    "schema": {
+                      "type": "string",
+                    },
+                  },
+                },
+                "description": "Internal Server Error",
+              },
+              "default": {
+                "content": {
+                  "text/plain": {
+                    "schema": {},
+                  },
+                },
+                "description": "",
+              },
             },
           },
           "post": {
@@ -339,7 +425,6 @@ test('openapi response', async () => {
               "content": {
                 "application/json": {
                   "schema": {
-                    "$schema": "http://json-schema.org/draft-07/schema#",
                     "additionalProperties": false,
                     "properties": {
                       "name": {
@@ -357,7 +442,6 @@ test('openapi response', async () => {
             },
             "responses": {
               "200": {
-                "$schema": "http://json-schema.org/draft-07/schema#",
                 "content": {
                   "application/json": {
                     "schema": {
@@ -372,13 +456,58 @@ test('openapi response', async () => {
                 },
                 "description": "",
               },
+              "500": {
+                "content": {
+                  "text/plain": {
+                    "schema": {
+                      "type": "string",
+                    },
+                  },
+                },
+                "description": "Internal Server Error",
+              },
+              "default": {
+                "content": {
+                  "text/plain": {
+                    "schema": {},
+                  },
+                },
+                "description": "",
+              },
             },
           },
         },
         "/stream": {
           "get": {
             "description": "This is a stream",
-            "operationId": "getStream",
+            "responses": {
+              "200": {
+                "content": {
+                  "*/*": {
+                    "schema": {},
+                  },
+                },
+                "description": "",
+              },
+              "500": {
+                "content": {
+                  "text/plain": {
+                    "schema": {
+                      "type": "string",
+                    },
+                  },
+                },
+                "description": "Internal Server Error",
+              },
+              "default": {
+                "content": {
+                  "text/plain": {
+                    "schema": {},
+                  },
+                },
+                "description": "",
+              },
+            },
             "x-fern-streaming": {
               "format": "sse",
             },
@@ -387,10 +516,8 @@ test('openapi response', async () => {
         "/streamWithSchema": {
           "get": {
             "description": "This is a stream with schema",
-            "operationId": "getStreamWithSchema",
             "responses": {
               "200": {
-                "$schema": "http://json-schema.org/draft-07/schema#",
                 "content": {
                   "application/json": {
                     "schema": {
@@ -408,6 +535,24 @@ test('openapi response', async () => {
                 },
                 "description": "",
               },
+              "500": {
+                "content": {
+                  "text/plain": {
+                    "schema": {
+                      "type": "string",
+                    },
+                  },
+                },
+                "description": "Internal Server Error",
+              },
+              "default": {
+                "content": {
+                  "text/plain": {
+                    "schema": {},
+                  },
+                },
+                "description": "",
+              },
             },
             "x-fern-streaming": {
               "format": "sse",
@@ -416,7 +561,6 @@ test('openapi response', async () => {
         },
         "/two/ids/{id}": {
           "get": {
-            "operationId": "getTwoIdsById",
             "parameters": [
               {
                 "in": "path",
@@ -427,6 +571,34 @@ test('openapi response', async () => {
                 },
               },
             ],
+            "responses": {
+              "200": {
+                "content": {
+                  "*/*": {
+                    "schema": {},
+                  },
+                },
+                "description": "",
+              },
+              "500": {
+                "content": {
+                  "text/plain": {
+                    "schema": {
+                      "type": "string",
+                    },
+                  },
+                },
+                "description": "Internal Server Error",
+              },
+              "default": {
+                "content": {
+                  "text/plain": {
+                    "schema": {},
+                  },
+                },
+                "description": "",
+              },
+            },
           },
         },
       },
