@@ -79,23 +79,24 @@ const app = new Spiceflow()
       }),
     },
   )
-//   .post(
-//     '/upload',
-//     async (c) => {
-//       const formData = await c.request.formData()
-//       const file = formData.get('file')
-//       return {
-//         message: 'File uploaded',
-//         filename: file instanceof File ? file.name : 'unknown',
-//       }
-//     },
-//     {
-//       body: z.object({
-//         file: z.instanceof(File),
-//       }),
+  .post(
+    '/upload',
+    async (c) => {
+      const formData = await c.request.formData()
+      const file = formData.get('file')
+      return {
+        message: 'File uploaded',
+        filename: file instanceof File ? file.name : 'unknown',
+      }
+    },
+    {
+      body: z.object({
+        file: z.string().base64(),
+      }),
+      bodyType: 'multipart/form-data',
 
-//       //   type: 'formdata',
-//     },
-//   )
+      //   type: 'formdata',
+    },
+  )
 
 export { app }

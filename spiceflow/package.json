@@ -1,69 +1,72 @@
 {
-	"name": "spiceflow",
-	"version": "1.1.18",
-	"description": "Simple API framework with RPC and type safety",
-	"main": "dist/index.js",
-	"types": "dist/index.d.ts",
-	"type": "module",
-	"repository": "https://github.com/remorses/spiceflow",
-	"exports": {
-		".": {
-			"types": "./dist/index.d.ts",
-			"default": "./dist/index.js"
-		},
-		"./cors": {
-			"types": "./dist/cors.d.ts",
-			"default": "./dist/cors.js"
-		},
-		"./mcp": {
-			"types": "./dist/mcp.d.ts",
-			"default": "./dist/mcp.js"
-		},
-		"./client": {
-			"types": "./dist/client/index.d.ts",
-			"default": "./dist/client/index.js"
-		},
-		"./openapi": {
-			"types": "./dist/openapi.d.ts",
-			"default": "./dist/openapi.js"
-		},
-		"./dist/*": {
-			"types": "./dist/*.d.ts",
-			"default": "./dist/*.js"
-		}
-	},
-	"scripts": {
-		"build": "cp ../README.md ./README.md && rm -rf dist && tsc",
-		"prepublishOnly": "pnpm build",
-		"fern-sdk": "pnpm tsx scripts/openapi-fern.ts && fern generate --group local --local --docs --force && echo '{\"type\": \"commonjs\"}' > scripts/sdk-typescript/package.json",
-		"test": "pnpm vitest",
-		"prepare": "pnpm build",
-		"watch": "tsc -w"
-	},
-	"files": [
-		"dist",
-		"src"
-	],
-	"keywords": [],
-	"author": "Tommaso De Rossi, morse <beats.by.morse@gmail.com>",
-	"license": "",
-	"dependencies": {
-		"@medley/router": "^0.2.1",
-		"@modelcontextprotocol/sdk": "^1.0.4",
-		"@sinclair/typebox": "^0.33.7",
-		"ajv": "^8.17.1",
-		"ajv-formats": "^3.0.1",
-		"eventsource-parser": "^2.0.1",
-		"fast-querystring": "^1.1.2",
-		"lodash.clonedeep": "^4.5.0",
-		"openapi-types": "^12.1.3",
-		"zod": "^3.23.8",
-		"zod-to-json-schema": "^3.23.2"
-	},
-	"devDependencies": {
-		"@types/node": "22.7.4",
-		"eventsource": "^3.0.2",
-		"js-base64": "^3.7.7",
-		"js-yaml": "^4.1.0"
-	}
+  "name": "spiceflow",
+  "version": "1.1.18",
+  "description": "Simple API framework with RPC and type safety",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "type": "module",
+  "repository": "https://github.com/remorses/spiceflow",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./cors": {
+      "types": "./dist/cors.d.ts",
+      "default": "./dist/cors.js"
+    },
+    "./mcp": {
+      "types": "./dist/mcp.d.ts",
+      "default": "./dist/mcp.js"
+    },
+    "./client": {
+      "types": "./dist/client/index.d.ts",
+      "default": "./dist/client/index.js"
+    },
+    "./openapi": {
+      "types": "./dist/openapi.d.ts",
+      "default": "./dist/openapi.js"
+    },
+    "./dist/*": {
+      "types": "./dist/*.d.ts",
+      "default": "./dist/*.js"
+    }
+  },
+  "scripts": {
+    "build": "cp ../README.md ./README.md && rm -rf dist && tsc",
+    "prepublishOnly": "pnpm build",
+    "gen-openapi": "pnpm tsx scripts/openapi-fern.ts",
+    "fern-sdk": "pnpm run gen-openapi && fern generate --force && echo '{\"type\": \"commonjs\"}' > scripts/sdk-typescript/package.json",
+    "fern-docs": "pnpm run gen-openapi && fern generate --docs --force",
+    "test": "pnpm vitest",
+    "prepare": "pnpm build",
+    "watch": "tsc -w"
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "keywords": [],
+  "author": "Tommaso De Rossi, morse <beats.by.morse@gmail.com>",
+  "license": "",
+  "dependencies": {
+    "@medley/router": "^0.2.1",
+    "@modelcontextprotocol/sdk": "^1.0.4",
+    "@sinclair/typebox": "^0.33.7",
+    "ajv": "^8.17.1",
+    "ajv-formats": "^3.0.1",
+    "eventsource-parser": "^2.0.1",
+    "fast-querystring": "^1.1.2",
+    "lodash.clonedeep": "^4.5.0",
+    "openapi-types": "^12.1.3",
+    "zod": "^3.23.8",
+    "zod-to-json-schema": "^3.23.2"
+  },
+  "devDependencies": {
+    "formdata-node": "^6.0.3",
+    "@types/node": "22.7.4",
+    "eventsource": "^3.0.2",
+    "js-base64": "^3.7.7",
+    "js-yaml": "^4.1.0"
+  }
 }

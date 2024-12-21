@@ -327,9 +327,8 @@ export const registerSchemaPath = ({
         responses: openapiResponse,
       }),
 
-      // Set operation ID from hook detail or generate one
-      operationId:
-        hook?.detail?.operationId ?? generateOperationId(route.method, path),
+      // operationId:
+      //   hook?.detail?.operationId ?? generateOperationId(route.method, path),
 
       // Add any additional details from hook
       ...hook?.detail,
@@ -340,7 +339,7 @@ export const registerSchemaPath = ({
             requestBody: {
               required: true,
               content: mapTypesResponse(
-                contentTypes,
+                hook.bodyType ? [hook.bodyType] : ['application/json'],
                 typeof bodySchema === 'string'
                   ? {
                       $ref: `#/components/schemas/${bodySchema}`,

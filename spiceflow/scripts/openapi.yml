@@ -138,6 +138,40 @@ paths:
                 - email
                 - age
               additionalProperties: false
+  /upload:
+    post:
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            '*/*':
+              schema: {}
+        '500':
+          description: Internal Server Error
+          content:
+            text/plain:
+              schema:
+                type: string
+        default:
+          description: ''
+          content:
+            text/plain:
+              schema: {}
+      operationId: postUpload
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  contentEncoding: base64
+              required:
+                - file
+              additionalProperties: false
   /openapi:
     get:
       responses:

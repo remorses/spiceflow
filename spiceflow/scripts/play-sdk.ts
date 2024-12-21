@@ -6,6 +6,7 @@ async function main() {
   let server = await app.listen(port)
   const sdk = new ExampleSdkClient({
     environment: 'http://localhost:' + port,
+    token: '123',
   })
   // Get index
   console.log('Get index:', await sdk.getIndex())
@@ -29,11 +30,13 @@ async function main() {
     }),
   )
 
-  // Upload data
-  //   console.log('Upload data:', await sdk.postUpload())
+  console.log(
+    'Upload data:',
+    await sdk.postUpload({ file: Buffer.from('sdfsdf').toString('base64') }),
+  )
 
   // Get OpenAPI spec
-  console.log('Get OpenAPI spec:', await sdk.getOpenapi())
+  // console.log('Get OpenAPI spec:', await sdk.getOpenapi())
   await server.close()
 }
 
