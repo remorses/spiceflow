@@ -34,6 +34,8 @@ npm install spiceflow
 
 ## Basic Usage
 
+Objects returned from route handlers are automatically serialized to JSON
+
 ```ts
 import { Spiceflow } from 'spiceflow'
 
@@ -41,20 +43,20 @@ const app = new Spiceflow()
   .get('/hello', () => 'Hello, World!')
   .post('/echo', async ({ request }) => {
     const body = await request.json()
-    return body
+    return { echo: body }
   })
 
 app.listen(3000)
 ```
 
-> Notice that you should never declare app separately and add routes later, that way you lose the type safety. Instead always declare all routes in one place.
+> Never declare app and add routes separately, that way you lose the type safety. Instead always append routes with .post and .get in a single expression.
 
 ```ts
 // This is an example of what NOT to do when using Spiceflow
 
 import { Spiceflow } from 'spiceflow'
 
-// Do NOT declare the app separately and add routes later
+// DO NOT declare the app separately and add routes later
 const app = new Spiceflow()
 
 // Do NOT do this! Adding routes separately like this will lose type safety
