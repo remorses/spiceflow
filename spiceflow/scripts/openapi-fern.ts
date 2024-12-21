@@ -2,7 +2,7 @@ import fs from 'fs'
 import path from 'path'
 import yaml from 'js-yaml'
 
-import { createSpiceflowClient } from 'spiceflow/client'
+import { createSpiceflowClient } from '../src/client'
 import { app } from './example-app.js'
 
 async function main() {
@@ -16,7 +16,7 @@ async function main() {
     throw error
   }
 
-  const outputPath = path.resolve( './scripts/openapi.yml')
+  const outputPath = path.resolve('./scripts/openapi.yml')
   console.log('Writing OpenAPI spec to', outputPath)
   fs.writeFileSync(
     outputPath,
