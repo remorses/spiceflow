@@ -53,6 +53,7 @@ test('openapi response', async () => {
         }),
       },
     )
+
     .get(
       '/queryParams',
       async (c) => {

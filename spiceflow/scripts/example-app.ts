@@ -54,7 +54,7 @@ const app = new Spiceflow()
       }
     },
     {
-      type: 'formdata',
+      //   type: 'formdata',
     },
   )
 
