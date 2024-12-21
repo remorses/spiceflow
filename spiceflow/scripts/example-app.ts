@@ -26,7 +26,12 @@ const app = new Spiceflow()
     }
     const auth = c.request.headers.get('authorization')
     if (!auth) {
-      throw new Response('Unauthorized', { status: 401 })
+      throw new Response('Unauthorized', {
+        headers: {
+          'content-type': 'text/plain',
+        },
+        status: 401,
+      })
     }
     return next()
   })
