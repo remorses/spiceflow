@@ -6,14 +6,14 @@ groups:
   local:
     generators:
       # https://github.com/fern-api/fern/blob/43cf7986d5ed3b0196516daa63437986e1535b5c/packages/cli/configuration-loader/src/generators-yml/GeneratorName.ts#L5
-      - name: fernapi/fern-typescript-browser-sdk
+      - name: fernapi/fern-typescript-node-sdk
         version: 0.39.3
 
         config:
           # https://github.com/fern-api/fern/blob/43cf7986d5ed3b0196516daa63437986e1535b5c/generators/typescript/sdk/cli/src/custom-config/schema/SdkCustomConfigSchema.ts#L3
-          # outputSourceFiles: true
+          outputSourceFiles: true
           allowCustomFetcher: false
-          bundle: true
+          # bundle: true
           namespaceExport: ExampleSdk
           outputEsm: true
           skipResponseValidation: true

@@ -11,3 +11,4 @@ spiceflow/sdk-template
 spiceflow/example
 profiling
 */scripts/sdk-*
+dist-play-sdk
