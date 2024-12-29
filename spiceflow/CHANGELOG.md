@@ -1,5 +1,11 @@
 # spiceflow
 
+## 1.3.0
+
+### Minor Changes
+
+- 82a9598: Cache cors OPTIONS resopnses
+
 ## 1.2.0
 
 ### Minor Changes

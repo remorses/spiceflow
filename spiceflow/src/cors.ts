@@ -16,6 +16,8 @@ type CORSOptions = {
   credentials?: boolean
   /** Configures the Access-Control-Expose-Headers CORS header */
   exposeHeaders?: string[]
+  /** Configures browser and CDN caching duration for CORS preflight requests in seconds. Set to 0 to disable. */
+  cacheAge?: number
 }
 
 export const cors = (options?: CORSOptions): MiddlewareHandler => {
@@ -24,6 +26,7 @@ export const cors = (options?: CORSOptions): MiddlewareHandler => {
     allowMethods: ['GET', 'HEAD', 'PUT', 'POST', 'DELETE', 'PATCH'],
     allowHeaders: [],
     exposeHeaders: [],
+    cacheAge: 21600 // 6 hours default
   }
   const opts = {
     ...defaults,
@@ -74,8 +77,17 @@ export const cors = (options?: CORSOptions): MiddlewareHandler => {
     }
 
     if (c.request.method === 'OPTIONS') {
-      if (opts.maxAge != null) {
-        set('Access-Control-Max-Age', opts.maxAge.toString())
+      // Set CORS caching headers if enabled
+      if (opts.cacheAge && opts.cacheAge > 0) {
+        // CORS preflight cache
+        set('Access-Control-Max-Age', opts.cacheAge.toString())
+        
+        // Browser cache and CDN cache
+        set('Cache-Control', `public, max-age=${opts.cacheAge}, s-maxage=${opts.cacheAge}`)
+        
+        // Additional CDN-specific headers
+        set('CDN-Cache-Control', `public, s-maxage=${opts.cacheAge}`)
+        set('Cloudflare-CDN-Cache-Control', `public, s-maxage=${opts.cacheAge}`)
       }
 
       if (opts.allowMethods?.length) {
