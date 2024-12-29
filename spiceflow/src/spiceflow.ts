@@ -763,7 +763,7 @@ export class Spiceflow<
       request,
       state,
       path,
-      query: parseQuery.parse((u.search || '').slice(1)),
+      query: parseQuery((u.search || '').slice(1)),
       params: _params,
       redirect,
     } satisfies MiddlewareContext<any>
@@ -1321,4 +1321,23 @@ function runValidation(value: any, validate?: ValidateFunction) {
     throw new ValidationError(error)
   }
   return value
+}
+
+function parseQuery(queryString: string) {
+  // Create a URLSearchParams instance
+  const params = new URLSearchParams(queryString)
+
+  // Convert to an object with arrays for repeated keys
+  const paramsObject = {}
+  for (const [key, value] of params) {
+    // If the key already exists, convert to an array or push to the existing array
+    if (paramsObject[key]) {
+      paramsObject[key] = Array.isArray(paramsObject[key])
+        ? [...paramsObject[key], value]
+        : [paramsObject[key], value]
+    } else {
+      paramsObject[key] = value // Set the value if it's the first occurrence
+    }
+  }
+  return paramsObject
 }

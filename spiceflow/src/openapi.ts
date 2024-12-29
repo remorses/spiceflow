@@ -1,14 +1,13 @@
 import { JSONSchemaType } from 'ajv'
 import { InternalRoute, isZodSchema, Spiceflow } from './spiceflow.js'
-import { ZodType } from 'zod'
 
 import type { OpenAPIV3 } from 'openapi-types'
 
 let excludeMethods = ['OPTIONS']
 
-import type { HTTPMethod, LocalHook, TypeSchema } from './types.js'
+import type { TypeSchema } from './types.js'
 
-import deepClone from 'lodash.clonedeep'
+
 import { z } from 'zod'
 import zodToJsonSchema from 'zod-to-json-schema'
 
@@ -129,20 +128,20 @@ const registerSchemaPath = ({
   route: InternalRoute
   models: Record<string, TypeSchema>
 }) => {
-  const hook = route.hooks ? deepClone(route.hooks) : undefined
+  const hooks = route.hooks
 
   let contentTypes = ['application/json']
 
   if (isAsyncGenerator(route.handler) && !route.hooks?.response) {
     contentTypes = ['text/event-stream']
-  } else if (hook?.type) {
-    contentTypes = Array.isArray(hook.type) ? hook.type : [hook.type]
+  } else if (hooks?.type) {
+    contentTypes = Array.isArray(hooks.type) ? hooks.type : [hooks.type]
   }
 
   const path = toOpenAPIPath(route.path)
 
-  const bodySchema = getJsonSchema(hook?.body)
-  let paramsSchema = hook?.params
+  const bodySchema = getJsonSchema(hooks?.body)
+  let paramsSchema = hooks?.params
   if (route.path.includes(':') && !paramsSchema) {
     const paramNames = extractParamNames(route.path)
     if (paramNames.length) {
@@ -156,8 +155,8 @@ const registerSchemaPath = ({
   }
 
   // const headerSchema = hook?.headers
-  const querySchema = hook?.query
-  let responseSchema = hook?.response as unknown as TypeSchema
+  const querySchema = hooks?.query
+  let responseSchema = hooks?.response as unknown as TypeSchema
   const defaultResponseSchema: OpenAPIV3.ResponsesObject = {
     // '500': {
     //   description: 'Internal Server Error',
@@ -331,7 +330,7 @@ const registerSchemaPath = ({
       //   hook?.detail?.operationId ?? generateOperationId(route.method, path),
 
       // Add any additional details from hook
-      ...hook?.detail,
+      ...hooks?.detail,
 
       // Add request body if body schema exists
       ...(bodySchema
@@ -339,7 +338,7 @@ const registerSchemaPath = ({
             requestBody: {
               required: true,
               content: mapTypesResponse(
-                hook.bodyType ? [hook.bodyType] : ['application/json'],
+                hooks.bodyType ? [hooks.bodyType] : ['application/json'],
                 typeof bodySchema === 'string'
                   ? {
                       $ref: `#/components/schemas/${bodySchema}`,
