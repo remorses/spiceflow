@@ -1041,8 +1041,16 @@ export class Spiceflow<
         async start(controller) {
           let end = false
 
+          // Set up ping interval
+          const pingInterval = setInterval(() => {
+            if (!end) {
+              controller.enqueue(Buffer.from('\n'))
+            }
+          }, 10 * 1000)
+
           request?.signal.addEventListener('abort', async () => {
             end = true
+            clearInterval(pingInterval)
 
             // Using return() instead of throw() because:
             // 1. return() allows for cleanup in finally blocks
@@ -1096,6 +1104,7 @@ export class Spiceflow<
             )
           }
 
+          clearInterval(pingInterval)
           try {
             controller.close()
           } catch {
