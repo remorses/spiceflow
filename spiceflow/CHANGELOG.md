@@ -1,5 +1,11 @@
 # spiceflow
 
+## 1.4.0
+
+### Minor Changes
+
+- 22e6320: stop async generators on abort, ping the client with \n every 10 seconds
+
 ## 1.3.0
 
 ### Minor Changes

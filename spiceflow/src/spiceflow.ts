@@ -1,5 +1,3 @@
-import parseQuery from 'fast-querystring'
-
 import { Type } from '@sinclair/typebox'
 
 export { Type as t }
