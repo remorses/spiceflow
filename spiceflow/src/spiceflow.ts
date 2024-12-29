@@ -1074,7 +1074,7 @@ export class Spiceflow<
           if (init?.value !== undefined && init?.value !== null)
             controller.enqueue(
               Buffer.from(
-                `event: message\ndata: ${JSON.stringify(init.value)}\n\n`,
+                'event: message\ndata: ' + JSON.stringify(init.value) + '\n\n',
               ),
             )
 
@@ -1085,7 +1085,7 @@ export class Spiceflow<
 
               controller.enqueue(
                 Buffer.from(
-                  `event: message\ndata: ${JSON.stringify(chunk)}\n\n`,
+                  'event: message\ndata: ' + JSON.stringify(chunk) + '\n\n',
                 ),
               )
             }
@@ -1097,9 +1097,9 @@ export class Spiceflow<
             })
             controller.enqueue(
               Buffer.from(
-                `event: error\ndata: ${JSON.stringify(
-                  error.message || error.name || 'Error',
-                )}\n\n`,
+                'event: error\ndata: ' +
+                  JSON.stringify(error.message || error.name || 'Error') +
+                  '\n\n',
               ),
             )
           }
