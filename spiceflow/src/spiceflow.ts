@@ -1017,7 +1017,6 @@ export class Spiceflow<
 
     return server
   }
-
   private async handleStream({
     onErrorHandlers,
     generator,
@@ -1035,15 +1034,27 @@ export class Spiceflow<
     if (init?.done) {
       return await turnHandlerResultIntoResponse(init.value, route)
     }
-    // let errorHandlers = this.routerTree.onErrorHandlers
+
     let self = this
     return new Response(
       new ReadableStream({
         async start(controller) {
           let end = false
 
-          request?.signal.addEventListener('abort', () => {
+          request?.signal.addEventListener('abort', async () => {
             end = true
+
+            // Using return() instead of throw() because:
+            // 1. return() allows for cleanup in finally blocks
+            // 2. throw() would trigger error handling which isn't needed for normal aborts
+            // 3. return() is the more graceful way to stop iteration
+            if ('return' in generator) {
+              try {
+                await generator.return(undefined)
+              } catch {
+                // Ignore errors from stopping generator
+              }
+            }
 
             try {
               controller.close()
@@ -1093,12 +1104,9 @@ export class Spiceflow<
         },
       }),
       {
-        // TODO add headers somehow
         headers: {
-          // Manually set transfer-encoding for direct response, eg. app.handle, eden
           'transfer-encoding': 'chunked',
           'content-type': 'text/event-stream; charset=utf-8',
-          // ...set?.headers
         },
       },
     )
