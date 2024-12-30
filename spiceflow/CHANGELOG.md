@@ -1,5 +1,11 @@
 # spiceflow
 
+## 1.4.1
+
+### Patch Changes
+
+- ef7eae5: handle case where createClient returns a promise and await calls .then on it
+
 ## 1.4.0
 
 ### Minor Changes
