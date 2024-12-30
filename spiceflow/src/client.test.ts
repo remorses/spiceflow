@@ -210,9 +210,7 @@ describe('client', () => {
     expect(data).toMatchInlineSnapshot(
       `"this string will not be parsed as json"`,
     )
-    expect(error).toMatchInlineSnapshot(
-      `null`,
-    )
+    expect(error).toMatchInlineSnapshot(`null`)
   })
 
   it('stream ', async () => {
@@ -270,4 +268,12 @@ describe('client', () => {
   // 	expect(data).toBeNull()
   // 	expect(value).toEqual('Kirifuji Nagisa')
   // })
+})
+
+describe('client as promise', () => {
+  it('should work with async client', async () => {
+    const asyncClient = Promise.resolve(client)
+    const { data } = await (await asyncClient).mirror.post({ test: 'value' })
+    expect(data).toEqual({ test: 'value' })
+  }, 200)
 })

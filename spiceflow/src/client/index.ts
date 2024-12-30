@@ -185,6 +185,10 @@ const createProxy = (
 ): any =>
   new Proxy(() => {}, {
     get(_, param: string): any {
+      // handle case where createClient returns a promise and await calls .then on it
+      if ((!paths.length && param === 'then') || param === 'catch') {
+        return _[param]
+      }
       return createProxy(
         domain,
         config,
@@ -237,7 +241,7 @@ const createProxy = (
           }
         }
 
-        return (async () => {
+        return Promise.resolve().then(async () => {
           let fetchInit = {
             method: method?.toUpperCase(),
             body,
@@ -365,6 +369,7 @@ const createProxy = (
           }
 
           const url = domain + path + q
+          // console.log({ url, fetchInit })
           const response = await (instance?.handle(
             new Request(url, fetchInit),
           ) ?? fetcher!(url, fetchInit))
@@ -423,7 +428,11 @@ const createProxy = (
           }
 
           if (response.status >= 300 || response.status < 200) {
-            error = new SpiceflowFetchError(response.status, data)
+            error = new SpiceflowFetchError(
+              response.status,
+              data || 'Unknown error',
+            )
+            console.trace({ error, data })
             data = null
           }
 
@@ -434,7 +443,7 @@ const createProxy = (
             status: response.status,
             headers: response.headers,
           }
-        })()
+        })
       }
 
       if (typeof body === 'object')
