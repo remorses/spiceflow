@@ -16,7 +16,7 @@
 
 ### Minor Changes
 
-- 82a9598: Cache cors OPTIONS resopnses
+- 82a9598: Cache cors OPTIONS responses
 
 ## 1.2.0
 
