@@ -1,16 +1,11 @@
-import { createFireworks } from '@ai-sdk/fireworks'
+import { createDeepSeek } from '@ai-sdk/deepseek'
 import dedent from 'string-dedent'
 import { streamText } from 'ai'
 import type { OpenAPIV3 } from 'openapi-types'
 import { z } from 'zod'
 
-const apiKey = process.env.FIREWORKS_API_KEY
-
-if (!apiKey) {
-  throw new Error('FIREWORKS_API_KEY environment variable is required')
-}
-const model = createFireworks({
-  apiKey,
+const model = createDeepSeek({
+  apiKey: process.env.DEEPSEEK_API_KEY ?? '',
 })
 
 const emptyCode = dedent`
@@ -62,36 +57,35 @@ export function replaceParamsInTemplate({
   return result
 }
 
-const editFileSchema = z
-  .object({
-    command: z.enum(['str_replace', 'insert']).describe('The commands to run.'),
-    insert_line: z
-      .number()
-      .int()
-      .optional()
-      .describe(
-        'Required parameter of `insert` command. The `new_str` will be inserted AFTER the line `insert_line` of `path`.',
-      ),
-    new_str: z
-      .string()
-      .optional()
-      .describe(
-        'Required parameter of `str_replace` command containing the new string. Required parameter of `insert` command containing the string to insert.',
-      ),
-    old_str: z
-      .string()
-      .optional()
-      .describe(
-        'Required parameter of `str_replace` command containing the string in `path` to replace.',
-      ),
-  })
-  .refine((data) => {
-    if (data.command === 'str_replace' && (!data.old_str || !data.new_str))
-      return false
-    if (data.command === 'insert' && (!data.insert_line || !data.new_str))
-      return false
-    return true
-  })
+const editFileSchema = z.object({
+  command: z.enum(['str_replace', 'insert']).describe('The commands to run.'),
+  insert_line: z
+    .number()
+    .int()
+    .optional()
+    .describe(
+      'Required parameter of `insert` command. The `new_str` will be inserted AFTER the line `insert_line` of `path`.',
+    ),
+  new_str: z
+    .string()
+    .optional()
+    .describe(
+      'Required parameter of `str_replace` command containing the new string. Required parameter of `insert` command containing the string to insert.',
+    ),
+  old_str: z
+    .string()
+    .optional()
+    .describe(
+      'Required parameter of `str_replace` command containing the string in `path` to replace.',
+    ),
+})
+//   .refine((data) => {
+//     if (data.command === 'str_replace' && (!data.old_str || !data.new_str))
+//       return false
+//     if (data.command === 'insert' && (!data.insert_line || !data.new_str))
+//       return false
+//     return true
+//   })
 
 type EditFileParams = z.infer<typeof editFileSchema>
 
@@ -120,21 +114,24 @@ export async function generateSDKFromOpenAPI({
     ${previousSdkCode}
     </previousSdkCode>
 
-    Generate only the TypeScript code without any explanation.
+    Call editFile with your additions and deletions, do not output the code as a message, instead call the editFile tool.
+
+    Reason step by step before editing the file.
     `
 
   let generatedCode = previousSdkCode
-  const toolCalls: EditFileParams[] = []
+  let fullOutput = ''
 
-  const { textStream } = streamText({
-    model: model('accounts/fireworks/models/deepseek-v3'),
+  const res = streamText({
+    model: model('deepseek-chat', {}),
     prompt,
+    toolChoice: 'required',
+    experimental_toolCallStreaming: true,
     tools: {
       editFile: {
         parameters: editFileSchema,
         execute: async ({ command, old_str, new_str, insert_line }) => {
           const params = { command, old_str, new_str, insert_line }
-          toolCalls.push(params)
 
           if (command === 'str_replace' && old_str && new_str) {
             const matches = generatedCode.split(old_str).length - 1
@@ -190,10 +187,22 @@ export async function generateSDKFromOpenAPI({
     },
   })
 
-  for await (const textPart of textStream) {
-    process.stdout.write(textPart)
-    generatedCode += textPart
+  for await (const item of res.fullStream) {
+    process.stdout.write('\x1Bc')
+    if (!item) {
+      continue
+    }
+    if (item.type === 'text-delta') {
+      fullOutput += item.textDelta
+    } else if (item.type === 'tool-call-delta') {
+      fullOutput += item.argsTextDelta
+    } else if (item.type === 'tool-call-streaming-start') {
+      fullOutput += `\n---\nEditing file with params:\n`
+    } else if (item.type === 'tool-result') {
+      fullOutput += `\n---\n\n`
+    }
+    process.stdout.write(fullOutput)
   }
 
-  return { generatedCode, toolCalls }
+  return { generatedCode, fullOutput }
 }

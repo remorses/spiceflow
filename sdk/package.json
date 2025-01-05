@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "doppler run -- pnpm vitest --reporter=basic"
+    "test": "doppler run -- pnpm vitest --reporter=basic --clearScreen=false"
   },
   "keywords": [],
   "author": "remorses <beats.by.morse@gmail.com>",
@@ -15,6 +15,7 @@
     "js-yaml": "^4.1.0"
   },
   "dependencies": {
+    "@ai-sdk/deepseek": "^0.0.1",
     "@ai-sdk/fireworks": "^0.0.8",
     "@ai-sdk/openai": "^1.0.13",
     "ai": "^4.0.26",
