@@ -1,7 +1,3 @@
-import { Type } from '@sinclair/typebox'
-
-export { Type as t }
-
 import addFormats from 'ajv-formats'
 import {
   ComposeSpiceflowResponse,

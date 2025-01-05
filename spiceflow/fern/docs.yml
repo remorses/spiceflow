@@ -14,13 +14,13 @@ logo:
 navbar-links:
   - type: minimal
     text: Homepage
-    url: https://cartesia.ai
+    url: https://example.ai
   - type: minimal
     text: Discord
-    url: https://discord.gg/cartesia
+    url: https://discord.gg/example
   - type: filled
     text: Playground
-    url: https://play.cartesia.ai
+    url: https://play.example.ai
 layout:
   tabs-placement: header
   searchbar-placement: header
@@ -39,11 +39,11 @@ navigation:
   - tab: reference
     layout:
       - api: API Reference
+        playground: null
         paginated: true
         flattened: true
         layout:
           - stream: []
-
         snippets:
           typescript: 'example-sdk'
   - tab: docs
