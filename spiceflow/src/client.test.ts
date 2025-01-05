@@ -1,9 +1,9 @@
 import { z } from 'zod'
 import { createSpiceflowClient } from './client/index.js'
-import { Spiceflow, t } from './spiceflow.js'
+import { Spiceflow } from './spiceflow.js'
+import { Type as t } from '@sinclair/typebox'
 
 import { describe, expect, it } from 'vitest'
-
 const app = new Spiceflow()
   .get('/', () => 'a')
   .post('/', () => 'a')
@@ -11,11 +11,11 @@ const app = new Spiceflow()
   .get('/true', () => true)
   .get('/false', () => false)
   .post('/array', async ({ request }) => await request.json(), {
-    body: t.Array(t.String()),
+    body: z.array(z.string()),
   })
   .post('/mirror', async ({ request }) => await request.json())
   .post('/body', async ({ request }) => await request.text(), {
-    body: t.String(),
+    body: z.string(),
   })
   .post('/zodAny', async ({ request }) => await request.json(), {
     body: z.object({ body: z.array(z.any()) }),
@@ -25,9 +25,9 @@ const app = new Spiceflow()
     return { body: body || null }
   })
   .post('/deep/nested/mirror', async ({ request }) => await request.json(), {
-    body: t.Object({
-      username: t.String(),
-      password: t.String(),
+    body: z.object({
+      username: z.string(),
+      password: z.string(),
     }),
   })
   .get('/throws', () => {
@@ -62,8 +62,8 @@ const app = new Spiceflow()
     },
     {
       response: {
-        200: t.Object({
-          x: t.String(),
+        200: z.object({
+          x: z.string(),
         }),
       },
     },
@@ -78,8 +78,8 @@ const app = new Spiceflow()
   .get('/dateObject', () => ({ date: new Date() }))
   .get('/redirect', ({ redirect }) => redirect('http://localhost:8083/true'))
   .post('/redirect', ({ redirect }) => redirect('http://localhost:8083/true'), {
-    body: t.Object({
-      username: t.String(),
+    body: z.object({
+      username: z.string(),
     }),
   })
   // .get('/formdata', () => ({

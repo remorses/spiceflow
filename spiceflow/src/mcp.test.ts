@@ -195,12 +195,12 @@ describe('MCP Plugin', () => {
         {
           "mimeType": "application/json",
           "name": "GET /goSomething",
-          "uri": "http://localhost:3000/goSomething",
+          "uri": "http://localhost:4000/goSomething",
         },
         {
           "mimeType": "application/json",
           "name": "GET /users",
-          "uri": "http://localhost:3000/users",
+          "uri": "http://localhost:4000/users",
         },
       ]
     `)
@@ -228,14 +228,14 @@ describe('MCP Plugin', () => {
           }
         ]
       }",
-          "uri": "http://localhost:3000/users",
+          "uri": "http://localhost:4000/users",
         },
       ]
     `)
   })
 })
 
-async function getAvailablePort(startPort = 3000, maxRetries = 10) {
+async function getAvailablePort(startPort = 4000, maxRetries = 10) {
   const net = await import('net')
 
   return await new Promise<number>((resolve, reject) => {
