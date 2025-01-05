@@ -48,6 +48,25 @@ importers:
       ai:
         specifier: ^4.0.26
         version: 4.0.26(react@19.0.0)(zod@3.24.1)
+      openapi-types:
+        specifier: ^12.1.3
+        version: 12.1.3
+      string-dedent:
+        specifier: ^3.0.1
+        version: 3.0.1
+      zod:
+        specifier: ^3.24.1
+        version: 3.24.1
+    devDependencies:
+      '@types/js-yaml':
+        specifier: ^4.0.9
+        version: 4.0.9
+      '@types/node':
+        specifier: 22.7.4
+        version: 22.7.4
+      js-yaml:
+        specifier: ^4.1.0
+        version: 4.1.0
 
   spiceflow:
     dependencies:
@@ -660,6 +679,9 @@ packages:
 
   '@types/istanbul-lib-coverage@2.0.6':
     resolution: {integrity: sha512-2QF/t/auWm0lsy8XtKVPG19v3sSOQlJe/YHZgfjb/KBBHOGSV+J2q/S671rcq9uTBrLAXmZpqJiaQbMT+zNU1w==}
+
+  '@types/js-yaml@4.0.9':
+    resolution: {integrity: sha512-k4MGaQl5TGo/iipqb2UDG2UwjXziSWkh0uysQelTlJpX1qGlpUZYm8PnO4DxG1qBomtJUdYJ6qR6xdIah10JLg==}
 
   '@types/node@12.20.55':
     resolution: {integrity: sha512-J8xLz7q2OFulZ2cyGTLE1TbbZcjpno7FaN6zdJNrgAdrJ+DZzh/uFR6YrTb4C+nXakvud8Q4+rbhoIWlYQbUFQ==}
@@ -1390,6 +1412,10 @@ packages:
   std-env@3.8.0:
     resolution: {integrity: sha512-Bc3YwwCB+OzldMxOXJIIvC6cPRWr/LxOp48CdQTOkPyk/t4JWWJbrilwBd7RJzKV8QW7tJkcgAmeuLLJugl5/w==}
 
+  string-dedent@3.0.1:
+    resolution: {integrity: sha512-A2zCXSgpPrpFi1lDJlDwIPYakBWeDtQZ8ZBKssB8M/WbtNEKTzsl1yCDRmHx55jSB27xZDQ6NOtRYekESWx6fw==}
+    engines: {node: '>=0.12.0'}
+
   string-width@4.2.3:
     resolution: {integrity: sha512-wKyQRQpjJ0sIp62ErSZdGsjMJWsap5oRNihHhu6G7JVO/9jIB6UyevL+tXuOqrng8j/cxKTWyWUwvSTriiZz/g==}
     engines: {node: '>=8'}
@@ -2085,6 +2111,8 @@ snapshots:
   '@types/estree@1.0.6': {}
 
   '@types/istanbul-lib-coverage@2.0.6': {}
+
+  '@types/js-yaml@4.0.9': {}
 
   '@types/node@12.20.55': {}
 
@@ -2822,6 +2850,8 @@ snapshots:
   statuses@2.0.1: {}
 
   std-env@3.8.0: {}
+
+  string-dedent@3.0.1: {}
 
   string-width@4.2.3:
     dependencies:
