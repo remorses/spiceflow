@@ -1,57 +1,70 @@
-To implement the `GET /stream` route, we'll add a method to the `ExampleClient` class that handles the Server-Sent Events (SSE) streaming. This method will use the `streamSSEResponse` function to process the stream and yield the parsed events.
+The `/stream` route is already implemented in the provided SDK code. However, I can provide a more detailed and standalone implementation of the `stream` method, including comments and type definitions.
 
-Here's the new code to add:
+Here’s the implementation:
 
 ```typescript
-export class ExampleClient {
-  // ... existing code ...
+/**
+ * GET /stream
+ * Method: GET
+ * Tags: example-tag
+ * 
+ * Returns an async generator for server-sent events (SSE) with a response schema.
+ * 
+ * @returns {AsyncGenerator<{ count: number; timestamp: number }>} An async generator yielding objects with `count` and `timestamp` properties.
+ */
+async *stream(): AsyncGenerator<{ count: number; timestamp: number }> {
+    try {
+        const response = await this.fetch({
+            method: 'GET',
+            path: '/stream',
+            headers: {
+                Accept: 'text/event-stream',
+            },
+        });
 
-  /**
-   * Stream data from the `/stream` endpoint.
-   * @returns An async generator that yields the streamed data.
-   */
-  async *stream(): AsyncGenerator<{ count: number; timestamp: number }> {
-    const response = await this.fetch({
-      method: 'GET',
-      path: '/stream',
-      headers: {
-        Accept: 'text/event-stream',
-      },
-    });
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new ExampleError('Failed to fetch stream', {
+                status: response.status,
+                data: errorData,
+            });
+        }
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new ExampleError('Failed to fetch stream', {
-        status: response.status,
-        data: errorData,
-      });
+        for await (const event of streamSSEResponse(response)) {
+            if (event.event === 'data') {
+                yield event.data;
+            }
+        }
+    } catch (error) {
+        if (error instanceof ExampleError) {
+            throw error;
+        }
+        throw new ExampleError('Network error', { status: 500 });
     }
-
-    for await (const event of streamSSEResponse(response)) {
-      if (event.event === 'data') {
-        yield event.data;
-      }
-    }
-  }
 }
 ```
 
 ### Explanation:
 
 1. **Method Signature**:
-   - The `stream` method is an `async generator` function that yields objects of type `{ count: number; timestamp: number }`, which matches the schema defined in the OpenAPI specification for the `/stream` endpoint.
+   - The method is an `async generator` (`async *`), which allows it to yield values asynchronously.
+   - It returns an `AsyncGenerator` that yields objects with `count` and `timestamp` properties, as defined by the OpenAPI schema.
 
-2. **Fetching the Stream**:
-   - The `fetch` method is called with the appropriate headers (`Accept: 'text/event-stream'`) to indicate that the client expects an SSE stream.
+2. **Request Handling**:
+   - The `fetch` method is used to make a GET request to the `/stream` endpoint.
+   - The `Accept` header is set to `text/event-stream` to indicate that the client expects an SSE response.
 
 3. **Error Handling**:
-   - If the response is not OK (i.e., the status code is not in the 200-299 range), an error is thrown using the `ExampleError` class. The error includes the status code and any additional data returned by the server.
+   - If the response is not OK (status code >= 400), an error is thrown with the status code and any error data returned by the server.
+   - Network errors are caught and rethrown as `ExampleError` with a 500 status code.
 
-4. **Stream Processing**:
-   - The `streamSSEResponse` function is used to process the SSE stream. The generator yields the parsed data from the stream, specifically the `data` events.
+4. **Streaming Response**:
+   - The `streamSSEResponse` function is used to parse the SSE response and yield events.
+   - Only events with the `event` type `data` are yielded, as these contain the actual data.
 
 5. **Type Safety**:
-   - The method is fully typed, ensuring that the yielded data matches the expected schema (`{ count: number; timestamp: number }`).
+   - The method is fully typed, with the return type explicitly defined as `AsyncGenerator<{ count: number; timestamp: number }>`.
+   - This ensures that the data yielded by the generator matches the schema defined in the OpenAPI specification.
 
 ### Usage Example:
 
@@ -59,14 +72,14 @@ export class ExampleClient {
 const client = new ExampleClient({ baseUrl: 'https://api.com', token: 'your-jwt-token' });
 
 (async () => {
-  try {
-    for await (const data of client.stream()) {
-      console.log(data); // { count: number, timestamp: number }
+    try {
+        for await (const event of client.stream()) {
+            console.log('Received event:', event);
+        }
+    } catch (error) {
+        console.error('Error streaming data:', error);
     }
-  } catch (error) {
-    console.error('Stream error:', error);
-  }
 })();
 ```
 
-This implementation ensures that the SDK can be used both in Node.js and the browser, and it handles the SSE stream correctly, including error handling and type safety.
+This implementation ensures that the SDK method is fully typed, handles errors gracefully, and works in both Node.js and browser environments.

@@ -1,34 +1,47 @@
-Here is the implementation for the `POST /upload` route. This method will handle file uploads using `multipart/form-data` and includes proper type definitions, error handling, and serialization.
+Here is the implementation for the `POST /upload` route. This method handles file uploads using `multipart/form-data` and includes proper error handling and type definitions.
 
 ```typescript
+interface UploadFileRequest {
+  file: string; // Base64 encoded file
+}
+
+interface UploadFileResponse {
+  // The response schema is not defined in the OpenAPI spec, so we use `any`
+  [key: string]: any;
+}
+
 export class ExampleClient {
   // ... (existing code)
 
   /**
    * Upload a file to the server.
-   * @param file - The file to upload, encoded as a base64 string.
-   * @returns A promise that resolves to the server's response.
+   * 
+   * Route: POST /upload
+   * Method: POST
+   * Tags: None
+   * 
+   * @param file - Base64 encoded file to upload
+   * @returns Promise<UploadFileResponse> - The server's response
    */
-  async uploadFile(file: string): Promise<any> {
-    const path = '/upload';
-    const headers = {
-      'Content-Type': 'multipart/form-data',
-      Authorization: this.token ? `Bearer ${this.token}` : '',
-    };
-
-    // Create FormData object
-    const formData = new FormData();
-    formData.append('file', file);
-
-    const url = new URL(path, this.baseUrl);
-
-    const options: RequestInit = {
-      method: 'POST',
-      headers,
-      body: formData,
-    };
-
+  async uploadFile(file: string): Promise<UploadFileResponse> {
     try {
+      const path = '/upload';
+      const headers = {
+        Authorization: this.token ? `Bearer ${this.token}` : '',
+      };
+
+      // Create FormData and append the file
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const url = new URL(path, this.baseUrl);
+
+      const options: RequestInit = {
+        method: 'POST',
+        headers,
+        body: formData,
+      };
+
       const response = await fetch(url.toString(), options);
 
       if (!response.ok) {
@@ -52,31 +65,18 @@ export class ExampleClient {
 
 ### Explanation:
 1. **Type Definitions**:
-   - The `uploadFile` method accepts a `file` parameter, which is a base64-encoded string.
-   - The return type is `Promise<any>` since the OpenAPI schema does not specify a response schema.
+   - `UploadFileRequest`: Represents the request body for the `/upload` endpoint. It includes a `file` property, which is a base64-encoded string.
+   - `UploadFileResponse`: Since the response schema is not defined in the OpenAPI spec, we use `any` to represent the response.
 
-2. **Request Serialization**:
-   - The `FormData` object is used to construct the `multipart/form-data` payload.
-   - The `file` is appended to the `FormData` object with the key `file`.
+2. **Method Implementation**:
+   - The `uploadFile` method constructs a `FormData` object and appends the base64-encoded file to it.
+   - It sends the request using `fetch` with the appropriate headers and body.
+   - Error handling is included to catch and throw custom `ExampleError` instances for failed requests or network errors.
 
-3. **Error Handling**:
-   - If the response is not OK (status code >= 400), an `ExampleError` is thrown with the status code and any error data returned by the server.
-   - Network errors are caught and rethrown as an `ExampleError` with a status code of 500.
+3. **Compatibility**:
+   - The code is compatible with both Node.js and the browser, as it uses the standard `fetch` API and `FormData`.
 
-4. **Cross-Platform Compatibility**:
-   - The code uses the `fetch` API, which is available in both browsers and Node.js (with polyfills like `node-fetch`).
+4. **Comments**:
+   - A comment above the method describes the route, method, and tags for clarity.
 
-5. **Security**:
-   - The `Authorization` header is included if a token is provided.
-
-### Usage Example:
-```typescript
-const client = new ExampleClient({ baseUrl: 'https://api.com', token: 'your-jwt-token' });
-
-const base64File = '...'; // Replace with your base64-encoded file
-client.uploadFile(base64File)
-  .then(response => console.log('Upload successful:', response))
-  .catch(error => console.error('Upload failed:', error));
-```
-
-This implementation ensures that the `POST /upload` route is fully typed, handles errors gracefully, and works in both browser and Node.js environments.
+This implementation ensures that the `/upload` endpoint is fully typed and handles file uploads securely and efficiently.

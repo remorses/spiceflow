@@ -82,6 +82,8 @@ export async function generateSDKForRoute({
     Only implement the new code to add for the route: ${route.method} ${
     route.path
   } 
+
+    Do not add any explanations at the end of the file, instead
     
     `
 
@@ -91,6 +93,7 @@ export async function generateSDKForRoute({
   const res = streamText({
     model: deepseek('deepseek-chat', {}),
     prompt,
+    temperature: 0,
   })
 
   let generatedCode = ''
@@ -152,7 +155,7 @@ export function extractMarkdownSnippets(markdown: string): string[] {
     return [markdown]
   }
 
-  return snippets
+  return snippets.filter((snippet) => snippet.length > 0)
 }
 
 export async function generateSDKFromOpenAPI({
@@ -232,6 +235,7 @@ export async function mergeSDKOutputs({
   const res = streamText({
     model: openai('gpt-4o-mini', {}),
     prompt,
+    temperature: 0,
     experimental_providerMetadata: {
       // https://sdk.vercel.ai/providers/ai-sdk-providers/openai#predicted-outputs
       openai: {

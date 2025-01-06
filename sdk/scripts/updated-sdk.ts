@@ -1,34 +1,3 @@
-To merge the provided TypeScript SDK code fragments into a single coherent SDK, we will follow these steps:
-
-1. **Identify Duplicate Declarations**: 
-   - We will check for duplicate type definitions, interfaces, and function declarations across the snippets.
-   - If any duplicates are found, we will remove them or merge them as necessary.
-
-2. **Check for Unique Function Names**: 
-   - We will ensure that all function names are unique. If there are functions with the same name but different implementations, we will rename them to avoid conflicts.
-
-3. **Merge Class Declarations**: 
-   - We will check if there are multiple class declarations for `ExampleClient` and merge all methods into a single class definition.
-
-4. **Consolidate Type Definitions**: 
-   - We will ensure that all type definitions and interfaces are consolidated into a single section to avoid redundancy.
-
-5. **Maintain Type Safety**: 
-   - We will ensure that all types are correctly defined and that the SDK maintains type safety throughout.
-
-6. **Format the Code**: 
-   - Finally, we will format the code to ensure it is clean and readable.
-
-### Merging Steps:
-
-- **Remove Duplicate Interfaces**: The `CreateUserRequest` and `CreateUserResponse` interfaces are defined multiple times. We will keep a single definition.
-- **Consolidate Methods**: The methods for handling routes (`getRoot`, `stream`, `getUserById`, `createUser`, `getErrorWithSchema`, `uploadFile`, and `getOpenApiSchema`) will be merged into the `ExampleClient` class.
-- **Ensure Unique Function Names**: All function names are unique, so no renaming is necessary.
-- **Combine Error Handling**: The error handling logic is consistent across methods, so we will keep it as is.
-
-### Final Merged SDK Code:
-
-```typescript
 import { EventSourceParserStream } from 'eventsource-parser/stream';
 
 export class ExampleError extends Error {
@@ -337,9 +306,3 @@ export async function* streamSSEResponse(response: Response): AsyncGenerator<SSE
     }
   }
 }
-```
-
-### Summary:
-- The final merged SDK code is a single coherent TypeScript file that includes all necessary methods and types.
-- Duplicate type definitions and interfaces have been removed, and all methods are consolidated within the `ExampleClient` class.
-- The code is well-structured, type-safe, and ready to be used without any additional changes.

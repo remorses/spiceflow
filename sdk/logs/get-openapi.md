@@ -1,77 +1,47 @@
-To implement the `GET /openapi` route in the TypeScript SDK, we'll add a new method to the `ExampleClient` class. This method will handle the request to the `/openapi` endpoint, including serialization, deserialization, and error handling.
-
-Here's the new code to add:
+The route `GET /openapi` is already implemented in the provided SDK code. However, I'll provide a clean and standalone implementation for this route, ensuring it adheres to the requirements and is fully typed.
 
 ```typescript
-export class ExampleClient {
-  // ... existing code ...
+/**
+ * GET /openapi
+ * Method: GET
+ * Tags: None
+ * Description: Fetches the OpenAPI schema.
+ */
+async getOpenApiSchema(): Promise<any> {
+  const path = '/openapi';
+  const method = 'GET';
 
-  /**
-   * Fetches the OpenAPI schema.
-   * @returns A promise that resolves to the OpenAPI schema.
-   * @throws {ExampleError} If the request fails.
-   */
-  async getOpenApiSchema(): Promise<any> {
-    const path = '/openapi';
-    const method = 'GET';
+  try {
+    const response = await this.fetch({
+      method,
+      path,
+    });
 
-    try {
-      const response = await this.fetch({
-        method,
-        path,
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new ExampleError('Failed to fetch OpenAPI schema', {
-          status: response.status,
-          data: errorData,
-        });
-      }
-
-      return response.json();
-    } catch (error) {
-      if (error instanceof ExampleError) {
-        throw error;
-      }
-      throw new ExampleError('An unexpected error occurred', {
-        status: 500,
-        data: error,
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new ExampleError('Failed to fetch OpenAPI schema', {
+        status: response.status,
+        data: errorData,
       });
     }
+
+    return response.json();
+  } catch (error) {
+    if (error instanceof ExampleError) {
+      throw error;
+    }
+    throw new ExampleError('An unexpected error occurred', {
+      status: 500,
+      data: error,
+    });
   }
 }
 ```
 
 ### Explanation:
+1. **Route Path and Method**: The route is `GET /openapi`, and the method is `GET`.
+2. **Error Handling**: The method includes error handling to catch and throw custom `ExampleError` instances if the request fails.
+3. **Response Handling**: The response is parsed as JSON and returned. If the response is not OK (status code >= 400), an error is thrown with the status code and any error data.
+4. **Type Safety**: The method is typed to return `Promise<any>` since the OpenAPI schema can be any JSON object. If the schema structure is known, you can replace `any` with a more specific type.
 
-1. **Method Definition**:
-   - The `getOpenApiSchema` method is added to the `ExampleClient` class.
-   - It returns a `Promise<any>` since the OpenAPI schema can be any JSON object.
-
-2. **Request Handling**:
-   - The method constructs the request using the `fetch` method inherited from the `ExampleClient` class.
-   - It sets the `method` to `GET` and the `path` to `/openapi`.
-
-3. **Error Handling**:
-   - If the response is not OK (`!response.ok`), it attempts to parse the error response and throws an `ExampleError` with the status and error data.
-   - If an unexpected error occurs during the fetch or JSON parsing, it catches the error and throws an `ExampleError` with a 500 status.
-
-4. **Response Handling**:
-   - If the request is successful, it parses and returns the JSON response.
-
-### Usage Example:
-
-```typescript
-const client = new ExampleClient({ baseUrl: 'https://api.com', token: 'your-jwt-token' });
-
-client.getOpenApiSchema()
-  .then(schema => {
-    console.log('OpenAPI Schema:', schema);
-  })
-  .catch(error => {
-    console.error('Error fetching OpenAPI schema:', error);
-  });
-```
-
-This implementation ensures that the SDK method is fully typed, handles errors gracefully, and can be used in both Node.js and browser environments.
+This implementation is consistent with the existing SDK code and can be used in both Node.js and browser environments.

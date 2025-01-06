@@ -2,6 +2,78 @@ import { describe, expect, it } from 'vitest'
 import { getOpenApiDiffPrompt } from './diff'
 import { OpenAPIV3 } from 'openapi-types'
 
+import { extractMarkdownSnippets } from './sdk'
+
+describe('extractMarkdownSnippets', () => {
+  it('should extract code blocks from markdown', () => {
+    const markdown = `
+Some text before
+
+\`\`\`typescript
+const x = 1;
+const y = 2;
+\`\`\`
+
+Text between code blocks
+
+\`\`\`javascript
+function test() {
+  return true;
+}
+\`\`\`
+
+Some text after
+`
+
+    expect(extractMarkdownSnippets(markdown).length).toBe(2)
+
+    expect(extractMarkdownSnippets(markdown)).toMatchInlineSnapshot(`
+      [
+        "const x = 1;
+      const y = 2;",
+        "function test() {
+        return true;
+      }",
+      ]
+    `)
+  })
+
+  it('should return full text when no code blocks present', () => {
+    const markdown = 'Just plain text\nwith multiple lines'
+    expect(extractMarkdownSnippets(markdown)).toMatchInlineSnapshot(`
+      [
+        "Just plain text
+      with multiple lines",
+      ]
+    `)
+  })
+  it('should extract single code block with surrounding text', () => {
+    const markdown = `
+Some text before the code block
+
+\`\`\`typescript
+const singleExample = "test";
+console.log(singleExample);
+\`\`\`
+
+And some text after the block
+`
+    expect(extractMarkdownSnippets(markdown).length).toBe(1)
+
+    expect(extractMarkdownSnippets(markdown)).toMatchInlineSnapshot(`
+      [
+        "const singleExample = "test";
+      console.log(singleExample);",
+      ]
+    `)
+  })
+
+  it('should handle empty code blocks', () => {
+    const markdown = '```\n```'
+    expect(extractMarkdownSnippets(markdown)).toMatchInlineSnapshot(`[]`)
+  })
+})
+
 describe('getOpenApiDiffPrompt', () => {
   it('should detect changes in request and response schemas', () => {
     const previousSchema: OpenAPIV3.Document = {

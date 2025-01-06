@@ -1,71 +1,54 @@
-Here is the implementation for the `GET /errorWithSchema` route. This method will handle the request, response serialization, and error handling, and will be fully typed for both inputs and outputs.
+The route `GET /errorWithSchema` is already implemented in the provided SDK code. However, I can provide a more detailed and standalone implementation for this route, ensuring it adheres to the requirements and includes proper type definitions, error handling, and serialization.
+
+Here’s the implementation:
 
 ```typescript
-export class ExampleClient {
-  // ... (existing code)
+/**
+ * GET /errorWithSchema
+ * Method: GET
+ * Tags: example-tag
+ * Description: Always throws an error for testing error handling
+ */
+async function getErrorWithSchema(): Promise<{ message: string }> {
+  const path = `/errorWithSchema`;
+  const method = 'GET';
 
-  /**
-   * GET /errorWithSchema
-   * Always throws an error for testing error handling
-   */
-  async getErrorWithSchema(): Promise<{ message: string }> {
-    const path = `/errorWithSchema`;
-    const method = 'GET';
+  try {
+    const response = await this.fetch({
+      method,
+      path,
+    });
 
-    try {
-      const response = await this.fetch({
-        method,
-        path,
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new ExampleError(errorData.message || 'An error occurred', {
+        status: response.status,
+        data: errorData,
       });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new ExampleError(errorData.message || 'An error occurred', {
-          status: response.status,
-          data: errorData,
-        });
-      }
-
-      return response.json();
-    } catch (error) {
-      if (error instanceof ExampleError) {
-        throw error;
-      }
-      throw new ExampleError('Network error', { status: 500 });
     }
+
+    return response.json();
+  } catch (error) {
+    if (error instanceof ExampleError) {
+      throw error;
+    }
+    throw new ExampleError('Network error', { status: 500 });
   }
 }
 ```
 
 ### Explanation:
-1. **Method Signature**:
-   - The method `getErrorWithSchema` is asynchronous and returns a `Promise` that resolves to an object with a `message` property of type `string`.
 
-2. **Request Handling**:
-   - The `fetch` method is used to make a `GET` request to the `/errorWithSchema` endpoint.
-   - The `path` is set to `/errorWithSchema`, and the `method` is set to `GET`.
+1. **Route Path and Method**: The function is documented with the route path (`/errorWithSchema`), method (`GET`), and tags (`example-tag`).
 
-3. **Error Handling**:
-   - If the response is not OK (`!response.ok`), the method attempts to parse the error response as JSON and throws an `ExampleError` with the error message and status code.
-   - If the request fails due to a network error or other issues, a generic `ExampleError` is thrown with a status code of `500`.
+2. **Type Definitions**: The function is fully typed. The return type is `Promise<{ message: string }>`, which matches the schema defined in the OpenAPI specification.
 
-4. **Response Handling**:
-   - If the response is successful, the method parses and returns the JSON response.
+3. **Error Handling**: The function includes error handling to catch and throw custom `ExampleError` instances. If the response is not OK (i.e., status code is not 200), it attempts to parse the error response and throws an `ExampleError` with the error message and status code.
 
-### Usage Example:
-```typescript
-const client = new ExampleClient({ baseUrl: 'https://api.com', token: 'your-jwt-token' });
+4. **Serialization**: The function uses `fetch` to make the API call and `response.json()` to parse the JSON response.
 
-try {
-  const result = await client.getErrorWithSchema();
-  console.log(result.message);
-} catch (error) {
-  if (error instanceof ExampleError) {
-    console.error(`Error: ${error.message}, Status: ${error.status}`);
-  } else {
-    console.error('Unexpected error:', error);
-  }
-}
-```
+5. **Cross-Platform Compatibility**: The code uses `fetch`, which is available in both Node.js (with polyfills) and the browser, ensuring compatibility across environments.
 
-This implementation ensures that the method is fully typed, handles errors gracefully, and can be used in both Node.js and browser environments.
+6. **Custom Error Handling**: The function checks if the error is an instance of `ExampleError` and rethrows it if so. Otherwise, it throws a new `ExampleError` with a generic network error message.
+
+This implementation ensures that the SDK method is robust, fully typed, and handles errors gracefully, making it suitable for both Node.js and browser environments.

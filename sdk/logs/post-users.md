@@ -1,7 +1,6 @@
-Here is the implementation for the `POST /users` route in the TypeScript SDK. This method will handle the creation of a new user, including request/response serialization, error handling, and type definitions.
+Here is the implementation for the `POST /users` route. This method will handle creating a new user with the provided user data. The method is fully typed, handles request/response serialization, and includes error handling.
 
 ```typescript
-// Type Definitions
 interface CreateUserRequest {
   name: string;
   email: string;
@@ -13,60 +12,61 @@ interface CreateUserResponse {
   data?: any;
 }
 
-// Method Implementation
-export class ExampleClient {
-  // ... (existing code)
+/**
+ * POST /users
+ * Method: POST
+ * Tags: example-tag
+ * 
+ * Creates a new user with the provided data.
+ * 
+ * @param userData - The user data to create.
+ * @returns A promise that resolves to the created user response.
+ */
+async createUser(userData: CreateUserRequest): Promise<CreateUserResponse> {
+  try {
+    const response = await this.fetch<CreateUserRequest>({
+      method: 'POST',
+      path: '/users',
+      body: userData,
+    });
 
-  /**
-   * Create a new user.
-   * @param userData - The user data to create.
-   * @returns A promise resolving to the response data.
-   * @throws {ExampleError} If the request fails.
-   */
-  async createUser(userData: CreateUserRequest): Promise<CreateUserResponse> {
-    try {
-      const response = await this.fetch<CreateUserRequest>({
-        method: 'POST',
-        path: '/users',
-        body: userData,
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => null);
-        throw new ExampleError('Failed to create user', {
-          status: response.status,
-          data: errorData,
-        });
-      }
-
-      return response.json() as Promise<CreateUserResponse>;
-    } catch (error) {
-      if (error instanceof ExampleError) {
-        throw error;
-      }
-      throw new ExampleError('An unexpected error occurred', {
-        status: 500,
-        data: error,
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => null);
+      throw new ExampleError('Failed to create user', {
+        status: response.status,
+        data: errorData,
       });
     }
+
+    return response.json() as Promise<CreateUserResponse>;
+  } catch (error) {
+    if (error instanceof ExampleError) {
+      throw error;
+    }
+    throw new ExampleError('An unexpected error occurred', {
+      status: 500,
+      data: error,
+    });
   }
 }
 ```
 
 ### Explanation:
 1. **Type Definitions**:
-   - `CreateUserRequest`: Defines the structure of the request body for creating a user.
-   - `CreateUserResponse`: Defines the structure of the response from the API.
+   - `CreateUserRequest`: Defines the structure of the request body, including `name`, `email`, and `age`.
+   - `CreateUserResponse`: Defines the structure of the response, including a `message` and optional `data`.
 
 2. **Method Implementation**:
-   - The `createUser` method takes a `CreateUserRequest` object as input.
-   - It uses the `fetch` method (from the existing `ExampleClient` class) to send a `POST` request to the `/users` endpoint.
-   - The request body is serialized as JSON.
-   - If the response is not successful (`!response.ok`), it throws an `ExampleError` with the status code and any error data.
-   - If the request is successful, it parses and returns the JSON response as a `CreateUserResponse`.
+   - The `createUser` method takes a `userData` parameter of type `CreateUserRequest`.
+   - It makes a `POST` request to the `/users` endpoint with the provided `userData`.
+   - The response is checked for errors, and if the request is successful, it returns the parsed JSON response.
 
 3. **Error Handling**:
-   - Catches and rethrows `ExampleError` if the request fails.
-   - Catches unexpected errors and wraps them in an `ExampleError` with a 500 status code.
+   - If the response is not OK (status code >= 400), it attempts to parse the error data and throws an `ExampleError`.
+   - Any network or unexpected errors are caught and rethrown as an `ExampleError` with a 500 status code.
 
-This implementation is fully typed, handles serialization, and works in both Node.js and browser environments.
+4. **Serialization**:
+   - The request body is serialized to JSON using `JSON.stringify`.
+   - The response is parsed as JSON using `response.json()`.
+
+This method is designed to be used in both Node.js and browser environments, leveraging the `fetch` API for making HTTP requests.
