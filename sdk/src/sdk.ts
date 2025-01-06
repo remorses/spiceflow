@@ -47,13 +47,31 @@ export function getRoutesFromOpenAPI({
       ...changedRoutesText,
       ...deletedRoutesText,
     ]
-
+    console.log(`Added routes (${addedRoutesText.length}):`)
     console.log(
-      `found ${affectedRoutes.length} updated routes: ${JSON.stringify(
-        affectedRoutes.map((x) => x.route.method + ' ' + x.route.path),
+      JSON.stringify(
+        addedRoutesText.map((x) => x.route.method + ' ' + x.route.path),
         null,
         2,
-      )}`,
+      ),
+    )
+
+    console.log(`Changed routes (${changedRoutesText.length}):`)
+    console.log(
+      JSON.stringify(
+        changedRoutesText.map((x) => x.route.method + ' ' + x.route.path),
+        null,
+        2,
+      ),
+    )
+
+    console.log(`Deleted routes (${deletedRoutesText.length}):`)
+    console.log(
+      JSON.stringify(
+        deletedRoutesText.map((x) => x.route.method + ' ' + x.route.path),
+        null,
+        2,
+      ),
     )
     return affectedRoutes.map((route) => ({
       path: route.route.path,
@@ -325,6 +343,77 @@ export async function mergeSDKOutputs({
     code: outSnippets[0],
   }
 }
+
+export async function mergeSdkWithCursor({
+  outputs,
+  previousSdkCode,
+  openApiSchema,
+}: {
+  previousSdkCode: string
+  outputs: { title: string; code: string }[]
+  openApiSchema: OpenAPIV3.Document
+}) {
+  const prompt = dedent`
+    Implement the following routes in TypeScript for the SDK client class.
+    The implementation should handle errors appropriately and maintain type safety.
+    
+    OpenAPI Schema:
+    <openApiSchema>
+    ${JSON.stringify(openApiSchema, null, 2)}
+    </openApiSchema>
+
+    Here is how the SDK code looked like before the LLM edits, this is the content the edits are based on:
+    <initialSdkCode>
+    ${previousSdkCode}
+    </initialSdkCode>
+
+    Routes to implement:
+    ${outputs
+      .map(
+        (output) => dedent`
+    <route title="${output.title}">
+    ${output.code}
+    </route>
+    `,
+      )
+      .join('\n')}
+
+    Output the complete TypeScript implementation in a single markdown code block.
+    The implementation should:
+    - Handle errors appropriately using try/catch
+    - Maintain type safety with proper interfaces and types
+    - Follow consistent error handling patterns from the existing code
+    - Include proper JSDoc comments for each method
+    
+    The output should contain only the new method implementations that can be added to the existing SDK class.
+  `
+
+  const snippets = outputs.map((x) => `## ${x.title}\n\n${x.code}`).join('\n\n')
+  const resultMessage = dedent`
+  To implement the routes here are the complete changes you have to make to the SDK:
+
+  ${snippets}
+  `
+
+  const requestId = Math.random().toString(36).substring(7)
+  console.time(`cursor merge sdk ${requestId}`)
+
+  const res = await makeCursorSlashEditRequest({
+    prompt,
+    fileContents: previousSdkCode,
+    filename: 'sdk.ts',
+    resultMessage,
+    useChunkSpeculationForLongFiles: true,
+    useFastApply: true,
+    accessToken: process.env.CURSOR_ACCESS_TOKEN,
+    refreshToken: process.env.CURSOR_REFRESH_TOKEN,
+  })
+
+  console.timeEnd(`cursor merge sdk ${requestId}`)
+
+  return res
+}
+
 export function logToFile(filePath: string) {
   fs.mkdirSync(path.dirname(filePath), { recursive: true })
   fs.promises.writeFile(filePath, '')
@@ -392,4 +481,42 @@ export function replaceParamsInTemplate({
   })
 
   return result
+}
+
+interface SlashEditParams {
+  fileContents: string
+  filename: string
+  prompt: string
+  resultMessage: string
+  useFastApply: boolean
+  useChunkSpeculationForLongFiles: boolean
+  accessToken?: string
+  refreshToken?: string
+}
+export async function makeCursorSlashEditRequest(
+  params: SlashEditParams,
+  baseUrl: string = 'https://cursor-rpc-master.fly.dev/',
+) {
+  console.time('makeCursorSlashEditRequest')
+  const response = await fetch(baseUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(params),
+  })
+
+  if (!response.ok) {
+    throw new Error(
+      `HTTP error! status: ${
+        response.status
+      }, url: ${baseUrl}, response: ${await response.text()}`,
+    )
+  }
+
+  const json = await response.json()
+  console.timeEnd('makeCursorSlashEditRequest')
+  return json as {
+    resultFile: string
+  }
 }
