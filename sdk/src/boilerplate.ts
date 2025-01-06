@@ -1,3 +1,5 @@
+import { EventSourceParserStream } from 'eventsource-parser/stream'
+
 export class _replacedClientName {
   private baseUrl: string
   token?: string
@@ -19,7 +21,7 @@ export class _replacedClientName {
     body?: T
     headers?: Record<string, string>
   }): Promise<Response> {
-    const url = new URL(`${this.baseUrl}${path}`)
+    const url = new URL(path, this.baseUrl)
 
     if (query) {
       Object.entries(query).forEach(([key, value]) => {
@@ -56,4 +58,35 @@ export class _replacedErrorName extends Error {
     this.status = status
     this.data = data
   }
+}
+
+export async function* streamSSEResponse(
+  response: Response,
+): AsyncGenerator<SSEEvent> {
+  const body = response.body
+  if (!body) return
+
+  const eventStream = response.body
+    .pipeThrough(new TextDecoderStream())
+    .pipeThrough(new EventSourceParserStream())
+
+  let reader = eventStream.getReader()
+  while (true) {
+    const { done, value: event } = await reader.read()
+    if (done) break
+    if (event?.event === 'error') {
+      throw new _replacedErrorName(event.data, { status: 500 })
+    }
+    if (event) {
+      try {
+        yield JSON.parse(event.data)
+      } catch (error) {}
+    }
+  }
+}
+
+interface SSEEvent {
+  event: string
+  data: any
+  id?: string
 }

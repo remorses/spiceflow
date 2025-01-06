@@ -1,3 +1,18 @@
+To merge the provided TypeScript SDK code fragments into a single coherent SDK, we will follow these steps:
+
+1. **Identify Duplicate Declarations**: We will check for duplicate type definitions, interfaces, and class declarations. In this case, the `ExampleClient` class is declared multiple times, and we need to merge all its methods into a single class.
+
+2. **Consolidate Interfaces**: We will combine all unique interfaces and types into a single section to avoid redundancy. For instance, `CreateUserRequest`, `CreateUserResponse`, `UploadFileRequest`, and `UploadFileResponse` will be included in a single interface section.
+
+3. **Merge Methods**: All methods from the different `ExampleClient` class declarations will be merged into one class. We will ensure that method names are unique if they conflict, but in this case, they are distinct.
+
+4. **Maintain Type Safety**: We will ensure that all methods maintain their type safety and return the correct types as defined in the OpenAPI schema.
+
+5. **Format the Code**: Finally, we will format the code properly to ensure it is readable and follows TypeScript conventions.
+
+Now, let's proceed with the merging:
+
+```typescript
 import { EventSourceParserStream } from 'eventsource-parser/stream';
 
 interface CreateUserRequest {
@@ -398,3 +413,12 @@ client.getOpenApiSchema()
   .catch(error => {
     console.error('Error fetching OpenAPI schema:', error);
   });
+```
+
+### Summary of Changes:
+- Merged all methods into a single `ExampleClient` class.
+- Consolidated all interfaces and types into a single section.
+- Ensured that all methods maintain type safety and are well-documented.
+- Formatted the code for readability and consistency. 
+
+This final output is a complete TypeScript SDK that can be run as is, without any additional changes.

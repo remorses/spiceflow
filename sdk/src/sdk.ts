@@ -54,10 +54,11 @@ export async function generateSDKForRoute({
   const prompt = dedent`
     Generate a TypeScript SDK method for this OpenAPI route. The SDK should:
     - Use fetch for making API calls
+    - The output code should be possible to run both on Node.js and the browser, do not use Node.js specific functions and imports
     - Include all type definitions
     - Handle request/response serialization
     - Include error handling
-    - Be fully typed, for both inputs and outputs, use optional fields where required, use any in case no result type is provided
+    - Be fully typed for both inputs and outputs, use optional fields where required, use any in case no result type is provided
 
     OpenAPI Schema:
     <openApiSchema>
@@ -74,6 +75,9 @@ export async function generateSDKForRoute({
   } 
     
     `
+
+  const requestId = Math.random().toString(36).substring(7)
+  console.time(`llm generate route ${route.method} ${route.path} ${requestId}`)
 
   const res = streamText({
     model: deepseek('deepseek-chat', {}),
@@ -99,11 +103,47 @@ export async function generateSDKForRoute({
   }
 
   logStream.end()
+  console.timeEnd(
+    `llm generate route ${route.method} ${route.path} ${requestId}`,
+  )
 
   return {
     code: generatedCode,
+    // code: extractMarkdownSnippets(generatedCode).join('\n\n'),
     title: `SDK Code for Route: ${route.method} ${route.path}`,
   }
+}
+
+export function extractMarkdownSnippets(markdown: string): string[] {
+  const snippets: string[] = []
+  const lines = markdown.split('\n')
+  let isInCodeBlock = false
+  let currentSnippet: string[] = []
+  let hasCodeBlocks = false
+
+  for (const line of lines) {
+    if (line.startsWith('```')) {
+      hasCodeBlocks = true
+      if (isInCodeBlock) {
+        // End of code block
+        snippets.push(currentSnippet.join('\n'))
+        currentSnippet = []
+      }
+      isInCodeBlock = !isInCodeBlock
+      continue
+    }
+
+    if (isInCodeBlock) {
+      currentSnippet.push(line)
+    }
+  }
+
+  // If no code blocks were found, return the entire markdown as a single snippet
+  if (!hasCodeBlocks) {
+    return [markdown]
+  }
+
+  return snippets
 }
 
 export async function generateSDKFromOpenAPI({
@@ -125,22 +165,28 @@ export async function generateSDKFromOpenAPI({
     ),
   )
 
-  return mergeSDKOutputs({ outputs: results, previousSdkCode })
+  return mergeSDKOutputs({ outputs: results, previousSdkCode, openApiSchema })
 }
 
 export async function mergeSDKOutputs({
   outputs,
   previousSdkCode,
+  openApiSchema,
 }: {
   previousSdkCode
   outputs: { title: string; code: string }[]
+  openApiSchema: OpenAPIV3.Document
 }) {
   const prompt = dedent`
     Merge and deduplicate the following TypeScript SDK code fragments into a single coherent SDK.
     Remove duplicate type definitions and interfaces.
-    Organize related methods into namespaces based on their functionality.
-    Ensure the output is well-formatted and maintains all type safety.
+    Ensure the output is well-formatted and maintains all type safety. The output file should be possible to run as is, without any additional changes.
 
+
+    OpenAPI Schema:
+    <openApiSchema>
+    ${JSON.stringify(openApiSchema, null, 2)}
+    </openApiSchema>
 
     Here is how the SDK code looked like before the LLM edits, this is the content the edits are based on:
     <initialSdkCode>
@@ -152,15 +198,25 @@ export async function mergeSDKOutputs({
     ${outputs
       .map(
         (output) => dedent`
-    <sdkFragmentCode title="${output.title}">
+    <sdkFragmentOutput title="${output.title}">
     ${output.code}
-    </sdkFragmentCode>
+    </sdkFragmentOutput>
     `,
       )
       .join('\n')}
 
-    Output only the complete merged TypeScript SDK code fully, it should contain the whole file. Do not include any other text or explanations.
+    Output the complete merged TypeScript SDK code in a single large markdown snippet, before doing that reason step by step on how to best merge the output snippets.
+    
+    Always answer the following questions before starting to write the final snippet:
+    - Are there duplicate type or function declarations? If yes, remove duplicates.
+    - Are there different function declarations or types with the same name? If yes, rename them to be unique.
+    - Are there duplicate class declarations that simply need to be merged by adding all the methods to the same class?
+    
+    The output should contain the whole file.
   `
+
+  const requestId = Math.random().toString(36).substring(7)
+  console.time(`llm merge sdk ${requestId}`)
 
   const res = streamText({
     model: openai('gpt-4o-mini', {}),
@@ -200,19 +256,21 @@ export async function mergeSDKOutputs({
   }
 
   logStream.end()
+  console.timeEnd(`llm merge sdk ${requestId}`)
 
+  const outSnippets = extractMarkdownSnippets(generatedCode)
+  if (outSnippets.length > 0) {
+    console.error(new Error('LLM outputs more than one snippet!'))
+  }
   return {
-    code: generatedCode
-      .split('\n')
-      .filter((x) => !x.startsWith('```'))
-      .join('\n'),
+    code: outSnippets[0],
   }
 }
 
 export function logToFile(filePath: string) {
   fs.mkdirSync(path.dirname(filePath), { recursive: true })
   fs.writeFileSync(filePath, '')
-  const logStream = fs.createWriteStream(filePath, {})
+  const logStream = fs.createWriteStream(filePath, { flush: true, flags: 'a' })
   return logStream
 }
 
