@@ -1,4 +1,6 @@
 import { createDeepSeek } from '@ai-sdk/deepseek'
+import fs from 'fs'
+import { parse } from 'partial-json'
 import dedent from 'string-dedent'
 import { streamText } from 'ai'
 import type { OpenAPIV3 } from 'openapi-types'
@@ -58,36 +60,19 @@ export function replaceParamsInTemplate({
 }
 
 const editFileSchema = z.object({
-  command: z.enum(['str_replace', 'insert']).describe('The commands to run.'),
-  insert_line: z
-    .number()
-    .int()
+  old_str: z
+    .string()
     .optional()
     .describe(
-      'Required parameter of `insert` command. The `new_str` will be inserted AFTER the line `insert_line` of `path`.',
+      'Required parameter of `str_replace` command containing the string in `path` to replace. As short as possible, you can replace code that you previously added yourself.',
     ),
   new_str: z
     .string()
     .optional()
     .describe(
-      'Required parameter of `str_replace` command containing the new string. Required parameter of `insert` command containing the string to insert.',
-    ),
-  old_str: z
-    .string()
-    .optional()
-    .describe(
-      'Required parameter of `str_replace` command containing the string in `path` to replace.',
+      'Required parameter of `str_replace` command containing the new string. To insert new code simply repeat the replaced line. Required parameter of `insert` command containing the string to insert. Please use nice formatting and indentation of 2 spaces.',
     ),
 })
-//   .refine((data) => {
-//     if (data.command === 'str_replace' && (!data.old_str || !data.new_str))
-//       return false
-//     if (data.command === 'insert' && (!data.insert_line || !data.new_str))
-//       return false
-//     return true
-//   })
-
-type EditFileParams = z.infer<typeof editFileSchema>
 
 export async function generateSDKFromOpenAPI({
   openApiSchema,
@@ -122,6 +107,11 @@ export async function generateSDKFromOpenAPI({
   let generatedCode = previousSdkCode
   let fullOutput = ''
 
+  // Track line number changes with an array where index is original line number
+  // and value is the offset to add to get current line number
+  let lineOffsets: number[] = Array(previousSdkCode.split('\n').length).fill(0)
+  let currentLines = previousSdkCode.split('\n')
+
   const res = streamText({
     model: model('deepseek-chat', {}),
     prompt,
@@ -130,9 +120,12 @@ export async function generateSDKFromOpenAPI({
     tools: {
       editFile: {
         parameters: editFileSchema,
-        execute: async ({ command, old_str, new_str, insert_line }) => {
-          const params = { command, old_str, new_str, insert_line }
-
+        execute: async ({
+          command = 'str_replace',
+          old_str,
+          new_str,
+          insert_line,
+        }) => {
           if (command === 'str_replace' && old_str && new_str) {
             const matches = generatedCode.split(old_str).length - 1
             if (matches === 0) {
@@ -156,23 +149,29 @@ export async function generateSDKFromOpenAPI({
                 ],
               }
             }
+
             generatedCode = generatedCode.replace(old_str, new_str)
+            currentLines = generatedCode.split('\n')
             return { success: true }
           }
+
           if (command === 'insert' && insert_line != null && new_str) {
-            const lines = generatedCode.split('\n')
-            if (insert_line >= lines.length) {
+            if (insert_line >= currentLines.length) {
               return {
                 success: false,
-                error: `Invalid insert line ${insert_line} - file only has ${lines.length} lines`,
+                error: `Invalid insert line ${insert_line} - file only has ${currentLines.length} lines`,
                 suggestions: [
-                  `Choose a line number between 0 and ${lines.length - 1}`,
+                  `Choose a line number between 0 and ${
+                    currentLines.length - 1
+                  }`,
                 ],
               }
             }
-            lines.splice(insert_line + 1, 0, new_str)
-            generatedCode = lines.join('\n')
-            return { success: true }
+
+            // Insert the new string after the specified line by splicing it into the array of lines
+            currentLines.splice(insert_line + 1, 0, new_str)
+            generatedCode = currentLines.join('\n')
+            return { success: true, newCode: generatedCode }
           }
           return {
             success: false,
@@ -187,22 +186,54 @@ export async function generateSDKFromOpenAPI({
     },
   })
 
-  for await (const item of res.fullStream) {
-    process.stdout.write('\x1Bc')
-    if (!item) {
-      continue
+  const debouncedWrite = (() => {
+    let lastWriteTime = 0
+    return (content: string) => {
+      const now = Date.now()
+      if (now - lastWriteTime >= 50) {
+        fs.writeFileSync('scripts/logs.md', content)
+        lastWriteTime = now
+      }
     }
+  })()
+
+  let toolJsonArgs = ''
+  let fullOutputOffset = Infinity
+  for await (const item of res.fullStream) {
+    // process.stdout.write('\x1Bc')
     if (item.type === 'text-delta') {
       fullOutput += item.textDelta
+      process.stdout.write(item.textDelta)
     } else if (item.type === 'tool-call-delta') {
-      fullOutput += item.argsTextDelta
+      //   fullOutput += item.argsTextDelta
+      toolJsonArgs += item.argsTextDelta
+      const parsed = parse(toolJsonArgs)
+      if (parsed) {
+        fullOutput =
+          fullOutput.slice(0, fullOutputOffset) +
+          Object.entries(parsed)
+            .map(([key, value]: [string, any]) => {
+              const valueStr = value?.toString()
+              return valueStr.includes('\n')
+                ? `${key}:\n\`\`\`ts\n${valueStr}\n\`\`\`\n`
+                : `${key}: ${valueStr}\n`
+            })
+            .join('')
+      }
     } else if (item.type === 'tool-call-streaming-start') {
+      toolJsonArgs = ''
+      fullOutputOffset = fullOutput.length
       fullOutput += `\n---\nEditing file with params:\n`
     } else if (item.type === 'tool-result') {
       fullOutput += `\n---\n\n`
     }
-    process.stdout.write(fullOutput)
+
+    debouncedWrite(fullOutput)
+
+    // process.stdout.write(fullOutput)
   }
+
+  debouncedWrite(fullOutput)
 
   return { generatedCode, fullOutput }
 }
