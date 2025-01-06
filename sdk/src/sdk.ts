@@ -26,6 +26,13 @@ export function getRoutesFromOpenAPI({
 }) {
   const routes: Array<{ path: string; method: string; operationId?: string }> =
     []
+  if (!openApiSchema?.paths) {
+    throw new Error(
+      `openapi schema does not have paths: keys instead are: ${JSON.stringify(
+        Object.keys(openApiSchema),
+      )}`,
+    )
+  }
 
   for (const [path, pathItem] of Object.entries(openApiSchema.paths || {})) {
     for (const method of ['get', 'post', 'put', 'delete', 'patch'] as const) {
@@ -157,7 +164,7 @@ export async function generateSDKFromOpenAPI({
   previousOpenApiSchema?: OpenAPIV3.Document
   previousSdkCode?: string
 }) {
-  const routes = getRoutesFromOpenAPI(openApiSchema)
+  const routes = getRoutesFromOpenAPI({ openApiSchema, previousOpenApiSchema })
 
   const results = await Promise.all(
     routes.map((route) =>

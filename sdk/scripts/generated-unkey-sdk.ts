@@ -1,24 +1,3 @@
-To merge the provided TypeScript SDK code fragments into a single coherent SDK, we will follow these steps:
-
-1. **Identify Duplicate Type or Function Declarations**:
-   - We have several interfaces and types that are defined multiple times, such as `ValidationError`, `BaseError`, and `Lease`. We will keep only one definition of each and remove duplicates.
-   - The `ExampleClient` class is defined multiple times, and we will merge all methods into a single class definition.
-
-2. **Rename Conflicting Types or Functions**:
-   - There are no conflicting names for types or functions that need to be renamed, as the methods are unique to their respective routes.
-
-3. **Merge Class Declarations**:
-   - We will consolidate all methods from the various fragments into a single `ExampleClient` class. This will include methods for creating events, checking rate limits, committing leases, and encrypting/decrypting data.
-
-4. **Ensure Type Safety**:
-   - We will ensure that all methods return the correct types as defined in the OpenAPI schema and that the parameters are correctly typed.
-
-5. **Format the Code**:
-   - The final output will be well-formatted and organized, ensuring readability and maintainability.
-
-Now, let's proceed to write the final merged TypeScript SDK code:
-
-```typescript
 import { EventSourceParserStream } from 'eventsource-parser/stream';
 
 export class ExampleError extends Error {
@@ -373,10 +352,3 @@ interface SSEEvent {
   data: any;
   id?: string;
 }
-```
-
-### Summary of Changes:
-- Merged all type definitions and interfaces, removing duplicates.
-- Consolidated all methods into a single `ExampleClient` class.
-- Ensured that all methods are properly typed and handle errors appropriately.
-- The final output is formatted and ready to be used without any additional changes.

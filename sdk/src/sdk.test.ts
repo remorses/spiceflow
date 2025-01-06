@@ -6,6 +6,41 @@ import { generateSDKFromOpenAPI, replaceParamsInTemplate } from './sdk'
 import * as YAML from 'js-yaml'
 import { OpenAPIV3 } from 'openapi-types'
 
+it(
+  'unkey should generate SDK from OpenAPI schema',
+  async () => {
+    // Read and parse OpenAPI schema from YAML file
+
+    const openApiSchema = (await import('../scripts/unkey-openapi.json').then(
+      (x) => x.default,
+    )) as any
+
+    let previousSdkCode = replaceParamsInTemplate({
+      template: fs.readFileSync('src/boilerplate.ts', 'utf-8'),
+      params: {
+        ClientName: 'ExampleClient',
+        ErrorName: 'ExampleError',
+        UrlDefault: 'http://localhost:3000',
+      },
+    })
+
+    console.log(`generating routes code`)
+    const generatedCode = await generateSDKFromOpenAPI({
+      openApiSchema,
+      previousSdkCode,
+    })
+
+    console.log('generatedCode:\n', generatedCode)
+    // Create scripts directory if it doesn't exist
+    await fs.promises.mkdir('scripts', { recursive: true }).catch((error) => {})
+    await fs.promises.writeFile(
+      'scripts/generated-unkey-sdk.ts',
+      generatedCode.code,
+    )
+  },
+  1000 * 100,
+)
+
 describe(
   'generateSDKFromOpenAPI',
   () => {
