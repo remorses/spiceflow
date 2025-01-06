@@ -1,4 +1,7 @@
 import { createDeepSeek } from '@ai-sdk/deepseek'
+import safeStringify from 'fast-safe-stringify'
+import compareOpenApiSchemas from 'openapi-schema-diff/lib'
+import { diffJson } from 'diff'
 import fs from 'fs'
 import dedent from 'string-dedent'
 import { streamText } from 'ai'
@@ -13,10 +16,6 @@ const deepseek = createDeepSeek({
 const openai = createOpenAI({
   apiKey: process.env.OPENAI_API_KEY ?? '',
 })
-
-const emptyCode = dedent`
-// add your sdk code here
-`
 
 export function getRoutesFromOpenAPI(openApiSchema: OpenAPIV3.Document): Array<{
   path: string
@@ -45,7 +44,7 @@ export function getRoutesFromOpenAPI(openApiSchema: OpenAPIV3.Document): Array<{
 export async function generateSDKForRoute({
   route,
   openApiSchema,
-  previousSdkCode = emptyCode,
+  previousSdkCode,
 }: {
   route: { path: string; method: string; operationId?: string }
   openApiSchema: OpenAPIV3.Document
@@ -59,6 +58,7 @@ export async function generateSDKForRoute({
     - Handle request/response serialization
     - Include error handling
     - Be fully typed for both inputs and outputs, use optional fields where required, use any in case no result type is provided
+    - Add a comment above the function with the route path, method and tags
 
     OpenAPI Schema:
     <openApiSchema>
@@ -146,13 +146,20 @@ export function extractMarkdownSnippets(markdown: string): string[] {
   return snippets
 }
 
+
 export async function generateSDKFromOpenAPI({
   openApiSchema,
-  previousSdkCode = emptyCode,
+  previousSdkCode,
+  previousOpenApiSchema,
 }: {
   openApiSchema: OpenAPIV3.Document
+  previousOpenApiSchema?: OpenAPIV3.Document
   previousSdkCode?: string
 }) {
+  const openapiJson = safeStringify(openApiSchema)
+  if (previousOpenApiSchema) {
+  }
+
   const routes = getRoutesFromOpenAPI(openApiSchema)
 
   const results = await Promise.all(
