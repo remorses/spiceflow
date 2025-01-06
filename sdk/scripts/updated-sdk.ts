@@ -28,10 +28,6 @@ interface CreateUserResponse {
   data?: any;
 }
 
-interface UploadFileResponse {
-  [key: string]: any; // The response schema is not defined in the OpenAPI spec
-}
-
 export class ExampleClient {
   private baseUrl: string;
   token?: string;
@@ -79,7 +75,7 @@ export class ExampleClient {
     return fetch(url.toString(), options);
   }
 
-  async getRoot(): Promise<any> {
+  async take(): Promise<any> {
     try {
       const response = await this.fetch({
         method: 'GET',
@@ -104,33 +100,26 @@ export class ExampleClient {
   }
 
   async *stream(): AsyncGenerator<{ count: number; timestamp: number }> {
-    try {
-      const response = await this.fetch({
-        method: 'GET',
-        path: '/stream',
-        headers: {
-          Accept: 'text/event-stream',
-        },
+    const response = await this.fetch({
+      method: 'GET',
+      path: '/stream',
+      headers: {
+        Accept: 'text/event-stream',
+      },
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new ExampleError('Failed to fetch stream', {
+        status: response.status,
+        data: errorData,
       });
+    }
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new ExampleError('Failed to fetch stream', {
-          status: response.status,
-          data: errorData,
-        });
+    for await (const event of streamSSEResponse(response)) {
+      if (event.event === 'data') {
+        yield event.data;
       }
-
-      for await (const event of streamSSEResponse(response)) {
-        if (event.event === 'data') {
-          yield event.data;
-        }
-      }
-    } catch (error) {
-      if (error instanceof ExampleError) {
-        throw error;
-      }
-      throw new ExampleError('Network error', { status: 500 });
     }
   }
 
@@ -189,6 +178,33 @@ export class ExampleClient {
     }
   }
 
+  async getError(): Promise<any> {
+    const path = `/error`;
+    const method = 'GET';
+
+    try {
+      const response = await this.fetch({
+        method,
+        path,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        throw new ExampleError('Error occurred', {
+          status: response.status,
+          data: errorData,
+        });
+      }
+
+      return response.json().catch(() => null);
+    } catch (error) {
+      if (error instanceof ExampleError) {
+        throw error;
+      }
+      throw new ExampleError('Network error', { status: 500 });
+    }
+  }
+
   async getErrorWithSchema(): Promise<{ message: string }> {
     const path = `/errorWithSchema`;
     const method = 'GET';
@@ -216,24 +232,25 @@ export class ExampleClient {
     }
   }
 
-  async uploadFile(file: string): Promise<UploadFileResponse> {
+  async uploadFile(file: string): Promise<any> {
+    const path = '/upload';
+    const headers = {
+      'Content-Type': 'multipart/form-data',
+      Authorization: this.token ? `Bearer ${this.token}` : '',
+    };
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const url = new URL(path, this.baseUrl);
+
+    const options: RequestInit = {
+      method: 'POST',
+      headers,
+      body: formData,
+    };
+
     try {
-      const path = '/upload';
-      const headers = {
-        Authorization: this.token ? `Bearer ${this.token}` : '',
-      };
-
-      const formData = new FormData();
-      formData.append('file', file);
-
-      const url = new URL(path, this.baseUrl);
-
-      const options: RequestInit = {
-        method: 'POST',
-        headers,
-        body: formData,
-      };
-
       const response = await fetch(url.toString(), options);
 
       if (!response.ok) {

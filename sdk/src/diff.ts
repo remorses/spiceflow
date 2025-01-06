@@ -13,105 +13,123 @@ export function getOpenApiDiffPrompt({
   previousOpenApiSchema,
   openApiSchema,
 }: {
-  previousOpenApiSchema: OpenAPIV3.Document
+  previousOpenApiSchema?: OpenAPIV3.Document
   openApiSchema: OpenAPIV3.Document
 }) {
+  if (!previousOpenApiSchema) {
+    return {
+      fullPrompt: '',
+      changedRoutesText: [],
+      addedRoutesText: [],
+      deletedRoutesText: [],
+    }
+  }
   const { changedRoutes, addedRoutes, deletedRoutes } = compareOpenApiSchemas(
     previousOpenApiSchema,
     openApiSchema,
   )
-
   const changedRoutesText = changedRoutes
     .map((route) => {
       if (!route.changes) {
-        return `<route type="changed" method="${route.method.toUpperCase()}" path="${
-          route.path
-        }" />`
+        return {
+          route,
+          diffPrompt: `<route type="changed" method="${route.method.toUpperCase()}" path="${
+            route.path
+          }" />`,
+        }
       }
 
-      const changesText = route.changes
-        .map((change) => {
-          const diff = diffJson(
-            lessIndentation(
-              recursivelyResolveComponents({
-                subsetSchema: change.sourceSchema,
-                schema: previousOpenApiSchema,
-                path: route.path,
-                method: route.method,
-              }),
-            ) || {},
-            lessIndentation(
-              recursivelyResolveComponents({
-                subsetSchema: change.targetSchema,
-                schema: openApiSchema,
-                path: route.path,
-                method: route.method,
-              }),
-            ) || {},
-          )
-          const diffText = diff
-            .map((part) => {
-              const prefix = part.added ? '+' : part.removed ? '-' : ' '
-              return part.value
+      const changesText = route.changes.map((change) => {
+        const diff = diffJson(
+          lessIndentation(
+            recursivelyResolveComponents({
+              subsetSchema: change.sourceSchema,
+              schema: previousOpenApiSchema,
+              path: route.path,
+              method: route.method,
+            }),
+          ) || {},
+          lessIndentation(
+            recursivelyResolveComponents({
+              subsetSchema: change.targetSchema,
+              schema: openApiSchema,
+              path: route.path,
+              method: route.method,
+            }),
+          ) || {},
+        )
+        const diffText = diff
+          .map((part) => {
+            const prefix = part.added ? '+' : part.removed ? '-' : ' '
+            return (
+              part.value
                 .split('\n')
                 // .filter(x => x)
                 // .map(line => prefix + ' ' + line)
                 .map((line) => (line.trim() ? prefix + ' ' + line : line))
                 .join('\n')
-            })
-            .join('')
+            )
+          })
+          .join('')
 
-          return dedent`
-            <route type="changed" method="${route.method.toUpperCase()}" path="${
-                route.path
-            }">
-            <comment>${change.type} ${change.action}: ${change.comment}</comment>
-            <diff>
-            ${diffText}
-            </diff>
-            </route>
-            `
-        })
-        .join('\n\n')
+        return {
+          route,
+          diffPrompt: dedent`
+              <route type="changed" method="${route.method.toUpperCase()}" path="${
+            route.path
+          }">
+              <comment>${change.type} ${change.action}: ${
+            change.comment
+          }</comment>
+              <diff>
+              ${diffText}
+              </diff>
+              </route>
+              `,
+        }
+      })
 
       return changesText
     })
-    .join('\n\n')
+    .flat()
 
-  const addedRoutesText = addedRoutes
-    .map((route) => {
-      const schema = recursivelyResolveComponents({
-        subsetSchema: route.targetSchema,
-        schema: openApiSchema,
-        path: route.path,
-        method: route.method,
-      })
-      return dedent`
+  const addedRoutesText = addedRoutes.map((route) => {
+    const schema = recursivelyResolveComponents({
+      subsetSchema: route.targetSchema,
+      schema: openApiSchema,
+      path: route.path,
+      method: route.method,
+    })
+    return {
+      route,
+      diffPrompt: dedent`
             <route type="added" method="${route.method.toUpperCase()}" path="${
-            route.path}">
+        route.path
+      }">
             <comment>Added new route</comment>
             <diff>
             ${lessIndentation(schema)
-            .split('\n')
-            .map((line) => '+ ' + line)
-            .join('\n')}
+              .split('\n')
+              .map((line) => '+ ' + line)
+              .join('\n')}
             </diff>
             </route>
-        `
-    })
-    .join('\n')
+        `,
+    }
+  })
 
-  const deletedRoutesText = deletedRoutes
-    .map((route) => {
-      const schema =
-        recursivelyResolveComponents({
-          subsetSchema: route.sourceSchema,
-          schema: previousOpenApiSchema,
-          path: route.path,
-          method: route.method,
-        }) || null
+  const deletedRoutesText = deletedRoutes.map((route) => {
+    const schema =
+      recursivelyResolveComponents({
+        subsetSchema: route.sourceSchema,
+        schema: previousOpenApiSchema,
+        path: route.path,
+        method: route.method,
+      }) || null
 
-      return dedent`
+    return {
+      route,
+      diffPrompt: dedent`
         <route type="deleted" method="${route.method.toUpperCase()}" path="${
         route.path
       }">
@@ -123,25 +141,30 @@ export function getOpenApiDiffPrompt({
           .join('\n')}
         </diff>
         </route>
-        `
-    })
-    .join('\n')
+        `,
+    }
+  })
 
   const llmPrompt = dedent`
     <changedRoutes>
-    ${changedRoutesText || 'None'}
+    ${changedRoutesText.map((r) => r.diffPrompt).join('\n\n') || 'None'}
     </changedRoutes>
 
     <addedRoutes>
-    ${addedRoutesText || 'None'}
+    ${addedRoutesText.map((r) => r.diffPrompt).join('\n\n') || 'None'}
     </addedRoutes>
 
     <deletedRoutes>
-    ${deletedRoutesText || 'None'} 
+    ${deletedRoutesText.map((r) => r.diffPrompt).join('\n\n') || 'None'} 
     </deletedRoutes>
     `
 
-  return { fullPrompt: llmPrompt }
+  return {
+    fullPrompt: llmPrompt,
+    changedRoutesText,
+    addedRoutesText,
+    deletedRoutesText,
+  }
 }
 
 function refPathToObject(ref: string, value: any) {

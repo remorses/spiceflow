@@ -8,6 +8,7 @@ import { streamText } from 'ai'
 import type { OpenAPIV3 } from 'openapi-types'
 import path from 'path'
 import { createOpenAI } from '@ai-sdk/openai'
+import { getOpenApiDiffPrompt } from './diff'
 
 const deepseek = createDeepSeek({
   apiKey: process.env.DEEPSEEK_API_KEY ?? '',
@@ -23,9 +24,7 @@ export function getRoutesFromOpenAPI({
 }: {
   openApiSchema: OpenAPIV3.Document
   previousOpenApiSchema?: OpenAPIV3.Document
-}) {
-  const routes: Array<{ path: string; method: string; operationId?: string }> =
-    []
+}): RouteForLLM[] {
   if (!openApiSchema?.paths) {
     throw new Error(
       `openapi schema does not have paths: keys instead are: ${JSON.stringify(
@@ -34,20 +33,63 @@ export function getRoutesFromOpenAPI({
     )
   }
 
-  for (const [path, pathItem] of Object.entries(openApiSchema.paths || {})) {
-    for (const method of ['get', 'post', 'put', 'delete', 'patch'] as const) {
-      const operation = pathItem?.[method]
-      if (operation) {
-        routes.push({
-          path,
-          method: method.toUpperCase(),
-          operationId: operation.operationId,
-        })
-      }
-    }
-  }
+  if (previousOpenApiSchema) {
+    const {
+      addedRoutesText,
+      changedRoutesText,
+      deletedRoutesText,
+      fullPrompt,
+    } = getOpenApiDiffPrompt({ openApiSchema, previousOpenApiSchema })
 
-  return routes
+    // Only add routes that were added, changed or deleted
+    const affectedRoutes = [
+      ...addedRoutesText,
+      ...changedRoutesText,
+      ...deletedRoutesText,
+    ]
+
+    console.log(
+      `found ${affectedRoutes.length} updated routes: ${JSON.stringify(
+        affectedRoutes.map((x) => x.route.method + ' ' + x.route.path),
+        null,
+        2,
+      )}`,
+    )
+    return affectedRoutes.map((route) => ({
+      path: route.route.path,
+      method: route.route.method,
+      diffPrompt: route.diffPrompt,
+      operationId:
+        openApiSchema.paths?.[route.route.path]?.[
+          route.route.method.toLowerCase()
+        ]?.operationId,
+    }))
+  } else {
+    // If no previous schema, add all routes
+    return Object.entries(openApiSchema.paths || {}).flatMap(
+      ([path, pathItem]) =>
+        ['get', 'post', 'put', 'delete', 'patch' as const]
+          .filter((method) => pathItem?.[method])
+          .map((method) => ({
+            path,
+            method: method.toUpperCase(),
+            operation: pathItem?.[method],
+          }))
+          .map(({ path, method, operation }) => ({
+            path,
+            method,
+            operationId: operation?.operationId,
+            diffPrompt: '',
+          })),
+    )
+  }
+}
+
+type RouteForLLM = {
+  path: string
+  method: string
+  operationId?: string
+  diffPrompt: string
 }
 
 export async function generateSDKForRoute({
@@ -55,10 +97,11 @@ export async function generateSDKForRoute({
   openApiSchema,
   previousSdkCode,
 }: {
-  route: { path: string; method: string; operationId?: string }
+  route: RouteForLLM
   openApiSchema: OpenAPIV3.Document
   previousSdkCode?: string
 }) {
+  console.log(`generating sdk for route: ${route.method} ${route.path}`)
   const prompt = dedent`
     Generate a TypeScript SDK method for this OpenAPI route. The SDK should:
     - Use fetch for making API calls
@@ -78,6 +121,7 @@ export async function generateSDKForRoute({
     ${previousSdkCode}
     </previousSdkCode>
 
+    ${route.diffPrompt}
 
     Only implement the new code to add for the route: ${route.method} ${
     route.path
@@ -274,7 +318,7 @@ export async function mergeSDKOutputs({
   console.timeEnd(`llm merge sdk ${requestId}`)
 
   const outSnippets = extractMarkdownSnippets(generatedCode)
-  if (outSnippets.length > 0) {
+  if (outSnippets.length > 1) {
     console.error(new Error('LLM outputs more than one snippet!'))
   }
   return {

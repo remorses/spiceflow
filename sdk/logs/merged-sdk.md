@@ -1,32 +1,16 @@
 To merge the provided TypeScript SDK code fragments into a single coherent SDK, we will follow these steps:
 
-1. **Identify Duplicate Declarations**: 
-   - We will check for duplicate type definitions, interfaces, and function declarations across the snippets.
-   - If any duplicates are found, we will remove them or merge them as necessary.
+1. **Identify Duplicates**: We will check for duplicate type definitions, interfaces, and function declarations. In the provided SDK code, we have the `getError` method defined twice, which we will merge into one.
 
-2. **Check for Unique Function Names**: 
-   - We will ensure that all function names are unique. If there are functions with the same name but different implementations, we will rename them to avoid conflicts.
+2. **Consolidate Interfaces**: We will ensure that all interfaces are unique and do not have overlapping definitions. The interfaces `CreateUserRequest` and `CreateUserResponse` are already unique and do not need any changes.
 
-3. **Merge Class Declarations**: 
-   - We will check if there are multiple class declarations for `ExampleClient` and merge all methods into a single class definition.
+3. **Merge Class Methods**: The `ExampleClient` class already contains all the necessary methods, including the `getError` method. We will ensure that the final implementation of `getError` is included without duplication.
 
-4. **Consolidate Type Definitions**: 
-   - We will ensure that all type definitions and interfaces are consolidated into a single section to avoid redundancy.
+4. **Maintain Type Safety**: We will ensure that all types are preserved and that the final output is type-safe.
 
-5. **Maintain Type Safety**: 
-   - We will ensure that all types are correctly defined and that the SDK maintains type safety throughout.
+5. **Format the Code**: The final output will be well-formatted and ready to run without any additional changes.
 
-6. **Format the Code**: 
-   - Finally, we will format the code to ensure it is clean and readable.
-
-### Merging Steps:
-
-- **Remove Duplicate Interfaces**: The `CreateUserRequest` and `CreateUserResponse` interfaces are defined multiple times. We will keep a single definition.
-- **Consolidate Methods**: The methods for handling routes (`getRoot`, `stream`, `getUserById`, `createUser`, `getErrorWithSchema`, `uploadFile`, and `getOpenApiSchema`) will be merged into the `ExampleClient` class.
-- **Ensure Unique Function Names**: All function names are unique, so no renaming is necessary.
-- **Combine Error Handling**: The error handling logic is consistent across methods, so we will keep it as is.
-
-### Final Merged SDK Code:
+Now, let's proceed to create the final merged TypeScript SDK code:
 
 ```typescript
 import { EventSourceParserStream } from 'eventsource-parser/stream';
@@ -57,10 +41,6 @@ interface CreateUserRequest {
 interface CreateUserResponse {
   message: string;
   data?: any;
-}
-
-interface UploadFileResponse {
-  [key: string]: any; // The response schema is not defined in the OpenAPI spec
 }
 
 export class ExampleClient {
@@ -110,7 +90,7 @@ export class ExampleClient {
     return fetch(url.toString(), options);
   }
 
-  async getRoot(): Promise<any> {
+  async take(): Promise<any> {
     try {
       const response = await this.fetch({
         method: 'GET',
@@ -135,33 +115,26 @@ export class ExampleClient {
   }
 
   async *stream(): AsyncGenerator<{ count: number; timestamp: number }> {
-    try {
-      const response = await this.fetch({
-        method: 'GET',
-        path: '/stream',
-        headers: {
-          Accept: 'text/event-stream',
-        },
+    const response = await this.fetch({
+      method: 'GET',
+      path: '/stream',
+      headers: {
+        Accept: 'text/event-stream',
+      },
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new ExampleError('Failed to fetch stream', {
+        status: response.status,
+        data: errorData,
       });
+    }
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new ExampleError('Failed to fetch stream', {
-          status: response.status,
-          data: errorData,
-        });
+    for await (const event of streamSSEResponse(response)) {
+      if (event.event === 'data') {
+        yield event.data;
       }
-
-      for await (const event of streamSSEResponse(response)) {
-        if (event.event === 'data') {
-          yield event.data;
-        }
-      }
-    } catch (error) {
-      if (error instanceof ExampleError) {
-        throw error;
-      }
-      throw new ExampleError('Network error', { status: 500 });
     }
   }
 
@@ -220,6 +193,33 @@ export class ExampleClient {
     }
   }
 
+  async getError(): Promise<any> {
+    const path = `/error`;
+    const method = 'GET';
+
+    try {
+      const response = await this.fetch({
+        method,
+        path,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        throw new ExampleError('Error occurred', {
+          status: response.status,
+          data: errorData,
+        });
+      }
+
+      return response.json().catch(() => null);
+    } catch (error) {
+      if (error instanceof ExampleError) {
+        throw error;
+      }
+      throw new ExampleError('Network error', { status: 500 });
+    }
+  }
+
   async getErrorWithSchema(): Promise<{ message: string }> {
     const path = `/errorWithSchema`;
     const method = 'GET';
@@ -247,24 +247,25 @@ export class ExampleClient {
     }
   }
 
-  async uploadFile(file: string): Promise<UploadFileResponse> {
+  async uploadFile(file: string): Promise<any> {
+    const path = '/upload';
+    const headers = {
+      'Content-Type': 'multipart/form-data',
+      Authorization: this.token ? `Bearer ${this.token}` : '',
+    };
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const url = new URL(path, this.baseUrl);
+
+    const options: RequestInit = {
+      method: 'POST',
+      headers,
+      body: formData,
+    };
+
     try {
-      const path = '/upload';
-      const headers = {
-        Authorization: this.token ? `Bearer ${this.token}` : '',
-      };
-
-      const formData = new FormData();
-      formData.append('file', file);
-
-      const url = new URL(path, this.baseUrl);
-
-      const options: RequestInit = {
-        method: 'POST',
-        headers,
-        body: formData,
-      };
-
       const response = await fetch(url.toString(), options);
 
       if (!response.ok) {
@@ -339,7 +340,4 @@ export async function* streamSSEResponse(response: Response): AsyncGenerator<SSE
 }
 ```
 
-### Summary:
-- The final merged SDK code is a single coherent TypeScript file that includes all necessary methods and types.
-- Duplicate type definitions and interfaces have been removed, and all methods are consolidated within the `ExampleClient` class.
-- The code is well-structured, type-safe, and ready to be used without any additional changes.
+This final output contains the complete merged TypeScript SDK code, ensuring that all types and methods are unique, and it is formatted correctly for immediate use.

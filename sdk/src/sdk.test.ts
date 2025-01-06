@@ -10,6 +10,7 @@ it(
   'unkey should generate SDK from OpenAPI schema',
   async () => {
     // Read and parse OpenAPI schema from YAML file
+    fs.rmSync('logs', { recursive: true })
 
     const openApiSchema = (await import('../scripts/unkey-openapi.json').then(
       (x) => x.default,
@@ -45,6 +46,7 @@ describe(
   'generateSDKFromOpenAPI',
   () => {
     it('should generate SDK from OpenAPI schema', async () => {
+      fs.rmSync('logs', { recursive: true })
       // Read and parse OpenAPI schema from YAML file
       const openApiYaml = await readFile(
         join(__dirname, '../../spiceflow/scripts/openapi.yml'),
@@ -79,22 +81,27 @@ describe(
     })
     it('should generate SDK from OpenAPI schema, starting from existing, remove route', async () => {
       // Read and parse OpenAPI schema from YAML file
+      fs.rmSync('logs', { recursive: true })
       const openApiYaml = await readFile(
         join(__dirname, '../../spiceflow/scripts/openapi.yml'),
         'utf-8',
       )
       const openApiSchema: OpenAPIV3.Document = YAML.load(openApiYaml) as any
+      const previousOpenApiSchema = structuredClone(openApiSchema)
       // Remove a random route from the middle of the paths
       const pathKeys = Object.keys(openApiSchema.paths)
       const middleIndex = Math.floor(pathKeys.length / 2)
-      const routeToRemove = pathKeys[middleIndex]
-      delete openApiSchema.paths[routeToRemove]
+      const routeToRemove1 = pathKeys[middleIndex]
+      const routeToRemove2 = pathKeys[middleIndex + 1]
+      delete openApiSchema.paths[routeToRemove1]
+      delete openApiSchema.paths[routeToRemove2]
 
       let previousSdkCode = fs.readFileSync('scripts/generated-sdk.ts', 'utf-8')
 
       console.log(`generating routes code`)
       const generatedCode = await generateSDKFromOpenAPI({
         openApiSchema,
+        previousOpenApiSchema,
         previousSdkCode,
       })
 
