@@ -73,6 +73,9 @@ importers:
       '@ai-sdk/openai':
         specifier: ^1.0.13
         version: 1.0.13(zod@3.24.1)
+      '@fastify/deepmerge':
+        specifier: ^2.0.1
+        version: 2.0.1
       ai:
         specifier: ^4.0.26
         version: 4.0.26(react@19.0.0)(zod@3.24.1)
@@ -607,6 +610,9 @@ packages:
   '@eslint/plugin-kit@0.2.4':
     resolution: {integrity: sha512-zSkKow6H5Kdm0ZUQUB2kV5JIXqoG0+uH5YADhaEHswm664N9Db8dXSi0nMJpacpMf+MyyglF1vnZohpEg5yUtg==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
+
+  '@fastify/deepmerge@2.0.1':
+    resolution: {integrity: sha512-hx+wJQr9Ph1hY/dyzY0SxqjumMyqZDlIF6oe71dpRKDHUg7dFQfjG94qqwQ274XRjmUrwKiYadex8XplNHx3CA==}
 
   '@humanfs/core@0.19.1':
     resolution: {integrity: sha512-5DyQ4+1JEUzejeK1JGICcideyfUbGixgS9jNgex5nqkW+cY7WZhxBigmieN5Qnw9ZosSNVC9KQKyb+GUaGyKUA==}
@@ -3010,6 +3016,8 @@ snapshots:
   '@eslint/plugin-kit@0.2.4':
     dependencies:
       levn: 0.4.1
+
+  '@fastify/deepmerge@2.0.1': {}
 
   '@humanfs/core@0.19.1': {}
 

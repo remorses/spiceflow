@@ -17,11 +17,13 @@ const openai = createOpenAI({
   apiKey: process.env.OPENAI_API_KEY ?? '',
 })
 
-export function getRoutesFromOpenAPI(openApiSchema: OpenAPIV3.Document): Array<{
-  path: string
-  method: string
-  operationId?: string
-}> {
+export function getRoutesFromOpenAPI({
+  openApiSchema,
+  previousOpenApiSchema,
+}: {
+  openApiSchema: OpenAPIV3.Document
+  previousOpenApiSchema?: OpenAPIV3.Document
+}) {
   const routes: Array<{ path: string; method: string; operationId?: string }> =
     []
 
@@ -146,7 +148,6 @@ export function extractMarkdownSnippets(markdown: string): string[] {
   return snippets
 }
 
-
 export async function generateSDKFromOpenAPI({
   openApiSchema,
   previousSdkCode,
@@ -156,10 +157,6 @@ export async function generateSDKFromOpenAPI({
   previousOpenApiSchema?: OpenAPIV3.Document
   previousSdkCode?: string
 }) {
-  const openapiJson = safeStringify(openApiSchema)
-  if (previousOpenApiSchema) {
-  }
-
   const routes = getRoutesFromOpenAPI(openApiSchema)
 
   const results = await Promise.all(

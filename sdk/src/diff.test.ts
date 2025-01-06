@@ -102,53 +102,58 @@ describe('getOpenApiDiffPrompt', () => {
     })
 
     expect(diffPrompt).toMatchInlineSnapshot(`
-      "<changedRoutes>
+      {
+        "fullPrompt": "<changedRoutes>
       <route type="changed" method="POST" path="/users">
-        <comment>requestBody changed: request body for "application/json" media type has been changed in POST "/users" route</comment>
-        <diff>
-          {
-          "schema": {
-            "properties": {
-              "age": {
-                "type": "number"
+      <comment>requestBody changed: request body for "application/json" media type has been changed in POST "/users" route</comment>
+      <diff>
+        "/users": {
+          "post": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "age": {
+                  "type": "number"
+                },
+      +         "email": {
+      +           "type": "string"
+      +         }
               },
-      +       "email": {
-      +         "type": "string"
-      +       },
-              "name": {
-                "type": "string"
-              }
-            },
-            "required": [
-              "name",
-      +       "email"
-            ],
-            "type": "object"
+              "required": [
+                "name",
+      +         "email"
+              ]
+            }
           }
         }
-        </diff>
+      </diff>
       </route>
 
       <route type="changed" method="POST" path="/users">
-        <comment>responseBody changed: response body for "200" status code and "application/json" media type has been changed in POST "/users" route</comment>
-        <diff>
-          {
-          "schema": {
-            "properties": {
-      +       "createdAt": {
-      +         "type": "string"
-      +       },
-              "id": {
-                "type": "string"
-              },
-              "name": {
-                "type": "string"
+      <comment>responseBody changed: response body for "200" status code and "application/json" media type has been changed in POST "/users" route</comment>
+      <diff>
+        "/users": {
+          "post": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+      +         "createdAt": {
+      +           "type": "string"
+      +         }
               }
-            },
-            "type": "object"
+            }
           }
         }
-        </diff>
+      </diff>
       </route>
       </changedRoutes>
 
@@ -158,7 +163,8 @@ describe('getOpenApiDiffPrompt', () => {
 
       <deletedRoutes>
       None 
-      </deletedRoutes>"
+      </deletedRoutes>",
+      }
     `)
   })
 
@@ -201,7 +207,7 @@ describe('getOpenApiDiffPrompt', () => {
             },
           },
         },
-      }),
+      }).fullPrompt,
     ).toMatchInlineSnapshot(`
       "<changedRoutes>
       None
@@ -242,6 +248,118 @@ describe('getOpenApiDiffPrompt', () => {
     `)
   })
 
+  it('should format added routes with schema refs', () => {
+    expect(
+      getOpenApiDiffPrompt({
+        previousOpenApiSchema: {
+          openapi: '3.0.0',
+          info: {
+            title: 'Test API',
+            version: '1.0.0',
+          },
+          paths: {},
+        },
+        openApiSchema: {
+          openapi: '3.0.0',
+          info: {
+            title: 'Test API',
+            version: '1.0.0',
+          },
+          paths: {
+            '/test': {
+              get: {
+                responses: {
+                  '200': {
+                    description: 'Successful response',
+                    content: {
+                      'application/json': {
+                        schema: {
+                          $ref: '#/components/schemas/TestResponse',
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          components: {
+            schemas: {
+              TestResponse: {
+                type: 'object',
+                properties: {
+                  id: {
+                    type: 'string',
+                  },
+                  data: {
+                    type: 'object',
+                    properties: {
+                      name: {
+                        type: 'string',
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      }).fullPrompt,
+    ).toMatchInlineSnapshot(`
+      "<changedRoutes>
+      None
+      </changedRoutes>
+
+      <addedRoutes>
+      <route type="added" method="GET" path="/test">
+      <comment>Added new route</comment>
+      <diff>
+      + "/test": {
+      +   "get": {
+      +     "responses": {
+      +       "200": {
+      +         "description": "Successful response",
+      +         "content": {
+      +           "application/json": {
+      +             "schema": {
+      +               "$ref": "#/components/schemas/TestResponse"
+      +             }
+      +           }
+      +         }
+      +       }
+      +     }
+      +   }
+      + },
+      + "components": {
+      +   "schemas": {
+      +     "TestResponse": {
+      +       "type": "object",
+      +       "properties": {
+      +         "id": {
+      +           "type": "string"
+      +         },
+      +         "data": {
+      +           "type": "object",
+      +           "properties": {
+      +             "name": {
+      +               "type": "string"
+      +             }
+      +           }
+      +         }
+      +       }
+      +     }
+      +   }
+      + }
+      </diff>
+      </route>
+      </addedRoutes>
+
+      <deletedRoutes>
+      None 
+      </deletedRoutes>"
+    `)
+  })
+
   it('should format deleted routes', () => {
     expect(
       getOpenApiDiffPrompt({
@@ -261,12 +379,12 @@ describe('getOpenApiDiffPrompt', () => {
                         type: 'object',
                         properties: {
                           name: { type: 'string' },
-                          age: { type: 'number' }
+                          age: { type: 'number' },
                         },
-                        required: ['name']
-                      }
-                    }
-                  }
+                        required: ['name'],
+                      },
+                    },
+                  },
                 },
                 responses: {
                   '200': {
@@ -295,7 +413,7 @@ describe('getOpenApiDiffPrompt', () => {
           },
           paths: {},
         },
-      }),
+      }).fullPrompt,
     ).toMatchInlineSnapshot(`
       "<changedRoutes>
       None
