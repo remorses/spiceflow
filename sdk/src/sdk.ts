@@ -279,7 +279,6 @@ export function logToFile(filePath: string) {
       const now = Date.now()
       if (now - lastWrite >= 50) {
         await fs.promises.writeFile(filePath, buffer)
-        buffer = ''
         lastWrite = now
       }
     },

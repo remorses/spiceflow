@@ -25,7 +25,7 @@ export class ExampleClient {
    */
   async createUser(userData: CreateUserRequest): Promise<CreateUserResponse> {
     try {
-      const response = await this.fetch({
+      const response = await this.fetch<CreateUserRequest>({
         method: 'POST',
         path: '/users',
         body: userData,
@@ -39,7 +39,7 @@ export class ExampleClient {
         });
       }
 
-      return await response.json();
+      return response.json() as Promise<CreateUserResponse>;
     } catch (error) {
       if (error instanceof ExampleError) {
         throw error;
@@ -55,33 +55,18 @@ export class ExampleClient {
 
 ### Explanation:
 1. **Type Definitions**:
-   - `CreateUserRequest`: Defines the structure of the request body for creating a user. It includes `name`, `email`, and `age` fields, all of which are required.
-   - `CreateUserResponse`: Defines the structure of the response from the API. It includes a `message` field (required) and an optional `data` field.
+   - `CreateUserRequest`: Defines the structure of the request body for creating a user.
+   - `CreateUserResponse`: Defines the structure of the response from the API.
 
 2. **Method Implementation**:
-   - The `createUser` method takes a `CreateUserRequest` object as input and returns a `Promise<CreateUserResponse>`.
-   - It uses the `fetch` method (already implemented in the `ExampleClient` class) to send a `POST` request to the `/users` endpoint.
+   - The `createUser` method takes a `CreateUserRequest` object as input.
+   - It uses the `fetch` method (from the existing `ExampleClient` class) to send a `POST` request to the `/users` endpoint.
    - The request body is serialized as JSON.
-   - If the response is not successful (`!response.ok`), it throws an `ExampleError` with the status code and any error data returned by the API.
-   - If the request is successful, it parses and returns the JSON response.
+   - If the response is not successful (`!response.ok`), it throws an `ExampleError` with the status code and any error data.
+   - If the request is successful, it parses and returns the JSON response as a `CreateUserResponse`.
 
 3. **Error Handling**:
-   - Errors are caught and rethrown as `ExampleError` to ensure consistent error handling across the SDK.
-   - If an unexpected error occurs (e.g., network issues), it is wrapped in an `ExampleError` with a status code of `500`.
+   - Catches and rethrows `ExampleError` if the request fails.
+   - Catches unexpected errors and wraps them in an `ExampleError` with a 500 status code.
 
-### Usage Example:
-```typescript
-const client = new ExampleClient({ baseUrl: 'https://api.com', token: 'your-jwt-token' });
-
-const userData = {
-  name: 'John Doe',
-  email: 'john.doe@example.com',
-  age: 30,
-};
-
-client.createUser(userData)
-  .then(response => console.log('User created:', response))
-  .catch(error => console.error('Error creating user:', error));
-```
-
-This implementation is fully typed, works in both Node.js and browser environments, and adheres to the OpenAPI schema provided.
+This implementation is fully typed, handles serialization, and works in both Node.js and browser environments.

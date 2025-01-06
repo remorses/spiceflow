@@ -45,14 +45,27 @@ export class ExampleClient {
    - The `fetch` method is used to make a `GET` request to the `/errorWithSchema` endpoint.
    - The `path` is set to `/errorWithSchema`, and the `method` is set to `GET`.
 
-3. **Response Handling**:
-   - If the response is not OK (`!response.ok`), the error data is parsed from the response and an `ExampleError` is thrown with the error message and status code.
-   - If the response is OK, the JSON data is returned.
+3. **Error Handling**:
+   - If the response is not OK (`!response.ok`), the method attempts to parse the error response as JSON and throws an `ExampleError` with the error message and status code.
+   - If the request fails due to a network error or other issues, a generic `ExampleError` is thrown with a status code of `500`.
 
-4. **Error Handling**:
-   - If an error occurs during the fetch operation, it is caught and rethrown as an `ExampleError` with a generic "Network error" message and a status code of 500.
+4. **Response Handling**:
+   - If the response is successful, the method parses and returns the JSON response.
 
-5. **Type Safety**:
-   - The method is fully typed, with the return type explicitly set to `Promise<{ message: string }>`.
+### Usage Example:
+```typescript
+const client = new ExampleClient({ baseUrl: 'https://api.com', token: 'your-jwt-token' });
 
-This implementation ensures that the method is compatible with both Node.js and browser environments, and it handles errors and responses in a type-safe manner.
+try {
+  const result = await client.getErrorWithSchema();
+  console.log(result.message);
+} catch (error) {
+  if (error instanceof ExampleError) {
+    console.error(`Error: ${error.message}, Status: ${error.status}`);
+  } else {
+    console.error('Unexpected error:', error);
+  }
+}
+```
+
+This implementation ensures that the method is fully typed, handles errors gracefully, and can be used in both Node.js and browser environments.

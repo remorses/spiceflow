@@ -1,5 +1,22 @@
 import { EventSourceParserStream } from 'eventsource-parser/stream';
 
+export class ExampleError extends Error {
+  status: number;
+  data: any;
+
+  constructor(public error: string, { status, data }: { status: number; data?: any }) {
+    super(error);
+    this.status = status;
+    this.data = data;
+  }
+}
+
+interface SSEEvent {
+  event: string;
+  data: any;
+  id?: string;
+}
+
 interface CreateUserRequest {
   name: string;
   email: string;
@@ -9,30 +26,6 @@ interface CreateUserRequest {
 interface CreateUserResponse {
   message: string;
   data?: any;
-}
-
-interface UploadFileRequest {
-  file: string; // Base64 encoded file
-}
-
-interface UploadFileResponse {
-  [key: string]: any; // Response schema is not defined, so we use a generic object
-}
-
-interface SSEEvent {
-  event: string;
-  data: any;
-  id?: string;
-}
-
-export class ExampleError extends Error {
-  status: number;
-  data: any;
-  constructor(public error: string, { status, data }: { status: number; data?: any }) {
-    super(error);
-    this.status = status;
-    this.data = data;
-  }
 }
 
 export class ExampleClient {
@@ -102,7 +95,7 @@ export class ExampleClient {
       if (error instanceof ExampleError) {
         throw error;
       }
-      throw new ExampleError('Network error', { status: 500, data: error });
+      throw new ExampleError('Network error', { status: 500 });
     }
   }
 
@@ -117,7 +110,7 @@ export class ExampleClient {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      throw new ExampleError('Failed to start stream', {
+      throw new ExampleError('Failed to fetch stream', {
         status: response.status,
         data: errorData,
       });
@@ -159,7 +152,7 @@ export class ExampleClient {
 
   async createUser(userData: CreateUserRequest): Promise<CreateUserResponse> {
     try {
-      const response = await this.fetch({
+      const response = await this.fetch<CreateUserRequest>({
         method: 'POST',
         path: '/users',
         body: userData,
@@ -173,7 +166,7 @@ export class ExampleClient {
         });
       }
 
-      return await response.json();
+      return response.json() as Promise<CreateUserResponse>;
     } catch (error) {
       if (error instanceof ExampleError) {
         throw error;
@@ -189,27 +182,20 @@ export class ExampleClient {
     const path = `/error`;
     const method = 'GET';
 
-    try {
-      const response = await this.fetch({
-        method,
-        path,
+    const response = await this.fetch({
+      method,
+      path,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => null);
+      throw new ExampleError('Error occurred', {
+        status: response.status,
+        data: errorData,
       });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => null);
-        throw new ExampleError('Request failed', {
-          status: response.status,
-          data: errorData,
-        });
-      }
-
-      return response.json();
-    } catch (error) {
-      if (error instanceof ExampleError) {
-        throw error;
-      }
-      throw new ExampleError('Network error', { status: 500, data: error });
     }
+
+    return response.json().catch(() => null);
   }
 
   async getErrorWithSchema(): Promise<{ message: string }> {
@@ -239,39 +225,42 @@ export class ExampleClient {
     }
   }
 
-  async uploadFile(request: UploadFileRequest): Promise<UploadFileResponse> {
-    const path = `/upload`;
-    const method = 'POST';
-
-    // Create FormData object
-    const formData = new FormData();
-    const blob = new Blob([Buffer.from(request.file, 'base64')], { type: 'application/octet-stream' });
-    formData.append('file', blob);
-
-    // Set headers for multipart/form-data
+  async uploadFile(file: string): Promise<any> {
+    const path = '/upload';
     const headers = {
+      'Content-Type': 'multipart/form-data',
       Authorization: this.token ? `Bearer ${this.token}` : '',
     };
 
-    // Make the request
-    const response = await this.fetch({
-      method,
-      path,
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const url = new URL(path, this.baseUrl);
+
+    const options: RequestInit = {
+      method: 'POST',
       headers,
       body: formData,
-    });
+    };
 
-    // Handle response
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => null);
-      throw new ExampleError('Failed to upload file', {
-        status: response.status,
-        data: errorData,
-      });
+    try {
+      const response = await fetch(url.toString(), options);
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        throw new ExampleError('Failed to upload file', {
+          status: response.status,
+          data: errorData,
+        });
+      }
+
+      return response.json();
+    } catch (error) {
+      if (error instanceof ExampleError) {
+        throw error;
+      }
+      throw new ExampleError('Network error', { status: 500 });
     }
-
-    // Parse and return the response
-    return response.json();
   }
 
   async getOpenApiSchema(): Promise<any> {
@@ -285,7 +274,7 @@ export class ExampleClient {
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => null);
+        const errorData = await response.json().catch(() => ({}));
         throw new ExampleError('Failed to fetch OpenAPI schema', {
           status: response.status,
           data: errorData,
@@ -305,7 +294,7 @@ export class ExampleClient {
   }
 }
 
-async function streamSSEResponse(response: Response): AsyncGenerator<SSEEvent> {
+export async function* streamSSEResponse(response: Response): AsyncGenerator<SSEEvent> {
   const body = response.body;
   if (!body) return;
 
@@ -327,74 +316,3 @@ async function streamSSEResponse(response: Response): AsyncGenerator<SSEEvent> {
     }
   }
 }
-
-// Example usage
-const client = new ExampleClient({ baseUrl: 'https://api.com', token: 'your-jwt-token' });
-
-client.take()
-  .then(data => {
-    console.log('Response:', data);
-  })
-  .catch(error => {
-    console.error('Error:', error);
-  });
-
-(async () => {
-  try {
-    for await (const data of client.stream()) {
-      console.log(data); // { count: 123, timestamp: 1698765432100 }
-    }
-  } catch (error) {
-    console.error('Stream error:', error);
-  }
-})();
-
-client.getUserById('123')
-  .then(user => console.log('User:', user))
-  .catch(error => console.error('Error:', error.message));
-
-const userData = {
-  name: 'John Doe',
-  email: 'john.doe@example.com',
-  age: 30,
-};
-
-client.createUser(userData)
-  .then(response => console.log('User created:', response))
-  .catch(error => console.error('Error creating user:', error));
-
-client.getError()
-  .then(result => console.log(result))
-  .catch(error => {
-    if (error instanceof ExampleError) {
-      console.error(`Error: ${error.message}, Status: ${error.status}, Data:`, error.data);
-    } else {
-      console.error('Unexpected error:', error);
-    }
-  });
-
-client.getErrorWithSchema()
-  .then(result => console.log(result))
-  .catch(error => {
-    if (error instanceof ExampleError) {
-      console.error(`Error: ${error.message}, Status: ${error.status}, Data:`, error.data);
-    } else {
-      console.error('Unexpected error:', error);
-    }
-  });
-
-const uploadData = {
-  file: 'base64-encoded-file-string',
-};
-
-client.uploadFile(uploadData)
-  .then(response => console.log('File uploaded:', response))
-  .catch(error => console.error('Error uploading file:', error));
-
-client.getOpenApiSchema()
-  .then(schema => {
-    console.log('OpenAPI Schema:', schema);
-  })
-  .catch(error => {
-    console.error('Error fetching OpenAPI schema:', error);
-  });

@@ -1,13 +1,13 @@
-Here is the implementation for the `GET /users/{id}` route. This method will be added to the `ExampleClient` class and will handle fetching user data by ID, including request/response serialization and error handling.
+Here is the implementation for the `GET /users/{id}` route. This method will be added to the `ExampleClient` class and will handle fetching user data by their ID.
 
 ```typescript
 export class ExampleClient {
   // ... existing code ...
 
   /**
-   * Fetch a user by ID.
+   * Fetches a user by their ID.
    * @param id - The ID of the user to fetch.
-   * @returns A promise resolving to the user data or throwing an error if the request fails.
+   * @returns A promise that resolves to the user data or throws an error if the request fails.
    */
   async getUserById(id: string): Promise<any> {
     try {
@@ -40,14 +40,14 @@ export class ExampleClient {
 
 ### Explanation:
 1. **Method Signature**:
-   - The `getUserById` method takes a single parameter `id` of type `string`, which is required as per the OpenAPI schema.
+   - The `getUserById` method takes a single parameter `id` of type `string`, which is required to fetch the user.
 
 2. **Request Handling**:
    - The `fetch` method is used to make the API call. The `path` is dynamically constructed using the provided `id`.
 
 3. **Error Handling**:
    - If the response is not OK (`!response.ok`), the method attempts to parse the error response and throws an `ExampleError` with the status code and error data.
-   - If an unexpected error occurs (e.g., network issues), it is caught and rethrown as an `ExampleError` with a generic message and a status code of 500.
+   - If an unexpected error occurs during the fetch or JSON parsing, it is caught and rethrown as an `ExampleError`.
 
 4. **Response Handling**:
    - If the request is successful, the response is parsed as JSON and returned.
@@ -58,7 +58,7 @@ const client = new ExampleClient({ baseUrl: 'https://api.com', token: 'your-jwt-
 
 client.getUserById('123')
   .then(user => console.log('User:', user))
-  .catch(error => console.error('Error:', error.message));
+  .catch(error => console.error('Error:', error));
 ```
 
-This implementation ensures that the SDK is fully typed, handles errors gracefully, and works in both Node.js and browser environments.
+This implementation ensures that the method is fully typed, handles errors gracefully, and works in both Node.js and browser environments.

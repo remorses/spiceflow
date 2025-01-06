@@ -1,4 +1,6 @@
-Here is the implementation for the `GET /openapi` route. This method will be added to the `ExampleClient` class and will handle the request/response serialization, error handling, and type definitions.
+To implement the `GET /openapi` route in the TypeScript SDK, we'll add a new method to the `ExampleClient` class. This method will handle the request to the `/openapi` endpoint, including serialization, deserialization, and error handling.
+
+Here's the new code to add:
 
 ```typescript
 export class ExampleClient {
@@ -20,7 +22,7 @@ export class ExampleClient {
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => null);
+        const errorData = await response.json().catch(() => ({}));
         throw new ExampleError('Failed to fetch OpenAPI schema', {
           status: response.status,
           data: errorData,
@@ -42,21 +44,24 @@ export class ExampleClient {
 ```
 
 ### Explanation:
+
 1. **Method Definition**:
    - The `getOpenApiSchema` method is added to the `ExampleClient` class.
-   - It uses the `fetch` method to make a `GET` request to the `/openapi` endpoint.
+   - It returns a `Promise<any>` since the OpenAPI schema can be any JSON object.
 
-2. **Error Handling**:
+2. **Request Handling**:
+   - The method constructs the request using the `fetch` method inherited from the `ExampleClient` class.
+   - It sets the `method` to `GET` and the `path` to `/openapi`.
+
+3. **Error Handling**:
    - If the response is not OK (`!response.ok`), it attempts to parse the error response and throws an `ExampleError` with the status and error data.
-   - If an unexpected error occurs during the fetch or JSON parsing, it is caught and rethrown as an `ExampleError`.
+   - If an unexpected error occurs during the fetch or JSON parsing, it catches the error and throws an `ExampleError` with a 500 status.
 
-3. **Return Type**:
-   - The method returns a `Promise<any>` since the OpenAPI schema can be any valid JSON object.
+4. **Response Handling**:
+   - If the request is successful, it parses and returns the JSON response.
 
-4. **Usage**:
-   - This method can be used to fetch the OpenAPI schema from the server, and it handles both successful and error responses gracefully.
+### Usage Example:
 
-### Example Usage:
 ```typescript
 const client = new ExampleClient({ baseUrl: 'https://api.com', token: 'your-jwt-token' });
 
@@ -69,4 +74,4 @@ client.getOpenApiSchema()
   });
 ```
 
-This implementation ensures that the SDK method is fully typed, handles errors, and works in both Node.js and browser environments.
+This implementation ensures that the SDK method is fully typed, handles errors gracefully, and can be used in both Node.js and browser environments.
