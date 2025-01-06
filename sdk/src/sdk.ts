@@ -88,9 +88,9 @@ export async function generateSDKForRoute({
 
   const logFile = `./logs/${
     route.operationId ||
-    `${route.method.toLowerCase()}-${route.path
-      .replace(/\//g, '-')
-      .replace(/^-|-$/g, '')}`
+    `${route.method.toLowerCase()}-${
+      route.path.replace(/\//g, '-').replace(/^-|-$/g, '') || 'index'
+    }`
   }.md`
   const logStream = logToFile(logFile)
 
@@ -98,7 +98,7 @@ export async function generateSDKForRoute({
     if (chunk.type === 'text-delta') {
       generatedCode += chunk.textDelta
 
-      logStream.write(chunk.textDelta)
+      await logStream.write(chunk.textDelta)
     }
   }
 
@@ -251,7 +251,7 @@ export async function mergeSDKOutputs({
     if (chunk.type === 'text-delta') {
       generatedCode += chunk.textDelta
 
-      logStream.write(chunk.textDelta)
+      await logStream.write(chunk.textDelta)
     }
   }
 
@@ -266,12 +266,29 @@ export async function mergeSDKOutputs({
     code: outSnippets[0],
   }
 }
-
 export function logToFile(filePath: string) {
   fs.mkdirSync(path.dirname(filePath), { recursive: true })
-  fs.writeFileSync(filePath, '')
-  const logStream = fs.createWriteStream(filePath, { flush: true, flags: 'a' })
-  return logStream
+  fs.promises.writeFile(filePath, '')
+
+  let buffer = ''
+  let lastWrite = Date.now()
+
+  return {
+    write: async (data: string) => {
+      buffer += data
+      const now = Date.now()
+      if (now - lastWrite >= 50) {
+        await fs.promises.writeFile(filePath, buffer)
+        buffer = ''
+        lastWrite = now
+      }
+    },
+    end: async () => {
+      if (buffer) {
+        await fs.promises.writeFile(filePath, buffer)
+      }
+    },
+  }
 }
 
 export function replaceParamsInTemplate({
