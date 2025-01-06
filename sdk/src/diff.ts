@@ -18,7 +18,9 @@ export function getOpenApiDiffPrompt({
   const changedRoutesText = changedRoutes
     .map((route) => {
       if (!route.changes) {
-        return `<route type="changed" method="${route.method.toUpperCase()}" path="${route.path}" />`
+        return `<route type="changed" method="${route.method.toUpperCase()}" path="${
+          route.path
+        }" />`
       }
 
       const changesText = route.changes
@@ -32,14 +34,18 @@ export function getOpenApiDiffPrompt({
               const prefix = part.added ? '+' : part.removed ? '-' : ' '
               return part.value
                 .split('\n')
-                .map((line) => (line.trim() ? `${prefix} ${line}` : line))
+                .map((line) => (line.trim() ? prefix + ' ' + line : line))
                 .join('\n')
             })
             .join('')
 
           return dedent`
-          <route type="changed" method="${route.method.toUpperCase()}" path="${route.path}">
-            <comment>${change.type} ${change.action}: ${change.comment}</comment>
+          <route type="changed" method="${route.method.toUpperCase()}" path="${
+            route.path
+          }">
+            <comment>${change.type} ${change.action}: ${
+            change.comment
+          }</comment>
             <diff>
             ${diffText}
             </diff>
@@ -53,16 +59,52 @@ export function getOpenApiDiffPrompt({
     .join('\n\n')
 
   const addedRoutesText = addedRoutes
-    .map((route) => `<route type="added">${route.method.toUpperCase()} ${route.path}</route>`)
+    .map(
+      (route) => dedent`
+        <route type="added" method="${route.method.toUpperCase()}" path="${
+        route.path
+      }">
+        <comment>Added new route</comment>
+        <diff>
+        ${fullSchemaDefinition({
+          path: route.path,
+          method: route.method,
+          schema: route.targetSchema || null,
+        })
+          .split('\n')
+          .map((line) => '+ ' + line)
+          .join('\n')}
+        </diff>
+        </route>
+        `,
+    )
     .join('\n')
 
   const deletedRoutesText = deletedRoutes
-    .map((route) => `<route type="deleted">${route.method.toUpperCase()} ${route.path}</route>`)
+    .map(
+      (route) => dedent`
+        <route type="deleted" method="${route.method.toUpperCase()}" path="${
+        route.path
+      }">
+        <comment>Deleted route</comment>
+        <diff>
+        ${fullSchemaDefinition({
+          path: route.path,
+          method: route.method,
+          schema: route.sourceSchema || null,
+        })
+          .split('\n')
+          .map((line) => '- ' + line)
+          .join('\n')}
+        </diff>
+        </route>
+        `,
+    )
     .join('\n')
 
   const llmPrompt = dedent`
     <changedRoutes>
-    ${changedRoutesText}
+    ${changedRoutesText || 'None'}
     </changedRoutes>
 
     <addedRoutes>
@@ -75,4 +117,22 @@ export function getOpenApiDiffPrompt({
     `
 
   return llmPrompt
+}
+
+function fullSchemaDefinition({ path, method, schema }) {
+  const json = JSON.stringify(
+    {
+      [path]: {
+        [method]: schema,
+      },
+    },
+    null,
+    2,
+  )
+  return json
+    .split('\n')
+    // .filter((line) => line.length > 0)
+    .slice(1, -1) // Remove first and last lines (curly braces)
+    .map((line) => line.slice(2)) // Remove 2 spaces of indentation
+    .join('\n')
 }

@@ -161,4 +161,198 @@ describe('getOpenApiDiffPrompt', () => {
       </deletedRoutes>"
     `)
   })
+
+  it('should format added routes', () => {
+    expect(
+      getOpenApiDiffPrompt({
+        previousOpenApiSchema: {
+          openapi: '3.0.0',
+          info: {
+            title: 'Test API',
+            version: '1.0.0',
+          },
+          paths: {},
+        },
+        openApiSchema: {
+          openapi: '3.0.0',
+          info: {
+            title: 'Test API',
+            version: '1.0.0',
+          },
+          paths: {
+            '/test': {
+              get: {
+                responses: {
+                  '200': {
+                    description: 'Successful response',
+                    content: {
+                      'application/json': {
+                        schema: {
+                          type: 'object',
+                          properties: {
+                            id: { type: 'string' },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      }),
+    ).toMatchInlineSnapshot(`
+      "<changedRoutes>
+      None
+      </changedRoutes>
+
+      <addedRoutes>
+      <route type="added" method="GET" path="/test">
+      <comment>Added new route</comment>
+      <diff>
+      + "/test": {
+      +   "get": {
+      +     "responses": {
+      +       "200": {
+      +         "description": "Successful response",
+      +         "content": {
+      +           "application/json": {
+      +             "schema": {
+      +               "type": "object",
+      +               "properties": {
+      +                 "id": {
+      +                   "type": "string"
+      +                 }
+      +               }
+      +             }
+      +           }
+      +         }
+      +       }
+      +     }
+      +   }
+      + }
+      </diff>
+      </route>
+      </addedRoutes>
+
+      <deletedRoutes>
+      None 
+      </deletedRoutes>"
+    `)
+  })
+
+  it('should format deleted routes', () => {
+    expect(
+      getOpenApiDiffPrompt({
+        previousOpenApiSchema: {
+          openapi: '3.0.0',
+          info: {
+            title: 'Test API',
+            version: '1.0.0',
+          },
+          paths: {
+            '/test': {
+              get: {
+                requestBody: {
+                  content: {
+                    'application/json': {
+                      schema: {
+                        type: 'object',
+                        properties: {
+                          name: { type: 'string' },
+                          age: { type: 'number' }
+                        },
+                        required: ['name']
+                      }
+                    }
+                  }
+                },
+                responses: {
+                  '200': {
+                    description: 'Successful response',
+                    content: {
+                      'application/json': {
+                        schema: {
+                          type: 'object',
+                          properties: {
+                            id: { type: 'string' },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        openApiSchema: {
+          openapi: '3.0.0',
+          info: {
+            title: 'Test API',
+            version: '1.0.0',
+          },
+          paths: {},
+        },
+      }),
+    ).toMatchInlineSnapshot(`
+      "<changedRoutes>
+      None
+      </changedRoutes>
+
+      <addedRoutes>
+      None
+      </addedRoutes>
+
+      <deletedRoutes>
+      <route type="deleted" method="GET" path="/test">
+      <comment>Deleted route</comment>
+      <diff>
+      - "/test": {
+      -   "get": {
+      -     "requestBody": {
+      -       "content": {
+      -         "application/json": {
+      -           "schema": {
+      -             "type": "object",
+      -             "properties": {
+      -               "name": {
+      -                 "type": "string"
+      -               },
+      -               "age": {
+      -                 "type": "number"
+      -               }
+      -             },
+      -             "required": [
+      -               "name"
+      -             ]
+      -           }
+      -         }
+      -       }
+      -     },
+      -     "responses": {
+      -       "200": {
+      -         "description": "Successful response",
+      -         "content": {
+      -           "application/json": {
+      -             "schema": {
+      -               "type": "object",
+      -               "properties": {
+      -                 "id": {
+      -                   "type": "string"
+      -                 }
+      -               }
+      -             }
+      -           }
+      -         }
+      -       }
+      -     }
+      -   }
+      - }
+      </diff>
+      </route> 
+      </deletedRoutes>"
+    `)
+  })
 })
