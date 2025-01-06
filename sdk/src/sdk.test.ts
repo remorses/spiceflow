@@ -24,6 +24,7 @@ describe(
           UrlDefault: 'http://localhost:3000',
         },
       })
+      console.log(`generating routes code`)
       const generatedCode = await generateSDKFromOpenAPI({
         openApiSchema,
         previousSdkCode,
@@ -36,7 +37,7 @@ describe(
         .catch((error) => {})
       await fs.promises.writeFile(
         'scripts/generated-sdk.ts',
-        generatedCode.generatedCode,
+        generatedCode.code,
       )
       //   expect(generatedCode).toMatchInlineSnapshot(`
       //   "class SDK {

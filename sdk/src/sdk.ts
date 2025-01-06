@@ -1,18 +1,220 @@
 import { createDeepSeek } from '@ai-sdk/deepseek'
 import fs from 'fs'
-import { parse } from 'partial-json'
 import dedent from 'string-dedent'
 import { streamText } from 'ai'
 import type { OpenAPIV3 } from 'openapi-types'
-import { z } from 'zod'
+import path from 'path'
+import { createOpenAI } from '@ai-sdk/openai'
 
-const model = createDeepSeek({
+const deepseek = createDeepSeek({
   apiKey: process.env.DEEPSEEK_API_KEY ?? '',
+})
+
+const openai = createOpenAI({
+  apiKey: process.env.OPENAI_API_KEY ?? '',
 })
 
 const emptyCode = dedent`
 // add your sdk code here
 `
+
+export function getRoutesFromOpenAPI(openApiSchema: OpenAPIV3.Document): Array<{
+  path: string
+  method: string
+  operationId?: string
+}> {
+  const routes: Array<{ path: string; method: string; operationId?: string }> =
+    []
+
+  for (const [path, pathItem] of Object.entries(openApiSchema.paths || {})) {
+    for (const method of ['get', 'post', 'put', 'delete', 'patch'] as const) {
+      const operation = pathItem?.[method]
+      if (operation) {
+        routes.push({
+          path,
+          method: method.toUpperCase(),
+          operationId: operation.operationId,
+        })
+      }
+    }
+  }
+
+  return routes
+}
+
+export async function generateSDKForRoute({
+  route,
+  openApiSchema,
+  previousSdkCode = emptyCode,
+}: {
+  route: { path: string; method: string; operationId?: string }
+  openApiSchema: OpenAPIV3.Document
+  previousSdkCode?: string
+}) {
+  const prompt = dedent`
+    Generate a TypeScript SDK method for this OpenAPI route. The SDK should:
+    - Use fetch for making API calls
+    - Include all type definitions
+    - Handle request/response serialization
+    - Include error handling
+    - Be fully typed, for both inputs and outputs, use optional fields where required, use any in case no result type is provided
+
+    OpenAPI Schema:
+    <openApiSchema>
+    ${JSON.stringify(openApiSchema, null, 2)}
+    </openApiSchema>
+
+    <previousSdkCode>
+    ${previousSdkCode}
+    </previousSdkCode>
+
+
+    Only implement the new code to add for the route: ${route.method} ${
+    route.path
+  } 
+    
+    `
+
+  const res = streamText({
+    model: deepseek('deepseek-chat', {}),
+    prompt,
+  })
+
+  let generatedCode = ''
+
+  const logFile = `./logs/${
+    route.operationId ||
+    `${route.method.toLowerCase()}-${route.path
+      .replace(/\//g, '-')
+      .replace(/^-|-$/g, '')}`
+  }.md`
+  const logStream = logToFile(logFile)
+
+  for await (const chunk of res.fullStream) {
+    if (chunk.type === 'text-delta') {
+      generatedCode += chunk.textDelta
+
+      logStream.write(chunk.textDelta)
+    }
+  }
+
+  logStream.end()
+
+  return {
+    code: generatedCode,
+    title: `SDK Code for Route: ${route.method} ${route.path}`,
+  }
+}
+
+export async function generateSDKFromOpenAPI({
+  openApiSchema,
+  previousSdkCode = emptyCode,
+}: {
+  openApiSchema: OpenAPIV3.Document
+  previousSdkCode?: string
+}) {
+  const routes = getRoutesFromOpenAPI(openApiSchema)
+
+  const results = await Promise.all(
+    routes.map((route) =>
+      generateSDKForRoute({
+        route,
+        openApiSchema,
+        previousSdkCode,
+      }),
+    ),
+  )
+
+  return mergeSDKOutputs({ outputs: results, previousSdkCode })
+}
+
+export async function mergeSDKOutputs({
+  outputs,
+  previousSdkCode,
+}: {
+  previousSdkCode
+  outputs: { title: string; code: string }[]
+}) {
+  const prompt = dedent`
+    Merge and deduplicate the following TypeScript SDK code fragments into a single coherent SDK.
+    Remove duplicate type definitions and interfaces.
+    Organize related methods into namespaces based on their functionality.
+    Ensure the output is well-formatted and maintains all type safety.
+
+
+    Here is how the SDK code looked like before the LLM edits, this is the content the edits are based on:
+    <initialSdkCode>
+    ${previousSdkCode}
+    </initialSdkCode>
+
+    Input SDK fragments:
+    
+    ${outputs
+      .map(
+        (output) => dedent`
+    <sdkFragmentCode title="${output.title}">
+    ${output.code}
+    </sdkFragmentCode>
+    `,
+      )
+      .join('\n')}
+
+    Output only the complete merged TypeScript SDK code fully, it should contain the whole file. Do not include any other text or explanations.
+  `
+
+  const res = streamText({
+    model: openai('gpt-4o-mini', {}),
+    prompt,
+    experimental_providerMetadata: {
+      // https://sdk.vercel.ai/providers/ai-sdk-providers/openai#predicted-outputs
+      openai: {
+        prediction: {
+          type: 'content',
+          content: [
+            {
+              type: 'text',
+              text: previousSdkCode,
+            },
+            ...outputs.map((x) => {
+              const text = x.code
+              return { text, type: 'text' }
+            }),
+          ],
+        },
+      },
+    },
+  })
+
+  let generatedCode = ''
+
+  const logFile = './logs/merged-sdk.md'
+
+  const logStream = logToFile(logFile)
+
+  for await (const chunk of res.fullStream) {
+    if (chunk.type === 'text-delta') {
+      generatedCode += chunk.textDelta
+
+      logStream.write(chunk.textDelta)
+    }
+  }
+
+  logStream.end()
+
+  return {
+    code: generatedCode
+      .split('\n')
+      .filter((x) => !x.startsWith('```'))
+      .join('\n'),
+  }
+}
+
+export function logToFile(filePath: string) {
+  fs.mkdirSync(path.dirname(filePath), { recursive: true })
+  fs.writeFileSync(filePath, '')
+  const logStream = fs.createWriteStream(filePath, {})
+  return logStream
+}
 
 export function replaceParamsInTemplate({
   template,
@@ -57,183 +259,4 @@ export function replaceParamsInTemplate({
   })
 
   return result
-}
-
-const editFileSchema = z.object({
-  old_str: z
-    .string()
-    .optional()
-    .describe(
-      'Required parameter of `str_replace` command containing the string in `path` to replace. As short as possible, you can replace code that you previously added yourself.',
-    ),
-  new_str: z
-    .string()
-    .optional()
-    .describe(
-      'Required parameter of `str_replace` command containing the new string. To insert new code simply repeat the replaced line. Required parameter of `insert` command containing the string to insert. Please use nice formatting and indentation of 2 spaces.',
-    ),
-})
-
-export async function generateSDKFromOpenAPI({
-  openApiSchema,
-  previousSdkCode = emptyCode,
-}: {
-  openApiSchema: OpenAPIV3.Document
-  previousSdkCode?: string
-}) {
-  const prompt = dedent`
-    Generate a TypeScript SDK class from this OpenAPI schema. The SDK should:
-    - Use fetch for making API calls
-    - Include all type definitions
-    - Group methods by tags into namespaces
-    - Handle request/response serialization
-    - Include error handling
-    - Be fully typed
-
-    OpenAPI Schema:
-    <openApiSchema>
-    ${JSON.stringify(openApiSchema, null, 2)}
-    </openApiSchema>
-
-    <previousSdkCode>
-    ${previousSdkCode}
-    </previousSdkCode>
-
-    Call editFile with your additions and deletions, do not output the code as a message, instead call the editFile tool.
-
-    Reason step by step before editing the file.
-    `
-
-  let generatedCode = previousSdkCode
-  let fullOutput = ''
-
-  // Track line number changes with an array where index is original line number
-  // and value is the offset to add to get current line number
-  let lineOffsets: number[] = Array(previousSdkCode.split('\n').length).fill(0)
-  let currentLines = previousSdkCode.split('\n')
-
-  const res = streamText({
-    model: model('deepseek-chat', {}),
-    prompt,
-    toolChoice: 'required',
-    experimental_toolCallStreaming: true,
-    tools: {
-      editFile: {
-        parameters: editFileSchema,
-        execute: async ({
-          command = 'str_replace',
-          old_str,
-          new_str,
-          insert_line,
-        }) => {
-          if (command === 'str_replace' && old_str && new_str) {
-            const matches = generatedCode.split(old_str).length - 1
-            if (matches === 0) {
-              return {
-                success: false,
-                error: `String '${old_str}' not found in code`,
-                suggestions: [
-                  'Check if the string exists exactly as provided',
-                  'String matching is case-sensitive',
-                ],
-              }
-            }
-            if (matches > 1) {
-              return {
-                success: false,
-                error: `Multiple matches (${matches}) found for string '${old_str}'`,
-                suggestions: [
-                  'Make the search string more specific',
-                  'Include more surrounding context in the string',
-                  'Use a unique portion of the code you want to replace',
-                ],
-              }
-            }
-
-            generatedCode = generatedCode.replace(old_str, new_str)
-            currentLines = generatedCode.split('\n')
-            return { success: true }
-          }
-
-          if (command === 'insert' && insert_line != null && new_str) {
-            if (insert_line >= currentLines.length) {
-              return {
-                success: false,
-                error: `Invalid insert line ${insert_line} - file only has ${currentLines.length} lines`,
-                suggestions: [
-                  `Choose a line number between 0 and ${
-                    currentLines.length - 1
-                  }`,
-                ],
-              }
-            }
-
-            // Insert the new string after the specified line by splicing it into the array of lines
-            currentLines.splice(insert_line + 1, 0, new_str)
-            generatedCode = currentLines.join('\n')
-            return { success: true, newCode: generatedCode }
-          }
-          return {
-            success: false,
-            error: 'Invalid command parameters',
-            suggestions: [
-              'For str_replace: provide both old_str and new_str',
-              'For insert: provide both insert_line and new_str',
-            ],
-          }
-        },
-      },
-    },
-  })
-
-  const debouncedWrite = (() => {
-    let lastWriteTime = 0
-    return (content: string) => {
-      const now = Date.now()
-      if (now - lastWriteTime >= 50) {
-        fs.writeFileSync('scripts/logs.md', content)
-        lastWriteTime = now
-      }
-    }
-  })()
-
-  let toolJsonArgs = ''
-  let fullOutputOffset = Infinity
-  for await (const item of res.fullStream) {
-    // process.stdout.write('\x1Bc')
-    if (item.type === 'text-delta') {
-      fullOutput += item.textDelta
-      process.stdout.write(item.textDelta)
-    } else if (item.type === 'tool-call-delta') {
-      //   fullOutput += item.argsTextDelta
-      toolJsonArgs += item.argsTextDelta
-      const parsed = parse(toolJsonArgs)
-      if (parsed) {
-        fullOutput =
-          fullOutput.slice(0, fullOutputOffset) +
-          Object.entries(parsed)
-            .map(([key, value]: [string, any]) => {
-              const valueStr = value?.toString()
-              return valueStr.includes('\n')
-                ? `${key}:\n\`\`\`ts\n${valueStr}\n\`\`\`\n`
-                : `${key}: ${valueStr}\n`
-            })
-            .join('')
-      }
-    } else if (item.type === 'tool-call-streaming-start') {
-      toolJsonArgs = ''
-      fullOutputOffset = fullOutput.length
-      fullOutput += `\n---\nEditing file with params:\n`
-    } else if (item.type === 'tool-result') {
-      fullOutput += `\n---\n\n`
-    }
-
-    debouncedWrite(fullOutput)
-
-    // process.stdout.write(fullOutput)
-  }
-
-  debouncedWrite(fullOutput)
-
-  return { generatedCode, fullOutput }
 }
