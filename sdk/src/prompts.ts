@@ -1,3 +1,20 @@
+import { Language } from './sdk'
+
+export const languagesPrompts: Record<Language, string> = {
+  typescript: `
+Generate a TypeScript SDK method for this OpenAPI route as a class method. The SDK should:
+- Use fetch for making API calls
+- The output code should be possible to run both on Node.js and the browser, do not use Node.js specific functions and imports
+- Include all type definitions
+- Handle request/response serialization
+- Include error handling
+- Be fully typed for both inputs and outputs, use optional fields where required, use any in case no result type is provided
+- Add a comment above the method (ONLY METHODS) with the route path, method and tags
+- Always add global scope declarations like for types and functions at the end of the snippet
+- Make sure to declare all the types and function required to make your snippets of code work, unless they are already declared in the initial code
+    `,
+}
+
 export const applyCursorPromptPrefix = ({ model = 'GPT-4o' }) => `
 You are an intelligent programmer, powered by ${model}. You are happy to help answer any questions that the user has (usually they will be about coding).
 

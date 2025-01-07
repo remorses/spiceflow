@@ -9,7 +9,7 @@ import type { OpenAPIV3 } from 'openapi-types'
 import path from 'path'
 import { createOpenAI } from '@ai-sdk/openai'
 import { getOpenApiDiffPrompt } from './diff'
-import { applyCursorPromptPrefix } from './prompts'
+import { applyCursorPromptPrefix, languagesPrompts } from './prompts'
 import { processConcurrentlyInOrder } from './utils'
 
 const deepseek = createDeepSeek({
@@ -116,25 +116,18 @@ export async function generateSDKForRoute({
   route,
   openApiSchema,
   previousSdkCode,
+  language,
   logFile = null,
 }: {
   route: RouteForLLM
   openApiSchema: OpenAPIV3.Document
   previousSdkCode?: string
+  language: Language
   logFile?: string | null
 }) {
   console.log(`generating sdk for route: ${route.method} ${route.path}`)
   const prompt = dedent`
-    Generate a TypeScript SDK method for this OpenAPI route as a class method. The SDK should:
-    - Use fetch for making API calls
-    - The output code should be possible to run both on Node.js and the browser, do not use Node.js specific functions and imports
-    - Include all type definitions
-    - Handle request/response serialization
-    - Include error handling
-    - Be fully typed for both inputs and outputs, use optional fields where required, use any in case no result type is provided
-    - Add a comment above the method (ONLY METHODS) with the route path, method and tags
-    - Always add global scope declarations like for types and functions at the end of the snippet
-    - Make sure to declare all the types and function required to make your snippets of code work, unless they are already declared in the initial code
+    ${languagesPrompts[language]}
 
     OpenAPI Schema:
     <openApiSchema>
@@ -147,11 +140,10 @@ export async function generateSDKForRoute({
 
     ${route.diffPrompt}
 
-    Only implement the new code to add for the route: ${route.method} ${
-    route.path
-  } 
+    Only implement the new code to add for the route: 
+    ${route.method} ${route.path} 
 
-    Do not add any explanations at the end of the file, instead
+    Do not add any explanations at the end of the file, instead do step by step reasoning at the start
     
     `
 
@@ -221,17 +213,59 @@ export function extractMarkdownSnippets(markdown: string): string[] {
   return snippets.filter((snippet) => snippet.length > 0)
 }
 
+export type Language = 'typescript'
+
+const languageToExtension: Record<Language, string> = {
+  typescript: 'ts',
+  // python: 'py',
+  // ruby: 'rb',
+  // php: 'php',
+  // go: 'go',
+  // java: 'java',
+  // csharp: 'cs',
+  // rust: 'rs',
+  // swift: 'swift',
+}
+
+type BoilerplateParams = {
+  ClientName: string
+  ErrorName: string
+  UrlDefault: string
+}
+
 export async function generateSDKFromOpenAPI({
   openApiSchema,
   previousSdkCode,
   previousOpenApiSchema,
   logFolder = null,
+  language = 'typescript',
+  params,
 }: {
   openApiSchema: OpenAPIV3.Document
   previousOpenApiSchema?: OpenAPIV3.Document
   previousSdkCode?: string
+  language?: Language
   logFolder?: string | null
+  params?: BoilerplateParams
 }) {
+  if (!previousSdkCode) {
+    previousSdkCode = replaceParamsInTemplate({
+      template: fs.readFileSync(
+        path.resolve(
+          __dirname,
+          `./boilerplates/${language}.${languageToExtension[language]}`,
+        ),
+        'utf-8',
+      ),
+      params: {
+        // TODO remove example boilerplate params for prod
+        ClientName: 'ExampleClient',
+        ErrorName: 'ExampleError',
+        UrlDefault: 'http://localhost:3000',
+        ...params,
+      },
+    })
+  }
   const routes = getRoutesFromOpenAPI({ openApiSchema, previousOpenApiSchema })
 
   const results = await Array.fromAsync(
@@ -242,6 +276,7 @@ export async function generateSDKFromOpenAPI({
             route,
             openApiSchema,
             previousSdkCode,
+            language,
             logFile: logFolder
               ? `${logFolder}/${
                   route.operationId ||
@@ -260,6 +295,7 @@ export async function generateSDKFromOpenAPI({
     outputs: results,
     previousSdkCode,
     openApiSchema,
+    language,
     logFile: logFolder ? `${logFolder}/merge.md` : null,
   })
 }
@@ -268,18 +304,20 @@ export async function mergeSDKOutputs({
   outputs,
   previousSdkCode,
   openApiSchema,
+  language,
   logFile = null,
 }: {
   previousSdkCode
   outputs: { title: string; code: string }[]
   openApiSchema: OpenAPIV3.Document
   logFile?: string | null
+  language: Language
 }) {
   let accumulatedCode = previousSdkCode
 
   for (const [index, output] of outputs.entries()) {
     const prompt = dedent`
-    Add the route implementation to the class instance, for ${output.title}
+    Add the route implementation to the sdk instance, for ${output.title}, in ${language}
     `
     const requestId = Math.random().toString(36).substring(7)
     console.time(`cursor merge sdk ${index} ${requestId}`)
@@ -296,7 +334,7 @@ export async function mergeSDKOutputs({
     const result = await makeCursorSlashEditRequest({
       prompt,
       fileContents: accumulatedCode,
-      filename: 'sdk.ts',
+      filename: 'sdk.' + languageToExtension[language],
       accessToken: process.env.CURSOR_ACCESS_TOKEN,
       refreshToken: process.env.CURSOR_REFRESH_TOKEN,
       useFastApply: true,

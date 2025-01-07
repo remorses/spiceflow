@@ -18,19 +18,10 @@ it(
       (x) => x.default,
     )) as any
 
-    let previousSdkCode = replaceParamsInTemplate({
-      template: fs.readFileSync('src/boilerplate.ts', 'utf-8'),
-      params: {
-        ClientName: 'ExampleClient',
-        ErrorName: 'ExampleError',
-        UrlDefault: 'http://localhost:3000',
-      },
-    })
-
     console.log(`generating routes code`)
     const generatedCode = await generateSDKFromOpenAPI({
       openApiSchema,
-      previousSdkCode,
+
       logFolder,
     })
 
@@ -60,19 +51,10 @@ describe(
       )
       const openApiSchema: any = YAML.load(openApiYaml)
 
-      let previousSdkCode = replaceParamsInTemplate({
-        template: fs.readFileSync('src/boilerplate.ts', 'utf-8'),
-        params: {
-          ClientName: 'ExampleClient',
-          ErrorName: 'ExampleError',
-          UrlDefault: 'http://localhost:3000',
-        },
-      })
-
       console.log(`generating routes code`)
       const generatedCode = await generateSDKFromOpenAPI({
         openApiSchema,
-        previousSdkCode,
+
         logFolder,
       })
 
