@@ -5,7 +5,7 @@ import path, { join } from 'path'
 import { generateSDKFromOpenAPI, replaceParamsInTemplate } from './sdk'
 import * as YAML from 'js-yaml'
 import { OpenAPIV3 } from 'openapi-types'
-import { Language } from './types'
+import { Language, languageToExtension } from './types'
 
 const languages: Language[] = ['python', 'typescript']
 
@@ -37,7 +37,7 @@ for (const language of languages) {
             .mkdir('scripts', { recursive: true })
             .catch(() => {})
           await fs.promises.writeFile(
-            `${logFolder}/generated-sdk.ts`,
+            `${logFolder}/generated-sdk.${languageToExtension[language]}`,
             generatedCode.code,
           )
         },
@@ -65,7 +65,7 @@ for (const language of languages) {
         // Create scripts directory if it doesn't exist
         await fs.promises.mkdir('scripts', { recursive: true }).catch(() => {})
         await fs.promises.writeFile(
-          `${logFolder}/generated-sdk.ts`,
+          `${logFolder}/generated-sdk.${languageToExtension[language]}`,
           generatedCode.code,
         )
       })
@@ -94,7 +94,9 @@ for (const language of languages) {
 
         let previousSdkCode = await fs.promises
           .readFile(
-            path.resolve(`logs/${language}/dumb/generated-sdk.ts`),
+            path.resolve(
+              `logs/${language}/dumb/generated-sdk.${languageToExtension[language]}`,
+            ),
             'utf-8',
           )
           .catch(() => {
@@ -119,7 +121,7 @@ for (const language of languages) {
 
         // Write generated code to file
         await fs.promises.writeFile(
-          `${logFolder}/updated-sdk.ts`,
+          `${logFolder}/updated-sdk.${languageToExtension[language]}`,
           generatedCode.code,
         )
 

@@ -1,0 +1,24 @@
+{
+  "name": "_replacedPackageName",
+  "version": "_replacedVersion",
+  "description": "",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "repository": "_replacedRepository",
+  "scripts": {
+    "build": "tsc",
+    "prepublishOnly": "npm run build",
+    "watch": "tsc -w"
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "keywords": [],
+  "author": "_replacedAuthor",
+  "license": "MIT",
+  "devDependencies": {},
+  "dependencies": {
+    "eventsource-parser": "^3.0.0"
+  }
+}

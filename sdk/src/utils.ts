@@ -1,3 +1,6 @@
+import * as fs from 'fs'
+import * as path from 'path'
+
 export async function* processConcurrentlyInOrder<T>(
   thunks: Array<() => Promise<T>>,
   maxConcurrent = 3,
@@ -15,4 +18,19 @@ export async function* processConcurrentlyInOrder<T>(
   }
 }
 
+export async function recursiveReadDir(dir: string): Promise<string[]> {
+  const entries = await fs.promises.readdir(dir, { withFileTypes: true })
+  const files: string[] = []
 
+  for (const entry of entries) {
+    const fullPath = path.join(dir, entry.name)
+    if (entry.isDirectory()) {
+      const subFiles = await recursiveReadDir(fullPath)
+      files.push(...subFiles)
+    } else {
+      files.push(fullPath)
+    }
+  }
+
+  return files
+}

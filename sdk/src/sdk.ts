@@ -1,4 +1,5 @@
 import { createDeepSeek } from '@ai-sdk/deepseek'
+
 import safeStringify from 'fast-safe-stringify'
 import compareOpenApiSchemas from 'openapi-schema-diff/lib'
 import { diffJson } from 'diff'
@@ -10,8 +11,8 @@ import path from 'path'
 import { createOpenAI } from '@ai-sdk/openai'
 import { getOpenApiDiffPrompt } from './diff'
 import { applyCursorPromptPrefix, languagesPrompts } from './prompts'
-import { processConcurrentlyInOrder } from './utils'
-import { Language, languageToExtension } from './types'
+import { processConcurrentlyInOrder, recursiveReadDir } from './utils'
+import { BoilerplateParams, Language, languageToExtension } from './types'
 
 const deepseek = createDeepSeek({
   apiKey: process.env.DEEPSEEK_API_KEY ?? '',
@@ -212,12 +213,6 @@ export function extractMarkdownSnippets(markdown: string): string[] {
   }
 
   return snippets.filter((snippet) => snippet.length > 0)
-}
-
-type BoilerplateParams = {
-  ClientName: string
-  ErrorName: string
-  UrlDefault: string
 }
 
 export async function generateSDKFromOpenAPI({
@@ -476,6 +471,37 @@ export function replaceParamsInTemplate({
   }
 
   return result
+}
+
+export async function generateRepoFiles({
+  language,
+  params,
+  outFolder,
+}: {
+  language: Language
+  params: BoilerplateParams
+  outFolder?: string
+}) {
+  const reposPath = `repos-files/${language}`
+  const files = await recursiveReadDir(reposPath)
+  const filesWithParams = files.map((file) => {
+    const content = fs.readFileSync(file, 'utf-8')
+    return {
+      path: file,
+      content: replaceParamsInTemplate({ template: content, params }),
+    }
+  })
+
+  if (outFolder) {
+    for (const file of filesWithParams) {
+      const relativePath = path.relative(reposPath, file.path)
+      const outPath = path.join(outFolder, relativePath)
+      await fs.promises.mkdir(path.dirname(outPath), { recursive: true })
+      await fs.promises.writeFile(outPath, file.content)
+    }
+  }
+
+  return { files: filesWithParams }
 }
 
 interface SlashEditParams {

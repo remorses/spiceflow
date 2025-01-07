@@ -11,3 +11,14 @@ export const languageToExtension: Record<Language, string> = {
   // rust: 'rs',
   // swift: 'swift',
 }
+
+export type BoilerplateParams = {
+  ClientName: string
+  ErrorName: string
+  UrlDefault: string
+  Version: string
+  Author: string
+  Repository: string
+  PackageName: string
+  Description: string
+}
