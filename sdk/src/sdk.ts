@@ -11,7 +11,7 @@ import { createOpenAI } from '@ai-sdk/openai'
 import { getOpenApiDiffPrompt } from './diff'
 import { applyCursorPromptPrefix, languagesPrompts } from './prompts'
 import { processConcurrentlyInOrder } from './utils'
-import { Language } from './types'
+import { Language, languageToExtension } from './types'
 
 const deepseek = createDeepSeek({
   apiKey: process.env.DEEPSEEK_API_KEY ?? '',
@@ -212,18 +212,6 @@ export function extractMarkdownSnippets(markdown: string): string[] {
   }
 
   return snippets.filter((snippet) => snippet.length > 0)
-}
-
-const languageToExtension: Record<Language, string> = {
-  typescript: 'ts',
-  python: 'py',
-  // ruby: 'rb',
-  // php: 'php',
-  // go: 'go',
-  // java: 'java',
-  // csharp: 'cs',
-  // rust: 'rs',
-  // swift: 'swift',
 }
 
 type BoilerplateParams = {
@@ -435,7 +423,6 @@ export function logToFile(filePath: string) {
     },
   }
 }
-
 export function replaceParamsInTemplate({
   template,
   params,
@@ -457,26 +444,36 @@ export function replaceParamsInTemplate({
     return template
   }
 
-  // Check if all matches have corresponding params
-  const missingParams = matches.filter((match) => {
+  // Replace all matches with their params or use common prefix
+  let result = template
+  const missingParams: string[] = []
+
+  matches.forEach((match) => {
     const paramName = match.replace(replacePrefix, '')
-    return !params[paramName]
+
+    // Check if exact param exists
+    if (params[paramName]) {
+      result = result.replaceAll(match, params[paramName])
+      return
+    }
+
+    // Look for common prefix params
+    const commonPrefixParam = Object.entries(params).find(
+      ([key]) => key && paramName.startsWith(key),
+    )
+
+    if (commonPrefixParam) {
+      const [prefix, value] = commonPrefixParam
+      const postfix = paramName.slice(prefix.length)
+      result = result.replaceAll(match, value + postfix)
+    } else {
+      missingParams.push(paramName)
+    }
   })
 
   if (missingParams.length > 0) {
-    throw new Error(
-      `Missing parameters: ${missingParams
-        .map((m) => m.replace(replacePrefix, ''))
-        .join(', ')}`,
-    )
+    throw new Error(`Missing parameters: ${missingParams.join(', ')}`)
   }
-
-  // Replace all matches with their params
-  let result = template
-  matches.forEach((match) => {
-    const paramName = match.replace(replacePrefix, '')
-    result = result.replaceAll(match, params[paramName])
-  })
 
   return result
 }

@@ -47,6 +47,7 @@ export class _replacedClientName {
   }
 }
 
+// this function should not be removed even if not used
 export class _replacedErrorName extends Error {
   status: number
   data: any

@@ -52,6 +52,7 @@ class _replacedErrorName(Exception):
         self.data = data
 
 
+# this function should not be removed even if not used
 async def stream_sse_response(
     response: aiohttp.ClientResponse,
 ) -> AsyncGenerator[Any, None]:

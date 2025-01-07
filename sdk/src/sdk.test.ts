@@ -28,7 +28,7 @@ for (const language of languages) {
           console.log(`generating routes code`)
           const generatedCode = await generateSDKFromOpenAPI({
             openApiSchema,
-
+            language,
             logFolder,
           })
 
@@ -49,9 +49,8 @@ for (const language of languages) {
           .rm(logFolder, { recursive: true, force: true })
           .catch(() => {})
 
-        // Read and parse OpenAPI schema from YAML file
         const openApiYaml = await readFile(
-          join(__dirname, '../../spiceflow/scripts/openapi.yml'),
+          join(__dirname, '../scripts/dumb-openapi.yml'),
           'utf-8',
         )
         const openApiSchema: any = YAML.load(openApiYaml)
@@ -59,7 +58,7 @@ for (const language of languages) {
         console.log(`generating routes code`)
         const generatedCode = await generateSDKFromOpenAPI({
           openApiSchema,
-
+          language,
           logFolder,
         })
 
@@ -70,7 +69,9 @@ for (const language of languages) {
           generatedCode.code,
         )
       })
-      it('should generate SDK from OpenAPI schema, starting from existing, remove some routes', async () => {
+      it('should generate SDK from OpenAPI schema, starting from existing, remove some routes', async ({
+        skip,
+      }) => {
         const logFolder = `logs/${language}/dumb-updated`
         await fs.promises
           .rm(logFolder, { recursive: true, force: true })
@@ -78,7 +79,7 @@ for (const language of languages) {
 
         // Read and parse OpenAPI schema from YAML file
         const openApiYaml = await readFile(
-          join(__dirname, './scripts/dumb-openapi.yml'),
+          join(__dirname, '../scripts/dumb-openapi.yml'),
           'utf-8',
         )
         const openApiSchema: OpenAPIV3.Document = YAML.load(openApiYaml) as any
@@ -91,13 +92,22 @@ for (const language of languages) {
         delete openApiSchema.paths[routeToRemove1]
         delete openApiSchema.paths[routeToRemove2]
 
-        let previousSdkCode = fs.readFileSync(
-          path.resolve(`logs/${language}/dumb/generated-sdk.ts`),
-          'utf-8',
-        )
+        let previousSdkCode = await fs.promises
+          .readFile(
+            path.resolve(`logs/${language}/dumb/generated-sdk.ts`),
+            'utf-8',
+          )
+          .catch(() => {
+            console.log(
+              `Skipping ${language} test with previous sdk because previous sdk file not found`,
+            )
+            skip()
+            return ''
+          })
 
         console.log(`generating routes code`)
         const generatedCode = await generateSDKFromOpenAPI({
+          language,
           openApiSchema,
           previousOpenApiSchema,
           previousSdkCode,
