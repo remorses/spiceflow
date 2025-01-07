@@ -31,7 +31,6 @@ it(
       previousSdkCode,
     })
 
-    console.log('generatedCode:\n', generatedCode)
     // Create scripts directory if it doesn't exist
     await fs.promises.mkdir('scripts', { recursive: true }).catch((error) => {})
     await fs.promises.writeFile(
@@ -69,7 +68,7 @@ describe(
         previousSdkCode,
       })
 
-      console.log('generatedCode:\n', generatedCode)
+      // console.log('generatedCode:\n', generatedCode)
       // Create scripts directory if it doesn't exist
       await fs.promises
         .mkdir('scripts', { recursive: true })
@@ -105,7 +104,7 @@ describe(
         previousSdkCode,
       })
 
-      console.log('generatedCode:\n', generatedCode)
+      // console.log('generatedCode:\n', generatedCode)
       // Create scripts directory if it doesn't exist
       await fs.promises
         .mkdir('scripts', { recursive: true })
