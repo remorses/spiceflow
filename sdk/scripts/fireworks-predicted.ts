@@ -43,15 +43,23 @@ func main() {
 \`\`\`
 `
 async function main() {
-  let model = fireworks('accounts/fireworks/models/llama-v3p3-70b-instruct')
+  let model = fireworks('accounts/fireworks/models/mixtral-8x22b-instruct')
   //   model = openai('gpt-4o-mini')
   const stream = streamText({
     model,
     prompt: `Echo this exact code for me, only output the code:\n${code}`,
     experimental_providerMetadata: {
-      prediction: {
-        type: 'content',
-        content: code,
+      fireworks: {
+        prediction: {
+          type: 'content',
+          content: code,
+        },
+      },
+      openai: {
+        prediction: {
+          type: 'content',
+          content: code,
+        },
       },
     },
   })
