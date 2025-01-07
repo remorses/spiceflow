@@ -1,51 +1,35 @@
-```typescript
-/**
- * POST /ratelimit.v1.RatelimitService/MultiRatelimit
- * Method: POST
- * Tags: ratelimit
- */
-export class RatelimitService {
-  private client: ExampleClient;
+Here's the implementation for the MultiRatelimit endpoint:
 
-  constructor(client: ExampleClient) {
-    this.client = client;
-  }
+```typescript:src/client.ts
+// POST /ratelimit.v1.RatelimitService/MultiRatelimit - tags: ratelimit
+async multiRatelimit(
+  body: V1RatelimitMultiRatelimitRequestBody
+): Promise<V1RatelimitMultiRatelimitResponseBody> {
+  const response = await this.fetch({
+    method: 'POST',
+    path: '/ratelimit.v1.RatelimitService/MultiRatelimit',
+    body,
+  });
 
-  async multiRatelimit(
-    requestBody: V1RatelimitMultiRatelimitRequestBody
-  ): Promise<V1RatelimitMultiRatelimitResponseBody> {
-    const response = await this.client.fetch({
-      method: 'POST',
-      path: '/ratelimit.v1.RatelimitService/MultiRatelimit',
-      body: requestBody,
+  if (!response.ok) {
+    const error = await response.json();
+    throw new ExampleError(error.detail || 'Failed to check ratelimits', {
+      status: response.status,
+      data: error,
     });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new ExampleError('Failed to perform multi ratelimit', {
-        status: response.status,
-        data: errorData,
-      });
-    }
-
-    return response.json();
   }
+
+  return response.json();
 }
 
-// Type Definitions
-interface V1RatelimitMultiRatelimitRequestBody {
-  ratelimits: Item[];
-}
+// ... existing code ...
 
+// Type declarations
 interface Item {
   identifier: string;
   limit: number;
   duration: number;
   cost?: number;
-}
-
-interface V1RatelimitMultiRatelimitResponseBody {
-  ratelimits: SingleRatelimitResponse[];
 }
 
 interface SingleRatelimitResponse {
@@ -54,5 +38,13 @@ interface SingleRatelimitResponse {
   remaining: number;
   reset: number;
   success: boolean;
+}
+
+interface V1RatelimitMultiRatelimitRequestBody {
+  ratelimits: Item[];
+}
+
+interface V1RatelimitMultiRatelimitResponseBody {
+  ratelimits: SingleRatelimitResponse[];
 }
 ```

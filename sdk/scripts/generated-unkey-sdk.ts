@@ -45,6 +45,198 @@ export class ExampleClient {
 
     return fetch(url.toString(), options)
   }
+
+  /**
+   * POST /v0/events
+   * Create events
+   * Tags: events
+   */
+  async createEvents(
+    payload: string,
+    options?: { headers?: Record<string, string> }
+  ): Promise<V0EventsResponseBody> {
+    const response = await this.fetch({
+      method: 'POST',
+      path: '/v0/events',
+      body: payload,
+      headers: {
+        'Content-Type': 'application/x-ndjson',
+        ...options?.headers,
+      },
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new ExampleError(error.detail || 'Failed to create events', {
+        status: response.status,
+        data: error,
+      });
+    }
+
+    return response.json();
+  }
+
+  /**
+   * POST /ratelimit.v1.RatelimitService/MultiRatelimit
+   * Tags: ratelimit
+   */
+  async multiRatelimit(
+    body: V1RatelimitMultiRatelimitRequestBody
+  ): Promise<V1RatelimitMultiRatelimitResponseBody> {
+    const response = await this.fetch({
+      method: 'POST',
+      path: '/ratelimit.v1.RatelimitService/MultiRatelimit',
+      body,
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new ExampleError(error.detail || 'Failed to check ratelimits', {
+        status: response.status,
+        data: error,
+      });
+    }
+
+    return response.json();
+  }
+
+  /**
+   * POST /ratelimit.v1.RatelimitService/Ratelimit
+   * Tags: ratelimit
+   */
+  async ratelimit(
+    request: V1RatelimitRatelimitRequestBody
+  ): Promise<V1RatelimitRatelimitResponseBody> {
+    const response = await this.fetch({
+      method: 'POST',
+      path: '/ratelimit.v1.RatelimitService/Ratelimit',
+      body: request
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new ExampleError(error.detail || 'Failed to ratelimit', {
+        status: response.status,
+        data: error
+      });
+    }
+
+    return response.json();
+  }
+
+  /**
+   * GET /v1/liveness
+   * @tags liveness
+   * @description This endpoint checks if the service is alive.
+   */
+  async liveness(): Promise<V1LivenessResponseBody> {
+    const response = await this.fetch({
+      method: 'GET',
+      path: '/v1/liveness',
+    })
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new ExampleError(error.detail || 'Failed to check liveness', {
+        status: response.status,
+        data: error,
+      })
+    }
+
+    return response.json()
+  }
+
+  /**
+   * POST /v1/ratelimit.commitLease - tags: ratelimit
+   */
+  async commitLease(request: V1RatelimitCommitLeaseRequestBody): Promise<void> {
+    const response = await this.fetch({
+      method: 'POST',
+      path: '/v1/ratelimit.commitLease',
+      body: request
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new ExampleError(error.detail || 'Failed to commit lease', {
+        status: response.status,
+        data: error
+      });
+    }
+  }
+
+  /**
+   * POST /vault.v1.VaultService/Decrypt - tags: vault
+   */
+  async decrypt(
+    request: V1DecryptRequestBody
+  ): Promise<V1DecryptResponseBody> {
+    const response = await this.fetch({
+      method: 'POST',
+      path: '/vault.v1.VaultService/Decrypt',
+      body: request
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new ExampleError(error.detail || 'Failed to decrypt', {
+        status: response.status,
+        data: error
+      });
+    }
+
+    return response.json();
+  }
+
+  /**
+   * POST /vault.v1.VaultService/Encrypt
+   * @tags vault
+   * @param request The encryption request
+   * @returns The encrypted data
+   */
+  async encrypt(request: V1EncryptRequestBody): Promise<V1EncryptResponseBody> {
+    const response = await this.fetch({
+      method: 'POST',
+      path: '/vault.v1.VaultService/Encrypt',
+      body: request
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new ExampleError(error.detail || 'Encryption failed', {
+        status: response.status,
+        data: error
+      });
+    }
+
+    return response.json();
+  }
+
+  /**
+   * POST /vault.v1.VaultService/EncryptBulk - Encrypt multiple pieces of data
+   * @tags vault
+   * @param request The encryption request
+   * @returns The encrypted data
+   */
+  async encryptBulk(
+    request: V1EncryptBulkRequestBody
+  ): Promise<V1EncryptBulkResponseBody> {
+    const response = await this.fetch({
+      method: 'POST',
+      path: '/vault.v1.VaultService/EncryptBulk',
+      body: request,
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new ExampleError(error.detail || 'Failed to encrypt bulk data', {
+        status: response.status,
+        data: error,
+      });
+    }
+
+    return response.json();
+  }
 }
 
 export class ExampleError extends Error {
@@ -89,6 +281,133 @@ interface SSEEvent {
   event: string
   data: any
   id?: string
+}
+
+// Type definitions
+interface V0EventsResponseBody {
+  $schema?: string;
+  successful_rows: number;
+  quarantined_rows: number;
+}
+
+interface ValidationError {
+  requestId: string;
+  detail: string;
+  errors?: ValidationErrorDetail[];
+  instance: string;
+  status: number;
+  title: string;
+  type: string;
+}
+
+interface ValidationErrorDetail {
+  location: string;
+  message: string;
+  fix?: string;
+}
+
+interface BaseError {
+  requestId: string;
+  detail: string;
+  instance: string;
+  status: number;
+  title: string;
+  type: string;
+}
+
+// Type declarations
+interface Item {
+  identifier: string;
+  limit: number;
+  duration: number;
+  cost?: number;
+}
+
+interface SingleRatelimitResponse {
+  current: number;
+  limit: number;
+  remaining: number;
+  reset: number;
+  success: boolean;
+}
+
+interface V1RatelimitMultiRatelimitRequestBody {
+  ratelimits: Item[];
+}
+
+interface V1RatelimitMultiRatelimitResponseBody {
+  ratelimits: SingleRatelimitResponse[];
+}
+
+interface V1RatelimitRatelimitRequestBody {
+  cost?: number;
+  duration: number;
+  identifier: string;
+  limit: number;
+  lease?: Lease;
+}
+
+interface V1RatelimitRatelimitResponseBody {
+  current: number;
+  lease?: string;
+  limit: number;
+  remaining: number;
+  reset: number;
+  success: boolean;
+}
+
+interface Lease {
+  cost: number;
+  timeout: number;
+}
+
+interface V1LivenessResponseBody {
+  $schema?: string
+  message: string
+}
+
+interface V1RatelimitCommitLeaseRequestBody {
+  lease: string;
+  cost: number;
+}
+
+interface V1DecryptRequestBody {
+  keyring: string;
+  encrypted: string;
+  $schema?: string;
+}
+
+interface V1DecryptResponseBody {
+  plaintext: string;
+  $schema?: string;
+}
+
+interface V1EncryptRequestBody {
+  $schema?: string;
+  data: string;
+  keyring: string;
+}
+
+interface V1EncryptResponseBody {
+  $schema?: string;
+  encrypted: string;
+  keyId: string;
+}
+
+interface V1EncryptBulkRequestBody {
+  $schema?: string;
+  data: string[];
+  keyring: string;
+}
+
+interface V1EncryptBulkResponseBody {
+  $schema?: string;
+  encrypted: Encrypted[];
+}
+
+interface Encrypted {
+  encrypted: string;
+  keyId: string;
 }
 
 

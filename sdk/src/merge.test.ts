@@ -148,13 +148,6 @@ describe(
         export class ExampleClient {
             // ... (existing code)
 
-            async getUsers(): Promise<any> {
-                const response = await fetch(\`\${this.baseUrl}/users\`);
-                if (!response.ok) {
-                throw new Error('Failed to fetch users');
-                }
-                return response.json();
-            }
 
             /**
              * POST /users
@@ -193,7 +186,7 @@ describe(
         openApiSchema,
       })
 
-      expect(result.code).toMatchInlineSnapshot(`
+      expect(result.code.trim()).toMatchInlineSnapshot(`
         "export class ExampleClient {
             private baseUrl: string;
             field: string;
@@ -333,9 +326,7 @@ describe(
                 }
                 return response.json();
             }
-        }
-
-        "
+        }"
       `)
     })
   },

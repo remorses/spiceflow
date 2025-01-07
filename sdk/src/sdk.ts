@@ -9,6 +9,7 @@ import type { OpenAPIV3 } from 'openapi-types'
 import path from 'path'
 import { createOpenAI } from '@ai-sdk/openai'
 import { getOpenApiDiffPrompt } from './diff'
+import { applyCursorPromptPrefix } from './prompts'
 
 const deepseek = createDeepSeek({
   apiKey: process.env.DEEPSEEK_API_KEY ?? '',
@@ -128,7 +129,9 @@ export async function generateSDKForRoute({
     - Handle request/response serialization
     - Include error handling
     - Be fully typed for both inputs and outputs, use optional fields where required, use any in case no result type is provided
-    - Add a comment above the function with the route path, method and tags
+    - Add a comment above the method (ONLY METHODS) with the route path, method and tags
+    - Always add global scope declarations like for types and functions at the end of the snippet
+    - Make sure to declare all the types and function required to make your snippets of code work, unless they are already declared in the initial code
 
     OpenAPI Schema:
     <openApiSchema>
@@ -155,6 +158,7 @@ export async function generateSDKForRoute({
   const res = streamText({
     model: deepseek('deepseek-chat', {}),
     prompt,
+    system: applyCursorPromptPrefix({}),
     temperature: 0,
   })
 
@@ -247,7 +251,59 @@ export async function generateSDKFromOpenAPI({
     openApiSchema,
   })
 }
+
 export async function mergeSDKOutputs({
+  outputs,
+  previousSdkCode,
+  openApiSchema,
+}: {
+  previousSdkCode
+  outputs: { title: string; code: string }[]
+  openApiSchema: OpenAPIV3.Document
+}) {
+  let accumulatedCode = previousSdkCode
+
+  for (const [index, output] of outputs.entries()) {
+    const prompt = dedent`
+    Add the route implementation to the class instance, for ${output.title}
+    `
+    const requestId = Math.random().toString(36).substring(7)
+    console.time(`cursor merge sdk ${index} ${requestId}`)
+    console.log(
+      `Processing route ${index + 1}/${outputs.length}: ${output.title}`,
+    )
+
+    const resultMessage = dedent`
+    ## ${output.title}
+
+    ${output.code}
+    `
+
+    const result = await makeCursorSlashEditRequest({
+      prompt,
+      fileContents: accumulatedCode,
+      filename: 'sdk.ts',
+      accessToken: process.env.CURSOR_ACCESS_TOKEN,
+      refreshToken: process.env.CURSOR_REFRESH_TOKEN,
+      useFastApply: true,
+      resultMessage,
+      snippetContents: extractMarkdownSnippets(output.code).join('\n\n'),
+      useChunkSpeculationForLongFiles: true,
+    })
+
+    accumulatedCode = result.resultFile
+    if (!accumulatedCode) {
+      throw new Error('Cursor edit failed')
+    }
+    console.timeEnd(`cursor merge sdk ${index} ${requestId}`)
+  }
+
+  return {
+    code: accumulatedCode,
+  }
+}
+
+export async function mergeSDKOutputsOnce({
   outputs,
   previousSdkCode,
   openApiSchema,
@@ -378,6 +434,7 @@ interface SlashEditParams {
   useChunkSpeculationForLongFiles?: boolean
   accessToken?: string
   refreshToken?: string
+  snippetContents?: string
 }
 export async function makeCursorSlashEditRequest(
   params: SlashEditParams,

@@ -1,40 +1,35 @@
-```typescript
-/**
- * POST /vault.v1.VaultService/Encrypt
- * Encrypt data using the specified keyring.
- * Tags: vault
- */
-export class VaultService {
-  private client: ExampleClient;
+I'll add the `encrypt` method to the `ExampleClient` class for the `/vault.v1.VaultService/Encrypt` route.
 
-  constructor(client: ExampleClient) {
-    this.client = client;
-  }
+```typescript:example-client.ts
+export class ExampleClient {
+  // ... existing code ...
 
-  async encrypt(
-    request: V1EncryptRequestBody
-  ): Promise<V1EncryptResponseBody | ValidationError | BaseError> {
-    const response = await this.client.fetch({
+  /**
+   * POST /vault.v1.VaultService/Encrypt
+   * @tags vault
+   * @param request The encryption request
+   * @returns The encrypted data
+   */
+  async encrypt(request: V1EncryptRequestBody): Promise<V1EncryptResponseBody> {
+    const response = await this.fetch({
       method: 'POST',
       path: '/vault.v1.VaultService/Encrypt',
-      body: request,
+      body: request
     });
 
     if (!response.ok) {
-      const errorData = await response.json();
-      if (response.status === 400) {
-        throw new ExampleError('Bad Request', { status: 400, data: errorData as ValidationError });
-      } else if (response.status === 500) {
-        throw new ExampleError('Internal Server Error', { status: 500, data: errorData as BaseError });
-      } else {
-        throw new ExampleError('Unknown Error', { status: response.status, data: errorData });
-      }
+      const error = await response.json();
+      throw new ExampleError(error.detail || 'Encryption failed', {
+        status: response.status,
+        data: error
+      });
     }
 
-    return response.json() as Promise<V1EncryptResponseBody>;
+    return response.json();
   }
 }
 
+// Type definitions
 interface V1EncryptRequestBody {
   $schema?: string;
   data: string;
@@ -45,30 +40,5 @@ interface V1EncryptResponseBody {
   $schema?: string;
   encrypted: string;
   keyId: string;
-}
-
-interface ValidationError {
-  requestId: string;
-  detail: string;
-  errors: ValidationErrorDetail[];
-  instance: string;
-  status: number;
-  title: string;
-  type: string;
-}
-
-interface ValidationErrorDetail {
-  location: string;
-  message: string;
-  fix?: string;
-}
-
-interface BaseError {
-  requestId: string;
-  detail: string;
-  instance: string;
-  status: number;
-  title: string;
-  type: string;
 }
 ```

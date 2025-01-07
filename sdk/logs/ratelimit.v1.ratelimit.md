@@ -1,42 +1,32 @@
-export class RatelimitService {
-  private client: ExampleClient;
+```typescript:src/client.ts
+// POST /ratelimit.v1.RatelimitService/Ratelimit - tags: ratelimit
+async ratelimit(
+  request: V1RatelimitRatelimitRequestBody
+): Promise<V1RatelimitRatelimitResponseBody> {
+  const response = await this.fetch({
+    method: 'POST',
+    path: '/ratelimit.v1.RatelimitService/Ratelimit',
+    body: request
+  });
 
-  constructor(client: ExampleClient) {
-    this.client = client;
-  }
-
-  async ratelimit(
-    requestBody: V1RatelimitRatelimitRequestBody
-  ): Promise<V1RatelimitRatelimitResponseBody> {
-    const response = await this.client.fetch({
-      method: 'POST',
-      path: '/ratelimit.v1.RatelimitService/Ratelimit',
-      body: requestBody,
+  if (!response.ok) {
+    const error = await response.json();
+    throw new ExampleError(error.detail || 'Failed to ratelimit', {
+      status: response.status,
+      data: error
     });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new ExampleError('Ratelimit request failed', {
-        status: response.status,
-        data: errorData,
-      });
-    }
-
-    return response.json();
   }
+
+  return response.json();
 }
 
+// Type definitions
 interface V1RatelimitRatelimitRequestBody {
   cost?: number;
   duration: number;
   identifier: string;
-  lease?: Lease;
   limit: number;
-}
-
-interface Lease {
-  cost: number;
-  timeout: number;
+  lease?: Lease;
 }
 
 interface V1RatelimitRatelimitResponseBody {
@@ -47,3 +37,9 @@ interface V1RatelimitRatelimitResponseBody {
   reset: number;
   success: boolean;
 }
+
+interface Lease {
+  cost: number;
+  timeout: number;
+}
+```
