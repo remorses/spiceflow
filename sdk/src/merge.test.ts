@@ -112,7 +112,54 @@ describe(
                 }
             }
         }
+
+
+        /**
+         * Helper function to handle API responses
+         * @param response Fetch response object
+         * @param errorMessage Error message to show on failure
+         */
+        private async handleResponse<T>(response: Response, errorMessage: string): Promise<T> {
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new ExampleError(errorMessage, {
+                    status: response.status,
+                    data: errorData
+                });
+            }
+            return response.json();
+        }
+
+        /**
+         * Helper function to validate required parameters
+         * @param params Parameters to validate
+         * @param required List of required parameter names
+         * @throws {Error} If any required parameter is missing
+         */
+        private validateParams(params: Record<string, any>, required: string[]): void {
+            for (const param of required) {
+                if (params[param] == null) {
+                    throw new Error(\`Missing required parameter: \${param}\`);
+                }
+            }
+        }
+
+        /**
+         * Helper function to build query string from parameters
+         * @param params Query parameters object
+         * @returns Encoded query string
+         */
+        private buildQueryString(params: Record<string, any>): string {
+            const query = new URLSearchParams();
+            for (const [key, value] of Object.entries(params)) {
+                if (value != null) {
+                    query.append(key, String(value));
+                }
+            }
+            return query.toString();
+        }
         `
+
       const outputs = [
         {
           title: 'Get Users route',
@@ -184,6 +231,7 @@ describe(
         outputs,
         previousSdkCode,
         openApiSchema,
+        language: 'typescript',
       })
 
       expect(result.code.trim()).toMatchInlineSnapshot(`
@@ -326,6 +374,52 @@ describe(
                 }
                 return response.json();
             }
+        }
+
+
+        /**
+         * Helper function to handle API responses
+         * @param response Fetch response object
+         * @param errorMessage Error message to show on failure
+         */
+        private async handleResponse<T>(response: Response, errorMessage: string): Promise<T> {
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new ExampleError(errorMessage, {
+                    status: response.status,
+                    data: errorData
+                });
+            }
+            return response.json();
+        }
+
+        /**
+         * Helper function to validate required parameters
+         * @param params Parameters to validate
+         * @param required List of required parameter names
+         * @throws {Error} If any required parameter is missing
+         */
+        private validateParams(params: Record<string, any>, required: string[]): void {
+            for (const param of required) {
+                if (params[param] == null) {
+                    throw new Error(\`Missing required parameter: \${param}\`);
+                }
+            }
+        }
+
+        /**
+         * Helper function to build query string from parameters
+         * @param params Query parameters object
+         * @returns Encoded query string
+         */
+        private buildQueryString(params: Record<string, any>): string {
+            const query = new URLSearchParams();
+            for (const [key, value] of Object.entries(params)) {
+                if (value != null) {
+                    query.append(key, String(value));
+                }
+            }
+            return query.toString();
         }"
       `)
     })
