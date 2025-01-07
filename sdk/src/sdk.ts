@@ -10,6 +10,7 @@ import path from 'path'
 import { createOpenAI } from '@ai-sdk/openai'
 import { getOpenApiDiffPrompt } from './diff'
 import { applyCursorPromptPrefix } from './prompts'
+import { processConcurrentlyInOrder } from './utils'
 
 const deepseek = createDeepSeek({
   apiKey: process.env.DEEPSEEK_API_KEY ?? '',
@@ -235,16 +236,19 @@ export async function generateSDKFromOpenAPI({
 }) {
   const routes = getRoutesFromOpenAPI({ openApiSchema, previousOpenApiSchema })
 
-  const results = await Promise.all(
-    routes.map((route) =>
-      generateSDKForRoute({
-        route,
-        openApiSchema,
-        previousSdkCode,
-      }),
+  const results = await Array.fromAsync(
+    processConcurrentlyInOrder(
+      routes.map(
+        (route) => () =>
+          generateSDKForRoute({
+            route,
+            openApiSchema,
+            previousSdkCode,
+          }),
+      ),
+      10,
     ),
   )
-
   return await mergeSDKOutputs({
     outputs: results,
     previousSdkCode,
