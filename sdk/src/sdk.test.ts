@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import fs from 'fs'
 import { readFile } from 'fs/promises'
-import { join } from 'path'
+import path, { join } from 'path'
 import { generateSDKFromOpenAPI, replaceParamsInTemplate } from './sdk'
 import * as YAML from 'js-yaml'
 import { OpenAPIV3 } from 'openapi-types'
@@ -9,8 +9,10 @@ import { OpenAPIV3 } from 'openapi-types'
 it(
   'unkey should generate SDK from OpenAPI schema',
   async () => {
-    // Read and parse OpenAPI schema from YAML file
-    fs.rmSync('logs', { recursive: true })
+    const logFolder = 'logs/unkey'
+    await fs.promises
+      .rm(logFolder, { recursive: true, force: true })
+      .catch(() => {})
 
     const openApiSchema = (await import('../scripts/unkey-openapi.json').then(
       (x) => x.default,
@@ -29,13 +31,13 @@ it(
     const generatedCode = await generateSDKFromOpenAPI({
       openApiSchema,
       previousSdkCode,
-      logFolder: 'logs/unkey',
+      logFolder,
     })
 
     // Create scripts directory if it doesn't exist
-    await fs.promises.mkdir('scripts', { recursive: true }).catch((error) => {})
+    await fs.promises.mkdir('scripts', { recursive: true }).catch(() => {})
     await fs.promises.writeFile(
-      'logs/unkey/generated-sdk.ts',
+      `${logFolder}/generated-sdk.ts`,
       generatedCode.code,
     )
   },
@@ -46,7 +48,11 @@ describe(
   'generateSDKFromOpenAPI',
   () => {
     it('should generate SDK from OpenAPI schema', async () => {
-      fs.rmSync('logs', { recursive: true })
+      const logFolder = 'logs/dumb'
+      await fs.promises
+        .rm(logFolder, { recursive: true, force: true })
+        .catch(() => {})
+
       // Read and parse OpenAPI schema from YAML file
       const openApiYaml = await readFile(
         join(__dirname, '../../spiceflow/scripts/openapi.yml'),
@@ -67,22 +73,23 @@ describe(
       const generatedCode = await generateSDKFromOpenAPI({
         openApiSchema,
         previousSdkCode,
-        logFolder: 'logs/dumb',
+        logFolder,
       })
 
-      // console.log('generatedCode:\n', generatedCode)
       // Create scripts directory if it doesn't exist
-      await fs.promises
-        .mkdir('scripts', { recursive: true })
-        .catch((error) => {})
+      await fs.promises.mkdir('scripts', { recursive: true }).catch(() => {})
       await fs.promises.writeFile(
-        'logs/dumb/generated-sdk.ts',
+        `${logFolder}/generated-sdk.ts`,
         generatedCode.code,
       )
     })
     it('should generate SDK from OpenAPI schema, starting from existing, remove route', async () => {
+      const logFolder = 'logs/dumb-updated'
+      await fs.promises
+        .rm(logFolder, { recursive: true, force: true })
+        .catch(() => {})
+
       // Read and parse OpenAPI schema from YAML file
-      fs.rmSync('logs', { recursive: true })
       const openApiYaml = await readFile(
         join(__dirname, '../../spiceflow/scripts/openapi.yml'),
         'utf-8',
@@ -97,25 +104,32 @@ describe(
       delete openApiSchema.paths[routeToRemove1]
       delete openApiSchema.paths[routeToRemove2]
 
-      let previousSdkCode = fs.readFileSync('scripts/generated-sdk.ts', 'utf-8')
+      let previousSdkCode = fs.readFileSync(
+        path.resolve('logs/dumb/generated-sdk.ts'),
+        'utf-8',
+      )
 
       console.log(`generating routes code`)
       const generatedCode = await generateSDKFromOpenAPI({
         openApiSchema,
         previousOpenApiSchema,
         previousSdkCode,
-        logFolder: 'logs/dumb-updated',
+        logFolder,
       })
 
-      // console.log('generatedCode:\n', generatedCode)
       // Create scripts directory if it doesn't exist
-      await fs.promises
-        .mkdir('scripts', { recursive: true })
-        .catch((error) => {})
+      await fs.promises.mkdir('scripts', { recursive: true }).catch(() => {})
+
+      // Write generated code to file
       await fs.promises.writeFile(
-        'logs/dumb-updated/updated-sdk.ts',
+        `${logFolder}/updated-sdk.ts`,
         generatedCode.code,
       )
+
+      // Verify removed routes are not present in generated code
+      const generatedSdk = generatedCode.code
+      expect(generatedSdk).not.toContain(routeToRemove1)
+      expect(generatedSdk).not.toContain(routeToRemove2)
     })
   },
   1000 * 100,

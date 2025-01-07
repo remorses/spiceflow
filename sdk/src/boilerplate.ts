@@ -62,7 +62,7 @@ export class _replacedErrorName extends Error {
 
 export async function* streamSSEResponse(
   response: Response,
-): AsyncGenerator<SSEEvent> {
+): AsyncGenerator<any> {
   const body = response.body
   if (!body) return
 
@@ -83,10 +83,4 @@ export async function* streamSSEResponse(
       } catch (error) {}
     }
   }
-}
-
-interface SSEEvent {
-  event: string
-  data: any
-  id?: string
 }

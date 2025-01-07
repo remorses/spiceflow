@@ -48,21 +48,20 @@ export class ExampleClient {
 
   /**
    * POST /v0/events
-   * Create events
-   * Tags: events
+   * @tags events
+   * @summary Create events
+   * @description Accept NDJSON payload of events and process them
    */
   async createEvents(
-    payload: string,
-    options?: { headers?: Record<string, string> }
-  ): Promise<V0EventsResponseBody> {
+    payload: string
+  ): Promise<V0EventsResponseBody | ValidationError | BaseError> {
     const response = await this.fetch({
       method: 'POST',
       path: '/v0/events',
-      body: payload,
       headers: {
         'Content-Type': 'application/x-ndjson',
-        ...options?.headers,
       },
+      body: payload,
     });
 
     if (!response.ok) {
@@ -76,48 +75,65 @@ export class ExampleClient {
     return response.json();
   }
 
-  /**
-   * POST /ratelimit.v1.RatelimitService/MultiRatelimit
-   * Tags: ratelimit
-   */
+  export interface Item {
+    identifier: string;
+    limit: number;
+    duration: number;
+    cost?: number;
+  }
+
+  export interface SingleRatelimitResponse {
+    current: number;
+    limit: number;
+    remaining: number;
+    reset: number;
+    success: boolean;
+  }
+
+  export interface V1RatelimitMultiRatelimitRequestBody {
+    ratelimits: Item[];
+  }
+
+  export interface V1RatelimitMultiRatelimitResponseBody {
+    ratelimits: SingleRatelimitResponse[];
+  }
+
+  // POST /ratelimit.v1.RatelimitService/MultiRatelimit - ratelimit
   async multiRatelimit(
     body: V1RatelimitMultiRatelimitRequestBody
   ): Promise<V1RatelimitMultiRatelimitResponseBody> {
     const response = await this.fetch({
       method: 'POST',
       path: '/ratelimit.v1.RatelimitService/MultiRatelimit',
-      body,
+      body
     });
 
     if (!response.ok) {
       const error = await response.json();
       throw new ExampleError(error.detail || 'Failed to check ratelimits', {
         status: response.status,
-        data: error,
+        data: error
       });
     }
 
     return response.json();
   }
 
-  /**
-   * POST /ratelimit.v1.RatelimitService/Ratelimit
-   * Tags: ratelimit
-   */
+  // POST /ratelimit.v1.RatelimitService/Ratelimit - tags: ratelimit
   async ratelimit(
     request: V1RatelimitRatelimitRequestBody
   ): Promise<V1RatelimitRatelimitResponseBody> {
     const response = await this.fetch({
       method: 'POST',
       path: '/ratelimit.v1.RatelimitService/Ratelimit',
-      body: request
+      body: request,
     });
 
     if (!response.ok) {
       const error = await response.json();
       throw new ExampleError(error.detail || 'Failed to ratelimit', {
         status: response.status,
-        data: error
+        data: error,
       });
     }
 
@@ -146,28 +162,28 @@ export class ExampleClient {
     return response.json()
   }
 
-  /**
-   * POST /v1/ratelimit.commitLease - tags: ratelimit
-   */
-  async commitLease(request: V1RatelimitCommitLeaseRequestBody): Promise<void> {
+  // POST /v1/ratelimit.commitLease - ratelimit
+  async commitLease(
+    request: V1RatelimitCommitLeaseRequestBody
+  ): Promise<void> {
     const response = await this.fetch({
       method: 'POST',
       path: '/v1/ratelimit.commitLease',
-      body: request
+      body: request,
     });
 
     if (!response.ok) {
       const error = await response.json();
       throw new ExampleError(error.detail || 'Failed to commit lease', {
         status: response.status,
-        data: error
+        data: error,
       });
     }
+
+    return;
   }
 
-  /**
-   * POST /vault.v1.VaultService/Decrypt - tags: vault
-   */
+  // POST /vault.v1.VaultService/Decrypt - tags: vault
   async decrypt(
     request: V1DecryptRequestBody
   ): Promise<V1DecryptResponseBody> {
@@ -188,12 +204,7 @@ export class ExampleClient {
     return response.json();
   }
 
-  /**
-   * POST /vault.v1.VaultService/Encrypt
-   * @tags vault
-   * @param request The encryption request
-   * @returns The encrypted data
-   */
+  // POST /vault.v1.VaultService/Encrypt - tags: vault
   async encrypt(request: V1EncryptRequestBody): Promise<V1EncryptResponseBody> {
     const response = await this.fetch({
       method: 'POST',
@@ -212,26 +223,22 @@ export class ExampleClient {
     return response.json();
   }
 
-  /**
-   * POST /vault.v1.VaultService/EncryptBulk - Encrypt multiple pieces of data
-   * @tags vault
-   * @param request The encryption request
-   * @returns The encrypted data
-   */
+  // POST /vault.v1.VaultService/EncryptBulk - Encrypt multiple pieces of data
+  // Tags: vault
   async encryptBulk(
     request: V1EncryptBulkRequestBody
   ): Promise<V1EncryptBulkResponseBody> {
     const response = await this.fetch({
       method: 'POST',
       path: '/vault.v1.VaultService/EncryptBulk',
-      body: request,
+      body: request
     });
 
     if (!response.ok) {
       const error = await response.json();
       throw new ExampleError(error.detail || 'Failed to encrypt bulk data', {
         status: response.status,
-        data: error,
+        data: error
       });
     }
 
@@ -315,36 +322,12 @@ interface BaseError {
   type: string;
 }
 
-// Type declarations
-interface Item {
-  identifier: string;
-  limit: number;
-  duration: number;
-  cost?: number;
-}
-
-interface SingleRatelimitResponse {
-  current: number;
-  limit: number;
-  remaining: number;
-  reset: number;
-  success: boolean;
-}
-
-interface V1RatelimitMultiRatelimitRequestBody {
-  ratelimits: Item[];
-}
-
-interface V1RatelimitMultiRatelimitResponseBody {
-  ratelimits: SingleRatelimitResponse[];
-}
-
 interface V1RatelimitRatelimitRequestBody {
   cost?: number;
   duration: number;
   identifier: string;
-  limit: number;
   lease?: Lease;
+  limit: number;
 }
 
 interface V1RatelimitRatelimitResponseBody {
@@ -361,6 +344,7 @@ interface Lease {
   timeout: number;
 }
 
+// Type declarations
 interface V1LivenessResponseBody {
   $schema?: string
   message: string
