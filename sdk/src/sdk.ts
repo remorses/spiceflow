@@ -11,6 +11,7 @@ import { createOpenAI } from '@ai-sdk/openai'
 import { getOpenApiDiffPrompt } from './diff'
 import { applyCursorPromptPrefix, languagesPrompts } from './prompts'
 import { processConcurrentlyInOrder } from './utils'
+import { Language } from './types'
 
 const deepseek = createDeepSeek({
   apiKey: process.env.DEEPSEEK_API_KEY ?? '',
@@ -213,11 +214,9 @@ export function extractMarkdownSnippets(markdown: string): string[] {
   return snippets.filter((snippet) => snippet.length > 0)
 }
 
-export type Language = 'typescript'
-
 const languageToExtension: Record<Language, string> = {
   typescript: 'ts',
-  // python: 'py',
+  python: 'py',
   // ruby: 'rb',
   // php: 'php',
   // go: 'go',
