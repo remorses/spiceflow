@@ -29,12 +29,13 @@ it(
     const generatedCode = await generateSDKFromOpenAPI({
       openApiSchema,
       previousSdkCode,
+      logFolder: 'logs/unkey',
     })
 
     // Create scripts directory if it doesn't exist
     await fs.promises.mkdir('scripts', { recursive: true }).catch((error) => {})
     await fs.promises.writeFile(
-      'scripts/generated-unkey-sdk.ts',
+      'logs/unkey/generated-sdk.ts',
       generatedCode.code,
     )
   },
@@ -66,6 +67,7 @@ describe(
       const generatedCode = await generateSDKFromOpenAPI({
         openApiSchema,
         previousSdkCode,
+        logFolder: 'logs/dumb',
       })
 
       // console.log('generatedCode:\n', generatedCode)
@@ -74,7 +76,7 @@ describe(
         .mkdir('scripts', { recursive: true })
         .catch((error) => {})
       await fs.promises.writeFile(
-        'scripts/generated-sdk.ts',
+        'logs/dumb/generated-sdk.ts',
         generatedCode.code,
       )
     })
@@ -102,6 +104,7 @@ describe(
         openApiSchema,
         previousOpenApiSchema,
         previousSdkCode,
+        logFolder: 'logs/dumb-updated',
       })
 
       // console.log('generatedCode:\n', generatedCode)
@@ -109,7 +112,10 @@ describe(
       await fs.promises
         .mkdir('scripts', { recursive: true })
         .catch((error) => {})
-      await fs.promises.writeFile('scripts/updated-sdk.ts', generatedCode.code)
+      await fs.promises.writeFile(
+        'logs/dumb-updated/updated-sdk.ts',
+        generatedCode.code,
+      )
     })
   },
   1000 * 100,

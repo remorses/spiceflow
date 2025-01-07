@@ -116,10 +116,12 @@ export async function generateSDKForRoute({
   route,
   openApiSchema,
   previousSdkCode,
+  logFile = null,
 }: {
   route: RouteForLLM
   openApiSchema: OpenAPIV3.Document
   previousSdkCode?: string
+  logFile?: string | null
 }) {
   console.log(`generating sdk for route: ${route.method} ${route.path}`)
   const prompt = dedent`
@@ -165,23 +167,17 @@ export async function generateSDKForRoute({
 
   let generatedCode = ''
 
-  const logFile = `./logs/${
-    route.operationId ||
-    `${route.method.toLowerCase()}-${
-      route.path.replace(/\//g, '-').replace(/^-|-$/g, '') || 'index'
-    }`
-  }.md`
-  const logStream = logToFile(logFile)
+  const logStream = logFile ? logToFile(logFile) : null
 
   for await (const chunk of res.fullStream) {
     if (chunk.type === 'text-delta') {
       generatedCode += chunk.textDelta
 
-      await logStream.write(chunk.textDelta)
+      await logStream?.write(chunk.textDelta)
     }
   }
 
-  logStream.end()
+  logStream?.end()
   console.timeEnd(
     `llm generate route ${route.method} ${route.path} ${requestId}`,
   )
@@ -229,10 +225,12 @@ export async function generateSDKFromOpenAPI({
   openApiSchema,
   previousSdkCode,
   previousOpenApiSchema,
+  logFolder = null,
 }: {
   openApiSchema: OpenAPIV3.Document
   previousOpenApiSchema?: OpenAPIV3.Document
   previousSdkCode?: string
+  logFolder?: string | null
 }) {
   const routes = getRoutesFromOpenAPI({ openApiSchema, previousOpenApiSchema })
 
@@ -244,6 +242,15 @@ export async function generateSDKFromOpenAPI({
             route,
             openApiSchema,
             previousSdkCode,
+            logFile: logFolder
+              ? `${logFolder}/${
+                  route.operationId ||
+                  `${route.method.toLowerCase()}-${
+                    route.path.replace(/\//g, '-').replace(/^-|-$/g, '') ||
+                    'index'
+                  }`
+                }.md`
+              : null,
           }),
       ),
       10,
@@ -253,6 +260,7 @@ export async function generateSDKFromOpenAPI({
     outputs: results,
     previousSdkCode,
     openApiSchema,
+    logFile: logFolder ? `${logFolder}/merge.md` : null,
   })
 }
 
@@ -260,10 +268,12 @@ export async function mergeSDKOutputs({
   outputs,
   previousSdkCode,
   openApiSchema,
+  logFile = null,
 }: {
   previousSdkCode
   outputs: { title: string; code: string }[]
   openApiSchema: OpenAPIV3.Document
+  logFile?: string | null
 }) {
   let accumulatedCode = previousSdkCode
 
@@ -293,6 +303,7 @@ export async function mergeSDKOutputs({
       resultMessage,
       snippetContents: extractMarkdownSnippets(output.code).join('\n\n'),
       useChunkSpeculationForLongFiles: true,
+      logFile,
     })
 
     accumulatedCode = result.resultFile
@@ -307,58 +318,59 @@ export async function mergeSDKOutputs({
   }
 }
 
-export async function mergeSDKOutputsOnce({
-  outputs,
-  previousSdkCode,
-  openApiSchema,
-}: {
-  previousSdkCode
-  outputs: { title: string; code: string }[]
-  openApiSchema: OpenAPIV3.Document
-}) {
-  let accumulatedCode = previousSdkCode
+// export async function mergeSDKOutputsOnce({
+//   outputs,
+//   previousSdkCode,
+//   openApiSchema,
+//   logFile = null,
+// }: {
+//   previousSdkCode
+//   outputs: { title: string; code: string }[]
+//   openApiSchema: OpenAPIV3.Document
+//   logFile?: string | null
+// }) {
+//   let accumulatedCode = previousSdkCode
 
-  for (const [index, output] of outputs.entries()) {
-    const prompt = dedent`
-      Add the route implementation to the class instance, for ${output.title}
+//   for (const [index, output] of outputs.entries()) {
+//     const prompt = dedent`
+//       Add the route implementation to the class instance, for ${output.title}
 
-      
-    `
-    const requestId = Math.random().toString(36).substring(7)
-    console.time(`cursor merge sdk ${index} ${requestId}`)
-    console.log(
-      `Processing route ${index + 1}/${outputs.length}: ${output.title}`,
-    )
+//     `
+//     const requestId = Math.random().toString(36).substring(7)
+//     console.time(`cursor merge sdk ${index} ${requestId}`)
+//     console.log(
+//       `Processing route ${index + 1}/${outputs.length}: ${output.title}`,
+//     )
 
-    const resultMessage = dedent`
-    
+//     const resultMessage = dedent`
 
-    ${output.code}
-    `
+//     ${output.code}
+//     `
 
-    const result = await makeCursorSlashEditRequest({
-      prompt,
-      fileContents: accumulatedCode,
-      filename: 'sdk.ts',
-      accessToken: process.env.CURSOR_ACCESS_TOKEN,
-      refreshToken: process.env.CURSOR_REFRESH_TOKEN,
-      useFastApply: true,
-      resultMessage,
-      snippetContents: extractMarkdownSnippets(output.code).join('\n\n'),
-      useChunkSpeculationForLongFiles: true,
-    })
+//     const result = await makeCursorSlashEditRequest({
+//       prompt,
+//       fileContents: accumulatedCode,
+//       filename: 'sdk.ts',
+//       accessToken: process.env.CURSOR_ACCESS_TOKEN,
+//       refreshToken: process.env.CURSOR_REFRESH_TOKEN,
+//       useFastApply: true,
+//       resultMessage,
+//       snippetContents: extractMarkdownSnippets(output.code).join('\n\n'),
+//       useChunkSpeculationForLongFiles: true,
+//       logFile,
+//     })
 
-    accumulatedCode = result.resultFile
-    if (!accumulatedCode) {
-      throw new Error('Cursor edit failed')
-    }
-    console.timeEnd(`cursor merge sdk ${index} ${requestId}`)
-  }
+//     accumulatedCode = result.resultFile
+//     if (!accumulatedCode) {
+//       throw new Error('Cursor edit failed')
+//     }
+//     console.timeEnd(`cursor merge sdk ${index} ${requestId}`)
+//   }
 
-  return {
-    code: accumulatedCode,
-  }
-}
+//   return {
+//     code: accumulatedCode,
+//   }
+// }
 
 export function logToFile(filePath: string) {
   fs.mkdirSync(path.dirname(filePath), { recursive: true })
@@ -439,6 +451,7 @@ interface SlashEditParams {
   accessToken?: string
   refreshToken?: string
   snippetContents?: string
+  logFile?: string | null
 }
 export async function makeCursorSlashEditRequest(
   params: SlashEditParams,
