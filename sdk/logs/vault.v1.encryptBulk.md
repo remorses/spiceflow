@@ -1,31 +1,35 @@
 ```typescript
 /**
  * POST /vault.v1.VaultService/EncryptBulk
- * Encrypt multiple pieces of data in bulk
+ * Encrypt multiple pieces of data in bulk.
  * Tags: vault
  */
-export async function encryptBulk(
-  body: V1EncryptBulkRequestBody,
-  options?: { headers?: Record<string, string> }
-): Promise<V1EncryptBulkResponseBody> {
-  const response = await fetch('/vault.v1.VaultService/EncryptBulk', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(options?.headers || {}),
-    },
-    body: JSON.stringify(body),
-  });
+export class VaultService {
+  private client: ExampleClient;
 
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new ExampleError('Failed to encrypt bulk data', {
-      status: response.status,
-      data: errorData,
-    });
+  constructor(client: ExampleClient) {
+    this.client = client;
   }
 
-  return response.json();
+  async encryptBulk(
+    request: V1EncryptBulkRequestBody
+  ): Promise<V1EncryptBulkResponseBody> {
+    const response = await this.client.fetch({
+      method: "POST",
+      path: "/vault.v1.VaultService/EncryptBulk",
+      body: request,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new ExampleError("Failed to encrypt bulk data", {
+        status: response.status,
+        data: errorData,
+      });
+    }
+
+    return response.json();
+  }
 }
 
 // Type Definitions
@@ -43,10 +47,5 @@ interface V1EncryptBulkResponseBody {
 interface Encrypted {
   encrypted: string;
   keyId: string;
-}
-
-interface ExampleError extends Error {
-  status: number;
-  data: any;
 }
 ```

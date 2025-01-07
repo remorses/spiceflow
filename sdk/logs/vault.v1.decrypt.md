@@ -1,40 +1,65 @@
 ```typescript
 /**
  * POST /vault.v1.VaultService/Decrypt
- * Method: POST
  * Tags: vault
+ * Description: Decrypts the provided encrypted data using the specified keyring.
  */
-export async function decrypt(
-  body: V1DecryptRequestBody,
-  options?: { headers?: Record<string, string> }
-): Promise<V1DecryptResponseBody> {
-  const response = await this.fetch({
-    method: 'POST',
-    path: '/vault.v1.VaultService/Decrypt',
-    body,
-    headers: options?.headers,
-  });
-
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new ExampleError('Failed to decrypt data', {
-      status: response.status,
-      data: errorData,
+export class VaultClient extends ExampleClient {
+  async decrypt(
+    request: V1DecryptRequestBody,
+  ): Promise<V1DecryptResponseBody | ValidationError | BaseError> {
+    const response = await this.fetch({
+      method: 'POST',
+      path: '/vault.v1.VaultService/Decrypt',
+      body: request,
     });
-  }
 
-  return response.json();
+    if (!response.ok) {
+      const errorData = await response.json();
+      if (response.status === 400) {
+        throw new ExampleError('Bad Request', { status: 400, data: errorData as ValidationError });
+      } else if (response.status === 500) {
+        throw new ExampleError('Internal Server Error', { status: 500, data: errorData as BaseError });
+      } else {
+        throw new ExampleError('Unknown Error', { status: response.status, data: errorData });
+      }
+    }
+
+    return response.json() as Promise<V1DecryptResponseBody>;
+  }
 }
 
-// Type Definitions
 interface V1DecryptRequestBody {
   keyring: string;
   encrypted: string;
-  $schema?: string;
 }
 
 interface V1DecryptResponseBody {
   plaintext: string;
-  $schema?: string;
+}
+
+interface ValidationError {
+  requestId: string;
+  detail: string;
+  instance: string;
+  status: number;
+  title: string;
+  type: string;
+  errors: ValidationErrorDetail[];
+}
+
+interface ValidationErrorDetail {
+  location: string;
+  message: string;
+  fix?: string;
+}
+
+interface BaseError {
+  requestId: string;
+  detail: string;
+  instance: string;
+  status: number;
+  title: string;
+  type: string;
 }
 ```

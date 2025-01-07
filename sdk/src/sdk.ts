@@ -121,7 +121,7 @@ export async function generateSDKForRoute({
 }) {
   console.log(`generating sdk for route: ${route.method} ${route.path}`)
   const prompt = dedent`
-    Generate a TypeScript SDK method for this OpenAPI route. The SDK should:
+    Generate a TypeScript SDK method for this OpenAPI route as a class method. The SDK should:
     - Use fetch for making API calls
     - The output code should be possible to run both on Node.js and the browser, do not use Node.js specific functions and imports
     - Include all type definitions
@@ -241,9 +241,12 @@ export async function generateSDKFromOpenAPI({
     ),
   )
 
-  return mergeSDKOutputs({ outputs: results, previousSdkCode, openApiSchema })
+  return await mergeSDKOutputs({
+    outputs: results,
+    previousSdkCode,
+    openApiSchema,
+  })
 }
-
 export async function mergeSDKOutputs({
   outputs,
   previousSdkCode,
@@ -253,165 +256,48 @@ export async function mergeSDKOutputs({
   outputs: { title: string; code: string }[]
   openApiSchema: OpenAPIV3.Document
 }) {
-  const prompt = dedent`
-    Merge and deduplicate the following TypeScript SDK code fragments into a single coherent SDK.
-    Remove duplicate type definitions and interfaces.
-    Ensure the output is well-formatted and maintains all type safety. The output file should be possible to run as is, without any additional changes.
+  let accumulatedCode = previousSdkCode
 
+  for (const [index, output] of outputs.entries()) {
+    const prompt = dedent`
+      Add the route implementation to the class instance, for ${output.title}
 
-    OpenAPI Schema:
-    <openApiSchema>
-    ${JSON.stringify(openApiSchema, null, 2)}
-    </openApiSchema>
+      
+    `
+    const requestId = Math.random().toString(36).substring(7)
+    console.time(`cursor merge sdk ${index} ${requestId}`)
+    console.log(
+      `Processing route ${index + 1}/${outputs.length}: ${output.title}`,
+    )
 
-    Here is how the SDK code looked like before the LLM edits, this is the content the edits are based on:
-    <initialSdkCode>
-    ${previousSdkCode}
-    </initialSdkCode>
-
-    Input SDK fragments:
+    const resultMessage = dedent`
     
-    ${outputs
-      .map(
-        (output) => dedent`
-    <sdkFragmentOutput title="${output.title}">
+
     ${output.code}
-    </sdkFragmentOutput>
-    `,
-      )
-      .join('\n')}
+    `
 
-    Output the complete merged TypeScript SDK code in a single large markdown snippet, before doing that reason step by step on how to best merge the output snippets.
-    
-    Always answer the following questions before starting to write the final snippet:
-    - Are there duplicate type or function declarations? If yes, remove duplicates.
-    - Are there different function declarations or types with the same name? If yes, rename them to be unique.
-    - Are there duplicate class declarations that simply need to be merged by adding all the methods to the same class?
-    
-    The output should contain the whole file.
-  `
+    const result = await makeCursorSlashEditRequest({
+      prompt,
+      fileContents: accumulatedCode,
+      filename: 'sdk.ts',
+      accessToken: process.env.CURSOR_ACCESS_TOKEN,
+      refreshToken: process.env.CURSOR_REFRESH_TOKEN,
+      useFastApply: true,
+      resultMessage,
+      snippetContents: extractMarkdownSnippets(output.code).join('\n\n'),
+      useChunkSpeculationForLongFiles: true,
+    })
 
-  const requestId = Math.random().toString(36).substring(7)
-  console.time(`llm merge sdk ${requestId}`)
-
-  const res = streamText({
-    model: openai('gpt-4o-mini', {}),
-    prompt,
-    temperature: 0,
-    experimental_providerMetadata: {
-      // https://sdk.vercel.ai/providers/ai-sdk-providers/openai#predicted-outputs
-      openai: {
-        prediction: {
-          type: 'content',
-          content: [
-            {
-              type: 'text',
-              text: previousSdkCode,
-            },
-            ...outputs.map((x) => {
-              const text = x.code
-              return { text, type: 'text' }
-            }),
-          ],
-        },
-      },
-    },
-  })
-
-  let generatedCode = ''
-
-  const logFile = './logs/merged-sdk.md'
-
-  const logStream = logToFile(logFile)
-
-  for await (const chunk of res.fullStream) {
-    if (chunk.type === 'text-delta') {
-      generatedCode += chunk.textDelta
-
-      await logStream.write(chunk.textDelta)
+    accumulatedCode = result.resultFile
+    if (!accumulatedCode) {
+      throw new Error('Cursor edit failed')
     }
+    console.timeEnd(`cursor merge sdk ${index} ${requestId}`)
   }
 
-  logStream.end()
-  console.timeEnd(`llm merge sdk ${requestId}`)
-
-  const outSnippets = extractMarkdownSnippets(generatedCode)
-  if (outSnippets.length > 1) {
-    console.error(new Error('LLM outputs more than one snippet!'))
-  }
   return {
-    code: outSnippets[0],
+    code: accumulatedCode,
   }
-}
-
-export async function mergeSdkWithCursor({
-  outputs,
-  previousSdkCode,
-  openApiSchema,
-}: {
-  previousSdkCode: string
-  outputs: { title: string; code: string }[]
-  openApiSchema: OpenAPIV3.Document
-}) {
-  const prompt = dedent`
-    Implement the following routes in TypeScript for the SDK client class.
-    The implementation should handle errors appropriately and maintain type safety.
-    
-    OpenAPI Schema:
-    <openApiSchema>
-    ${JSON.stringify(openApiSchema, null, 2)}
-    </openApiSchema>
-
-    Here is how the SDK code looked like before the LLM edits, this is the content the edits are based on:
-    <initialSdkCode>
-    ${previousSdkCode}
-    </initialSdkCode>
-
-    Routes to implement:
-    ${outputs
-      .map(
-        (output) => dedent`
-    <route title="${output.title}">
-    ${output.code}
-    </route>
-    `,
-      )
-      .join('\n')}
-
-    Output the complete TypeScript implementation in a single markdown code block.
-    The implementation should:
-    - Handle errors appropriately using try/catch
-    - Maintain type safety with proper interfaces and types
-    - Follow consistent error handling patterns from the existing code
-    - Include proper JSDoc comments for each method
-    
-    The output should contain only the new method implementations that can be added to the existing SDK class.
-  `
-
-  const snippets = outputs.map((x) => `## ${x.title}\n\n${x.code}`).join('\n\n')
-  const resultMessage = dedent`
-  To implement the routes here are the complete changes you have to make to the SDK:
-
-  ${snippets}
-  `
-
-  const requestId = Math.random().toString(36).substring(7)
-  console.time(`cursor merge sdk ${requestId}`)
-
-  const res = await makeCursorSlashEditRequest({
-    prompt,
-    fileContents: previousSdkCode,
-    filename: 'sdk.ts',
-    resultMessage,
-    useChunkSpeculationForLongFiles: true,
-    useFastApply: true,
-    accessToken: process.env.CURSOR_ACCESS_TOKEN,
-    refreshToken: process.env.CURSOR_REFRESH_TOKEN,
-  })
-
-  console.timeEnd(`cursor merge sdk ${requestId}`)
-
-  return res
 }
 
 export function logToFile(filePath: string) {
@@ -484,19 +370,26 @@ export function replaceParamsInTemplate({
 }
 
 interface SlashEditParams {
-  fileContents: string
-  filename: string
-  prompt: string
-  resultMessage: string
-  useFastApply: boolean
-  useChunkSpeculationForLongFiles: boolean
+  fileContents?: string
+  filename?: string
+  prompt?: string
+  resultMessage?: string
+  useFastApply?: boolean
+  useChunkSpeculationForLongFiles?: boolean
   accessToken?: string
   refreshToken?: string
 }
 export async function makeCursorSlashEditRequest(
   params: SlashEditParams,
-  baseUrl: string = 'https://cursor-rpc-master.fly.dev/',
+  baseUrl?: string,
 ) {
+  if (!baseUrl) {
+    const env = process.env.CURSOR_URL
+    if (env) {
+      console.log(`using process.env.CURSOR_URL`)
+    }
+    baseUrl = env || 'https://cursor-rpc-master.fly.dev/'
+  }
   console.time('makeCursorSlashEditRequest')
   const response = await fetch(baseUrl, {
     method: 'POST',

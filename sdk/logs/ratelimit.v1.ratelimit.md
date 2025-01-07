@@ -1,38 +1,17 @@
-```typescript
-// POST /ratelimit.v1.RatelimitService/Ratelimit
-// Method: POST
-// Tags: ratelimit
+export class RatelimitService {
+  private client: ExampleClient;
 
-interface V1RatelimitRatelimitRequestBody {
-  cost?: number;
-  duration: number;
-  identifier: string;
-  lease?: Lease;
-  limit: number;
-}
+  constructor(client: ExampleClient) {
+    this.client = client;
+  }
 
-interface V1RatelimitRatelimitResponseBody {
-  current: number;
-  lease?: string;
-  limit: number;
-  remaining: number;
-  reset: number;
-  success: boolean;
-}
-
-interface Lease {
-  cost: number;
-  timeout: number;
-}
-
-export class RatelimitClient extends ExampleClient {
   async ratelimit(
-    body: V1RatelimitRatelimitRequestBody,
+    requestBody: V1RatelimitRatelimitRequestBody
   ): Promise<V1RatelimitRatelimitResponseBody> {
-    const response = await this.fetch({
+    const response = await this.client.fetch({
       method: 'POST',
       path: '/ratelimit.v1.RatelimitService/Ratelimit',
-      body,
+      body: requestBody,
     });
 
     if (!response.ok) {
@@ -46,4 +25,25 @@ export class RatelimitClient extends ExampleClient {
     return response.json();
   }
 }
-```
+
+interface V1RatelimitRatelimitRequestBody {
+  cost?: number;
+  duration: number;
+  identifier: string;
+  lease?: Lease;
+  limit: number;
+}
+
+interface Lease {
+  cost: number;
+  timeout: number;
+}
+
+interface V1RatelimitRatelimitResponseBody {
+  current: number;
+  lease?: string;
+  limit: number;
+  remaining: number;
+  reset: number;
+  success: boolean;
+}

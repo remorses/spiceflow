@@ -4,13 +4,10 @@
  * Liveness check
  * Tags: liveness
  */
-export async function liveness(): Promise<V1LivenessResponseBody> {
-  const response = await fetch(`${this.baseUrl}/v1/liveness`, {
+async function liveness(): Promise<V1LivenessResponseBody> {
+  const response = await this.fetch({
     method: 'GET',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(this.token ? { Authorization: `Bearer ${this.token}` } : {}),
-    },
+    path: '/v1/liveness',
   });
 
   if (!response.ok) {
@@ -29,4 +26,7 @@ interface V1LivenessResponseBody {
   $schema?: string;
   message: string;
 }
+
+// Add the method to the ExampleClient class
+ExampleClient.prototype.liveness = liveness;
 ```

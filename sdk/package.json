@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "doppler run -- pnpm vitest --reporter=basic --clearScreen=false"
+    "test": "doppler run --preserve-env -- pnpm vitest --reporter=basic --clearScreen=false"
   },
   "keywords": [],
   "author": "remorses <beats.by.morse@gmail.com>",

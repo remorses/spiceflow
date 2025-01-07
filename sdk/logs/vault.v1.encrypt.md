@@ -4,26 +4,35 @@
  * Encrypt data using the specified keyring.
  * Tags: vault
  */
-export async function encrypt(
-  body: V1EncryptRequestBody,
-  options?: { headers?: Record<string, string> }
-): Promise<V1EncryptResponseBody> {
-  const response = await this.fetch({
-    method: 'POST',
-    path: '/vault.v1.VaultService/Encrypt',
-    body,
-    headers: options?.headers,
-  });
+export class VaultService {
+  private client: ExampleClient;
 
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new ExampleError('Failed to encrypt data', {
-      status: response.status,
-      data: errorData,
-    });
+  constructor(client: ExampleClient) {
+    this.client = client;
   }
 
-  return response.json();
+  async encrypt(
+    request: V1EncryptRequestBody
+  ): Promise<V1EncryptResponseBody | ValidationError | BaseError> {
+    const response = await this.client.fetch({
+      method: 'POST',
+      path: '/vault.v1.VaultService/Encrypt',
+      body: request,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      if (response.status === 400) {
+        throw new ExampleError('Bad Request', { status: 400, data: errorData as ValidationError });
+      } else if (response.status === 500) {
+        throw new ExampleError('Internal Server Error', { status: 500, data: errorData as BaseError });
+      } else {
+        throw new ExampleError('Unknown Error', { status: response.status, data: errorData });
+      }
+    }
+
+    return response.json() as Promise<V1EncryptResponseBody>;
+  }
 }
 
 interface V1EncryptRequestBody {
@@ -36,5 +45,30 @@ interface V1EncryptResponseBody {
   $schema?: string;
   encrypted: string;
   keyId: string;
+}
+
+interface ValidationError {
+  requestId: string;
+  detail: string;
+  errors: ValidationErrorDetail[];
+  instance: string;
+  status: number;
+  title: string;
+  type: string;
+}
+
+interface ValidationErrorDetail {
+  location: string;
+  message: string;
+  fix?: string;
+}
+
+interface BaseError {
+  requestId: string;
+  detail: string;
+  instance: string;
+  status: number;
+  title: string;
+  type: string;
 }
 ```
