@@ -249,14 +249,17 @@ export async function generateSDKFromOpenAPI({
   params?: BoilerplateParams
 }) {
   if (!previousSdkCode) {
+    const boilerplatePath = path.resolve(
+      __dirname,
+      `./boilerplates/${language}.${languageToExtension[language]}`,
+    )
+    if (!fs.existsSync(boilerplatePath)) {
+      throw new Error(
+        `No boilerplate found for language ${language}, please create ${boilerplatePath}`,
+      )
+    }
     previousSdkCode = replaceParamsInTemplate({
-      template: fs.readFileSync(
-        path.resolve(
-          __dirname,
-          `./boilerplates/${language}.${languageToExtension[language]}`,
-        ),
-        'utf-8',
-      ),
+      template: fs.readFileSync(boilerplatePath, 'utf-8'),
       params: {
         // TODO remove example boilerplate params for prod
         ClientName: 'ExampleClient',

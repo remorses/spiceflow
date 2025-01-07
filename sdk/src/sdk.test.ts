@@ -6,39 +6,38 @@ import { generateSDKFromOpenAPI, replaceParamsInTemplate } from './sdk'
 import * as YAML from 'js-yaml'
 import { OpenAPIV3 } from 'openapi-types'
 
-it(
-  'unkey should generate SDK from OpenAPI schema',
-  async () => {
-    const logFolder = 'logs/unkey'
-    await fs.promises
-      .rm(logFolder, { recursive: true, force: true })
-      .catch(() => {})
-
-    const openApiSchema = (await import('../scripts/unkey-openapi.json').then(
-      (x) => x.default,
-    )) as any
-
-    console.log(`generating routes code`)
-    const generatedCode = await generateSDKFromOpenAPI({
-      openApiSchema,
-
-      logFolder,
-    })
-
-    // Create scripts directory if it doesn't exist
-    await fs.promises.mkdir('scripts', { recursive: true }).catch(() => {})
-    await fs.promises.writeFile(
-      `${logFolder}/generated-sdk.ts`,
-      generatedCode.code,
-    )
-  },
-  1000 * 100,
-)
-
 describe(
   'generateSDKFromOpenAPI',
   () => {
-    it('should generate SDK from OpenAPI schema', async () => {
+    it(
+      'unkey should generate SDK from OpenAPI schema',
+      async () => {
+        const logFolder = 'logs/unkey'
+        await fs.promises
+          .rm(logFolder, { recursive: true, force: true })
+          .catch(() => {})
+
+        const openApiSchema = (await import(
+          '../scripts/unkey-openapi.json'
+        ).then((x) => x.default)) as any
+
+        console.log(`generating routes code`)
+        const generatedCode = await generateSDKFromOpenAPI({
+          openApiSchema,
+
+          logFolder,
+        })
+
+        // Create scripts directory if it doesn't exist
+        await fs.promises.mkdir('scripts', { recursive: true }).catch(() => {})
+        await fs.promises.writeFile(
+          `${logFolder}/generated-sdk.ts`,
+          generatedCode.code,
+        )
+      },
+      1000 * 100,
+    )
+    it('should generate SDK from dumb OpenAPI schema', async () => {
       const logFolder = 'logs/dumb'
       await fs.promises
         .rm(logFolder, { recursive: true, force: true })
@@ -65,7 +64,7 @@ describe(
         generatedCode.code,
       )
     })
-    it('should generate SDK from OpenAPI schema, starting from existing, remove route', async () => {
+    it('should generate SDK from OpenAPI schema, starting from existing, remove some routes', async () => {
       const logFolder = 'logs/dumb-updated'
       await fs.promises
         .rm(logFolder, { recursive: true, force: true })
@@ -73,7 +72,7 @@ describe(
 
       // Read and parse OpenAPI schema from YAML file
       const openApiYaml = await readFile(
-        join(__dirname, '../../spiceflow/scripts/openapi.yml'),
+        join(__dirname, './scripts/dumb-openapi.yml'),
         'utf-8',
       )
       const openApiSchema: OpenAPIV3.Document = YAML.load(openApiYaml) as any
