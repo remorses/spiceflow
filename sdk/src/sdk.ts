@@ -473,36 +473,6 @@ export function replaceParamsInTemplate({
   return result
 }
 
-export async function generateRepoFiles({
-  language,
-  params,
-  outFolder,
-}: {
-  language: Language
-  params: BoilerplateParams
-  outFolder?: string
-}) {
-  const reposPath = `repos-files/${language}`
-  const files = await recursiveReadDir(reposPath)
-  const filesWithParams = files.map((file) => {
-    const content = fs.readFileSync(file, 'utf-8')
-    return {
-      path: file,
-      content: replaceParamsInTemplate({ template: content, params }),
-    }
-  })
-
-  if (outFolder) {
-    for (const file of filesWithParams) {
-      const relativePath = path.relative(reposPath, file.path)
-      const outPath = path.join(outFolder, relativePath)
-      await fs.promises.mkdir(path.dirname(outPath), { recursive: true })
-      await fs.promises.writeFile(outPath, file.content)
-    }
-  }
-
-  return { files: filesWithParams }
-}
 
 interface SlashEditParams {
   fileContents?: string

@@ -12,6 +12,7 @@ Generate a TypeScript SDK method for this OpenAPI route as a class method. The S
 - Add a comment above the method (ONLY METHODS) with the route path, method and tags
 - Always add global scope declarations like for types and functions at the end of the snippet
 - Make sure to declare all the types and function required to make your snippets of code work, unless they are already declared in the initial code
+- Use very specific names for types generated from schemas that are not defined with refs and don't already have a name, even better if you use inline types for these
     `,
   python: `
 Generate a Python SDK method for this OpenAPI route as a class method. The SDK should:
@@ -25,6 +26,7 @@ Generate a Python SDK method for this OpenAPI route as a class method. The SDK s
 - Always add global scope declarations like for types and functions at the end of the snippet
 - Make sure to declare all the types and functions required to make your snippets of code work, unless they are already declared in the initial code
 - Follow Python's PEP 484 type hinting standards
+- Use very specific names for types generated from schemas that are not defined with refs and don't already have a name
     `,
 }
 
