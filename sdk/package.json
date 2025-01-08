@@ -20,7 +20,7 @@
     "@ai-sdk/fireworks": "^0.0.8",
     "@ai-sdk/openai": "^1.0.13",
     "@fastify/deepmerge": "^2.0.1",
-    "ai": "^4.0.26",
+    "ai": "^4.0.30",
     "diff": "^7.0.0",
     "eventsource-parser": "^3.0.0",
     "fast-safe-stringify": "^2.1.1",
