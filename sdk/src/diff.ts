@@ -196,23 +196,36 @@ export function recursivelyResolveComponents({
   path: string
   method: string
 }) {
+  method = method.toLowerCase()
   const resolver = new RefResolver()
   const id = randomUUID()
   resolver.addSchema(openApiSchema, id)
-  const subsetSchema = openApiSchema.paths?.[path]?.[method]
+  const route = openApiSchema.paths?.[path]
+  if (!route) {
+    throw new Error(
+      `Invalid open api schema, cannot get route ${method} ${path}: ${JSON.stringify(
+        Object.keys(openApiSchema.paths).slice(0, 10),
+      )}`,
+    )
+  }
+  const subsetSchema = route?.[method]
   if (!subsetSchema) {
     throw new Error(
-      `Invalid open api schema, cannot get route with path ${path}`,
+      `Invalid open api schema, cannot get route ${method} ${path}: ${JSON.stringify(
+        Object.keys(route).slice(0, 10),
+      )}`,
     )
   }
 
-  let paths: OpenAPIV3.PathsObject = {
-    [path]: {
-      [method]: subsetSchema,
+  let pathsAndComponentsOnly: Partial<OpenAPIV3.Document> = {
+    paths: {
+      [path]: {
+        [method]: structuredClone(subsetSchema),
+      },
     },
   }
 
-  const stack = [{ key: '', value: structuredClone(subsetSchema) }]
+  const stack = [{ key: '', value: subsetSchema }]
 
   while (stack.length > 0) {
     const { value } = stack.pop()!
@@ -220,8 +233,9 @@ export function recursivelyResolveComponents({
     if (typeof value === 'object' && value !== null) {
       if ('$ref' in value) {
         const resolved = resolver.getSchema(id, value.$ref as any)
+        console.log(`resolving ${value.$ref}`)
         const refObject = refPathToObject(value.$ref as string, resolved)
-        paths = deepmerge(paths, refObject)
+        pathsAndComponentsOnly = deepmerge(pathsAndComponentsOnly, refObject)
       } else {
         for (const [k, v] of Object.entries(value)) {
           stack.push({ key: k, value: v })
@@ -230,9 +244,15 @@ export function recursivelyResolveComponents({
     }
   }
 
-  const fullOpenapi = {
-    ...openApiSchema,
-    paths,
+  const fullOpenapi: OpenAPIV3.Document = {
+    openapi: openApiSchema.openapi,
+    info: openApiSchema.info,
+    security: openApiSchema.security,
+    servers: openApiSchema.servers,
+    tags: openApiSchema.tags,
+    paths: pathsAndComponentsOnly.paths!,
+    ...pathsAndComponentsOnly,
+    // ...openApiSchema,
   }
   return fullOpenapi
 }

@@ -1,0 +1,2067 @@
+{
+  "components": {
+    "responses": {
+      "400": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "properties": {
+                "error": {
+                  "properties": {
+                    "code": {
+                      "description": "A short code indicating the error code returned.",
+                      "enum": [
+                        "bad_request",
+                      ],
+                      "example": "bad_request",
+                      "type": "string",
+                    },
+                    "doc_url": {
+                      "description": "A link to our documentation with more details about this error code",
+                      "example": "https://dub.co/docs/api-reference/errors#bad-request",
+                      "type": "string",
+                    },
+                    "message": {
+                      "description": "A human readable explanation of what went wrong.",
+                      "example": "The requested resource was not found.",
+                      "type": "string",
+                      "x-speakeasy-error-message": true,
+                    },
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                  ],
+                  "type": "object",
+                },
+              },
+              "required": [
+                "error",
+              ],
+              "type": "object",
+              "x-speakeasy-name-override": "BadRequest",
+            },
+          },
+        },
+        "description": "The server cannot or will not process the request due to something that is perceived to be a client error (e.g., malformed request syntax, invalid request message framing, or deceptive request routing).",
+      },
+      "401": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "properties": {
+                "error": {
+                  "properties": {
+                    "code": {
+                      "description": "A short code indicating the error code returned.",
+                      "enum": [
+                        "unauthorized",
+                      ],
+                      "example": "unauthorized",
+                      "type": "string",
+                    },
+                    "doc_url": {
+                      "description": "A link to our documentation with more details about this error code",
+                      "example": "https://dub.co/docs/api-reference/errors#unauthorized",
+                      "type": "string",
+                    },
+                    "message": {
+                      "description": "A human readable explanation of what went wrong.",
+                      "example": "The requested resource was not found.",
+                      "type": "string",
+                      "x-speakeasy-error-message": true,
+                    },
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                  ],
+                  "type": "object",
+                },
+              },
+              "required": [
+                "error",
+              ],
+              "type": "object",
+              "x-speakeasy-name-override": "Unauthorized",
+            },
+          },
+        },
+        "description": "Although the HTTP standard specifies "unauthorized", semantically this response means "unauthenticated". That is, the client must authenticate itself to get the requested response.",
+      },
+      "403": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "properties": {
+                "error": {
+                  "properties": {
+                    "code": {
+                      "description": "A short code indicating the error code returned.",
+                      "enum": [
+                        "forbidden",
+                      ],
+                      "example": "forbidden",
+                      "type": "string",
+                    },
+                    "doc_url": {
+                      "description": "A link to our documentation with more details about this error code",
+                      "example": "https://dub.co/docs/api-reference/errors#forbidden",
+                      "type": "string",
+                    },
+                    "message": {
+                      "description": "A human readable explanation of what went wrong.",
+                      "example": "The requested resource was not found.",
+                      "type": "string",
+                      "x-speakeasy-error-message": true,
+                    },
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                  ],
+                  "type": "object",
+                },
+              },
+              "required": [
+                "error",
+              ],
+              "type": "object",
+              "x-speakeasy-name-override": "Forbidden",
+            },
+          },
+        },
+        "description": "The client does not have access rights to the content; that is, it is unauthorized, so the server is refusing to give the requested resource. Unlike 401 Unauthorized, the client's identity is known to the server.",
+      },
+      "404": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "properties": {
+                "error": {
+                  "properties": {
+                    "code": {
+                      "description": "A short code indicating the error code returned.",
+                      "enum": [
+                        "not_found",
+                      ],
+                      "example": "not_found",
+                      "type": "string",
+                    },
+                    "doc_url": {
+                      "description": "A link to our documentation with more details about this error code",
+                      "example": "https://dub.co/docs/api-reference/errors#not-found",
+                      "type": "string",
+                    },
+                    "message": {
+                      "description": "A human readable explanation of what went wrong.",
+                      "example": "The requested resource was not found.",
+                      "type": "string",
+                      "x-speakeasy-error-message": true,
+                    },
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                  ],
+                  "type": "object",
+                },
+              },
+              "required": [
+                "error",
+              ],
+              "type": "object",
+              "x-speakeasy-name-override": "NotFound",
+            },
+          },
+        },
+        "description": "The server cannot find the requested resource.",
+      },
+      "409": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "properties": {
+                "error": {
+                  "properties": {
+                    "code": {
+                      "description": "A short code indicating the error code returned.",
+                      "enum": [
+                        "conflict",
+                      ],
+                      "example": "conflict",
+                      "type": "string",
+                    },
+                    "doc_url": {
+                      "description": "A link to our documentation with more details about this error code",
+                      "example": "https://dub.co/docs/api-reference/errors#conflict",
+                      "type": "string",
+                    },
+                    "message": {
+                      "description": "A human readable explanation of what went wrong.",
+                      "example": "The requested resource was not found.",
+                      "type": "string",
+                      "x-speakeasy-error-message": true,
+                    },
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                  ],
+                  "type": "object",
+                },
+              },
+              "required": [
+                "error",
+              ],
+              "type": "object",
+              "x-speakeasy-name-override": "Conflict",
+            },
+          },
+        },
+        "description": "This response is sent when a request conflicts with the current state of the server.",
+      },
+      "410": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "properties": {
+                "error": {
+                  "properties": {
+                    "code": {
+                      "description": "A short code indicating the error code returned.",
+                      "enum": [
+                        "invite_expired",
+                      ],
+                      "example": "invite_expired",
+                      "type": "string",
+                    },
+                    "doc_url": {
+                      "description": "A link to our documentation with more details about this error code",
+                      "example": "https://dub.co/docs/api-reference/errors#invite-expired",
+                      "type": "string",
+                    },
+                    "message": {
+                      "description": "A human readable explanation of what went wrong.",
+                      "example": "The requested resource was not found.",
+                      "type": "string",
+                      "x-speakeasy-error-message": true,
+                    },
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                  ],
+                  "type": "object",
+                },
+              },
+              "required": [
+                "error",
+              ],
+              "type": "object",
+              "x-speakeasy-name-override": "InviteExpired",
+            },
+          },
+        },
+        "description": "This response is sent when the requested content has been permanently deleted from server, with no forwarding address.",
+      },
+      "422": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "properties": {
+                "error": {
+                  "properties": {
+                    "code": {
+                      "description": "A short code indicating the error code returned.",
+                      "enum": [
+                        "unprocessable_entity",
+                      ],
+                      "example": "unprocessable_entity",
+                      "type": "string",
+                    },
+                    "doc_url": {
+                      "description": "A link to our documentation with more details about this error code",
+                      "example": "https://dub.co/docs/api-reference/errors#unprocessable-entity",
+                      "type": "string",
+                    },
+                    "message": {
+                      "description": "A human readable explanation of what went wrong.",
+                      "example": "The requested resource was not found.",
+                      "type": "string",
+                      "x-speakeasy-error-message": true,
+                    },
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                  ],
+                  "type": "object",
+                },
+              },
+              "required": [
+                "error",
+              ],
+              "type": "object",
+              "x-speakeasy-name-override": "UnprocessableEntity",
+            },
+          },
+        },
+        "description": "The request was well-formed but was unable to be followed due to semantic errors.",
+      },
+      "429": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "properties": {
+                "error": {
+                  "properties": {
+                    "code": {
+                      "description": "A short code indicating the error code returned.",
+                      "enum": [
+                        "rate_limit_exceeded",
+                      ],
+                      "example": "rate_limit_exceeded",
+                      "type": "string",
+                    },
+                    "doc_url": {
+                      "description": "A link to our documentation with more details about this error code",
+                      "example": "https://dub.co/docs/api-reference/errors#rate-limit_exceeded",
+                      "type": "string",
+                    },
+                    "message": {
+                      "description": "A human readable explanation of what went wrong.",
+                      "example": "The requested resource was not found.",
+                      "type": "string",
+                      "x-speakeasy-error-message": true,
+                    },
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                  ],
+                  "type": "object",
+                },
+              },
+              "required": [
+                "error",
+              ],
+              "type": "object",
+              "x-speakeasy-name-override": "RateLimitExceeded",
+            },
+          },
+        },
+        "description": "The user has sent too many requests in a given amount of time ("rate limiting")",
+      },
+      "500": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "properties": {
+                "error": {
+                  "properties": {
+                    "code": {
+                      "description": "A short code indicating the error code returned.",
+                      "enum": [
+                        "internal_server_error",
+                      ],
+                      "example": "internal_server_error",
+                      "type": "string",
+                    },
+                    "doc_url": {
+                      "description": "A link to our documentation with more details about this error code",
+                      "example": "https://dub.co/docs/api-reference/errors#internal-server_error",
+                      "type": "string",
+                    },
+                    "message": {
+                      "description": "A human readable explanation of what went wrong.",
+                      "example": "The requested resource was not found.",
+                      "type": "string",
+                      "x-speakeasy-error-message": true,
+                    },
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                  ],
+                  "type": "object",
+                },
+              },
+              "required": [
+                "error",
+              ],
+              "type": "object",
+              "x-speakeasy-name-override": "InternalServerError",
+            },
+          },
+        },
+        "description": "The server has encountered a situation it does not know how to handle.",
+      },
+    },
+    "schemas": {
+      "LinkSchema": {
+        "properties": {
+          "android": {
+            "description": "The Android destination URL for the short link for Android device targeting.",
+            "nullable": true,
+            "type": "string",
+          },
+          "archived": {
+            "default": false,
+            "description": "Whether the short link is archived.",
+            "type": "boolean",
+          },
+          "clicks": {
+            "default": 0,
+            "description": "The number of clicks on the short link.",
+            "type": "number",
+          },
+          "comments": {
+            "description": "The comments for the short link.",
+            "nullable": true,
+            "type": "string",
+          },
+          "createdAt": {
+            "description": "The date and time when the short link was created.",
+            "type": "string",
+          },
+          "description": {
+            "description": "The description of the short link generated via `api.dub.co/metatags`. Will be used for Custom Social Media Cards if `proxy` is true.",
+            "nullable": true,
+            "type": "string",
+          },
+          "doIndex": {
+            "default": false,
+            "description": "Whether to allow search engines to index the short link.",
+            "type": "boolean",
+          },
+          "domain": {
+            "description": "The domain of the short link. If not provided, the primary domain for the workspace will be used (or `dub.sh` if the workspace has no domains).",
+            "type": "string",
+          },
+          "expiredUrl": {
+            "description": "The URL to redirect to when the short link has expired.",
+            "format": "uri",
+            "nullable": true,
+            "type": "string",
+          },
+          "expiresAt": {
+            "description": "The date and time when the short link will expire in ISO-8601 format.",
+            "nullable": true,
+            "type": "string",
+          },
+          "externalId": {
+            "description": "This is the ID of the link in your database that is unique across your workspace. If set, it can be used to identify the link in future API requests. Must be prefixed with 'ext_' when passed as a query parameter.",
+            "nullable": true,
+            "type": "string",
+          },
+          "geo": {
+            "additionalProperties": false,
+            "description": "Geo targeting information for the short link in JSON format `{[COUNTRY]: https://example.com }`. Learn more: https://d.to/geo",
+            "nullable": true,
+            "properties": {
+              "AD": {
+                "format": "uri",
+                "type": "string",
+              },
+              "AE": {
+                "format": "uri",
+                "type": "string",
+              },
+              "AF": {
+                "format": "uri",
+                "type": "string",
+              },
+              "AG": {
+                "format": "uri",
+                "type": "string",
+              },
+              "AI": {
+                "format": "uri",
+                "type": "string",
+              },
+              "AL": {
+                "format": "uri",
+                "type": "string",
+              },
+              "AM": {
+                "format": "uri",
+                "type": "string",
+              },
+              "AO": {
+                "format": "uri",
+                "type": "string",
+              },
+              "AQ": {
+                "format": "uri",
+                "type": "string",
+              },
+              "AR": {
+                "format": "uri",
+                "type": "string",
+              },
+              "AS": {
+                "format": "uri",
+                "type": "string",
+              },
+              "AT": {
+                "format": "uri",
+                "type": "string",
+              },
+              "AU": {
+                "format": "uri",
+                "type": "string",
+              },
+              "AW": {
+                "format": "uri",
+                "type": "string",
+              },
+              "AX": {
+                "format": "uri",
+                "type": "string",
+              },
+              "AZ": {
+                "format": "uri",
+                "type": "string",
+              },
+              "BA": {
+                "format": "uri",
+                "type": "string",
+              },
+              "BB": {
+                "format": "uri",
+                "type": "string",
+              },
+              "BD": {
+                "format": "uri",
+                "type": "string",
+              },
+              "BE": {
+                "format": "uri",
+                "type": "string",
+              },
+              "BF": {
+                "format": "uri",
+                "type": "string",
+              },
+              "BG": {
+                "format": "uri",
+                "type": "string",
+              },
+              "BH": {
+                "format": "uri",
+                "type": "string",
+              },
+              "BI": {
+                "format": "uri",
+                "type": "string",
+              },
+              "BJ": {
+                "format": "uri",
+                "type": "string",
+              },
+              "BL": {
+                "format": "uri",
+                "type": "string",
+              },
+              "BM": {
+                "format": "uri",
+                "type": "string",
+              },
+              "BN": {
+                "format": "uri",
+                "type": "string",
+              },
+              "BO": {
+                "format": "uri",
+                "type": "string",
+              },
+              "BQ": {
+                "format": "uri",
+                "type": "string",
+              },
+              "BR": {
+                "format": "uri",
+                "type": "string",
+              },
+              "BS": {
+                "format": "uri",
+                "type": "string",
+              },
+              "BT": {
+                "format": "uri",
+                "type": "string",
+              },
+              "BV": {
+                "format": "uri",
+                "type": "string",
+              },
+              "BW": {
+                "format": "uri",
+                "type": "string",
+              },
+              "BY": {
+                "format": "uri",
+                "type": "string",
+              },
+              "BZ": {
+                "format": "uri",
+                "type": "string",
+              },
+              "CA": {
+                "format": "uri",
+                "type": "string",
+              },
+              "CC": {
+                "format": "uri",
+                "type": "string",
+              },
+              "CD": {
+                "format": "uri",
+                "type": "string",
+              },
+              "CF": {
+                "format": "uri",
+                "type": "string",
+              },
+              "CG": {
+                "format": "uri",
+                "type": "string",
+              },
+              "CH": {
+                "format": "uri",
+                "type": "string",
+              },
+              "CI": {
+                "format": "uri",
+                "type": "string",
+              },
+              "CK": {
+                "format": "uri",
+                "type": "string",
+              },
+              "CL": {
+                "format": "uri",
+                "type": "string",
+              },
+              "CM": {
+                "format": "uri",
+                "type": "string",
+              },
+              "CN": {
+                "format": "uri",
+                "type": "string",
+              },
+              "CO": {
+                "format": "uri",
+                "type": "string",
+              },
+              "CR": {
+                "format": "uri",
+                "type": "string",
+              },
+              "CU": {
+                "format": "uri",
+                "type": "string",
+              },
+              "CV": {
+                "format": "uri",
+                "type": "string",
+              },
+              "CW": {
+                "format": "uri",
+                "type": "string",
+              },
+              "CX": {
+                "format": "uri",
+                "type": "string",
+              },
+              "CY": {
+                "format": "uri",
+                "type": "string",
+              },
+              "CZ": {
+                "format": "uri",
+                "type": "string",
+              },
+              "DE": {
+                "format": "uri",
+                "type": "string",
+              },
+              "DJ": {
+                "format": "uri",
+                "type": "string",
+              },
+              "DK": {
+                "format": "uri",
+                "type": "string",
+              },
+              "DM": {
+                "format": "uri",
+                "type": "string",
+              },
+              "DO": {
+                "format": "uri",
+                "type": "string",
+              },
+              "DZ": {
+                "format": "uri",
+                "type": "string",
+              },
+              "EC": {
+                "format": "uri",
+                "type": "string",
+              },
+              "EE": {
+                "format": "uri",
+                "type": "string",
+              },
+              "EG": {
+                "format": "uri",
+                "type": "string",
+              },
+              "EH": {
+                "format": "uri",
+                "type": "string",
+              },
+              "ER": {
+                "format": "uri",
+                "type": "string",
+              },
+              "ES": {
+                "format": "uri",
+                "type": "string",
+              },
+              "ET": {
+                "format": "uri",
+                "type": "string",
+              },
+              "FI": {
+                "format": "uri",
+                "type": "string",
+              },
+              "FJ": {
+                "format": "uri",
+                "type": "string",
+              },
+              "FK": {
+                "format": "uri",
+                "type": "string",
+              },
+              "FM": {
+                "format": "uri",
+                "type": "string",
+              },
+              "FO": {
+                "format": "uri",
+                "type": "string",
+              },
+              "FR": {
+                "format": "uri",
+                "type": "string",
+              },
+              "GA": {
+                "format": "uri",
+                "type": "string",
+              },
+              "GB": {
+                "format": "uri",
+                "type": "string",
+              },
+              "GD": {
+                "format": "uri",
+                "type": "string",
+              },
+              "GE": {
+                "format": "uri",
+                "type": "string",
+              },
+              "GF": {
+                "format": "uri",
+                "type": "string",
+              },
+              "GG": {
+                "format": "uri",
+                "type": "string",
+              },
+              "GH": {
+                "format": "uri",
+                "type": "string",
+              },
+              "GI": {
+                "format": "uri",
+                "type": "string",
+              },
+              "GL": {
+                "format": "uri",
+                "type": "string",
+              },
+              "GM": {
+                "format": "uri",
+                "type": "string",
+              },
+              "GN": {
+                "format": "uri",
+                "type": "string",
+              },
+              "GP": {
+                "format": "uri",
+                "type": "string",
+              },
+              "GQ": {
+                "format": "uri",
+                "type": "string",
+              },
+              "GR": {
+                "format": "uri",
+                "type": "string",
+              },
+              "GS": {
+                "format": "uri",
+                "type": "string",
+              },
+              "GT": {
+                "format": "uri",
+                "type": "string",
+              },
+              "GU": {
+                "format": "uri",
+                "type": "string",
+              },
+              "GW": {
+                "format": "uri",
+                "type": "string",
+              },
+              "GY": {
+                "format": "uri",
+                "type": "string",
+              },
+              "HK": {
+                "format": "uri",
+                "type": "string",
+              },
+              "HM": {
+                "format": "uri",
+                "type": "string",
+              },
+              "HN": {
+                "format": "uri",
+                "type": "string",
+              },
+              "HR": {
+                "format": "uri",
+                "type": "string",
+              },
+              "HT": {
+                "format": "uri",
+                "type": "string",
+              },
+              "HU": {
+                "format": "uri",
+                "type": "string",
+              },
+              "ID": {
+                "format": "uri",
+                "type": "string",
+              },
+              "IE": {
+                "format": "uri",
+                "type": "string",
+              },
+              "IL": {
+                "format": "uri",
+                "type": "string",
+              },
+              "IM": {
+                "format": "uri",
+                "type": "string",
+              },
+              "IN": {
+                "format": "uri",
+                "type": "string",
+              },
+              "IO": {
+                "format": "uri",
+                "type": "string",
+              },
+              "IQ": {
+                "format": "uri",
+                "type": "string",
+              },
+              "IR": {
+                "format": "uri",
+                "type": "string",
+              },
+              "IS": {
+                "format": "uri",
+                "type": "string",
+              },
+              "IT": {
+                "format": "uri",
+                "type": "string",
+              },
+              "JE": {
+                "format": "uri",
+                "type": "string",
+              },
+              "JM": {
+                "format": "uri",
+                "type": "string",
+              },
+              "JO": {
+                "format": "uri",
+                "type": "string",
+              },
+              "JP": {
+                "format": "uri",
+                "type": "string",
+              },
+              "KE": {
+                "format": "uri",
+                "type": "string",
+              },
+              "KG": {
+                "format": "uri",
+                "type": "string",
+              },
+              "KH": {
+                "format": "uri",
+                "type": "string",
+              },
+              "KI": {
+                "format": "uri",
+                "type": "string",
+              },
+              "KM": {
+                "format": "uri",
+                "type": "string",
+              },
+              "KN": {
+                "format": "uri",
+                "type": "string",
+              },
+              "KP": {
+                "format": "uri",
+                "type": "string",
+              },
+              "KR": {
+                "format": "uri",
+                "type": "string",
+              },
+              "KW": {
+                "format": "uri",
+                "type": "string",
+              },
+              "KY": {
+                "format": "uri",
+                "type": "string",
+              },
+              "KZ": {
+                "format": "uri",
+                "type": "string",
+              },
+              "LA": {
+                "format": "uri",
+                "type": "string",
+              },
+              "LB": {
+                "format": "uri",
+                "type": "string",
+              },
+              "LC": {
+                "format": "uri",
+                "type": "string",
+              },
+              "LI": {
+                "format": "uri",
+                "type": "string",
+              },
+              "LK": {
+                "format": "uri",
+                "type": "string",
+              },
+              "LR": {
+                "format": "uri",
+                "type": "string",
+              },
+              "LS": {
+                "format": "uri",
+                "type": "string",
+              },
+              "LT": {
+                "format": "uri",
+                "type": "string",
+              },
+              "LU": {
+                "format": "uri",
+                "type": "string",
+              },
+              "LV": {
+                "format": "uri",
+                "type": "string",
+              },
+              "LY": {
+                "format": "uri",
+                "type": "string",
+              },
+              "MA": {
+                "format": "uri",
+                "type": "string",
+              },
+              "MC": {
+                "format": "uri",
+                "type": "string",
+              },
+              "MD": {
+                "format": "uri",
+                "type": "string",
+              },
+              "ME": {
+                "format": "uri",
+                "type": "string",
+              },
+              "MF": {
+                "format": "uri",
+                "type": "string",
+              },
+              "MG": {
+                "format": "uri",
+                "type": "string",
+              },
+              "MH": {
+                "format": "uri",
+                "type": "string",
+              },
+              "MK": {
+                "format": "uri",
+                "type": "string",
+              },
+              "ML": {
+                "format": "uri",
+                "type": "string",
+              },
+              "MM": {
+                "format": "uri",
+                "type": "string",
+              },
+              "MN": {
+                "format": "uri",
+                "type": "string",
+              },
+              "MO": {
+                "format": "uri",
+                "type": "string",
+              },
+              "MP": {
+                "format": "uri",
+                "type": "string",
+              },
+              "MQ": {
+                "format": "uri",
+                "type": "string",
+              },
+              "MR": {
+                "format": "uri",
+                "type": "string",
+              },
+              "MS": {
+                "format": "uri",
+                "type": "string",
+              },
+              "MT": {
+                "format": "uri",
+                "type": "string",
+              },
+              "MU": {
+                "format": "uri",
+                "type": "string",
+              },
+              "MV": {
+                "format": "uri",
+                "type": "string",
+              },
+              "MW": {
+                "format": "uri",
+                "type": "string",
+              },
+              "MX": {
+                "format": "uri",
+                "type": "string",
+              },
+              "MY": {
+                "format": "uri",
+                "type": "string",
+              },
+              "MZ": {
+                "format": "uri",
+                "type": "string",
+              },
+              "NA": {
+                "format": "uri",
+                "type": "string",
+              },
+              "NC": {
+                "format": "uri",
+                "type": "string",
+              },
+              "NE": {
+                "format": "uri",
+                "type": "string",
+              },
+              "NF": {
+                "format": "uri",
+                "type": "string",
+              },
+              "NG": {
+                "format": "uri",
+                "type": "string",
+              },
+              "NI": {
+                "format": "uri",
+                "type": "string",
+              },
+              "NL": {
+                "format": "uri",
+                "type": "string",
+              },
+              "NO": {
+                "format": "uri",
+                "type": "string",
+              },
+              "NP": {
+                "format": "uri",
+                "type": "string",
+              },
+              "NR": {
+                "format": "uri",
+                "type": "string",
+              },
+              "NU": {
+                "format": "uri",
+                "type": "string",
+              },
+              "NZ": {
+                "format": "uri",
+                "type": "string",
+              },
+              "OM": {
+                "format": "uri",
+                "type": "string",
+              },
+              "PA": {
+                "format": "uri",
+                "type": "string",
+              },
+              "PE": {
+                "format": "uri",
+                "type": "string",
+              },
+              "PF": {
+                "format": "uri",
+                "type": "string",
+              },
+              "PG": {
+                "format": "uri",
+                "type": "string",
+              },
+              "PH": {
+                "format": "uri",
+                "type": "string",
+              },
+              "PK": {
+                "format": "uri",
+                "type": "string",
+              },
+              "PL": {
+                "format": "uri",
+                "type": "string",
+              },
+              "PM": {
+                "format": "uri",
+                "type": "string",
+              },
+              "PN": {
+                "format": "uri",
+                "type": "string",
+              },
+              "PR": {
+                "format": "uri",
+                "type": "string",
+              },
+              "PS": {
+                "format": "uri",
+                "type": "string",
+              },
+              "PT": {
+                "format": "uri",
+                "type": "string",
+              },
+              "PW": {
+                "format": "uri",
+                "type": "string",
+              },
+              "PY": {
+                "format": "uri",
+                "type": "string",
+              },
+              "QA": {
+                "format": "uri",
+                "type": "string",
+              },
+              "RE": {
+                "format": "uri",
+                "type": "string",
+              },
+              "RO": {
+                "format": "uri",
+                "type": "string",
+              },
+              "RS": {
+                "format": "uri",
+                "type": "string",
+              },
+              "RU": {
+                "format": "uri",
+                "type": "string",
+              },
+              "RW": {
+                "format": "uri",
+                "type": "string",
+              },
+              "SA": {
+                "format": "uri",
+                "type": "string",
+              },
+              "SB": {
+                "format": "uri",
+                "type": "string",
+              },
+              "SC": {
+                "format": "uri",
+                "type": "string",
+              },
+              "SD": {
+                "format": "uri",
+                "type": "string",
+              },
+              "SE": {
+                "format": "uri",
+                "type": "string",
+              },
+              "SG": {
+                "format": "uri",
+                "type": "string",
+              },
+              "SH": {
+                "format": "uri",
+                "type": "string",
+              },
+              "SI": {
+                "format": "uri",
+                "type": "string",
+              },
+              "SJ": {
+                "format": "uri",
+                "type": "string",
+              },
+              "SK": {
+                "format": "uri",
+                "type": "string",
+              },
+              "SL": {
+                "format": "uri",
+                "type": "string",
+              },
+              "SM": {
+                "format": "uri",
+                "type": "string",
+              },
+              "SN": {
+                "format": "uri",
+                "type": "string",
+              },
+              "SO": {
+                "format": "uri",
+                "type": "string",
+              },
+              "SR": {
+                "format": "uri",
+                "type": "string",
+              },
+              "SS": {
+                "format": "uri",
+                "type": "string",
+              },
+              "ST": {
+                "format": "uri",
+                "type": "string",
+              },
+              "SV": {
+                "format": "uri",
+                "type": "string",
+              },
+              "SX": {
+                "format": "uri",
+                "type": "string",
+              },
+              "SY": {
+                "format": "uri",
+                "type": "string",
+              },
+              "SZ": {
+                "format": "uri",
+                "type": "string",
+              },
+              "TC": {
+                "format": "uri",
+                "type": "string",
+              },
+              "TD": {
+                "format": "uri",
+                "type": "string",
+              },
+              "TF": {
+                "format": "uri",
+                "type": "string",
+              },
+              "TG": {
+                "format": "uri",
+                "type": "string",
+              },
+              "TH": {
+                "format": "uri",
+                "type": "string",
+              },
+              "TJ": {
+                "format": "uri",
+                "type": "string",
+              },
+              "TK": {
+                "format": "uri",
+                "type": "string",
+              },
+              "TL": {
+                "format": "uri",
+                "type": "string",
+              },
+              "TM": {
+                "format": "uri",
+                "type": "string",
+              },
+              "TN": {
+                "format": "uri",
+                "type": "string",
+              },
+              "TO": {
+                "format": "uri",
+                "type": "string",
+              },
+              "TR": {
+                "format": "uri",
+                "type": "string",
+              },
+              "TT": {
+                "format": "uri",
+                "type": "string",
+              },
+              "TV": {
+                "format": "uri",
+                "type": "string",
+              },
+              "TW": {
+                "format": "uri",
+                "type": "string",
+              },
+              "TZ": {
+                "format": "uri",
+                "type": "string",
+              },
+              "UA": {
+                "format": "uri",
+                "type": "string",
+              },
+              "UG": {
+                "format": "uri",
+                "type": "string",
+              },
+              "UM": {
+                "format": "uri",
+                "type": "string",
+              },
+              "US": {
+                "format": "uri",
+                "type": "string",
+              },
+              "UY": {
+                "format": "uri",
+                "type": "string",
+              },
+              "UZ": {
+                "format": "uri",
+                "type": "string",
+              },
+              "VA": {
+                "format": "uri",
+                "type": "string",
+              },
+              "VC": {
+                "format": "uri",
+                "type": "string",
+              },
+              "VE": {
+                "format": "uri",
+                "type": "string",
+              },
+              "VG": {
+                "format": "uri",
+                "type": "string",
+              },
+              "VI": {
+                "format": "uri",
+                "type": "string",
+              },
+              "VN": {
+                "format": "uri",
+                "type": "string",
+              },
+              "VU": {
+                "format": "uri",
+                "type": "string",
+              },
+              "WF": {
+                "format": "uri",
+                "type": "string",
+              },
+              "WS": {
+                "format": "uri",
+                "type": "string",
+              },
+              "XK": {
+                "format": "uri",
+                "type": "string",
+              },
+              "YE": {
+                "format": "uri",
+                "type": "string",
+              },
+              "YT": {
+                "format": "uri",
+                "type": "string",
+              },
+              "ZA": {
+                "format": "uri",
+                "type": "string",
+              },
+              "ZM": {
+                "format": "uri",
+                "type": "string",
+              },
+              "ZW": {
+                "format": "uri",
+                "type": "string",
+              },
+            },
+            "type": "object",
+          },
+          "id": {
+            "description": "The unique ID of the short link.",
+            "type": "string",
+          },
+          "image": {
+            "description": "The image of the short link generated via `api.dub.co/metatags`. Will be used for Custom Social Media Cards if `proxy` is true.",
+            "nullable": true,
+            "type": "string",
+          },
+          "ios": {
+            "description": "The iOS destination URL for the short link for iOS device targeting.",
+            "nullable": true,
+            "type": "string",
+          },
+          "key": {
+            "description": "The short link slug. If not provided, a random 7-character slug will be generated.",
+            "type": "string",
+          },
+          "lastClicked": {
+            "description": "The date and time when the short link was last clicked.",
+            "nullable": true,
+            "type": "string",
+          },
+          "leads": {
+            "default": 0,
+            "description": "[BETA]: The number of leads the short links has generated.",
+            "type": "number",
+          },
+          "password": {
+            "description": "The password required to access the destination URL of the short link.",
+            "nullable": true,
+            "type": "string",
+          },
+          "programId": {
+            "description": "The ID of the program the short link is associated with.",
+            "nullable": true,
+            "type": "string",
+          },
+          "projectId": {
+            "deprecated": true,
+            "description": "The project ID of the short link. This field is deprecated – use `workspaceId` instead.",
+            "type": "string",
+          },
+          "proxy": {
+            "default": false,
+            "description": "Whether the short link uses Custom Social Media Cards feature.",
+            "type": "boolean",
+          },
+          "publicStats": {
+            "default": false,
+            "description": "Whether the short link's stats are publicly accessible.",
+            "type": "boolean",
+          },
+          "qrCode": {
+            "description": "The full URL of the QR code for the short link (e.g. `https://api.dub.co/qr?url=https://dub.sh/try`).",
+            "format": "uri",
+            "type": "string",
+          },
+          "rewrite": {
+            "default": false,
+            "description": "Whether the short link uses link cloaking.",
+            "type": "boolean",
+          },
+          "saleAmount": {
+            "default": 0,
+            "description": "[BETA]: The total dollar amount of sales the short links has generated (in cents).",
+            "type": "number",
+          },
+          "sales": {
+            "default": 0,
+            "description": "[BETA]: The number of sales the short links has generated.",
+            "type": "number",
+          },
+          "shortLink": {
+            "description": "The full URL of the short link, including the https protocol (e.g. `https://dub.sh/try`).",
+            "format": "uri",
+            "type": "string",
+          },
+          "tagId": {
+            "deprecated": true,
+            "description": "The unique ID of the tag assigned to the short link. This field is deprecated – use `tags` instead.",
+            "nullable": true,
+            "type": "string",
+          },
+          "tags": {
+            "description": "The tags assigned to the short link.",
+            "items": {
+              "$ref": "#/components/schemas/TagSchema",
+            },
+            "nullable": true,
+            "type": "array",
+          },
+          "title": {
+            "description": "The title of the short link generated via `api.dub.co/metatags`. Will be used for Custom Social Media Cards if `proxy` is true.",
+            "nullable": true,
+            "type": "string",
+          },
+          "trackConversion": {
+            "default": false,
+            "description": "[BETA] Whether to track conversions for the short link.",
+            "type": "boolean",
+          },
+          "updatedAt": {
+            "description": "The date and time when the short link was last updated.",
+            "type": "string",
+          },
+          "url": {
+            "description": "The destination URL of the short link.",
+            "format": "uri",
+            "type": "string",
+          },
+          "userId": {
+            "description": "The user ID of the creator of the short link.",
+            "nullable": true,
+            "type": "string",
+          },
+          "utm_campaign": {
+            "description": "The UTM campaign of the short link.",
+            "nullable": true,
+            "type": "string",
+          },
+          "utm_content": {
+            "description": "The UTM content of the short link.",
+            "nullable": true,
+            "type": "string",
+          },
+          "utm_medium": {
+            "description": "The UTM medium of the short link.",
+            "nullable": true,
+            "type": "string",
+          },
+          "utm_source": {
+            "description": "The UTM source of the short link.",
+            "nullable": true,
+            "type": "string",
+          },
+          "utm_term": {
+            "description": "The UTM term of the short link.",
+            "nullable": true,
+            "type": "string",
+          },
+          "video": {
+            "description": "The custom link preview video (og:video). Will be used for Custom Social Media Cards if `proxy` is true. Learn more: https://d.to/og",
+            "nullable": true,
+            "type": "string",
+          },
+          "webhookIds": {
+            "description": "The IDs of the webhooks that the short link is associated with.",
+            "items": {
+              "type": "string",
+            },
+            "type": "array",
+          },
+          "workspaceId": {
+            "description": "The workspace ID of the short link.",
+            "type": "string",
+          },
+        },
+        "required": [
+          "id",
+          "domain",
+          "key",
+          "url",
+          "trackConversion",
+          "externalId",
+          "archived",
+          "expiresAt",
+          "expiredUrl",
+          "password",
+          "proxy",
+          "title",
+          "description",
+          "image",
+          "video",
+          "rewrite",
+          "doIndex",
+          "ios",
+          "android",
+          "geo",
+          "publicStats",
+          "tagId",
+          "tags",
+          "webhookIds",
+          "comments",
+          "shortLink",
+          "qrCode",
+          "utm_source",
+          "utm_medium",
+          "utm_campaign",
+          "utm_term",
+          "utm_content",
+          "userId",
+          "workspaceId",
+          "clicks",
+          "lastClicked",
+          "leads",
+          "sales",
+          "saleAmount",
+          "createdAt",
+          "updatedAt",
+          "projectId",
+          "programId",
+        ],
+        "title": "Link",
+        "type": "object",
+      },
+    },
+  },
+  "info": {
+    "contact": {
+      "email": "support@dub.co",
+      "name": "Dub.co Support",
+      "url": "https://dub.co/api",
+    },
+    "description": "Dub is link management infrastructure for companies to create marketing campaigns, link sharing features, and referral programs.",
+    "license": {
+      "name": "AGPL-3.0 license",
+      "url": "https://github.com/dubinc/dub/blob/main/LICENSE.md",
+    },
+    "title": "Dub.co API",
+    "version": "0.0.1",
+  },
+  "openapi": "3.0.3",
+  "paths": {
+    "/links": {
+      "get": {
+        "description": "Retrieve a paginated list of links for the authenticated workspace.",
+        "operationId": "getLinks",
+        "parameters": [
+          {
+            "description": "The domain to filter the links by. E.g. `ac.me`. If not provided, all links for the workspace will be returned.",
+            "in": "query",
+            "name": "domain",
+            "schema": {
+              "description": "The domain to filter the links by. E.g. `ac.me`. If not provided, all links for the workspace will be returned.",
+              "type": "string",
+            },
+          },
+          {
+            "description": "Deprecated. Use `tagIds` instead. The tag ID to filter the links by.",
+            "in": "query",
+            "name": "tagId",
+            "schema": {
+              "deprecated": true,
+              "description": "Deprecated. Use `tagIds` instead. The tag ID to filter the links by.",
+              "type": "string",
+            },
+          },
+          {
+            "description": "The tag IDs to filter the links by.",
+            "in": "query",
+            "name": "tagIds",
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                },
+                {
+                  "items": {
+                    "type": "string",
+                  },
+                  "type": "array",
+                },
+              ],
+              "description": "The tag IDs to filter the links by.",
+            },
+          },
+          {
+            "description": "The unique name of the tags assigned to the short link (case insensitive).",
+            "in": "query",
+            "name": "tagNames",
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                },
+                {
+                  "items": {
+                    "type": "string",
+                  },
+                  "type": "array",
+                },
+              ],
+              "description": "The unique name of the tags assigned to the short link (case insensitive).",
+            },
+          },
+          {
+            "description": "The search term to filter the links by. The search term will be matched against the short link slug and the destination url.",
+            "in": "query",
+            "name": "search",
+            "schema": {
+              "description": "The search term to filter the links by. The search term will be matched against the short link slug and the destination url.",
+              "type": "string",
+            },
+          },
+          {
+            "description": "The user ID to filter the links by.",
+            "in": "query",
+            "name": "userId",
+            "schema": {
+              "description": "The user ID to filter the links by.",
+              "type": "string",
+            },
+          },
+          {
+            "description": "Whether to include archived links in the response. Defaults to `false` if not provided.",
+            "in": "query",
+            "name": "showArchived",
+            "schema": {
+              "default": "false",
+              "description": "Whether to include archived links in the response. Defaults to `false` if not provided.",
+              "type": "boolean",
+            },
+          },
+          {
+            "description": "DEPRECATED. Filter for links that have at least one tag assigned to them.",
+            "in": "query",
+            "name": "withTags",
+            "schema": {
+              "default": "false",
+              "deprecated": true,
+              "description": "DEPRECATED. Filter for links that have at least one tag assigned to them.",
+              "type": "boolean",
+            },
+          },
+          {
+            "description": "The field to sort the links by. The default is `createdAt`, and sort order is always descending.",
+            "in": "query",
+            "name": "sort",
+            "schema": {
+              "default": "createdAt",
+              "description": "The field to sort the links by. The default is `createdAt`, and sort order is always descending.",
+              "enum": [
+                "createdAt",
+                "clicks",
+                "lastClicked",
+              ],
+              "type": "string",
+            },
+          },
+          {
+            "description": "The page number for pagination.",
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "default": 1,
+              "description": "The page number for pagination.",
+              "example": 1,
+              "exclusiveMinimum": true,
+              "minimum": 0,
+              "type": "number",
+            },
+          },
+          {
+            "description": "The number of items per page.",
+            "in": "query",
+            "name": "pageSize",
+            "schema": {
+              "default": 100,
+              "description": "The number of items per page.",
+              "example": 50,
+              "exclusiveMinimum": true,
+              "maximum": 100,
+              "minimum": 0,
+              "type": "number",
+            },
+          },
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/LinkSchema",
+                  },
+                  "type": "array",
+                },
+              },
+            },
+            "description": "A list of links",
+          },
+          "400": {
+            "$ref": "#/components/responses/400",
+          },
+          "401": {
+            "$ref": "#/components/responses/401",
+          },
+          "403": {
+            "$ref": "#/components/responses/403",
+          },
+          "404": {
+            "$ref": "#/components/responses/404",
+          },
+          "409": {
+            "$ref": "#/components/responses/409",
+          },
+          "410": {
+            "$ref": "#/components/responses/410",
+          },
+          "422": {
+            "$ref": "#/components/responses/422",
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+          },
+          "500": {
+            "$ref": "#/components/responses/500",
+          },
+        },
+        "security": [
+          {
+            "token": [],
+          },
+        ],
+        "summary": "Retrieve a list of links",
+        "tags": [
+          "Links",
+        ],
+        "x-codeSamples": [
+          {
+            "label": "getLinks",
+            "lang": "typescript",
+            "source": "import { Dub } from "dub";
+
+const dub = new Dub({
+  token: "DUB_API_KEY",
+});
+
+async function run() {
+  const result = await dub.links.list();
+
+  for await (const page of result) {
+    // Handle the page
+    console.log(page);
+  }
+}
+
+run();",
+          },
+          {
+            "label": "getLinks",
+            "lang": "go",
+            "source": "package main
+
+import(
+	"context"
+	dubgo "github.com/dubinc/dub-go"
+	"github.com/dubinc/dub-go/models/operations"
+	"log"
+)
+
+func main() {
+    ctx := context.Background()
+    
+    s := dubgo.New(
+        dubgo.WithSecurity("DUB_API_KEY"),
+    )
+
+    res, err := s.Links.List(ctx, operations.GetLinksRequest{
+        Page: dubgo.Float64(1),
+        PageSize: dubgo.Float64(50),
+    })
+    if err != nil {
+        log.Fatal(err)
+    }
+    if res != nil {
+        for {
+            // handle items
+
+            res, err = res.Next()
+
+            if err != nil {
+                // handle error
+            }
+
+            if res == nil {
+                break
+            }
+        }
+    }
+}",
+          },
+          {
+            "label": "getLinks",
+            "lang": "ruby",
+            "source": "require 'dub'
+
+
+s = ::OpenApiSDK::Dub.new
+s.config_security(
+  ::OpenApiSDK::Shared::Security.new(
+    token: "DUB_API_KEY",
+  )
+)
+
+
+req = ::OpenApiSDK::Operations::GetLinksRequest.new(
+  page: 1.0,
+  page_size: 50.0,
+)
+    
+res = s.links.list(req)
+
+if ! res.link_schemas.nil?
+  # handle response
+end",
+          },
+          {
+            "label": "getLinks",
+            "lang": "php",
+            "source": "declare(strict_types=1);
+
+require 'vendor/autoload.php';
+
+use Dub;
+use Dub\Models\Operations;
+
+$security = 'DUB_API_KEY';
+
+$sdk = Dub\Dub::builder()->setSecurity($security)->build();
+
+$request = new Operations\GetLinksRequest(
+    page: 1,
+    pageSize: 50,
+);
+
+$responses = $sdk->links->list(
+    request: $request
+);
+
+
+foreach ($responses as $response) {
+    if ($response->statusCode === 200) {
+        // handle response
+    }
+}",
+          },
+          {
+            "label": "getLinks",
+            "lang": "python",
+            "source": "from dub import Dub
+
+with Dub(
+    token="DUB_API_KEY",
+) as dub:
+
+    res = dub.links.list(request={
+        "page": 1,
+        "page_size": 50,
+    })
+
+    while res is not None:
+        # Handle items
+
+        res = res.next()",
+          },
+          {
+            "lang": "java",
+            "source": "OkHttpClient client = new OkHttpClient();
+
+Request request = new Request.Builder()
+  .url("https://api.dub.co/links")
+  .get()
+  .addHeader("accept", "application/json")
+  .addHeader("authorization", "Bearer MY_TOKEN")
+  .build();
+
+Response response = client.newCall(request).execute();",
+          },
+        ],
+        "x-speakeasy-name-override": "list",
+        "x-speakeasy-pagination": {
+          "inputs": [
+            {
+              "in": "parameters",
+              "name": "page",
+              "type": "page",
+            },
+            {
+              "in": "parameters",
+              "name": "pageSize",
+              "type": "limit",
+            },
+          ],
+          "outputs": {
+            "results": "$",
+          },
+          "type": "offsetLimit",
+        },
+      },
+    },
+  },
+  "security": undefined,
+  "servers": [
+    {
+      "description": "Production API",
+      "url": "https://api.dub.co",
+    },
+  ],
+  "tags": undefined,
+}

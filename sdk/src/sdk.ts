@@ -140,7 +140,10 @@ export async function generateSDKForRoute({
     <openApiSchema>
     ${ymlSchema}
     </openApiSchema>
-
+    
+    <previousSdkCode>
+    ${previousSdkCode}
+    </previousSdkCode>
 
     ${route.diffPrompt}
 
@@ -165,7 +168,7 @@ export async function generateSDKForRoute({
 
   const logStream = logFile ? logToFile(logFile) : null
 
-  logStream?.write(openApiSchema + '\n---\n')
+  logStream?.write(ymlSchema + '\n---\n')
 
   for await (const chunk of res.fullStream) {
     if (chunk.type === 'text-delta') {
@@ -231,6 +234,7 @@ export async function generateSDKFromOpenAPI({
   logFolder = null,
   language = 'typescript',
   params,
+  maxLLMConcurrency = 5,
 }: {
   openApiSchema: OpenAPIV3.Document
   previousOpenApiSchema?: OpenAPIV3.Document
@@ -238,6 +242,7 @@ export async function generateSDKFromOpenAPI({
   language?: Language
   logFolder?: string | null
   params?: BoilerplateParams
+  maxLLMConcurrency?: number
 }) {
   openApiSchema = cleanupOpenApi(openApiSchema)
   if (!previousSdkCode) {
@@ -286,7 +291,7 @@ export async function generateSDKFromOpenAPI({
             : null,
         })
       }),
-      10,
+      maxLLMConcurrency,
     ),
   )
   return await mergeSDKOutputs({

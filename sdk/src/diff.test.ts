@@ -1,8 +1,23 @@
-import { describe, expect, it } from 'vitest'
-import { getOpenApiDiffPrompt } from './diff'
+import { describe, expect, it, test } from 'vitest'
+import YAML from 'js-yaml'
+import { getOpenApiDiffPrompt, recursivelyResolveComponents } from './diff'
 import { OpenAPIV3 } from 'openapi-types'
+import fs from 'fs'
 
 import { extractMarkdownSnippets } from './sdk'
+
+test(`recursivelyResolveComponents on dub`, () => {
+  const yml = fs.readFileSync('./scripts/dub-openapi.yml', 'utf-8')
+  const openApiSchema = YAML.load(yml) as any
+  const subsetSchema = recursivelyResolveComponents({
+    openApiSchema,
+    path: '/links',
+    method: 'get',
+  })
+  expect(subsetSchema).toMatchFileSnapshot(
+    '../scripts/openapi-tests/extracted.json5',
+  )
+})
 
 describe('extractMarkdownSnippets', () => {
   it('should extract code blocks from markdown', () => {
@@ -493,26 +508,6 @@ describe('getOpenApiDiffPrompt', () => {
                     "application/json": {
                       "schema": {
                         "$ref": "#/components/schemas/TestResponse"
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "components": {
-            "schemas": {
-              "TestResponse": {
-                "type": "object",
-                "properties": {
-                  "id": {
-                    "type": "string"
-                  },
-                  "data": {
-                    "type": "object",
-                    "properties": {
-                      "name": {
-                        "type": "string"
                       }
                     }
                   }
