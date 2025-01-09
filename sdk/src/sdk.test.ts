@@ -33,9 +33,37 @@ for (const language of languages) {
           })
 
           // Create scripts directory if it doesn't exist
+
+          await fs.promises.writeFile(
+            `${logFolder}/generated-sdk.${languageToExtension[language]}`,
+            generatedCode.code,
+          )
+        },
+        1000 * 100,
+      )
+      it(
+        'dub should generate SDK from OpenAPI schema',
+        async () => {
+          const logFolder = `logs/${language}/dub`
           await fs.promises
-            .mkdir('scripts', { recursive: true })
+            .rm(logFolder, { recursive: true, force: true })
             .catch(() => {})
+
+          const openApiYaml = await readFile(
+            join(__dirname, '../scripts/dub-openapi.yml'),
+            'utf-8',
+          )
+          const openApiSchema: any = YAML.load(openApiYaml)
+
+          console.log(`generating routes code`)
+          const generatedCode = await generateSDKFromOpenAPI({
+            openApiSchema,
+            language,
+            logFolder,
+          })
+
+          // Create scripts directory if it doesn't exist
+
           await fs.promises.writeFile(
             `${logFolder}/generated-sdk.${languageToExtension[language]}`,
             generatedCode.code,
@@ -63,7 +91,6 @@ for (const language of languages) {
         })
 
         // Create scripts directory if it doesn't exist
-        await fs.promises.mkdir('scripts', { recursive: true }).catch(() => {})
         await fs.promises.writeFile(
           `${logFolder}/generated-sdk.${languageToExtension[language]}`,
           generatedCode.code,
@@ -115,9 +142,6 @@ for (const language of languages) {
           previousSdkCode,
           logFolder,
         })
-
-        // Create scripts directory if it doesn't exist
-        await fs.promises.mkdir('scripts', { recursive: true }).catch(() => {})
 
         // Write generated code to file
         await fs.promises.writeFile(

@@ -1,4 +1,5 @@
 import { createDeepSeek } from '@ai-sdk/deepseek'
+import YAML from 'js-yaml'
 
 import safeStringify from 'fast-safe-stringify'
 import compareOpenApiSchemas from 'openapi-schema-diff/lib'
@@ -9,10 +10,11 @@ import { streamText } from 'ai'
 import type { OpenAPIV3 } from 'openapi-types'
 import path from 'path'
 import { createOpenAI } from '@ai-sdk/openai'
-import { getOpenApiDiffPrompt } from './diff'
+import { getOpenApiDiffPrompt, recursivelyResolveComponents } from './diff'
 import { applyCursorPromptPrefix, languagesPrompts } from './prompts'
 import { processConcurrentlyInOrder, recursiveReadDir } from './utils'
 import { BoilerplateParams, Language, languageToExtension } from './types'
+import { cleanupOpenApi } from './openapi'
 
 const deepseek = createDeepSeek({
   apiKey: process.env.DEEPSEEK_API_KEY ?? '',
@@ -128,17 +130,17 @@ export async function generateSDKForRoute({
   logFile?: string | null
 }) {
   console.log(`generating sdk for route: ${route.method} ${route.path}`)
+
+  const ymlSchema = YAML.dump(openApiSchema, { indent: 2, lineWidth: -1 })
+
   const prompt = dedent`
     ${languagesPrompts[language]}
 
     OpenAPI Schema:
     <openApiSchema>
-    ${JSON.stringify(openApiSchema, null, 2)}
+    ${ymlSchema}
     </openApiSchema>
 
-    <previousSdkCode>
-    ${previousSdkCode}
-    </previousSdkCode>
 
     ${route.diffPrompt}
 
@@ -163,6 +165,8 @@ export async function generateSDKForRoute({
 
   const logStream = logFile ? logToFile(logFile) : null
 
+  logStream?.write(openApiSchema + '\n---\n')
+
   for await (const chunk of res.fullStream) {
     if (chunk.type === 'text-delta') {
       generatedCode += chunk.textDelta
@@ -176,6 +180,11 @@ export async function generateSDKForRoute({
     `llm generate route ${route.method} ${route.path} ${requestId}`,
   )
 
+  if (!generatedCode) {
+    throw new Error(
+      `generation failed for ${route.method} ${route.path}: no result content`,
+    )
+  }
   return {
     code: generatedCode,
     // code: extractMarkdownSnippets(generatedCode).join('\n\n'),
@@ -230,6 +239,7 @@ export async function generateSDKFromOpenAPI({
   logFolder?: string | null
   params?: BoilerplateParams
 }) {
+  openApiSchema = cleanupOpenApi(openApiSchema)
   if (!previousSdkCode) {
     const boilerplatePath = path.resolve(
       __dirname,
@@ -255,24 +265,27 @@ export async function generateSDKFromOpenAPI({
 
   const results = await Array.fromAsync(
     processConcurrentlyInOrder(
-      routes.map(
-        (route) => () =>
-          generateSDKForRoute({
-            route,
-            openApiSchema,
-            previousSdkCode,
-            language,
-            logFile: logFolder
-              ? `${logFolder}/${
-                  route.operationId ||
-                  `${route.method.toLowerCase()}-${
-                    route.path.replace(/\//g, '-').replace(/^-|-$/g, '') ||
-                    'index'
-                  }`
-                }.md`
-              : null,
-          }),
-      ),
+      routes.map((route) => () => {
+        const openApiSchemaSubset = recursivelyResolveComponents({
+          ...route,
+          openApiSchema,
+        })
+        return generateSDKForRoute({
+          route,
+          openApiSchema: openApiSchemaSubset,
+          previousSdkCode,
+          language,
+          logFile: logFolder
+            ? `${logFolder}/${
+                route.operationId ||
+                `${route.method.toLowerCase()}-${
+                  route.path.replace(/\//g, '-').replace(/^-|-$/g, '') ||
+                  'index'
+                }`
+              }.md`
+            : null,
+        })
+      }),
       10,
     ),
   )
@@ -472,7 +485,6 @@ export function replaceParamsInTemplate({
 
   return result
 }
-
 
 interface SlashEditParams {
   fileContents?: string

@@ -43,16 +43,16 @@ export function getOpenApiDiffPrompt({
         const diff = diffJson(
           lessIndentation(
             recursivelyResolveComponents({
-              subsetSchema: change.sourceSchema,
-              schema: previousOpenApiSchema,
+              // subsetSchema: change.sourceSchema,
+              openApiSchema: previousOpenApiSchema,
               path: route.path,
               method: route.method,
             }),
           ) || {},
           lessIndentation(
             recursivelyResolveComponents({
-              subsetSchema: change.targetSchema,
-              schema: openApiSchema,
+              // subsetSchema: change.targetSchema,
+              openApiSchema: openApiSchema,
               path: route.path,
               method: route.method,
             }),
@@ -96,8 +96,8 @@ export function getOpenApiDiffPrompt({
 
   const addedRoutesText = addedRoutes.map((route) => {
     const schema = recursivelyResolveComponents({
-      subsetSchema: route.targetSchema,
-      schema: openApiSchema,
+      // subsetSchema: route.targetSchema,
+      openApiSchema: openApiSchema,
       path: route.path,
       method: route.method,
     })
@@ -112,7 +112,7 @@ export function getOpenApiDiffPrompt({
             <diff>
             ${lessIndentation(schema)
               .split('\n')
-              .map((line) => '+ ' + line)
+              // .map((line) => '+ ' + line)
               .join('\n')}
             </diff>
             </route>
@@ -123,8 +123,8 @@ export function getOpenApiDiffPrompt({
   const deletedRoutesText = deletedRoutes.map((route) => {
     const schema =
       recursivelyResolveComponents({
-        subsetSchema: route.sourceSchema,
-        schema: previousOpenApiSchema,
+        // subsetSchema: route.sourceSchema,
+        openApiSchema: previousOpenApiSchema,
         path: route.path,
         method: route.method,
       }) || null
@@ -170,6 +170,7 @@ export function getOpenApiDiffPrompt({
   }
 }
 
+// turns /x/y into { x: { y: value }}
 function refPathToObject(ref: string, value: any) {
   const parts = ref.replace(/^#\//, '').split('/') // Remove leading #/ with regex
   let result = {}
@@ -186,53 +187,59 @@ function refPathToObject(ref: string, value: any) {
   return result
 }
 
-function recursivelyResolveComponents({
-  schema,
+export function recursivelyResolveComponents({
+  openApiSchema,
   path,
   method,
-  root = undefined as any,
-  subsetSchema,
+}: {
+  openApiSchema: OpenAPIV3.Document
+  path: string
+  method: string
 }) {
   const resolver = new RefResolver()
   const id = randomUUID()
-  resolver.addSchema(schema, id)
-  let result = structuredClone(subsetSchema)
-
-  if (!root) {
-    root = {
-      [path]: {
-        [method]: subsetSchema,
-      },
-    }
+  resolver.addSchema(openApiSchema, id)
+  const subsetSchema = openApiSchema.paths?.[path]?.[method]
+  if (!subsetSchema) {
+    throw new Error(
+      `Invalid open api schema, cannot get route with path ${path}`,
+    )
   }
-  for (const [key, value] of Object.entries(result)) {
+
+  let paths: OpenAPIV3.PathsObject = {
+    [path]: {
+      [method]: subsetSchema,
+    },
+  }
+
+  const stack = [{ key: '', value: structuredClone(subsetSchema) }]
+
+  while (stack.length > 0) {
+    const { value } = stack.pop()!
+
     if (typeof value === 'object' && value !== null) {
       if ('$ref' in value) {
         const resolved = resolver.getSchema(id, value.$ref as any)
-        // result[key] = resolved
-
-        // Convert ref path to nested object and merge
         const refObject = refPathToObject(value.$ref as string, resolved)
-        root = deepmerge(root, refObject)
+        paths = deepmerge(paths, refObject)
       } else {
-        let newRoot = recursivelyResolveComponents({
-          schema,
-          subsetSchema: value,
-          root,
-          path,
-          method,
-        })
-        root = newRoot
-        // result[key] = nestedResult
+        for (const [k, v] of Object.entries(value)) {
+          stack.push({ key: k, value: v })
+        }
       }
     }
   }
 
-  return root
+  const fullOpenapi = {
+    ...openApiSchema,
+    paths,
+  }
+  return fullOpenapi
 }
 
 function lessIndentation(schema) {
   const json = JSON.stringify(schema, null, 2)
+  return json
   return json
     .split('\n')
     .filter((line) => line.length > 0)

@@ -15,6 +15,49 @@ interface SchemaLocation {
   }
 }
 
+
+export function cleanupOpenApi(
+  obj: any,
+  maxLength: number = 400,
+  path: string[] = [],
+  removedPaths: string[] = []
+): any {
+  if (obj === null || typeof obj !== 'object') {
+    // Check if string is too long
+    if (typeof obj === 'string' && obj.length > maxLength) {
+      removedPaths.push(path.join('.'))
+      return undefined
+    }
+    return obj
+  }
+
+  // Handle arrays
+  if (Array.isArray(obj)) {
+    const newArray = obj
+      .map((item, index) =>
+        cleanupOpenApi(item, maxLength, [...path, index.toString()], removedPaths)
+      )
+      .filter((x) => x !== undefined)
+    return newArray.length > 0 ? newArray : undefined
+  }
+
+  // Handle objects
+  const newObj: any = {}
+  let hasValidProps = false
+
+  for (const [key, value] of Object.entries(obj)) {
+    const cleaned = cleanupOpenApi(value, maxLength, [...path, key], removedPaths)
+    if (cleaned !== undefined) {
+      newObj[key] = cleaned
+      hasValidProps = true
+    }
+  }
+
+  return hasValidProps ? newObj : undefined
+}
+
+
+
 export function getSubSchemas(
   schemas: SchemaLocation[],
   maxDepth: number = 5,
