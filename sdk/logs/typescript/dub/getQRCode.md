@@ -14,36 +14,90 @@ servers:
   - url: https://api.dub.co
     description: Production API
 paths:
-  /links/{linkId}:
-    delete:
-      operationId: deleteLink
-      x-speakeasy-name-override: delete
-      x-speakeasy-max-method-params: 1
-      summary: Delete a link
-      description: Delete a link for the authenticated workspace.
+  /qr:
+    get:
+      operationId: getQRCode
+      x-speakeasy-name-override: get
+      summary: Retrieve a QR code
+      description: Retrieve a QR code for a link.
       tags:
-        - Links
+        - QR Codes
       parameters:
-        - in: path
-          name: linkId
-          description: The id of the link to delete. You may use either `linkId` (obtained via `/links/info` endpoint) or `externalId` prefixed with `ext_`.
+        - in: query
+          name: url
+          description: The URL to generate a QR code for.
           schema:
             type: string
-            description: The id of the link to delete. You may use either `linkId` (obtained via `/links/info` endpoint) or `externalId` prefixed with `ext_`.
+            description: The URL to generate a QR code for.
           required: true
+        - in: query
+          name: logo
+          description: The logo to include in the QR code. Can only be used with a paid plan on Dub.co.
+          schema:
+            type: string
+            description: The logo to include in the QR code. Can only be used with a paid plan on Dub.co.
+        - in: query
+          name: size
+          description: The size of the QR code in pixels. Defaults to `600` if not provided.
+          schema:
+            type: number
+            default: 600
+            description: The size of the QR code in pixels. Defaults to `600` if not provided.
+        - in: query
+          name: level
+          description: The level of error correction to use for the QR code. Defaults to `L` if not provided.
+          schema:
+            type: string
+            enum:
+              - L
+              - M
+              - Q
+              - H
+            default: L
+            description: The level of error correction to use for the QR code. Defaults to `L` if not provided.
+        - in: query
+          name: fgColor
+          description: The foreground color of the QR code in hex format. Defaults to `#000000` if not provided.
+          schema:
+            type: string
+            default: '#000000'
+            description: The foreground color of the QR code in hex format. Defaults to `#000000` if not provided.
+        - in: query
+          name: bgColor
+          description: The background color of the QR code in hex format. Defaults to `#ffffff` if not provided.
+          schema:
+            type: string
+            default: '#FFFFFF'
+            description: The background color of the QR code in hex format. Defaults to `#ffffff` if not provided.
+        - in: query
+          name: hideLogo
+          description: Whether to hide the logo in the QR code. Can only be used with a paid plan on Dub.co.
+          schema:
+            type: boolean
+            default: 'false'
+            description: Whether to hide the logo in the QR code. Can only be used with a paid plan on Dub.co.
+        - in: query
+          name: margin
+          description: The size of the margin around the QR code. Defaults to 2 if not provided.
+          schema:
+            type: number
+            default: 2
+            description: The size of the margin around the QR code. Defaults to 2 if not provided.
+        - in: query
+          name: includeMargin
+          description: 'DEPRECATED: Margin is included by default. Use the `margin` prop to customize the margin size.'
+          schema:
+            type: boolean
+            default: 'true'
+            description: 'DEPRECATED: Margin is included by default. Use the `margin` prop to customize the margin size.'
+            deprecated: true
       responses:
         '200':
-          description: The deleted link ID.
+          description: The QR code
           content:
-            application/json:
+            image/png:
               schema:
-                type: object
-                properties:
-                  id:
-                    type: string
-                    description: The ID of the link.
-                required:
-                  - id
+                type: string
         '400':
           $ref: '#/components/responses/400'
         '401':
@@ -347,74 +401,84 @@ components:
 ---
 Let's break down the implementation step by step:
 
-1. First, we need to define the response type for successful deletion (200 response)
-2. Then we need to define error types based on the error responses
-3. We'll create a method that handles the DELETE request with proper type hints
-4. The method will use the existing fetch method from the client
-5. We'll add proper error handling for different status codes
+1. First, we need to create the type definitions for:
+   - Request parameters (all query params)
+   - Response type (image/png)
+   - Error responses (using existing ExampleError)
+
+2. The method will:
+   - Accept all query parameters as defined in the schema
+   - Make a GET request to /qr endpoint
+   - Return the image data as a Blob
+   - Handle errors using the existing ExampleError class
+
+3. We'll add the method to the ExampleClient class
 
 Here's the implementation:
 
-```python
-# ... existing imports ...
-from typing import TypedDict
+```typescript:src/client.ts
+// ... existing ExampleClient class ...
 
-# Response Types
-class DeleteLinkResponse(TypedDict):
-    id: str
+  /**
+   * GET /qr
+   * Retrieve a QR code for a link
+   * Tags: QR Codes
+   */
+  async getQRCode(params: {
+    url: string;
+    logo?: string;
+    size?: number;
+    level?: 'L' | 'M' | 'Q' | 'H';
+    fgColor?: string;
+    bgColor?: string;
+    hideLogo?: boolean;
+    margin?: number;
+    includeMargin?: boolean;
+  }): Promise<Blob> {
+    try {
+      const response = await this.fetch({
+        method: 'GET',
+        path: '/qr',
+        query: params,
+        headers: {
+          Accept: 'image/png',
+        },
+      });
 
-# Error Types
-class ErrorDetail(TypedDict):
-    code: str
-    message: str
-    doc_url: Optional[str]
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new ExampleError(errorData.error?.message || 'Failed to fetch QR code', {
+          status: response.status,
+          data: errorData,
+        });
+      }
 
-class APIError(TypedDict):
-    error: ErrorDetail
+      return await response.blob();
+    } catch (error) {
+      if (error instanceof ExampleError) {
+        throw error;
+      }
+      throw new ExampleError('Network error', { status: 500 });
+    }
+  }
 
-class ExampleClientAsync:
-    # ... existing code ...
-
-    # DELETE /links/{linkId} - Delete a link
-    async def delete_link(self, link_id: str) -> DeleteLinkResponse:
-        """
-        DELETE /links/{linkId}
-        Method: DELETE
-        Tags: Links
-        
-        Deletes a link for the authenticated workspace.
-        
-        Args:
-            link_id: The id of the link to delete. You may use either `linkId` 
-                    (obtained via `/links/info` endpoint) or `externalId` prefixed with `ext_`.
-        
-        Returns:
-            DeleteLinkResponse: The deleted link ID.
-        
-        Raises:
-            ExampleError: If the request fails with status codes 400, 401, 403, 404, 
-                        409, 410, 422, 429, or 500.
-        """
-        response = await self.fetch(
-            method="DELETE",
-            path=f"/links/{link_id}",
-        )
-        
-        if response.status == 200:
-            return await response.json()
-        
-        error_data = await response.json()
-        raise ExampleError(
-            error=error_data.get("error", {}).get("message", "Unknown error"),
-            status=response.status,
-            data=error_data
-        )
+// ... rest of existing code ...
 ```
 
 The implementation includes:
-1. TypedDict definitions for the response and error structures
-2. A properly typed async method with docstring including route information
-3. Error handling that raises ExampleError with detailed error information
-4. Proper type hints for both input and output
-5. Usage of the existing fetch method from the client
-6. Proper handling of the 200 response and error cases
+- Strong typing for all query parameters
+- Proper error handling with the existing ExampleError class
+- Accept header for image/png response
+- Returns a Blob object containing the QR code image
+- Handles both API errors and network errors
+- Uses the existing fetch method from the ExampleClient class
+
+The method can be used like this:
+```typescript
+const client = new ExampleClient({ baseUrl: 'https://api.dub.co', token: 'your_token' });
+const qrCode = await client.getQRCode({
+  url: 'https://example.com',
+  size: 800,
+  fgColor: '#0000FF'
+});
+```

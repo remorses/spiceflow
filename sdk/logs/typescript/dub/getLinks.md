@@ -1408,117 +1408,132 @@ components:
       title: Link
 
 ---
-Let me break down the implementation step by step:
+Let's break down the implementation step by step:
 
-1. First, we need to define the LinkSchema type based on the OpenAPI schema
-2. Then create a type for the query parameters with all optional fields
-3. Implement the list_links method with proper type hints and error handling
-4. The method should handle pagination parameters and all query filters
-5. We'll use the existing fetch method from ExampleClientAsync
+1. First, we need to define the types for the request parameters and response:
+- Request parameters match the query parameters in the OpenAPI spec
+- Response type will be an array of LinkSchema objects
+
+2. We'll create a method in the ExampleClient class that:
+- Accepts all the query parameters as optional fields
+- Uses the existing fetch method to make the GET request
+- Handles error responses using the ExampleError class
+- Returns the typed response
+
+3. We'll need to define the LinkSchema type based on the OpenAPI schema
 
 Here's the implementation:
 
-```python
-from typing import List, Literal, Optional, TypedDict, Union
-from datetime import datetime
+```typescript:exampleClient.ts
+// ... existing code ...
 
-# Define LinkSchema type based on OpenAPI schema
-class LinkSchema(TypedDict):
-    id: str
-    domain: str
-    key: str
-    url: str
-    trackConversion: bool
-    externalId: Optional[str]
-    archived: bool
-    expiresAt: Optional[datetime]
-    expiredUrl: Optional[str]
-    password: Optional[str]
-    proxy: bool
-    title: Optional[str]
-    description: Optional[str]
-    image: Optional[str]
-    video: Optional[str]
-    rewrite: bool
-    doIndex: bool
-    ios: Optional[str]
-    android: Optional[str]
-    geo: Optional[dict]
-    publicStats: bool
-    tagId: Optional[str]
-    tags: Optional[List[dict]]
-    webhookIds: List[str]
-    comments: Optional[str]
-    shortLink: str
-    qrCode: str
-    utm_source: Optional[str]
-    utm_medium: Optional[str]
-    utm_campaign: Optional[str]
-    utm_term: Optional[str]
-    utm_content: Optional[str]
-    userId: Optional[str]
-    workspaceId: str
-    clicks: int
-    lastClicked: Optional[datetime]
-    leads: int
-    sales: int
-    saleAmount: int
-    createdAt: datetime
-    updatedAt: datetime
-    projectId: str
-    programId: Optional[str]
+export class ExampleClient {
+  // ... existing code ...
 
-# Define query parameters type
-class ListLinksQueryParams(TypedDict, total=False):
-    domain: Optional[str]
-    tagId: Optional[str]
-    tagIds: Optional[Union[str, List[str]]]
-    tagNames: Optional[Union[str, List[str]]]
-    search: Optional[str]
-    userId: Optional[str]
-    showArchived: Optional[bool]
-    withTags: Optional[bool]
-    sort: Optional[Literal["createdAt", "clicks", "lastClicked"]]
-    page: Optional[int]
-    pageSize: Optional[int]
+  /**
+   * GET /links
+   * Retrieve a paginated list of links for the authenticated workspace.
+   * Tags: Links
+   */
+  async getLinks(params?: {
+    domain?: string;
+    tagId?: string;
+    tagIds?: string | string[];
+    tagNames?: string | string[];
+    search?: string;
+    userId?: string;
+    showArchived?: boolean;
+    withTags?: boolean;
+    sort?: 'createdAt' | 'clicks' | 'lastClicked';
+    page?: number;
+    pageSize?: number;
+  }): Promise<LinkSchema[]> {
+    // Convert array parameters to comma-separated strings
+    const query: Record<string, string> = {};
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined) {
+          if (Array.isArray(value)) {
+            query[key] = value.join(',');
+          } else {
+            query[key] = String(value);
+          }
+        }
+      });
+    }
 
-class ExampleClientAsync:
-    # ... existing code ...
+    const response = await this.fetch({
+      method: 'GET',
+      path: '/links',
+      query,
+    });
 
-    # GET /links - Retrieve a list of links
-    async def list_links(
-        self,
-        query_params: Optional[ListLinksQueryParams] = None
-    ) -> List[LinkSchema]:
-        """
-        Retrieve a paginated list of links for the authenticated workspace.
-        
-        Route: GET /links
-        Method: GET
-        Tags: Links
-        
-        Args:
-            query_params: Optional query parameters for filtering and pagination
-            
-        Returns:
-            List of LinkSchema objects
-            
-        Raises:
-            ExampleError: If the API returns an error status code
-        """
-        response = await self.fetch(
-            method="GET",
-            path="/links",
-            query=query_params
-        )
-        
-        if response.status != 200:
-            error_data = await response.json()
-            raise ExampleError(
-                error=error_data.get("error", {}).get("message", "Unknown error"),
-                status=response.status,
-                data=error_data
-            )
-            
-        return await response.json()
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new ExampleError('Failed to get links', {
+        status: response.status,
+        data: errorData,
+      });
+    }
+
+    return response.json();
+  }
+}
+
+// Link schema type based on OpenAPI specification
+export type LinkSchema = {
+  id: string;
+  domain: string;
+  key: string;
+  url: string;
+  trackConversion: boolean;
+  externalId: string | null;
+  archived: boolean;
+  expiresAt: string | null;
+  expiredUrl: string | null;
+  password: string | null;
+  proxy: boolean;
+  title: string | null;
+  description: string | null;
+  image: string | null;
+  video: string | null;
+  rewrite: boolean;
+  doIndex: boolean;
+  ios: string | null;
+  android: string | null;
+  geo: Record<string, string> | null;
+  publicStats: boolean;
+  tagId: string | null;
+  tags: TagSchema[] | null;
+  webhookIds: string[];
+  comments: string | null;
+  shortLink: string;
+  qrCode: string;
+  utm_source: string | null;
+  utm_medium: string | null;
+  utm_campaign: string | null;
+  utm_term: string | null;
+  utm_content: string | null;
+  userId: string | null;
+  workspaceId: string;
+  clicks: number;
+  lastClicked: string | null;
+  leads: number;
+  sales: number;
+  saleAmount: number;
+  createdAt: string;
+  updatedAt: string;
+  projectId: string;
+  programId: string | null;
+};
+
+export type TagSchema = {
+  id: string;
+  name: string;
+  color: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+// ... existing code ...
 ```

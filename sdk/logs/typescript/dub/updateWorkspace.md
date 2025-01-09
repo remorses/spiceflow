@@ -14,36 +14,46 @@ servers:
   - url: https://api.dub.co
     description: Production API
 paths:
-  /links/{linkId}:
-    delete:
-      operationId: deleteLink
-      x-speakeasy-name-override: delete
-      x-speakeasy-max-method-params: 1
-      summary: Delete a link
-      description: Delete a link for the authenticated workspace.
+  /workspaces/{idOrSlug}:
+    patch:
+      operationId: updateWorkspace
+      x-speakeasy-name-override: update
+      x-speakeasy-max-method-params: 2
+      summary: Update a workspace
+      description: Update a workspace by ID or slug.
       tags:
-        - Links
+        - Workspaces
       parameters:
         - in: path
-          name: linkId
-          description: The id of the link to delete. You may use either `linkId` (obtained via `/links/info` endpoint) or `externalId` prefixed with `ext_`.
+          name: idOrSlug
+          description: The ID or slug of the workspace to update.
           schema:
             type: string
-            description: The id of the link to delete. You may use either `linkId` (obtained via `/links/info` endpoint) or `externalId` prefixed with `ext_`.
+            description: The ID or slug of the workspace to update.
           required: true
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 32
+                slug:
+                  type: string
+                  minLength: 3
+                  maxLength: 48
+                logo:
+                  type: string
       responses:
         '200':
-          description: The deleted link ID.
+          description: The updated workspace.
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  id:
-                    type: string
-                    description: The ID of the link.
-                required:
-                  - id
+                $ref: '#/components/schemas/WorkspaceSchema'
         '400':
           $ref: '#/components/responses/400'
         '401':
@@ -343,78 +353,269 @@ components:
                   - message
             required:
               - error
+  schemas:
+    WorkspaceSchema:
+      type: object
+      properties:
+        id:
+          type: string
+          description: The unique ID of the workspace.
+        name:
+          type: string
+          description: The name of the workspace.
+        slug:
+          type: string
+          description: The slug of the workspace.
+        logo:
+          type: string
+          nullable: true
+          default: null
+          description: The logo of the workspace.
+        inviteCode:
+          type: string
+          nullable: true
+          description: The invite code of the workspace.
+        plan:
+          type: string
+          enum:
+            - free
+            - pro
+            - business
+            - business plus
+            - business extra
+            - business max
+            - enterprise
+          description: The plan of the workspace.
+        stripeId:
+          type: string
+          nullable: true
+          description: The Stripe ID of the workspace.
+        billingCycleStart:
+          type: number
+          description: The date and time when the billing cycle starts for the workspace.
+        paymentFailedAt:
+          type: string
+          nullable: true
+          description: The date and time when the payment failed for the workspace.
+        stripeConnectId:
+          type: string
+          nullable: true
+          description: '[BETA – Dub Conversions]: The Stripe Connect ID of the workspace.'
+        payoutMethodId:
+          type: string
+          nullable: true
+          description: '[BETA – Dub Partners]: The ID of the payment method for partner payouts.'
+        usage:
+          type: number
+          description: The usage of the workspace.
+        usageLimit:
+          type: number
+          description: The usage limit of the workspace.
+        linksUsage:
+          type: number
+          description: The links usage of the workspace.
+        linksLimit:
+          type: number
+          description: The links limit of the workspace.
+        salesUsage:
+          type: number
+          description: The dollar amount of tracked revenue in the current billing cycle (in cents).
+        salesLimit:
+          type: number
+          description: The limit of tracked revenue in the current billing cycle (in cents).
+        domainsLimit:
+          type: number
+          description: The domains limit of the workspace.
+        tagsLimit:
+          type: number
+          description: The tags limit of the workspace.
+        usersLimit:
+          type: number
+          description: The users limit of the workspace.
+        aiUsage:
+          type: number
+          description: The AI usage of the workspace.
+        aiLimit:
+          type: number
+          description: The AI limit of the workspace.
+        conversionEnabled:
+          type: boolean
+          description: Whether the workspace has conversion tracking enabled (d.to/conversions).
+        dotLinkClaimed:
+          type: boolean
+          description: Whether the workspace has claimed a free .link domain. (dub.link/free)
+        partnersEnabled:
+          type: boolean
+          description: Whether the workspace has Dub Partners enabled.
+        createdAt:
+          type: string
+          description: The date and time when the workspace was created.
+        users:
+          type: array
+          items:
+            type: object
+            properties:
+              role:
+                type: string
+                enum:
+                  - owner
+                  - member
+                description: The role of the authenticated user in the workspace.
+            required:
+              - role
+          description: The role of the authenticated user in the workspace.
+        domains:
+          type: array
+          items:
+            type: object
+            properties:
+              slug:
+                type: string
+                description: The domain name.
+                example: acme.com
+              primary:
+                type: boolean
+                default: false
+                description: Whether the domain is the primary domain for the workspace.
+              verified:
+                type: boolean
+                default: false
+                description: Whether the domain is verified.
+            required:
+              - slug
+              - primary
+              - verified
+          description: The domains of the workspace.
+        flags:
+          type: object
+          additionalProperties:
+            type: boolean
+          description: The feature flags of the workspace, indicating which features are enabled.
+      required:
+        - id
+        - name
+        - slug
+        - logo
+        - inviteCode
+        - plan
+        - stripeId
+        - billingCycleStart
+        - paymentFailedAt
+        - stripeConnectId
+        - payoutMethodId
+        - usage
+        - usageLimit
+        - linksUsage
+        - linksLimit
+        - salesUsage
+        - salesLimit
+        - domainsLimit
+        - tagsLimit
+        - usersLimit
+        - aiUsage
+        - aiLimit
+        - conversionEnabled
+        - dotLinkClaimed
+        - partnersEnabled
+        - createdAt
+        - users
+        - domains
+      title: Workspace
 
 ---
-Let's break down the implementation step by step:
+Let me break down the implementation step by step:
 
-1. First, we need to define the response type for successful deletion (200 response)
-2. Then we need to define error types based on the error responses
-3. We'll create a method that handles the DELETE request with proper type hints
-4. The method will use the existing fetch method from the client
-5. We'll add proper error handling for different status codes
+1. First, we need to define the types for:
+   - Request body (UpdateWorkspaceRequest)
+   - Response type (WorkspaceSchema)
+   - Error types (based on the error responses)
+
+2. We'll create a new method in the ExampleClient class that:
+   - Takes idOrSlug as a path parameter
+   - Accepts an optional request body
+   - Uses the existing fetch method
+   - Handles response parsing and error handling
+
+3. The method will:
+   - Validate the response status
+   - Parse successful responses
+   - Throw appropriate errors for error statuses
 
 Here's the implementation:
 
-```python
-# ... existing imports ...
-from typing import TypedDict
+```typescript:exampleClient.ts
+// ... existing imports and code ...
 
-# Response Types
-class DeleteLinkResponse(TypedDict):
-    id: str
+export class ExampleClient {
+  // ... existing code ...
 
-# Error Types
-class ErrorDetail(TypedDict):
-    code: str
-    message: str
-    doc_url: Optional[str]
+  /**
+   * PATCH /workspaces/{idOrSlug}
+   * Update a workspace by ID or slug
+   * Tags: Workspaces
+   */
+  async updateWorkspace(
+    idOrSlug: string,
+    body?: {
+      name?: string
+      slug?: string
+      logo?: string
+    }
+  ): Promise<WorkspaceSchema> {
+    const response = await this.fetch({
+      method: 'PATCH',
+      path: `/workspaces/${idOrSlug}`,
+      body,
+    })
 
-class APIError(TypedDict):
-    error: ErrorDetail
+    if (response.ok) {
+      return response.json()
+    }
 
-class ExampleClientAsync:
-    # ... existing code ...
+    const errorData = await response.json().catch(() => null)
+    throw new ExampleError(errorData?.error?.message || 'Failed to update workspace', {
+      status: response.status,
+      data: errorData,
+    })
+  }
+}
 
-    # DELETE /links/{linkId} - Delete a link
-    async def delete_link(self, link_id: str) -> DeleteLinkResponse:
-        """
-        DELETE /links/{linkId}
-        Method: DELETE
-        Tags: Links
-        
-        Deletes a link for the authenticated workspace.
-        
-        Args:
-            link_id: The id of the link to delete. You may use either `linkId` 
-                    (obtained via `/links/info` endpoint) or `externalId` prefixed with `ext_`.
-        
-        Returns:
-            DeleteLinkResponse: The deleted link ID.
-        
-        Raises:
-            ExampleError: If the request fails with status codes 400, 401, 403, 404, 
-                        409, 410, 422, 429, or 500.
-        """
-        response = await self.fetch(
-            method="DELETE",
-            path=f"/links/{link_id}",
-        )
-        
-        if response.status == 200:
-            return await response.json()
-        
-        error_data = await response.json()
-        raise ExampleError(
-            error=error_data.get("error", {}).get("message", "Unknown error"),
-            status=response.status,
-            data=error_data
-        )
+// Type definitions
+type WorkspaceSchema = {
+  id: string
+  name: string
+  slug: string
+  logo: string | null
+  inviteCode: string | null
+  plan: 'free' | 'pro' | 'business' | 'business plus' | 'business extra' | 'business max' | 'enterprise'
+  stripeId: string | null
+  billingCycleStart: number
+  paymentFailedAt: string | null
+  stripeConnectId: string | null
+  payoutMethodId: string | null
+  usage: number
+  usageLimit: number
+  linksUsage: number
+  linksLimit: number
+  salesUsage: number
+  salesLimit: number
+  domainsLimit: number
+  tagsLimit: number
+  usersLimit: number
+  aiUsage: number
+  aiLimit: number
+  conversionEnabled: boolean
+  dotLinkClaimed: boolean
+  partnersEnabled: boolean
+  createdAt: string
+  users: Array<{ role: 'owner' | 'member' }>
+  domains: Array<{
+    slug: string
+    primary: boolean
+    verified: boolean
+  }>
+  flags: Record<string, boolean>
+}
+
+// ... rest of existing code ...
 ```
-
-The implementation includes:
-1. TypedDict definitions for the response and error structures
-2. A properly typed async method with docstring including route information
-3. Error handling that raises ExampleError with detailed error information
-4. Proper type hints for both input and output
-5. Usage of the existing fetch method from the client
-6. Proper handling of the 200 response and error cases

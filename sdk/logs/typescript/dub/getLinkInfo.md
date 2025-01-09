@@ -14,127 +14,49 @@ servers:
   - url: https://api.dub.co
     description: Production API
 paths:
-  /links:
+  /links/info:
     get:
-      operationId: getLinks
-      x-speakeasy-name-override: list
-      x-speakeasy-pagination:
-        type: offsetLimit
-        inputs:
-          - name: page
-            in: parameters
-            type: page
-          - name: pageSize
-            in: parameters
-            type: limit
-        outputs:
-          results: $
-      summary: Retrieve a list of links
-      description: Retrieve a paginated list of links for the authenticated workspace.
+      operationId: getLinkInfo
+      x-speakeasy-name-override: get
+      summary: Retrieve a link
+      description: Retrieve the info for a link.
       tags:
         - Links
       parameters:
         - in: query
           name: domain
-          description: The domain to filter the links by. E.g. `ac.me`. If not provided, all links for the workspace will be returned.
           schema:
             type: string
-            description: The domain to filter the links by. E.g. `ac.me`. If not provided, all links for the workspace will be returned.
+            minLength: 1
+            description: The domain of the link to retrieve. E.g. for `d.to/github`, the domain is `d.to`.
         - in: query
-          name: tagId
-          description: Deprecated. Use `tagIds` instead. The tag ID to filter the links by.
+          name: key
+          description: The key of the link to retrieve. E.g. for `d.to/github`, the key is `github`.
           schema:
             type: string
-            description: Deprecated. Use `tagIds` instead. The tag ID to filter the links by.
-            deprecated: true
+            minLength: 1
+            description: The key of the link to retrieve. E.g. for `d.to/github`, the key is `github`.
         - in: query
-          name: tagIds
-          description: The tag IDs to filter the links by.
-          schema:
-            anyOf:
-              - type: string
-              - type: array
-                items:
-                  type: string
-            description: The tag IDs to filter the links by.
-        - in: query
-          name: tagNames
-          description: The unique name of the tags assigned to the short link (case insensitive).
-          schema:
-            anyOf:
-              - type: string
-              - type: array
-                items:
-                  type: string
-            description: The unique name of the tags assigned to the short link (case insensitive).
-        - in: query
-          name: search
-          description: The search term to filter the links by. The search term will be matched against the short link slug and the destination url.
+          name: linkId
+          description: The unique ID of the short link.
           schema:
             type: string
-            description: The search term to filter the links by. The search term will be matched against the short link slug and the destination url.
+            description: The unique ID of the short link.
+            example: clux0rgak00011...
         - in: query
-          name: userId
-          description: The user ID to filter the links by.
+          name: externalId
+          description: This is the ID of the link in the your database.
           schema:
             type: string
-            description: The user ID to filter the links by.
-        - in: query
-          name: showArchived
-          description: Whether to include archived links in the response. Defaults to `false` if not provided.
-          schema:
-            type: boolean
-            default: 'false'
-            description: Whether to include archived links in the response. Defaults to `false` if not provided.
-        - in: query
-          name: withTags
-          description: DEPRECATED. Filter for links that have at least one tag assigned to them.
-          schema:
-            type: boolean
-            default: 'false'
-            description: DEPRECATED. Filter for links that have at least one tag assigned to them.
-            deprecated: true
-        - in: query
-          name: sort
-          description: The field to sort the links by. The default is `createdAt`, and sort order is always descending.
-          schema:
-            type: string
-            enum:
-              - createdAt
-              - clicks
-              - lastClicked
-            default: createdAt
-            description: The field to sort the links by. The default is `createdAt`, and sort order is always descending.
-        - in: query
-          name: page
-          description: The page number for pagination.
-          schema:
-            type: number
-            minimum: 0
-            exclusiveMinimum: true
-            default: 1
-            description: The page number for pagination.
-            example: 1
-        - in: query
-          name: pageSize
-          description: The number of items per page.
-          schema:
-            type: number
-            minimum: 0
-            exclusiveMinimum: true
-            maximum: 100
-            default: 100
-            description: The number of items per page.
-            example: 50
+            description: This is the ID of the link in the your database.
+            example: '123456'
       responses:
         '200':
-          description: A list of links
+          description: The retrieved link
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/LinkSchema'
+                $ref: '#/components/schemas/LinkSchema'
         '400':
           $ref: '#/components/responses/400'
         '401':
@@ -1410,115 +1332,108 @@ components:
 ---
 Let me break down the implementation step by step:
 
-1. First, we need to define the LinkSchema type based on the OpenAPI schema
-2. Then create a type for the query parameters with all optional fields
-3. Implement the list_links method with proper type hints and error handling
-4. The method should handle pagination parameters and all query filters
-5. We'll use the existing fetch method from ExampleClientAsync
+1. First, we need to define the types for the request parameters and response:
+- Request parameters: domain, key, linkId, externalId (all optional)
+- Response: LinkSchema from the OpenAPI spec
+
+2. We'll create a new method in the ExampleClient class that:
+- Takes the optional parameters
+- Makes a GET request to /links/info
+- Handles the response and error cases
+- Returns the typed response
+
+3. We'll also define the error types based on the OpenAPI spec responses.
 
 Here's the implementation:
 
-```python
-from typing import List, Literal, Optional, TypedDict, Union
-from datetime import datetime
+```typescript:exampleClient.ts
+export class ExampleClient {
+  // ... existing code ...
 
-# Define LinkSchema type based on OpenAPI schema
-class LinkSchema(TypedDict):
-    id: str
-    domain: str
-    key: str
-    url: str
-    trackConversion: bool
-    externalId: Optional[str]
-    archived: bool
-    expiresAt: Optional[datetime]
-    expiredUrl: Optional[str]
-    password: Optional[str]
-    proxy: bool
-    title: Optional[str]
-    description: Optional[str]
-    image: Optional[str]
-    video: Optional[str]
-    rewrite: bool
-    doIndex: bool
-    ios: Optional[str]
-    android: Optional[str]
-    geo: Optional[dict]
-    publicStats: bool
-    tagId: Optional[str]
-    tags: Optional[List[dict]]
-    webhookIds: List[str]
-    comments: Optional[str]
-    shortLink: str
-    qrCode: str
-    utm_source: Optional[str]
-    utm_medium: Optional[str]
-    utm_campaign: Optional[str]
-    utm_term: Optional[str]
-    utm_content: Optional[str]
-    userId: Optional[str]
-    workspaceId: str
-    clicks: int
-    lastClicked: Optional[datetime]
-    leads: int
-    sales: int
-    saleAmount: int
-    createdAt: datetime
-    updatedAt: datetime
-    projectId: str
-    programId: Optional[str]
+  /**
+   * GET /links/info
+   * Retrieve the info for a link.
+   * Tags: Links
+   */
+  async getLinkInfo(params?: {
+    domain?: string;
+    key?: string;
+    linkId?: string;
+    externalId?: string;
+  }): Promise<LinkSchema> {
+    const response = await this.fetch({
+      method: 'GET',
+      path: '/links/info',
+      query: params,
+    });
 
-# Define query parameters type
-class ListLinksQueryParams(TypedDict, total=False):
-    domain: Optional[str]
-    tagId: Optional[str]
-    tagIds: Optional[Union[str, List[str]]]
-    tagNames: Optional[Union[str, List[str]]]
-    search: Optional[str]
-    userId: Optional[str]
-    showArchived: Optional[bool]
-    withTags: Optional[bool]
-    sort: Optional[Literal["createdAt", "clicks", "lastClicked"]]
-    page: Optional[int]
-    pageSize: Optional[int]
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new ExampleError(errorData.error.message, {
+        status: response.status,
+        data: errorData,
+      });
+    }
 
-class ExampleClientAsync:
-    # ... existing code ...
+    return response.json();
+  }
+}
 
-    # GET /links - Retrieve a list of links
-    async def list_links(
-        self,
-        query_params: Optional[ListLinksQueryParams] = None
-    ) -> List[LinkSchema]:
-        """
-        Retrieve a paginated list of links for the authenticated workspace.
-        
-        Route: GET /links
-        Method: GET
-        Tags: Links
-        
-        Args:
-            query_params: Optional query parameters for filtering and pagination
-            
-        Returns:
-            List of LinkSchema objects
-            
-        Raises:
-            ExampleError: If the API returns an error status code
-        """
-        response = await self.fetch(
-            method="GET",
-            path="/links",
-            query=query_params
-        )
-        
-        if response.status != 200:
-            error_data = await response.json()
-            raise ExampleError(
-                error=error_data.get("error", {}).get("message", "Unknown error"),
-                status=response.status,
-                data=error_data
-            )
-            
-        return await response.json()
+// Type definitions
+export interface LinkSchema {
+  id: string;
+  domain: string;
+  key: string;
+  url: string;
+  trackConversion: boolean;
+  externalId: string | null;
+  archived: boolean;
+  expiresAt: string | null;
+  expiredUrl: string | null;
+  password: string | null;
+  proxy: boolean;
+  title: string | null;
+  description: string | null;
+  image: string | null;
+  video: string | null;
+  rewrite: boolean;
+  doIndex: boolean;
+  ios: string | null;
+  android: string | null;
+  geo: Record<string, string> | null;
+  publicStats: boolean;
+  tagId: string | null;
+  tags: TagSchema[] | null;
+  webhookIds: string[];
+  comments: string | null;
+  shortLink: string;
+  qrCode: string;
+  utm_source: string | null;
+  utm_medium: string | null;
+  utm_campaign: string | null;
+  utm_term: string | null;
+  utm_content: string | null;
+  userId: string | null;
+  workspaceId: string;
+  clicks: number;
+  lastClicked: string | null;
+  leads: number;
+  sales: number;
+  saleAmount: number;
+  createdAt: string;
+  updatedAt: string;
+  projectId: string;
+  programId: string | null;
+}
+
+export interface TagSchema {
+  // Define based on your actual TagSchema
+  id: string;
+  name: string;
+  // ... other tag properties
+}
+
+export class ExampleError extends Error {
+  // ... existing code ...
+}
 ```

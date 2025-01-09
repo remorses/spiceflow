@@ -14,36 +14,42 @@ servers:
   - url: https://api.dub.co
     description: Production API
 paths:
-  /links/{linkId}:
+  /links/bulk:
     delete:
-      operationId: deleteLink
-      x-speakeasy-name-override: delete
-      x-speakeasy-max-method-params: 1
-      summary: Delete a link
-      description: Delete a link for the authenticated workspace.
+      operationId: bulkDeleteLinks
+      x-speakeasy-name-override: deleteMany
+      summary: Bulk delete links
+      description: Bulk delete up to 100 links for the authenticated workspace.
       tags:
         - Links
       parameters:
-        - in: path
-          name: linkId
-          description: The id of the link to delete. You may use either `linkId` (obtained via `/links/info` endpoint) or `externalId` prefixed with `ext_`.
+        - in: query
+          name: linkIds
+          description: Comma-separated list of link IDs to delete. Maximum of 100 IDs. Non-existing IDs will be ignored.
+          explode: false
+          style: form
           schema:
-            type: string
-            description: The id of the link to delete. You may use either `linkId` (obtained via `/links/info` endpoint) or `externalId` prefixed with `ext_`.
+            type: array
+            items:
+              type: string
+            description: Comma-separated list of link IDs to delete. Maximum of 100 IDs. Non-existing IDs will be ignored.
+            example:
+              - clux0rgak00011...
+              - clux0rgak00022...
           required: true
       responses:
         '200':
-          description: The deleted link ID.
+          description: The deleted links count.
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  id:
-                    type: string
-                    description: The ID of the link.
+                  deletedCount:
+                    type: number
+                    description: The number of links deleted.
                 required:
-                  - id
+                  - deletedCount
         '400':
           $ref: '#/components/responses/400'
         '401':
@@ -345,76 +351,64 @@ components:
               - error
 
 ---
-Let's break down the implementation step by step:
+Let me break down the implementation step by step:
 
 1. First, we need to define the response type for successful deletion (200 response)
-2. Then we need to define error types based on the error responses
-3. We'll create a method that handles the DELETE request with proper type hints
-4. The method will use the existing fetch method from the client
-5. We'll add proper error handling for different status codes
+2. Then we'll create the method with proper type hints and error handling
+3. The method will use the existing fetch utility
+4. We'll handle the query parameter serialization
+5. Error handling will use the existing ExampleError class
 
 Here's the implementation:
 
 ```python
 # ... existing imports ...
-from typing import TypedDict
+from typing import List, TypedDict
 
-# Response Types
-class DeleteLinkResponse(TypedDict):
-    id: str
+class BulkDeleteLinksResponse(TypedDict):
+    deletedCount: float
 
-# Error Types
-class ErrorDetail(TypedDict):
-    code: str
-    message: str
-    doc_url: Optional[str]
+# ... existing ExampleClientAsync class ...
 
-class APIError(TypedDict):
-    error: ErrorDetail
-
-class ExampleClientAsync:
-    # ... existing code ...
-
-    # DELETE /links/{linkId} - Delete a link
-    async def delete_link(self, link_id: str) -> DeleteLinkResponse:
+    # DELETE /links/bulk - Tags: Links
+    async def delete_many_links(self, link_ids: List[str]) -> BulkDeleteLinksResponse:
         """
-        DELETE /links/{linkId}
-        Method: DELETE
-        Tags: Links
-        
-        Deletes a link for the authenticated workspace.
+        Bulk delete up to 100 links for the authenticated workspace.
         
         Args:
-            link_id: The id of the link to delete. You may use either `linkId` 
-                    (obtained via `/links/info` endpoint) or `externalId` prefixed with `ext_`.
-        
+            link_ids: List of link IDs to delete (max 100)
+            
         Returns:
-            DeleteLinkResponse: The deleted link ID.
-        
+            BulkDeleteLinksResponse with deletedCount
+            
         Raises:
-            ExampleError: If the request fails with status codes 400, 401, 403, 404, 
-                        409, 410, 422, 429, or 500.
+            ExampleError: If the request fails with any 4xx/5xx status code
         """
+        if len(link_ids) > 100:
+            raise ValueError("Maximum of 100 link IDs allowed")
+
         response = await self.fetch(
             method="DELETE",
-            path=f"/links/{link_id}",
+            path="/links/bulk",
+            query={"linkIds": ",".join(link_ids)}
         )
-        
+
         if response.status == 200:
             return await response.json()
-        
-        error_data = await response.json()
-        raise ExampleError(
-            error=error_data.get("error", {}).get("message", "Unknown error"),
-            status=response.status,
-            data=error_data
-        )
+        else:
+            error_data = await response.json()
+            raise ExampleError(
+                error=error_data.get("error", {}).get("message", "Unknown error"),
+                status=response.status,
+                data=error_data
+            )
 ```
 
 The implementation includes:
-1. TypedDict definitions for the response and error structures
-2. A properly typed async method with docstring including route information
-3. Error handling that raises ExampleError with detailed error information
-4. Proper type hints for both input and output
-5. Usage of the existing fetch method from the client
-6. Proper handling of the 200 response and error cases
+- A typed response class for the 200 response
+- Input validation for the maximum number of link IDs
+- Proper query parameter serialization
+- Error handling that uses the existing ExampleError class
+- Full type hints and documentation
+- Async/await compatibility
+- Integration with the existing fetch utility

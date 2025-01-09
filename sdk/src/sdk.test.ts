@@ -7,7 +7,10 @@ import * as YAML from 'js-yaml'
 import { OpenAPIV3 } from 'openapi-types'
 import { Language, languageToExtension } from './types'
 
-const languages: Language[] = ['python', 'typescript']
+const languages: Language[] = [
+  'typescript',
+  'python', //
+]
 
 for (const language of languages) {
   describe(
@@ -39,7 +42,7 @@ for (const language of languages) {
             generatedCode.code,
           )
         },
-        1000 * 100,
+        1000 * 60 * 2,
       )
       it(
         'dub should generate SDK from OpenAPI schema',
@@ -69,7 +72,7 @@ for (const language of languages) {
             generatedCode.code,
           )
         },
-        1000 * 100,
+        1000 * 60 * 10,
       )
       it('should generate SDK from dumb OpenAPI schema', async () => {
         const logFolder = `logs/${language}/dumb`
@@ -155,6 +158,6 @@ for (const language of languages) {
         expect(generatedSdk).not.toContain(routeToRemove2)
       })
     },
-    1000 * 100,
+    60 * 10 * 1000,
   )
 }

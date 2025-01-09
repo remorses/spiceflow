@@ -15,6 +15,7 @@ interface SchemaLocation {
   }
 }
 
+const keysToRemove = ['x-codeSamples']
 
 export function cleanupOpenApi(
   obj: any,
@@ -46,6 +47,9 @@ export function cleanupOpenApi(
   let hasValidProps = false
 
   for (const [key, value] of Object.entries(obj)) {
+    if (keysToRemove.includes(key)) {
+      continue
+    }
     const cleaned = cleanupOpenApi(value, maxLength, [...path, key], removedPaths)
     if (cleaned !== undefined) {
       newObj[key] = cleaned

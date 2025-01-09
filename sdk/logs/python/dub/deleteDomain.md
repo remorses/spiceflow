@@ -14,36 +14,38 @@ servers:
   - url: https://api.dub.co
     description: Production API
 paths:
-  /links/{linkId}:
+  /domains/{slug}:
     delete:
-      operationId: deleteLink
+      operationId: deleteDomain
       x-speakeasy-name-override: delete
       x-speakeasy-max-method-params: 1
-      summary: Delete a link
-      description: Delete a link for the authenticated workspace.
+      summary: Delete a domain
+      description: Delete a domain from a workspace. It cannot be undone. This will also delete all the links associated with the domain.
       tags:
-        - Links
+        - Domains
       parameters:
         - in: path
-          name: linkId
-          description: The id of the link to delete. You may use either `linkId` (obtained via `/links/info` endpoint) or `externalId` prefixed with `ext_`.
+          name: slug
+          description: The domain name.
           schema:
             type: string
-            description: The id of the link to delete. You may use either `linkId` (obtained via `/links/info` endpoint) or `externalId` prefixed with `ext_`.
+            description: The domain name.
+            example: acme.com
           required: true
       responses:
         '200':
-          description: The deleted link ID.
+          description: The domain was deleted.
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  id:
+                  slug:
                     type: string
-                    description: The ID of the link.
+                    description: The domain name.
+                    example: acme.com
                 required:
-                  - id
+                  - slug
         '400':
           $ref: '#/components/responses/400'
         '401':
@@ -348,10 +350,10 @@ components:
 Let's break down the implementation step by step:
 
 1. First, we need to define the response type for successful deletion (200 response)
-2. Then we need to define error types based on the error responses
-3. We'll create a method that handles the DELETE request with proper type hints
-4. The method will use the existing fetch method from the client
-5. We'll add proper error handling for different status codes
+2. We'll need to define error types based on the error responses
+3. The method will need to handle the path parameter (slug)
+4. We'll use the existing fetch method to make the request
+5. We'll add proper error handling for the various status codes
 
 Here's the implementation:
 
@@ -359,11 +361,11 @@ Here's the implementation:
 # ... existing imports ...
 from typing import TypedDict
 
-# Response Types
-class DeleteLinkResponse(TypedDict):
-    id: str
+# Define response types
+class DeleteDomainResponse(TypedDict):
+    slug: str
 
-# Error Types
+# Define error types
 class ErrorDetail(TypedDict):
     code: str
     message: str
@@ -375,46 +377,36 @@ class APIError(TypedDict):
 class ExampleClientAsync:
     # ... existing code ...
 
-    # DELETE /links/{linkId} - Delete a link
-    async def delete_link(self, link_id: str) -> DeleteLinkResponse:
-        """
-        DELETE /links/{linkId}
-        Method: DELETE
-        Tags: Links
-        
-        Deletes a link for the authenticated workspace.
-        
-        Args:
-            link_id: The id of the link to delete. You may use either `linkId` 
-                    (obtained via `/links/info` endpoint) or `externalId` prefixed with `ext_`.
-        
-        Returns:
-            DeleteLinkResponse: The deleted link ID.
-        
-        Raises:
-            ExampleError: If the request fails with status codes 400, 401, 403, 404, 
-                        409, 410, 422, 429, or 500.
-        """
-        response = await self.fetch(
-            method="DELETE",
-            path=f"/links/{link_id}",
-        )
+    # DELETE /domains/{slug} - Delete a domain
+    # Tags: Domains
+    async def delete_domain(self, slug: str) -> DeleteDomainResponse:
+        path = f"/domains/{slug}"
+        response = await self.fetch("DELETE", path)
         
         if response.status == 200:
             return await response.json()
         
         error_data = await response.json()
-        raise ExampleError(
-            error=error_data.get("error", {}).get("message", "Unknown error"),
-            status=response.status,
-            data=error_data
-        )
+        error_message = error_data.get("error", {}).get("message", "Unknown error")
+        
+        if response.status == 400:
+            raise ExampleError(f"Bad Request: {error_message}", 400, error_data)
+        elif response.status == 401:
+            raise ExampleError(f"Unauthorized: {error_message}", 401, error_data)
+        elif response.status == 403:
+            raise ExampleError(f"Forbidden: {error_message}", 403, error_data)
+        elif response.status == 404:
+            raise ExampleError(f"Not Found: {error_message}", 404, error_data)
+        elif response.status == 409:
+            raise ExampleError(f"Conflict: {error_message}", 409, error_data)
+        elif response.status == 410:
+            raise ExampleError(f"Invite Expired: {error_message}", 410, error_data)
+        elif response.status == 422:
+            raise ExampleError(f"Unprocessable Entity: {error_message}", 422, error_data)
+        elif response.status == 429:
+            raise ExampleError(f"Rate Limit Exceeded: {error_message}", 429, error_data)
+        elif response.status == 500:
+            raise ExampleError(f"Internal Server Error: {error_message}", 500, error_data)
+        else:
+            raise ExampleError(f"Unexpected status code: {response.status}", response.status, error_data)
 ```
-
-The implementation includes:
-1. TypedDict definitions for the response and error structures
-2. A properly typed async method with docstring including route information
-3. Error handling that raises ExampleError with detailed error information
-4. Proper type hints for both input and output
-5. Usage of the existing fetch method from the client
-6. Proper handling of the 200 response and error cases

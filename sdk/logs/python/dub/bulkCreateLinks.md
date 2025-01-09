@@ -14,121 +14,171 @@ servers:
   - url: https://api.dub.co
     description: Production API
 paths:
-  /links:
-    get:
-      operationId: getLinks
-      x-speakeasy-name-override: list
-      x-speakeasy-pagination:
-        type: offsetLimit
-        inputs:
-          - name: page
-            in: parameters
-            type: page
-          - name: pageSize
-            in: parameters
-            type: limit
-        outputs:
-          results: $
-      summary: Retrieve a list of links
-      description: Retrieve a paginated list of links for the authenticated workspace.
+  /links/bulk:
+    post:
+      operationId: bulkCreateLinks
+      x-speakeasy-name-override: createMany
+      summary: Bulk create links
+      description: Bulk create up to 100 links for the authenticated workspace.
       tags:
         - Links
-      parameters:
-        - in: query
-          name: domain
-          description: The domain to filter the links by. E.g. `ac.me`. If not provided, all links for the workspace will be returned.
-          schema:
-            type: string
-            description: The domain to filter the links by. E.g. `ac.me`. If not provided, all links for the workspace will be returned.
-        - in: query
-          name: tagId
-          description: Deprecated. Use `tagIds` instead. The tag ID to filter the links by.
-          schema:
-            type: string
-            description: Deprecated. Use `tagIds` instead. The tag ID to filter the links by.
-            deprecated: true
-        - in: query
-          name: tagIds
-          description: The tag IDs to filter the links by.
-          schema:
-            anyOf:
-              - type: string
-              - type: array
-                items:
-                  type: string
-            description: The tag IDs to filter the links by.
-        - in: query
-          name: tagNames
-          description: The unique name of the tags assigned to the short link (case insensitive).
-          schema:
-            anyOf:
-              - type: string
-              - type: array
-                items:
-                  type: string
-            description: The unique name of the tags assigned to the short link (case insensitive).
-        - in: query
-          name: search
-          description: The search term to filter the links by. The search term will be matched against the short link slug and the destination url.
-          schema:
-            type: string
-            description: The search term to filter the links by. The search term will be matched against the short link slug and the destination url.
-        - in: query
-          name: userId
-          description: The user ID to filter the links by.
-          schema:
-            type: string
-            description: The user ID to filter the links by.
-        - in: query
-          name: showArchived
-          description: Whether to include archived links in the response. Defaults to `false` if not provided.
-          schema:
-            type: boolean
-            default: 'false'
-            description: Whether to include archived links in the response. Defaults to `false` if not provided.
-        - in: query
-          name: withTags
-          description: DEPRECATED. Filter for links that have at least one tag assigned to them.
-          schema:
-            type: boolean
-            default: 'false'
-            description: DEPRECATED. Filter for links that have at least one tag assigned to them.
-            deprecated: true
-        - in: query
-          name: sort
-          description: The field to sort the links by. The default is `createdAt`, and sort order is always descending.
-          schema:
-            type: string
-            enum:
-              - createdAt
-              - clicks
-              - lastClicked
-            default: createdAt
-            description: The field to sort the links by. The default is `createdAt`, and sort order is always descending.
-        - in: query
-          name: page
-          description: The page number for pagination.
-          schema:
-            type: number
-            minimum: 0
-            exclusiveMinimum: true
-            default: 1
-            description: The page number for pagination.
-            example: 1
-        - in: query
-          name: pageSize
-          description: The number of items per page.
-          schema:
-            type: number
-            minimum: 0
-            exclusiveMinimum: true
-            maximum: 100
-            default: 100
-            description: The number of items per page.
-            example: 50
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                type: object
+                properties:
+                  url:
+                    type: string
+                    description: The destination URL of the short link.
+                    example: https://google.com
+                  domain:
+                    type: string
+                    maxLength: 190
+                    description: The domain of the short link. If not provided, the primary domain for the workspace will be used (or `dub.sh` if the workspace has no domains).
+                  key:
+                    type: string
+                    maxLength: 190
+                    description: The short link slug. If not provided, a random 7-character slug will be generated.
+                  externalId:
+                    type: string
+                    nullable: true
+                    minLength: 1
+                    maxLength: 255
+                    description: This is the ID of the link in your database. If set, it can be used to identify the link in the future. Must be prefixed with `ext_` when passed as a query parameter.
+                    example: '123456'
+                  prefix:
+                    type: string
+                    description: The prefix of the short link slug for randomly-generated keys (e.g. if prefix is `/c/`, generated keys will be in the `/c/:key` format). Will be ignored if `key` is provided.
+                  trackConversion:
+                    type: boolean
+                    default: false
+                    description: Whether to track conversions for the short link.
+                  archived:
+                    type: boolean
+                    default: false
+                    description: Whether the short link is archived.
+                  publicStats:
+                    type: boolean
+                    default: false
+                    description: 'Deprecated: Use `dashboard` instead. Whether the short link''s stats are publicly accessible.'
+                    deprecated: true
+                  tagId:
+                    type: string
+                    nullable: true
+                    description: The unique ID of the tag assigned to the short link. This field is deprecated – use `tagIds` instead.
+                    deprecated: true
+                  tagIds:
+                    anyOf:
+                      - type: string
+                      - type: array
+                        items:
+                          type: string
+                    description: The unique IDs of the tags assigned to the short link.
+                    example:
+                      - clux0rgak00011...
+                  tagNames:
+                    anyOf:
+                      - type: string
+                      - type: array
+                        items:
+                          type: string
+                    description: The unique name of the tags assigned to the short link (case insensitive).
+                  comments:
+                    type: string
+                    nullable: true
+                    description: The comments for the short link.
+                  expiresAt:
+                    type: string
+                    nullable: true
+                    description: The date and time when the short link will expire at.
+                  expiredUrl:
+                    type: string
+                    nullable: true
+                    description: The URL to redirect to when the short link has expired.
+                  password:
+                    type: string
+                    nullable: true
+                    description: The password required to access the destination URL of the short link.
+                  proxy:
+                    type: boolean
+                    default: false
+                    description: Whether the short link uses Custom Social Media Cards feature.
+                  title:
+                    type: string
+                    nullable: true
+                    description: 'The custom link preview title (og:title). Will be used for Custom Social Media Cards if `proxy` is true. Learn more: https://d.to/og'
+                  description:
+                    type: string
+                    nullable: true
+                    description: 'The custom link preview description (og:description). Will be used for Custom Social Media Cards if `proxy` is true. Learn more: https://d.to/og'
+                  image:
+                    type: string
+                    nullable: true
+                    description: 'The custom link preview image (og:image). Will be used for Custom Social Media Cards if `proxy` is true. Learn more: https://d.to/og'
+                  video:
+                    type: string
+                    nullable: true
+                    description: 'The custom link preview video (og:video). Will be used for Custom Social Media Cards if `proxy` is true. Learn more: https://d.to/og'
+                  rewrite:
+                    type: boolean
+                    default: false
+                    description: Whether the short link uses link cloaking.
+                  ios:
+                    type: string
+                    nullable: true
+                    description: The iOS destination URL for the short link for iOS device targeting.
+                  android:
+                    type: string
+                    nullable: true
+                    description: The Android destination URL for the short link for Android device targeting.
+                  geo:
+                    $ref: '#/components/schemas/linkGeoTargeting'
+                  doIndex:
+                    type: boolean
+                    default: false
+                    description: 'Allow search engines to index your short link. Defaults to `false` if not provided. Learn more: https://d.to/noindex'
+                  utm_source:
+                    type: string
+                    nullable: true
+                    description: The UTM source of the short link. If set, this will populate or override the UTM source in the destination URL.
+                  utm_medium:
+                    type: string
+                    nullable: true
+                    description: The UTM medium of the short link. If set, this will populate or override the UTM medium in the destination URL.
+                  utm_campaign:
+                    type: string
+                    nullable: true
+                    description: The UTM campaign of the short link. If set, this will populate or override the UTM campaign in the destination URL.
+                  utm_term:
+                    type: string
+                    nullable: true
+                    description: The UTM term of the short link. If set, this will populate or override the UTM term in the destination URL.
+                  utm_content:
+                    type: string
+                    nullable: true
+                    description: The UTM content of the short link. If set, this will populate or override the UTM content in the destination URL.
+                  ref:
+                    type: string
+                    nullable: true
+                    description: The referral tag of the short link. If set, this will populate or override the `ref` query parameter in the destination URL.
+                  programId:
+                    type: string
+                    nullable: true
+                    description: The ID of the program the short link is associated with.
+                  webhookIds:
+                    type: array
+                    nullable: true
+                    items:
+                      type: string
+                    description: An array of webhook IDs to trigger when the link is clicked. These webhooks will receive click event data.
+                required:
+                  - url
       responses:
         '200':
-          description: A list of links
+          description: The created links
           content:
             application/json:
               schema:
@@ -1406,119 +1456,607 @@ components:
         - projectId
         - programId
       title: Link
+    linkGeoTargeting:
+      type: object
+      nullable: true
+      properties:
+        AF:
+          type: string
+        AL:
+          type: string
+        DZ:
+          type: string
+        AS:
+          type: string
+        AD:
+          type: string
+        AO:
+          type: string
+        AI:
+          type: string
+        AQ:
+          type: string
+        AG:
+          type: string
+        AR:
+          type: string
+        AM:
+          type: string
+        AW:
+          type: string
+        AU:
+          type: string
+        AT:
+          type: string
+        AZ:
+          type: string
+        BS:
+          type: string
+        BH:
+          type: string
+        BD:
+          type: string
+        BB:
+          type: string
+        BY:
+          type: string
+        BE:
+          type: string
+        BZ:
+          type: string
+        BJ:
+          type: string
+        BM:
+          type: string
+        BT:
+          type: string
+        BO:
+          type: string
+        BA:
+          type: string
+        BW:
+          type: string
+        BV:
+          type: string
+        BR:
+          type: string
+        IO:
+          type: string
+        BN:
+          type: string
+        BG:
+          type: string
+        BF:
+          type: string
+        BI:
+          type: string
+        KH:
+          type: string
+        CM:
+          type: string
+        CA:
+          type: string
+        CV:
+          type: string
+        KY:
+          type: string
+        CF:
+          type: string
+        TD:
+          type: string
+        CL:
+          type: string
+        CN:
+          type: string
+        CX:
+          type: string
+        CC:
+          type: string
+        CO:
+          type: string
+        KM:
+          type: string
+        CG:
+          type: string
+        CD:
+          type: string
+        CK:
+          type: string
+        CR:
+          type: string
+        CI:
+          type: string
+        HR:
+          type: string
+        CU:
+          type: string
+        CY:
+          type: string
+        CZ:
+          type: string
+        DK:
+          type: string
+        DJ:
+          type: string
+        DM:
+          type: string
+        DO:
+          type: string
+        EC:
+          type: string
+        EG:
+          type: string
+        SV:
+          type: string
+        GQ:
+          type: string
+        ER:
+          type: string
+        EE:
+          type: string
+        ET:
+          type: string
+        FK:
+          type: string
+        FO:
+          type: string
+        FJ:
+          type: string
+        FI:
+          type: string
+        FR:
+          type: string
+        GF:
+          type: string
+        PF:
+          type: string
+        TF:
+          type: string
+        GA:
+          type: string
+        GM:
+          type: string
+        GE:
+          type: string
+        DE:
+          type: string
+        GH:
+          type: string
+        GI:
+          type: string
+        GR:
+          type: string
+        GL:
+          type: string
+        GD:
+          type: string
+        GP:
+          type: string
+        GU:
+          type: string
+        GT:
+          type: string
+        GN:
+          type: string
+        GW:
+          type: string
+        GY:
+          type: string
+        HT:
+          type: string
+        HM:
+          type: string
+        VA:
+          type: string
+        HN:
+          type: string
+        HK:
+          type: string
+        HU:
+          type: string
+        IS:
+          type: string
+        IN:
+          type: string
+        ID:
+          type: string
+        IR:
+          type: string
+        IQ:
+          type: string
+        IE:
+          type: string
+        IL:
+          type: string
+        IT:
+          type: string
+        JM:
+          type: string
+        JP:
+          type: string
+        JO:
+          type: string
+        KZ:
+          type: string
+        KE:
+          type: string
+        KI:
+          type: string
+        KP:
+          type: string
+        KR:
+          type: string
+        KW:
+          type: string
+        KG:
+          type: string
+        LA:
+          type: string
+        LV:
+          type: string
+        LB:
+          type: string
+        LS:
+          type: string
+        LR:
+          type: string
+        LY:
+          type: string
+        LI:
+          type: string
+        LT:
+          type: string
+        LU:
+          type: string
+        MO:
+          type: string
+        MG:
+          type: string
+        MW:
+          type: string
+        MY:
+          type: string
+        MV:
+          type: string
+        ML:
+          type: string
+        MT:
+          type: string
+        MH:
+          type: string
+        MQ:
+          type: string
+        MR:
+          type: string
+        MU:
+          type: string
+        YT:
+          type: string
+        MX:
+          type: string
+        FM:
+          type: string
+        MD:
+          type: string
+        MC:
+          type: string
+        MN:
+          type: string
+        MS:
+          type: string
+        MA:
+          type: string
+        MZ:
+          type: string
+        MM:
+          type: string
+        NA:
+          type: string
+        NR:
+          type: string
+        NP:
+          type: string
+        NL:
+          type: string
+        NC:
+          type: string
+        NZ:
+          type: string
+        NI:
+          type: string
+        NE:
+          type: string
+        NG:
+          type: string
+        NU:
+          type: string
+        NF:
+          type: string
+        MK:
+          type: string
+        MP:
+          type: string
+        'NO':
+          type: string
+        OM:
+          type: string
+        PK:
+          type: string
+        PW:
+          type: string
+        PS:
+          type: string
+        PA:
+          type: string
+        PG:
+          type: string
+        PY:
+          type: string
+        PE:
+          type: string
+        PH:
+          type: string
+        PN:
+          type: string
+        PL:
+          type: string
+        PT:
+          type: string
+        PR:
+          type: string
+        QA:
+          type: string
+        RE:
+          type: string
+        RO:
+          type: string
+        RU:
+          type: string
+        RW:
+          type: string
+        SH:
+          type: string
+        KN:
+          type: string
+        LC:
+          type: string
+        PM:
+          type: string
+        VC:
+          type: string
+        WS:
+          type: string
+        SM:
+          type: string
+        ST:
+          type: string
+        SA:
+          type: string
+        SN:
+          type: string
+        SC:
+          type: string
+        SL:
+          type: string
+        SG:
+          type: string
+        SK:
+          type: string
+        SI:
+          type: string
+        SB:
+          type: string
+        SO:
+          type: string
+        ZA:
+          type: string
+        GS:
+          type: string
+        ES:
+          type: string
+        LK:
+          type: string
+        SD:
+          type: string
+        SR:
+          type: string
+        SJ:
+          type: string
+        SZ:
+          type: string
+        SE:
+          type: string
+        CH:
+          type: string
+        SY:
+          type: string
+        TW:
+          type: string
+        TJ:
+          type: string
+        TZ:
+          type: string
+        TH:
+          type: string
+        TL:
+          type: string
+        TG:
+          type: string
+        TK:
+          type: string
+        TO:
+          type: string
+        TT:
+          type: string
+        TN:
+          type: string
+        TR:
+          type: string
+        TM:
+          type: string
+        TC:
+          type: string
+        TV:
+          type: string
+        UG:
+          type: string
+        UA:
+          type: string
+        AE:
+          type: string
+        GB:
+          type: string
+        US:
+          type: string
+        UM:
+          type: string
+        UY:
+          type: string
+        UZ:
+          type: string
+        VU:
+          type: string
+        VE:
+          type: string
+        VN:
+          type: string
+        VG:
+          type: string
+        VI:
+          type: string
+        WF:
+          type: string
+        EH:
+          type: string
+        YE:
+          type: string
+        ZM:
+          type: string
+        ZW:
+          type: string
+        AX:
+          type: string
+        BQ:
+          type: string
+        CW:
+          type: string
+        GG:
+          type: string
+        IM:
+          type: string
+        JE:
+          type: string
+        ME:
+          type: string
+        BL:
+          type: string
+        MF:
+          type: string
+        RS:
+          type: string
+        SX:
+          type: string
+        SS:
+          type: string
+        XK:
+          type: string
+      additionalProperties: false
+      description: 'Geo targeting information for the short link in JSON format `{[COUNTRY]: https://example.com }`.'
 
 ---
 Let me break down the implementation step by step:
 
-1. First, we need to define the LinkSchema type based on the OpenAPI schema
-2. Then create a type for the query parameters with all optional fields
-3. Implement the list_links method with proper type hints and error handling
-4. The method should handle pagination parameters and all query filters
-5. We'll use the existing fetch method from ExampleClientAsync
+1. First, we need to define the types for the request and response:
+- Create a `BulkCreateLinkRequest` type for the request body
+- Use the existing `LinkSchema` type for the response
+
+2. The method needs to:
+- Accept a list of link creation requests
+- Make a POST request to `/links/bulk`
+- Handle the response and return the created links
+- Include proper error handling
+
+3. We'll add this as a method to the existing `ExampleClientAsync` class
 
 Here's the implementation:
 
 ```python
-from typing import List, Literal, Optional, TypedDict, Union
-from datetime import datetime
+from typing import List, Optional, TypedDict, Union
 
-# Define LinkSchema type based on OpenAPI schema
-class LinkSchema(TypedDict):
-    id: str
-    domain: str
-    key: str
+class BulkCreateLinkRequest(TypedDict, total=False):
     url: str
-    trackConversion: bool
+    domain: Optional[str]
+    key: Optional[str]
     externalId: Optional[str]
-    archived: bool
-    expiresAt: Optional[datetime]
+    prefix: Optional[str]
+    trackConversion: Optional[bool]
+    archived: Optional[bool]
+    publicStats: Optional[bool]
+    tagId: Optional[str]
+    tagIds: Optional[Union[str, List[str]]]
+    tagNames: Optional[Union[str, List[str]]]
+    comments: Optional[str]
+    expiresAt: Optional[str]
     expiredUrl: Optional[str]
     password: Optional[str]
-    proxy: bool
+    proxy: Optional[bool]
     title: Optional[str]
     description: Optional[str]
     image: Optional[str]
     video: Optional[str]
-    rewrite: bool
-    doIndex: bool
+    rewrite: Optional[bool]
     ios: Optional[str]
     android: Optional[str]
-    geo: Optional[dict]
-    publicStats: bool
-    tagId: Optional[str]
-    tags: Optional[List[dict]]
-    webhookIds: List[str]
-    comments: Optional[str]
-    shortLink: str
-    qrCode: str
+    geo: Optional[Dict[str, str]]
+    doIndex: Optional[bool]
     utm_source: Optional[str]
     utm_medium: Optional[str]
     utm_campaign: Optional[str]
     utm_term: Optional[str]
     utm_content: Optional[str]
-    userId: Optional[str]
-    workspaceId: str
-    clicks: int
-    lastClicked: Optional[datetime]
-    leads: int
-    sales: int
-    saleAmount: int
-    createdAt: datetime
-    updatedAt: datetime
-    projectId: str
+    ref: Optional[str]
     programId: Optional[str]
-
-# Define query parameters type
-class ListLinksQueryParams(TypedDict, total=False):
-    domain: Optional[str]
-    tagId: Optional[str]
-    tagIds: Optional[Union[str, List[str]]]
-    tagNames: Optional[Union[str, List[str]]]
-    search: Optional[str]
-    userId: Optional[str]
-    showArchived: Optional[bool]
-    withTags: Optional[bool]
-    sort: Optional[Literal["createdAt", "clicks", "lastClicked"]]
-    page: Optional[int]
-    pageSize: Optional[int]
+    webhookIds: Optional[List[str]]
 
 class ExampleClientAsync:
     # ... existing code ...
 
-    # GET /links - Retrieve a list of links
-    async def list_links(
-        self,
-        query_params: Optional[ListLinksQueryParams] = None
+    # POST /links/bulk - Bulk create links
+    # Tags: Links
+    async def create_many_links(
+        self, links: List[BulkCreateLinkRequest]
     ) -> List[LinkSchema]:
-        """
-        Retrieve a paginated list of links for the authenticated workspace.
-        
-        Route: GET /links
-        Method: GET
-        Tags: Links
-        
-        Args:
-            query_params: Optional query parameters for filtering and pagination
+        if len(links) > 100:
+            raise ValueError("Cannot create more than 100 links at once")
             
-        Returns:
-            List of LinkSchema objects
-            
-        Raises:
-            ExampleError: If the API returns an error status code
-        """
         response = await self.fetch(
-            method="GET",
-            path="/links",
-            query=query_params
+            method="POST",
+            path="/links/bulk",
+            body=links
         )
         
         if response.status != 200:
-            error_data = await response.json()
-            raise ExampleError(
-                error=error_data.get("error", {}).get("message", "Unknown error"),
-                status=response.status,
-                data=error_data
-            )
-            
+            try:
+                error_data = await response.json()
+                raise ExampleError(
+                    error=error_data.get("error", {}).get("message", "Unknown error"),
+                    status=response.status,
+                    data=error_data
+                )
+            except (ValueError, KeyError):
+                raise ExampleError(
+                    error=f"Unexpected status code: {response.status}",
+                    status=response.status
+                )
+                
         return await response.json()
 ```
+
+The implementation includes:
+- Type definitions for the request body
+- Input validation for the maximum number of links
+- Proper error handling with the existing ExampleError class
+- Integration with the existing fetch method
+- Type hints for both request and response
+- Documentation comment with route information
+- Proper handling of the 200 response and error cases

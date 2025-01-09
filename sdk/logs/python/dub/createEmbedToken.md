@@ -14,36 +14,40 @@ servers:
   - url: https://api.dub.co
     description: Production API
 paths:
-  /links/{linkId}:
-    delete:
-      operationId: deleteLink
-      x-speakeasy-name-override: delete
-      x-speakeasy-max-method-params: 1
-      summary: Delete a link
-      description: Delete a link for the authenticated workspace.
+  /tokens/embed:
+    post:
+      operationId: createEmbedToken
+      x-speakeasy-name-override: create
+      summary: Create a new embed token
+      description: Create a new embed token for the referral link.
       tags:
-        - Links
-      parameters:
-        - in: path
-          name: linkId
-          description: The id of the link to delete. You may use either `linkId` (obtained via `/links/info` endpoint) or `externalId` prefixed with `ext_`.
-          schema:
-            type: string
-            description: The id of the link to delete. You may use either `linkId` (obtained via `/links/info` endpoint) or `externalId` prefixed with `ext_`.
-          required: true
+        - Embed Tokens
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                linkId:
+                  type: string
+                  minLength: 1
+              required:
+                - linkId
       responses:
-        '200':
-          description: The deleted link ID.
+        '201':
+          description: The created public embed token.
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  id:
+                  publicToken:
                     type: string
-                    description: The ID of the link.
+                  expires:
+                    type: string
                 required:
-                  - id
+                  - publicToken
+                  - expires
         '400':
           $ref: '#/components/responses/400'
         '401':
@@ -347,62 +351,63 @@ components:
 ---
 Let's break down the implementation step by step:
 
-1. First, we need to define the response type for successful deletion (200 response)
-2. Then we need to define error types based on the error responses
-3. We'll create a method that handles the DELETE request with proper type hints
-4. The method will use the existing fetch method from the client
-5. We'll add proper error handling for different status codes
+1. First, we need to define the request and response types based on the OpenAPI schema:
+- Request: Requires a `linkId` string field
+- Response: Contains `publicToken` and `expires` string fields
+
+2. We'll create specific types for these:
+- `CreateEmbedTokenRequest` for the request body
+- `CreateEmbedTokenResponse` for the successful response
+- Error types will use the existing `ExampleError` class
+
+3. The method will:
+- Be async using aiohttp
+- Include type hints
+- Handle request serialization
+- Parse the response
+- Raise appropriate errors
 
 Here's the implementation:
 
 ```python
-# ... existing imports ...
 from typing import TypedDict
 
-# Response Types
-class DeleteLinkResponse(TypedDict):
-    id: str
+# Define request and response types
+class CreateEmbedTokenRequest(TypedDict):
+    linkId: str
 
-# Error Types
-class ErrorDetail(TypedDict):
-    code: str
-    message: str
-    doc_url: Optional[str]
-
-class APIError(TypedDict):
-    error: ErrorDetail
+class CreateEmbedTokenResponse(TypedDict):
+    publicToken: str
+    expires: str
 
 class ExampleClientAsync:
     # ... existing code ...
 
-    # DELETE /links/{linkId} - Delete a link
-    async def delete_link(self, link_id: str) -> DeleteLinkResponse:
-        """
-        DELETE /links/{linkId}
-        Method: DELETE
-        Tags: Links
-        
-        Deletes a link for the authenticated workspace.
+    # POST /tokens/embed - Create a new embed token
+    # Tags: Embed Tokens
+    async def create_embed_token(self, link_id: str) -> CreateEmbedTokenResponse:
+        """Create a new embed token for the referral link.
         
         Args:
-            link_id: The id of the link to delete. You may use either `linkId` 
-                    (obtained via `/links/info` endpoint) or `externalId` prefixed with `ext_`.
-        
+            link_id: The ID of the link to create an embed token for
+            
         Returns:
-            DeleteLinkResponse: The deleted link ID.
-        
+            CreateEmbedTokenResponse: The created public embed token
+            
         Raises:
-            ExampleError: If the request fails with status codes 400, 401, 403, 404, 
-                        409, 410, 422, 429, or 500.
+            ExampleError: If the request fails with any status code
         """
+        request_body: CreateEmbedTokenRequest = {"linkId": link_id}
+        
         response = await self.fetch(
-            method="DELETE",
-            path=f"/links/{link_id}",
+            method="POST",
+            path="/tokens/embed",
+            body=request_body
         )
         
-        if response.status == 200:
+        if response.status == 201:
             return await response.json()
-        
+            
         error_data = await response.json()
         raise ExampleError(
             error=error_data.get("error", {}).get("message", "Unknown error"),
@@ -410,11 +415,3 @@ class ExampleClientAsync:
             data=error_data
         )
 ```
-
-The implementation includes:
-1. TypedDict definitions for the response and error structures
-2. A properly typed async method with docstring including route information
-3. Error handling that raises ExampleError with detailed error information
-4. Proper type hints for both input and output
-5. Usage of the existing fetch method from the client
-6. Proper handling of the 200 response and error cases

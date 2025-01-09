@@ -14,36 +14,68 @@ servers:
   - url: https://api.dub.co
     description: Production API
 paths:
-  /links/{linkId}:
-    delete:
-      operationId: deleteLink
-      x-speakeasy-name-override: delete
-      x-speakeasy-max-method-params: 1
-      summary: Delete a link
-      description: Delete a link for the authenticated workspace.
+  /domains/{slug}:
+    patch:
+      operationId: updateDomain
+      x-speakeasy-name-override: update
+      x-speakeasy-max-method-params: 2
+      summary: Update a domain
+      description: Update a domain for the authenticated workspace.
       tags:
-        - Links
+        - Domains
       parameters:
         - in: path
-          name: linkId
-          description: The id of the link to delete. You may use either `linkId` (obtained via `/links/info` endpoint) or `externalId` prefixed with `ext_`.
+          name: slug
+          description: The domain name.
           schema:
             type: string
-            description: The id of the link to delete. You may use either `linkId` (obtained via `/links/info` endpoint) or `externalId` prefixed with `ext_`.
+            description: The domain name.
+            example: acme.com
           required: true
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                slug:
+                  type: string
+                  minLength: 1
+                  maxLength: 190
+                  description: Name of the domain.
+                  example: acme.com
+                expiredUrl:
+                  type: string
+                  nullable: true
+                  description: Redirect users to a specific URL when any link under this domain has expired.
+                  example: https://acme.com/expired
+                notFoundUrl:
+                  type: string
+                  nullable: true
+                  description: Redirect users to a specific URL when a link under this domain doesn't exist.
+                  example: https://acme.com/not-found
+                archived:
+                  type: boolean
+                  default: false
+                  description: Whether to archive this domain. `false` will unarchive a previously archived domain.
+                  example: false
+                placeholder:
+                  type: string
+                  nullable: true
+                  maxLength: 100
+                  description: Provide context to your teammates in the link creation modal by showing them an example of a link to be shortened.
+                  example: https://dub.co/help/article/what-is-dub
+                logo:
+                  type: string
+                  nullable: true
+                  description: The logo of the domain.
       responses:
         '200':
-          description: The deleted link ID.
+          description: The domain was updated.
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  id:
-                    type: string
-                    description: The ID of the link.
-                required:
-                  - id
+                $ref: '#/components/schemas/DomainSchema'
         '400':
           $ref: '#/components/responses/400'
         '401':
@@ -343,78 +375,171 @@ components:
                   - message
             required:
               - error
+  schemas:
+    DomainSchema:
+      type: object
+      properties:
+        id:
+          type: string
+          description: The unique identifier of the domain.
+        slug:
+          type: string
+          description: The domain name.
+          example: acme.com
+        verified:
+          type: boolean
+          default: false
+          description: Whether the domain is verified.
+        primary:
+          type: boolean
+          default: false
+          description: Whether the domain is the primary domain for the workspace.
+        archived:
+          type: boolean
+          description: Whether the domain is archived.
+          default: false
+        placeholder:
+          type: string
+          nullable: true
+          description: Provide context to your teammates in the link creation modal by showing them an example of a link to be shortened.
+          example: https://dub.co/help/article/what-is-dub
+        expiredUrl:
+          type: string
+          nullable: true
+          description: The URL to redirect to when a link under this domain has expired.
+          example: https://acme.com/expired
+        notFoundUrl:
+          type: string
+          nullable: true
+          description: The URL to redirect to when a link under this domain doesn't exist.
+          example: https://acme.com/not-found
+        logo:
+          type: string
+          nullable: true
+          description: The logo of the domain.
+        createdAt:
+          type: string
+          description: The date the domain was created.
+        updatedAt:
+          type: string
+          description: The date the domain was last updated.
+        registeredDomain:
+          type: object
+          nullable: true
+          properties:
+            id:
+              type: string
+              description: The ID of the registered domain record.
+            createdAt:
+              type: string
+              description: The date the domain was created.
+            expiresAt:
+              type: string
+              description: The date the domain expires.
+          required:
+            - id
+            - createdAt
+            - expiresAt
+          description: The registered domain record.
+      required:
+        - id
+        - slug
+        - verified
+        - primary
+        - archived
+        - placeholder
+        - expiredUrl
+        - notFoundUrl
+        - logo
+        - createdAt
+        - updatedAt
+        - registeredDomain
 
 ---
 Let's break down the implementation step by step:
 
-1. First, we need to define the response type for successful deletion (200 response)
-2. Then we need to define error types based on the error responses
-3. We'll create a method that handles the DELETE request with proper type hints
-4. The method will use the existing fetch method from the client
-5. We'll add proper error handling for different status codes
+1. First, we need to define the types for:
+   - Request body (UpdateDomainRequest)
+   - Response type (DomainSchema)
+   - Error types (based on the error responses)
+
+2. The method needs to:
+   - Accept the domain slug as a path parameter
+   - Accept an optional request body
+   - Make a PATCH request using the existing fetch method
+   - Handle the response and error cases
+
+3. We'll add the method to the ExampleClient class
 
 Here's the implementation:
 
-```python
-# ... existing imports ...
-from typing import TypedDict
+```typescript:example-client.ts
+// ... existing code ...
 
-# Response Types
-class DeleteLinkResponse(TypedDict):
-    id: str
+export class ExampleClient {
+  // ... existing code ...
 
-# Error Types
-class ErrorDetail(TypedDict):
-    code: str
-    message: str
-    doc_url: Optional[str]
+  /**
+   * PATCH /domains/{slug}
+   * @tags Domains
+   * @summary Update a domain
+   * @description Update a domain for the authenticated workspace.
+   */
+  async updateDomain(
+    slug: string,
+    body?: {
+      slug?: string
+      expiredUrl?: string | null
+      notFoundUrl?: string | null
+      archived?: boolean
+      placeholder?: string | null
+      logo?: string | null
+    }
+  ): Promise<{
+    id: string
+    slug: string
+    verified: boolean
+    primary: boolean
+    archived: boolean
+    placeholder: string | null
+    expiredUrl: string | null
+    notFoundUrl: string | null
+    logo: string | null
+    createdAt: string
+    updatedAt: string
+    registeredDomain: {
+      id: string
+      createdAt: string
+      expiresAt: string
+    } | null
+  }> {
+    const response = await this.fetch({
+      method: 'PATCH',
+      path: `/domains/${slug}`,
+      body
+    })
 
-class APIError(TypedDict):
-    error: ErrorDetail
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => null)
+      throw new ExampleError(errorData?.error?.message || 'Failed to update domain', {
+        status: response.status,
+        data: errorData
+      })
+    }
 
-class ExampleClientAsync:
-    # ... existing code ...
+    return response.json()
+  }
+}
 
-    # DELETE /links/{linkId} - Delete a link
-    async def delete_link(self, link_id: str) -> DeleteLinkResponse:
-        """
-        DELETE /links/{linkId}
-        Method: DELETE
-        Tags: Links
-        
-        Deletes a link for the authenticated workspace.
-        
-        Args:
-            link_id: The id of the link to delete. You may use either `linkId` 
-                    (obtained via `/links/info` endpoint) or `externalId` prefixed with `ext_`.
-        
-        Returns:
-            DeleteLinkResponse: The deleted link ID.
-        
-        Raises:
-            ExampleError: If the request fails with status codes 400, 401, 403, 404, 
-                        409, 410, 422, 429, or 500.
-        """
-        response = await self.fetch(
-            method="DELETE",
-            path=f"/links/{link_id}",
-        )
-        
-        if response.status == 200:
-            return await response.json()
-        
-        error_data = await response.json()
-        raise ExampleError(
-            error=error_data.get("error", {}).get("message", "Unknown error"),
-            status=response.status,
-            data=error_data
-        )
+// ... existing code ...
 ```
 
 The implementation includes:
-1. TypedDict definitions for the response and error structures
-2. A properly typed async method with docstring including route information
-3. Error handling that raises ExampleError with detailed error information
-4. Proper type hints for both input and output
-5. Usage of the existing fetch method from the client
-6. Proper handling of the 200 response and error cases
+- A well-documented method with OpenAPI route details
+- Strong typing for both input and output
+- Proper error handling using the existing ExampleError class
+- Integration with the existing fetch method
+- Support for all optional request body fields
+- Full response type based on the DomainSchema
+
+The code maintains compatibility with both browser and Node.js environments by using standard fetch API and avoiding platform-specific dependencies.

@@ -14,36 +14,124 @@ servers:
   - url: https://api.dub.co
     description: Production API
 paths:
-  /links/{linkId}:
-    delete:
-      operationId: deleteLink
-      x-speakeasy-name-override: delete
-      x-speakeasy-max-method-params: 1
-      summary: Delete a link
-      description: Delete a link for the authenticated workspace.
+  /track/sale:
+    post:
+      operationId: trackSale
+      x-speakeasy-name-override: sale
+      summary: Track a sale
+      description: Track a sale for a short link.
       tags:
-        - Links
-      parameters:
-        - in: path
-          name: linkId
-          description: The id of the link to delete. You may use either `linkId` (obtained via `/links/info` endpoint) or `externalId` prefixed with `ext_`.
-          schema:
-            type: string
-            description: The id of the link to delete. You may use either `linkId` (obtained via `/links/info` endpoint) or `externalId` prefixed with `ext_`.
-          required: true
+        - Track
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                externalId:
+                  type: string
+                  maxLength: 100
+                  default: ''
+                  description: This is the unique identifier for the customer in the client's app. This is used to track the customer's journey.
+                customerId:
+                  type: string
+                  nullable: true
+                  maxLength: 100
+                  default: null
+                  description: This is the unique identifier for the customer in the client's app. This is used to track the customer's journey.
+                  deprecated: true
+                amount:
+                  type: integer
+                  minimum: 0
+                  description: The amount of the sale. Should be passed in cents.
+                paymentProcessor:
+                  type: string
+                  enum:
+                    - stripe
+                    - shopify
+                    - paddle
+                  description: The payment processor via which the sale was made.
+                eventName:
+                  type: string
+                  maxLength: 50
+                  default: Purchase
+                  description: The name of the sale event. It can be used to track different types of event for example 'Purchase', 'Upgrade', 'Payment', etc.
+                  example: Purchase
+                invoiceId:
+                  type: string
+                  nullable: true
+                  default: null
+                  description: The invoice ID of the sale.
+                currency:
+                  type: string
+                  default: usd
+                  description: The currency of the sale. Accepts ISO 4217 currency codes.
+                metadata:
+                  type: object
+                  nullable: true
+                  default: null
+                  description: Additional metadata to be stored with the sale event.
+              required:
+                - amount
+                - paymentProcessor
       responses:
         '200':
-          description: The deleted link ID.
+          description: A sale was tracked.
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  id:
+                  eventName:
                     type: string
-                    description: The ID of the link.
+                  customer:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      name:
+                        type: string
+                        nullable: true
+                      email:
+                        type: string
+                        nullable: true
+                      avatar:
+                        type: string
+                        nullable: true
+                      externalId:
+                        type: string
+                        nullable: true
+                    required:
+                      - id
+                      - name
+                      - email
+                      - avatar
+                      - externalId
+                  sale:
+                    type: object
+                    properties:
+                      amount:
+                        type: number
+                      currency:
+                        type: string
+                      paymentProcessor:
+                        type: string
+                      invoiceId:
+                        type: string
+                        nullable: true
+                      metadata:
+                        type: object
+                        nullable: true
+                    required:
+                      - amount
+                      - currency
+                      - paymentProcessor
+                      - invoiceId
+                      - metadata
                 required:
-                  - id
+                  - eventName
+                  - customer
+                  - sale
         '400':
           $ref: '#/components/responses/400'
         '401':
@@ -345,76 +433,156 @@ components:
               - error
 
 ---
-Let's break down the implementation step by step:
+Let me break down the implementation step by step:
 
-1. First, we need to define the response type for successful deletion (200 response)
-2. Then we need to define error types based on the error responses
-3. We'll create a method that handles the DELETE request with proper type hints
-4. The method will use the existing fetch method from the client
-5. We'll add proper error handling for different status codes
+1. First, we need to define the request and response types based on the OpenAPI schema:
+- Request body type with required and optional fields
+- Response type with nested customer and sale objects
+- Error response types for different status codes
+
+2. We'll create a new method in the ExampleClient class that:
+- Takes the request body as input
+- Makes a POST request to /track/sale
+- Handles successful responses and error cases
+- Returns properly typed response data
+
+3. The implementation will:
+- Use the existing fetch method
+- Include proper type annotations
+- Handle request/response serialization
+- Include error handling
 
 Here's the implementation:
 
-```python
-# ... existing imports ...
-from typing import TypedDict
+```typescript:exampleClient.ts
+export class ExampleClient {
+  // ... existing code ...
 
-# Response Types
-class DeleteLinkResponse(TypedDict):
-    id: str
+  /**
+   * POST /track/sale
+   * @tags Track
+   * @summary Track a sale
+   * @description Track a sale for a short link.
+   */
+  async trackSale(
+    request: {
+      externalId?: string
+      customerId?: string | null
+      amount: number
+      paymentProcessor: 'stripe' | 'shopify' | 'paddle'
+      eventName?: string
+      invoiceId?: string | null
+      currency?: string
+      metadata?: Record<string, any> | null
+    }
+  ): Promise<{
+    eventName: string
+    customer: {
+      id: string
+      name: string | null
+      email: string | null
+      avatar: string | null
+      externalId: string | null
+    }
+    sale: {
+      amount: number
+      currency: string
+      paymentProcessor: string
+      invoiceId: string | null
+      metadata: Record<string, any> | null
+    }
+  }> {
+    const response = await this.fetch({
+      method: 'POST',
+      path: '/track/sale',
+      body: request
+    })
 
-# Error Types
-class ErrorDetail(TypedDict):
-    code: str
-    message: str
-    doc_url: Optional[str]
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => null)
+      throw new ExampleError(
+        errorData?.error?.message || 'Failed to track sale',
+        {
+          status: response.status,
+          data: errorData
+        }
+      )
+    }
 
-class APIError(TypedDict):
-    error: ErrorDetail
+    return response.json()
+  }
+}
 
-class ExampleClientAsync:
-    # ... existing code ...
+// Error types for reference
+type BadRequestError = {
+  error: {
+    code: 'bad_request'
+    message: string
+    doc_url: string
+  }
+}
 
-    # DELETE /links/{linkId} - Delete a link
-    async def delete_link(self, link_id: str) -> DeleteLinkResponse:
-        """
-        DELETE /links/{linkId}
-        Method: DELETE
-        Tags: Links
-        
-        Deletes a link for the authenticated workspace.
-        
-        Args:
-            link_id: The id of the link to delete. You may use either `linkId` 
-                    (obtained via `/links/info` endpoint) or `externalId` prefixed with `ext_`.
-        
-        Returns:
-            DeleteLinkResponse: The deleted link ID.
-        
-        Raises:
-            ExampleError: If the request fails with status codes 400, 401, 403, 404, 
-                        409, 410, 422, 429, or 500.
-        """
-        response = await self.fetch(
-            method="DELETE",
-            path=f"/links/{link_id}",
-        )
-        
-        if response.status == 200:
-            return await response.json()
-        
-        error_data = await response.json()
-        raise ExampleError(
-            error=error_data.get("error", {}).get("message", "Unknown error"),
-            status=response.status,
-            data=error_data
-        )
+type UnauthorizedError = {
+  error: {
+    code: 'unauthorized'
+    message: string
+    doc_url: string
+  }
+}
+
+type ForbiddenError = {
+  error: {
+    code: 'forbidden'
+    message: string
+    doc_url: string
+  }
+}
+
+type NotFoundError = {
+  error: {
+    code: 'not_found'
+    message: string
+    doc_url: string
+  }
+}
+
+type ConflictError = {
+  error: {
+    code: 'conflict'
+    message: string
+    doc_url: string
+  }
+}
+
+type InviteExpiredError = {
+  error: {
+    code: 'invite_expired'
+    message: string
+    doc_url: string
+  }
+}
+
+type UnprocessableEntityError = {
+  error: {
+    code: 'unprocessable_entity'
+    message: string
+    doc_url: string
+  }
+}
+
+type RateLimitExceededError = {
+  error: {
+    code: 'rate_limit_exceeded'
+    message: string
+    doc_url: string
+  }
+}
+
+type InternalServerError = {
+  error: {
+    code: 'internal_server_error'
+    message: string
+    doc_url: string
+  }
+}
 ```
-
-The implementation includes:
-1. TypedDict definitions for the response and error structures
-2. A properly typed async method with docstring including route information
-3. Error handling that raises ExampleError with detailed error information
-4. Proper type hints for both input and output
-5. Usage of the existing fetch method from the client
-6. Proper handling of the 200 response and error cases

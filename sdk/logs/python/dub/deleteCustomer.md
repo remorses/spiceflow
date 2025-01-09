@@ -14,26 +14,26 @@ servers:
   - url: https://api.dub.co
     description: Production API
 paths:
-  /links/{linkId}:
+  /customers/{id}:
     delete:
-      operationId: deleteLink
+      operationId: deleteCustomer
       x-speakeasy-name-override: delete
       x-speakeasy-max-method-params: 1
-      summary: Delete a link
-      description: Delete a link for the authenticated workspace.
+      summary: Delete a customer
+      description: Delete a customer from a workspace.
       tags:
-        - Links
+        - Customers
       parameters:
         - in: path
-          name: linkId
-          description: The id of the link to delete. You may use either `linkId` (obtained via `/links/info` endpoint) or `externalId` prefixed with `ext_`.
+          name: id
+          description: The unique identifier of the customer in Dub.
           schema:
             type: string
-            description: The id of the link to delete. You may use either `linkId` (obtained via `/links/info` endpoint) or `externalId` prefixed with `ext_`.
+            description: The unique identifier of the customer in Dub.
           required: true
       responses:
         '200':
-          description: The deleted link ID.
+          description: The customer was deleted.
           content:
             application/json:
               schema:
@@ -41,7 +41,7 @@ paths:
                 properties:
                   id:
                     type: string
-                    description: The ID of the link.
+                    description: The unique identifier of the customer in Dub.
                 required:
                   - id
         '400':
@@ -359,11 +359,11 @@ Here's the implementation:
 # ... existing imports ...
 from typing import TypedDict
 
-# Response Types
-class DeleteLinkResponse(TypedDict):
+# Response types
+class DeleteCustomerResponse(TypedDict):
     id: str
 
-# Error Types
+# Error types
 class ErrorDetail(TypedDict):
     code: str
     message: str
@@ -375,34 +375,32 @@ class APIError(TypedDict):
 class ExampleClientAsync:
     # ... existing code ...
 
-    # DELETE /links/{linkId} - Delete a link
-    async def delete_link(self, link_id: str) -> DeleteLinkResponse:
+    # DELETE /customers/{id} - Delete a customer
+    async def delete_customer(self, id: str) -> DeleteCustomerResponse:
         """
-        DELETE /links/{linkId}
+        DELETE /customers/{id}
         Method: DELETE
-        Tags: Links
+        Tags: Customers
         
-        Deletes a link for the authenticated workspace.
+        Deletes a customer from a workspace.
         
         Args:
-            link_id: The id of the link to delete. You may use either `linkId` 
-                    (obtained via `/links/info` endpoint) or `externalId` prefixed with `ext_`.
-        
+            id: The unique identifier of the customer in Dub.
+            
         Returns:
-            DeleteLinkResponse: The deleted link ID.
-        
+            DeleteCustomerResponse: Response containing the deleted customer ID
+            
         Raises:
-            ExampleError: If the request fails with status codes 400, 401, 403, 404, 
-                        409, 410, 422, 429, or 500.
+            ExampleError: If the API returns an error status code
         """
         response = await self.fetch(
             method="DELETE",
-            path=f"/links/{link_id}",
+            path=f"/customers/{id}"
         )
         
         if response.status == 200:
             return await response.json()
-        
+            
         error_data = await response.json()
         raise ExampleError(
             error=error_data.get("error", {}).get("message", "Unknown error"),
@@ -412,9 +410,11 @@ class ExampleClientAsync:
 ```
 
 The implementation includes:
-1. TypedDict definitions for the response and error structures
-2. A properly typed async method with docstring including route information
-3. Error handling that raises ExampleError with detailed error information
-4. Proper type hints for both input and output
-5. Usage of the existing fetch method from the client
-6. Proper handling of the 200 response and error cases
+- A typed response structure for successful deletion
+- Proper error type definitions
+- A well-documented async method with type hints
+- Error handling that raises ExampleError with detailed information
+- Integration with the existing fetch method
+- Proper URL path construction with the customer ID parameter
+
+The method follows Python's async/await pattern and includes comprehensive type hints for better IDE support and code clarity.

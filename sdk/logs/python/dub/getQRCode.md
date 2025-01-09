@@ -14,36 +14,90 @@ servers:
   - url: https://api.dub.co
     description: Production API
 paths:
-  /links/{linkId}:
-    delete:
-      operationId: deleteLink
-      x-speakeasy-name-override: delete
-      x-speakeasy-max-method-params: 1
-      summary: Delete a link
-      description: Delete a link for the authenticated workspace.
+  /qr:
+    get:
+      operationId: getQRCode
+      x-speakeasy-name-override: get
+      summary: Retrieve a QR code
+      description: Retrieve a QR code for a link.
       tags:
-        - Links
+        - QR Codes
       parameters:
-        - in: path
-          name: linkId
-          description: The id of the link to delete. You may use either `linkId` (obtained via `/links/info` endpoint) or `externalId` prefixed with `ext_`.
+        - in: query
+          name: url
+          description: The URL to generate a QR code for.
           schema:
             type: string
-            description: The id of the link to delete. You may use either `linkId` (obtained via `/links/info` endpoint) or `externalId` prefixed with `ext_`.
+            description: The URL to generate a QR code for.
           required: true
+        - in: query
+          name: logo
+          description: The logo to include in the QR code. Can only be used with a paid plan on Dub.co.
+          schema:
+            type: string
+            description: The logo to include in the QR code. Can only be used with a paid plan on Dub.co.
+        - in: query
+          name: size
+          description: The size of the QR code in pixels. Defaults to `600` if not provided.
+          schema:
+            type: number
+            default: 600
+            description: The size of the QR code in pixels. Defaults to `600` if not provided.
+        - in: query
+          name: level
+          description: The level of error correction to use for the QR code. Defaults to `L` if not provided.
+          schema:
+            type: string
+            enum:
+              - L
+              - M
+              - Q
+              - H
+            default: L
+            description: The level of error correction to use for the QR code. Defaults to `L` if not provided.
+        - in: query
+          name: fgColor
+          description: The foreground color of the QR code in hex format. Defaults to `#000000` if not provided.
+          schema:
+            type: string
+            default: '#000000'
+            description: The foreground color of the QR code in hex format. Defaults to `#000000` if not provided.
+        - in: query
+          name: bgColor
+          description: The background color of the QR code in hex format. Defaults to `#ffffff` if not provided.
+          schema:
+            type: string
+            default: '#FFFFFF'
+            description: The background color of the QR code in hex format. Defaults to `#ffffff` if not provided.
+        - in: query
+          name: hideLogo
+          description: Whether to hide the logo in the QR code. Can only be used with a paid plan on Dub.co.
+          schema:
+            type: boolean
+            default: 'false'
+            description: Whether to hide the logo in the QR code. Can only be used with a paid plan on Dub.co.
+        - in: query
+          name: margin
+          description: The size of the margin around the QR code. Defaults to 2 if not provided.
+          schema:
+            type: number
+            default: 2
+            description: The size of the margin around the QR code. Defaults to 2 if not provided.
+        - in: query
+          name: includeMargin
+          description: 'DEPRECATED: Margin is included by default. Use the `margin` prop to customize the margin size.'
+          schema:
+            type: boolean
+            default: 'true'
+            description: 'DEPRECATED: Margin is included by default. Use the `margin` prop to customize the margin size.'
+            deprecated: true
       responses:
         '200':
-          description: The deleted link ID.
+          description: The QR code
           content:
-            application/json:
+            image/png:
               schema:
-                type: object
-                properties:
-                  id:
-                    type: string
-                    description: The ID of the link.
-                required:
-                  - id
+                type: string
         '400':
           $ref: '#/components/responses/400'
         '401':
@@ -345,76 +399,96 @@ components:
               - error
 
 ---
-Let's break down the implementation step by step:
+Let me break down the implementation steps for the GET /qr route:
 
-1. First, we need to define the response type for successful deletion (200 response)
-2. Then we need to define error types based on the error responses
-3. We'll create a method that handles the DELETE request with proper type hints
-4. The method will use the existing fetch method from the client
-5. We'll add proper error handling for different status codes
+1. First, we need to define the type for the QR code parameters based on the OpenAPI schema
+2. Create a new method in the ExampleClientAsync class for the QR code endpoint
+3. The method will:
+   - Accept all query parameters with appropriate types and defaults
+   - Construct the request URL with query parameters
+   - Make the GET request using the existing fetch method
+   - Handle the response which returns an image/png content type
+   - Handle potential errors using the ExampleError class
 
 Here's the implementation:
 
-```python
+```python:example_client_async.py
 # ... existing imports ...
-from typing import TypedDict
+from typing import Literal, Optional, TypedDict
 
-# Response Types
-class DeleteLinkResponse(TypedDict):
-    id: str
-
-# Error Types
-class ErrorDetail(TypedDict):
-    code: str
-    message: str
-    doc_url: Optional[str]
-
-class APIError(TypedDict):
-    error: ErrorDetail
+class QRCodeParams(TypedDict, total=False):
+    url: str
+    logo: Optional[str]
+    size: Optional[float]
+    level: Optional[Literal["L", "M", "Q", "H"]]
+    fgColor: Optional[str]
+    bgColor: Optional[str]
+    hideLogo: Optional[bool]
+    margin: Optional[float]
+    includeMargin: Optional[bool]
 
 class ExampleClientAsync:
     # ... existing code ...
 
-    # DELETE /links/{linkId} - Delete a link
-    async def delete_link(self, link_id: str) -> DeleteLinkResponse:
-        """
-        DELETE /links/{linkId}
-        Method: DELETE
-        Tags: Links
-        
-        Deletes a link for the authenticated workspace.
+    # GET /qr - Retrieve a QR code
+    # Tags: QR Codes
+    async def get_qr_code(
+        self,
+        url: str,
+        logo: Optional[str] = None,
+        size: Optional[float] = 600,
+        level: Optional[Literal["L", "M", "Q", "H"]] = "L",
+        fgColor: Optional[str] = "#000000",
+        bgColor: Optional[str] = "#FFFFFF",
+        hideLogo: Optional[bool] = False,
+        margin: Optional[float] = 2,
+        includeMargin: Optional[bool] = True,
+    ) -> bytes:
+        """Retrieve a QR code for a link.
         
         Args:
-            link_id: The id of the link to delete. You may use either `linkId` 
-                    (obtained via `/links/info` endpoint) or `externalId` prefixed with `ext_`.
-        
+            url: The URL to generate a QR code for (required)
+            logo: The logo to include in the QR code
+            size: The size of the QR code in pixels (default: 600)
+            level: Error correction level (default: 'L')
+            fgColor: Foreground color in hex format (default: '#000000')
+            bgColor: Background color in hex format (default: '#FFFFFF')
+            hideLogo: Whether to hide the logo (default: False)
+            margin: Size of the margin around the QR code (default: 2)
+            includeMargin: DEPRECATED: Margin is included by default
+            
         Returns:
-            DeleteLinkResponse: The deleted link ID.
-        
+            bytes: The QR code image in PNG format
+            
         Raises:
-            ExampleError: If the request fails with status codes 400, 401, 403, 404, 
-                        409, 410, 422, 429, or 500.
+            ExampleError: If the request fails
         """
+        query_params: QRCodeParams = {
+            "url": url,
+            "logo": logo,
+            "size": size,
+            "level": level,
+            "fgColor": fgColor,
+            "bgColor": bgColor,
+            "hideLogo": hideLogo,
+            "margin": margin,
+            "includeMargin": includeMargin,
+        }
+        
         response = await self.fetch(
-            method="DELETE",
-            path=f"/links/{link_id}",
+            method="GET",
+            path="/qr",
+            query={k: v for k, v in query_params.items() if v is not None},
+            headers={"Accept": "image/png"},
         )
         
-        if response.status == 200:
-            return await response.json()
-        
-        error_data = await response.json()
-        raise ExampleError(
-            error=error_data.get("error", {}).get("message", "Unknown error"),
-            status=response.status,
-            data=error_data
-        )
+        if response.status != 200:
+            error_data = await response.json()
+            raise ExampleError(
+                error=error_data.get("error", {}).get("message", "Unknown error"),
+                status=response.status,
+                data=error_data,
+            )
+            
+        return await response.read()
 ```
-
-The implementation includes:
-1. TypedDict definitions for the response and error structures
-2. A properly typed async method with docstring including route information
-3. Error handling that raises ExampleError with detailed error information
-4. Proper type hints for both input and output
-5. Usage of the existing fetch method from the client
-6. Proper handling of the 200 response and error cases

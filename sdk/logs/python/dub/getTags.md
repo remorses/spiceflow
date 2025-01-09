@@ -14,36 +14,23 @@ servers:
   - url: https://api.dub.co
     description: Production API
 paths:
-  /links/{linkId}:
-    delete:
-      operationId: deleteLink
-      x-speakeasy-name-override: delete
-      x-speakeasy-max-method-params: 1
-      summary: Delete a link
-      description: Delete a link for the authenticated workspace.
+  /tags:
+    get:
+      operationId: getTags
+      x-speakeasy-name-override: list
+      summary: Retrieve a list of tags
+      description: Retrieve a list of tags for the authenticated workspace.
       tags:
-        - Links
-      parameters:
-        - in: path
-          name: linkId
-          description: The id of the link to delete. You may use either `linkId` (obtained via `/links/info` endpoint) or `externalId` prefixed with `ext_`.
-          schema:
-            type: string
-            description: The id of the link to delete. You may use either `linkId` (obtained via `/links/info` endpoint) or `externalId` prefixed with `ext_`.
-          required: true
+        - Tags
       responses:
         '200':
-          description: The deleted link ID.
+          description: A list of tags
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  id:
-                    type: string
-                    description: The ID of the link.
-                required:
-                  - id
+                type: array
+                items:
+                  $ref: '#/components/schemas/TagSchema'
         '400':
           $ref: '#/components/responses/400'
         '401':
@@ -343,62 +330,63 @@ components:
                   - message
             required:
               - error
+  schemas:
+    TagSchema:
+      type: object
+      properties:
+        id:
+          type: string
+          description: The unique ID of the tag.
+        name:
+          type: string
+          description: The name of the tag.
+        color:
+          type: string
+          enum:
+            - red
+            - yellow
+            - green
+            - blue
+            - purple
+            - pink
+            - brown
+          description: The color of the tag.
+      required:
+        - id
+        - name
+        - color
+      title: Tag
 
 ---
 Let's break down the implementation step by step:
 
-1. First, we need to define the response type for successful deletion (200 response)
-2. Then we need to define error types based on the error responses
-3. We'll create a method that handles the DELETE request with proper type hints
-4. The method will use the existing fetch method from the client
-5. We'll add proper error handling for different status codes
+1. First, we need to define the TagSchema type based on the OpenAPI schema
+2. Then we'll create the list_tags method in the ExampleClientAsync class
+3. The method will:
+   - Make a GET request to /tags
+   - Handle the response and parse the JSON
+   - Handle potential errors using the ExampleError class
+   - Return a list of TagSchema objects
 
 Here's the implementation:
 
 ```python
 # ... existing imports ...
-from typing import TypedDict
+from typing import List, Literal, TypedDict
 
-# Response Types
-class DeleteLinkResponse(TypedDict):
+# Define TagSchema type based on OpenAPI schema
+class TagSchema(TypedDict):
     id: str
-
-# Error Types
-class ErrorDetail(TypedDict):
-    code: str
-    message: str
-    doc_url: Optional[str]
-
-class APIError(TypedDict):
-    error: ErrorDetail
+    name: str
+    color: Literal["red", "yellow", "green", "blue", "purple", "pink", "brown"]
 
 class ExampleClientAsync:
     # ... existing code ...
 
-    # DELETE /links/{linkId} - Delete a link
-    async def delete_link(self, link_id: str) -> DeleteLinkResponse:
-        """
-        DELETE /links/{linkId}
-        Method: DELETE
-        Tags: Links
-        
-        Deletes a link for the authenticated workspace.
-        
-        Args:
-            link_id: The id of the link to delete. You may use either `linkId` 
-                    (obtained via `/links/info` endpoint) or `externalId` prefixed with `ext_`.
-        
-        Returns:
-            DeleteLinkResponse: The deleted link ID.
-        
-        Raises:
-            ExampleError: If the request fails with status codes 400, 401, 403, 404, 
-                        409, 410, 422, 429, or 500.
-        """
-        response = await self.fetch(
-            method="DELETE",
-            path=f"/links/{link_id}",
-        )
+    # GET /tags - Retrieve a list of tags
+    # Tags: Tags
+    async def list_tags(self) -> List[TagSchema]:
+        response = await self.fetch("GET", "/tags")
         
         if response.status == 200:
             return await response.json()
@@ -411,10 +399,12 @@ class ExampleClientAsync:
         )
 ```
 
-The implementation includes:
-1. TypedDict definitions for the response and error structures
-2. A properly typed async method with docstring including route information
-3. Error handling that raises ExampleError with detailed error information
-4. Proper type hints for both input and output
-5. Usage of the existing fetch method from the client
-6. Proper handling of the 200 response and error cases
+The implementation:
+1. Adds TagSchema type definition using TypedDict with Literal for the color enum
+2. Creates list_tags method with proper type hints
+3. Uses existing fetch method to make the request
+4. Handles successful response (200) by returning parsed JSON
+5. Handles errors by raising ExampleError with error details
+6. Includes proper docstring with route information
+
+The method is fully async/await compatible and uses type hints for better IDE support. It handles both successful responses and error cases appropriately.

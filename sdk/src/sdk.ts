@@ -234,7 +234,7 @@ export async function generateSDKFromOpenAPI({
   logFolder = null,
   language = 'typescript',
   params,
-  maxLLMConcurrency = 5,
+  maxLLMConcurrency = 20,
 }: {
   openApiSchema: OpenAPIV3.Document
   previousOpenApiSchema?: OpenAPIV3.Document

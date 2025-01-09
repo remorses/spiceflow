@@ -347,74 +347,63 @@ components:
 ---
 Let's break down the implementation step by step:
 
-1. First, we need to define the response type for successful deletion (200 response)
-2. Then we need to define error types based on the error responses
-3. We'll create a method that handles the DELETE request with proper type hints
-4. The method will use the existing fetch method from the client
-5. We'll add proper error handling for different status codes
+1. We need to add a new method to the ExampleClient class for deleting a link
+2. The method will take a linkId parameter as a string
+3. It will make a DELETE request to `/links/{linkId}`
+4. The response type is an object with an `id` property
+5. We need to handle all possible error responses defined in the schema
+6. We'll use the existing fetch method from the base class
 
 Here's the implementation:
 
-```python
-# ... existing imports ...
-from typing import TypedDict
+```typescript:example-client.ts
+export class ExampleClient {
+  // ... existing code ...
 
-# Response Types
-class DeleteLinkResponse(TypedDict):
-    id: str
+  /**
+   * DELETE /links/{linkId}
+   * Tags: Links
+   * Delete a link for the authenticated workspace.
+   */
+  async deleteLink(linkId: string): Promise<{ id: string }> {
+    try {
+      const response = await this.fetch({
+        method: 'DELETE',
+        path: `/links/${encodeURIComponent(linkId)}`
+      });
 
-# Error Types
-class ErrorDetail(TypedDict):
-    code: str
-    message: str
-    doc_url: Optional[str]
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new ExampleError(errorData.error.message, {
+          status: response.status,
+          data: errorData
+        });
+      }
 
-class APIError(TypedDict):
-    error: ErrorDetail
+      return response.json();
+    } catch (error) {
+      if (error instanceof ExampleError) {
+        throw error;
+      }
+      throw new ExampleError('Unknown error occurred', { status: 500 });
+    }
+  }
+}
 
-class ExampleClientAsync:
-    # ... existing code ...
+// Error types based on the schema
+type ApiError = {
+  code: string;
+  message: string;
+  doc_url?: string;
+};
 
-    # DELETE /links/{linkId} - Delete a link
-    async def delete_link(self, link_id: str) -> DeleteLinkResponse:
-        """
-        DELETE /links/{linkId}
-        Method: DELETE
-        Tags: Links
-        
-        Deletes a link for the authenticated workspace.
-        
-        Args:
-            link_id: The id of the link to delete. You may use either `linkId` 
-                    (obtained via `/links/info` endpoint) or `externalId` prefixed with `ext_`.
-        
-        Returns:
-            DeleteLinkResponse: The deleted link ID.
-        
-        Raises:
-            ExampleError: If the request fails with status codes 400, 401, 403, 404, 
-                        409, 410, 422, 429, or 500.
-        """
-        response = await self.fetch(
-            method="DELETE",
-            path=f"/links/{link_id}",
-        )
-        
-        if response.status == 200:
-            return await response.json()
-        
-        error_data = await response.json()
-        raise ExampleError(
-            error=error_data.get("error", {}).get("message", "Unknown error"),
-            status=response.status,
-            data=error_data
-        )
+type BadRequestError = { error: ApiError & { code: 'bad_request' } };
+type UnauthorizedError = { error: ApiError & { code: 'unauthorized' } };
+type ForbiddenError = { error: ApiError & { code: 'forbidden' } };
+type NotFoundError = { error: ApiError & { code: 'not_found' } };
+type ConflictError = { error: ApiError & { code: 'conflict' } };
+type InviteExpiredError = { error: ApiError & { code: 'invite_expired' } };
+type UnprocessableEntityError = { error: ApiError & { code: 'unprocessable_entity' } };
+type RateLimitExceededError = { error: ApiError & { code: 'rate_limit_exceeded' } };
+type InternalServerError = { error: ApiError & { code: 'internal_server_error' } };
 ```
-
-The implementation includes:
-1. TypedDict definitions for the response and error structures
-2. A properly typed async method with docstring including route information
-3. Error handling that raises ExampleError with detailed error information
-4. Proper type hints for both input and output
-5. Usage of the existing fetch method from the client
-6. Proper handling of the 200 response and error cases

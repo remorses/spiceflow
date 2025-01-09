@@ -14,36 +14,98 @@ servers:
   - url: https://api.dub.co
     description: Production API
 paths:
-  /links/{linkId}:
-    delete:
-      operationId: deleteLink
-      x-speakeasy-name-override: delete
-      x-speakeasy-max-method-params: 1
-      summary: Delete a link
-      description: Delete a link for the authenticated workspace.
+  /links/count:
+    get:
+      operationId: getLinksCount
+      x-speakeasy-name-override: count
+      summary: Retrieve links count
+      description: Retrieve the number of links for the authenticated workspace.
       tags:
         - Links
       parameters:
-        - in: path
-          name: linkId
-          description: The id of the link to delete. You may use either `linkId` (obtained via `/links/info` endpoint) or `externalId` prefixed with `ext_`.
+        - in: query
+          name: domain
+          description: The domain to filter the links by. E.g. `ac.me`. If not provided, all links for the workspace will be returned.
           schema:
             type: string
-            description: The id of the link to delete. You may use either `linkId` (obtained via `/links/info` endpoint) or `externalId` prefixed with `ext_`.
-          required: true
+            description: The domain to filter the links by. E.g. `ac.me`. If not provided, all links for the workspace will be returned.
+        - in: query
+          name: tagId
+          description: Deprecated. Use `tagIds` instead. The tag ID to filter the links by.
+          schema:
+            type: string
+            description: Deprecated. Use `tagIds` instead. The tag ID to filter the links by.
+            deprecated: true
+        - in: query
+          name: tagIds
+          description: The tag IDs to filter the links by.
+          schema:
+            anyOf:
+              - type: string
+              - type: array
+                items:
+                  type: string
+            description: The tag IDs to filter the links by.
+        - in: query
+          name: tagNames
+          description: The unique name of the tags assigned to the short link (case insensitive).
+          schema:
+            anyOf:
+              - type: string
+              - type: array
+                items:
+                  type: string
+            description: The unique name of the tags assigned to the short link (case insensitive).
+        - in: query
+          name: search
+          description: The search term to filter the links by. The search term will be matched against the short link slug and the destination url.
+          schema:
+            type: string
+            description: The search term to filter the links by. The search term will be matched against the short link slug and the destination url.
+        - in: query
+          name: userId
+          description: The user ID to filter the links by.
+          schema:
+            type: string
+            description: The user ID to filter the links by.
+        - in: query
+          name: showArchived
+          description: Whether to include archived links in the response. Defaults to `false` if not provided.
+          schema:
+            type: boolean
+            default: 'false'
+            description: Whether to include archived links in the response. Defaults to `false` if not provided.
+        - in: query
+          name: withTags
+          description: DEPRECATED. Filter for links that have at least one tag assigned to them.
+          schema:
+            type: boolean
+            default: 'false'
+            description: DEPRECATED. Filter for links that have at least one tag assigned to them.
+            deprecated: true
+        - in: query
+          name: groupBy
+          description: The field to group the links by.
+          schema:
+            anyOf:
+              - type: string
+                enum:
+                  - domain
+              - type: string
+                enum:
+                  - tagId
+              - type: string
+                enum:
+                  - userId
+            description: The field to group the links by.
       responses:
         '200':
-          description: The deleted link ID.
+          description: A list of links
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  id:
-                    type: string
-                    description: The ID of the link.
-                required:
-                  - id
+                type: number
+                description: The number of links matching the query.
         '400':
           $ref: '#/components/responses/400'
         '401':
@@ -347,74 +409,79 @@ components:
 ---
 Let's break down the implementation step by step:
 
-1. First, we need to define the response type for successful deletion (200 response)
-2. Then we need to define error types based on the error responses
-3. We'll create a method that handles the DELETE request with proper type hints
-4. The method will use the existing fetch method from the client
-5. We'll add proper error handling for different status codes
+1. First, we need to define the request parameters type based on the OpenAPI schema
+2. Create a method that accepts these parameters and makes the GET request
+3. Handle the response which is a simple number
+4. Include error handling for all possible error responses
+5. Add proper JSDoc comments for the method
 
 Here's the implementation:
 
-```python
-# ... existing imports ...
-from typing import TypedDict
+```typescript:src/client.ts
+export class ExampleClient {
+  // ... existing code ...
 
-# Response Types
-class DeleteLinkResponse(TypedDict):
-    id: str
+  /**
+   * GET /links/count
+   * Retrieve the number of links for the authenticated workspace.
+   * Tags: Links
+   */
+  async countLinks(params?: {
+    domain?: string;
+    tagId?: string;
+    tagIds?: string | string[];
+    tagNames?: string | string[];
+    search?: string;
+    userId?: string;
+    showArchived?: boolean;
+    withTags?: boolean;
+    groupBy?: 'domain' | 'tagId' | 'userId';
+  }): Promise<number> {
+    try {
+      const response = await this.fetch({
+        method: 'GET',
+        path: '/links/count',
+        query: params ? {
+          domain: params.domain,
+          tagId: params.tagId,
+          tagIds: Array.isArray(params.tagIds) ? params.tagIds.join(',') : params.tagIds,
+          tagNames: Array.isArray(params.tagNames) ? params.tagNames.join(',') : params.tagNames,
+          search: params.search,
+          userId: params.userId,
+          showArchived: params.showArchived?.toString(),
+          withTags: params.withTags?.toString(),
+          groupBy: params.groupBy,
+        } : undefined,
+      });
 
-# Error Types
-class ErrorDetail(TypedDict):
-    code: str
-    message: str
-    doc_url: Optional[str]
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new ExampleError(errorData.error.message, {
+          status: response.status,
+          data: errorData,
+        });
+      }
 
-class APIError(TypedDict):
-    error: ErrorDetail
+      return response.json();
+    } catch (error) {
+      if (error instanceof ExampleError) {
+        throw error;
+      }
+      throw new ExampleError('Unknown error occurred', { status: 500 });
+    }
+  }
+}
 
-class ExampleClientAsync:
-    # ... existing code ...
-
-    # DELETE /links/{linkId} - Delete a link
-    async def delete_link(self, link_id: str) -> DeleteLinkResponse:
-        """
-        DELETE /links/{linkId}
-        Method: DELETE
-        Tags: Links
-        
-        Deletes a link for the authenticated workspace.
-        
-        Args:
-            link_id: The id of the link to delete. You may use either `linkId` 
-                    (obtained via `/links/info` endpoint) or `externalId` prefixed with `ext_`.
-        
-        Returns:
-            DeleteLinkResponse: The deleted link ID.
-        
-        Raises:
-            ExampleError: If the request fails with status codes 400, 401, 403, 404, 
-                        409, 410, 422, 429, or 500.
-        """
-        response = await self.fetch(
-            method="DELETE",
-            path=f"/links/{link_id}",
-        )
-        
-        if response.status == 200:
-            return await response.json()
-        
-        error_data = await response.json()
-        raise ExampleError(
-            error=error_data.get("error", {}).get("message", "Unknown error"),
-            status=response.status,
-            data=error_data
-        )
+// ... existing ExampleError and other existing code ...
 ```
 
-The implementation includes:
-1. TypedDict definitions for the response and error structures
-2. A properly typed async method with docstring including route information
-3. Error handling that raises ExampleError with detailed error information
-4. Proper type hints for both input and output
-5. Usage of the existing fetch method from the client
-6. Proper handling of the 200 response and error cases
+The implementation:
+1. Creates a `countLinks` method with all optional parameters matching the OpenAPI schema
+2. Handles array parameters by joining them with commas when needed
+3. Converts boolean parameters to strings
+4. Properly types the return value as a number
+5. Includes comprehensive error handling
+6. Uses the existing fetch infrastructure from the base client
+7. Maintains compatibility with both browser and Node.js environments
+
+The method is fully typed and handles all edge cases according to the OpenAPI specification.

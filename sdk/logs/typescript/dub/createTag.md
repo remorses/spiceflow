@@ -14,36 +14,48 @@ servers:
   - url: https://api.dub.co
     description: Production API
 paths:
-  /links/{linkId}:
-    delete:
-      operationId: deleteLink
-      x-speakeasy-name-override: delete
-      x-speakeasy-max-method-params: 1
-      summary: Delete a link
-      description: Delete a link for the authenticated workspace.
+  /tags:
+    post:
+      operationId: createTag
+      x-speakeasy-name-override: create
+      summary: Create a new tag
+      description: Create a new tag for the authenticated workspace.
       tags:
-        - Links
-      parameters:
-        - in: path
-          name: linkId
-          description: The id of the link to delete. You may use either `linkId` (obtained via `/links/info` endpoint) or `externalId` prefixed with `ext_`.
-          schema:
-            type: string
-            description: The id of the link to delete. You may use either `linkId` (obtained via `/links/info` endpoint) or `externalId` prefixed with `ext_`.
-          required: true
+        - Tags
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 50
+                  description: The name of the tag to create.
+                color:
+                  type: string
+                  enum:
+                    - red
+                    - yellow
+                    - green
+                    - blue
+                    - purple
+                    - pink
+                    - brown
+                  description: 'The color of the tag. If not provided, a random color will be used from the list: red, yellow, green, blue, purple, pink, brown.'
+                tag:
+                  type: string
+                  minLength: 1
+                  description: The name of the tag to create.
+                  deprecated: true
       responses:
-        '200':
-          description: The deleted link ID.
+        '201':
+          description: The created tag
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  id:
-                    type: string
-                    description: The ID of the link.
-                required:
-                  - id
+                $ref: '#/components/schemas/TagSchema'
         '400':
           $ref: '#/components/responses/400'
         '401':
@@ -343,78 +355,97 @@ components:
                   - message
             required:
               - error
+  schemas:
+    TagSchema:
+      type: object
+      properties:
+        id:
+          type: string
+          description: The unique ID of the tag.
+        name:
+          type: string
+          description: The name of the tag.
+        color:
+          type: string
+          enum:
+            - red
+            - yellow
+            - green
+            - blue
+            - purple
+            - pink
+            - brown
+          description: The color of the tag.
+      required:
+        - id
+        - name
+        - color
+      title: Tag
 
 ---
 Let's break down the implementation step by step:
 
-1. First, we need to define the response type for successful deletion (200 response)
-2. Then we need to define error types based on the error responses
-3. We'll create a method that handles the DELETE request with proper type hints
-4. The method will use the existing fetch method from the client
-5. We'll add proper error handling for different status codes
+1. First, we need to define the types for:
+   - Request body (CreateTagRequest)
+   - Response type (TagSchema)
+   - Error responses (using the existing ExampleError)
+
+2. The method needs to:
+   - Accept the request parameters
+   - Make a POST request to /tags
+   - Handle successful responses (201)
+   - Handle error responses using the existing ExampleError class
+
+3. We'll add the method to the ExampleClient class since it already has the fetch infrastructure we need.
 
 Here's the implementation:
 
-```python
-# ... existing imports ...
-from typing import TypedDict
+```typescript:exampleClient.ts
+export class ExampleClient {
+  // ... existing code ...
 
-# Response Types
-class DeleteLinkResponse(TypedDict):
-    id: str
+  /**
+   * POST /tags
+   * Create a new tag for the authenticated workspace.
+   * Tags: Tags
+   */
+  async createTag(body: {
+    name: string;
+    color?: 'red' | 'yellow' | 'green' | 'blue' | 'purple' | 'pink' | 'brown';
+    tag?: string; // deprecated
+  }): Promise<{
+    id: string;
+    name: string;
+    color: 'red' | 'yellow' | 'green' | 'blue' | 'purple' | 'pink' | 'brown';
+  }> {
+    const response = await this.fetch({
+      method: 'POST',
+      path: '/tags',
+      body,
+    });
 
-# Error Types
-class ErrorDetail(TypedDict):
-    code: str
-    message: str
-    doc_url: Optional[str]
+    if (response.status === 201) {
+      return response.json();
+    }
 
-class APIError(TypedDict):
-    error: ErrorDetail
+    const errorData = await response.json().catch(() => ({}));
+    throw new ExampleError(errorData.error?.message || 'Failed to create tag', {
+      status: response.status,
+      data: errorData,
+    });
+  }
+}
 
-class ExampleClientAsync:
-    # ... existing code ...
+// Type declarations
+type CreateTagRequest = {
+  name: string;
+  color?: 'red' | 'yellow' | 'green' | 'blue' | 'purple' | 'pink' | 'brown';
+  tag?: string; // deprecated
+};
 
-    # DELETE /links/{linkId} - Delete a link
-    async def delete_link(self, link_id: str) -> DeleteLinkResponse:
-        """
-        DELETE /links/{linkId}
-        Method: DELETE
-        Tags: Links
-        
-        Deletes a link for the authenticated workspace.
-        
-        Args:
-            link_id: The id of the link to delete. You may use either `linkId` 
-                    (obtained via `/links/info` endpoint) or `externalId` prefixed with `ext_`.
-        
-        Returns:
-            DeleteLinkResponse: The deleted link ID.
-        
-        Raises:
-            ExampleError: If the request fails with status codes 400, 401, 403, 404, 
-                        409, 410, 422, 429, or 500.
-        """
-        response = await self.fetch(
-            method="DELETE",
-            path=f"/links/{link_id}",
-        )
-        
-        if response.status == 200:
-            return await response.json()
-        
-        error_data = await response.json()
-        raise ExampleError(
-            error=error_data.get("error", {}).get("message", "Unknown error"),
-            status=response.status,
-            data=error_data
-        )
+type TagSchema = {
+  id: string;
+  name: string;
+  color: 'red' | 'yellow' | 'green' | 'blue' | 'purple' | 'pink' | 'brown';
+};
 ```
-
-The implementation includes:
-1. TypedDict definitions for the response and error structures
-2. A properly typed async method with docstring including route information
-3. Error handling that raises ExampleError with detailed error information
-4. Proper type hints for both input and output
-5. Usage of the existing fetch method from the client
-6. Proper handling of the 200 response and error cases

@@ -14,26 +14,42 @@ servers:
   - url: https://api.dub.co
     description: Production API
 paths:
-  /links/{linkId}:
-    delete:
-      operationId: deleteLink
-      x-speakeasy-name-override: delete
-      x-speakeasy-max-method-params: 1
-      summary: Delete a link
-      description: Delete a link for the authenticated workspace.
+  /customers:
+    post:
+      operationId: createCustomer
+      x-speakeasy-name-override: create
+      summary: Create a customer
+      description: Create a customer for the authenticated workspace.
       tags:
-        - Links
-      parameters:
-        - in: path
-          name: linkId
-          description: The id of the link to delete. You may use either `linkId` (obtained via `/links/info` endpoint) or `externalId` prefixed with `ext_`.
-          schema:
-            type: string
-            description: The id of the link to delete. You may use either `linkId` (obtained via `/links/info` endpoint) or `externalId` prefixed with `ext_`.
-          required: true
+        - Customers
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  nullable: true
+                  format: email
+                  description: Email of the customer in the client's app.
+                name:
+                  type: string
+                  nullable: true
+                  description: Name of the customer in the client's app. If not provided, a random name will be generated.
+                avatar:
+                  type: string
+                  nullable: true
+                  format: uri
+                  description: Avatar URL of the customer in the client's app.
+                externalId:
+                  type: string
+                  description: Unique identifier for the customer in the client's app.
+              required:
+                - externalId
       responses:
-        '200':
-          description: The deleted link ID.
+        '201':
+          description: The customer was created.
           content:
             application/json:
               schema:
@@ -41,9 +57,114 @@ paths:
                 properties:
                   id:
                     type: string
-                    description: The ID of the link.
+                    description: The unique identifier of the customer in Dub.
+                  externalId:
+                    type: string
+                    description: Unique identifier for the customer in the client's app.
+                  name:
+                    type: string
+                    description: Name of the customer.
+                  email:
+                    type: string
+                    nullable: true
+                    description: Email of the customer.
+                  avatar:
+                    type: string
+                    nullable: true
+                    description: Avatar URL of the customer.
+                  country:
+                    type: string
+                    nullable: true
+                    description: Country of the customer.
+                  createdAt:
+                    type: string
+                    description: The date the customer was created.
+                  link:
+                    type: object
+                    nullable: true
+                    properties:
+                      id:
+                        type: string
+                        description: The unique ID of the short link.
+                      domain:
+                        type: string
+                        description: The domain of the short link. If not provided, the primary domain for the workspace will be used (or `dub.sh` if the workspace has no domains).
+                      key:
+                        type: string
+                        description: The short link slug. If not provided, a random 7-character slug will be generated.
+                      shortLink:
+                        type: string
+                        format: uri
+                        description: The full URL of the short link, including the https protocol (e.g. `https://dub.sh/try`).
+                      programId:
+                        type: string
+                        nullable: true
+                        description: The ID of the program the short link is associated with.
+                    required:
+                      - id
+                      - domain
+                      - key
+                      - shortLink
+                      - programId
+                  partner:
+                    type: object
+                    nullable: true
+                    properties:
+                      id:
+                        type: string
+                      name:
+                        type: string
+                      email:
+                        type: string
+                      image:
+                        type: string
+                        nullable: true
+                    required:
+                      - id
+                      - name
+                      - email
+                  discount:
+                    type: object
+                    nullable: true
+                    properties:
+                      id:
+                        type: string
+                      couponId:
+                        type: string
+                        nullable: true
+                      couponTestId:
+                        type: string
+                        nullable: true
+                      amount:
+                        type: number
+                      type:
+                        type: string
+                        enum:
+                          - percentage
+                          - flat
+                      duration:
+                        type: number
+                        nullable: true
+                      interval:
+                        type: string
+                        nullable: true
+                        enum:
+                          - month
+                          - year
+                          - null
+                    required:
+                      - id
+                      - couponId
+                      - couponTestId
+                      - amount
+                      - type
+                      - duration
+                      - interval
                 required:
                   - id
+                  - externalId
+                  - name
+                  - createdAt
         '400':
           $ref: '#/components/responses/400'
         '401':
@@ -345,76 +466,100 @@ components:
               - error
 
 ---
-Let's break down the implementation step by step:
+Let me break down the implementation step by step:
 
-1. First, we need to define the response type for successful deletion (200 response)
-2. Then we need to define error types based on the error responses
-3. We'll create a method that handles the DELETE request with proper type hints
-4. The method will use the existing fetch method from the client
-5. We'll add proper error handling for different status codes
+1. First, we need to define the request and response types based on the OpenAPI schema
+2. The request body has optional fields (email, name, avatar) and one required field (externalId)
+3. The response has a complex structure with nested objects for link, partner, and discount
+4. We'll create specific types for each nested structure
+5. The method will handle the POST request and return the created customer data
+6. We'll include error handling for the various status codes
 
 Here's the implementation:
 
-```python
+```python:example_client_async.py
 # ... existing imports ...
-from typing import TypedDict
+from datetime import datetime
+from typing import Literal, Optional, TypedDict
 
-# Response Types
-class DeleteLinkResponse(TypedDict):
+# POST /customers - Create a customer
+# Tags: Customers
+class CreateCustomerRequest(TypedDict):
+    externalId: str
+    email: Optional[str]
+    name: Optional[str]
+    avatar: Optional[str]
+
+class CustomerLink(TypedDict):
     id: str
+    domain: str
+    key: str
+    shortLink: str
+    programId: Optional[str]
 
-# Error Types
-class ErrorDetail(TypedDict):
-    code: str
-    message: str
-    doc_url: Optional[str]
+class CustomerPartner(TypedDict):
+    id: str
+    name: str
+    email: str
+    image: Optional[str]
 
-class APIError(TypedDict):
-    error: ErrorDetail
+class CustomerDiscount(TypedDict):
+    id: str
+    couponId: Optional[str]
+    couponTestId: Optional[str]
+    amount: float
+    type: Literal["percentage", "flat"]
+    duration: Optional[int]
+    interval: Optional[Literal["month", "year"]]
+
+class CreateCustomerResponse(TypedDict):
+    id: str
+    externalId: str
+    name: str
+    email: Optional[str]
+    avatar: Optional[str]
+    country: Optional[str]
+    createdAt: str
+    link: Optional[CustomerLink]
+    partner: Optional[CustomerPartner]
+    discount: Optional[CustomerDiscount]
 
 class ExampleClientAsync:
     # ... existing code ...
-
-    # DELETE /links/{linkId} - Delete a link
-    async def delete_link(self, link_id: str) -> DeleteLinkResponse:
-        """
-        DELETE /links/{linkId}
-        Method: DELETE
-        Tags: Links
-        
-        Deletes a link for the authenticated workspace.
-        
-        Args:
-            link_id: The id of the link to delete. You may use either `linkId` 
-                    (obtained via `/links/info` endpoint) or `externalId` prefixed with `ext_`.
-        
-        Returns:
-            DeleteLinkResponse: The deleted link ID.
-        
-        Raises:
-            ExampleError: If the request fails with status codes 400, 401, 403, 404, 
-                        409, 410, 422, 429, or 500.
-        """
+    
+    async def create_customer(self, data: CreateCustomerRequest) -> CreateCustomerResponse:
+        """Create a customer for the authenticated workspace."""
         response = await self.fetch(
-            method="DELETE",
-            path=f"/links/{link_id}",
+            method="POST",
+            path="/customers",
+            body=data
         )
         
-        if response.status == 200:
+        if response.status == 201:
             return await response.json()
         
         error_data = await response.json()
-        raise ExampleError(
-            error=error_data.get("error", {}).get("message", "Unknown error"),
-            status=response.status,
-            data=error_data
-        )
+        error_code = error_data.get("error", {}).get("code", "unknown_error")
+        error_message = error_data.get("error", {}).get("message", "Unknown error occurred")
+        
+        if response.status == 400:
+            raise ExampleError(f"Bad Request: {error_message}", status=400, data=error_data)
+        elif response.status == 401:
+            raise ExampleError(f"Unauthorized: {error_message}", status=401, data=error_data)
+        elif response.status == 403:
+            raise ExampleError(f"Forbidden: {error_message}", status=403, data=error_data)
+        elif response.status == 404:
+            raise ExampleError(f"Not Found: {error_message}", status=404, data=error_data)
+        elif response.status == 409:
+            raise ExampleError(f"Conflict: {error_message}", status=409, data=error_data)
+        elif response.status == 410:
+            raise ExampleError(f"Invite Expired: {error_message}", status=410, data=error_data)
+        elif response.status == 422:
+            raise ExampleError(f"Unprocessable Entity: {error_message}", status=422, data=error_data)
+        elif response.status == 429:
+            raise ExampleError(f"Rate Limit Exceeded: {error_message}", status=429, data=error_data)
+        elif response.status == 500:
+            raise ExampleError(f"Internal Server Error: {error_message}", status=500, data=error_data)
+        else:
+            raise ExampleError(f"Unexpected error: {error_message}", status=response.status, data=error_data)
 ```
-
-The implementation includes:
-1. TypedDict definitions for the response and error structures
-2. A properly typed async method with docstring including route information
-3. Error handling that raises ExampleError with detailed error information
-4. Proper type hints for both input and output
-5. Usage of the existing fetch method from the client
-6. Proper handling of the 200 response and error cases

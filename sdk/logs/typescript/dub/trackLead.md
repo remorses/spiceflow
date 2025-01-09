@@ -14,36 +14,106 @@ servers:
   - url: https://api.dub.co
     description: Production API
 paths:
-  /links/{linkId}:
-    delete:
-      operationId: deleteLink
-      x-speakeasy-name-override: delete
-      x-speakeasy-max-method-params: 1
-      summary: Delete a link
-      description: Delete a link for the authenticated workspace.
+  /track/lead:
+    post:
+      operationId: trackLead
+      x-speakeasy-name-override: lead
+      summary: Track a lead
+      description: Track a lead for a short link.
       tags:
-        - Links
-      parameters:
-        - in: path
-          name: linkId
-          description: The id of the link to delete. You may use either `linkId` (obtained via `/links/info` endpoint) or `externalId` prefixed with `ext_`.
-          schema:
-            type: string
-            description: The id of the link to delete. You may use either `linkId` (obtained via `/links/info` endpoint) or `externalId` prefixed with `ext_`.
-          required: true
+        - Track
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                clickId:
+                  type: string
+                  minLength: 1
+                  description: The ID of the click in th Dub. You can read this value from `dub_id` cookie.
+                eventName:
+                  type: string
+                  minLength: 1
+                  maxLength: 50
+                  description: The name of the event to track.
+                  example: Sign up
+                externalId:
+                  type: string
+                  maxLength: 100
+                  default: ''
+                  description: This is the unique identifier for the customer in the client's app. This is used to track the customer's journey.
+                customerId:
+                  type: string
+                  nullable: true
+                  maxLength: 100
+                  default: null
+                  description: This is the unique identifier for the customer in the client's app. This is used to track the customer's journey.
+                  deprecated: true
+                customerName:
+                  type: string
+                  nullable: true
+                  maxLength: 100
+                  default: null
+                  description: Name of the customer in the client's app.
+                customerEmail:
+                  type: string
+                  nullable: true
+                  format: email
+                  maxLength: 100
+                  default: null
+                  description: Email of the customer in the client's app.
+                customerAvatar:
+                  type: string
+                  nullable: true
+                  default: null
+                  description: Avatar of the customer in the client's app.
+                metadata:
+                  type: object
+                  nullable: true
+                  default: null
+                  description: Additional metadata to be stored with the lead event
+              required:
+                - clickId
+                - eventName
       responses:
         '200':
-          description: The deleted link ID.
+          description: A lead was tracked.
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  id:
-                    type: string
-                    description: The ID of the link.
+                  click:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                    required:
+                      - id
+                  customer:
+                    type: object
+                    properties:
+                      name:
+                        type: string
+                        nullable: true
+                      email:
+                        type: string
+                        nullable: true
+                      avatar:
+                        type: string
+                        nullable: true
+                      externalId:
+                        type: string
+                        nullable: true
+                    required:
+                      - name
+                      - email
+                      - avatar
+                      - externalId
                 required:
-                  - id
+                  - click
+                  - customer
         '400':
           $ref: '#/components/responses/400'
         '401':
@@ -347,74 +417,87 @@ components:
 ---
 Let's break down the implementation step by step:
 
-1. First, we need to define the response type for successful deletion (200 response)
-2. Then we need to define error types based on the error responses
-3. We'll create a method that handles the DELETE request with proper type hints
-4. The method will use the existing fetch method from the client
-5. We'll add proper error handling for different status codes
+1. First, we need to define the request and response types based on the OpenAPI schema:
+- Request type needs all required fields (clickId, eventName) and optional fields
+- Response type needs click and customer objects with their respective properties
+
+2. We'll create a new method in the ExampleClient class that:
+- Takes the request parameters
+- Makes a POST request using the existing fetch method
+- Handles error responses
+- Returns the typed response
+
+3. We'll add type definitions for:
+- The request body
+- The successful response
+- Error responses (though we'll reuse ExampleError)
 
 Here's the implementation:
 
-```python
-# ... existing imports ...
-from typing import TypedDict
+```typescript:exampleClient.ts
+export class ExampleClient {
+  // ... existing code ...
 
-# Response Types
-class DeleteLinkResponse(TypedDict):
-    id: str
+  /**
+   * POST /track/lead
+   * Track a lead for a short link.
+   * Tags: Track
+   */
+  async trackLead(params: {
+    clickId: string;
+    eventName: string;
+    externalId?: string;
+    customerId?: string | null;
+    customerName?: string | null;
+    customerEmail?: string | null;
+    customerAvatar?: string | null;
+    metadata?: Record<string, any> | null;
+  }): Promise<{
+    click: { id: string };
+    customer: {
+      name: string | null;
+      email: string | null;
+      avatar: string | null;
+      externalId: string | null;
+    };
+  }> {
+    try {
+      const response = await this.fetch({
+        method: 'POST',
+        path: '/track/lead',
+        body: params,
+      });
 
-# Error Types
-class ErrorDetail(TypedDict):
-    code: str
-    message: str
-    doc_url: Optional[str]
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new ExampleError(errorData.error.message, {
+          status: response.status,
+          data: errorData,
+        });
+      }
 
-class APIError(TypedDict):
-    error: ErrorDetail
+      return response.json();
+    } catch (error) {
+      if (error instanceof ExampleError) {
+        throw error;
+      }
+      throw new ExampleError('Unknown error occurred', {
+        status: 500,
+        data: error,
+      });
+    }
+  }
+}
 
-class ExampleClientAsync:
-    # ... existing code ...
-
-    # DELETE /links/{linkId} - Delete a link
-    async def delete_link(self, link_id: str) -> DeleteLinkResponse:
-        """
-        DELETE /links/{linkId}
-        Method: DELETE
-        Tags: Links
-        
-        Deletes a link for the authenticated workspace.
-        
-        Args:
-            link_id: The id of the link to delete. You may use either `linkId` 
-                    (obtained via `/links/info` endpoint) or `externalId` prefixed with `ext_`.
-        
-        Returns:
-            DeleteLinkResponse: The deleted link ID.
-        
-        Raises:
-            ExampleError: If the request fails with status codes 400, 401, 403, 404, 
-                        409, 410, 422, 429, or 500.
-        """
-        response = await self.fetch(
-            method="DELETE",
-            path=f"/links/{link_id}",
-        )
-        
-        if response.status == 200:
-            return await response.json()
-        
-        error_data = await response.json()
-        raise ExampleError(
-            error=error_data.get("error", {}).get("message", "Unknown error"),
-            status=response.status,
-            data=error_data
-        )
+// ... existing code ...
 ```
 
 The implementation includes:
-1. TypedDict definitions for the response and error structures
-2. A properly typed async method with docstring including route information
-3. Error handling that raises ExampleError with detailed error information
-4. Proper type hints for both input and output
-5. Usage of the existing fetch method from the client
-6. Proper handling of the 200 response and error cases
+- A well-documented method with route information
+- Strict typing for both input and output
+- Proper error handling that reuses the existing ExampleError class
+- Optional fields marked as optional in the params
+- Nullable fields properly typed
+- Metadata field typed as a generic object
+- Response type that matches the OpenAPI schema exactly
+- Error handling that preserves the original error structure from the API

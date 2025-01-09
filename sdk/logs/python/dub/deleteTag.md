@@ -14,26 +14,26 @@ servers:
   - url: https://api.dub.co
     description: Production API
 paths:
-  /links/{linkId}:
+  /tags/{id}:
     delete:
-      operationId: deleteLink
+      operationId: deleteTag
       x-speakeasy-name-override: delete
       x-speakeasy-max-method-params: 1
-      summary: Delete a link
-      description: Delete a link for the authenticated workspace.
+      summary: Delete a tag
+      description: Delete a tag from the workspace. All existing links will still work, but they will no longer be associated with this tag.
       tags:
-        - Links
+        - Tags
       parameters:
         - in: path
-          name: linkId
-          description: The id of the link to delete. You may use either `linkId` (obtained via `/links/info` endpoint) or `externalId` prefixed with `ext_`.
+          name: id
+          description: The ID of the tag to delete.
           schema:
             type: string
-            description: The id of the link to delete. You may use either `linkId` (obtained via `/links/info` endpoint) or `externalId` prefixed with `ext_`.
+            description: The ID of the tag to delete.
           required: true
       responses:
         '200':
-          description: The deleted link ID.
+          description: The deleted tag ID.
           content:
             application/json:
               schema:
@@ -41,7 +41,7 @@ paths:
                 properties:
                   id:
                     type: string
-                    description: The ID of the link.
+                    description: The ID of the deleted tag.
                 required:
                   - id
         '400':
@@ -350,8 +350,8 @@ Let's break down the implementation step by step:
 1. First, we need to define the response type for successful deletion (200 response)
 2. Then we need to define error types based on the error responses
 3. We'll create a method that handles the DELETE request with proper type hints
-4. The method will use the existing fetch method from the client
-5. We'll add proper error handling for different status codes
+4. The method will handle path parameters and return the appropriate response type
+5. We'll add error handling for the various HTTP status codes
 
 Here's the implementation:
 
@@ -360,7 +360,7 @@ Here's the implementation:
 from typing import TypedDict
 
 # Response Types
-class DeleteLinkResponse(TypedDict):
+class DeleteTagResponse(TypedDict):
     id: str
 
 # Error Types
@@ -372,49 +372,52 @@ class ErrorDetail(TypedDict):
 class APIError(TypedDict):
     error: ErrorDetail
 
+class BadRequest(APIError): pass
+class Unauthorized(APIError): pass
+class Forbidden(APIError): pass
+class NotFound(APIError): pass
+class Conflict(APIError): pass
+class InviteExpired(APIError): pass
+class UnprocessableEntity(APIError): pass
+class RateLimitExceeded(APIError): pass
+class InternalServerError(APIError): pass
+
 class ExampleClientAsync:
     # ... existing code ...
 
-    # DELETE /links/{linkId} - Delete a link
-    async def delete_link(self, link_id: str) -> DeleteLinkResponse:
-        """
-        DELETE /links/{linkId}
+    # DELETE /tags/{id} - Tags
+    async def delete_tag(self, id: str) -> DeleteTagResponse:
+        """Delete a tag from the workspace.
+        
+        Route: DELETE /tags/{id}
         Method: DELETE
-        Tags: Links
-        
-        Deletes a link for the authenticated workspace.
-        
-        Args:
-            link_id: The id of the link to delete. You may use either `linkId` 
-                    (obtained via `/links/info` endpoint) or `externalId` prefixed with `ext_`.
-        
-        Returns:
-            DeleteLinkResponse: The deleted link ID.
-        
-        Raises:
-            ExampleError: If the request fails with status codes 400, 401, 403, 404, 
-                        409, 410, 422, 429, or 500.
+        Tags: Tags
         """
         response = await self.fetch(
             method="DELETE",
-            path=f"/links/{link_id}",
+            path=f"/tags/{id}"
         )
         
         if response.status == 200:
             return await response.json()
-        
-        error_data = await response.json()
-        raise ExampleError(
-            error=error_data.get("error", {}).get("message", "Unknown error"),
-            status=response.status,
-            data=error_data
-        )
+        elif response.status == 400:
+            raise ExampleError("Bad Request", 400, await response.json())
+        elif response.status == 401:
+            raise ExampleError("Unauthorized", 401, await response.json())
+        elif response.status == 403:
+            raise ExampleError("Forbidden", 403, await response.json())
+        elif response.status == 404:
+            raise ExampleError("Not Found", 404, await response.json())
+        elif response.status == 409:
+            raise ExampleError("Conflict", 409, await response.json())
+        elif response.status == 410:
+            raise ExampleError("Invite Expired", 410, await response.json())
+        elif response.status == 422:
+            raise ExampleError("Unprocessable Entity", 422, await response.json())
+        elif response.status == 429:
+            raise ExampleError("Rate Limit Exceeded", 429, await response.json())
+        elif response.status == 500:
+            raise ExampleError("Internal Server Error", 500, await response.json())
+        else:
+            raise ExampleError(f"Unexpected status code: {response.status}", response.status)
 ```
-
-The implementation includes:
-1. TypedDict definitions for the response and error structures
-2. A properly typed async method with docstring including route information
-3. Error handling that raises ExampleError with detailed error information
-4. Proper type hints for both input and output
-5. Usage of the existing fetch method from the client
-6. Proper handling of the 200 response and error cases

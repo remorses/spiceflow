@@ -14,36 +14,153 @@ servers:
   - url: https://api.dub.co
     description: Production API
 paths:
-  /links/{linkId}:
-    delete:
-      operationId: deleteLink
-      x-speakeasy-name-override: delete
-      x-speakeasy-max-method-params: 1
-      summary: Delete a link
-      description: Delete a link for the authenticated workspace.
+  /customers:
+    get:
+      operationId: getCustomers
+      x-speakeasy-name-override: list
+      summary: Retrieve a list of customers
+      description: Retrieve a list of customers for the authenticated workspace.
       tags:
-        - Links
+        - Customers
       parameters:
-        - in: path
-          name: linkId
-          description: The id of the link to delete. You may use either `linkId` (obtained via `/links/info` endpoint) or `externalId` prefixed with `ext_`.
+        - in: query
+          name: email
+          description: A case-sensitive filter on the list based on the customer's `email` field. The value must be a string.
           schema:
             type: string
-            description: The id of the link to delete. You may use either `linkId` (obtained via `/links/info` endpoint) or `externalId` prefixed with `ext_`.
-          required: true
+            description: A case-sensitive filter on the list based on the customer's `email` field. The value must be a string.
+        - in: query
+          name: externalId
+          description: A case-sensitive filter on the list based on the customer's `externalId` field. The value must be a string.
+          schema:
+            type: string
+            description: A case-sensitive filter on the list based on the customer's `externalId` field. The value must be a string.
+        - in: query
+          name: includeExpandedFields
+          description: Whether to include expanded fields on the customer (`link`, `partner`, `discount`).
+          schema:
+            type: boolean
+            description: Whether to include expanded fields on the customer (`link`, `partner`, `discount`).
       responses:
         '200':
-          description: The deleted link ID.
+          description: The list of customers.
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  id:
-                    type: string
-                    description: The ID of the link.
-                required:
-                  - id
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                      description: The unique identifier of the customer in Dub.
+                    externalId:
+                      type: string
+                      description: Unique identifier for the customer in the client's app.
+                    name:
+                      type: string
+                      description: Name of the customer.
+                    email:
+                      type: string
+                      nullable: true
+                      description: Email of the customer.
+                    avatar:
+                      type: string
+                      nullable: true
+                      description: Avatar URL of the customer.
+                    country:
+                      type: string
+                      nullable: true
+                      description: Country of the customer.
+                    createdAt:
+                      type: string
+                      description: The date the customer was created.
+                    link:
+                      type: object
+                      nullable: true
+                      properties:
+                        id:
+                          type: string
+                          description: The unique ID of the short link.
+                        domain:
+                          type: string
+                          description: The domain of the short link. If not provided, the primary domain for the workspace will be used (or `dub.sh` if the workspace has no domains).
+                        key:
+                          type: string
+                          description: The short link slug. If not provided, a random 7-character slug will be generated.
+                        shortLink:
+                          type: string
+                          format: uri
+                          description: The full URL of the short link, including the https protocol (e.g. `https://dub.sh/try`).
+                        programId:
+                          type: string
+                          nullable: true
+                          description: The ID of the program the short link is associated with.
+                      required:
+                        - id
+                        - domain
+                        - key
+                        - shortLink
+                        - programId
+                    partner:
+                      type: object
+                      nullable: true
+                      properties:
+                        id:
+                          type: string
+                        name:
+                          type: string
+                        email:
+                          type: string
+                        image:
+                          type: string
+                          nullable: true
+                      required:
+                        - id
+                        - name
+                        - email
+                    discount:
+                      type: object
+                      nullable: true
+                      properties:
+                        id:
+                          type: string
+                        couponId:
+                          type: string
+                          nullable: true
+                        couponTestId:
+                          type: string
+                          nullable: true
+                        amount:
+                          type: number
+                        type:
+                          type: string
+                          enum:
+                            - percentage
+                            - flat
+                        duration:
+                          type: number
+                          nullable: true
+                        interval:
+                          type: string
+                          nullable: true
+                          enum:
+                            - month
+                            - year
+                            - null
+                      required:
+                        - id
+                        - couponId
+                        - couponTestId
+                        - amount
+                        - type
+                        - duration
+                        - interval
+                  required:
+                    - id
+                    - externalId
+                    - name
+                    - createdAt
         '400':
           $ref: '#/components/responses/400'
         '401':
@@ -347,74 +464,91 @@ components:
 ---
 Let's break down the implementation step by step:
 
-1. First, we need to define the response type for successful deletion (200 response)
-2. Then we need to define error types based on the error responses
-3. We'll create a method that handles the DELETE request with proper type hints
-4. The method will use the existing fetch method from the client
-5. We'll add proper error handling for different status codes
+1. First, we need to define the response types based on the schema:
+- CustomerLink: Represents the link object in the customer response
+- CustomerPartner: Represents the partner object
+- CustomerDiscount: Represents the discount object
+- Customer: Main customer type containing all fields
+- ListCustomersResponse: Type alias for the array of customers
+
+2. For the method implementation:
+- It will be an async method in the ExampleClientAsync class
+- Will accept optional query parameters: email, externalId, includeExpandedFields
+- Will return a list of Customer objects
+- Will handle error responses using the ExampleError class
 
 Here's the implementation:
 
 ```python
 # ... existing imports ...
-from typing import TypedDict
+from typing import List, Literal, Optional, TypedDict
 
-# Response Types
-class DeleteLinkResponse(TypedDict):
-    id: str
+# ... existing ExampleClientAsync class ...
 
-# Error Types
-class ErrorDetail(TypedDict):
-    code: str
-    message: str
-    doc_url: Optional[str]
-
-class APIError(TypedDict):
-    error: ErrorDetail
-
-class ExampleClientAsync:
-    # ... existing code ...
-
-    # DELETE /links/{linkId} - Delete a link
-    async def delete_link(self, link_id: str) -> DeleteLinkResponse:
-        """
-        DELETE /links/{linkId}
-        Method: DELETE
-        Tags: Links
-        
-        Deletes a link for the authenticated workspace.
-        
-        Args:
-            link_id: The id of the link to delete. You may use either `linkId` 
-                    (obtained via `/links/info` endpoint) or `externalId` prefixed with `ext_`.
-        
-        Returns:
-            DeleteLinkResponse: The deleted link ID.
-        
-        Raises:
-            ExampleError: If the request fails with status codes 400, 401, 403, 404, 
-                        409, 410, 422, 429, or 500.
-        """
-        response = await self.fetch(
-            method="DELETE",
-            path=f"/links/{link_id}",
-        )
-        
-        if response.status == 200:
-            return await response.json()
-        
+# Route: GET /customers
+# Method: list
+# Tags: Customers
+async def list_customers(
+    self,
+    email: Optional[str] = None,
+    external_id: Optional[str] = None,
+    include_expanded_fields: Optional[bool] = None,
+) -> List["Customer"]:
+    query_params = {
+        "email": email,
+        "externalId": external_id,
+        "includeExpandedFields": include_expanded_fields,
+    }
+    response = await self.fetch(
+        method="GET",
+        path="/customers",
+        query={k: v for k, v in query_params.items() if v is not None},
+    )
+    
+    if response.status == 200:
+        return [Customer(**customer) for customer in await response.json()]
+    else:
         error_data = await response.json()
         raise ExampleError(
-            error=error_data.get("error", {}).get("message", "Unknown error"),
+            error=error_data["error"]["message"],
             status=response.status,
-            data=error_data
+            data=error_data,
         )
-```
 
-The implementation includes:
-1. TypedDict definitions for the response and error structures
-2. A properly typed async method with docstring including route information
-3. Error handling that raises ExampleError with detailed error information
-4. Proper type hints for both input and output
-5. Usage of the existing fetch method from the client
-6. Proper handling of the 200 response and error cases
+# Type definitions
+class CustomerLink(TypedDict):
+    id: str
+    domain: str
+    key: str
+    shortLink: str
+    programId: Optional[str]
+
+class CustomerPartner(TypedDict):
+    id: str
+    name: str
+    email: str
+    image: Optional[str]
+
+class CustomerDiscount(TypedDict):
+    id: str
+    couponId: Optional[str]
+    couponTestId: Optional[str]
+    amount: float
+    type: Literal["percentage", "flat"]
+    duration: Optional[float]
+    interval: Optional[Literal["month", "year"]]
+
+class Customer(TypedDict):
+    id: str
+    externalId: str
+    name: str
+    email: Optional[str]
+    avatar: Optional[str]
+    country: Optional[str]
+    createdAt: str
+    link: Optional[CustomerLink]
+    partner: Optional[CustomerPartner]
+    discount: Optional[CustomerDiscount]
+
+ListCustomersResponse = List[Customer]
+```
