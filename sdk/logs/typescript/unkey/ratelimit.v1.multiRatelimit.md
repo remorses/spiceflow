@@ -229,59 +229,43 @@ components:
       type: object
 
 ---
-Let's break down the implementation step by step:
+To implement the new method for the OpenAPI route `POST /ratelimit.v1.RatelimitService/MultiRatelimit`, we will follow these steps:
 
-1. We need to add a new method to the `ExampleClient` class for the ratelimit endpoint
-2. The method will:
-   - Use POST method
-   - Accept a body of type `V1RatelimitMultiRatelimitRequestBody`
-   - Return a Promise of `V1RatelimitMultiRatelimitResponseBody`
-   - Handle error responses (400 and 500) using the existing error types
-3. We'll use the existing `fetch` method from the class
-4. We'll add proper type imports from the types file
-5. The method will handle response parsing and error handling
+1. **Define the Method**: We will create a method named `multiRatelimit` in the `ExampleClient` class.
+2. **Add Route Information**: Include a comment above the method that specifies the route path, method, and tags.
+3. **Type Definitions**: Use the types defined in `./components.ts` for the request and response bodies.
+4. **Fetch Implementation**: Use the existing `fetch` method to make the API call.
+5. **Error Handling**: Handle potential errors by checking the response status and throwing an appropriate error if necessary.
+6. **Return Type**: Ensure the method is fully typed for both inputs and outputs.
 
-Here's the code snippet to add to `client.ts`:
+Here is the code snippet to be added to the `./client.ts` file:
 
 ```typescript:client.ts
-// ... existing imports ...
-import type {
-  V1RatelimitMultiRatelimitRequestBody,
-  V1RatelimitMultiRatelimitResponseBody,
-  ValidationError,
-  BaseError,
-} from './types'
+// POST /ratelimit.v1.RatelimitService/MultiRatelimit
+// Tags: ratelimit
+async multiRatelimit(
+  body: types.v1RatelimitMultiRatelimitRequestBody
+): Promise<types.v1RatelimitMultiRatelimitResponseBody> {
+  const response = await this.fetch<types.v1RatelimitMultiRatelimitRequestBody>({
+    method: 'POST',
+    path: '/ratelimit.v1.RatelimitService/MultiRatelimit',
+    body,
+  });
 
-export class ExampleClient {
-  // ... existing code ...
-
-  /**
-   * POST /ratelimit.v1.RatelimitService/MultiRatelimit
-   * @tags ratelimit
-   * @param body - The rate limits to check
-   * @returns Promise<V1RatelimitMultiRatelimitResponseBody>
-   * @throws {ExampleError} Will throw an error if the request fails
-   */
-  async multiRatelimit(
-    body: V1RatelimitMultiRatelimitRequestBody,
-  ): Promise<V1RatelimitMultiRatelimitResponseBody> {
-    const response = await this.fetch({
-      method: 'POST',
-      path: '/ratelimit.v1.RatelimitService/MultiRatelimit',
-      body,
-    })
-
-    if (!response.ok) {
-      const errorData = await response.json()
-      throw new ExampleError('Request failed', {
-        status: response.status,
-        data: errorData,
-      })
-    }
-
-    return response.json() as Promise<V1RatelimitMultiRatelimitResponseBody>
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new ExampleError('Error fetching multi ratelimit', {
+      status: response.status,
+      data: errorData,
+    });
   }
 
-  // ... existing code ...
+  return response.json() as Promise<types.v1RatelimitMultiRatelimitResponseBody>;
 }
+
+// Type definitions for the method
+export interface MultiRatelimitRequestBody extends types.v1RatelimitMultiRatelimitRequestBody {}
+export interface MultiRatelimitResponseBody extends types.v1RatelimitMultiRatelimitResponseBody {}
 ```
+
+This code snippet adds the `multiRatelimit` method to the `ExampleClient` class, handling the request and response according to the specifications provided in the OpenAPI schema.

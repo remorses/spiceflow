@@ -445,44 +445,7 @@ export class ExampleClient {
     return response.json();
   }
 
-  // Type declarations for the bulk update links method
-  declare global {
-    interface BulkUpdateLinksRequest {
-      linkIds?: string[];
-      externalIds?: string[];
-      data: {
-        url?: string;
-        trackConversion?: boolean;
-        archived?: boolean;
-        publicStats?: boolean;
-        tagId?: string | null;
-        tagIds?: string | string[];
-        tagNames?: string | string[];
-        comments?: string | null;
-        expiresAt?: string | null;
-        expiredUrl?: string | null;
-        password?: string | null;
-        proxy?: boolean;
-        title?: string | null;
-        description?: string | null;
-        image?: string | null;
-        video?: string | null;
-        rewrite?: boolean;
-        ios?: string | null;
-        android?: string | null;
-        geo?: types.linkGeoTargeting;
-        doIndex?: boolean;
-        utm_source?: string | null;
-        utm_medium?: string | null;
-        utm_campaign?: string | null;
-        utm_term?: string | null;
-        utm_content?: string | null;
-        ref?: string | null;
-        programId?: string | null;
-        webhookIds?: string[] | null;
-      };
-    }
-  }
+  
 
   // PUT /links/upsert
   // Tags: Links
@@ -942,17 +905,7 @@ export class ExampleClient {
     return response.json() as Promise<DomainSchema>;
   }
 
-  // Global scope declarations
-  declare global {
-    interface DomainUpdateRequest {
-      slug: string;
-      expiredUrl?: string | null;
-      notFoundUrl?: string | null;
-      archived?: boolean;
-      placeholder?: string | null;
-      logo?: string | null;
-    }
-  }
+ 
 
   // POST /track/lead
   // Tags: Track

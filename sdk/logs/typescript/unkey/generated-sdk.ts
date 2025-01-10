@@ -1,11 +1,5 @@
 import { EventSourceParserStream } from 'eventsource-parser/stream'
-import * as types from './types'
-import type {
-  V1RatelimitMultiRatelimitRequestBody,
-  V1RatelimitMultiRatelimitResponseBody,
-  ValidationError,
-  BaseError,
-} from './types'
+import * as types from './components'
 
 export class ExampleClient {
   private baseUrl: string
@@ -53,257 +47,231 @@ export class ExampleClient {
     return fetch(url.toString(), options)
   }
 
-  /**
-   * POST /v0/events
-   * @tags events
-   * @summary Create events
-   * @description Accept NDJSON payload of events and process them
-   */
-  async createEvents(
-    body: types.V0EventsRequestBody,
-    options?: { headers?: Record<string, string> }
-  ): Promise<types.V0EventsResponseBody> {
-    const headers = {
-      'Content-Type': 'application/x-ndjson',
-      ...options?.headers,
+  // POST /v0/events
+  // Tags: events
+  async createEvent(
+    body: string
+  ): Promise<V0EventsResponseBody> {
+    try {
+      const response = await this.fetch<V0EventsRequestBody>({
+        method: 'POST',
+        path: '/v0/events',
+        body,
+        headers: {
+          'Content-Type': 'application/x-ndjson',
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        if (response.status === 400) {
+          throw new ExampleError('Validation Error', {
+            status: 400,
+            data: errorData as ValidationError,
+          });
+        } else {
+          throw new ExampleError('Server Error', {
+            status: response.status,
+            data: errorData as BaseError,
+          });
+        }
+      }
+
+      return (await response.json()) as V0EventsResponseBody;
+    } catch (error) {
+      throw new ExampleError('Network Error', { status: 500, data: error });
     }
-
-    const response = await this.fetch({
-      method: 'POST',
-      path: '/v0/events',
-      body,
-      headers,
-    })
-
-    if (!response.ok) {
-      const errorData = await response.json()
-      throw new ExampleError(errorData.detail || 'Failed to create events', {
-        status: response.status,
-        data: errorData,
-      })
-    }
-
-    return response.json()
   }
 
-  /**
-   * POST /ratelimit.v1.RatelimitService/MultiRatelimit
-   * @tags ratelimit
-   * @param body - The rate limits to check
-   * @returns Promise<V1RatelimitMultiRatelimitResponseBody>
-   * @throws {ExampleError} Will throw an error if the request fails
-   */
+  // POST /ratelimit.v1.RatelimitService/MultiRatelimit
+  // Tags: ratelimit
   async multiRatelimit(
-    body: V1RatelimitMultiRatelimitRequestBody,
-  ): Promise<V1RatelimitMultiRatelimitResponseBody> {
-    const response = await this.fetch({
+    body: types.v1RatelimitMultiRatelimitRequestBody
+  ): Promise<types.v1RatelimitMultiRatelimitResponseBody> {
+    const response = await this.fetch<types.v1RatelimitMultiRatelimitRequestBody>({
       method: 'POST',
       path: '/ratelimit.v1.RatelimitService/MultiRatelimit',
       body,
-    })
+    });
 
     if (!response.ok) {
-      const errorData = await response.json()
-      throw new ExampleError('Request failed', {
+      const errorData = await response.json();
+      throw new ExampleError('Error fetching multi ratelimit', {
         status: response.status,
         data: errorData,
-      })
+      });
     }
 
-    return response.json() as Promise<V1RatelimitMultiRatelimitResponseBody>
+    return response.json() as Promise<types.v1RatelimitMultiRatelimitResponseBody>;
   }
 
-  /**
-   * POST /ratelimit.v1.RatelimitService/Ratelimit
-   * Tags: ratelimit
-   */
+  // POST /ratelimit.v1.RatelimitService/Ratelimit
+  // Tags: ratelimit
   async ratelimit(
-    body: types.V1RatelimitRatelimitRequestBody
-  ): Promise<types.V1RatelimitRatelimitResponseBody> {
-    const response = await this.fetch({
+    body: types.v1RatelimitRatelimitRequestBody
+  ): Promise<types.v1RatelimitRatelimitResponseBody> {
+    const response = await this.fetch<types.v1RatelimitRatelimitRequestBody>({
       method: 'POST',
       path: '/ratelimit.v1.RatelimitService/Ratelimit',
       body,
     });
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => null);
-      if (response.status === 400) {
-        throw new ExampleError('Bad request', {
-          status: response.status,
-          data: errorData as types.ValidationError,
-        });
-      }
-      if (response.status === 500) {
-        throw new ExampleError('Internal server error', {
-          status: response.status,
-          data: errorData as types.BaseError,
-        });
-      }
-      throw new ExampleError('Request failed', {
+      const errorData = await response.json();
+      throw new ExampleError('Error occurred while fetching rate limit', {
         status: response.status,
         data: errorData,
       });
     }
 
-    return response.json() as Promise<types.V1RatelimitRatelimitResponseBody>;
+    return response.json() as Promise<types.v1RatelimitRatelimitResponseBody>;
   }
 
-  /**
-   * @description This endpoint checks if the service is alive.
-   * @route GET /v1/liveness
-   * @tags liveness
-   */
-  async liveness(): Promise<types.V1LivenessResponseBody> {
-    try {
-      const response = await this.fetch({
-        method: 'GET',
-        path: '/v1/liveness',
+  // GET /v1/liveness
+  // Summary: Liveness check
+  // Tags: liveness
+  async checkLiveness(): Promise<V1LivenessResponseBody> {
+    const response = await this.fetch<V1LivenessResponseBody>({
+      method: 'GET',
+      path: '/v1/liveness',
+    });
+
+    if (!response.ok) {
+      const errorData: BaseError = await response.json();
+      throw new ExampleError(errorData.detail, {
+        status: response.status,
+        data: errorData,
       });
-
-      if (!response.ok) {
-        const errorData: types.BaseError = await response.json();
-        throw new ExampleError(errorData.detail, {
-          status: response.status,
-          data: errorData,
-        });
-      }
-
-      return response.json() as Promise<types.V1LivenessResponseBody>;
-    } catch (error) {
-      if (error instanceof ExampleError) {
-        throw error;
-      }
-      throw new ExampleError('Unknown error occurred', { status: 500 });
     }
+
+    return response.json() as Promise<V1LivenessResponseBody>;
   }
 
-  /**
-   * POST /v1/ratelimit.commitLease
-   * @tags ratelimit
-   * @param body - The request body containing lease and cost information
-   * @throws {ExampleError} Will throw an error if the request fails (400 or 500 status)
-   */
-  async commitLease(body: types.V1RatelimitCommitLeaseRequestBody): Promise<void> {
+  // POST /v1/ratelimit.commitLease
+  // Tags: ratelimit
+  async commitLease(
+    body: types.V1RatelimitCommitLeaseRequestBody
+  ): Promise<void> {
     const response = await this.fetch({
       method: 'POST',
       path: '/v1/ratelimit.commitLease',
       body,
-    })
+    });
 
     if (response.status === 204) {
-      return
+      return; // No Content
     }
 
-    const errorData = await response.json().catch(() => null)
     if (response.status === 400) {
-      throw new ExampleError('Validation Error', {
-        status: response.status,
-        data: errorData as types.ValidationError,
-      })
-    }
-    if (response.status === 500) {
-      throw new ExampleError('Server Error', {
-        status: response.status,
-        data: errorData as types.BaseError,
-      })
+      const errorData: types.ValidationError = await response.json();
+      throw new ExampleError(errorData.detail, {
+        status: errorData.status,
+        data: errorData,
+      });
     }
 
-    throw new ExampleError('Unknown Error', {
-      status: response.status,
-      data: errorData,
-    })
+    if (response.status === 500) {
+      const errorData: types.BaseError = await response.json();
+      throw new ExampleError(errorData.detail, {
+        status: errorData.status,
+        data: errorData,
+      });
+    }
+
+    throw new Error('Unexpected response');
   }
 
-  /**
-   * POST /vault.v1.VaultService/Decrypt
-   * @tags vault
-   * @param body The request body containing encrypted data and keyring
-   * @returns Promise resolving to decrypted plaintext
-   * @throws {ExampleError} When the request fails
-   */
-  async decrypt(body: types.V1DecryptRequestBody): Promise<types.V1DecryptResponseBody> {
-    const response = await this.fetch({
+  // POST /vault.v1.VaultService/Decrypt
+  // Tags: vault
+  async decrypt(
+    requestBody: types.V1DecryptRequestBody
+  ): Promise<types.V1DecryptResponseBody> {
+    const response = await this.fetch<types.V1DecryptRequestBody>({
       method: 'POST',
       path: '/vault.v1.VaultService/Decrypt',
-      body,
+      body: requestBody,
     });
 
     if (!response.ok) {
-      let errorData: types.BaseError | types.ValidationError;
-      try {
-        errorData = await response.json();
-      } catch (e) {
-        throw new ExampleError('Failed to parse error response', {
-          status: response.status,
-        });
-      }
-
-      throw new ExampleError(errorData.detail, {
+      const errorData = await response.json().catch(() => ({}));
+      const error = errorData as types.BaseError | types.ValidationError;
+      throw new ExampleError(error.detail, {
         status: response.status,
-        data: errorData,
+        data: error,
       });
     }
 
     return response.json() as Promise<types.V1DecryptResponseBody>;
   }
 
-  /**
-   * POST /vault.v1.VaultService/Encrypt
-   * @tags vault
-   * @param body - The encryption request
-   * @returns The encrypted data
-   * @throws {ExampleError} When the request fails
-   */
-  async encrypt(body: types.V1EncryptRequestBody): Promise<types.V1EncryptResponseBody> {
-    const response = await this.fetch({
+  // POST /vault.v1.VaultService/Encrypt
+  // Tags: vault
+  async encrypt(
+    body: types.v1EncryptRequestBody
+  ): Promise<types.v1EncryptResponseBody> {
+    try {
+      const response = await this.fetch<types.v1EncryptRequestBody>({
+        method: 'POST',
+        path: '/vault.v1.VaultService/Encrypt',
+        body,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        if (response.status === 400) {
+          throw new ExampleError('Validation Error', {
+            status: response.status,
+            data: errorData as types.ValidationError,
+          });
+        } else if (response.status === 500) {
+          throw new ExampleError('Server Error', {
+            status: response.status,
+            data: errorData as types.BaseError,
+          });
+        }
+        throw new ExampleError('Unknown Error', {
+          status: response.status,
+          data: errorData,
+        });
+      }
+
+      return (await response.json()) as types.v1EncryptResponseBody;
+    } catch (error) {
+      throw new ExampleError('Request Failed', { status: 0, data: error });
+    }
+  }
+
+  // POST /vault.v1.VaultService/EncryptBulk
+  // Tags: vault
+  async encryptBulk(
+    body: types.v1EncryptBulkRequestBody
+  ): Promise<types.v1EncryptBulkResponseBody> {
+    const response = await this.fetch<types.v1EncryptBulkRequestBody>({
       method: 'POST',
-      path: '/vault.v1.VaultService/Encrypt',
-      body
+      path: '/vault.v1.VaultService/EncryptBulk',
+      body,
     });
 
     if (!response.ok) {
-      let errorData: types.BaseError | types.ValidationError;
-      try {
-        errorData = await response.json();
-      } catch (e) {
-        throw new ExampleError('Failed to parse error response', { status: response.status });
+      const errorData = await response.json();
+      if (response.status === 400) {
+        throw new ExampleError('Validation Error', {
+          status: response.status,
+          data: errorData as types.ValidationError,
+        });
+      } else if (response.status === 500) {
+        throw new ExampleError('Server Error', {
+          status: response.status,
+          data: errorData as types.BaseError,
+        });
       }
-
-      throw new ExampleError(errorData.detail, {
+      throw new ExampleError('Unknown Error', {
         status: response.status,
-        data: errorData
+        data: errorData,
       });
     }
 
-    return response.json() as Promise<types.V1EncryptResponseBody>;
-  }
-
-  /**
-   * POST /vault.v1.VaultService/EncryptBulk
-   * @tags vault
-   * @param request The request body containing data to encrypt
-   * @returns Promise containing the encrypted data
-   * @throws {ExampleError} Will throw on 400 or 500 status codes
-   */
-  async encryptBulk(request: types.V1EncryptBulkRequestBody): Promise<types.V1EncryptBulkResponseBody> {
-    const response = await this.fetch({
-      method: 'POST',
-      path: '/vault.v1.VaultService/EncryptBulk',
-      body: request
-    });
-
-    if (!response.ok) {
-      let errorData: types.BaseError | types.ValidationError;
-      try {
-        errorData = await response.json();
-      } catch (error) {
-        throw new ExampleError('Failed to parse error response', { status: response.status });
-      }
-      throw new ExampleError(errorData.detail, { status: response.status, data: errorData });
-    }
-
-    return response.json() as Promise<types.V1EncryptBulkResponseBody>;
+    return (await response.json()) as types.v1EncryptBulkResponseBody;
   }
 }
 
@@ -345,6 +313,30 @@ export async function* streamSSEResponse(
     }
   }
 }
+
+// Type definitions for the new method
+export interface CreateEventResponse extends V0EventsResponseBody {}
+
+// Type definitions for the method
+export interface MultiRatelimitRequestBody extends types.v1RatelimitMultiRatelimitRequestBody {}
+export interface MultiRatelimitResponseBody extends types.v1RatelimitMultiRatelimitResponseBody {}
+
+// Type declarations for the method
+export interface RatelimitRequestBody extends types.v1RatelimitRatelimitRequestBody {}
+export interface RatelimitResponseBody extends types.v1RatelimitRatelimitResponseBody {}
+
+// Type definitions for the new method
+export interface CommitLeaseResponse {
+  // No response body expected for 204
+}
+
+// Type definitions for the method
+export interface DecryptRequestBody extends types.V1DecryptRequestBody {}
+export interface DecryptResponseBody extends types.V1DecryptResponseBody {}
+
+// Type definitions for the new method
+export interface EncryptRequestBody extends types.V1EncryptRequestBody {}
+export interface EncryptResponseBody extends types.V1EncryptResponseBody {}
 
 
 

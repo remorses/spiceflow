@@ -179,54 +179,60 @@ components:
       type: object
 
 ---
-Let's break down what we need to implement:
+To implement the `POST /vault.v1.VaultService/Encrypt` route in the `ExampleClient` class, we will create a new method called `encrypt`. This method will:
 
-1. We need to add a new method to the `ExampleClient` class for the `/vault.v1.VaultService/Encrypt` endpoint
-2. The method should:
-   - Accept a `V1EncryptRequestBody` as input
-   - Return a `Promise<V1EncryptResponseBody>`
-   - Handle potential errors (400 and 500 status codes)
-   - Use the existing `fetch` method
-3. We'll use the types from `./types.ts`
-4. We'll add proper error handling for the specific error responses
+1. **Define the route path, method, and tags** in a comment above the method.
+2. **Use the `fetch` method** to make the API call.
+3. **Handle request serialization** by accepting a `V1EncryptRequestBody` type as input.
+4. **Handle response serialization** by returning a `V1EncryptResponseBody` type.
+5. **Include error handling** for different response statuses (200, 400, 500).
+6. **Use optional fields** where required and `any` for unspecified types.
 
-Here's the implementation:
+The method will be fully typed for both inputs and outputs, ensuring that it can be used in both Node.js and browser environments.
+
+Here’s the code snippet to add to the `./client.ts` file:
 
 ```typescript:client.ts
-export class ExampleClient {
-  // ... existing code ...
-
-  /**
-   * POST /vault.v1.VaultService/Encrypt
-   * @tags vault
-   * @param body - The encryption request
-   * @returns The encrypted data
-   * @throws {ExampleError} When the request fails
-   */
-  async encrypt(body: types.V1EncryptRequestBody): Promise<types.V1EncryptResponseBody> {
-    const response = await this.fetch({
+// POST /vault.v1.VaultService/Encrypt
+// Tags: vault
+async encrypt(
+  body: types.v1EncryptRequestBody
+): Promise<types.v1EncryptResponseBody> {
+  try {
+    const response = await this.fetch<types.v1EncryptRequestBody>({
       method: 'POST',
       path: '/vault.v1.VaultService/Encrypt',
-      body
+      body,
     });
 
     if (!response.ok) {
-      let errorData: types.BaseError | types.ValidationError;
-      try {
-        errorData = await response.json();
-      } catch (e) {
-        throw new ExampleError('Failed to parse error response', { status: response.status });
+      const errorData = await response.json();
+      if (response.status === 400) {
+        throw new ExampleError('Validation Error', {
+          status: response.status,
+          data: errorData as types.ValidationError,
+        });
+      } else if (response.status === 500) {
+        throw new ExampleError('Server Error', {
+          status: response.status,
+          data: errorData as types.BaseError,
+        });
       }
-
-      throw new ExampleError(errorData.detail, {
+      throw new ExampleError('Unknown Error', {
         status: response.status,
-        data: errorData
+        data: errorData,
       });
     }
 
-    return response.json() as Promise<types.V1EncryptResponseBody>;
+    return (await response.json()) as types.v1EncryptResponseBody;
+  } catch (error) {
+    throw new ExampleError('Request Failed', { status: 0, data: error });
   }
-
-  // ... existing code ...
 }
-```
+
+// Type definitions for the new method
+export interface EncryptRequestBody extends types.V1EncryptRequestBody {}
+export interface EncryptResponseBody extends types.V1EncryptResponseBody {}
+``` 
+
+This code snippet adds the `encrypt` method to the `ExampleClient` class, handling the API call and error management as specified.

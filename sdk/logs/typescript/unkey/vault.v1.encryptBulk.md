@@ -190,52 +190,53 @@ components:
       type: object
 
 ---
-Let's break this down step by step:
+To implement the new method for the OpenAPI route `POST /vault.v1.VaultService/EncryptBulk`, we will follow these steps:
 
-1. We need to add a new method to the `ExampleClient` class for the `/vault.v1.VaultService/EncryptBulk` endpoint
-2. The method will:
-   - Accept a `V1EncryptBulkRequestBody` as input
-   - Return a `Promise<V1EncryptBulkResponseBody>`
-   - Handle potential errors (400 and 500 responses)
-   - Use the existing `fetch` method
-3. We'll use the types from `./types.ts` for type safety
-4. The method will handle the POST request and response serialization
+1. **Define the Method**: We will create a method named `encryptBulk` in the `ExampleClient` class.
+2. **Add Route Information**: Include a comment above the method that specifies the route path, method, and tags.
+3. **Type Definitions**: Use the types defined in `./components.ts` for the request and response bodies.
+4. **Request Serialization**: Serialize the request body to JSON.
+5. **Response Handling**: Handle the response, including error handling for different status codes.
+6. **Error Handling**: Throw appropriate errors based on the response status.
 
-Here's the code to add to `client.ts`:
+Here’s the code snippet to be added to the `./client.ts` file:
 
 ```typescript:client.ts
-// ... existing code ...
-
-export class ExampleClient {
-  // ... existing code ...
-
-  /**
-   * POST /vault.v1.VaultService/EncryptBulk
-   * @tags vault
-   * @param request The request body containing data to encrypt
-   * @returns Promise containing the encrypted data
-   * @throws {ExampleError} Will throw on 400 or 500 status codes
-   */
-  async encryptBulk(request: types.V1EncryptBulkRequestBody): Promise<types.V1EncryptBulkResponseBody> {
-    const response = await this.fetch({
+  // POST /vault.v1.VaultService/EncryptBulk
+  // Tags: vault
+  async encryptBulk(
+    body: types.v1EncryptBulkRequestBody
+  ): Promise<types.v1EncryptBulkResponseBody> {
+    const response = await this.fetch<types.v1EncryptBulkRequestBody>({
       method: 'POST',
       path: '/vault.v1.VaultService/EncryptBulk',
-      body: request
+      body,
     });
 
     if (!response.ok) {
-      let errorData: types.BaseError | types.ValidationError;
-      try {
-        errorData = await response.json();
-      } catch (error) {
-        throw new ExampleError('Failed to parse error response', { status: response.status });
+      const errorData = await response.json();
+      if (response.status === 400) {
+        throw new ExampleError('Validation Error', {
+          status: response.status,
+          data: errorData as types.ValidationError,
+        });
+      } else if (response.status === 500) {
+        throw new ExampleError('Server Error', {
+          status: response.status,
+          data: errorData as types.BaseError,
+        });
       }
-      throw new ExampleError(errorData.detail, { status: response.status, data: errorData });
+      throw new ExampleError('Unknown Error', {
+        status: response.status,
+        data: errorData,
+      });
     }
 
-    return response.json() as Promise<types.V1EncryptBulkResponseBody>;
+    return (await response.json()) as types.v1EncryptBulkResponseBody;
   }
-}
-
-// ... existing code ...
 ```
+
+### Summary of Changes:
+- Added the `encryptBulk` method to handle the `POST /vault.v1.VaultService/EncryptBulk` route.
+- Utilized the types from `./components.ts` for both request and response.
+- Implemented error handling for 400 and 500 status codes, throwing `ExampleError` with appropriate messages and data.

@@ -13,6 +13,7 @@ Generate a TypeScript SDK method for this OpenAPI route as a class method. The S
 - Always add global scope declarations like for types and functions at the end of the snippet
 - Make sure to declare all the types and function required to make your snippets of code work, unless they are already declared in the initial code
 - Use very specific names for types generated from schemas that are not defined with refs and don't already have a name, even better if you use inline types for these
+- Never use declare global in typescript, instead define types and add them at the bottom of the snippet if you need to
     `,
   python: `
 Generate a Python SDK method for this OpenAPI route as a class method. The SDK should:

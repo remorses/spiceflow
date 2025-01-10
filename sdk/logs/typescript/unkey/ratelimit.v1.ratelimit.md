@@ -228,62 +228,48 @@ components:
       type: object
 
 ---
-Let's break this down step by step:
+To implement the new method for the OpenAPI route `POST /ratelimit.v1.RatelimitService/Ratelimit`, we will follow these steps:
 
-1. We need to add a new method to the `ExampleClient` class for the ratelimit endpoint
-2. The method will:
-   - Use POST method
-   - Accept a body of type `V1RatelimitRatelimitRequestBody`
-   - Return a Promise of `V1RatelimitRatelimitResponseBody`
-   - Handle error responses (400 and 500) using the existing error types
-   - Use the existing fetch method for making the request
-3. We'll add the method with proper typing and error handling
-4. The route path is `/ratelimit.v1.RatelimitService/Ratelimit`
+1. **Define the Method**: We will create a method named `ratelimit` within the `ExampleClient` class. This method will handle the request to the specified endpoint.
 
-Here's the code to add:
+2. **Add Route Information**: We will include a comment above the method that specifies the route path, method, and tags.
+
+3. **Type Definitions**: The method will accept a parameter of type `V1RatelimitRatelimitRequestBody` for the request body and will return a promise that resolves to `V1RatelimitRatelimitResponseBody`.
+
+4. **Error Handling**: We will handle potential errors by checking the response status and throwing an `ExampleError` if the response indicates a failure.
+
+5. **Serialization**: The request body will be serialized to JSON, and the response will be deserialized from JSON.
+
+6. **Global Scope Declarations**: We will ensure that all necessary types are declared at the end of the snippet.
+
+Here is the code snippet to be added to the `./client.ts` file:
 
 ```typescript:client.ts
-// ... existing code ...
+// POST /ratelimit.v1.RatelimitService/Ratelimit
+// Tags: ratelimit
+async ratelimit(
+  body: types.v1RatelimitRatelimitRequestBody
+): Promise<types.v1RatelimitRatelimitResponseBody> {
+  const response = await this.fetch<types.v1RatelimitRatelimitRequestBody>({
+    method: 'POST',
+    path: '/ratelimit.v1.RatelimitService/Ratelimit',
+    body,
+  });
 
-export class ExampleClient {
-  // ... existing code ...
-
-  /**
-   * POST /ratelimit.v1.RatelimitService/Ratelimit
-   * Tags: ratelimit
-   */
-  async ratelimit(
-    body: types.V1RatelimitRatelimitRequestBody
-  ): Promise<types.V1RatelimitRatelimitResponseBody> {
-    const response = await this.fetch({
-      method: 'POST',
-      path: '/ratelimit.v1.RatelimitService/Ratelimit',
-      body,
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new ExampleError('Error occurred while fetching rate limit', {
+      status: response.status,
+      data: errorData,
     });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => null);
-      if (response.status === 400) {
-        throw new ExampleError('Bad request', {
-          status: response.status,
-          data: errorData as types.ValidationError,
-        });
-      }
-      if (response.status === 500) {
-        throw new ExampleError('Internal server error', {
-          status: response.status,
-          data: errorData as types.BaseError,
-        });
-      }
-      throw new ExampleError('Request failed', {
-        status: response.status,
-        data: errorData,
-      });
-    }
-
-    return response.json() as Promise<types.V1RatelimitRatelimitResponseBody>;
   }
+
+  return response.json() as Promise<types.v1RatelimitRatelimitResponseBody>;
 }
 
-// ... existing code ...
+// Type declarations for the method
+export interface RatelimitRequestBody extends types.v1RatelimitRatelimitRequestBody {}
+export interface RatelimitResponseBody extends types.v1RatelimitRatelimitResponseBody {}
 ```
+
+This code snippet adds the `ratelimit` method to the `ExampleClient` class, handling the API call, serialization, and error management as specified.

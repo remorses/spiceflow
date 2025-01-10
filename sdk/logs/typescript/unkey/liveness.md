@@ -84,54 +84,40 @@ components:
       type: object
 
 ---
-Let's break down what we need to implement:
+To implement the `GET /v1/liveness` route in the `ExampleClient` class, we will create a new method called `checkLiveness`. This method will:
 
-1. We need to add a new method to the `ExampleClient` class for the `/v1/liveness` endpoint
-2. The method should:
-   - Use the existing `fetch` method
-   - Handle GET request
-   - Return the proper response type (`V1LivenessResponseBody`)
-   - Handle error responses (`BaseError`)
-3. We'll use the types from `./types.ts`
-4. We'll add proper JSDoc comments for the method
+1. **Define the route path, method, and tags** in a comment above the method.
+2. **Use the existing `fetch` method** to make the API call.
+3. **Handle the response** by serializing it into the appropriate type (`V1LivenessResponseBody`).
+4. **Implement error handling** to throw an `ExampleError` in case of a non-200 response.
 
-Here's the implementation:
+The method will be fully typed for both inputs and outputs, and it will utilize the types defined in `./components.ts`.
+
+Here’s the code snippet to add to the `./client.ts` file:
 
 ```typescript:client.ts
-// ... existing code ...
+  // GET /v1/liveness
+  // Summary: Liveness check
+  // Tags: liveness
+  async checkLiveness(): Promise<V1LivenessResponseBody> {
+    const response = await this.fetch<V1LivenessResponseBody>({
+      method: 'GET',
+      path: '/v1/liveness',
+    });
 
-export class ExampleClient {
-  // ... existing code ...
-
-  /**
-   * @description This endpoint checks if the service is alive.
-   * @route GET /v1/liveness
-   * @tags liveness
-   */
-  async liveness(): Promise<types.V1LivenessResponseBody> {
-    try {
-      const response = await this.fetch({
-        method: 'GET',
-        path: '/v1/liveness',
+    if (!response.ok) {
+      const errorData: BaseError = await response.json();
+      throw new ExampleError(errorData.detail, {
+        status: response.status,
+        data: errorData,
       });
-
-      if (!response.ok) {
-        const errorData: types.BaseError = await response.json();
-        throw new ExampleError(errorData.detail, {
-          status: response.status,
-          data: errorData,
-        });
-      }
-
-      return response.json() as Promise<types.V1LivenessResponseBody>;
-    } catch (error) {
-      if (error instanceof ExampleError) {
-        throw error;
-      }
-      throw new ExampleError('Unknown error occurred', { status: 500 });
     }
-  }
-}
 
-// ... existing code ...
+    return response.json() as Promise<V1LivenessResponseBody>;
+  }
 ```
+
+### Summary of Changes:
+- Added a new method `checkLiveness` to the `ExampleClient` class.
+- The method makes a `GET` request to the `/v1/liveness` endpoint.
+- It handles the response and errors appropriately, ensuring that the output is typed as `V1LivenessResponseBody`.

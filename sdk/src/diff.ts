@@ -239,7 +239,7 @@ export function recursivelyResolveComponents({
         if (!seenRefs.has(refString)) {
           seenRefs.add(refString)
           const resolvedSchema = resolver.getSchema(id, refString as any)
-          console.log(`resolving ${refString}`)
+          // console.log(`resolving ${refString}`)
 
           // Add the resolved schema to the stack to process any nested refs
           stack.push({ key: '', value: resolvedSchema })

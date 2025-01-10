@@ -149,7 +149,9 @@ export async function generateSDKForRoute({
   let typesPrompt = dedent`
   Here is the OpenAPI component types already converted to ${language}, you can use them by importing \`./${componentTypesFileName}.${extensions[language]}\`:
 
-  THIS FILE CANNOT BE EDITED
+  THIS FILE CANNOT BE EDITED.
+
+  These types are not in the current scope, you have to use the right imported namespace to use them.
 
   \`\`\`${language}:${componentTypesFileName}.${extensions[language]}
   ${typesCode}

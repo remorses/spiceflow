@@ -175,58 +175,51 @@ components:
       type: object
 
 ---
-Let's break down what we need to implement:
+To implement the `POST /vault.v1.VaultService/Decrypt` route in the `ExampleClient` class, we will create a new method called `decrypt`. This method will:
 
-1. We need to add a new method to the `ExampleClient` class for the decrypt endpoint
-2. The method should:
-   - Accept a `V1DecryptRequestBody` as input
-   - Return a `Promise<V1DecryptResponseBody>`
-   - Handle error responses (400 and 500 status codes)
-   - Use the existing `fetch` method
-3. We'll use the types from `./types.ts` for type safety
-4. The method should handle both successful responses and error cases
+1. **Define the route path, method, and tags** in a comment above the method.
+2. **Use the `fetch` method** to make the API call.
+3. **Handle request and response serialization** by using the appropriate types from `./components.ts`.
+4. **Implement error handling** for different response statuses.
+5. **Ensure all types are fully defined** and use optional fields where necessary.
 
-Here's the implementation:
+### Step-by-step reasoning:
+- The method will accept a request body of type `V1DecryptRequestBody` and return a promise that resolves to `V1DecryptResponseBody`.
+- We will handle potential errors by checking the response status and throwing an `ExampleError` for non-200 responses.
+- The method will be fully typed, ensuring that TypeScript can infer the types correctly.
+
+Here is the code snippet to add to the `./client.ts` file:
 
 ```typescript:client.ts
-// ... existing code ...
+// POST /vault.v1.VaultService/Decrypt
+// Tags: vault
+async decrypt(
+  requestBody: types.V1DecryptRequestBody
+): Promise<types.V1DecryptResponseBody> {
+  const response = await this.fetch<types.V1DecryptRequestBody>({
+    method: 'POST',
+    path: '/vault.v1.VaultService/Decrypt',
+    body: requestBody,
+  });
 
-export class ExampleClient {
-  // ... existing code ...
-
-  /**
-   * POST /vault.v1.VaultService/Decrypt
-   * @tags vault
-   * @param body The request body containing encrypted data and keyring
-   * @returns Promise resolving to decrypted plaintext
-   * @throws {ExampleError} When the request fails
-   */
-  async decrypt(body: types.V1DecryptRequestBody): Promise<types.V1DecryptResponseBody> {
-    const response = await this.fetch({
-      method: 'POST',
-      path: '/vault.v1.VaultService/Decrypt',
-      body,
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    const error = errorData as types.BaseError | types.ValidationError;
+    throw new ExampleError(error.detail, {
+      status: response.status,
+      data: error,
     });
-
-    if (!response.ok) {
-      let errorData: types.BaseError | types.ValidationError;
-      try {
-        errorData = await response.json();
-      } catch (e) {
-        throw new ExampleError('Failed to parse error response', {
-          status: response.status,
-        });
-      }
-
-      throw new ExampleError(errorData.detail, {
-        status: response.status,
-        data: errorData,
-      });
-    }
-
-    return response.json() as Promise<types.V1DecryptResponseBody>;
   }
+
+  return response.json() as Promise<types.V1DecryptResponseBody>;
 }
 
-// ... existing code ...
+// Type definitions for the method
+export interface DecryptRequestBody extends types.V1DecryptRequestBody {}
+export interface DecryptResponseBody extends types.V1DecryptResponseBody {}
 ```
+
+### Summary of changes:
+- Added a new method `decrypt` to handle the decryption API call.
+- Included error handling for different response statuses.
+- Used types from `./components.ts` for request and response bodies.

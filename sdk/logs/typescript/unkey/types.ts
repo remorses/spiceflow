@@ -1,25 +1,25 @@
 export interface AllExportedTypes {
-  baseError?:                             BaseError;
-  encrypted?:                             Encrypted;
-  item?:                                  Item;
-  lease?:                                 Lease;
-  singleRatelimitResponse?:               SingleRatelimitResponse;
-  v0EventsRequestBody?:                   string;
-  v0EventsResponseBody?:                  V0EventsResponseBody;
-  v1DecryptRequestBody?:                  V1DecryptRequestBody;
-  v1DecryptResponseBody?:                 V1DecryptResponseBody;
-  v1EncryptBulkRequestBody?:              V1EncryptBulkRequestBody;
-  v1EncryptBulkResponseBody?:             V1EncryptBulkResponseBody;
-  v1EncryptRequestBody?:                  V1EncryptRequestBody;
-  v1EncryptResponseBody?:                 V1EncryptResponseBody;
-  v1LivenessResponseBody?:                V1LivenessResponseBody;
-  v1RatelimitCommitLeaseRequestBody?:     V1RatelimitCommitLeaseRequestBody;
-  v1RatelimitMultiRatelimitRequestBody?:  V1RatelimitMultiRatelimitRequestBody;
-  v1RatelimitMultiRatelimitResponseBody?: V1RatelimitMultiRatelimitResponseBody;
-  v1RatelimitRatelimitRequestBody?:       V1RatelimitRatelimitRequestBody;
-  v1RatelimitRatelimitResponseBody?:      V1RatelimitRatelimitResponseBody;
-  validationError?:                       ValidationError;
-  validationErrorDetail?:                 AllExportedType;
+  baseError:                             BaseError;
+  encrypted:                             Encrypted;
+  item:                                  Item;
+  lease:                                 Lease;
+  singleRatelimitResponse:               SingleRatelimitResponse;
+  v0EventsRequestBody:                   string;
+  v0EventsResponseBody:                  V0EventsResponseBody;
+  v1DecryptRequestBody:                  V1DecryptRequestBody;
+  v1DecryptResponseBody:                 V1DecryptResponseBody;
+  v1EncryptBulkRequestBody:              V1EncryptBulkRequestBody;
+  v1EncryptBulkResponseBody:             V1EncryptBulkResponseBody;
+  v1EncryptRequestBody:                  V1EncryptRequestBody;
+  v1EncryptResponseBody:                 V1EncryptResponseBody;
+  v1LivenessResponseBody:                V1LivenessResponseBody;
+  v1RatelimitCommitLeaseRequestBody:     V1RatelimitCommitLeaseRequestBody;
+  v1RatelimitMultiRatelimitRequestBody:  V1RatelimitMultiRatelimitRequestBody;
+  v1RatelimitMultiRatelimitResponseBody: V1RatelimitMultiRatelimitResponseBody;
+  v1RatelimitRatelimitRequestBody:       V1RatelimitRatelimitRequestBody;
+  v1RatelimitRatelimitResponseBody:      V1RatelimitRatelimitResponseBody;
+  validationError:                       ValidationError;
+  validationErrorDetail:                 AllExportedType;
   [property: string]: any;
 }
 
