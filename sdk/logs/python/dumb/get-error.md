@@ -1,45 +1,77 @@
-Let's implement the GET /error endpoint. Here's the step-by-step reasoning:
+openapi: 3.1.3
+info:
+  title: Spiceflow Documentation
+  description: Development documentation
+  version: 0.0.0
+servers:
+  - url: https://api.com
+paths:
+  /error:
+    get:
+      responses:
+        '200':
+          description: ''
+        default:
+          description: ''
+      tags:
+        - example-tag
+      summary: Error Endpoint
+      description: Always throws an error for testing error handling
 
-1. This is a GET request that always throws an error
-2. It's tagged under "example-tag"
-3. It has a summary "Error Endpoint"
-4. It has a description about testing error handling
-5. It returns either a 200 or default error response
-6. We'll need to handle the error response using our ExampleError class
-7. The method should be async and return Any type since the schema is unspecified
+---
+Let's break down what we need to implement:
+
+1. We need to add a new async method to the `ExampleClientAsync` class for the GET /error endpoint
+2. The method should:
+   - Use the existing `fetch` method
+   - Handle error responses
+   - Include proper type hints
+3. The endpoint:
+   - Path: /error
+   - Method: GET
+   - Tags: example-tag
+   - Always throws an error (so we need to handle error responses)
 
 Here's the implementation:
 
-```python:example_client_async.py
+```python:client.py
+# ... existing code ...
+
 class ExampleClientAsync:
     # ... existing code ...
 
     # GET /error
     # Tags: example-tag
-    async def get_error(self) -> Any:
-        """Error Endpoint
+    async def get_error(self) -> None:
+        """
+        Error Endpoint
         Always throws an error for testing error handling
         """
-        response = await self.fetch("GET", "/error")
+        response = await self.fetch(
+            method="GET",
+            path="/error"
+        )
         
-        if response.status != 200:
+        if response.status >= 400:
             try:
                 error_data = await response.json()
-                raise ExampleError(
-                    error=error_data.get("message", "Unknown error"),
-                    status=response.status,
-                    data=error_data
-                )
-            except (json.JSONDecodeError, aiohttp.ContentTypeError):
-                raise ExampleError(
-                    error=f"Request failed with status {response.status}",
-                    status=response.status
-                )
-        
-        try:
-            return await response.json()
-        except (json.JSONDecodeError, aiohttp.ContentTypeError):
-            return await response.text()
+            except:
+                error_data = None
+            raise ExampleError(
+                error=f"Request failed with status {response.status}",
+                status=response.status,
+                data=error_data
+            )
+
+# ... existing code ...
 ```
 
-The implementation follows the existing pattern in the SDK, using the fetch method and handling both successful and error responses appropriately. The method is fully async and includes type hints as requested.
+The implementation:
+1. Adds a new method `get_error` with proper type hints
+2. Uses the existing `fetch` method to make the GET request
+3. Includes error handling that checks for status codes >= 400
+4. Attempts to parse error response data if available
+5. Raises the existing `ExampleError` with appropriate details
+6. Includes a docstring with the endpoint description
+7. Follows the async/await pattern
+8. Uses the existing error handling infrastructure

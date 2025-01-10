@@ -1,4 +1,4 @@
-export interface All {
+export interface AllExportedTypes {
   analyticsBrowsers:    AnalyticsBrowsers;
   analyticsCities:      AnalyticsCities;
   analyticsContinents:  AnalyticsContinents;

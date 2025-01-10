@@ -1,101 +1,95 @@
-Let's implement the POST /upload endpoint step by step:
+openapi: 3.1.3
+info:
+  title: Spiceflow Documentation
+  description: Development documentation
+  version: 0.0.0
+servers:
+  - url: https://api.com
+paths:
+  /upload:
+    post:
+      responses:
+        '200':
+          description: ''
+        default:
+          description: ''
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  contentEncoding: base64
+              required:
+                - file
+              additionalProperties: false
 
-1. First, we need to handle multipart/form-data content type
+---
+Let's break this down step by step:
+
+1. The route is POST /upload with multipart/form-data content type
 2. The request requires a base64 encoded file in the body
-3. We'll create a type for the request body
-4. We'll implement the method in the ExampleClientAsync class
-5. We'll handle the response which doesn't have a specific schema
+3. We need to modify the fetch method to handle multipart form data
+4. We'll create a new method in the ExampleClientAsync class
+5. We'll need to handle the file upload using aiohttp's FormData
+6. The method should return the raw response since the schema doesn't specify a response type
 
 Here's the implementation:
 
-```python:example_client_async.py
+```python:client.py
 # ... existing code ...
 
 class ExampleClientAsync:
-    # ... existing methods ...
+    # ... existing code ...
 
     # POST /upload
-    # tags: []
-    async def upload_file(self, file_base64: str) -> Any:
+    # Tags: (none specified)
+    async def upload_file(self, file_content: str) -> Any:
         """
-        Upload a file using base64 encoding
+        Upload a base64 encoded file
         
         Args:
-            file_base64: Base64 encoded file content
+            file_content: Base64 encoded file content as string
             
         Returns:
-            Response data from the server
+            Response from the server
             
         Raises:
             ExampleError: If the request fails
         """
         form_data = aiohttp.FormData()
-        form_data.add_field('file', file_base64)
+        form_data.add_field('file', file_content)
         
         response = await self.fetch(
-            method="POST",
-            path="/upload",
-            body=None,
-            headers={"Content-Type": "multipart/form-data"},
-            form_data=form_data
+            method='POST',
+            path='/upload',
+            body=form_data,
+            headers={'Content-Type': 'multipart/form-data'}
         )
         
-        if response.status >= 400:
+        if response.status != 200:
+            try:
+                error_data = await response.json()
+            except:
+                error_data = await response.text()
             raise ExampleError(
                 f"Upload failed with status {response.status}",
-                status=response.status
+                status=response.status,
+                data=error_data
             )
             
-        try:
-            return await response.json()
-        except:
-            return await response.text()
+        return response
 
 # ... existing code ...
 ```
 
-We need to modify the fetch method to handle form_data:
-
-```python:example_client_async.py
-    async def fetch(
-        self,
-        method: str,
-        path: str,
-        query: Optional[Dict[str, Union[str, int, bool, None]]] = None,
-        body: Any = None,
-        headers: Optional[Dict[str, str]] = None,
-        form_data: Optional[aiohttp.FormData] = None,
-    ) -> Any:
-        url = urllib.parse.urljoin(self.base_url, path)
-
-        if query:
-            params = []
-            for key, value in query.items():
-                if value is not None:
-                    params.append(f"{key}={urllib.parse.quote(str(value))}")
-            if params:
-                url = f"{url}?{'&'.join(params)}"
-
-        request_headers = {}
-        if self.token:
-            request_headers["Authorization"] = f"Bearer {self.token}"
-        if headers:
-            request_headers.update(headers)
-
-        async with aiohttp.ClientSession() as session:
-            async with session.request(
-                method=method,
-                url=url,
-                headers=request_headers,
-                json=body if body is not None else None,
-                data=form_data if form_data is not None else None,
-            ) as response:
-                return response
-```
-
-The changes include:
-1. Added upload_file method to handle file uploads
-2. Modified fetch method to support form_data parameter
-3. Added proper error handling
-4. Added type hints and docstring
-5. Removed default Content-Type header since it's now handled per request
+The implementation:
+1. Adds a new `upload_file` method to handle file uploads
+2. Uses aiohttp's FormData to properly format the multipart request
+3. Modifies the fetch call to use form data instead of JSON
+4. Includes proper error handling with ExampleError
+5. Returns the raw response object since no response schema is defined
+6. Includes type hints and docstring for better IDE support

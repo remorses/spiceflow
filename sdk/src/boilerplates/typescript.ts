@@ -1,4 +1,5 @@
 import { EventSourceParserStream } from 'eventsource-parser/stream'
+import * as types from './types'
 
 export class _replacedClientName {
   private baseUrl: string

@@ -1,58 +1,76 @@
-Let's implement the GET /users/{id} route step by step:
+openapi: 3.1.3
+info:
+  title: Spiceflow Documentation
+  description: Development documentation
+  version: 0.0.0
+servers:
+  - url: https://api.com
+paths:
+  /users/{id}:
+    get:
+      parameters:
+        - schema:
+            type: string
+          in: path
+          name: id
+          required: true
+      responses:
+        '200':
+          description: ''
+        default:
+          description: ''
+      tags:
+        - example-tag
 
-1. This is a GET request with a path parameter (id)
-2. It requires authentication via bearer token
-3. The response schema is not strictly defined in the OpenAPI spec (*/* content type)
-4. We'll need to handle potential errors
-5. The method should be async and return the raw response data
+---
+Let's break this down step by step:
+
+1. We need to add a new async method to the `ExampleClientAsync` class
+2. The method will handle GET requests to `/users/{id}`
+3. The method needs to:
+   - Accept a required `id` parameter (string)
+   - Make an async HTTP request using aiohttp
+   - Handle potential errors
+   - Return the response data
+4. We'll use the existing `fetch` method to handle the actual HTTP request
+5. We'll add proper type hints and documentation
 
 Here's the implementation:
 
-```python:example_client_async.py
+```python:client.py
+# ... existing code ...
+
 class ExampleClientAsync:
     # ... existing code ...
 
-    # GET /users/{id} - example-tag
+    # GET /users/{id}
+    # tags: example-tag
     async def get_user(self, id: str) -> Any:
         """Get user by ID
         
         Args:
-            id: User ID to retrieve
+            id: The user ID to retrieve
             
         Returns:
-            Response data from the API
+            The user data
             
         Raises:
-            ExampleError: If the API returns an error
+            ExampleError: If the request fails
         """
-        response = await self.fetch("GET", f"/users/{id}")
+        response = await self.fetch(
+            method="GET",
+            path=f"/users/{id}"
+        )
         
         if response.status != 200:
-            try:
-                error_data = await response.json()
-                raise ExampleError(
-                    error=error_data.get("message", "Unknown error"),
-                    status=response.status,
-                    data=error_data
-                )
-            except (json.JSONDecodeError, aiohttp.ContentTypeError):
-                raise ExampleError(
-                    error=f"Request failed with status {response.status}",
-                    status=response.status
-                )
-                
-        try:
-            return await response.json()
-        except (json.JSONDecodeError, aiohttp.ContentTypeError):
-            return await response.text()
+            error_data = await response.json() if response.content else None
+            raise ExampleError(
+                error=f"Failed to get user: {response.status}",
+                status=response.status,
+                data=error_data
+            )
+            
+        return await response.json()
+
+# ... existing code ...
 ```
-
-The implementation:
-1. Adds a new async method `get_user` that takes a required `id` parameter
-2. Uses the existing `fetch` method to make the request
-3. Handles error responses by raising ExampleError
-4. Returns the parsed JSON response if possible, falls back to text if not
-5. Includes proper type hints and docstring
-6. Follows the existing error handling pattern from the SDK
-
-No additional global scope declarations are needed as all required types and functions are already defined in the existing code.

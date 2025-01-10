@@ -5283,7 +5283,7 @@ class Workspace:
 
 
 @dataclass
-class All:
+class AllExportedTypes:
   analytics_browsers: AnalyticsBrowsers
   analytics_cities: AnalyticsCities
   analytics_continents: AnalyticsContinents

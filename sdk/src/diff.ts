@@ -8,6 +8,7 @@ import dedent from 'string-dedent'
 import { OpenAPIV3 } from 'openapi-types'
 import { diffJson } from 'diff'
 import { randomUUID } from 'crypto'
+import { cleanupOpenApi } from './openapi'
 
 export function getOpenApiDiffPrompt({
   previousOpenApiSchema,
@@ -171,7 +172,7 @@ export function getOpenApiDiffPrompt({
 }
 
 // turns /x/y into { x: { y: value }}
-function refPathToObject(ref: string, value: any) {
+function refPathToObject(ref: string, schema: any) {
   const parts = ref.replace(/^#\//, '').split('/') // Remove leading #/ with regex
   let result = {}
   let current = result
@@ -183,7 +184,7 @@ function refPathToObject(ref: string, value: any) {
   }
 
   // Set the final value
-  current[parts[parts.length - 1]] = value
+  current[parts[parts.length - 1]] = schema
   return result
 }
 
@@ -196,6 +197,7 @@ export function recursivelyResolveComponents({
   path: string
   method: string
 }) {
+  openApiSchema = cleanupOpenApi(openApiSchema)
   method = method.toLowerCase()
   const resolver = new RefResolver()
   const id = randomUUID()
@@ -226,16 +228,25 @@ export function recursivelyResolveComponents({
   }
 
   const stack = [{ key: '', value: subsetSchema }]
+  const seenRefs = new Set<string>()
 
   while (stack.length > 0) {
     const { value } = stack.pop()!
 
     if (typeof value === 'object' && value !== null) {
       if ('$ref' in value) {
-        const resolved = resolver.getSchema(id, value.$ref as any)
-        console.log(`resolving ${value.$ref}`)
-        const refObject = refPathToObject(value.$ref as string, resolved)
-        pathsAndComponentsOnly = deepmerge(pathsAndComponentsOnly, refObject)
+        const refString = value.$ref as string
+        if (!seenRefs.has(refString)) {
+          seenRefs.add(refString)
+          const resolvedSchema = resolver.getSchema(id, refString as any)
+          console.log(`resolving ${refString}`)
+
+          // Add the resolved schema to the stack to process any nested refs
+          stack.push({ key: '', value: resolvedSchema })
+
+          const refObject = refPathToObject(refString, resolvedSchema)
+          pathsAndComponentsOnly = deepmerge(pathsAndComponentsOnly, refObject)
+        }
       } else {
         for (const [k, v] of Object.entries(value)) {
           stack.push({ key: k, value: v })

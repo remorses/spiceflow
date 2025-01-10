@@ -1,4 +1,5 @@
 import { EventSourceParserStream } from 'eventsource-parser/stream'
+import * as types from './types'
 
 export class ExampleClient {
   private baseUrl: string
@@ -47,7 +48,7 @@ export class ExampleClient {
   }
 
   /**
-   * GET /
+   * @method GET /
    * @tags one
    */
   async take(): Promise<any> {
@@ -55,90 +56,11 @@ export class ExampleClient {
       const response = await this.fetch({
         method: 'GET',
         path: '/',
-      })
+      });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
+        const errorData = await response.json().catch(() => ({}));
         throw new ExampleError('Request failed', {
-          status: response.status,
-          data: errorData,
-        })
-      }
-
-      return response.json()
-    } catch (error) {
-      if (error instanceof ExampleError) {
-        throw error
-      }
-      throw new ExampleError('Network error', { status: 500 })
-    }
-  }
-
-  /**
-   * GET /stream
-   * Tags: example-tag
-   * Returns an async generator when used in the sdk
-   * - Uses server sent events
-   * - But also has a response schema
-   */
-  async *stream(): AsyncGenerator<StreamResponse> {
-    const response = await this.fetch({
-      method: 'GET',
-      path: '/stream',
-      headers: {
-        Accept: 'text/event-stream',
-      },
-    })
-
-    if (!response.ok) {
-      throw new ExampleError('Failed to stream', {
-        status: response.status,
-        data: await response.json().catch(() => undefined),
-      })
-    }
-
-    yield* streamSSEResponse(response)
-  }
-
-  /**
-   * GET /users/{id} - example-tag
-   */
-  async getUserById(id: string): Promise<any> {
-    try {
-      const response = await this.fetch({
-        method: 'GET',
-        path: `/users/${id}`,
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new ExampleError('Failed to fetch user', {
-          status: response.status,
-          data: errorData,
-        });
-      }
-
-      return await response.json();
-    } catch (error) {
-      if (error instanceof ExampleError) {
-        throw error;
-      }
-      throw new ExampleError('Network error', { status: 500 });
-    }
-  }
-
-  // POST /users - example-tag
-  async createUser(body: CreateUserRequest): Promise<CreateUserResponse> {
-    try {
-      const response = await this.fetch({
-        method: 'POST',
-        path: '/users',
-        body,
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new ExampleError('Failed to create user', {
           status: response.status,
           data: errorData,
         });
@@ -149,15 +71,104 @@ export class ExampleClient {
       if (error instanceof ExampleError) {
         throw error;
       }
+      throw new ExampleError('Network error', { status: 500 });
+    }
+  }
+
+  /**
+   * GET /stream
+   * @tags example-tag
+   * @summary Stream Endpoint
+   * @description Returns an async generator when used in the sdk
+   * - Uses server sent events
+   * - But also has a response schema
+   */
+  async *stream(): AsyncGenerator<{ count: number; timestamp: number }> {
+    const response = await this.fetch({
+      method: 'GET',
+      path: '/stream',
+      headers: {
+        Accept: 'text/event-stream',
+      },
+    });
+
+    if (!response.ok) {
+      throw new ExampleError('Failed to start stream', {
+        status: response.status,
+        data: await response.json().catch(() => undefined),
+      });
+    }
+
+    yield* streamSSEResponse(response);
+  }
+
+  /**
+   * GET /users/{id}
+   * @tags example-tag
+   * @param id - The user ID
+   * @returns Promise<any>
+   */
+  async getUserById(id: string): Promise<any> {
+    try {
+      const response = await this.fetch({
+        method: 'GET',
+        path: `/users/${encodeURIComponent(id)}`
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new ExampleError('Failed to fetch user', {
+          status: response.status,
+          data: errorData
+        });
+      }
+
+      return response.json();
+    } catch (error) {
+      if (error instanceof ExampleError) {
+        throw error;
+      }
+      throw new ExampleError('Network error', { status: 500 });
+    }
+  }
+
+  /**
+   * POST /users
+   * Tags: users
+   */
+  async createUser(body: { name: string; email: string; age: number }): Promise<{ message: string }> {
+    try {
+      const response = await this.fetch({
+        method: 'POST',
+        path: '/users',
+        body
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new ExampleError('Failed to create user', {
+          status: response.status,
+          data: errorData
+        });
+      }
+
+      return response.json();
+    } catch (error) {
+      if (error instanceof ExampleError) {
+        throw error;
+      }
       throw new ExampleError('Network error while creating user', {
-        status: 500,
-        data: error,
+        status: 500
       });
     }
   }
 
-  // GET /error - example-tag
-  // Always throws an error for testing error handling
+  /**
+   * GET /error
+   * Tags: example-tag
+   * Summary: Error Endpoint
+   * Description: Always throws an error for testing error handling
+   */
   async getError(): Promise<any> {
     try {
       const response = await this.fetch({
@@ -178,7 +189,7 @@ export class ExampleClient {
       if (error instanceof ExampleError) {
         throw error;
       }
-      throw new ExampleError('Network error', { status: 500 });
+      throw new ExampleError('Network error', { status: 500, data: error });
     }
   }
 
@@ -188,64 +199,17 @@ export class ExampleClient {
    * @description Always throws an error for testing error handling
    */
   async getErrorWithSchema(): Promise<{ message: string }> {
-    const response = await this.fetch({
-      method: 'GET',
-      path: '/errorWithSchema',
-    })
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}))
-      throw new ExampleError('Request failed', {
-        status: response.status,
-        data: errorData,
-      })
-    }
-
-    return response.json()
-  }
-
-  /**
-   * POST /upload
-   * @tags example-tag
-   */
-  async uploadFile(body: { file: string }): Promise<any> {
-    const formData = new FormData();
-    const blob = new Blob([Buffer.from(body.file, 'base64')], { type: 'application/octet-stream' });
-    formData.append('file', blob);
-
-    const response = await this.fetch({
-      method: 'POST',
-      path: '/upload',
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-      body: formData,
-    });
-
-    if (!response.ok) {
-      throw new ExampleError('Upload failed', {
-        status: response.status,
-        data: await response.json().catch(() => undefined),
-      });
-    }
-
-    return response.json();
-  }
-
-  // GET /openapi
-  // Method: GET
-  // Tags: none
-  async getOpenAPI(): Promise<any> {
     try {
       const response = await this.fetch({
         method: 'GET',
-        path: '/openapi'
+        path: '/errorWithSchema',
       });
 
       if (!response.ok) {
-        throw new ExampleError('Failed to fetch OpenAPI spec', {
+        const errorData = await response.json().catch(() => ({}));
+        throw new ExampleError('Request failed', {
           status: response.status,
-          data: await response.json().catch(() => undefined)
+          data: errorData,
         });
       }
 
@@ -256,6 +220,63 @@ export class ExampleClient {
       }
       throw new ExampleError('Network error', { status: 500 });
     }
+  }
+
+  /**
+   * POST /upload
+   * @tags upload
+   * @param body The file to upload in base64 format
+   */
+  async uploadFile(body: { file: string }): Promise<any> {
+    const formData = new FormData();
+    const blob = new Blob([body.file], { type: 'application/octet-stream' });
+    formData.append('file', blob);
+
+    try {
+      const response = await this.fetch({
+        method: 'POST',
+        path: '/upload',
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new ExampleError('Upload failed', {
+          status: response.status,
+          data: errorData,
+        });
+      }
+
+      return response.json();
+    } catch (error) {
+      if (error instanceof ExampleError) {
+        throw error;
+      }
+      throw new ExampleError('Network error', { status: 500 });
+    }
+  }
+
+  /**
+   * GET /openapi
+   * @tags openapi
+   */
+  async getOpenApi(): Promise<any> {
+    const response = await this.fetch({
+      method: 'GET',
+      path: '/openapi',
+    })
+
+    if (!response.ok) {
+      throw new ExampleError('Failed to fetch OpenAPI spec', {
+        status: response.status,
+        data: await response.json().catch(() => undefined),
+      })
+    }
+
+    return response.json()
   }
 }
 
@@ -272,9 +293,10 @@ export class ExampleError extends Error {
   }
 }
 
+// this function should not be removed even if not used
 export async function* streamSSEResponse(
   response: Response,
-): AsyncGenerator<SSEEvent> {
+): AsyncGenerator<any> {
   const body = response.body
   if (!body) return
 
@@ -296,33 +318,6 @@ export async function* streamSSEResponse(
     }
   }
 }
-
-interface SSEEvent {
-  event: string
-  data: any
-  id?: string
-}
-
-interface StreamResponse {
-  count: number
-  timestamp: number
-}
-
-interface CreateUserRequest {
-  name: string;
-  email: string;
-  age: number;
-}
-
-interface CreateUserResponse {
-  message: string;
-  data?: any;
-}
-
-// Global scope declarations
-declare const Buffer: {
-  from(data: string, encoding: 'base64'): ArrayBuffer;
-};
 
 
 

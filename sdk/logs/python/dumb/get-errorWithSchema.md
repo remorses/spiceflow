@@ -1,47 +1,85 @@
-Let's implement the GET /errorWithSchema endpoint. Here's the step-by-step reasoning:
+openapi: 3.1.3
+info:
+  title: Spiceflow Documentation
+  description: Development documentation
+  version: 0.0.0
+servers:
+  - url: https://api.com
+paths:
+  /errorWithSchema:
+    get:
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
+        default:
+          description: ''
+      tags:
+        - example-tag
+      description: Always throws an error for testing error handling
 
-1. This is a GET request that returns an error response with a schema
-2. The response schema has a required "message" field of type string
-3. We need to handle the error response and parse it according to the schema
-4. The endpoint is tagged with "example-tag"
-5. We'll use the existing fetch method and error handling infrastructure
+---
+Let's break down what we need to implement:
+
+1. The route is GET /errorWithSchema
+2. It returns a response with a message field (required)
+3. We need to create a type for the successful response
+4. We'll add the method to ExampleClientAsync class
+5. We'll need to handle error responses
+6. We'll use the existing fetch method for making requests
 
 Here's the implementation:
 
-```python:example_client_async.py
+```python:client.py
+# ... existing code ...
+
 class ExampleClientAsync:
     # ... existing code ...
 
     # GET /errorWithSchema
-    # Tags: example-tag
-    async def get_error_with_schema(self) -> Dict[str, str]:
-        """Always throws an error for testing error handling"""
-        response = await self.fetch("GET", "/errorWithSchema")
+    # tags: example-tag
+    async def get_error_with_schema(self) -> str:
+        """
+        Always throws an error for testing error handling
+        """
+        response = await self.fetch(
+            method="GET",
+            path="/errorWithSchema"
+        )
         
-        if response.status >= 400:
+        if response.status != 200:
             try:
                 error_data = await response.json()
-                if "message" in error_data:
-                    raise ExampleError(
-                        error=error_data["message"],
-                        status=response.status,
-                        data=error_data
-                    )
-            except (json.JSONDecodeError, aiohttp.ContentTypeError):
-                pass
-            raise ExampleError(
-                error=f"Request failed with status {response.status}",
-                status=response.status
-            )
+                raise ExampleError(
+                    error=f"Request failed with status {response.status}",
+                    status=response.status,
+                    data=error_data
+                )
+            except ValueError:
+                raise ExampleError(
+                    error=f"Request failed with status {response.status}",
+                    status=response.status
+                )
         
-        return await response.json()
+        response_data = await response.json()
+        return response_data["message"]
+
+# ... existing code ...
 ```
 
 The implementation:
-1. Uses the existing fetch method to make the GET request
-2. Checks for error status codes (>= 400)
-3. Attempts to parse the error response according to the schema
-4. Raises an ExampleError with the message from the response if available
-5. Returns the parsed JSON response if successful
-
-No additional type declarations are needed as we're using existing types from the previous code.
+1. Added a new async method `get_error_with_schema` that returns a string (the message from the response)
+2. Uses the existing fetch method to make the GET request
+3. Handles error responses by raising ExampleError with status and data
+4. Returns the message from successful responses
+5. Includes a docstring with the route information and description
+6. Uses proper type hints for the return value
+7. Handles both JSON and non-JSON error responses

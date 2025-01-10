@@ -13,8 +13,13 @@ import { createOpenAI } from '@ai-sdk/openai'
 import { getOpenApiDiffPrompt, recursivelyResolveComponents } from './diff'
 import { applyCursorPromptPrefix, languagesPrompts } from './prompts'
 import { processConcurrentlyInOrder, recursiveReadDir } from './utils'
-import { BoilerplateParams, Language, languageToExtension } from './types'
+import {
+  BoilerplateParams,
+  Language,
+  languageToExtension as extensions,
+} from './types'
 import { cleanupOpenApi } from './openapi'
+import { generateTypesFromSchema } from './quicktype'
 
 const deepseek = createDeepSeek({
   apiKey: process.env.DEEPSEEK_API_KEY ?? '',
@@ -133,24 +138,53 @@ export async function generateSDKForRoute({
 
   const ymlSchema = YAML.dump(openApiSchema, { indent: 2, lineWidth: -1 })
 
+  const { method, path } = route
+  const { typesCode, exportedNames } = await generateTypesFromSchema({
+    openApiSchema,
+    language,
+  })
+
+  let typesPrompt = dedent`
+  Here is the OpenAPI component types already converted to ${language}, you can use them by importing \`./types.${extensions[language]}\`:
+
+  THIS FILE CANNOT BE EDITED
+
+  \`\`\`${language}:types.${extensions[language]}
+  ${typesCode}
+  \`\`\`
+  `
+  // let typesPrompt = dedent`
+  // Here is the OpenAPI component types already converted to ${language}, you can use them by importing \`./types.${extensions[language]}\`:
+  // \`\`\`${language}:types.${extensions[language]}
+  // ${typesCode}
+  // \`\`\`
+  // `
+
   const prompt = dedent`
     ${languagesPrompts[language]}
 
     OpenAPI Schema:
-    <openApiSchema>
+    \`\`\`yml
     ${ymlSchema}
-    </openApiSchema>
+    \`\`\`
     
-    <previousSdkCode>
+    Here is the current SDK code:
+    \`\`\`${language}:client.${extensions[language]}
     ${previousSdkCode}
-    </previousSdkCode>
+    \`\`\`
+
+    ${typesPrompt}
 
     ${route.diffPrompt}
 
     Only implement the new code to add for the route: 
     ${route.method} ${route.path} 
 
-    Do not add any explanations at the end of the file, instead do step by step reasoning at the start
+    Use the already generated code in the \`./types.${extensions[language]}\` file to implement the new code.
+
+    Only output one code snippet that will be used to edit the \`./client.${extensions[language]}\` file.
+
+    Do not add any explanations at the end of the file, instead do step by step reasoning before the code snippet.
     
     `
 
@@ -248,7 +282,7 @@ export async function generateSDKFromOpenAPI({
   if (!previousSdkCode) {
     const boilerplatePath = path.resolve(
       __dirname,
-      `./boilerplates/${language}.${languageToExtension[language]}`,
+      `./boilerplates/${language}.${extensions[language]}`,
     )
     if (!fs.existsSync(boilerplatePath)) {
       throw new Error(
@@ -333,19 +367,31 @@ export async function mergeSDKOutputs({
 
     ${output.code}
     `
-
+    const snippet = extractMarkdownSnippets(output.code).join('\n\n')
     const result = await makeCursorSlashEditRequest({
       prompt,
       fileContents: accumulatedCode,
-      filename: 'sdk.' + languageToExtension[language],
+      filename: 'sdk.' + extensions[language],
       accessToken: process.env.CURSOR_ACCESS_TOKEN,
       refreshToken: process.env.CURSOR_REFRESH_TOKEN,
       useFastApply: true,
       resultMessage,
-      snippetContents: extractMarkdownSnippets(output.code).join('\n\n'),
+      snippetContents: snippet,
       useChunkSpeculationForLongFiles: true,
       logFile,
     })
+
+    let resultLines = result.resultFile.trim().split('\n').length
+    let previousLines = accumulatedCode.trim().split('\n').length
+    let snippetLines = snippet.trim().split('\n').length
+    if (resultLines === previousLines) {
+      extractMarkdownSnippets(output.code).join('\n\n')
+      console.error(
+        new Error(
+          `Cursor edit failed, returned the same code as before, snippet lines are: ${snippetLines}`,
+        ),
+      )
+    }
 
     accumulatedCode = result.resultFile
     if (!accumulatedCode) {
