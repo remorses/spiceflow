@@ -11,7 +11,7 @@ describe('generateTypesFromSchema', () => {
 
   languages.forEach((language) => {
     it(`should generate ${language} types from OpenAPI schema`, async () => {
-      const openapiPath = path.join(__dirname, '../scripts/dub-openapi.yml')
+      const openapiPath = path.join(__dirname, '../scripts/unkey-openapi.yml')
       const openapiContent = fs.readFileSync(openapiPath, 'utf8')
       const openApiSchema = yaml.load(openapiContent) as any
 
