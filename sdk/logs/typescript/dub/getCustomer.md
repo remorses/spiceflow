@@ -14,26 +14,31 @@ servers:
   - url: https://api.dub.co
     description: Production API
 paths:
-  /tags/{id}:
-    delete:
-      operationId: deleteTag
-      x-speakeasy-name-override: delete
-      x-speakeasy-max-method-params: 1
-      summary: Delete a tag
-      description: Delete a tag from the workspace. All existing links will still work, but they will no longer be associated with this tag.
+  /customers/{id}:
+    get:
+      operationId: getCustomer
+      x-speakeasy-name-override: get
+      summary: Retrieve a customer
+      description: Retrieve a customer by ID for the authenticated workspace.
       tags:
-        - Tags
+        - Customers
       parameters:
         - in: path
           name: id
-          description: The ID of the tag to delete.
+          description: The unique identifier of the customer in Dub.
           schema:
             type: string
-            description: The ID of the tag to delete.
+            description: The unique identifier of the customer in Dub.
           required: true
+        - in: query
+          name: includeExpandedFields
+          description: Whether to include expanded fields on the customer (`link`, `partner`, `discount`).
+          schema:
+            type: boolean
+            description: Whether to include expanded fields on the customer (`link`, `partner`, `discount`).
       responses:
         '200':
-          description: The deleted tag ID.
+          description: The customer object.
           content:
             application/json:
               schema:
@@ -41,9 +46,114 @@ paths:
                 properties:
                   id:
                     type: string
-                    description: The ID of the deleted tag.
+                    description: The unique identifier of the customer in Dub.
+                  externalId:
+                    type: string
+                    description: Unique identifier for the customer in the client's app.
+                  name:
+                    type: string
+                    description: Name of the customer.
+                  email:
+                    type: string
+                    nullable: true
+                    description: Email of the customer.
+                  avatar:
+                    type: string
+                    nullable: true
+                    description: Avatar URL of the customer.
+                  country:
+                    type: string
+                    nullable: true
+                    description: Country of the customer.
+                  createdAt:
+                    type: string
+                    description: The date the customer was created.
+                  link:
+                    type: object
+                    nullable: true
+                    properties:
+                      id:
+                        type: string
+                        description: The unique ID of the short link.
+                      domain:
+                        type: string
+                        description: The domain of the short link. If not provided, the primary domain for the workspace will be used (or `dub.sh` if the workspace has no domains).
+                      key:
+                        type: string
+                        description: The short link slug. If not provided, a random 7-character slug will be generated.
+                      shortLink:
+                        type: string
+                        format: uri
+                        description: The full URL of the short link, including the https protocol (e.g. `https://dub.sh/try`).
+                      programId:
+                        type: string
+                        nullable: true
+                        description: The ID of the program the short link is associated with.
+                    required:
+                      - id
+                      - domain
+                      - key
+                      - shortLink
+                      - programId
+                  partner:
+                    type: object
+                    nullable: true
+                    properties:
+                      id:
+                        type: string
+                      name:
+                        type: string
+                      email:
+                        type: string
+                      image:
+                        type: string
+                        nullable: true
+                    required:
+                      - id
+                      - name
+                      - email
+                  discount:
+                    type: object
+                    nullable: true
+                    properties:
+                      id:
+                        type: string
+                      couponId:
+                        type: string
+                        nullable: true
+                      couponTestId:
+                        type: string
+                        nullable: true
+                      amount:
+                        type: number
+                      type:
+                        type: string
+                        enum:
+                          - percentage
+                          - flat
+                      duration:
+                        type: number
+                        nullable: true
+                      interval:
+                        type: string
+                        nullable: true
+                        enum:
+                          - month
+                          - year
+                          - null
+                    required:
+                      - id
+                      - couponId
+                      - couponTestId
+                      - amount
+                      - type
+                      - duration
+                      - interval
                 required:
                   - id
+                  - externalId
+                  - name
+                  - createdAt
         '400':
           $ref: '#/components/responses/400'
         '401':
@@ -345,22 +455,29 @@ components:
               - error
 
 ---
-To implement the `DELETE /tags/{id}` route in the `ExampleClient` class, we will follow these steps:
+To implement the `GET /customers/{id}` route in the `ExampleClient` class, we will create a new method called `getCustomer`. This method will:
 
-1. **Define the Method**: We will create a method named `deleteTag` that will handle the deletion of a tag by its ID.
-2. **Add Route Information**: We will include a comment above the method that specifies the route path, method, and tags.
-3. **Type Definitions**: We will define the input type for the method, which will include the `id` parameter, and the output type, which will be the response from the API.
-4. **Error Handling**: We will handle potential errors by checking the response status and throwing an `ExampleError` if the response indicates an error.
-5. **Use Fetch**: The method will utilize the existing `fetch` method in the class to make the API call.
+1. **Define the route path, method, and tags** in a comment above the method.
+2. **Use the `fetch` method** to make the API call.
+3. **Handle request parameters** for the customer ID and optional query parameters.
+4. **Serialize the response** to the appropriate TypeScript type.
+5. **Include error handling** for various response statuses.
 
-Here is the code snippet to be added to the `./client.ts` file:
+The response type will be based on the OpenAPI schema provided, and we will use the types defined in `./components.ts` for the customer object.
+
+Here’s the code snippet to add to the `ExampleClient` class in `./client.ts`:
 
 ```typescript:client.ts
-  // DELETE /tags/{id} - Tags
-  async deleteTag(id: string): Promise<{ id: string }> {
-    const response = await this.fetch<{ id: string }>({
-      method: 'DELETE',
-      path: `/tags/${encodeURIComponent(id)}`,
+  // GET /customers/{id}
+  // Retrieves a customer by ID for the authenticated workspace.
+  async getCustomer(
+    id: string,
+    includeExpandedFields?: boolean
+  ): Promise<types.Customer | ExampleError> {
+    const response = await this.fetch<undefined>({
+      method: 'GET',
+      path: `/customers/${id}`,
+      query: { includeExpandedFields },
     });
 
     if (!response.ok) {
@@ -368,11 +485,15 @@ Here is the code snippet to be added to the `./client.ts` file:
       throw new ExampleError(errorData.error.message, { status: response.status, data: errorData });
     }
 
-    return response.json();
+    return response.json() as Promise<types.Customer>;
   }
 ```
 
-### Summary of Changes:
-- Added a new method `deleteTag` to handle the deletion of a tag.
-- Included error handling to throw an `ExampleError` if the response is not successful.
-- The method is fully typed for both input and output, ensuring type safety.
+### Explanation of the Code:
+- The method `getCustomer` takes in a required `id` parameter and an optional `includeExpandedFields` boolean.
+- It calls the existing `fetch` method to make a GET request to the specified path.
+- If the response is not OK, it throws an `ExampleError` with the error message and status.
+- If the response is successful, it returns the parsed JSON response as a `types.Customer` object.
+
+### Global Scope Declarations:
+Make sure that the `Customer` type is defined in your `./components.ts` file, as it will be used for the response type.

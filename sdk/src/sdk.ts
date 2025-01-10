@@ -194,7 +194,8 @@ export async function generateSDKForRoute({
   console.time(`llm generate route ${route.method} ${route.path} ${requestId}`)
 
   const res = streamText({
-    model: deepseek('deepseek-chat', {}),
+    // model: deepseek('deepseek-chat', {}),
+    model: openai('gpt-4o-mini', {}),
     prompt,
     system: applyCursorPromptPrefix({}),
     temperature: 0,
@@ -270,7 +271,7 @@ export async function generateSDKFromOpenAPI({
   logFolder = null,
   language = 'typescript',
   params,
-  maxLLMConcurrency = 20,
+  maxLLMConcurrency = 10,
 }: {
   openApiSchema: OpenAPIV3.Document
   previousOpenApiSchema?: OpenAPIV3.Document
@@ -365,8 +366,9 @@ export async function mergeSDKOutputs({
     `
     const requestId = Math.random().toString(36).substring(7)
     console.time(`cursor merge sdk ${index} ${requestId}`)
+    let previousLines = accumulatedCode.trim().split('\n').length
     console.log(
-      `Processing route ${index + 1}/${outputs.length}: ${output.title}`,
+      `Processing route ${index + 1}/${outputs.length} with ${previousLines} lines: ${output.title}`,
     )
 
     const resultMessage = dedent`
@@ -389,7 +391,7 @@ export async function mergeSDKOutputs({
     })
 
     let resultLines = result.resultFile.trim().split('\n').length
-    let previousLines = accumulatedCode.trim().split('\n').length
+    
     let snippetLines = snippet.trim().split('\n').length
     if (resultLines === previousLines) {
       extractMarkdownSnippets(output.code).join('\n\n')

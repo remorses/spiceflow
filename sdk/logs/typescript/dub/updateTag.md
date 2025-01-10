@@ -392,57 +392,44 @@ components:
       title: Tag
 
 ---
-Let's break down what we need to implement:
+To implement the `PATCH /tags/{id}` route in the `ExampleClient` class, we will create a new method called `updateTag`. This method will:
 
-1. We need to add a new method to the `ExampleClient` class for PATCH /tags/{id}
-2. The method needs to:
-   - Accept a tag ID as a path parameter
-   - Accept an optional request body with name and color properties
-   - Return a Promise that resolves to the updated Tag type
-   - Handle error responses using the ExampleError class
-3. We'll use the existing fetch method and types from components.ts
-4. We'll add proper TypeScript types for both input and output
+1. **Define the route path, method, and tags** in a comment above the method.
+2. **Use the `fetch` method** to make the API call.
+3. **Handle request serialization** by converting the input parameters into the appropriate JSON format.
+4. **Handle response serialization** by returning the expected output type.
+5. **Include error handling** for various response statuses.
+6. **Use the types defined in `./components.ts`** for both input and output types.
 
-Here's the implementation:
+The input for this method will include the `id` of the tag to update and an optional request body containing the `name` and `color` of the tag. The output will be the updated `Tag` object.
+
+Here’s the code snippet to add to the `ExampleClient` class:
 
 ```typescript:client.ts
-// ... existing code ...
-
-export class ExampleClient {
-  // ... existing code ...
-
-  /**
-   * PATCH /tags/{id}
-   * @tags Tags
-   * @summary Update a tag
-   * @description Update a tag in the workspace.
-   */
+  // PATCH /tags/{id} - Update a tag
   async updateTag(
     id: string,
     body?: {
       name?: string;
-      color?: types.Color;
-      /** @deprecated */
-      tag?: string;
+      color?: Color;
     }
-  ): Promise<types.Tag> {
-    const response = await this.fetch({
+  ): Promise<Tag> {
+    const response = await this.fetch<Tag>({
       method: 'PATCH',
       path: `/tags/${id}`,
-      body
+      body,
     });
 
     if (!response.ok) {
       const errorData = await response.json();
-      throw new ExampleError(errorData.error.message, {
-        status: response.status,
-        data: errorData
-      });
+      throw new ExampleError(errorData.error.message, { status: response.status, data: errorData });
     }
 
-    return response.json();
+    return response.json() as Promise<Tag>;
   }
-}
-
-// ... existing code ...
 ```
+
+### Global Scope Declarations
+At the end of the snippet, we ensure that the necessary types and functions are declared globally, which are already provided in the `components.ts` file. The `Color` type is used directly from the imported types. 
+
+This method will allow users to update a tag by providing the tag's ID and the new values for the tag's properties. The error handling ensures that any issues with the request are properly communicated.

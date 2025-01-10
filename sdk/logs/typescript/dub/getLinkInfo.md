@@ -1355,52 +1355,59 @@ components:
       title: Tag
 
 ---
-Let's break down the implementation step by step:
+To implement the `GET /links/info` route in the `ExampleClient` class, we will follow these steps:
 
-1. We need to add a new method to the ExampleClient class for the GET /links/info endpoint
-2. The method needs to:
-   - Accept query parameters (domain, key, linkId, externalId)
-   - Return a Promise of type Link from components.ts
-   - Handle error responses
-   - Use the existing fetch method
-3. The query parameters should be optional since they're not marked as required in the OpenAPI spec
-4. We'll use the Link interface from components.ts for the return type
-5. We'll add proper JSDoc comments with the route path, method, and tags
+1. **Define the Method**: We will create a method named `getLinkInfo` in the `ExampleClient` class. This method will handle the API call to retrieve link information.
 
-Here's the implementation:
+2. **Add Route Information**: We will include a comment above the method that specifies the route path, method, and tags.
+
+3. **Define Input Parameters**: The method will accept parameters for `domain`, `key`, `linkId`, and `externalId`, which are optional query parameters.
+
+4. **Handle Fetch Logic**: We will use the existing `fetch` method to make the API call, passing the appropriate parameters.
+
+5. **Type Definitions**: We will ensure that the method is fully typed for both inputs and outputs, using the `Link` type from the `./components.ts` file for the response.
+
+6. **Error Handling**: We will handle potential errors by checking the response status and throwing an `ExampleError` if the response is not successful.
+
+Here is the code snippet to be added to the `./client.ts` file:
 
 ```typescript:client.ts
-export class ExampleClient {
-  // ... existing code ...
-
-  /**
-   * Retrieve a link
-   * @route GET /links/info
-   * @tags Links
-   */
-  async getLinkInfo(params?: {
-    domain?: string;
+  // GET /links/info
+  // Retrieve the info for a link.
+  async getLinkInfo({
+    domain,
+    key,
+    linkId,
+    externalId,
+  }: {
+    domain: string;
     key?: string;
     linkId?: string;
     externalId?: string;
   }): Promise<Link> {
-    const response = await this.fetch({
+    const query: Record<string, string | undefined> = {
+      domain,
+      key,
+      linkId,
+      externalId,
+    };
+
+    const response = await this.fetch<Link>({
       method: 'GET',
       path: '/links/info',
-      query: params,
+      query,
     });
 
     if (!response.ok) {
       const errorData = await response.json();
-      throw new ExampleError(errorData.error?.message || 'Failed to retrieve link', {
+      throw new ExampleError(errorData.error.message, {
         status: response.status,
         data: errorData,
       });
     }
 
-    return response.json();
+    return response.json() as Promise<Link>;
   }
-
-  // ... existing code ...
-}
 ```
+
+This code snippet adds the `getLinkInfo` method to the `ExampleClient` class, allowing users to retrieve information about a link based on the provided parameters. The method is fully typed and includes error handling for unsuccessful responses.

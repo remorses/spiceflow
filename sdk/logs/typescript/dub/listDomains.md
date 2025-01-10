@@ -457,71 +457,44 @@ components:
         - registeredDomain
 
 ---
-Let's break down what we need to implement for the GET /domains route:
+To implement the `GET /domains` route in the `ExampleClient` class, we will create a new method called `listDomains`. This method will handle the request to retrieve a list of domains, including optional query parameters for pagination and filtering.
 
-1. We need to add a new method to the ExampleClient class
-2. The method should accept query parameters: archived, search, page, pageSize
-3. The method should return an array of DomainSchema objects
-4. We need to handle error responses according to the OpenAPI spec
-5. We should use the existing fetch method for making the API call
+### Steps to Implement:
+1. **Define the Method**: The method will be named `listDomains` and will be marked with a comment indicating the route path, method, and tags.
+2. **Parameters**: The method will accept parameters for `archived`, `search`, `page`, and `pageSize`, all of which are optional.
+3. **Fetch Call**: Use the existing `fetch` method to make the API call, passing the appropriate parameters.
+4. **Response Handling**: The method will handle the response, ensuring it returns the expected type (`DomainSchema[]`).
+5. **Error Handling**: Any errors during the fetch will be caught and thrown as `ExampleError`.
 
-Here's the implementation:
+Here is the code snippet to add to the `./client.ts` file:
 
 ```typescript:client.ts
-// ... existing code ...
-
-export class ExampleClient {
-  // ... existing code ...
-
-  /**
-   * GET /domains
-   * Retrieve a list of domains associated with the authenticated workspace.
-   * @tags Domains
-   */
-  async listDomains(params?: {
+  // GET /domains - Retrieve a list of domains
+  async listDomains({
+    archived = false,
+    search,
+    page = 1,
+    pageSize = 50,
+  }: {
     archived?: boolean;
     search?: string;
     page?: number;
     pageSize?: number;
-  }): Promise<types.DomainSchema[]> {
-    try {
-      const response = await this.fetch({
-        method: 'GET',
-        path: '/domains',
-        query: {
-          archived: params?.archived,
-          search: params?.search,
-          page: params?.page,
-          pageSize: params?.pageSize,
-        },
-      });
+  }): Promise<DomainSchema[]> {
+    const response = await this.fetch<undefined>({
+      method: 'GET',
+      path: '/domains',
+      query: { archived, search, page, pageSize },
+    });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new ExampleError(errorData.error.message, {
-          status: response.status,
-          data: errorData,
-        });
-      }
-
-      return response.json();
-    } catch (error) {
-      if (error instanceof ExampleError) {
-        throw error;
-      }
-      throw new ExampleError('Unknown error occurred', { status: 500 });
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new ExampleError(errorData.error.message, { status: response.status, data: errorData });
     }
-  }
-}
 
-// ... existing code ...
+    return response.json() as Promise<DomainSchema[]>;
+  }
 ```
 
-This implementation:
-1. Adds a new `listDomains` method with optional query parameters
-2. Uses the existing fetch method to make the API call
-3. Handles error responses by throwing ExampleError with appropriate status and data
-4. Returns a Promise of DomainSchema array
-5. Includes JSDoc comments with route information and tags
-6. Maintains compatibility with both Node.js and browser environments
-7. Uses types from the existing components.ts file
+### Global Scope Declarations
+At the end of the snippet, we will ensure that the necessary types and functions are declared globally, but since the types are already defined in `components.ts`, we do not need to add any new declarations. The method is fully typed and handles serialization and error management as required.

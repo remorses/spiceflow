@@ -347,62 +347,35 @@ components:
               - error
 
 ---
-Let's break this down step by step:
+To implement the `DELETE /domains/{slug}` route in the `ExampleClient` class, we will follow these steps:
 
-1. We need to add a new method to the `ExampleClient` class for deleting a domain
-2. The method will:
-   - Take a `slug` parameter as a string (required path parameter)
-   - Make a DELETE request to `/domains/{slug}`
-   - Handle the successful response which returns an object with a `slug` property
-   - Handle all error responses using the existing error types from components.ts
-3. We'll use the existing `fetch` method in the client
-4. We'll add proper TypeScript types for both input and output
-5. We'll include JSDoc comments with the route details
+1. **Define the Method**: We will create a method named `deleteDomain` that takes a `slug` parameter.
+2. **Add Route Information**: We will include a comment above the method to specify the route path, method, and tags.
+3. **Type Definitions**: We will define the input and output types for the method. The input will be a string for the `slug`, and the output will be a promise that resolves to a response type.
+4. **Error Handling**: We will handle potential errors by checking the response status and throwing an `ExampleError` if the response indicates an error.
+5. **Use Fetch**: The method will utilize the existing `fetch` method to make the API call.
 
-Here's the implementation:
+Here’s the code snippet to add to the `ExampleClient` class in `client.ts`:
 
 ```typescript:client.ts
-// ... existing code ...
-
-export class ExampleClient {
-  // ... existing code ...
-
-  /**
-   * DELETE /domains/{slug}
-   * @tags Domains
-   * @summary Delete a domain
-   * @description Delete a domain from a workspace. It cannot be undone. This will also delete all the links associated with the domain.
-   * @param slug The domain name.
-   * @returns Promise<{ slug: string }>
-   * @throws {ExampleError}
-   */
-  async deleteDomain(slug: string): Promise<{ slug: string }> {
-    const response = await this.fetch({
+  // DELETE /domains/{slug}
+  // Deletes a domain from a workspace. It cannot be undone.
+  async deleteDomain(slug: string): Promise<{ slug: string } | ExampleError> {
+    const response = await this.fetch<{ slug: string }>({
       method: 'DELETE',
       path: `/domains/${encodeURIComponent(slug)}`,
     });
 
     if (!response.ok) {
       const errorData = await response.json();
-      throw new ExampleError(errorData.error.message, {
-        status: response.status,
-        data: errorData,
-      });
+      throw new ExampleError(errorData.error.message, { status: response.status, data: errorData });
     }
 
     return response.json();
   }
-}
-
-// ... existing code ...
 ```
 
-The implementation:
-1. Adds a new `deleteDomain` method to the `ExampleClient` class
-2. Takes a required `slug` parameter
-3. Uses the existing `fetch` method to make the DELETE request
-4. Handles error responses by throwing an `ExampleError` with the error details
-5. Returns the successful response data which is typed as an object with a `slug` string property
-6. Includes proper JSDoc documentation with route details and tags
-7. Uses proper TypeScript types for both input and output
-8. Uses `encodeURIComponent` to safely encode the slug parameter in the URL
+### Global Scope Declarations
+At the end of the snippet, we will declare the types and functions required to make the method work, if they are not already defined in the `components.ts` file. However, since the `components.ts` file is not editable and we are using the existing types, we do not need to add any new global declarations here. 
+
+This method will now allow the `ExampleClient` to delete a domain by its slug, handling errors appropriately and returning the expected response type.

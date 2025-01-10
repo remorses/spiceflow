@@ -14,36 +14,124 @@ servers:
   - url: https://api.dub.co
     description: Production API
 paths:
-  /tags/{id}:
-    delete:
-      operationId: deleteTag
-      x-speakeasy-name-override: delete
-      x-speakeasy-max-method-params: 1
-      summary: Delete a tag
-      description: Delete a tag from the workspace. All existing links will still work, but they will no longer be associated with this tag.
+  /track/sale:
+    post:
+      operationId: trackSale
+      x-speakeasy-name-override: sale
+      summary: Track a sale
+      description: Track a sale for a short link.
       tags:
-        - Tags
-      parameters:
-        - in: path
-          name: id
-          description: The ID of the tag to delete.
-          schema:
-            type: string
-            description: The ID of the tag to delete.
-          required: true
+        - Track
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                externalId:
+                  type: string
+                  maxLength: 100
+                  default: ''
+                  description: This is the unique identifier for the customer in the client's app. This is used to track the customer's journey.
+                customerId:
+                  type: string
+                  nullable: true
+                  maxLength: 100
+                  default: null
+                  description: This is the unique identifier for the customer in the client's app. This is used to track the customer's journey.
+                  deprecated: true
+                amount:
+                  type: integer
+                  minimum: 0
+                  description: The amount of the sale. Should be passed in cents.
+                paymentProcessor:
+                  type: string
+                  enum:
+                    - stripe
+                    - shopify
+                    - paddle
+                  description: The payment processor via which the sale was made.
+                eventName:
+                  type: string
+                  maxLength: 50
+                  default: Purchase
+                  description: The name of the sale event. It can be used to track different types of event for example 'Purchase', 'Upgrade', 'Payment', etc.
+                  example: Purchase
+                invoiceId:
+                  type: string
+                  nullable: true
+                  default: null
+                  description: The invoice ID of the sale.
+                currency:
+                  type: string
+                  default: usd
+                  description: The currency of the sale. Accepts ISO 4217 currency codes.
+                metadata:
+                  type: object
+                  nullable: true
+                  default: null
+                  description: Additional metadata to be stored with the sale event.
+              required:
+                - amount
+                - paymentProcessor
       responses:
         '200':
-          description: The deleted tag ID.
+          description: A sale was tracked.
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  id:
+                  eventName:
                     type: string
-                    description: The ID of the deleted tag.
+                  customer:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      name:
+                        type: string
+                        nullable: true
+                      email:
+                        type: string
+                        nullable: true
+                      avatar:
+                        type: string
+                        nullable: true
+                      externalId:
+                        type: string
+                        nullable: true
+                    required:
+                      - id
+                      - name
+                      - email
+                      - avatar
+                      - externalId
+                  sale:
+                    type: object
+                    properties:
+                      amount:
+                        type: number
+                      currency:
+                        type: string
+                      paymentProcessor:
+                        type: string
+                      invoiceId:
+                        type: string
+                        nullable: true
+                      metadata:
+                        type: object
+                        nullable: true
+                    required:
+                      - amount
+                      - currency
+                      - paymentProcessor
+                      - invoiceId
+                      - metadata
                 required:
-                  - id
+                  - eventName
+                  - customer
+                  - sale
         '400':
           $ref: '#/components/responses/400'
         '401':
@@ -345,22 +433,78 @@ components:
               - error
 
 ---
-To implement the `DELETE /tags/{id}` route in the `ExampleClient` class, we will follow these steps:
+To implement the `POST /track/sale` route in the `ExampleClient` class, we will follow these steps:
 
-1. **Define the Method**: We will create a method named `deleteTag` that will handle the deletion of a tag by its ID.
-2. **Add Route Information**: We will include a comment above the method that specifies the route path, method, and tags.
-3. **Type Definitions**: We will define the input type for the method, which will include the `id` parameter, and the output type, which will be the response from the API.
+1. **Define Input and Output Types**: We will create TypeScript types for the request body and the expected response based on the OpenAPI schema provided.
+
+2. **Add the Method**: We will add a method named `trackSale` to the `ExampleClient` class. This method will use the `fetch` method to make a POST request to the `/track/sale` endpoint.
+
+3. **Handle Serialization**: The method will serialize the request body to JSON format.
+
 4. **Error Handling**: We will handle potential errors by checking the response status and throwing an `ExampleError` if the response indicates an error.
-5. **Use Fetch**: The method will utilize the existing `fetch` method in the class to make the API call.
 
-Here is the code snippet to be added to the `./client.ts` file:
+5. **Add Comments**: We will include comments above the method to indicate the route path, method, and tags.
+
+6. **Global Scope Declarations**: We will declare any necessary types at the end of the snippet.
+
+Here’s the updated code snippet for the `client.ts` file:
 
 ```typescript:client.ts
-  // DELETE /tags/{id} - Tags
-  async deleteTag(id: string): Promise<{ id: string }> {
-    const response = await this.fetch<{ id: string }>({
-      method: 'DELETE',
-      path: `/tags/${encodeURIComponent(id)}`,
+// ... existing code ...
+
+  /**
+   * POST /track/sale
+   * Track a sale
+   * Tags: Track
+   */
+  async trackSale({
+    externalId = '',
+    customerId = null,
+    amount,
+    paymentProcessor,
+    eventName = 'Purchase',
+    invoiceId = null,
+    currency = 'usd',
+    metadata = null,
+  }: {
+    externalId?: string;
+    customerId?: string | null;
+    amount: number;
+    paymentProcessor: 'stripe' | 'shopify' | 'paddle';
+    eventName?: string;
+    invoiceId?: string | null;
+    currency?: string;
+    metadata?: Record<string, any> | null;
+  }): Promise<{
+    eventName: string;
+    customer: {
+      id: string;
+      name: string | null;
+      email: string | null;
+      avatar: string | null;
+      externalId: string | null;
+    };
+    sale: {
+      amount: number;
+      currency: string;
+      paymentProcessor: string;
+      invoiceId: string | null;
+      metadata: Record<string, any> | null;
+    };
+  }> {
+    const response = await this.fetch({
+      method: 'POST',
+      path: '/track/sale',
+      body: {
+        externalId,
+        customerId,
+        amount,
+        paymentProcessor,
+        eventName,
+        invoiceId,
+        currency,
+        metadata,
+      },
     });
 
     if (!response.ok) {
@@ -370,9 +514,38 @@ Here is the code snippet to be added to the `./client.ts` file:
 
     return response.json();
   }
+
+// Global scope declarations
+export type TrackSaleRequest = {
+  externalId?: string;
+  customerId?: string | null;
+  amount: number;
+  paymentProcessor: 'stripe' | 'shopify' | 'paddle';
+  eventName?: string;
+  invoiceId?: string | null;
+  currency?: string;
+  metadata?: Record<string, any> | null;
+};
+
+export type TrackSaleResponse = {
+  eventName: string;
+  customer: {
+    id: string;
+    name: string | null;
+    email: string | null;
+    avatar: string | null;
+    externalId: string | null;
+  };
+  sale: {
+    amount: number;
+    currency: string;
+    paymentProcessor: string;
+    invoiceId: string | null;
+    metadata: Record<string, any> | null;
+  };
+};
+
+// ... existing code ...
 ```
 
-### Summary of Changes:
-- Added a new method `deleteTag` to handle the deletion of a tag.
-- Included error handling to throw an `ExampleError` if the response is not successful.
-- The method is fully typed for both input and output, ensuring type safety.
+This code snippet adds the `trackSale` method to the `ExampleClient` class, handling the request and response according to the OpenAPI specifications. The necessary types for the request and response are also declared at the end of the snippet.

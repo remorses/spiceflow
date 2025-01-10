@@ -407,74 +407,71 @@ components:
               - error
 
 ---
-Let's break this down step by step:
+To implement the `GET /links/count` route in the `ExampleClient` class, we will create a new method called `getLinksCount`. This method will handle the request to the API, including the necessary parameters, serialization, and error handling.
 
-1. We need to add a new method to the `ExampleClient` class for the `/links/count` endpoint
-2. The method should:
-   - Accept all query parameters defined in the OpenAPI spec
-   - Return a Promise that resolves to a number (the count)
-   - Handle potential errors using the existing ExampleError class
-   - Use the existing fetch method for making the request
-3. The query parameters need to be properly typed, including:
-   - Optional fields
-   - Union types for parameters that accept multiple types
-   - Deprecated fields should still be included but marked as deprecated
-4. We'll use the error types from the components.ts file
+### Steps to Implement:
+1. **Define the Method**: The method will be named `getLinksCount` and will be a part of the `ExampleClient` class.
+2. **Add Route Information**: Include a comment above the method to specify the route path, method, and tags.
+3. **Define Input Parameters**: The method will accept parameters for `domain`, `tagId`, `tagIds`, `tagNames`, `search`, `userId`, `showArchived`, `withTags`, and `groupBy`.
+4. **Handle Fetch Logic**: Use the existing `fetch` method to make the API call.
+5. **Type Definitions**: Ensure that the method is fully typed for both inputs and outputs.
+6. **Error Handling**: Handle potential errors by checking the response status and throwing an `ExampleError` if necessary.
 
-Here's the implementation:
+Here is the code snippet to be added to the `./client.ts` file:
 
 ```typescript:client.ts
-// ... existing code ...
-
-export class ExampleClient {
-  // ... existing methods ...
-
-  /**
-   * GET /links/count
-   * Retrieve the number of links for the authenticated workspace.
-   * Tags: Links
-   */
-  async countLinks(params?: {
+  // GET /links/count
+  // Retrieves the number of links for the authenticated workspace.
+  async getLinksCount({
+    domain,
+    tagId,
+    tagIds,
+    tagNames,
+    search,
+    userId,
+    showArchived = false,
+    withTags = false,
+    groupBy,
+  }: {
     domain?: string;
-    /** @deprecated Use tagIds instead */
-    tagId?: string;
+    tagId?: string; // Deprecated
     tagIds?: string | string[];
     tagNames?: string | string[];
     search?: string;
     userId?: string;
     showArchived?: boolean;
-    /** @deprecated */
-    withTags?: boolean;
+    withTags?: boolean; // Deprecated
     groupBy?: 'domain' | 'tagId' | 'userId';
   }): Promise<number> {
-    try {
-      const response = await this.fetch({
-        method: 'GET',
-        path: '/links/count',
-        query: params ? {
-          ...params,
-          tagIds: Array.isArray(params.tagIds) ? params.tagIds.join(',') : params.tagIds,
-          tagNames: Array.isArray(params.tagNames) ? params.tagNames.join(',') : params.tagNames,
-        } : undefined,
+    const response = await this.fetch<number>({
+      method: 'GET',
+      path: '/links/count',
+      query: {
+        domain,
+        tagId,
+        tagIds,
+        tagNames,
+        search,
+        userId,
+        showArchived,
+        withTags,
+        groupBy,
+      },
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new ExampleError(errorData.error.message, {
+        status: response.status,
+        data: errorData,
       });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new ExampleError(errorData.error.message, {
-          status: response.status,
-          data: errorData,
-        });
-      }
-
-      return response.json();
-    } catch (error) {
-      if (error instanceof ExampleError) {
-        throw error;
-      }
-      throw new ExampleError('Unknown error occurred', { status: 500 });
     }
-  }
-}
 
-// ... rest of existing code ...
+    return response.json();
+  }
 ```
+
+### Summary of Changes:
+- Added a new method `getLinksCount` to the `ExampleClient` class.
+- The method is fully typed and handles optional parameters.
+- It uses the existing `fetch` method for making the API call and includes error handling for non-200 responses.

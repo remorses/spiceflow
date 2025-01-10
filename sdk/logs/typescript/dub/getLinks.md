@@ -1433,28 +1433,44 @@ components:
       title: Tag
 
 ---
-Let's break down the implementation step by step:
+To implement the `GET /links` route in the `ExampleClient` class, we will create a new method called `getLinks`. This method will handle the request to retrieve a list of links, including the necessary parameters and error handling.
 
-1. We need to add a new method to the ExampleClient class for the GET /links endpoint
-2. The method should accept all the query parameters defined in the OpenAPI spec
-3. We'll use the existing fetch method to make the API call
-4. We'll handle the response and error cases appropriately
-5. The return type should be an array of Link objects from the components.ts file
+### Step-by-Step Reasoning:
 
-Here's the implementation:
+1. **Method Declaration**: We will declare the method `getLinks` in the `ExampleClient` class. This method will be asynchronous and return a promise that resolves to an array of `Link` objects.
+
+2. **Route Path and Method**: The method will be annotated with a comment indicating the route path (`/links`), the HTTP method (`GET`), and the tags (`Links`).
+
+3. **Parameters**: The method will accept optional parameters that correspond to the query parameters defined in the OpenAPI schema. These include `domain`, `tagId`, `tagIds`, `tagNames`, `search`, `userId`, `showArchived`, `sort`, `page`, and `pageSize`.
+
+4. **Fetch Call**: We will use the existing `fetch` method to make the API call, passing the appropriate parameters.
+
+5. **Error Handling**: We will handle potential errors by checking the response status and throwing an `ExampleError` if the response is not successful.
+
+6. **Return Type**: The method will return a promise that resolves to an array of `Link` objects.
+
+### Code Snippet for Editing `./client.ts`:
 
 ```typescript:client.ts
-// ... existing code ...
-
-export class ExampleClient {
   // ... existing code ...
 
   /**
    * GET /links
-   * Retrieve a paginated list of links for the authenticated workspace.
+   * Retrieve a list of links
    * Tags: Links
    */
-  async listLinks(params?: {
+  async getLinks({
+    domain,
+    tagId,
+    tagIds,
+    tagNames,
+    search,
+    userId,
+    showArchived = false,
+    sort = 'createdAt',
+    page = 1,
+    pageSize = 100,
+  }: {
     domain?: string;
     tagId?: string;
     tagIds?: string | string[];
@@ -1462,47 +1478,36 @@ export class ExampleClient {
     search?: string;
     userId?: string;
     showArchived?: boolean;
-    withTags?: boolean;
     sort?: 'createdAt' | 'clicks' | 'lastClicked';
     page?: number;
     pageSize?: number;
-  }): Promise<types.Link[]> {
-    try {
-      const response = await this.fetch({
-        method: 'GET',
-        path: '/links',
-        query: {
-          domain: params?.domain,
-          tagId: params?.tagId,
-          tagIds: Array.isArray(params?.tagIds) ? params.tagIds.join(',') : params?.tagIds,
-          tagNames: Array.isArray(params?.tagNames) ? params.tagNames.join(',') : params?.tagNames,
-          search: params?.search,
-          userId: params?.userId,
-          showArchived: params?.showArchived,
-          withTags: params?.withTags,
-          sort: params?.sort,
-          page: params?.page,
-          pageSize: params?.pageSize,
-        },
-      });
+  }): Promise<Link[]> {
+    const response = await this.fetch<Link[]>({
+      method: 'GET',
+      path: '/links',
+      query: {
+        domain,
+        tagId,
+        tagIds,
+        tagNames,
+        search,
+        userId,
+        showArchived,
+        sort,
+        page,
+        pageSize,
+      },
+    });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new ExampleError(errorData.error?.message || 'Failed to fetch links', {
-          status: response.status,
-          data: errorData,
-        });
-      }
-
-      return response.json();
-    } catch (error) {
-      if (error instanceof ExampleError) {
-        throw error;
-      }
-      throw new ExampleError('Network error while fetching links', { status: 500 });
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new ExampleError(errorData.error.message, { status: response.status, data: errorData });
     }
-  }
-}
 
-// ... existing code ...
+    return response.json();
+  }
+
+  // ... existing code ...
 ```
+
+This code snippet adds the `getLinks` method to the `ExampleClient` class, allowing users to retrieve a list of links with the specified query parameters while ensuring proper error handling and type safety.

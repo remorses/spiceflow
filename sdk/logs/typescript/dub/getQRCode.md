@@ -14,36 +14,90 @@ servers:
   - url: https://api.dub.co
     description: Production API
 paths:
-  /tags/{id}:
-    delete:
-      operationId: deleteTag
-      x-speakeasy-name-override: delete
-      x-speakeasy-max-method-params: 1
-      summary: Delete a tag
-      description: Delete a tag from the workspace. All existing links will still work, but they will no longer be associated with this tag.
+  /qr:
+    get:
+      operationId: getQRCode
+      x-speakeasy-name-override: get
+      summary: Retrieve a QR code
+      description: Retrieve a QR code for a link.
       tags:
-        - Tags
+        - QR Codes
       parameters:
-        - in: path
-          name: id
-          description: The ID of the tag to delete.
+        - in: query
+          name: url
+          description: The URL to generate a QR code for.
           schema:
             type: string
-            description: The ID of the tag to delete.
+            description: The URL to generate a QR code for.
           required: true
+        - in: query
+          name: logo
+          description: The logo to include in the QR code. Can only be used with a paid plan on Dub.co.
+          schema:
+            type: string
+            description: The logo to include in the QR code. Can only be used with a paid plan on Dub.co.
+        - in: query
+          name: size
+          description: The size of the QR code in pixels. Defaults to `600` if not provided.
+          schema:
+            type: number
+            default: 600
+            description: The size of the QR code in pixels. Defaults to `600` if not provided.
+        - in: query
+          name: level
+          description: The level of error correction to use for the QR code. Defaults to `L` if not provided.
+          schema:
+            type: string
+            enum:
+              - L
+              - M
+              - Q
+              - H
+            default: L
+            description: The level of error correction to use for the QR code. Defaults to `L` if not provided.
+        - in: query
+          name: fgColor
+          description: The foreground color of the QR code in hex format. Defaults to `#000000` if not provided.
+          schema:
+            type: string
+            default: '#000000'
+            description: The foreground color of the QR code in hex format. Defaults to `#000000` if not provided.
+        - in: query
+          name: bgColor
+          description: The background color of the QR code in hex format. Defaults to `#ffffff` if not provided.
+          schema:
+            type: string
+            default: '#FFFFFF'
+            description: The background color of the QR code in hex format. Defaults to `#ffffff` if not provided.
+        - in: query
+          name: hideLogo
+          description: Whether to hide the logo in the QR code. Can only be used with a paid plan on Dub.co.
+          schema:
+            type: boolean
+            default: 'false'
+            description: Whether to hide the logo in the QR code. Can only be used with a paid plan on Dub.co.
+        - in: query
+          name: margin
+          description: The size of the margin around the QR code. Defaults to 2 if not provided.
+          schema:
+            type: number
+            default: 2
+            description: The size of the margin around the QR code. Defaults to 2 if not provided.
+        - in: query
+          name: includeMargin
+          description: 'DEPRECATED: Margin is included by default. Use the `margin` prop to customize the margin size.'
+          schema:
+            type: boolean
+            default: 'true'
+            description: 'DEPRECATED: Margin is included by default. Use the `margin` prop to customize the margin size.'
+            deprecated: true
       responses:
         '200':
-          description: The deleted tag ID.
+          description: The QR code
           content:
-            application/json:
+            image/png:
               schema:
-                type: object
-                properties:
-                  id:
-                    type: string
-                    description: The ID of the deleted tag.
-                required:
-                  - id
+                type: string
         '400':
           $ref: '#/components/responses/400'
         '401':
@@ -345,22 +399,55 @@ components:
               - error
 
 ---
-To implement the `DELETE /tags/{id}` route in the `ExampleClient` class, we will follow these steps:
+To implement the `GET /qr` route in the `ExampleClient` class, we will create a new method called `getQRCode`. This method will:
 
-1. **Define the Method**: We will create a method named `deleteTag` that will handle the deletion of a tag by its ID.
-2. **Add Route Information**: We will include a comment above the method that specifies the route path, method, and tags.
-3. **Type Definitions**: We will define the input type for the method, which will include the `id` parameter, and the output type, which will be the response from the API.
-4. **Error Handling**: We will handle potential errors by checking the response status and throwing an `ExampleError` if the response indicates an error.
-5. **Use Fetch**: The method will utilize the existing `fetch` method in the class to make the API call.
+1. **Define the method signature** with appropriate input parameters, including optional fields.
+2. **Use the existing `fetch` method** to make the API call.
+3. **Handle the response** by checking for errors and returning the appropriate type.
+4. **Include type definitions** for the input parameters and the expected output.
 
-Here is the code snippet to be added to the `./client.ts` file:
+The input parameters will include `url`, `logo`, `size`, `level`, `fgColor`, `bgColor`, `hideLogo`, `margin`, and `includeMargin`, with appropriate types and defaults where specified. The output will be a `Promise<string>` representing the QR code image in PNG format.
+
+Here’s the code snippet to add to the `ExampleClient` class in `client.ts`:
 
 ```typescript:client.ts
-  // DELETE /tags/{id} - Tags
-  async deleteTag(id: string): Promise<{ id: string }> {
-    const response = await this.fetch<{ id: string }>({
-      method: 'DELETE',
-      path: `/tags/${encodeURIComponent(id)}`,
+  // GET /qr
+  // Retrieves a QR code for a link.
+  async getQRCode({
+    url,
+    logo,
+    size = 600,
+    level = 'L',
+    fgColor = '#000000',
+    bgColor = '#FFFFFF',
+    hideLogo = false,
+    margin = 2,
+    includeMargin = true,
+  }: {
+    url: string
+    logo?: string
+    size?: number
+    level?: 'L' | 'M' | 'Q' | 'H'
+    fgColor?: string
+    bgColor?: string
+    hideLogo?: boolean
+    margin?: number
+    includeMargin?: boolean
+  }): Promise<string> {
+    const response = await this.fetch({
+      method: 'GET',
+      path: '/qr',
+      query: {
+        url,
+        logo,
+        size,
+        level,
+        fgColor,
+        bgColor,
+        hideLogo,
+        margin,
+        includeMargin,
+      },
     });
 
     if (!response.ok) {
@@ -368,11 +455,9 @@ Here is the code snippet to be added to the `./client.ts` file:
       throw new ExampleError(errorData.error.message, { status: response.status, data: errorData });
     }
 
-    return response.json();
+    return response.blob().then(blob => URL.createObjectURL(blob));
   }
 ```
 
-### Summary of Changes:
-- Added a new method `deleteTag` to handle the deletion of a tag.
-- Included error handling to throw an `ExampleError` if the response is not successful.
-- The method is fully typed for both input and output, ensuring type safety.
+### Global Scope Declarations
+At the end of the snippet, ensure to declare any types or functions that are necessary for the method to work correctly, if they are not already defined in the `components.ts` file. In this case, the `ExampleError` class is already defined, so no additional declarations are needed.

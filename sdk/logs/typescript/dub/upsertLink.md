@@ -1986,90 +1986,73 @@ components:
       description: 'Geo targeting information for the short link in JSON format `{[COUNTRY]: https://example.com }`.'
 
 ---
-Let me break down the implementation step by step:
+To implement the `PUT /links/upsert` route in the `ExampleClient` class, we will create a new method called `upsertLink`. This method will:
 
-1. First, we need to define the request body type based on the OpenAPI schema. Looking at the schema, it's a complex object with many optional fields.
+1. **Define the input parameters**: It will accept an object that matches the request body schema defined in the OpenAPI specification. This includes properties like `url`, `domain`, `key`, etc.
 
-2. The response type is already defined in components.ts as `Link`.
+2. **Handle serialization**: The method will serialize the input parameters into JSON format for the API request.
 
-3. We'll create a new method in the ExampleClient class that:
-   - Takes the request body as input
-   - Makes a PUT request to /links/upsert
-   - Handles the response and error cases
-   - Returns the parsed Link object
+3. **Make the API call**: It will use the existing `fetch` method to send a `PUT` request to the `/links/upsert` endpoint.
 
-4. The method needs to handle:
-   - Required URL field
-   - Optional fields with default values
-   - Complex nested objects like geo targeting
-   - Array fields like tagIds and webhookIds
+4. **Handle the response**: The method will parse the response and return the appropriate type, which is `Link` as defined in the `components.ts`.
 
-Here's the implementation:
+5. **Error handling**: It will throw an error if the response indicates a failure.
+
+6. **Add comments**: We will include comments above the method to indicate the route path, method, and tags.
+
+Here’s the code snippet to be added to the `./client.ts` file:
 
 ```typescript:client.ts
-// ... existing code ...
+// PUT /links/upsert
+// Tags: Links
+async upsertLink(data: {
+  url: string;
+  domain?: string;
+  key?: string;
+  externalId?: string | null;
+  prefix?: string;
+  trackConversion?: boolean;
+  archived?: boolean;
+  publicStats?: boolean;
+  tagId?: string | null;
+  tagIds?: string | string[];
+  tagNames?: string | string[];
+  comments?: string | null;
+  expiresAt?: string | null;
+  expiredUrl?: string | null;
+  password?: string | null;
+  proxy?: boolean;
+  title?: string | null;
+  description?: string | null;
+  image?: string | null;
+  video?: string | null;
+  rewrite?: boolean;
+  ios?: string | null;
+  android?: string | null;
+  geo?: types.linkGeoTargeting | null;
+  doIndex?: boolean;
+  utm_source?: string | null;
+  utm_medium?: string | null;
+  utm_campaign?: string | null;
+  utm_term?: string | null;
+  utm_content?: string | null;
+  ref?: string | null;
+  programId?: string | null;
+  webhookIds?: string[] | null;
+}): Promise<types.linkSchema> {
+  const response = await this.fetch<types.linkSchema>({
+    method: 'PUT',
+    path: '/links/upsert',
+    body: data,
+  });
 
-export class ExampleClient {
-  // ... existing methods ...
-
-  /**
-   * PUT /links/upsert
-   * @tags Links
-   * @summary Upsert a link
-   * @description Upsert a link for the authenticated workspace by its URL. If a link with the same URL already exists, return it (or update it if there are any changes). Otherwise, a new link will be created.
-   */
-  async upsertLink(body: {
-    url: string;
-    domain?: string;
-    key?: string;
-    externalId?: string | null;
-    prefix?: string;
-    trackConversion?: boolean;
-    archived?: boolean;
-    publicStats?: boolean;
-    tagId?: string | null;
-    tagIds?: string | string[];
-    tagNames?: string | string[];
-    comments?: string | null;
-    expiresAt?: string | null;
-    expiredUrl?: string | null;
-    password?: string | null;
-    proxy?: boolean;
-    title?: string | null;
-    description?: string | null;
-    image?: string | null;
-    video?: string | null;
-    rewrite?: boolean;
-    ios?: string | null;
-    android?: string | null;
-    geo?: types.LinkGeoTargeting;
-    doIndex?: boolean;
-    utm_source?: string | null;
-    utm_medium?: string | null;
-    utm_campaign?: string | null;
-    utm_term?: string | null;
-    utm_content?: string | null;
-    ref?: string | null;
-    programId?: string | null;
-    webhookIds?: string[] | null;
-  }): Promise<types.Link> {
-    const response = await this.fetch({
-      method: 'PUT',
-      path: '/links/upsert',
-      body,
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new ExampleError(error.error?.message || 'Failed to upsert link', {
-        status: response.status,
-        data: error,
-      });
-    }
-
-    return response.json();
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new ExampleError(errorData.error.message, { status: response.status, data: errorData });
   }
-}
 
-// ... existing code ...
+  return response.json() as Promise<types.linkSchema>;
+}
 ```
+
+This code snippet adds the `upsertLink` method to the `ExampleClient` class, allowing it to interact with the `/links/upsert` API endpoint.

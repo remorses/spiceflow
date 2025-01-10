@@ -345,51 +345,47 @@ components:
               - error
 
 ---
-Let's break this down step by step:
+To implement the `DELETE /links/{linkId}` route in the existing SDK, we will follow these steps:
 
-1. We need to add a new method to the `ExampleClient` class for deleting a link
-2. The method will:
-   - Take a `linkId` parameter as a string
-   - Make a DELETE request to `/links/{linkId}`
-   - Handle the response which returns an object with an `id` property
-   - Handle potential errors using the existing `ExampleError` class
-3. We'll use the existing `fetch` method in the class to make the request
-4. We'll add proper TypeScript types for both the request and response
-5. We'll add the required JSDoc comment with route information
+1. **Define the Input Type**: We need to create a type for the input parameter, which is `linkId`. This will be a required string.
 
-Here's the code to add to `client.ts`:
+2. **Define the Output Type**: The response for a successful deletion will return an object containing the `id` of the deleted link. We will define a type for this response.
+
+3. **Implement the Method**: We will create a method in the `ExampleClient` class that uses the existing `fetch` method to make the API call. This method will handle the serialization of the request and response, as well as error handling.
+
+4. **Add Comments**: We will include comments above the method to indicate the route path, method, and tags.
+
+5. **Global Scope Declarations**: We will declare any necessary types or functions at the end of the snippet.
+
+Here is the code snippet to be added to the `./client.ts` file:
 
 ```typescript:client.ts
-// ... existing code ...
-
-export class ExampleClient {
-  // ... existing code ...
-
-  /**
-   * DELETE /links/{linkId}
-   * @tags Links
-   * @summary Delete a link
-   * @description Delete a link for the authenticated workspace.
-   * @param linkId The id of the link to delete. You may use either `linkId` (obtained via `/links/info` endpoint) or `externalId` prefixed with `ext_`.
-   * @returns Promise<{ id: string }>
-   */
+  // DELETE /links/{linkId}
+  // Method: DELETE
+  // Tags: Links
   async deleteLink(linkId: string): Promise<{ id: string }> {
-    const response = await this.fetch({
+    const response = await this.fetch<{ id: string }>({
       method: 'DELETE',
       path: `/links/${encodeURIComponent(linkId)}`,
     });
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new ExampleError('Failed to delete link', {
-        status: response.status,
-        data: errorData,
-      });
+      const errorData = await response.json();
+      throw new ExampleError(errorData.error.message, { status: response.status, data: errorData });
     }
 
     return response.json();
   }
-}
 
-// ... rest of existing code ...
-```
+// Global scope declarations
+export type DeleteLinkResponse = { id: string };
+export type DeleteLinkError = {
+  error: {
+    code: string;
+    message: string;
+    doc_url: string;
+  };
+};
+``` 
+
+This code snippet adds the `deleteLink` method to the `ExampleClient` class, handling the deletion of a link by its ID, and includes error handling for various response statuses.

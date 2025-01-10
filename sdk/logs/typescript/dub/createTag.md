@@ -383,59 +383,44 @@ components:
       title: Tag
 
 ---
-Let's break this down step by step:
+To implement the `POST /tags` route in the `ExampleClient` class, we will create a new method called `createTag`. This method will handle the request to create a new tag, including the necessary input parameters, response handling, and error management.
 
-1. We need to add a new method to the `ExampleClient` class for creating tags
-2. The method should:
-   - Accept a request body with optional name and color fields
-   - Use the existing fetch method to make the POST request
-   - Handle the response and error cases
-   - Return the created Tag object
-3. We'll use the types from components.ts for the request/response types
-4. We'll add proper error handling using the existing ExampleError class
+### Steps to Implement the Method:
+1. **Define the Input Type**: The method will accept an object with optional `color` and required `name` properties.
+2. **Define the Output Type**: The method will return a `Promise` that resolves to a `Tag` object.
+3. **Add Error Handling**: The method will handle various HTTP response statuses and throw an `ExampleError` for non-2xx responses.
+4. **Comment the Method**: Include a comment above the method indicating the route path, method, and tags.
+5. **Use the Existing Fetch Method**: Leverage the existing `fetch` method in the class to make the API call.
 
-Here's the implementation:
+Here’s the code snippet to add to the `ExampleClient` class in `./client.ts`:
 
 ```typescript:client.ts
-// ... existing code ...
-
-export class ExampleClient {
-  // ... existing code ...
-
-  /**
-   * POST /tags
-   * Tags: Tags
-   * Create a new tag for the authenticated workspace.
-   */
-  async createTag(body: {
+  // POST /tags
+  // Create a new tag
+  // Tags
+  async createTag({
+    name,
+    color,
+  }: {
     name: string;
     color?: "red" | "yellow" | "green" | "blue" | "purple" | "pink" | "brown";
-    tag?: string; // deprecated
   }): Promise<Tag> {
-    try {
-      const response = await this.fetch({
-        method: 'POST',
-        path: '/tags',
-        body
-      });
+    const response = await this.fetch<Tag>({
+      method: 'POST',
+      path: '/tags',
+      body: { name, color },
+    });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new ExampleError(errorData.error.message, {
-          status: response.status,
-          data: errorData
-        });
-      }
-
-      return response.json();
-    } catch (error) {
-      if (error instanceof ExampleError) {
-        throw error;
-      }
-      throw new ExampleError('Unknown error occurred', { status: 500 });
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new ExampleError(errorData.error.message, { status: response.status, data: errorData });
     }
-  }
-}
 
-// ... existing code ...
+    return response.json() as Promise<Tag>;
+  }
 ```
+
+### Summary of Changes:
+- Added the `createTag` method to handle the `POST /tags` route.
+- The method is fully typed for both inputs and outputs, with optional fields where required.
+- Error handling is implemented to throw an `ExampleError` for non-2xx responses.

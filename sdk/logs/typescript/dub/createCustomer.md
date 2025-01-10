@@ -14,26 +14,42 @@ servers:
   - url: https://api.dub.co
     description: Production API
 paths:
-  /tags/{id}:
-    delete:
-      operationId: deleteTag
-      x-speakeasy-name-override: delete
-      x-speakeasy-max-method-params: 1
-      summary: Delete a tag
-      description: Delete a tag from the workspace. All existing links will still work, but they will no longer be associated with this tag.
+  /customers:
+    post:
+      operationId: createCustomer
+      x-speakeasy-name-override: create
+      summary: Create a customer
+      description: Create a customer for the authenticated workspace.
       tags:
-        - Tags
-      parameters:
-        - in: path
-          name: id
-          description: The ID of the tag to delete.
-          schema:
-            type: string
-            description: The ID of the tag to delete.
-          required: true
+        - Customers
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  nullable: true
+                  format: email
+                  description: Email of the customer in the client's app.
+                name:
+                  type: string
+                  nullable: true
+                  description: Name of the customer in the client's app. If not provided, a random name will be generated.
+                avatar:
+                  type: string
+                  nullable: true
+                  format: uri
+                  description: Avatar URL of the customer in the client's app.
+                externalId:
+                  type: string
+                  description: Unique identifier for the customer in the client's app.
+              required:
+                - externalId
       responses:
-        '200':
-          description: The deleted tag ID.
+        '201':
+          description: The customer was created.
           content:
             application/json:
               schema:
@@ -41,9 +57,114 @@ paths:
                 properties:
                   id:
                     type: string
-                    description: The ID of the deleted tag.
+                    description: The unique identifier of the customer in Dub.
+                  externalId:
+                    type: string
+                    description: Unique identifier for the customer in the client's app.
+                  name:
+                    type: string
+                    description: Name of the customer.
+                  email:
+                    type: string
+                    nullable: true
+                    description: Email of the customer.
+                  avatar:
+                    type: string
+                    nullable: true
+                    description: Avatar URL of the customer.
+                  country:
+                    type: string
+                    nullable: true
+                    description: Country of the customer.
+                  createdAt:
+                    type: string
+                    description: The date the customer was created.
+                  link:
+                    type: object
+                    nullable: true
+                    properties:
+                      id:
+                        type: string
+                        description: The unique ID of the short link.
+                      domain:
+                        type: string
+                        description: The domain of the short link. If not provided, the primary domain for the workspace will be used (or `dub.sh` if the workspace has no domains).
+                      key:
+                        type: string
+                        description: The short link slug. If not provided, a random 7-character slug will be generated.
+                      shortLink:
+                        type: string
+                        format: uri
+                        description: The full URL of the short link, including the https protocol (e.g. `https://dub.sh/try`).
+                      programId:
+                        type: string
+                        nullable: true
+                        description: The ID of the program the short link is associated with.
+                    required:
+                      - id
+                      - domain
+                      - key
+                      - shortLink
+                      - programId
+                  partner:
+                    type: object
+                    nullable: true
+                    properties:
+                      id:
+                        type: string
+                      name:
+                        type: string
+                      email:
+                        type: string
+                      image:
+                        type: string
+                        nullable: true
+                    required:
+                      - id
+                      - name
+                      - email
+                  discount:
+                    type: object
+                    nullable: true
+                    properties:
+                      id:
+                        type: string
+                      couponId:
+                        type: string
+                        nullable: true
+                      couponTestId:
+                        type: string
+                        nullable: true
+                      amount:
+                        type: number
+                      type:
+                        type: string
+                        enum:
+                          - percentage
+                          - flat
+                      duration:
+                        type: number
+                        nullable: true
+                      interval:
+                        type: string
+                        nullable: true
+                        enum:
+                          - month
+                          - year
+                          - null
+                    required:
+                      - id
+                      - couponId
+                      - couponTestId
+                      - amount
+                      - type
+                      - duration
+                      - interval
                 required:
                   - id
+                  - externalId
+                  - name
+                  - createdAt
         '400':
           $ref: '#/components/responses/400'
         '401':
@@ -345,34 +466,150 @@ components:
               - error
 
 ---
-To implement the `DELETE /tags/{id}` route in the `ExampleClient` class, we will follow these steps:
+To implement the `POST /customers` route in the existing SDK, we will follow these steps:
 
-1. **Define the Method**: We will create a method named `deleteTag` that will handle the deletion of a tag by its ID.
-2. **Add Route Information**: We will include a comment above the method that specifies the route path, method, and tags.
-3. **Type Definitions**: We will define the input type for the method, which will include the `id` parameter, and the output type, which will be the response from the API.
-4. **Error Handling**: We will handle potential errors by checking the response status and throwing an `ExampleError` if the response indicates an error.
-5. **Use Fetch**: The method will utilize the existing `fetch` method in the class to make the API call.
+1. **Define Input and Output Types**: We will create types for the request body and the expected response based on the OpenAPI schema provided. The request body will include optional fields for `email`, `name`, and `avatar`, while `externalId` is required. The response will include various fields such as `id`, `externalId`, `name`, etc.
+
+2. **Create the Method**: We will add a method named `createCustomer` to the `ExampleClient` class. This method will use the existing `fetch` method to make the API call.
+
+3. **Handle Serialization**: The method will serialize the request body to JSON and handle the response appropriately, including error handling for different status codes.
+
+4. **Add Comments**: We will include comments above the method to indicate the route path, method, and tags.
+
+5. **Global Scope Declarations**: We will declare any necessary types at the end of the snippet.
 
 Here is the code snippet to be added to the `./client.ts` file:
 
 ```typescript:client.ts
-  // DELETE /tags/{id} - Tags
-  async deleteTag(id: string): Promise<{ id: string }> {
-    const response = await this.fetch<{ id: string }>({
-      method: 'DELETE',
-      path: `/tags/${encodeURIComponent(id)}`,
+  // POST /customers
+  // Creates a customer for the authenticated workspace.
+  // Tags: Customers
+  async createCustomer(
+    body: {
+      email?: string | null;
+      name?: string | null;
+      avatar?: string | null;
+      externalId: string;
+    }
+  ): Promise<{
+    id: string;
+    externalId: string;
+    name: string;
+    email?: string | null;
+    avatar?: string | null;
+    country?: string | null;
+    createdAt: string;
+    link?: {
+      id: string;
+      domain: string;
+      key: string;
+      shortLink: string;
+      programId?: string | null;
+    };
+    partner?: {
+      id: string;
+      name: string;
+      email: string;
+      image?: string | null;
+    };
+    discount?: {
+      id: string;
+      couponId?: string | null;
+      couponTestId?: string | null;
+      amount: number;
+      type: 'percentage' | 'flat';
+      duration?: number | null;
+      interval?: 'month' | 'year' | null;
+    };
+  }> {
+    const response = await this.fetch<{
+      email?: string | null;
+      name: string;
+      avatar?: string | null;
+      externalId: string;
+      id: string;
+      country?: string | null;
+      createdAt: string;
+      link?: {
+        id: string;
+        domain: string;
+        key: string;
+        shortLink: string;
+        programId?: string | null;
+      };
+      partner?: {
+        id: string;
+        name: string;
+        email: string;
+        image?: string | null;
+      };
+      discount?: {
+        id: string;
+        couponId?: string | null;
+        couponTestId?: string | null;
+        amount: number;
+        type: 'percentage' | 'flat';
+        duration?: number | null;
+        interval?: 'month' | 'year' | null;
+      };
+    }>({
+      method: 'POST',
+      path: '/customers',
+      body,
     });
 
     if (!response.ok) {
       const errorData = await response.json();
-      throw new ExampleError(errorData.error.message, { status: response.status, data: errorData });
+      throw new ExampleError(errorData.error.message, {
+        status: response.status,
+        data: errorData,
+      });
     }
 
     return response.json();
   }
-```
 
-### Summary of Changes:
-- Added a new method `deleteTag` to handle the deletion of a tag.
-- Included error handling to throw an `ExampleError` if the response is not successful.
-- The method is fully typed for both input and output, ensuring type safety.
+// Global scope declarations
+declare global {
+  type CreateCustomerRequest = {
+    email?: string | null;
+    name?: string | null;
+    avatar?: string | null;
+    externalId: string;
+  };
+
+  type CreateCustomerResponse = {
+    id: string;
+    externalId: string;
+    name: string;
+    email?: string | null;
+    avatar?: string | null;
+    country?: string | null;
+    createdAt: string;
+    link?: {
+      id: string;
+      domain: string;
+      key: string;
+      shortLink: string;
+      programId?: string | null;
+    };
+    partner?: {
+      id: string;
+      name: string;
+      email: string;
+      image?: string | null;
+    };
+    discount?: {
+      id: string;
+      couponId?: string | null;
+      couponTestId?: string | null;
+      amount: number;
+      type: 'percentage' | 'flat';
+      duration?: number | null;
+      interval?: 'month' | 'year' | null;
+    };
+  };
+}
+``` 
+
+This code snippet adds the `createCustomer` method to the `ExampleClient` class, handling the request and response as specified in the OpenAPI schema.

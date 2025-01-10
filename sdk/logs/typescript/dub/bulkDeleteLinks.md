@@ -351,64 +351,53 @@ components:
               - error
 
 ---
-Let's break this down step by step:
+To implement the `DELETE /links/bulk` route in the `ExampleClient` class, we will follow these steps:
 
-1. We need to add a new method to the `ExampleClient` class for the DELETE /links/bulk endpoint
-2. The method should:
-   - Accept an array of link IDs as input
-   - Convert the array to a comma-separated string for the query parameter
-   - Handle the response type which includes a deletedCount number
-   - Include proper error handling
-3. We'll use the existing fetch method and error handling infrastructure
-4. The method should be fully typed with input/output types
-5. We'll add a descriptive comment above the method
+1. **Define Input and Output Types**: We need to define the types for the input parameters (link IDs) and the expected output (deleted count). The input will be an array of strings representing the link IDs, and the output will be an object containing the `deletedCount`.
 
-Here's the implementation:
+2. **Create the Method**: We will create a method named `bulkDeleteLinks` in the `ExampleClient` class. This method will:
+   - Accept an array of link IDs as a parameter.
+   - Use the `fetch` method to make a DELETE request to the `/links/bulk` endpoint.
+   - Handle the response, including error handling for various status codes.
+
+3. **Add Comments**: We will add a comment above the method to indicate the route path, method, and tags.
+
+4. **Global Scope Declarations**: We will declare any necessary types or functions at the end of the snippet.
+
+Here’s the code snippet to be added to the `./client.ts` file:
 
 ```typescript:client.ts
-// ... existing code ...
+  // DELETE /links/bulk
+  // Tags: Links
+  async bulkDeleteLinks(
+    linkIds: string[]
+  ): Promise<{ deletedCount: number }> {
+    if (!linkIds || linkIds.length === 0 || linkIds.length > 100) {
+      throw new ExampleError('Invalid linkIds', { status: 400 });
+    }
 
-export class ExampleClient {
-  // ... existing code ...
-
-  /**
-   * DELETE /links/bulk
-   * @tags Links
-   * @summary Bulk delete links
-   * @description Bulk delete up to 100 links for the authenticated workspace.
-   * @param linkIds Comma-separated list of link IDs to delete. Maximum of 100 IDs. Non-existing IDs will be ignored.
-   * @returns Promise<{ deletedCount: number }>
-   */
-  async deleteMany(linkIds: string[]): Promise<{ deletedCount: number }> {
-    const response = await this.fetch({
+    const response = await this.fetch<{ deletedCount: number }>({
       method: 'DELETE',
       path: '/links/bulk',
-      query: {
-        linkIds: linkIds.join(',')
-      }
+      query: { linkIds: linkIds.join(',') },
     });
 
     if (!response.ok) {
       const errorData = await response.json();
       throw new ExampleError(errorData.error.message, {
         status: response.status,
-        data: errorData
+        data: errorData,
       });
     }
 
     return response.json();
   }
-}
 
-// ... existing code ...
+// Global scope declarations
+export type BulkDeleteLinksResponse = { deletedCount: number };
 ```
 
-The implementation:
-1. Adds a new `deleteMany` method to the `ExampleClient` class
-2. Takes an array of link IDs as input
-3. Uses the existing fetch method to make the DELETE request
-4. Converts the array of IDs to a comma-separated string for the query parameter
-5. Handles both success and error responses
-6. Returns the response data with the deletedCount
-7. Includes proper TypeScript types for input and output
-8. Maintains compatibility with both browser and Node.js environments
+### Summary of Changes:
+- Added the `bulkDeleteLinks` method to handle the DELETE request for bulk deleting links.
+- Implemented input validation and error handling.
+- Specified the expected response type.

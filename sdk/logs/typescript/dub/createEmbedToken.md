@@ -14,36 +14,40 @@ servers:
   - url: https://api.dub.co
     description: Production API
 paths:
-  /tags/{id}:
-    delete:
-      operationId: deleteTag
-      x-speakeasy-name-override: delete
-      x-speakeasy-max-method-params: 1
-      summary: Delete a tag
-      description: Delete a tag from the workspace. All existing links will still work, but they will no longer be associated with this tag.
+  /tokens/embed:
+    post:
+      operationId: createEmbedToken
+      x-speakeasy-name-override: create
+      summary: Create a new embed token
+      description: Create a new embed token for the referral link.
       tags:
-        - Tags
-      parameters:
-        - in: path
-          name: id
-          description: The ID of the tag to delete.
-          schema:
-            type: string
-            description: The ID of the tag to delete.
-          required: true
+        - Embed Tokens
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                linkId:
+                  type: string
+                  minLength: 1
+              required:
+                - linkId
       responses:
-        '200':
-          description: The deleted tag ID.
+        '201':
+          description: The created public embed token.
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  id:
+                  publicToken:
                     type: string
-                    description: The ID of the deleted tag.
+                  expires:
+                    type: string
                 required:
-                  - id
+                  - publicToken
+                  - expires
         '400':
           $ref: '#/components/responses/400'
         '401':
@@ -345,22 +349,30 @@ components:
               - error
 
 ---
-To implement the `DELETE /tags/{id}` route in the `ExampleClient` class, we will follow these steps:
+To implement the `POST /tokens/embed` route in the `ExampleClient` class, we will create a new method called `createEmbedToken`. This method will handle the request and response serialization, error handling, and will be fully typed for both inputs and outputs.
 
-1. **Define the Method**: We will create a method named `deleteTag` that will handle the deletion of a tag by its ID.
-2. **Add Route Information**: We will include a comment above the method that specifies the route path, method, and tags.
-3. **Type Definitions**: We will define the input type for the method, which will include the `id` parameter, and the output type, which will be the response from the API.
-4. **Error Handling**: We will handle potential errors by checking the response status and throwing an `ExampleError` if the response indicates an error.
-5. **Use Fetch**: The method will utilize the existing `fetch` method in the class to make the API call.
+### Steps to Implement:
+1. **Define Input and Output Types**: We will define the input type for the request body and the output type for the response based on the OpenAPI schema.
+2. **Add the Method**: The method will use the existing `fetch` method to make the API call.
+3. **Handle Errors**: We will handle potential errors by checking the response status and throwing an appropriate error if necessary.
+4. **Add Comments**: We will include comments above the method to indicate the route path, method, and tags.
 
-Here is the code snippet to be added to the `./client.ts` file:
+### Code Snippet:
+Here’s the code snippet to be added to the `client.ts` file:
 
 ```typescript:client.ts
-  // DELETE /tags/{id} - Tags
-  async deleteTag(id: string): Promise<{ id: string }> {
-    const response = await this.fetch<{ id: string }>({
-      method: 'DELETE',
-      path: `/tags/${encodeURIComponent(id)}`,
+  // POST /tokens/embed
+  // Creates a new embed token
+  async createEmbedToken(
+    body: { linkId: string }
+  ): Promise<{
+    publicToken: string;
+    expires: string;
+  }> {
+    const response = await this.fetch<{ linkId: string }, { publicToken: string; expires: string }>({
+      method: 'POST',
+      path: '/tokens/embed',
+      body,
     });
 
     if (!response.ok) {
@@ -372,7 +384,7 @@ Here is the code snippet to be added to the `./client.ts` file:
   }
 ```
 
-### Summary of Changes:
-- Added a new method `deleteTag` to handle the deletion of a tag.
-- Included error handling to throw an `ExampleError` if the response is not successful.
-- The method is fully typed for both input and output, ensuring type safety.
+### Global Scope Declarations:
+At the end of the snippet, we will ensure that the necessary types and functions are declared globally if they are not already defined in the `components.ts` file. However, since the `components.ts` file is not editable, we assume the types are already available for use. 
+
+This method will allow users to create a new embed token by providing a `linkId`, and it will return the `publicToken` and its expiration time. The error handling ensures that any issues with the request are properly communicated.

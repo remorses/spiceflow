@@ -448,70 +448,62 @@ components:
         - registeredDomain
 
 ---
-Let's break down what we need to implement for the POST /domains route:
+To implement the `POST /domains` route in the `ExampleClient` class, we will create a new method called `createDomain`. This method will handle the request to create a domain, including the necessary input parameters, response handling, and error management.
 
-1. First, we need to define the request body type based on the OpenAPI schema
-2. Create a method that uses the existing fetch utility
-3. Add proper error handling
-4. Use the DomainSchema type from components.ts for the response
-5. Add JSDoc comments with route information
+### Steps to Implement the Method:
+1. **Define the Input Type**: Create a type for the request body that matches the OpenAPI schema for the `POST /domains` route.
+2. **Define the Output Type**: Use the existing `DomainSchema` type from `./components.ts` for the successful response.
+3. **Implement the Method**: The method will use the `fetch` method to make a POST request to the `/domains` endpoint, handle the response, and throw an error if the request fails.
+4. **Add Comments**: Include comments above the method to indicate the route path, method, and tags.
 
-The request body requires:
-- slug (required string)
-- expiredUrl (optional string)
-- notFoundUrl (optional string)
-- archived (optional boolean with default)
-- placeholder (optional string)
-- logo (optional string)
-
-Here's the implementation:
-
+### Code Snippet for `client.ts`:
 ```typescript:client.ts
-// ... existing code ...
-
-export class ExampleClient {
-  // ... existing code ...
-
-  /**
-   * POST /domains
-   * @tags Domains
-   * @summary Create a domain
-   * @description Create a domain for the authenticated workspace.
-   * @param {object} body - The domain creation request
-   * @param {string} body.slug - Name of the domain
-   * @param {string} [body.expiredUrl] - Redirect URL for expired links
-   * @param {string} [body.notFoundUrl] - Redirect URL for non-existent links
-   * @param {boolean} [body.archived] - Whether to archive the domain
-   * @param {string} [body.placeholder] - Example link for context
-   * @param {string} [body.logo] - Domain logo URL
-   * @returns {Promise<DomainSchema>} The created domain
-   * @throws {ExampleError} When the request fails
-   */
-  async createDomain(body: {
-    slug: string;
-    expiredUrl?: string | null;
-    notFoundUrl?: string | null;
-    archived?: boolean;
-    placeholder?: string | null;
-    logo?: string | null;
-  }): Promise<DomainSchema> {
-    const response = await this.fetch({
+  // POST /domains
+  // Creates a domain for the authenticated workspace.
+  // Tags: Domains
+  async createDomain(
+    body: {
+      slug: string;
+      expiredUrl?: string | null;
+      notFoundUrl?: string | null;
+      archived?: boolean;
+      placeholder?: string | null;
+      logo?: string | null;
+    }
+  ): Promise<DomainSchema> {
+    const response = await this.fetch<{
+      slug: string;
+      expiredUrl?: string | null;
+      notFoundUrl?: string | null;
+      archived?: boolean;
+      placeholder?: string | null;
+      logo?: string | null;
+    }>({
       method: 'POST',
       path: '/domains',
       body,
     });
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
+      const errorData = await response.json();
       throw new ExampleError('Failed to create domain', {
         status: response.status,
         data: errorData,
       });
     }
 
-    return response.json();
+    return response.json() as Promise<DomainSchema>;
   }
-}
 
-// ... existing code ...
+// Global scope declarations
+export interface CreateDomainRequest {
+  slug: string;
+  expiredUrl?: string | null;
+  notFoundUrl?: string | null;
+  archived?: boolean;
+  placeholder?: string | null;
+  logo?: string | null;
+}
 ```
+
+This code snippet adds the `createDomain` method to the `ExampleClient` class, allowing users to create a domain by sending a POST request to the `/domains` endpoint. The method is fully typed, handles errors, and uses the existing types defined in `./components.ts`.

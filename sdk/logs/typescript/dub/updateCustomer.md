@@ -14,26 +14,55 @@ servers:
   - url: https://api.dub.co
     description: Production API
 paths:
-  /tags/{id}:
-    delete:
-      operationId: deleteTag
-      x-speakeasy-name-override: delete
-      x-speakeasy-max-method-params: 1
-      summary: Delete a tag
-      description: Delete a tag from the workspace. All existing links will still work, but they will no longer be associated with this tag.
+  /customers/{id}:
+    patch:
+      operationId: updateCustomer
+      x-speakeasy-name-override: update
+      x-speakeasy-max-method-params: 2
+      summary: Update a customer
+      description: Update a customer for the authenticated workspace.
       tags:
-        - Tags
+        - Customers
       parameters:
         - in: path
           name: id
-          description: The ID of the tag to delete.
+          description: The unique identifier of the customer in Dub.
           schema:
             type: string
-            description: The ID of the tag to delete.
+            description: The unique identifier of the customer in Dub.
           required: true
+        - in: query
+          name: includeExpandedFields
+          description: Whether to include expanded fields on the customer (`link`, `partner`, `discount`).
+          schema:
+            type: boolean
+            description: Whether to include expanded fields on the customer (`link`, `partner`, `discount`).
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  nullable: true
+                  format: email
+                  description: Email of the customer in the client's app.
+                name:
+                  type: string
+                  nullable: true
+                  description: Name of the customer in the client's app. If not provided, a random name will be generated.
+                avatar:
+                  type: string
+                  nullable: true
+                  format: uri
+                  description: Avatar URL of the customer in the client's app.
+                externalId:
+                  type: string
+                  description: Unique identifier for the customer in the client's app.
       responses:
         '200':
-          description: The deleted tag ID.
+          description: The customer was updated.
           content:
             application/json:
               schema:
@@ -41,9 +70,114 @@ paths:
                 properties:
                   id:
                     type: string
-                    description: The ID of the deleted tag.
+                    description: The unique identifier of the customer in Dub.
+                  externalId:
+                    type: string
+                    description: Unique identifier for the customer in the client's app.
+                  name:
+                    type: string
+                    description: Name of the customer.
+                  email:
+                    type: string
+                    nullable: true
+                    description: Email of the customer.
+                  avatar:
+                    type: string
+                    nullable: true
+                    description: Avatar URL of the customer.
+                  country:
+                    type: string
+                    nullable: true
+                    description: Country of the customer.
+                  createdAt:
+                    type: string
+                    description: The date the customer was created.
+                  link:
+                    type: object
+                    nullable: true
+                    properties:
+                      id:
+                        type: string
+                        description: The unique ID of the short link.
+                      domain:
+                        type: string
+                        description: The domain of the short link. If not provided, the primary domain for the workspace will be used (or `dub.sh` if the workspace has no domains).
+                      key:
+                        type: string
+                        description: The short link slug. If not provided, a random 7-character slug will be generated.
+                      shortLink:
+                        type: string
+                        format: uri
+                        description: The full URL of the short link, including the https protocol (e.g. `https://dub.sh/try`).
+                      programId:
+                        type: string
+                        nullable: true
+                        description: The ID of the program the short link is associated with.
+                    required:
+                      - id
+                      - domain
+                      - key
+                      - shortLink
+                      - programId
+                  partner:
+                    type: object
+                    nullable: true
+                    properties:
+                      id:
+                        type: string
+                      name:
+                        type: string
+                      email:
+                        type: string
+                      image:
+                        type: string
+                        nullable: true
+                    required:
+                      - id
+                      - name
+                      - email
+                  discount:
+                    type: object
+                    nullable: true
+                    properties:
+                      id:
+                        type: string
+                      couponId:
+                        type: string
+                        nullable: true
+                      couponTestId:
+                        type: string
+                        nullable: true
+                      amount:
+                        type: number
+                      type:
+                        type: string
+                        enum:
+                          - percentage
+                          - flat
+                      duration:
+                        type: number
+                        nullable: true
+                      interval:
+                        type: string
+                        nullable: true
+                        enum:
+                          - month
+                          - year
+                          - null
+                    required:
+                      - id
+                      - couponId
+                      - couponTestId
+                      - amount
+                      - type
+                      - duration
+                      - interval
                 required:
                   - id
+                  - externalId
+                  - name
+                  - createdAt
         '400':
           $ref: '#/components/responses/400'
         '401':
@@ -345,34 +479,85 @@ components:
               - error
 
 ---
-To implement the `DELETE /tags/{id}` route in the `ExampleClient` class, we will follow these steps:
+To implement the `PATCH /customers/{id}` route in the existing SDK, we will follow these steps:
 
-1. **Define the Method**: We will create a method named `deleteTag` that will handle the deletion of a tag by its ID.
-2. **Add Route Information**: We will include a comment above the method that specifies the route path, method, and tags.
-3. **Type Definitions**: We will define the input type for the method, which will include the `id` parameter, and the output type, which will be the response from the API.
+1. **Define Input and Output Types**: We will create types for the request body and the response based on the OpenAPI schema provided. The request body will include optional fields for `email`, `name`, `avatar`, and `externalId`. The response will include the properties defined in the response schema.
+
+2. **Create the Method**: We will add a method named `updateCustomer` to the `ExampleClient` class. This method will accept the customer ID as a path parameter and the request body as an argument.
+
+3. **Handle Serialization**: The method will serialize the request body to JSON format.
+
 4. **Error Handling**: We will handle potential errors by checking the response status and throwing an `ExampleError` if the response indicates an error.
-5. **Use Fetch**: The method will utilize the existing `fetch` method in the class to make the API call.
 
-Here is the code snippet to be added to the `./client.ts` file:
+5. **Add Comments**: We will include comments above the method to indicate the route path, method, and tags.
+
+Here’s the code snippet to be added to the `./client.ts` file:
 
 ```typescript:client.ts
-  // DELETE /tags/{id} - Tags
-  async deleteTag(id: string): Promise<{ id: string }> {
-    const response = await this.fetch<{ id: string }>({
-      method: 'DELETE',
-      path: `/tags/${encodeURIComponent(id)}`,
-    });
+// PATCH /customers/{id}
+// Tags: Customers
+async updateCustomer(
+  id: string,
+  body: {
+    email?: string | null;
+    name?: string | null;
+    avatar?: string | null;
+    externalId: string;
+  },
+  includeExpandedFields?: boolean
+): Promise<{
+  id: string;
+  externalId: string;
+  name: string;
+  email: string | null;
+  avatar: string | null;
+  country: string | null;
+  createdAt: string;
+  link: {
+    id: string;
+    domain: string;
+    key: string;
+    shortLink: string;
+    programId: string | null;
+  } | null;
+  partner: {
+    id: string;
+    name: string;
+    email: string;
+    image: string | null;
+  } | null;
+  discount: {
+    id: string;
+    couponId: string | null;
+    couponTestId: string | null;
+    amount: number;
+    type: 'percentage' | 'flat';
+    duration: number | null;
+    interval: 'month' | 'year' | null;
+  } | null;
+}> {
+  const response = await this.fetch<{
+    email?: string | null;
+    name?: string | null;
+    avatar?: string | null;
+    externalId: string;
+  }>({
+    method: 'PATCH',
+    path: `/customers/${id}`,
+    body,
+    query: { includeExpandedFields },
+  });
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new ExampleError(errorData.error.message, { status: response.status, data: errorData });
-    }
-
-    return response.json();
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new ExampleError(errorData.error.message, { status: response.status, data: errorData });
   }
+
+  return response.json();
+}
+
+// Global types and functions
+// ... existing global types and functions ...
 ```
 
-### Summary of Changes:
-- Added a new method `deleteTag` to handle the deletion of a tag.
-- Included error handling to throw an `ExampleError` if the response is not successful.
-- The method is fully typed for both input and output, ensuring type safety.
+This code snippet adds the `updateCustomer` method to the `ExampleClient` class, handling the PATCH request to update a customer while ensuring proper type definitions and error handling.

@@ -14,36 +14,153 @@ servers:
   - url: https://api.dub.co
     description: Production API
 paths:
-  /tags/{id}:
-    delete:
-      operationId: deleteTag
-      x-speakeasy-name-override: delete
-      x-speakeasy-max-method-params: 1
-      summary: Delete a tag
-      description: Delete a tag from the workspace. All existing links will still work, but they will no longer be associated with this tag.
+  /customers:
+    get:
+      operationId: getCustomers
+      x-speakeasy-name-override: list
+      summary: Retrieve a list of customers
+      description: Retrieve a list of customers for the authenticated workspace.
       tags:
-        - Tags
+        - Customers
       parameters:
-        - in: path
-          name: id
-          description: The ID of the tag to delete.
+        - in: query
+          name: email
+          description: A case-sensitive filter on the list based on the customer's `email` field. The value must be a string.
           schema:
             type: string
-            description: The ID of the tag to delete.
-          required: true
+            description: A case-sensitive filter on the list based on the customer's `email` field. The value must be a string.
+        - in: query
+          name: externalId
+          description: A case-sensitive filter on the list based on the customer's `externalId` field. The value must be a string.
+          schema:
+            type: string
+            description: A case-sensitive filter on the list based on the customer's `externalId` field. The value must be a string.
+        - in: query
+          name: includeExpandedFields
+          description: Whether to include expanded fields on the customer (`link`, `partner`, `discount`).
+          schema:
+            type: boolean
+            description: Whether to include expanded fields on the customer (`link`, `partner`, `discount`).
       responses:
         '200':
-          description: The deleted tag ID.
+          description: The list of customers.
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  id:
-                    type: string
-                    description: The ID of the deleted tag.
-                required:
-                  - id
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                      description: The unique identifier of the customer in Dub.
+                    externalId:
+                      type: string
+                      description: Unique identifier for the customer in the client's app.
+                    name:
+                      type: string
+                      description: Name of the customer.
+                    email:
+                      type: string
+                      nullable: true
+                      description: Email of the customer.
+                    avatar:
+                      type: string
+                      nullable: true
+                      description: Avatar URL of the customer.
+                    country:
+                      type: string
+                      nullable: true
+                      description: Country of the customer.
+                    createdAt:
+                      type: string
+                      description: The date the customer was created.
+                    link:
+                      type: object
+                      nullable: true
+                      properties:
+                        id:
+                          type: string
+                          description: The unique ID of the short link.
+                        domain:
+                          type: string
+                          description: The domain of the short link. If not provided, the primary domain for the workspace will be used (or `dub.sh` if the workspace has no domains).
+                        key:
+                          type: string
+                          description: The short link slug. If not provided, a random 7-character slug will be generated.
+                        shortLink:
+                          type: string
+                          format: uri
+                          description: The full URL of the short link, including the https protocol (e.g. `https://dub.sh/try`).
+                        programId:
+                          type: string
+                          nullable: true
+                          description: The ID of the program the short link is associated with.
+                      required:
+                        - id
+                        - domain
+                        - key
+                        - shortLink
+                        - programId
+                    partner:
+                      type: object
+                      nullable: true
+                      properties:
+                        id:
+                          type: string
+                        name:
+                          type: string
+                        email:
+                          type: string
+                        image:
+                          type: string
+                          nullable: true
+                      required:
+                        - id
+                        - name
+                        - email
+                    discount:
+                      type: object
+                      nullable: true
+                      properties:
+                        id:
+                          type: string
+                        couponId:
+                          type: string
+                          nullable: true
+                        couponTestId:
+                          type: string
+                          nullable: true
+                        amount:
+                          type: number
+                        type:
+                          type: string
+                          enum:
+                            - percentage
+                            - flat
+                        duration:
+                          type: number
+                          nullable: true
+                        interval:
+                          type: string
+                          nullable: true
+                          enum:
+                            - month
+                            - year
+                            - null
+                      required:
+                        - id
+                        - couponId
+                        - couponTestId
+                        - amount
+                        - type
+                        - duration
+                        - interval
+                  required:
+                    - id
+                    - externalId
+                    - name
+                    - createdAt
         '400':
           $ref: '#/components/responses/400'
         '401':
@@ -345,34 +462,88 @@ components:
               - error
 
 ---
-To implement the `DELETE /tags/{id}` route in the `ExampleClient` class, we will follow these steps:
+To implement the `GET /customers` route in the `ExampleClient` class, we will create a new method called `getCustomers`. This method will:
 
-1. **Define the Method**: We will create a method named `deleteTag` that will handle the deletion of a tag by its ID.
-2. **Add Route Information**: We will include a comment above the method that specifies the route path, method, and tags.
-3. **Type Definitions**: We will define the input type for the method, which will include the `id` parameter, and the output type, which will be the response from the API.
-4. **Error Handling**: We will handle potential errors by checking the response status and throwing an `ExampleError` if the response indicates an error.
-5. **Use Fetch**: The method will utilize the existing `fetch` method in the class to make the API call.
+1. **Define the route path, method, and tags** in a comment above the method.
+2. **Use the `fetch` method** to make the API call.
+3. **Handle request parameters** for `email`, `externalId`, and `includeExpandedFields`.
+4. **Serialize the response** to the appropriate TypeScript types defined in `./components.ts`.
+5. **Implement error handling** for various response statuses.
 
-Here is the code snippet to be added to the `./client.ts` file:
+The method will be fully typed for both inputs and outputs, using optional fields where necessary. We will also declare any required types at the end of the snippet.
+
+Here’s the code snippet to add to the `./client.ts` file:
 
 ```typescript:client.ts
-  // DELETE /tags/{id} - Tags
-  async deleteTag(id: string): Promise<{ id: string }> {
-    const response = await this.fetch<{ id: string }>({
-      method: 'DELETE',
-      path: `/tags/${encodeURIComponent(id)}`,
+  // GET /customers
+  // Retrieves a list of customers for the authenticated workspace.
+  // Tags: Customers
+  async getCustomers({
+    email,
+    externalId,
+    includeExpandedFields,
+  }: {
+    email?: string
+    externalId?: string
+    includeExpandedFields?: boolean
+  }): Promise<types.Customer[]> {
+    const response = await this.fetch<undefined>({
+      method: 'GET',
+      path: '/customers',
+      query: {
+        email,
+        externalId,
+        includeExpandedFields,
+      },
     });
 
     if (!response.ok) {
       const errorData = await response.json();
-      throw new ExampleError(errorData.error.message, { status: response.status, data: errorData });
+      throw new ExampleError(errorData.error.message, {
+        status: response.status,
+        data: errorData,
+      });
     }
 
-    return response.json();
+    return response.json() as Promise<types.Customer[]>;
   }
+
+// Type declarations for the response
+declare global {
+  namespace types {
+    export type Customer = {
+      id: string;
+      externalId: string;
+      name: string;
+      email?: string | null;
+      avatar?: string | null;
+      country?: string | null;
+      createdAt: string;
+      link?: {
+        id: string;
+        domain: string;
+        key: string;
+        shortLink: string;
+        programId?: string | null;
+      };
+      partner?: {
+        id: string;
+        name: string;
+        email: string;
+        image?: string | null;
+      };
+      discount?: {
+        id: string;
+        couponId?: string | null;
+        couponTestId?: string | null;
+        amount: number;
+        type: 'percentage' | 'flat';
+        duration?: number | null;
+        interval?: 'month' | 'year' | null;
+      };
+    }[];
+  }
+}
 ```
 
-### Summary of Changes:
-- Added a new method `deleteTag` to handle the deletion of a tag.
-- Included error handling to throw an `ExampleError` if the response is not successful.
-- The method is fully typed for both input and output, ensuring type safety.
+This code snippet adds the `getCustomers` method to the `ExampleClient` class, handling the API call and response serialization while ensuring proper error handling and type definitions.

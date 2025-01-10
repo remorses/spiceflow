@@ -1992,89 +1992,41 @@ components:
       description: 'Geo targeting information for the short link in JSON format `{[COUNTRY]: https://example.com }`.'
 
 ---
-Let me break down the implementation step by step:
+To implement the `PATCH /links/{linkId}` route in the `ExampleClient` class, we will follow these steps:
 
-1. First, we need to define the request body type based on the OpenAPI schema. Since it's a PATCH request, all fields should be optional.
+1. **Define the Method**: We will create a method named `updateLink` that takes in the `linkId` as a parameter and an optional request body that conforms to the `Link` type defined in `./components.ts`.
 
-2. The method will need to:
-   - Accept linkId as a path parameter
-   - Accept an optional request body with all possible link update fields
-   - Return a Promise that resolves to the updated Link type
-   - Handle potential errors using the ExampleError class
+2. **Add Route Information**: We will include a comment above the method to specify the route path, method, and tags.
 
-3. We'll use the existing fetch method from the ExampleClient class to make the API call.
+3. **Handle Request and Response**: The method will use the existing `fetch` method to make a PATCH request to the API. We will serialize the request body and handle the response appropriately.
 
-4. The response will be typed using the Link interface from components.ts.
+4. **Error Handling**: We will ensure that any errors returned from the API are handled correctly.
 
-Here's the implementation:
+5. **Type Definitions**: The method will be fully typed for both inputs and outputs, using optional fields where required.
+
+Here is the code snippet to be added to the `./client.ts` file:
 
 ```typescript:client.ts
-// ... existing code ...
-
-export class ExampleClient {
-  // ... existing methods ...
-
-  /**
-   * PATCH /links/{linkId}
-   * @tags Links
-   * @summary Update a link
-   * @description Update a link for the authenticated workspace. If there's no change, returns it as it is.
-   */
-  async updateLink(
-    linkId: string,
-    body?: Partial<{
-      url: string;
-      domain: string;
-      key: string;
-      externalId: string | null;
-      prefix: string;
-      trackConversion: boolean;
-      archived: boolean;
-      publicStats: boolean;
-      tagId: string | null;
-      tagIds: string | string[];
-      tagNames: string | string[];
-      comments: string | null;
-      expiresAt: string | null;
-      expiredUrl: string | null;
-      password: string | null;
-      proxy: boolean;
-      title: string | null;
-      description: string | null;
-      image: string | null;
-      video: string | null;
-      rewrite: boolean;
-      ios: string | null;
-      android: string | null;
-      geo: types.LinkGeoTargeting;
-      doIndex: boolean;
-      utm_source: string | null;
-      utm_medium: string | null;
-      utm_campaign: string | null;
-      utm_term: string | null;
-      utm_content: string | null;
-      ref: string | null;
-      programId: string | null;
-      webhookIds: string[] | null;
-    }>
-  ): Promise<types.Link> {
-    const response = await this.fetch({
-      method: 'PATCH',
-      path: `/links/${encodeURIComponent(linkId)}`,
-      body
+// PATCH /links/{linkId}
+// Tags: Links
+async updateLink(linkId: string, body: Partial<Omit<Link, 'id' | 'createdAt' | 'updatedAt'>>): Promise<Link> {
+    const response = await this.fetch<Link>({
+        method: 'PATCH',
+        path: `/links/${linkId}`,
+        body,
     });
 
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new ExampleError(errorData.error?.message || 'Failed to update link', {
-        status: response.status,
-        data: errorData
-      });
+        const errorData = await response.json();
+        throw new ExampleError(errorData.error.message, { status: response.status, data: errorData });
     }
 
-    return response.json();
-  }
+    return response.json() as Promise<Link>;
 }
-
-// ... existing code ...
 ```
+
+### Key Points in the Code:
+- The method `updateLink` is defined to accept a `linkId` and a `body` that is a partial version of the `Link` type, excluding the `id`, `createdAt`, and `updatedAt` fields since they are not needed for updates.
+- The method uses the existing `fetch` method to make the API call.
+- Error handling is implemented to throw an `ExampleError` if the response is not successful.
+- The response is returned as a promise of type `Link`.

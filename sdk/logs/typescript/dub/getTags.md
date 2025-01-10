@@ -358,62 +358,38 @@ components:
       title: Tag
 
 ---
-Let's break down what we need to implement:
+To implement the `GET /tags` route in the `ExampleClient` class, we will create a new method called `getTags`. This method will:
 
-1. We need to add a new method to the `ExampleClient` class for the GET /tags endpoint
-2. The method should:
-   - Use the existing fetch utility
-   - Return a Promise of Tag[] (array of Tag objects)
-   - Handle error responses using the ExampleError class
-   - Include proper typing for both input and output
-3. The method should be documented with the route path, method, and tags
+1. **Define the route path, method, and tags** in a comment above the method.
+2. **Use the existing `fetch` method** to make the API call.
+3. **Handle the response** by parsing it and returning the appropriate type.
+4. **Include error handling** for different response statuses.
+5. **Use the types defined in `./components.ts`** for input and output types.
 
-Here's the implementation:
+The method will return a promise that resolves to an array of `Tag` objects or throws an error if the request fails.
+
+Here’s the code snippet to add to the `ExampleClient` class in `./client.ts`:
 
 ```typescript:client.ts
-// ... existing code ...
+  // GET /tags
+  // Retrieves a list of tags for the authenticated workspace.
+  async getTags(): Promise<Tag[]> {
+    const response = await this.fetch<Tag[]>({
+      method: 'GET',
+      path: '/tags',
+    });
 
-export class ExampleClient {
-  // ... existing code ...
-
-  /**
-   * GET /tags
-   * Retrieve a list of tags
-   * Tags: Tags
-   */
-  async listTags(): Promise<types.Tag[]> {
-    try {
-      const response = await this.fetch({
-        method: 'GET',
-        path: '/tags',
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new ExampleError(errorData.error.message, {
-          status: response.status,
-          data: errorData,
-        });
-      }
-
-      return response.json();
-    } catch (error) {
-      if (error instanceof ExampleError) {
-        throw error;
-      }
-      throw new ExampleError('Unknown error occurred', { status: 500 });
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new ExampleError(errorData.error.message, { status: response.status, data: errorData });
     }
-  }
-}
 
-// ... existing code ...
+    return response.json();
+  }
 ```
 
-The implementation:
-1. Adds a new `listTags` method to the ExampleClient class
-2. Uses the existing fetch utility to make the GET request
-3. Handles error responses by checking response.ok and throwing ExampleError
-4. Returns a Promise of Tag[] as defined in the components.ts file
-5. Includes proper error handling for both API errors and unexpected errors
-6. Is fully typed using the types from components.ts
-7. Includes the required documentation comment with route path, method, and tags
+### Summary of Changes:
+- Added a new method `getTags` to the `ExampleClient` class.
+- The method makes a GET request to the `/tags` endpoint.
+- It handles errors by throwing an `ExampleError` with the appropriate message and status.
+- The method returns a promise that resolves to an array of `Tag` objects.

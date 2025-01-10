@@ -14,26 +14,26 @@ servers:
   - url: https://api.dub.co
     description: Production API
 paths:
-  /tags/{id}:
+  /customers/{id}:
     delete:
-      operationId: deleteTag
+      operationId: deleteCustomer
       x-speakeasy-name-override: delete
       x-speakeasy-max-method-params: 1
-      summary: Delete a tag
-      description: Delete a tag from the workspace. All existing links will still work, but they will no longer be associated with this tag.
+      summary: Delete a customer
+      description: Delete a customer from a workspace.
       tags:
-        - Tags
+        - Customers
       parameters:
         - in: path
           name: id
-          description: The ID of the tag to delete.
+          description: The unique identifier of the customer in Dub.
           schema:
             type: string
-            description: The ID of the tag to delete.
+            description: The unique identifier of the customer in Dub.
           required: true
       responses:
         '200':
-          description: The deleted tag ID.
+          description: The customer was deleted.
           content:
             application/json:
               schema:
@@ -41,7 +41,7 @@ paths:
                 properties:
                   id:
                     type: string
-                    description: The ID of the deleted tag.
+                    description: The unique identifier of the customer in Dub.
                 required:
                   - id
         '400':
@@ -345,22 +345,22 @@ components:
               - error
 
 ---
-To implement the `DELETE /tags/{id}` route in the `ExampleClient` class, we will follow these steps:
+To implement the `DELETE /customers/{id}` route in the `ExampleClient` class, we will follow these steps:
 
-1. **Define the Method**: We will create a method named `deleteTag` that will handle the deletion of a tag by its ID.
-2. **Add Route Information**: We will include a comment above the method that specifies the route path, method, and tags.
-3. **Type Definitions**: We will define the input type for the method, which will include the `id` parameter, and the output type, which will be the response from the API.
-4. **Error Handling**: We will handle potential errors by checking the response status and throwing an `ExampleError` if the response indicates an error.
-5. **Use Fetch**: The method will utilize the existing `fetch` method in the class to make the API call.
+1. **Define the method**: We will create a method named `deleteCustomer` that takes an `id` parameter of type `string`.
+2. **Add comments**: We will include a comment above the method to specify the route path, method, and tags.
+3. **Handle request/response serialization**: The method will use the existing `fetch` method to make the API call.
+4. **Error handling**: We will handle potential errors by checking the response status and throwing an `ExampleError` if the response indicates an error.
+5. **Type definitions**: We will ensure that the method is fully typed for both inputs and outputs.
 
 Here is the code snippet to be added to the `./client.ts` file:
 
 ```typescript:client.ts
-  // DELETE /tags/{id} - Tags
-  async deleteTag(id: string): Promise<{ id: string }> {
+  // DELETE /customers/{id} - Delete a customer
+  async deleteCustomer(id: string): Promise<{ id: string }> {
     const response = await this.fetch<{ id: string }>({
       method: 'DELETE',
-      path: `/tags/${encodeURIComponent(id)}`,
+      path: `/customers/${encodeURIComponent(id)}`,
     });
 
     if (!response.ok) {
@@ -372,7 +372,5 @@ Here is the code snippet to be added to the `./client.ts` file:
   }
 ```
 
-### Summary of Changes:
-- Added a new method `deleteTag` to handle the deletion of a tag.
-- Included error handling to throw an `ExampleError` if the response is not successful.
-- The method is fully typed for both input and output, ensuring type safety.
+### Global Scope Declarations
+At the end of the snippet, we will ensure that any necessary types or functions are declared globally if they are not already defined in the `components.ts` file. However, since the `components.ts` file is not editable, we will not include any additional declarations here.

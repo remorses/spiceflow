@@ -50,7 +50,6 @@ for (const language of languages) {
             generatedCode.typesCode,
           )
         },
-        1000 * 60 * 10,
       ) // Use longest timeout
 
       it('should generate SDK from OpenAPI schema, starting from existing, remove some routes', async ({
@@ -112,6 +111,6 @@ for (const language of languages) {
         expect(generatedSdk).not.toContain(routeToRemove2)
       })
     },
-    60 * 10 * 1000,
+    60 * 20 * 1000,
   )
 }

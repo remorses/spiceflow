@@ -456,69 +456,69 @@ components:
         - registeredDomain
 
 ---
-Let's break down what we need to implement for the PATCH /domains/{slug} route:
+To implement the `PATCH /domains/{slug}` route in the `ExampleClient` class, we will create a new method called `updateDomain`. This method will:
 
-1. We need to create a new method in the ExampleClient class
-2. The method needs to:
-   - Accept a slug parameter (string) for the path
-   - Accept a request body with optional fields
-   - Return a Promise of DomainSchema
-   - Handle error responses
-3. We'll use the existing fetch method and types from components.ts
-4. We'll add proper TypeScript types for the request body
-5. We'll add JSDoc comments with route information
+1. **Define the route path, method, and tags** in a comment above the method.
+2. **Use the `fetch` method** to make the API call.
+3. **Handle request serialization** by accepting an object that matches the expected request body.
+4. **Handle response serialization** by returning the expected response type, which is `DomainSchema`.
+5. **Include error handling** for various HTTP status codes.
 
-Here's the implementation:
+The method will accept the `slug` as a path parameter and an object containing the optional fields defined in the OpenAPI schema for the request body.
+
+Here’s the code snippet to add to the `ExampleClient` class in `client.ts`:
 
 ```typescript:client.ts
-// ... existing code ...
-
-export class ExampleClient {
-  // ... existing code ...
-
-  /**
-   * PATCH /domains/{slug}
-   * @tags Domains
-   * @summary Update a domain
-   * @description Update a domain for the authenticated workspace.
-   */
-  async updateDomain(
-    slug: string,
-    body: {
-      slug?: string;
-      expiredUrl?: string | null;
-      notFoundUrl?: string | null;
-      archived?: boolean;
-      placeholder?: string | null;
-      logo?: string | null;
-    }
-  ): Promise<types.DomainSchema> {
-    const response = await this.fetch({
-      method: 'PATCH',
-      path: `/domains/${slug}`,
-      body,
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new ExampleError(errorData.error?.message || 'Unknown error', {
-        status: response.status,
-        data: errorData,
-      });
-    }
-
-    return response.json();
+// PATCH /domains/{slug}
+// Tags: Domains
+async updateDomain(
+  slug: string,
+  body: {
+    slug: string;
+    expiredUrl?: string | null;
+    notFoundUrl?: string | null;
+    archived?: boolean;
+    placeholder?: string | null;
+    logo?: string | null;
   }
+): Promise<DomainSchema> {
+  const response = await this.fetch<{
+    slug: string;
+    expiredUrl?: string | null;
+    notFoundUrl?: string | null;
+    archived?: boolean;
+    placeholder?: string | null;
+    logo?: string | null;
+  }>({
+    method: 'PATCH',
+    path: `/domains/${slug}`,
+    body,
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new ExampleError(errorData.error.message, { status: response.status, data: errorData });
+  }
+
+  return response.json() as Promise<DomainSchema>;
 }
 
-// ... existing code ...
+// Global scope declarations
+declare global {
+  interface DomainUpdateRequest {
+    slug: string;
+    expiredUrl?: string | null;
+    notFoundUrl?: string | null;
+    archived?: boolean;
+    placeholder?: string | null;
+    logo?: string | null;
+  }
+}
 ```
 
-The code adds a new `updateDomain` method to the ExampleClient class that:
-1. Takes a required slug parameter and an optional body object
-2. Makes a PATCH request to the /domains/{slug} endpoint
-3. Handles error responses by throwing an ExampleError
-4. Returns the parsed DomainSchema response on success
-5. Includes proper TypeScript types for both input and output
-6. Uses the existing fetch method and types from components.ts
-7. Includes JSDoc comments with route information
+### Key Points:
+- The `updateDomain` method is defined to handle the `PATCH` request to update a domain.
+- The method takes a `slug` and a request body that matches the expected structure.
+- It uses the existing `fetch` method to make the API call and handles the response, throwing an error if the response is not successful.
+- The method returns a promise that resolves to a `DomainSchema` object.
+- Global type declarations are added to ensure the request body type is available throughout the application.

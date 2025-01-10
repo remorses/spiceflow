@@ -415,32 +415,25 @@ components:
               - error
 
 ---
-Let me break down the implementation step by step:
+To implement the `POST /track/lead` route in the `ExampleClient` class, we will follow these steps:
 
-1. We need to add a new method to track leads
-2. The method will use POST /track/lead endpoint
-3. We'll need to define the request and response types based on the OpenAPI schema
-4. The method should handle error responses using the existing ExampleError class
-5. We'll use the existing fetch method from the ExampleClient class
-6. The request body has required fields (clickId, eventName) and optional fields
-7. The response has a specific structure with click and customer objects
+1. **Define Input and Output Types**: We will create types for the request body and the expected response based on the OpenAPI schema provided. The request body will include fields like `clickId`, `eventName`, and optional fields like `externalId`, `customerId`, etc. The response will include the `click` and `customer` objects.
 
-Here's the implementation:
+2. **Add the Method**: We will add a method named `trackLead` to the `ExampleClient` class. This method will use the `fetch` method to make a POST request to the `/track/lead` endpoint.
+
+3. **Error Handling**: We will handle potential errors by checking the response status and throwing an `ExampleError` if the response is not successful.
+
+4. **Commenting**: We will add a comment above the method to indicate the route path, method, and tags.
+
+5. **Global Type Declarations**: We will declare any necessary types at the end of the snippet.
+
+Here is the code snippet to be added to the `./client.ts` file:
 
 ```typescript:client.ts
-// ... existing code ...
-
-export class ExampleClient {
-  // ... existing code ...
-
-  /**
-   * POST /track/lead
-   * @tags Track
-   * @summary Track a lead
-   * @description Track a lead for a short link.
-   */
+  // POST /track/lead
+  // Tags: Track
   async trackLead(
-    request: {
+    body: {
       clickId: string
       eventName: string
       externalId?: string
@@ -459,26 +452,42 @@ export class ExampleClient {
       externalId: string | null
     }
   }> {
-    const response = await this.fetch({
+    const response = await this.fetch<{ clickId: string; eventName: string; externalId?: string; customerId?: string | null; customerName?: string | null; customerEmail?: string | null; customerAvatar?: string | null; metadata?: Record<string, any> | null }>({
       method: 'POST',
       path: '/track/lead',
-      body: request
-    })
+      body,
+    });
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => null)
-      throw new ExampleError(
-        errorData?.error?.message || 'Failed to track lead',
-        {
-          status: response.status,
-          data: errorData
-        }
-      )
+      const errorData = await response.json();
+      throw new ExampleError(errorData.error.message, { status: response.status, data: errorData });
     }
 
-    return response.json()
+    return response.json();
   }
 }
 
-// ... existing code ...
+// Global type declarations
+type TrackLeadRequest = {
+  clickId: string;
+  eventName: string;
+  externalId?: string;
+  customerId?: string | null;
+  customerName?: string | null;
+  customerEmail?: string | null;
+  customerAvatar?: string | null;
+  metadata?: Record<string, any> | null;
+};
+
+type TrackLeadResponse = {
+  click: { id: string };
+  customer: {
+    name: string | null;
+    email: string | null;
+    avatar: string | null;
+    externalId: string | null;
+  };
+};
 ```
+
+This code snippet adds the `trackLead` method to the `ExampleClient` class, handling the request and response according to the OpenAPI specifications.
