@@ -271,24 +271,24 @@ class ValidationError:
 
 @dataclass
 class AllExportedTypes:
-  base_error: Optional[BaseError]
-  encrypted: Optional[Encrypted]
-  item: Optional[Item]
-  lease: Optional[Lease]
-  single_ratelimit_response: Optional[SingleRatelimitResponse]
-  v0_events_request_body: Optional[str]
-  v0_events_response_body: Optional[V0EventsResponseBody]
-  v1_decrypt_request_body: Optional[V1DecryptRequestBody]
-  v1_decrypt_response_body: Optional[V1DecryptResponseBody]
-  v1_encrypt_bulk_request_body: Optional[V1EncryptBulkRequestBody]
-  v1_encrypt_bulk_response_body: Optional[V1EncryptBulkResponseBody]
-  v1_encrypt_request_body: Optional[V1EncryptRequestBody]
-  v1_encrypt_response_body: Optional[V1EncryptResponseBody]
-  v1_liveness_response_body: Optional[V1LivenessResponseBody]
-  v1_ratelimit_commit_lease_request_body: Optional[V1RatelimitCommitLeaseRequestBody]
-  v1_ratelimit_multi_ratelimit_request_body: Optional[V1RatelimitMultiRatelimitRequestBody]
-  v1_ratelimit_multi_ratelimit_response_body: Optional[V1RatelimitMultiRatelimitResponseBody]
-  v1_ratelimit_ratelimit_request_body: Optional[V1RatelimitRatelimitRequestBody]
-  v1_ratelimit_ratelimit_response_body: Optional[V1RatelimitRatelimitResponseBody]
-  validation_error: Optional[ValidationError]
-  validation_error_detail: Optional[AllExportedType]
+  base_error: BaseError
+  encrypted: Encrypted
+  item: Item
+  lease: Lease
+  single_ratelimit_response: SingleRatelimitResponse
+  v0_events_request_body: str
+  v0_events_response_body: V0EventsResponseBody
+  v1_decrypt_request_body: V1DecryptRequestBody
+  v1_decrypt_response_body: V1DecryptResponseBody
+  v1_encrypt_bulk_request_body: V1EncryptBulkRequestBody
+  v1_encrypt_bulk_response_body: V1EncryptBulkResponseBody
+  v1_encrypt_request_body: V1EncryptRequestBody
+  v1_encrypt_response_body: V1EncryptResponseBody
+  v1_liveness_response_body: V1LivenessResponseBody
+  v1_ratelimit_commit_lease_request_body: V1RatelimitCommitLeaseRequestBody
+  v1_ratelimit_multi_ratelimit_request_body: V1RatelimitMultiRatelimitRequestBody
+  v1_ratelimit_multi_ratelimit_response_body: V1RatelimitMultiRatelimitResponseBody
+  v1_ratelimit_ratelimit_request_body: V1RatelimitRatelimitRequestBody
+  v1_ratelimit_ratelimit_response_body: V1RatelimitRatelimitResponseBody
+  validation_error: ValidationError
+  validation_error_detail: AllExportedType

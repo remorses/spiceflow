@@ -86,15 +86,14 @@ components:
 ---
 Let's break down what we need to implement:
 
-1. We need to add a new async method to the `ExampleClientAsync` class for the `/v1/liveness` endpoint
-2. The method should:
-   - Make a GET request
-   - Handle successful responses (200) by returning a `V1LivenessResponseBody`
-   - Handle error responses (500) by raising an `ExampleError` with the `BaseError` data
+1. We need to add a new async method to the `ExampleClientAsync` class
+2. The method will handle GET /v1/liveness endpoint
+3. It needs to:
+   - Make a GET request using the existing fetch method
+   - Handle successful response (200) by returning V1LivenessResponseBody
+   - Handle error response (500) by raising ExampleError with BaseError data
    - Include proper type hints
-   - Include a docstring with the route information
-3. We'll use the existing `fetch` method to make the request
-4. We'll need to handle response parsing and error handling
+   - Add the required docstring with route info
 
 Here's the implementation:
 
@@ -103,13 +102,18 @@ Here's the implementation:
 
     # GET /v1/liveness
     # tags: liveness
-    async def liveness(self) -> V1LivenessResponseBody:
-        """Check if the service is alive"""
-        response = await self.fetch("GET", "/v1/liveness")
+    async def liveness(self) -> Types.V1LivenessResponseBody:
+        """
+        This endpoint checks if the service is alive.
+        """
+        response = await self.fetch(
+            method="GET",
+            path="/v1/liveness"
+        )
         
         if response.status == 200:
             data = await response.json()
-            return V1LivenessResponseBody(
+            return Types.V1LivenessResponseBody(
                 message=data["message"],
                 schema=data.get("$schema")
             )
@@ -117,8 +121,8 @@ Here's the implementation:
             error_data = await response.json()
             raise ExampleError(
                 error=error_data["detail"],
-                status=error_data["status"],
-                data=BaseError(
+                status=500,
+                data=Types.BaseError(
                     detail=error_data["detail"],
                     instance=error_data["instance"],
                     request_id=error_data["requestId"],

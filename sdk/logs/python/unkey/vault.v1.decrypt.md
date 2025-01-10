@@ -180,8 +180,8 @@ Let's break this down step by step:
 1. We need to add a new async method to the `ExampleClientAsync` class
 2. The method will handle POST requests to `/vault.v1.VaultService/Decrypt`
 3. It will accept a `V1DecryptRequestBody` parameter and return a `V1DecryptResponseBody`
-4. We need to handle potential errors (400 and 500 status codes)
-5. We'll use the existing `fetch` method to make the request
+4. We need to handle error responses (400 and 500) using the defined error types
+5. The method should use the existing `fetch` method for making requests
 6. We'll add proper type hints and documentation
 
 Here's the implementation:
@@ -196,16 +196,16 @@ class ExampleClientAsync:
     # Tags: vault
     async def decrypt(
         self, 
-        request_body: V1DecryptRequestBody
-    ) -> V1DecryptResponseBody:
+        request: Types.V1DecryptRequestBody
+    ) -> Types.V1DecryptResponseBody:
         """
         Decrypts the provided encrypted value using the specified keyring.
 
         Args:
-            request_body: The decryption request containing the encrypted data and keyring
+            request: The decryption request containing the encrypted data and keyring
 
         Returns:
-            V1DecryptResponseBody: The response containing the decrypted plaintext
+            The decrypted plaintext value
 
         Raises:
             ExampleError: If the request fails with a 400 or 500 status code
@@ -213,24 +213,24 @@ class ExampleClientAsync:
         response = await self.fetch(
             method="POST",
             path="/vault.v1.VaultService/Decrypt",
-            body=request_body.__dict__,
+            body=request,
         )
-        
+
         if response.status == 200:
-            return V1DecryptResponseBody(**await response.json())
+            return Types.V1DecryptResponseBody(**await response.json())
         elif response.status == 400:
             error_data = await response.json()
             raise ExampleError(
                 error="Validation Error",
                 status=400,
-                data=ValidationError(**error_data)
+                data=Types.ValidationError(**error_data)
             )
         elif response.status == 500:
             error_data = await response.json()
             raise ExampleError(
                 error="Server Error",
                 status=500,
-                data=BaseError(**error_data)
+                data=Types.BaseError(**error_data)
             )
         else:
             raise ExampleError(

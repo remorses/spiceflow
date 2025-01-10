@@ -12,3 +12,6 @@ spiceflow/example
 profiling
 */scripts/sdk-*
 dist-play-sdk
+
+
+__pycache__

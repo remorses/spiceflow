@@ -2,6 +2,9 @@ import json
 import aiohttp
 import urllib.parse
 from typing import Any, AsyncGenerator, Dict, Optional, Union
+# types.py is in the same directory as this file
+import components as Types
+
 
 
 class _replacedClientNameAsync:

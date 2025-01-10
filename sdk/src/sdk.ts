@@ -121,6 +121,8 @@ type RouteForLLM = {
   diffPrompt: string
 }
 
+const componentTypesFileName = 'components'
+
 export async function generateSDKForRoute({
   route,
   openApiSchema,
@@ -145,17 +147,17 @@ export async function generateSDKForRoute({
   })
 
   let typesPrompt = dedent`
-  Here is the OpenAPI component types already converted to ${language}, you can use them by importing \`./types.${extensions[language]}\`:
+  Here is the OpenAPI component types already converted to ${language}, you can use them by importing \`./${componentTypesFileName}.${extensions[language]}\`:
 
   THIS FILE CANNOT BE EDITED
 
-  \`\`\`${language}:types.${extensions[language]}
+  \`\`\`${language}:${componentTypesFileName}.${extensions[language]}
   ${typesCode}
   \`\`\`
   `
   // let typesPrompt = dedent`
-  // Here is the OpenAPI component types already converted to ${language}, you can use them by importing \`./types.${extensions[language]}\`:
-  // \`\`\`${language}:types.${extensions[language]}
+  // Here is the OpenAPI component types already converted to ${language}, you can use them by importing \`./${componentTypesFileName}.${extensions[language]}\`:
+  // \`\`\`${language}:${componentTypesFileName}.${extensions[language]}
   // ${typesCode}
   // \`\`\`
   // `
@@ -180,7 +182,7 @@ export async function generateSDKForRoute({
     Only implement the new code to add for the route: 
     ${route.method} ${route.path} 
 
-    Use the already generated code in the \`./types.${extensions[language]}\` file to implement the new code.
+    Use the already generated code in the \`./${componentTypesFileName}.${extensions[language]}\` file to implement the new code.
 
     Only output one code snippet that will be used to edit the \`./client.${extensions[language]}\` file.
 

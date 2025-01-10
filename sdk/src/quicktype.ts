@@ -68,6 +68,7 @@ export async function generateTypesFromSchema({
     rendererOptions: {
       'just-types': true,
       'nice-property-names': 'true',
+      'explicitly-named-unions': 'true',
       'prefer-unions': 'true',
       'python-version': '3.7',
       'python-style': 'dataclasses',

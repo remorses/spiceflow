@@ -228,61 +228,59 @@ components:
       type: object
 
 ---
-Let's break down the implementation step by step:
+Let's break down what we need to implement:
 
 1. We need to add a new async method to the `ExampleClientAsync` class
-2. The method will handle POST requests to `/ratelimit.v1.RatelimitService/Ratelimit`
-3. It will accept a `V1RatelimitRatelimitRequestBody` parameter
-4. It will return a `V1RatelimitRatelimitResponseBody` on success
-5. It needs to handle error responses (400 and 500) using the defined error types
-6. We'll use the existing `fetch` method to make the API call
+2. The method should handle POST requests to `/ratelimit.v1.RatelimitService/Ratelimit`
+3. It should accept a `V1RatelimitRatelimitRequestBody` parameter
+4. It should return a `V1RatelimitRatelimitResponseBody` or raise appropriate errors
+5. We need to handle the possible error responses (400, 500)
+6. We'll use the existing `fetch` method to make the request
 7. We'll add proper type hints and documentation
 
 Here's the implementation:
 
 ```python:client.py
-# ... existing code ...
-
-class ExampleClientAsync:
     # ... existing code ...
 
     # POST /ratelimit.v1.RatelimitService/Ratelimit
     # Tags: ratelimit
     async def ratelimit(
-        self, request_body: V1RatelimitRatelimitRequestBody
-    ) -> V1RatelimitRatelimitResponseBody:
-        """Check or reserve a rate limit
+        self, request: Types.V1RatelimitRatelimitRequestBody
+    ) -> Types.V1RatelimitRatelimitResponseBody:
+        """
+        Make a ratelimit request
         
         Args:
-            request_body: The rate limit request parameters
+            request: The ratelimit request parameters
             
         Returns:
-            V1RatelimitRatelimitResponseBody: The rate limit response
+            V1RatelimitRatelimitResponseBody: The ratelimit response
             
         Raises:
-            ExampleError: If the API returns an error response
+            ExampleError: If the API returns an error (400 or 500 status code)
         """
         response = await self.fetch(
             method="POST",
             path="/ratelimit.v1.RatelimitService/Ratelimit",
-            body=request_body,
+            body=request,
         )
         
         if response.status == 200:
-            return V1RatelimitRatelimitResponseBody(**await response.json())
+            return Types.V1RatelimitRatelimitResponseBody(**await response.json())
         elif response.status == 400:
             error_data = await response.json()
             raise ExampleError(
                 error="Validation Error",
                 status=400,
-                data=ValidationError(**error_data)
+                data=Types.ValidationError(**error_data)
             )
         elif response.status == 500:
             error_data = await response.json()
             raise ExampleError(
                 error="Server Error",
                 status=500,
-                data=BaseError(**error_data)
+                data=Types.BaseError(**error_data)
             )
         else:
             raise ExampleError(
@@ -291,5 +289,5 @@ class ExampleClientAsync:
                 data=await response.text()
             )
 
-# ... existing code ...
+    # ... existing code ...
 ```

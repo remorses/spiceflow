@@ -235,22 +235,19 @@ Let's break down what we need to implement:
 2. The method will handle POST requests to `/ratelimit.v1.RatelimitService/MultiRatelimit`
 3. It will accept a `V1RatelimitMultiRatelimitRequestBody` parameter
 4. It will return a `V1RatelimitMultiRatelimitResponseBody` or raise appropriate errors
-5. We need to handle the possible error responses (400, 500) with proper error types
+5. We need to handle the possible error responses (400 and 500)
 6. We'll use the existing `fetch` method to make the request
 
 Here's the implementation:
 
 ```python:client.py
-# ... existing code ...
-
-class ExampleClientAsync:
     # ... existing code ...
 
     # POST /ratelimit.v1.RatelimitService/MultiRatelimit
     # Tags: ratelimit
     async def multi_ratelimit(
-        self, request: V1RatelimitMultiRatelimitRequestBody
-    ) -> V1RatelimitMultiRatelimitResponseBody:
+        self, request: Types.V1RatelimitMultiRatelimitRequestBody
+    ) -> Types.V1RatelimitMultiRatelimitResponseBody:
         response = await self.fetch(
             method="POST",
             path="/ratelimit.v1.RatelimitService/MultiRatelimit",
@@ -258,35 +255,27 @@ class ExampleClientAsync:
         )
         
         if response.status == 200:
-            return V1RatelimitMultiRatelimitResponseBody(**await response.json())
+            return Types.V1RatelimitMultiRatelimitResponseBody(**await response.json())
         elif response.status == 400:
             error_data = await response.json()
             raise ExampleError(
                 error="Validation Error",
                 status=400,
-                data=ValidationError(**error_data),
+                data=Types.ValidationError(**error_data)
             )
         elif response.status == 500:
             error_data = await response.json()
             raise ExampleError(
                 error="Server Error",
                 status=500,
-                data=BaseError(**error_data),
+                data=Types.BaseError(**error_data)
             )
         else:
             raise ExampleError(
                 error=f"Unexpected status code: {response.status}",
                 status=response.status,
-                data=await response.text(),
+                data=await response.text()
             )
 
-# ... existing code ...
+    # ... existing code ...
 ```
-
-The method handles:
-- Successful responses (200) by returning the parsed response body
-- Validation errors (400) by raising an ExampleError with ValidationError data
-- Server errors (500) by raising an ExampleError with BaseError data
-- Any other status codes with a generic error
-
-The method uses the existing fetch infrastructure and properly types both the input and output parameters.

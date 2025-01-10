@@ -190,13 +190,13 @@ components:
       type: object
 
 ---
-Let's break down the implementation step by step:
+Let's break this down step by step:
 
 1. We need to add a new async method to the `ExampleClientAsync` class
 2. The method will handle POST requests to `/vault.v1.VaultService/EncryptBulk`
 3. It will accept a `V1EncryptBulkRequestBody` parameter and return a `V1EncryptBulkResponseBody`
-4. We need to handle potential errors (400 and 500 status codes)
-5. We'll use the existing `fetch` method to make the request
+4. We need to handle error responses (400 and 500) using the defined error types
+5. The method should use the existing `fetch` method for making the request
 6. We'll add proper type hints and documentation
 
 Here's the implementation:
@@ -208,7 +208,7 @@ class ExampleClientAsync:
     # ... existing code ...
 
     # POST /vault.v1.VaultService/EncryptBulk - tags: vault
-    async def encrypt_bulk(self, request: V1EncryptBulkRequestBody) -> V1EncryptBulkResponseBody:
+    async def encrypt_bulk(self, request: Types.V1EncryptBulkRequestBody) -> Types.V1EncryptBulkResponseBody:
         """
         Encrypt multiple pieces of data in bulk using the specified keyring.
 
@@ -219,29 +219,29 @@ class ExampleClientAsync:
             V1EncryptBulkResponseBody: Response containing encrypted data
 
         Raises:
-            ExampleError: If the API returns a 400 or 500 status code
+            ExampleError: If the API returns an error response (400 or 500)
         """
         response = await self.fetch(
             method="POST",
             path="/vault.v1.VaultService/EncryptBulk",
             body=request,
         )
-
+        
         if response.status == 200:
-            return V1EncryptBulkResponseBody(**await response.json())
+            return Types.V1EncryptBulkResponseBody(**await response.json())
         elif response.status == 400:
             error_data = await response.json()
             raise ExampleError(
-                error="Validation Error",
+                error="Validation error",
                 status=400,
-                data=ValidationError(**error_data)
+                data=Types.ValidationError(**error_data)
             )
         elif response.status == 500:
             error_data = await response.json()
             raise ExampleError(
-                error="Server Error",
+                error="Server error",
                 status=500,
-                data=BaseError(**error_data)
+                data=Types.BaseError(**error_data)
             )
         else:
             raise ExampleError(
@@ -252,5 +252,3 @@ class ExampleClientAsync:
 
 # ... existing code ...
 ```
-
-The method handles the encryption bulk request, processes the response, and raises appropriate exceptions with typed error data when something goes wrong. It uses the existing fetch method and the types from types.py for proper type safety and error handling.
