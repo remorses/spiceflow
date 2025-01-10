@@ -16,47 +16,23 @@ for (const language of languages) {
   describe(
     `generateSDKFromOpenAPI for ${language}`,
     () => {
-      it(
-        'unkey should generate SDK from OpenAPI schema',
-        async () => {
-          const logFolder = `logs/${language}/unkey`
-          await fs.promises
-            .rm(logFolder, { recursive: true, force: true })
-            .catch(() => {})
-
-          const openApiSchema = (await import(
-            '../scripts/unkey-openapi.json'
-          ).then((x) => x.default)) as any
-
-          console.log(`generating routes code`)
-          const generatedCode = await generateSDKFromOpenAPI({
-            openApiSchema,
-            language,
-            logFolder,
-          })
-
-          // Create scripts directory if it doesn't exist
-
-          await fs.promises.writeFile(
-            `${logFolder}/generated-sdk.${languageToExtension[language]}`,
-            generatedCode.code,
-          )
-        },
-        1000 * 60 * 2,
-      )
-      it(
-        'dub should generate SDK from OpenAPI schema',
-        async () => {
-          const logFolder = `logs/${language}/dub`
+      it.each([
+        ['unkey', '../scripts/unkey-openapi.yml'],
+        ['dub', '../scripts/dub-openapi.yml'],
+        ['dumb', '../scripts/dumb-openapi.yml'],
+      ])(
+        '%s should generate SDK from OpenAPI schema',
+        async (name, schemaPath) => {
+          const logFolder = `logs/${language}/${name}`
           await fs.promises
             .rm(logFolder, { recursive: true, force: true })
             .catch(() => {})
 
           const openApiYaml = await readFile(
-            join(__dirname, '../scripts/dub-openapi.yml'),
+            join(__dirname, schemaPath),
             'utf-8',
           )
-          const openApiSchema: any = YAML.load(openApiYaml)
+          let openApiSchema: any = YAML.load(openApiYaml)
 
           console.log(`generating routes code`)
           const generatedCode = await generateSDKFromOpenAPI({
@@ -65,40 +41,18 @@ for (const language of languages) {
             logFolder,
           })
 
-          // Create scripts directory if it doesn't exist
-
           await fs.promises.writeFile(
             `${logFolder}/generated-sdk.${languageToExtension[language]}`,
             generatedCode.code,
           )
+          await fs.promises.writeFile(
+            `${logFolder}/types.${languageToExtension[language]}`,
+            generatedCode.typesCode,
+          )
         },
         1000 * 60 * 10,
-      )
-      it('should generate SDK from dumb OpenAPI schema', async () => {
-        const logFolder = `logs/${language}/dumb`
-        await fs.promises
-          .rm(logFolder, { recursive: true, force: true })
-          .catch(() => {})
+      ) // Use longest timeout
 
-        const openApiYaml = await readFile(
-          join(__dirname, '../scripts/dumb-openapi.yml'),
-          'utf-8',
-        )
-        const openApiSchema: any = YAML.load(openApiYaml)
-
-        console.log(`generating routes code`)
-        const generatedCode = await generateSDKFromOpenAPI({
-          openApiSchema,
-          language,
-          logFolder,
-        })
-
-        // Create scripts directory if it doesn't exist
-        await fs.promises.writeFile(
-          `${logFolder}/generated-sdk.${languageToExtension[language]}`,
-          generatedCode.code,
-        )
-      })
       it('should generate SDK from OpenAPI schema, starting from existing, remove some routes', async ({
         skip,
       }) => {

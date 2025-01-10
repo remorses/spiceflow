@@ -1,7 +1,7 @@
 import json
 import aiohttp
 import urllib.parse
-from typing import Any, AsyncGenerator, Dict, Optional, Union, TypedDict, NotRequired
+from typing import Any, AsyncGenerator, Dict, Optional, Union
 
 
 class ExampleClientAsync:
@@ -45,43 +45,44 @@ class ExampleClientAsync:
                 return response
 
     # POST /v0/events
+    # Method: POST
     # Tags: events
-    async def create_events(self, ndjson_data: str) -> Dict[str, int]:
+    async def create_events(self, events: str) -> V0EventsResponseBody:
         """
         Accept NDJSON payload of events and process them
         
         Args:
-            ndjson_data: NDJSON formatted string of events
+            events: NDJSON string containing events to process
             
         Returns:
-            Dict containing successful_rows and quarantined_rows counts
+            V0EventsResponseBody: Response containing processing results
             
         Raises:
-            ExampleError: If the request fails with 400 or 500 status
+            ExampleError: If the request fails with status code 400 or 500
         """
-        headers = {"Content-Type": "application/x-ndjson"}
         response = await self.fetch(
             method="POST",
             path="/v0/events",
-            body=ndjson_data,
-            headers=headers
+            body=events,
+            headers={"Content-Type": "application/x-ndjson"}
         )
         
         if response.status == 200:
-            return await response.json()
+            data = await response.json()
+            return V0EventsResponseBody(**data)
         elif response.status == 400:
             error_data = await response.json()
             raise ExampleError(
                 error="Validation Error",
                 status=400,
-                data=error_data
+                data=ValidationError(**error_data)
             )
         elif response.status == 500:
             error_data = await response.json()
             raise ExampleError(
                 error="Server Error",
                 status=500,
-                data=error_data
+                data=BaseError(**error_data)
             )
         else:
             raise ExampleError(
@@ -92,121 +93,108 @@ class ExampleClientAsync:
 
     # POST /ratelimit.v1.RatelimitService/MultiRatelimit
     # Tags: ratelimit
-    async def ratelimit_multi_ratelimit(
-        self, ratelimits: list["Item"]
-    ) -> "V1RatelimitMultiRatelimitResponseBody":
-        """
-        Perform multiple rate limit checks in a single request.
-        
-        Args:
-            ratelimits: List of rate limit items to check
-            
-        Returns:
-            Response containing results for each rate limit check
-            
-        Raises:
-            ExampleError: If the request fails (400 or 500 status)
-        """
-        path = "/ratelimit.v1.RatelimitService/MultiRatelimit"
-        body = {"ratelimits": ratelimits}
-        
+    async def multi_ratelimit(
+        self, request: V1RatelimitMultiRatelimitRequestBody
+    ) -> V1RatelimitMultiRatelimitResponseBody:
         response = await self.fetch(
             method="POST",
-            path=path,
-            body=body
+            path="/ratelimit.v1.RatelimitService/MultiRatelimit",
+            body=request,
         )
         
         if response.status == 200:
-            return await response.json()
-        elif response.status in (400, 500):
-            error_data = await response.json()
-            raise ExampleError(
-                error=error_data.get("detail", "Unknown error"),
-                status=response.status,
-                data=error_data
-            )
-        else:
-            raise ExampleError(
-                error=f"Unexpected status code: {response.status}",
-                status=response.status
-            )
-
-    # POST /ratelimit.v1.RatelimitService/Ratelimit
-    # Method: ratelimit.v1.ratelimit
-    # Tags: ratelimit
-    async def ratelimit_v1_ratelimit(
-        self,
-        identifier: str,
-        limit: int,
-        duration: int,
-        cost: Optional[int] = None,
-        lease: Optional["Lease"] = None,
-    ) -> "V1RatelimitRatelimitResponseBody":
-        """
-        Perform a rate limit check for a single identifier.
-        
-        Args:
-            identifier: The identifier for the rate limit
-            limit: The maximum number of requests allowed
-            duration: The duration in milliseconds for the rate limit window
-            cost: The cost of the request (defaults to 1)
-            lease: Optional lease configuration for reserving tokens
-        
-        Returns:
-            V1RatelimitRatelimitResponseBody: The rate limit response
-        """
-        body = {
-            "identifier": identifier,
-            "limit": limit,
-            "duration": duration,
-            "cost": cost,
-            "lease": lease,
-        }
-        response = await self.fetch(
-            method="POST",
-            path="/ratelimit.v1.RatelimitService/Ratelimit",
-            body={k: v for k, v in body.items() if v is not None},
-        )
-        
-        if response.status == 200:
-            return await response.json()
+            return V1RatelimitMultiRatelimitResponseBody(**await response.json())
         elif response.status == 400:
             error_data = await response.json()
             raise ExampleError(
-                error="Validation error",
-                status=response.status,
-                data=error_data,
+                error="Validation Error",
+                status=400,
+                data=ValidationError(**error_data),
             )
         elif response.status == 500:
             error_data = await response.json()
             raise ExampleError(
-                error="Internal server error",
-                status=response.status,
-                data=error_data,
+                error="Server Error",
+                status=500,
+                data=BaseError(**error_data),
             )
         else:
             raise ExampleError(
                 error=f"Unexpected status code: {response.status}",
                 status=response.status,
+                data=await response.text(),
             )
 
-    # GET /v1/liveness
-    # Tags: liveness
-    async def get_liveness(self) -> "V1LivenessResponseBody":
+    # POST /ratelimit.v1.RatelimitService/Ratelimit
+    # Tags: ratelimit
+    async def ratelimit(
+        self, request_body: V1RatelimitRatelimitRequestBody
+    ) -> V1RatelimitRatelimitResponseBody:
+        """Check or reserve a rate limit
+        
+        Args:
+            request_body: The rate limit request parameters
+            
+        Returns:
+            V1RatelimitRatelimitResponseBody: The rate limit response
+            
+        Raises:
+            ExampleError: If the API returns an error response
+        """
         response = await self.fetch(
-            method="GET",
-            path="/v1/liveness"
+            method="POST",
+            path="/ratelimit.v1.RatelimitService/Ratelimit",
+            body=request_body,
         )
         
         if response.status == 200:
-            data = await response.json()
-            return V1LivenessResponseBody.from_dict(data)
+            return V1RatelimitRatelimitResponseBody(**await response.json())
+        elif response.status == 400:
+            error_data = await response.json()
+            raise ExampleError(
+                error="Validation Error",
+                status=400,
+                data=ValidationError(**error_data)
+            )
         elif response.status == 500:
             error_data = await response.json()
             raise ExampleError(
-                error=error_data.get("detail", "Internal Server Error"),
+                error="Server Error",
                 status=500,
-                data=error_data
+                data=BaseError(**error_data)
+            )
+        else:
+            raise ExampleError(
+                error=f"Unexpected status code: {response.status}",
+                status=response.status,
+                data=await response.text()
+            )
+
+    # GET /v1/liveness
+    # tags: liveness
+    async def liveness(self) -> V1LivenessResponseBody:
+        """Check if the service is alive"""
+        response = await self.fetch("GET", "/v1/liveness")
+        
+        if response.status == 200:
+            data = await response.json()
+            return V1LivenessResponseBody(
+                message=data["message"],
+                schema=data.get("$schema")
+            )
+        elif response.status == 500:
+            error_data = await response.json()
+            raise ExampleError(
+                error=error_data["detail"],
+                status=error_data["status"],
+                data=BaseError(
+                    detail=error_data["detail"],
+                    instance=error_data["instance"],
+                    request_id=error_data["requestId"],
+                    status=error_data["status"],
+                    title=error_data["title"],
+                    type=error_data["type"]
+                )
             )
         else:
             raise ExampleError(
@@ -216,184 +204,183 @@ class ExampleClientAsync:
 
     # POST /v1/ratelimit.commitLease
     # Tags: ratelimit
-    async def ratelimit_commit_lease(self, lease: str, cost: int) -> None:
+    async def commit_ratelimit_lease(
+        self, body: V1RatelimitCommitLeaseRequestBody
+    ) -> None:
         """
-        Commit a rate limit lease.
-        
+        Commit a ratelimit lease.
+
         Args:
-            lease: The lease to commit
-            cost: The actual cost of the request
-            
+            body: The request body containing lease information
+
         Raises:
-            ExampleError: If the API returns an error
+            ExampleError: If the API returns an error response
         """
-        body = {
-            "lease": lease,
-            "cost": cost
-        }
-        
         response = await self.fetch(
             method="POST",
             path="/v1/ratelimit.commitLease",
-            body=body
+            body=body,
         )
-        
+
         if response.status == 204:
             return
         elif response.status == 400:
             error_data = await response.json()
             raise ExampleError(
-                error="Bad Request",
+                error="Validation Error",
                 status=400,
-                data=error_data
+                data=ValidationError(**error_data),
             )
         elif response.status == 500:
             error_data = await response.json()
             raise ExampleError(
-                error="Internal Server Error",
+                error="Server Error",
                 status=500,
-                data=error_data
+                data=BaseError(**error_data),
             )
         else:
             raise ExampleError(
                 error=f"Unexpected status code: {response.status}",
-                status=response.status
+                status=response.status,
+                data=await response.text(),
             )
 
     # POST /vault.v1.VaultService/Decrypt
     # Tags: vault
-    async def vault_decrypt(
+    async def decrypt(
         self, 
-        keyring: str, 
-        encrypted: str
-    ) -> str:
+        request_body: V1DecryptRequestBody
+    ) -> V1DecryptResponseBody:
         """
-        Decrypt an encrypted value using the specified keyring.
+        Decrypts the provided encrypted value using the specified keyring.
 
         Args:
-            keyring: The keyring to use for decryption
-            encrypted: The encrypted base64 string
+            request_body: The decryption request containing the encrypted data and keyring
 
         Returns:
-            The decrypted plaintext value
+            V1DecryptResponseBody: The response containing the decrypted plaintext
 
         Raises:
-            ExampleError: If the request fails or returns an error
+            ExampleError: If the request fails with a 400 or 500 status code
         """
-        body = {
-            "keyring": keyring,
-            "encrypted": encrypted
-        }
-        
         response = await self.fetch(
             method="POST",
             path="/vault.v1.VaultService/Decrypt",
-            body=body
+            body=request_body.__dict__,
         )
         
         if response.status == 200:
-            data = await response.json()
-            return data["plaintext"]
-        elif response.status in (400, 500):
+            return V1DecryptResponseBody(**await response.json())
+        elif response.status == 400:
             error_data = await response.json()
             raise ExampleError(
-                error=error_data.get("detail", "Decryption failed"),
-                status=response.status,
-                data=error_data
+                error="Validation Error",
+                status=400,
+                data=ValidationError(**error_data)
+            )
+        elif response.status == 500:
+            error_data = await response.json()
+            raise ExampleError(
+                error="Server Error",
+                status=500,
+                data=BaseError(**error_data)
             )
         else:
             raise ExampleError(
                 error=f"Unexpected status code: {response.status}",
-                status=response.status
+                status=response.status,
+                data=await response.text()
             )
 
     # POST /vault.v1.VaultService/Encrypt
     # Tags: vault
-    async def vault_encrypt(
+    async def encrypt(
         self, 
-        data: str, 
-        keyring: str
-    ) -> Dict[str, str]:
+        request: V1EncryptRequestBody
+    ) -> V1EncryptResponseBody:
         """
         Encrypt data using the specified keyring.
 
         Args:
-            data: The data to encrypt
-            keyring: The keyring to use for encryption
+            request: V1EncryptRequestBody containing data and keyring
 
         Returns:
-            Dictionary containing encrypted data and keyId
+            V1EncryptResponseBody with encrypted data and key ID
 
         Raises:
-            ExampleError: If the request fails
+            ExampleError: If the request fails with status 400 or 500
         """
-        body = {
-            "data": data,
-            "keyring": keyring
-        }
-        
         response = await self.fetch(
             method="POST",
             path="/vault.v1.VaultService/Encrypt",
-            body=body
+            body=request
         )
         
         if response.status == 200:
-            return await response.json()
-        elif response.status in (400, 500):
+            return V1EncryptResponseBody(**await response.json())
+        elif response.status == 400:
             error_data = await response.json()
             raise ExampleError(
-                error=error_data.get("detail", "Encryption failed"),
-                status=response.status,
-                data=error_data
+                error="Validation Error",
+                status=400,
+                data=ValidationError(**error_data)
+            )
+        elif response.status == 500:
+            error_data = await response.json()
+            raise ExampleError(
+                error="Server Error",
+                status=500,
+                data=BaseError(**error_data)
             )
         else:
             raise ExampleError(
                 error=f"Unexpected status code: {response.status}",
-                status=response.status
+                status=response.status,
+                data=await response.text()
             )
 
-    # POST /vault.v1.VaultService/EncryptBulk
-    # Tags: vault
-    async def vault_encrypt_bulk(
-        self,
-        data: list[str],
-        keyring: str,
-    ) -> list[dict[str, str]]:
+    # POST /vault.v1.VaultService/EncryptBulk - tags: vault
+    async def encrypt_bulk(self, request: V1EncryptBulkRequestBody) -> V1EncryptBulkResponseBody:
         """
-        Encrypt multiple pieces of data in bulk.
+        Encrypt multiple pieces of data in bulk using the specified keyring.
 
         Args:
-            data: List of strings to encrypt
-            keyring: The keyring to use for encryption
+            request: The request body containing data to encrypt and keyring identifier
 
         Returns:
-            List of encrypted objects containing 'encrypted' and 'keyId' fields
+            V1EncryptBulkResponseBody: Response containing encrypted data
 
         Raises:
-            ExampleError: If the request fails
+            ExampleError: If the API returns a 400 or 500 status code
         """
-        body = {
-            "data": data,
-            "keyring": keyring,
-        }
-
         response = await self.fetch(
             method="POST",
             path="/vault.v1.VaultService/EncryptBulk",
-            body=body,
+            body=request,
         )
 
-        if response.status != 200:
+        if response.status == 200:
+            return V1EncryptBulkResponseBody(**await response.json())
+        elif response.status == 400:
             error_data = await response.json()
             raise ExampleError(
-                error=error_data.get("detail", "Unknown error"),
-                status=response.status,
-                data=error_data,
+                error="Validation Error",
+                status=400,
+                data=ValidationError(**error_data)
             )
-
-        response_data = await response.json()
-        return response_data["encrypted"]
+        elif response.status == 500:
+            error_data = await response.json()
+            raise ExampleError(
+                error="Server Error",
+                status=500,
+                data=BaseError(**error_data)
+            )
+        else:
+            raise ExampleError(
+                error=f"Unexpected status code: {response.status}",
+                status=response.status,
+                data=await response.text()
+            )
 
 
 class ExampleError(Exception):
@@ -426,48 +413,6 @@ async def stream_sse_response(
             yield event
         except json.JSONDecodeError:
             continue
-
-
-class Item(TypedDict):
-    identifier: str
-    limit: int
-    duration: int
-    cost: NotRequired[int]
-
-
-class SingleRatelimitResponse(TypedDict):
-    current: int
-    limit: int
-    remaining: int
-    reset: int
-    success: bool
-
-
-class V1RatelimitMultiRatelimitResponseBody(TypedDict):
-    ratelimits: list[SingleRatelimitResponse]
-
-
-class Lease(TypedDict):
-    cost: int
-    timeout: int
-
-
-class V1RatelimitRatelimitResponseBody(TypedDict):
-    current: int
-    lease: Optional[str]
-    limit: int
-    remaining: int
-    reset: int
-    success: bool
-
-
-class V1LivenessResponseBody:
-    def __init__(self, message: str):
-        self.message = message
-
-    @classmethod
-    def from_dict(cls, data: dict) -> "V1LivenessResponseBody":
-        return cls(message=data["message"])
 
 
 

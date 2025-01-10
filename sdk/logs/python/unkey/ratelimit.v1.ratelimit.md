@@ -1,103 +1,295 @@
-Let me break down the implementation step by step:
+openapi: 3.0.0
+info:
+  title: Unkey API
+  version: 1.0.0
+servers:
+  - url: https://api.unkey.dev
+  - url: http://localhost
+paths:
+  /ratelimit.v1.RatelimitService/Ratelimit:
+    post:
+      operationId: ratelimit.v1.ratelimit
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/V1RatelimitRatelimitRequestBody'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/V1RatelimitRatelimitResponseBody'
+          description: OK
+        '400':
+          description: Bad request
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+        '500':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/BaseError'
+          description: Error
+      tags:
+        - ratelimit
+components:
+  schemas:
+    BaseError:
+      properties:
+        requestId:
+          description: A unique id for this request. Please always provide this to support.
+          example: req_123
+          type: string
+        detail:
+          description: A human-readable explanation specific to this occurrence of the problem.
+          example: Property foo is required but is missing.
+          type: string
+        instance:
+          description: A URI reference that identifies the specific occurrence of the problem.
+          example: https://example.com/error-log/abc123
+          format: uri
+          type: string
+        status:
+          description: HTTP status code
+          example: 400
+          format: int
+          type: integer
+        title:
+          description: A short, human-readable summary of the problem type. This value should not change between occurrences of the error.
+          example: Bad Request
+          type: string
+        type:
+          default: about:blank
+          description: A URI reference to human-readable documentation for the error.
+          example: https://example.com/errors/example
+          format: uri
+          type: string
+      type: object
+      required:
+        - requestId
+        - detail
+        - instance
+        - status
+        - title
+        - type
+    ValidationError:
+      additionalProperties: false
+      properties:
+        requestId:
+          description: A unique id for this request. Please always provide this to support.
+          example: req_123
+          type: string
+        detail:
+          description: A human-readable explanation specific to this occurrence of the problem.
+          example: Property foo is required but is missing.
+          type: string
+        errors:
+          description: Optional list of individual error details
+          items:
+            $ref: '#/components/schemas/ValidationErrorDetail'
+          type:
+            - array
+        instance:
+          description: A URI reference that identifies the specific occurrence of the problem.
+          example: https://example.com/error-log/abc123
+          format: uri
+          type: string
+        status:
+          description: HTTP status code
+          example: 400
+          format: int
+          type: integer
+        title:
+          description: A short, human-readable summary of the problem type. This value should not change between occurrences of the error.
+          example: Bad Request
+          type: string
+        type:
+          default: about:blank
+          description: A URI reference to human-readable documentation for the error.
+          example: https://example.com/errors/example
+          format: uri
+          type: string
+      type: object
+      required:
+        - requestId
+        - detail
+        - instance
+        - status
+        - title
+        - type
+        - errors
+    ValidationErrorDetail:
+      additionalProperties: false
+      properties:
+        location:
+          description: Where the error occurred, e.g. 'body.items[3].tags' or 'path.thing-id'
+          type: string
+        message:
+          description: Error message text
+          type: string
+        fix:
+          description: A human-readable message describing how to fix the error.
+          type: string
+      type: object
+      required:
+        - message
+        - location
+    V1RatelimitRatelimitResponseBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          example: https://api.unkey.dev/schemas/V1RatelimitRatelimitResponseBody.json
+          format: uri
+          readOnly: true
+          type: string
+        current:
+          description: The current number of requests made in the current window.
+          format: int64
+          type: integer
+        lease:
+          description: The lease to use when committing the request.
+          type:
+            - string
+        limit:
+          description: The maximum number of requests allowed.
+          format: int64
+          type: integer
+        remaining:
+          description: The number of requests remaining in the current window.
+          format: int64
+          type: integer
+        reset:
+          description: The time in milliseconds when the rate limit will reset.
+          format: int64
+          type: integer
+        success:
+          description: Whether the request passed the ratelimit. If false, the request must be blocked.
+          type: boolean
+      required:
+        - limit
+        - remaining
+        - reset
+        - success
+        - current
+        - lease
+      type: object
+    V1RatelimitRatelimitRequestBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          example: https://api.unkey.dev/schemas/V1RatelimitRatelimitRequestBody.json
+          format: uri
+          readOnly: true
+          type: string
+        cost:
+          description: The cost of the request. Defaults to 1 if not provided.
+          format: int64
+          type: integer
+          default: 1
+        duration:
+          description: The duration in milliseconds for the rate limit window.
+          format: int64
+          type: integer
+        identifier:
+          description: The identifier for the rate limit.
+          type: string
+        lease:
+          $ref: '#/components/schemas/Lease'
+          description: Reserve an amount of tokens with the option to commit and update later.
+        limit:
+          description: The maximum number of requests allowed.
+          format: int64
+          type: integer
+      required:
+        - identifier
+        - limit
+        - duration
+      type: object
+    Lease:
+      additionalProperties: false
+      properties:
+        cost:
+          description: How much to lease.
+          format: int64
+          type: integer
+        timeout:
+          description: The time in milliseconds when the lease will expire. If you do not commit the lease by this time, it will be commited as is.
+          format: int64
+          type: integer
+      required:
+        - cost
+        - timeout
+      type: object
 
-1. First, we need to define the types for the request and response bodies based on the OpenAPI schema:
-- V1RatelimitRatelimitRequestBody
-- V1RatelimitRatelimitResponseBody
-- Lease (used in the request body)
-- SingleRatelimitResponse (used in the response)
+---
+Let's break down the implementation step by step:
 
-2. The method needs to:
-- Accept the required parameters from the request body
-- Make a POST request to the endpoint
-- Handle both successful and error responses
-- Return properly typed response data
+1. We need to add a new async method to the `ExampleClientAsync` class
+2. The method will handle POST requests to `/ratelimit.v1.RatelimitService/Ratelimit`
+3. It will accept a `V1RatelimitRatelimitRequestBody` parameter
+4. It will return a `V1RatelimitRatelimitResponseBody` on success
+5. It needs to handle error responses (400 and 500) using the defined error types
+6. We'll use the existing `fetch` method to make the API call
+7. We'll add proper type hints and documentation
 
 Here's the implementation:
 
-```python
+```python:client.py
 # ... existing code ...
 
 class ExampleClientAsync:
     # ... existing code ...
 
     # POST /ratelimit.v1.RatelimitService/Ratelimit
-    # Method: ratelimit.v1.ratelimit
     # Tags: ratelimit
-    async def ratelimit_v1_ratelimit(
-        self,
-        identifier: str,
-        limit: int,
-        duration: int,
-        cost: Optional[int] = None,
-        lease: Optional["Lease"] = None,
-    ) -> "V1RatelimitRatelimitResponseBody":
-        """
-        Perform a rate limit check for a single identifier.
+    async def ratelimit(
+        self, request_body: V1RatelimitRatelimitRequestBody
+    ) -> V1RatelimitRatelimitResponseBody:
+        """Check or reserve a rate limit
         
         Args:
-            identifier: The identifier for the rate limit
-            limit: The maximum number of requests allowed
-            duration: The duration in milliseconds for the rate limit window
-            cost: The cost of the request (defaults to 1)
-            lease: Optional lease configuration for reserving tokens
-        
+            request_body: The rate limit request parameters
+            
         Returns:
             V1RatelimitRatelimitResponseBody: The rate limit response
+            
+        Raises:
+            ExampleError: If the API returns an error response
         """
-        body = {
-            "identifier": identifier,
-            "limit": limit,
-            "duration": duration,
-            "cost": cost,
-            "lease": lease,
-        }
         response = await self.fetch(
             method="POST",
             path="/ratelimit.v1.RatelimitService/Ratelimit",
-            body={k: v for k, v in body.items() if v is not None},
+            body=request_body,
         )
         
         if response.status == 200:
-            return await response.json()
+            return V1RatelimitRatelimitResponseBody(**await response.json())
         elif response.status == 400:
             error_data = await response.json()
             raise ExampleError(
-                error="Validation error",
-                status=response.status,
-                data=error_data,
+                error="Validation Error",
+                status=400,
+                data=ValidationError(**error_data)
             )
         elif response.status == 500:
             error_data = await response.json()
             raise ExampleError(
-                error="Internal server error",
-                status=response.status,
-                data=error_data,
+                error="Server Error",
+                status=500,
+                data=BaseError(**error_data)
             )
         else:
             raise ExampleError(
                 error=f"Unexpected status code: {response.status}",
                 status=response.status,
+                data=await response.text()
             )
 
-
-class Lease(TypedDict):
-    cost: int
-    timeout: int
-
-
-class SingleRatelimitResponse(TypedDict):
-    current: int
-    limit: int
-    remaining: int
-    reset: int
-    success: bool
-
-
-class V1RatelimitRatelimitResponseBody(TypedDict):
-    current: int
-    lease: Optional[str]
-    limit: int
-    remaining: int
-    reset: int
-    success: bool
+# ... existing code ...
 ```

@@ -328,13 +328,18 @@ export async function generateSDKFromOpenAPI({
       maxLLMConcurrency,
     ),
   )
-  return await mergeSDKOutputs({
+  const merged = await mergeSDKOutputs({
     outputs: results,
     previousSdkCode,
     openApiSchema,
     language,
     logFile: logFolder ? `${logFolder}/merge.md` : null,
   })
+  const { typesCode } = await generateTypesFromSchema({
+    language,
+    openApiSchema,
+  })
+  return { typesCode, ...merged }
 }
 
 export async function mergeSDKOutputs({

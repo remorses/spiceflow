@@ -25,7 +25,7 @@ export async function generateTypesFromSchema({
   const inputData = new InputData()
   const schemaInput = new JSONSchemaInput(undefined)
   // Create a single type object containing all schemas as refs
-  const allTypesSchema: OpenAPIV3.SchemaObject = {
+  const allTypesSchema = {
     type: 'object',
     deprecated: true,
     properties: Object.fromEntries(

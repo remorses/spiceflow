@@ -1,4 +1,11 @@
 import { EventSourceParserStream } from 'eventsource-parser/stream'
+import * as types from './types'
+import type {
+  V1RatelimitMultiRatelimitRequestBody,
+  V1RatelimitMultiRatelimitResponseBody,
+  ValidationError,
+  BaseError,
+} from './types'
 
 export class ExampleClient {
   private baseUrl: string
@@ -53,181 +60,233 @@ export class ExampleClient {
    * @description Accept NDJSON payload of events and process them
    */
   async createEvents(
-    payload: string
-  ): Promise<V0EventsResponseBody | ValidationError | BaseError> {
+    body: types.V0EventsRequestBody,
+    options?: { headers?: Record<string, string> }
+  ): Promise<types.V0EventsResponseBody> {
+    const headers = {
+      'Content-Type': 'application/x-ndjson',
+      ...options?.headers,
+    }
+
     const response = await this.fetch({
       method: 'POST',
       path: '/v0/events',
-      headers: {
-        'Content-Type': 'application/x-ndjson',
-      },
-      body: payload,
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new ExampleError(error.detail || 'Failed to create events', {
-        status: response.status,
-        data: error,
-      });
-    }
-
-    return response.json();
-  }
-
-  export interface Item {
-    identifier: string;
-    limit: number;
-    duration: number;
-    cost?: number;
-  }
-
-  export interface SingleRatelimitResponse {
-    current: number;
-    limit: number;
-    remaining: number;
-    reset: number;
-    success: boolean;
-  }
-
-  export interface V1RatelimitMultiRatelimitRequestBody {
-    ratelimits: Item[];
-  }
-
-  export interface V1RatelimitMultiRatelimitResponseBody {
-    ratelimits: SingleRatelimitResponse[];
-  }
-
-  // POST /ratelimit.v1.RatelimitService/MultiRatelimit - ratelimit
-  async multiRatelimit(
-    body: V1RatelimitMultiRatelimitRequestBody
-  ): Promise<V1RatelimitMultiRatelimitResponseBody> {
-    const response = await this.fetch({
-      method: 'POST',
-      path: '/ratelimit.v1.RatelimitService/MultiRatelimit',
-      body
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new ExampleError(error.detail || 'Failed to check ratelimits', {
-        status: response.status,
-        data: error
-      });
-    }
-
-    return response.json();
-  }
-
-  // POST /ratelimit.v1.RatelimitService/Ratelimit - tags: ratelimit
-  async ratelimit(
-    request: V1RatelimitRatelimitRequestBody
-  ): Promise<V1RatelimitRatelimitResponseBody> {
-    const response = await this.fetch({
-      method: 'POST',
-      path: '/ratelimit.v1.RatelimitService/Ratelimit',
-      body: request,
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new ExampleError(error.detail || 'Failed to ratelimit', {
-        status: response.status,
-        data: error,
-      });
-    }
-
-    return response.json();
-  }
-
-  /**
-   * GET /v1/liveness
-   * @tags liveness
-   * @description This endpoint checks if the service is alive.
-   */
-  async liveness(): Promise<V1LivenessResponseBody> {
-    const response = await this.fetch({
-      method: 'GET',
-      path: '/v1/liveness',
+      body,
+      headers,
     })
 
     if (!response.ok) {
-      const error = await response.json()
-      throw new ExampleError(error.detail || 'Failed to check liveness', {
+      const errorData = await response.json()
+      throw new ExampleError(errorData.detail || 'Failed to create events', {
         status: response.status,
-        data: error,
+        data: errorData,
       })
     }
 
     return response.json()
   }
 
-  // POST /v1/ratelimit.commitLease - ratelimit
-  async commitLease(
-    request: V1RatelimitCommitLeaseRequestBody
-  ): Promise<void> {
+  /**
+   * POST /ratelimit.v1.RatelimitService/MultiRatelimit
+   * @tags ratelimit
+   * @param body - The rate limits to check
+   * @returns Promise<V1RatelimitMultiRatelimitResponseBody>
+   * @throws {ExampleError} Will throw an error if the request fails
+   */
+  async multiRatelimit(
+    body: V1RatelimitMultiRatelimitRequestBody,
+  ): Promise<V1RatelimitMultiRatelimitResponseBody> {
+    const response = await this.fetch({
+      method: 'POST',
+      path: '/ratelimit.v1.RatelimitService/MultiRatelimit',
+      body,
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json()
+      throw new ExampleError('Request failed', {
+        status: response.status,
+        data: errorData,
+      })
+    }
+
+    return response.json() as Promise<V1RatelimitMultiRatelimitResponseBody>
+  }
+
+  /**
+   * POST /ratelimit.v1.RatelimitService/Ratelimit
+   * Tags: ratelimit
+   */
+  async ratelimit(
+    body: types.V1RatelimitRatelimitRequestBody
+  ): Promise<types.V1RatelimitRatelimitResponseBody> {
+    const response = await this.fetch({
+      method: 'POST',
+      path: '/ratelimit.v1.RatelimitService/Ratelimit',
+      body,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => null);
+      if (response.status === 400) {
+        throw new ExampleError('Bad request', {
+          status: response.status,
+          data: errorData as types.ValidationError,
+        });
+      }
+      if (response.status === 500) {
+        throw new ExampleError('Internal server error', {
+          status: response.status,
+          data: errorData as types.BaseError,
+        });
+      }
+      throw new ExampleError('Request failed', {
+        status: response.status,
+        data: errorData,
+      });
+    }
+
+    return response.json() as Promise<types.V1RatelimitRatelimitResponseBody>;
+  }
+
+  /**
+   * @description This endpoint checks if the service is alive.
+   * @route GET /v1/liveness
+   * @tags liveness
+   */
+  async liveness(): Promise<types.V1LivenessResponseBody> {
+    try {
+      const response = await this.fetch({
+        method: 'GET',
+        path: '/v1/liveness',
+      });
+
+      if (!response.ok) {
+        const errorData: types.BaseError = await response.json();
+        throw new ExampleError(errorData.detail, {
+          status: response.status,
+          data: errorData,
+        });
+      }
+
+      return response.json() as Promise<types.V1LivenessResponseBody>;
+    } catch (error) {
+      if (error instanceof ExampleError) {
+        throw error;
+      }
+      throw new ExampleError('Unknown error occurred', { status: 500 });
+    }
+  }
+
+  /**
+   * POST /v1/ratelimit.commitLease
+   * @tags ratelimit
+   * @param body - The request body containing lease and cost information
+   * @throws {ExampleError} Will throw an error if the request fails (400 or 500 status)
+   */
+  async commitLease(body: types.V1RatelimitCommitLeaseRequestBody): Promise<void> {
     const response = await this.fetch({
       method: 'POST',
       path: '/v1/ratelimit.commitLease',
-      body: request,
-    });
+      body,
+    })
 
-    if (!response.ok) {
-      const error = await response.json();
-      throw new ExampleError(error.detail || 'Failed to commit lease', {
-        status: response.status,
-        data: error,
-      });
+    if (response.status === 204) {
+      return
     }
 
-    return;
+    const errorData = await response.json().catch(() => null)
+    if (response.status === 400) {
+      throw new ExampleError('Validation Error', {
+        status: response.status,
+        data: errorData as types.ValidationError,
+      })
+    }
+    if (response.status === 500) {
+      throw new ExampleError('Server Error', {
+        status: response.status,
+        data: errorData as types.BaseError,
+      })
+    }
+
+    throw new ExampleError('Unknown Error', {
+      status: response.status,
+      data: errorData,
+    })
   }
 
-  // POST /vault.v1.VaultService/Decrypt - tags: vault
-  async decrypt(
-    request: V1DecryptRequestBody
-  ): Promise<V1DecryptResponseBody> {
+  /**
+   * POST /vault.v1.VaultService/Decrypt
+   * @tags vault
+   * @param body The request body containing encrypted data and keyring
+   * @returns Promise resolving to decrypted plaintext
+   * @throws {ExampleError} When the request fails
+   */
+  async decrypt(body: types.V1DecryptRequestBody): Promise<types.V1DecryptResponseBody> {
     const response = await this.fetch({
       method: 'POST',
       path: '/vault.v1.VaultService/Decrypt',
-      body: request
+      body,
     });
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new ExampleError(error.detail || 'Failed to decrypt', {
+      let errorData: types.BaseError | types.ValidationError;
+      try {
+        errorData = await response.json();
+      } catch (e) {
+        throw new ExampleError('Failed to parse error response', {
+          status: response.status,
+        });
+      }
+
+      throw new ExampleError(errorData.detail, {
         status: response.status,
-        data: error
+        data: errorData,
       });
     }
 
-    return response.json();
+    return response.json() as Promise<types.V1DecryptResponseBody>;
   }
 
-  // POST /vault.v1.VaultService/Encrypt - tags: vault
-  async encrypt(request: V1EncryptRequestBody): Promise<V1EncryptResponseBody> {
+  /**
+   * POST /vault.v1.VaultService/Encrypt
+   * @tags vault
+   * @param body - The encryption request
+   * @returns The encrypted data
+   * @throws {ExampleError} When the request fails
+   */
+  async encrypt(body: types.V1EncryptRequestBody): Promise<types.V1EncryptResponseBody> {
     const response = await this.fetch({
       method: 'POST',
       path: '/vault.v1.VaultService/Encrypt',
-      body: request
+      body
     });
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new ExampleError(error.detail || 'Encryption failed', {
+      let errorData: types.BaseError | types.ValidationError;
+      try {
+        errorData = await response.json();
+      } catch (e) {
+        throw new ExampleError('Failed to parse error response', { status: response.status });
+      }
+
+      throw new ExampleError(errorData.detail, {
         status: response.status,
-        data: error
+        data: errorData
       });
     }
 
-    return response.json();
+    return response.json() as Promise<types.V1EncryptResponseBody>;
   }
 
-  // POST /vault.v1.VaultService/EncryptBulk - Encrypt multiple pieces of data
-  // Tags: vault
-  async encryptBulk(
-    request: V1EncryptBulkRequestBody
-  ): Promise<V1EncryptBulkResponseBody> {
+  /**
+   * POST /vault.v1.VaultService/EncryptBulk
+   * @tags vault
+   * @param request The request body containing data to encrypt
+   * @returns Promise containing the encrypted data
+   * @throws {ExampleError} Will throw on 400 or 500 status codes
+   */
+  async encryptBulk(request: types.V1EncryptBulkRequestBody): Promise<types.V1EncryptBulkResponseBody> {
     const response = await this.fetch({
       method: 'POST',
       path: '/vault.v1.VaultService/EncryptBulk',
@@ -235,14 +294,16 @@ export class ExampleClient {
     });
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new ExampleError(error.detail || 'Failed to encrypt bulk data', {
-        status: response.status,
-        data: error
-      });
+      let errorData: types.BaseError | types.ValidationError;
+      try {
+        errorData = await response.json();
+      } catch (error) {
+        throw new ExampleError('Failed to parse error response', { status: response.status });
+      }
+      throw new ExampleError(errorData.detail, { status: response.status, data: errorData });
     }
 
-    return response.json();
+    return response.json() as Promise<types.V1EncryptBulkResponseBody>;
   }
 }
 
@@ -259,9 +320,10 @@ export class ExampleError extends Error {
   }
 }
 
+// this function should not be removed even if not used
 export async function* streamSSEResponse(
   response: Response,
-): AsyncGenerator<SSEEvent> {
+): AsyncGenerator<any> {
   const body = response.body
   if (!body) return
 
@@ -282,116 +344,6 @@ export async function* streamSSEResponse(
       } catch (error) {}
     }
   }
-}
-
-interface SSEEvent {
-  event: string
-  data: any
-  id?: string
-}
-
-// Type definitions
-interface V0EventsResponseBody {
-  $schema?: string;
-  successful_rows: number;
-  quarantined_rows: number;
-}
-
-interface ValidationError {
-  requestId: string;
-  detail: string;
-  errors?: ValidationErrorDetail[];
-  instance: string;
-  status: number;
-  title: string;
-  type: string;
-}
-
-interface ValidationErrorDetail {
-  location: string;
-  message: string;
-  fix?: string;
-}
-
-interface BaseError {
-  requestId: string;
-  detail: string;
-  instance: string;
-  status: number;
-  title: string;
-  type: string;
-}
-
-interface V1RatelimitRatelimitRequestBody {
-  cost?: number;
-  duration: number;
-  identifier: string;
-  lease?: Lease;
-  limit: number;
-}
-
-interface V1RatelimitRatelimitResponseBody {
-  current: number;
-  lease?: string;
-  limit: number;
-  remaining: number;
-  reset: number;
-  success: boolean;
-}
-
-interface Lease {
-  cost: number;
-  timeout: number;
-}
-
-// Type declarations
-interface V1LivenessResponseBody {
-  $schema?: string
-  message: string
-}
-
-interface V1RatelimitCommitLeaseRequestBody {
-  lease: string;
-  cost: number;
-}
-
-interface V1DecryptRequestBody {
-  keyring: string;
-  encrypted: string;
-  $schema?: string;
-}
-
-interface V1DecryptResponseBody {
-  plaintext: string;
-  $schema?: string;
-}
-
-interface V1EncryptRequestBody {
-  $schema?: string;
-  data: string;
-  keyring: string;
-}
-
-interface V1EncryptResponseBody {
-  $schema?: string;
-  encrypted: string;
-  keyId: string;
-}
-
-interface V1EncryptBulkRequestBody {
-  $schema?: string;
-  data: string[];
-  keyring: string;
-}
-
-interface V1EncryptBulkResponseBody {
-  $schema?: string;
-  encrypted: Encrypted[];
-}
-
-interface Encrypted {
-  encrypted: string;
-  keyId: string;
 }
 
 
