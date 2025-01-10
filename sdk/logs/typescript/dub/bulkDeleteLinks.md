@@ -351,78 +351,64 @@ components:
               - error
 
 ---
-Let's break down the implementation step by step:
+Let's break this down step by step:
 
-1. First, we need to define the response type for successful requests (200 status)
-2. Then define error types based on the error responses
-3. Create the method that:
-   - Takes linkIds as input
-   - Constructs the query parameters
-   - Makes the DELETE request
-   - Handles both success and error responses
-4. Add proper typing for all inputs and outputs
+1. We need to add a new method to the `ExampleClient` class for the DELETE /links/bulk endpoint
+2. The method should:
+   - Accept an array of link IDs as input
+   - Convert the array to a comma-separated string for the query parameter
+   - Handle the response type which includes a deletedCount number
+   - Include proper error handling
+3. We'll use the existing fetch method and error handling infrastructure
+4. The method should be fully typed with input/output types
+5. We'll add a descriptive comment above the method
 
 Here's the implementation:
 
-```typescript:src/client.ts
-// ... existing ExampleClient class ...
+```typescript:client.ts
+// ... existing code ...
+
+export class ExampleClient {
+  // ... existing code ...
 
   /**
    * DELETE /links/bulk
    * @tags Links
    * @summary Bulk delete links
    * @description Bulk delete up to 100 links for the authenticated workspace.
+   * @param linkIds Comma-separated list of link IDs to delete. Maximum of 100 IDs. Non-existing IDs will be ignored.
+   * @returns Promise<{ deletedCount: number }>
    */
   async deleteMany(linkIds: string[]): Promise<{ deletedCount: number }> {
-    try {
-      const response = await this.fetch({
-        method: 'DELETE',
-        path: '/links/bulk',
-        query: { linkIds: linkIds.join(',') }
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new ExampleError(errorData.error.message, {
-          status: response.status,
-          data: errorData
-        });
+    const response = await this.fetch({
+      method: 'DELETE',
+      path: '/links/bulk',
+      query: {
+        linkIds: linkIds.join(',')
       }
+    });
 
-      return response.json();
-    } catch (error) {
-      if (error instanceof ExampleError) {
-        throw error;
-      }
-      throw new ExampleError('Unknown error occurred', {
-        status: 500,
-        data: error
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new ExampleError(errorData.error.message, {
+        status: response.status,
+        data: errorData
       });
     }
+
+    return response.json();
   }
+}
 
-// ... rest of existing code ...
-
-// Add these type definitions at the end of the file
-type BulkDeleteLinksSuccessResponse = {
-  deletedCount: number;
-};
-
-type ErrorResponse = {
-  error: {
-    code: string;
-    message: string;
-    doc_url?: string;
-  };
-};
-
-type BadRequestError = ErrorResponse;
-type UnauthorizedError = ErrorResponse;
-type ForbiddenError = ErrorResponse;
-type NotFoundError = ErrorResponse;
-type ConflictError = ErrorResponse;
-type InviteExpiredError = ErrorResponse;
-type UnprocessableEntityError = ErrorResponse;
-type RateLimitExceededError = ErrorResponse;
-type InternalServerError = ErrorResponse;
+// ... existing code ...
 ```
+
+The implementation:
+1. Adds a new `deleteMany` method to the `ExampleClient` class
+2. Takes an array of link IDs as input
+3. Uses the existing fetch method to make the DELETE request
+4. Converts the array of IDs to a comma-separated string for the query parameter
+5. Handles both success and error responses
+6. Returns the response data with the deletedCount
+7. Includes proper TypeScript types for input and output
+8. Maintains compatibility with both browser and Node.js environments

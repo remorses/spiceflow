@@ -1406,25 +1406,44 @@ components:
         - projectId
         - programId
       title: Link
+    TagSchema:
+      type: object
+      properties:
+        id:
+          type: string
+          description: The unique ID of the tag.
+        name:
+          type: string
+          description: The name of the tag.
+        color:
+          type: string
+          enum:
+            - red
+            - yellow
+            - green
+            - blue
+            - purple
+            - pink
+            - brown
+          description: The color of the tag.
+      required:
+        - id
+        - name
+        - color
+      title: Tag
 
 ---
 Let's break down the implementation step by step:
 
-1. First, we need to define the types for the request parameters and response:
-- Request parameters match the query parameters in the OpenAPI spec
-- Response type will be an array of LinkSchema objects
-
-2. We'll create a method in the ExampleClient class that:
-- Accepts all the query parameters as optional fields
-- Uses the existing fetch method to make the GET request
-- Handles error responses using the ExampleError class
-- Returns the typed response
-
-3. We'll need to define the LinkSchema type based on the OpenAPI schema
+1. We need to add a new method to the ExampleClient class for the GET /links endpoint
+2. The method should accept all the query parameters defined in the OpenAPI spec
+3. We'll use the existing fetch method to make the API call
+4. We'll handle the response and error cases appropriately
+5. The return type should be an array of Link objects from the components.ts file
 
 Here's the implementation:
 
-```typescript:exampleClient.ts
+```typescript:client.ts
 // ... existing code ...
 
 export class ExampleClient {
@@ -1435,7 +1454,7 @@ export class ExampleClient {
    * Retrieve a paginated list of links for the authenticated workspace.
    * Tags: Links
    */
-  async getLinks(params?: {
+  async listLinks(params?: {
     domain?: string;
     tagId?: string;
     tagIds?: string | string[];
@@ -1447,93 +1466,43 @@ export class ExampleClient {
     sort?: 'createdAt' | 'clicks' | 'lastClicked';
     page?: number;
     pageSize?: number;
-  }): Promise<LinkSchema[]> {
-    // Convert array parameters to comma-separated strings
-    const query: Record<string, string> = {};
-    if (params) {
-      Object.entries(params).forEach(([key, value]) => {
-        if (value !== undefined) {
-          if (Array.isArray(value)) {
-            query[key] = value.join(',');
-          } else {
-            query[key] = String(value);
-          }
-        }
+  }): Promise<types.Link[]> {
+    try {
+      const response = await this.fetch({
+        method: 'GET',
+        path: '/links',
+        query: {
+          domain: params?.domain,
+          tagId: params?.tagId,
+          tagIds: Array.isArray(params?.tagIds) ? params.tagIds.join(',') : params?.tagIds,
+          tagNames: Array.isArray(params?.tagNames) ? params.tagNames.join(',') : params?.tagNames,
+          search: params?.search,
+          userId: params?.userId,
+          showArchived: params?.showArchived,
+          withTags: params?.withTags,
+          sort: params?.sort,
+          page: params?.page,
+          pageSize: params?.pageSize,
+        },
       });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new ExampleError(errorData.error?.message || 'Failed to fetch links', {
+          status: response.status,
+          data: errorData,
+        });
+      }
+
+      return response.json();
+    } catch (error) {
+      if (error instanceof ExampleError) {
+        throw error;
+      }
+      throw new ExampleError('Network error while fetching links', { status: 500 });
     }
-
-    const response = await this.fetch({
-      method: 'GET',
-      path: '/links',
-      query,
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new ExampleError('Failed to get links', {
-        status: response.status,
-        data: errorData,
-      });
-    }
-
-    return response.json();
   }
 }
-
-// Link schema type based on OpenAPI specification
-export type LinkSchema = {
-  id: string;
-  domain: string;
-  key: string;
-  url: string;
-  trackConversion: boolean;
-  externalId: string | null;
-  archived: boolean;
-  expiresAt: string | null;
-  expiredUrl: string | null;
-  password: string | null;
-  proxy: boolean;
-  title: string | null;
-  description: string | null;
-  image: string | null;
-  video: string | null;
-  rewrite: boolean;
-  doIndex: boolean;
-  ios: string | null;
-  android: string | null;
-  geo: Record<string, string> | null;
-  publicStats: boolean;
-  tagId: string | null;
-  tags: TagSchema[] | null;
-  webhookIds: string[];
-  comments: string | null;
-  shortLink: string;
-  qrCode: string;
-  utm_source: string | null;
-  utm_medium: string | null;
-  utm_campaign: string | null;
-  utm_term: string | null;
-  utm_content: string | null;
-  userId: string | null;
-  workspaceId: string;
-  clicks: number;
-  lastClicked: string | null;
-  leads: number;
-  sales: number;
-  saleAmount: number;
-  createdAt: string;
-  updatedAt: string;
-  projectId: string;
-  programId: string | null;
-};
-
-export type TagSchema = {
-  id: string;
-  name: string;
-  color: string;
-  createdAt: string;
-  updatedAt: string;
-};
 
 // ... existing code ...
 ```

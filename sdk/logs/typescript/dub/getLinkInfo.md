@@ -1328,39 +1328,62 @@ components:
         - projectId
         - programId
       title: Link
+    TagSchema:
+      type: object
+      properties:
+        id:
+          type: string
+          description: The unique ID of the tag.
+        name:
+          type: string
+          description: The name of the tag.
+        color:
+          type: string
+          enum:
+            - red
+            - yellow
+            - green
+            - blue
+            - purple
+            - pink
+            - brown
+          description: The color of the tag.
+      required:
+        - id
+        - name
+        - color
+      title: Tag
 
 ---
-Let me break down the implementation step by step:
+Let's break down the implementation step by step:
 
-1. First, we need to define the types for the request parameters and response:
-- Request parameters: domain, key, linkId, externalId (all optional)
-- Response: LinkSchema from the OpenAPI spec
-
-2. We'll create a new method in the ExampleClient class that:
-- Takes the optional parameters
-- Makes a GET request to /links/info
-- Handles the response and error cases
-- Returns the typed response
-
-3. We'll also define the error types based on the OpenAPI spec responses.
+1. We need to add a new method to the ExampleClient class for the GET /links/info endpoint
+2. The method needs to:
+   - Accept query parameters (domain, key, linkId, externalId)
+   - Return a Promise of type Link from components.ts
+   - Handle error responses
+   - Use the existing fetch method
+3. The query parameters should be optional since they're not marked as required in the OpenAPI spec
+4. We'll use the Link interface from components.ts for the return type
+5. We'll add proper JSDoc comments with the route path, method, and tags
 
 Here's the implementation:
 
-```typescript:exampleClient.ts
+```typescript:client.ts
 export class ExampleClient {
   // ... existing code ...
 
   /**
-   * GET /links/info
-   * Retrieve the info for a link.
-   * Tags: Links
+   * Retrieve a link
+   * @route GET /links/info
+   * @tags Links
    */
   async getLinkInfo(params?: {
     domain?: string;
     key?: string;
     linkId?: string;
     externalId?: string;
-  }): Promise<LinkSchema> {
+  }): Promise<Link> {
     const response = await this.fetch({
       method: 'GET',
       path: '/links/info',
@@ -1369,7 +1392,7 @@ export class ExampleClient {
 
     if (!response.ok) {
       const errorData = await response.json();
-      throw new ExampleError(errorData.error.message, {
+      throw new ExampleError(errorData.error?.message || 'Failed to retrieve link', {
         status: response.status,
         data: errorData,
       });
@@ -1377,63 +1400,7 @@ export class ExampleClient {
 
     return response.json();
   }
-}
 
-// Type definitions
-export interface LinkSchema {
-  id: string;
-  domain: string;
-  key: string;
-  url: string;
-  trackConversion: boolean;
-  externalId: string | null;
-  archived: boolean;
-  expiresAt: string | null;
-  expiredUrl: string | null;
-  password: string | null;
-  proxy: boolean;
-  title: string | null;
-  description: string | null;
-  image: string | null;
-  video: string | null;
-  rewrite: boolean;
-  doIndex: boolean;
-  ios: string | null;
-  android: string | null;
-  geo: Record<string, string> | null;
-  publicStats: boolean;
-  tagId: string | null;
-  tags: TagSchema[] | null;
-  webhookIds: string[];
-  comments: string | null;
-  shortLink: string;
-  qrCode: string;
-  utm_source: string | null;
-  utm_medium: string | null;
-  utm_campaign: string | null;
-  utm_term: string | null;
-  utm_content: string | null;
-  userId: string | null;
-  workspaceId: string;
-  clicks: number;
-  lastClicked: string | null;
-  leads: number;
-  sales: number;
-  saleAmount: number;
-  createdAt: string;
-  updatedAt: string;
-  projectId: string;
-  programId: string | null;
-}
-
-export interface TagSchema {
-  // Define based on your actual TagSchema
-  id: string;
-  name: string;
-  // ... other tag properties
-}
-
-export class ExampleError extends Error {
   // ... existing code ...
 }
 ```

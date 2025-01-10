@@ -407,19 +407,27 @@ components:
               - error
 
 ---
-Let's break down the implementation step by step:
+Let's break this down step by step:
 
-1. First, we need to define the request parameters type based on the OpenAPI schema
-2. Create a method that accepts these parameters and makes the GET request
-3. Handle the response which is a simple number
-4. Include error handling for all possible error responses
-5. Add proper JSDoc comments for the method
+1. We need to add a new method to the `ExampleClient` class for the `/links/count` endpoint
+2. The method should:
+   - Accept all query parameters defined in the OpenAPI spec
+   - Return a Promise that resolves to a number (the count)
+   - Handle potential errors using the existing ExampleError class
+   - Use the existing fetch method for making the request
+3. The query parameters need to be properly typed, including:
+   - Optional fields
+   - Union types for parameters that accept multiple types
+   - Deprecated fields should still be included but marked as deprecated
+4. We'll use the error types from the components.ts file
 
 Here's the implementation:
 
-```typescript:src/client.ts
+```typescript:client.ts
+// ... existing code ...
+
 export class ExampleClient {
-  // ... existing code ...
+  // ... existing methods ...
 
   /**
    * GET /links/count
@@ -428,12 +436,14 @@ export class ExampleClient {
    */
   async countLinks(params?: {
     domain?: string;
+    /** @deprecated Use tagIds instead */
     tagId?: string;
     tagIds?: string | string[];
     tagNames?: string | string[];
     search?: string;
     userId?: string;
     showArchived?: boolean;
+    /** @deprecated */
     withTags?: boolean;
     groupBy?: 'domain' | 'tagId' | 'userId';
   }): Promise<number> {
@@ -442,15 +452,9 @@ export class ExampleClient {
         method: 'GET',
         path: '/links/count',
         query: params ? {
-          domain: params.domain,
-          tagId: params.tagId,
+          ...params,
           tagIds: Array.isArray(params.tagIds) ? params.tagIds.join(',') : params.tagIds,
           tagNames: Array.isArray(params.tagNames) ? params.tagNames.join(',') : params.tagNames,
-          search: params.search,
-          userId: params.userId,
-          showArchived: params.showArchived?.toString(),
-          withTags: params.withTags?.toString(),
-          groupBy: params.groupBy,
         } : undefined,
       });
 
@@ -472,16 +476,5 @@ export class ExampleClient {
   }
 }
 
-// ... existing ExampleError and other existing code ...
+// ... rest of existing code ...
 ```
-
-The implementation:
-1. Creates a `countLinks` method with all optional parameters matching the OpenAPI schema
-2. Handles array parameters by joining them with commas when needed
-3. Converts boolean parameters to strings
-4. Properly types the return value as a number
-5. Includes comprehensive error handling
-6. Uses the existing fetch infrastructure from the base client
-7. Maintains compatibility with both browser and Node.js environments
-
-The method is fully typed and handles all edge cases according to the OpenAPI specification.

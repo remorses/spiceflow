@@ -457,89 +457,71 @@ components:
         - registeredDomain
 
 ---
-Let's break down the implementation step by step:
+Let's break down what we need to implement for the GET /domains route:
 
-1. First, we need to define the types for:
-   - DomainSchema (from the OpenAPI schema)
-   - ListDomainsParams (query parameters)
-   - Error responses (from the OpenAPI schema)
-
-2. We'll create a method in the ExampleClient class that:
-   - Takes the query parameters
-   - Makes a GET request to /domains
-   - Handles the response and error cases
-   - Returns the typed response
+1. We need to add a new method to the ExampleClient class
+2. The method should accept query parameters: archived, search, page, pageSize
+3. The method should return an array of DomainSchema objects
+4. We need to handle error responses according to the OpenAPI spec
+5. We should use the existing fetch method for making the API call
 
 Here's the implementation:
 
-```typescript:example-client.ts
-// ... existing ExampleClient class ...
+```typescript:client.ts
+// ... existing code ...
 
-// GET /domains - Retrieve a list of domains
-// Tags: Domains
-async listDomains(params?: {
-  archived?: boolean;
-  search?: string;
-  page?: number;
-  pageSize?: number;
-}): Promise<Array<{
-  id: string;
-  slug: string;
-  verified: boolean;
-  primary: boolean;
-  archived: boolean;
-  placeholder: string | null;
-  expiredUrl: string | null;
-  notFoundUrl: string | null;
-  logo: string | null;
-  createdAt: string;
-  updatedAt: string;
-  registeredDomain: {
-    id: string;
-    createdAt: string;
-    expiresAt: string;
-  } | null;
-}>> {
-  try {
-    const response = await this.fetch({
-      method: 'GET',
-      path: '/domains',
-      query: {
-        archived: params?.archived,
-        search: params?.search,
-        page: params?.page,
-        pageSize: params?.pageSize,
-      },
-    });
+export class ExampleClient {
+  // ... existing code ...
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new ExampleError(errorData.error.message, {
-        status: response.status,
-        data: errorData,
+  /**
+   * GET /domains
+   * Retrieve a list of domains associated with the authenticated workspace.
+   * @tags Domains
+   */
+  async listDomains(params?: {
+    archived?: boolean;
+    search?: string;
+    page?: number;
+    pageSize?: number;
+  }): Promise<types.DomainSchema[]> {
+    try {
+      const response = await this.fetch({
+        method: 'GET',
+        path: '/domains',
+        query: {
+          archived: params?.archived,
+          search: params?.search,
+          page: params?.page,
+          pageSize: params?.pageSize,
+        },
       });
-    }
 
-    return await response.json();
-  } catch (error) {
-    if (error instanceof ExampleError) {
-      throw error;
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new ExampleError(errorData.error.message, {
+          status: response.status,
+          data: errorData,
+        });
+      }
+
+      return response.json();
+    } catch (error) {
+      if (error instanceof ExampleError) {
+        throw error;
+      }
+      throw new ExampleError('Unknown error occurred', { status: 500 });
     }
-    throw new ExampleError('Unknown error occurred', { status: 500 });
   }
 }
 
-// ... rest of existing code ...
+// ... existing code ...
 ```
 
-The implementation includes:
-- A strongly typed method with optional query parameters
-- Proper error handling with the ExampleError class
-- Type-safe response handling
-- Pagination support through query parameters
-- All required fields from the DomainSchema are included in the return type
-- The method can be used in both browser and Node.js environments
-- Error responses are properly typed and handled
-- The method is documented with the route path and tags
-
-The code maintains compatibility with the existing SDK structure while adding the new functionality.
+This implementation:
+1. Adds a new `listDomains` method with optional query parameters
+2. Uses the existing fetch method to make the API call
+3. Handles error responses by throwing ExampleError with appropriate status and data
+4. Returns a Promise of DomainSchema array
+5. Includes JSDoc comments with route information and tags
+6. Maintains compatibility with both Node.js and browser environments
+7. Uses types from the existing components.ts file

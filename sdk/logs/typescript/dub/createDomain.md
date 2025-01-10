@@ -448,30 +448,53 @@ components:
         - registeredDomain
 
 ---
-Let's break down the implementation step by step:
+Let's break down what we need to implement for the POST /domains route:
 
-1. First, we need to define the request body type based on the schema
-2. Then define the response type using the DomainSchema
-3. Create error types based on the possible error responses
-4. Implement the create method in the ExampleClient class
-5. Add proper error handling and response parsing
+1. First, we need to define the request body type based on the OpenAPI schema
+2. Create a method that uses the existing fetch utility
+3. Add proper error handling
+4. Use the DomainSchema type from components.ts for the response
+5. Add JSDoc comments with route information
+
+The request body requires:
+- slug (required string)
+- expiredUrl (optional string)
+- notFoundUrl (optional string)
+- archived (optional boolean with default)
+- placeholder (optional string)
+- logo (optional string)
 
 Here's the implementation:
 
-```typescript:example-client.ts
-// ... existing ExampleClient class ...
+```typescript:client.ts
+// ... existing code ...
 
-// POST /domains - Create a domain
-// Tags: Domains
-async createDomain(body: {
-  slug: string;
-  expiredUrl?: string | null;
-  notFoundUrl?: string | null;
-  archived?: boolean;
-  placeholder?: string | null;
-  logo?: string | null;
-}): Promise<DomainSchema> {
-  try {
+export class ExampleClient {
+  // ... existing code ...
+
+  /**
+   * POST /domains
+   * @tags Domains
+   * @summary Create a domain
+   * @description Create a domain for the authenticated workspace.
+   * @param {object} body - The domain creation request
+   * @param {string} body.slug - Name of the domain
+   * @param {string} [body.expiredUrl] - Redirect URL for expired links
+   * @param {string} [body.notFoundUrl] - Redirect URL for non-existent links
+   * @param {boolean} [body.archived] - Whether to archive the domain
+   * @param {string} [body.placeholder] - Example link for context
+   * @param {string} [body.logo] - Domain logo URL
+   * @returns {Promise<DomainSchema>} The created domain
+   * @throws {ExampleError} When the request fails
+   */
+  async createDomain(body: {
+    slug: string;
+    expiredUrl?: string | null;
+    notFoundUrl?: string | null;
+    archived?: boolean;
+    placeholder?: string | null;
+    logo?: string | null;
+  }): Promise<DomainSchema> {
     const response = await this.fetch({
       method: 'POST',
       path: '/domains',
@@ -479,49 +502,16 @@ async createDomain(body: {
     });
 
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new ExampleError(errorData.error.message, {
+      const errorData = await response.json().catch(() => ({}));
+      throw new ExampleError('Failed to create domain', {
         status: response.status,
         data: errorData,
       });
     }
 
     return response.json();
-  } catch (error) {
-    if (error instanceof ExampleError) {
-      throw error;
-    }
-    throw new ExampleError('Network error', { status: 500 });
   }
 }
 
-// ... existing ExampleError class and other code ...
-
-// Type definitions
-interface DomainSchema {
-  id: string;
-  slug: string;
-  verified: boolean;
-  primary: boolean;
-  archived: boolean;
-  placeholder: string | null;
-  expiredUrl: string | null;
-  notFoundUrl: string | null;
-  logo: string | null;
-  createdAt: string;
-  updatedAt: string;
-  registeredDomain: {
-    id: string;
-    createdAt: string;
-    expiresAt: string;
-  } | null;
-}
-
-interface ErrorResponse {
-  error: {
-    code: string;
-    message: string;
-    doc_url?: string;
-  };
-}
+// ... existing code ...
 ```

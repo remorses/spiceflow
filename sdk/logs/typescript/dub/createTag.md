@@ -383,69 +383,59 @@ components:
       title: Tag
 
 ---
-Let's break down the implementation step by step:
+Let's break this down step by step:
 
-1. First, we need to define the types for:
-   - Request body (CreateTagRequest)
-   - Response type (TagSchema)
-   - Error responses (using the existing ExampleError)
-
-2. The method needs to:
-   - Accept the request parameters
-   - Make a POST request to /tags
-   - Handle successful responses (201)
-   - Handle error responses using the existing ExampleError class
-
-3. We'll add the method to the ExampleClient class since it already has the fetch infrastructure we need.
+1. We need to add a new method to the `ExampleClient` class for creating tags
+2. The method should:
+   - Accept a request body with optional name and color fields
+   - Use the existing fetch method to make the POST request
+   - Handle the response and error cases
+   - Return the created Tag object
+3. We'll use the types from components.ts for the request/response types
+4. We'll add proper error handling using the existing ExampleError class
 
 Here's the implementation:
 
-```typescript:exampleClient.ts
+```typescript:client.ts
+// ... existing code ...
+
 export class ExampleClient {
   // ... existing code ...
 
   /**
    * POST /tags
-   * Create a new tag for the authenticated workspace.
    * Tags: Tags
+   * Create a new tag for the authenticated workspace.
    */
   async createTag(body: {
     name: string;
-    color?: 'red' | 'yellow' | 'green' | 'blue' | 'purple' | 'pink' | 'brown';
+    color?: "red" | "yellow" | "green" | "blue" | "purple" | "pink" | "brown";
     tag?: string; // deprecated
-  }): Promise<{
-    id: string;
-    name: string;
-    color: 'red' | 'yellow' | 'green' | 'blue' | 'purple' | 'pink' | 'brown';
-  }> {
-    const response = await this.fetch({
-      method: 'POST',
-      path: '/tags',
-      body,
-    });
+  }): Promise<Tag> {
+    try {
+      const response = await this.fetch({
+        method: 'POST',
+        path: '/tags',
+        body
+      });
 
-    if (response.status === 201) {
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new ExampleError(errorData.error.message, {
+          status: response.status,
+          data: errorData
+        });
+      }
+
       return response.json();
+    } catch (error) {
+      if (error instanceof ExampleError) {
+        throw error;
+      }
+      throw new ExampleError('Unknown error occurred', { status: 500 });
     }
-
-    const errorData = await response.json().catch(() => ({}));
-    throw new ExampleError(errorData.error?.message || 'Failed to create tag', {
-      status: response.status,
-      data: errorData,
-    });
   }
 }
 
-// Type declarations
-type CreateTagRequest = {
-  name: string;
-  color?: 'red' | 'yellow' | 'green' | 'blue' | 'purple' | 'pink' | 'brown';
-  tag?: string; // deprecated
-};
-
-type TagSchema = {
-  id: string;
-  name: string;
-  color: 'red' | 'yellow' | 'green' | 'blue' | 'purple' | 'pink' | 'brown';
-};
+// ... existing code ...
 ```

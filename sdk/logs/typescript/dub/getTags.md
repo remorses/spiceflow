@@ -358,27 +358,30 @@ components:
       title: Tag
 
 ---
-Let's break down the implementation step by step:
+Let's break down what we need to implement:
 
-1. First, we need to define the TagSchema type based on the OpenAPI schema
-2. We'll create a method in the ExampleClient class to handle the GET /tags endpoint
-3. The method will use the existing fetch utility
-4. We'll add proper error handling using the ExampleError class
-5. The response will be typed as an array of TagSchema objects
-6. We'll add a JSDoc comment with the route details
+1. We need to add a new method to the `ExampleClient` class for the GET /tags endpoint
+2. The method should:
+   - Use the existing fetch utility
+   - Return a Promise of Tag[] (array of Tag objects)
+   - Handle error responses using the ExampleError class
+   - Include proper typing for both input and output
+3. The method should be documented with the route path, method, and tags
 
 Here's the implementation:
 
-```typescript:exampleClient.ts
+```typescript:client.ts
+// ... existing code ...
+
 export class ExampleClient {
   // ... existing code ...
 
   /**
    * GET /tags
-   * Retrieve a list of tags for the authenticated workspace.
-   * @tags Tags
+   * Retrieve a list of tags
+   * Tags: Tags
    */
-  async listTags(): Promise<TagSchema[]> {
+  async listTags(): Promise<types.Tag[]> {
     try {
       const response = await this.fetch({
         method: 'GET',
@@ -403,12 +406,14 @@ export class ExampleClient {
   }
 }
 
-// Type definitions
-export type TagSchema = {
-  id: string;
-  name: string;
-  color: 'red' | 'yellow' | 'green' | 'blue' | 'purple' | 'pink' | 'brown';
-};
-
-// ... rest of existing code ...
+// ... existing code ...
 ```
+
+The implementation:
+1. Adds a new `listTags` method to the ExampleClient class
+2. Uses the existing fetch utility to make the GET request
+3. Handles error responses by checking response.ok and throwing ExampleError
+4. Returns a Promise of Tag[] as defined in the components.ts file
+5. Includes proper error handling for both API errors and unexpected errors
+6. Is fully typed using the types from components.ts
+7. Includes the required documentation comment with route path, method, and tags

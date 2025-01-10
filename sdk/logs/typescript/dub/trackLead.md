@@ -415,89 +415,70 @@ components:
               - error
 
 ---
-Let's break down the implementation step by step:
+Let me break down the implementation step by step:
 
-1. First, we need to define the request and response types based on the OpenAPI schema:
-- Request type needs all required fields (clickId, eventName) and optional fields
-- Response type needs click and customer objects with their respective properties
-
-2. We'll create a new method in the ExampleClient class that:
-- Takes the request parameters
-- Makes a POST request using the existing fetch method
-- Handles error responses
-- Returns the typed response
-
-3. We'll add type definitions for:
-- The request body
-- The successful response
-- Error responses (though we'll reuse ExampleError)
+1. We need to add a new method to track leads
+2. The method will use POST /track/lead endpoint
+3. We'll need to define the request and response types based on the OpenAPI schema
+4. The method should handle error responses using the existing ExampleError class
+5. We'll use the existing fetch method from the ExampleClient class
+6. The request body has required fields (clickId, eventName) and optional fields
+7. The response has a specific structure with click and customer objects
 
 Here's the implementation:
 
-```typescript:exampleClient.ts
+```typescript:client.ts
+// ... existing code ...
+
 export class ExampleClient {
   // ... existing code ...
 
   /**
    * POST /track/lead
-   * Track a lead for a short link.
-   * Tags: Track
+   * @tags Track
+   * @summary Track a lead
+   * @description Track a lead for a short link.
    */
-  async trackLead(params: {
-    clickId: string;
-    eventName: string;
-    externalId?: string;
-    customerId?: string | null;
-    customerName?: string | null;
-    customerEmail?: string | null;
-    customerAvatar?: string | null;
-    metadata?: Record<string, any> | null;
-  }): Promise<{
-    click: { id: string };
-    customer: {
-      name: string | null;
-      email: string | null;
-      avatar: string | null;
-      externalId: string | null;
-    };
-  }> {
-    try {
-      const response = await this.fetch({
-        method: 'POST',
-        path: '/track/lead',
-        body: params,
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new ExampleError(errorData.error.message, {
-          status: response.status,
-          data: errorData,
-        });
-      }
-
-      return response.json();
-    } catch (error) {
-      if (error instanceof ExampleError) {
-        throw error;
-      }
-      throw new ExampleError('Unknown error occurred', {
-        status: 500,
-        data: error,
-      });
+  async trackLead(
+    request: {
+      clickId: string
+      eventName: string
+      externalId?: string
+      customerId?: string | null
+      customerName?: string | null
+      customerEmail?: string | null
+      customerAvatar?: string | null
+      metadata?: Record<string, any> | null
     }
+  ): Promise<{
+    click: { id: string }
+    customer: {
+      name: string | null
+      email: string | null
+      avatar: string | null
+      externalId: string | null
+    }
+  }> {
+    const response = await this.fetch({
+      method: 'POST',
+      path: '/track/lead',
+      body: request
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => null)
+      throw new ExampleError(
+        errorData?.error?.message || 'Failed to track lead',
+        {
+          status: response.status,
+          data: errorData
+        }
+      )
+    }
+
+    return response.json()
   }
 }
 
 // ... existing code ...
 ```
-
-The implementation includes:
-- A well-documented method with route information
-- Strict typing for both input and output
-- Proper error handling that reuses the existing ExampleError class
-- Optional fields marked as optional in the params
-- Nullable fields properly typed
-- Metadata field typed as a generic object
-- Response type that matches the OpenAPI schema exactly
-- Error handling that preserves the original error structure from the API

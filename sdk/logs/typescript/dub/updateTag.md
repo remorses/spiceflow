@@ -392,17 +392,20 @@ components:
       title: Tag
 
 ---
-Let's break down the implementation step by step:
+Let's break down what we need to implement:
 
-1. First, we need to define the request body type for the PATCH request
-2. Then define the response type (TagSchema)
-3. Create the method with proper typing and error handling
-4. Use the existing fetch method from the base client
-5. Handle the response and potential errors
+1. We need to add a new method to the `ExampleClient` class for PATCH /tags/{id}
+2. The method needs to:
+   - Accept a tag ID as a path parameter
+   - Accept an optional request body with name and color properties
+   - Return a Promise that resolves to the updated Tag type
+   - Handle error responses using the ExampleError class
+3. We'll use the existing fetch method and types from components.ts
+4. We'll add proper TypeScript types for both input and output
 
 Here's the implementation:
 
-```typescript:src/client.ts
+```typescript:client.ts
 // ... existing code ...
 
 export class ExampleClient {
@@ -416,27 +419,24 @@ export class ExampleClient {
    */
   async updateTag(
     id: string,
-    body: {
+    body?: {
       name?: string;
-      color?: 'red' | 'yellow' | 'green' | 'blue' | 'purple' | 'pink' | 'brown';
-      tag?: string; // deprecated
+      color?: types.Color;
+      /** @deprecated */
+      tag?: string;
     }
-  ): Promise<{
-    id: string;
-    name: string;
-    color: 'red' | 'yellow' | 'green' | 'blue' | 'purple' | 'pink' | 'brown';
-  }> {
+  ): Promise<types.Tag> {
     const response = await this.fetch({
       method: 'PATCH',
       path: `/tags/${id}`,
-      body,
+      body
     });
 
     if (!response.ok) {
       const errorData = await response.json();
       throw new ExampleError(errorData.error.message, {
         status: response.status,
-        data: errorData,
+        data: errorData
       });
     }
 
@@ -446,12 +446,3 @@ export class ExampleClient {
 
 // ... existing code ...
 ```
-
-The implementation includes:
-- A strongly typed method with proper input/output types
-- Error handling that throws ExampleError with status and data
-- Uses the existing fetch method from the base client
-- Proper documentation comment with route details
-- Handles both success and error responses
-- Works in both browser and Node.js environments
-- Includes all required type definitions inline

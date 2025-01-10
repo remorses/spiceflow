@@ -345,35 +345,42 @@ components:
               - error
 
 ---
-Let's break down the implementation step by step:
+Let's break this down step by step:
 
-1. We need to create a new method in the ExampleClient class for deleting a tag
-2. The method will take a single parameter - the tag ID (string)
-3. It will use the existing fetch method to make a DELETE request
-4. We need to define the response type for successful deletion
-5. We'll handle error responses using the existing ExampleError class
-6. The method should return the deleted tag ID on success
+1. We need to add a new method to the ExampleClient class for deleting tags
+2. The method will:
+   - Take a required `id` parameter (string)
+   - Use the DELETE HTTP method
+   - Return a Promise with the response type
+   - Handle error responses using the ExampleError class
+   - Use the existing fetch method for making the request
+3. The response type is defined in the OpenAPI schema as an object with an `id` property
+4. We'll add proper TypeScript types for both the input and output
+5. We'll add a JSDoc comment with the route details
 
 Here's the implementation:
 
-```typescript:exampleClient.ts
+```typescript:client.ts
+// ... existing code ...
+
 export class ExampleClient {
   // ... existing code ...
 
   /**
    * DELETE /tags/{id}
-   * Tags: Tags
-   * Delete a tag from the workspace. All existing links will still work, but they will no longer be associated with this tag.
+   * @tags Tags
+   * @summary Delete a tag
+   * @description Delete a tag from the workspace. All existing links will still work, but they will no longer be associated with this tag.
    */
   async deleteTag(id: string): Promise<{ id: string }> {
     const response = await this.fetch({
       method: 'DELETE',
-      path: `/tags/${id}`,
+      path: `/tags/${encodeURIComponent(id)}`,
     });
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new ExampleError(errorData.error?.message || 'Failed to delete tag', {
+      const errorData = await response.json().catch(() => null);
+      throw new ExampleError(errorData?.error?.message || 'Failed to delete tag', {
         status: response.status,
         data: errorData,
       });
@@ -383,16 +390,5 @@ export class ExampleClient {
   }
 }
 
-// Type declarations
-interface DeleteTagResponse {
-  id: string;
-}
-
-interface ErrorResponse {
-  error: {
-    code: string;
-    message: string;
-    doc_url?: string;
-  };
-}
+// ... existing code ...
 ```

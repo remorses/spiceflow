@@ -456,24 +456,21 @@ components:
         - registeredDomain
 
 ---
-Let's break down the implementation step by step:
+Let's break down what we need to implement for the PATCH /domains/{slug} route:
 
-1. First, we need to define the types for:
-   - Request body (UpdateDomainRequest)
-   - Response type (DomainSchema)
-   - Error types (based on the error responses)
-
+1. We need to create a new method in the ExampleClient class
 2. The method needs to:
-   - Accept the domain slug as a path parameter
-   - Accept an optional request body
-   - Make a PATCH request using the existing fetch method
-   - Handle the response and error cases
-
-3. We'll add the method to the ExampleClient class
+   - Accept a slug parameter (string) for the path
+   - Accept a request body with optional fields
+   - Return a Promise of DomainSchema
+   - Handle error responses
+3. We'll use the existing fetch method and types from components.ts
+4. We'll add proper TypeScript types for the request body
+5. We'll add JSDoc comments with route information
 
 Here's the implementation:
 
-```typescript:example-client.ts
+```typescript:client.ts
 // ... existing code ...
 
 export class ExampleClient {
@@ -487,59 +484,41 @@ export class ExampleClient {
    */
   async updateDomain(
     slug: string,
-    body?: {
-      slug?: string
-      expiredUrl?: string | null
-      notFoundUrl?: string | null
-      archived?: boolean
-      placeholder?: string | null
-      logo?: string | null
+    body: {
+      slug?: string;
+      expiredUrl?: string | null;
+      notFoundUrl?: string | null;
+      archived?: boolean;
+      placeholder?: string | null;
+      logo?: string | null;
     }
-  ): Promise<{
-    id: string
-    slug: string
-    verified: boolean
-    primary: boolean
-    archived: boolean
-    placeholder: string | null
-    expiredUrl: string | null
-    notFoundUrl: string | null
-    logo: string | null
-    createdAt: string
-    updatedAt: string
-    registeredDomain: {
-      id: string
-      createdAt: string
-      expiresAt: string
-    } | null
-  }> {
+  ): Promise<types.DomainSchema> {
     const response = await this.fetch({
       method: 'PATCH',
       path: `/domains/${slug}`,
-      body
-    })
+      body,
+    });
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => null)
-      throw new ExampleError(errorData?.error?.message || 'Failed to update domain', {
+      const errorData = await response.json();
+      throw new ExampleError(errorData.error?.message || 'Unknown error', {
         status: response.status,
-        data: errorData
-      })
+        data: errorData,
+      });
     }
 
-    return response.json()
+    return response.json();
   }
 }
 
 // ... existing code ...
 ```
 
-The implementation includes:
-- A well-documented method with OpenAPI route details
-- Strong typing for both input and output
-- Proper error handling using the existing ExampleError class
-- Integration with the existing fetch method
-- Support for all optional request body fields
-- Full response type based on the DomainSchema
-
-The code maintains compatibility with both browser and Node.js environments by using standard fetch API and avoiding platform-specific dependencies.
+The code adds a new `updateDomain` method to the ExampleClient class that:
+1. Takes a required slug parameter and an optional body object
+2. Makes a PATCH request to the /domains/{slug} endpoint
+3. Handles error responses by throwing an ExampleError
+4. Returns the parsed DomainSchema response on success
+5. Includes proper TypeScript types for both input and output
+6. Uses the existing fetch method and types from components.ts
+7. Includes JSDoc comments with route information

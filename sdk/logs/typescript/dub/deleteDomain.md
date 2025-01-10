@@ -347,28 +347,39 @@ components:
               - error
 
 ---
-Let's break down the implementation step by step:
+Let's break this down step by step:
 
-1. First, we need to define the response type for successful deletion (200 response)
-2. Then we need to define error response types based on the OpenAPI schema
-3. Create the method in the ExampleClient class that:
-   - Takes the slug parameter
-   - Makes a DELETE request
-   - Handles successful response
-   - Handles error responses
-4. Add type definitions for all responses
+1. We need to add a new method to the `ExampleClient` class for deleting a domain
+2. The method will:
+   - Take a `slug` parameter as a string (required path parameter)
+   - Make a DELETE request to `/domains/{slug}`
+   - Handle the successful response which returns an object with a `slug` property
+   - Handle all error responses using the existing error types from components.ts
+3. We'll use the existing `fetch` method in the client
+4. We'll add proper TypeScript types for both input and output
+5. We'll include JSDoc comments with the route details
 
 Here's the implementation:
 
-```typescript:example-client.ts
-// ... existing ExampleClient class ...
+```typescript:client.ts
+// ... existing code ...
 
-// DELETE /domains/{slug} - Domains
-async deleteDomain(slug: string): Promise<DeleteDomainResponse> {
-  try {
+export class ExampleClient {
+  // ... existing code ...
+
+  /**
+   * DELETE /domains/{slug}
+   * @tags Domains
+   * @summary Delete a domain
+   * @description Delete a domain from a workspace. It cannot be undone. This will also delete all the links associated with the domain.
+   * @param slug The domain name.
+   * @returns Promise<{ slug: string }>
+   * @throws {ExampleError}
+   */
+  async deleteDomain(slug: string): Promise<{ slug: string }> {
     const response = await this.fetch({
       method: 'DELETE',
-      path: `/domains/${slug}`,
+      path: `/domains/${encodeURIComponent(slug)}`,
     });
 
     if (!response.ok) {
@@ -380,36 +391,18 @@ async deleteDomain(slug: string): Promise<DeleteDomainResponse> {
     }
 
     return response.json();
-  } catch (error) {
-    if (error instanceof ExampleError) {
-      throw error;
-    }
-    throw new ExampleError('Unknown error occurred', { status: 500 });
   }
 }
 
-// ... existing ExampleError class and other code ...
-
-// Response types
-type DeleteDomainResponse = {
-  slug: string;
-};
-
-type ErrorResponse = {
-  error: {
-    code: string;
-    message: string;
-    doc_url?: string;
-  };
-};
-
-type BadRequestError = ErrorResponse;
-type UnauthorizedError = ErrorResponse;
-type ForbiddenError = ErrorResponse;
-type NotFoundError = ErrorResponse;
-type ConflictError = ErrorResponse;
-type InviteExpiredError = ErrorResponse;
-type UnprocessableEntityError = ErrorResponse;
-type RateLimitExceededError = ErrorResponse;
-type InternalServerError = ErrorResponse;
+// ... existing code ...
 ```
+
+The implementation:
+1. Adds a new `deleteDomain` method to the `ExampleClient` class
+2. Takes a required `slug` parameter
+3. Uses the existing `fetch` method to make the DELETE request
+4. Handles error responses by throwing an `ExampleError` with the error details
+5. Returns the successful response data which is typed as an object with a `slug` string property
+6. Includes proper JSDoc documentation with route details and tags
+7. Uses proper TypeScript types for both input and output
+8. Uses `encodeURIComponent` to safely encode the slug parameter in the URL

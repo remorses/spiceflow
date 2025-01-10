@@ -1459,6 +1459,31 @@ components:
         - projectId
         - programId
       title: Link
+    TagSchema:
+      type: object
+      properties:
+        id:
+          type: string
+          description: The unique ID of the tag.
+        name:
+          type: string
+          description: The name of the tag.
+        color:
+          type: string
+          enum:
+            - red
+            - yellow
+            - green
+            - blue
+            - purple
+            - pink
+            - brown
+          description: The color of the tag.
+      required:
+        - id
+        - name
+        - color
+      title: Tag
     linkGeoTargeting:
       type: object
       nullable: true
@@ -1967,131 +1992,89 @@ components:
       description: 'Geo targeting information for the short link in JSON format `{[COUNTRY]: https://example.com }`.'
 
 ---
-Let's break down the implementation step by step:
+Let me break down the implementation step by step:
 
-1. First, we need to define the types for the request and response:
-- Request body type based on the schema properties
-- Response type using the LinkSchema reference
-- Error types based on the possible error responses
+1. First, we need to define the request body type based on the OpenAPI schema. Since it's a PATCH request, all fields should be optional.
 
-2. We'll create a new method in the ExampleClient class that:
-- Takes linkId as a path parameter
-- Accepts a partial update object as the request body
-- Uses the existing fetch method to make the PATCH request
-- Handles successful responses and errors
-- Returns the updated link data
+2. The method will need to:
+   - Accept linkId as a path parameter
+   - Accept an optional request body with all possible link update fields
+   - Return a Promise that resolves to the updated Link type
+   - Handle potential errors using the ExampleError class
 
-3. The method will include proper typing for both input and output, with optional fields where appropriate.
+3. We'll use the existing fetch method from the ExampleClient class to make the API call.
+
+4. The response will be typed using the Link interface from components.ts.
 
 Here's the implementation:
 
-```typescript:example-client.ts
-// PATCH /links/{linkId} - Update a link
-async updateLink(
-  linkId: string,
-  body: {
-    url?: string;
-    domain?: string;
-    key?: string;
-    externalId?: string | null;
-    prefix?: string;
-    trackConversion?: boolean;
-    archived?: boolean;
-    publicStats?: boolean;
-    tagId?: string | null;
-    tagIds?: string | string[];
-    tagNames?: string | string[];
-    comments?: string | null;
-    expiresAt?: string | null;
-    expiredUrl?: string | null;
-    password?: string | null;
-    proxy?: boolean;
-    title?: string | null;
-    description?: string | null;
-    image?: string | null;
-    video?: string | null;
-    rewrite?: boolean;
-    ios?: string | null;
-    android?: string | null;
-    geo?: Record<string, string> | null;
-    doIndex?: boolean;
-    utm_source?: string | null;
-    utm_medium?: string | null;
-    utm_campaign?: string | null;
-    utm_term?: string | null;
-    utm_content?: string | null;
-    ref?: string | null;
-    programId?: string | null;
-    webhookIds?: string[] | null;
-  }
-): Promise<{
-  id: string;
-  domain: string;
-  key: string;
-  url: string;
-  trackConversion: boolean;
-  externalId: string | null;
-  archived: boolean;
-  expiresAt: string | null;
-  expiredUrl: string | null;
-  password: string | null;
-  proxy: boolean;
-  title: string | null;
-  description: string | null;
-  image: string | null;
-  video: string | null;
-  rewrite: boolean;
-  doIndex: boolean;
-  ios: string | null;
-  android: string | null;
-  geo: Record<string, string> | null;
-  publicStats: boolean;
-  tagId: string | null;
-  tags: Array<{ id: string; name: string }> | null;
-  webhookIds: string[];
-  comments: string | null;
-  shortLink: string;
-  qrCode: string;
-  utm_source: string | null;
-  utm_medium: string | null;
-  utm_campaign: string | null;
-  utm_term: string | null;
-  utm_content: string | null;
-  userId: string | null;
-  workspaceId: string;
-  clicks: number;
-  lastClicked: string | null;
-  leads: number;
-  sales: number;
-  saleAmount: number;
-  createdAt: string;
-  updatedAt: string;
-  projectId: string;
-  programId: string | null;
-}> {
-  const response = await this.fetch({
-    method: 'PATCH',
-    path: `/links/${encodeURIComponent(linkId)}`,
-    body,
-  });
+```typescript:client.ts
+// ... existing code ...
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new ExampleError(errorData.error?.message || 'Failed to update link', {
-      status: response.status,
-      data: errorData,
+export class ExampleClient {
+  // ... existing methods ...
+
+  /**
+   * PATCH /links/{linkId}
+   * @tags Links
+   * @summary Update a link
+   * @description Update a link for the authenticated workspace. If there's no change, returns it as it is.
+   */
+  async updateLink(
+    linkId: string,
+    body?: Partial<{
+      url: string;
+      domain: string;
+      key: string;
+      externalId: string | null;
+      prefix: string;
+      trackConversion: boolean;
+      archived: boolean;
+      publicStats: boolean;
+      tagId: string | null;
+      tagIds: string | string[];
+      tagNames: string | string[];
+      comments: string | null;
+      expiresAt: string | null;
+      expiredUrl: string | null;
+      password: string | null;
+      proxy: boolean;
+      title: string | null;
+      description: string | null;
+      image: string | null;
+      video: string | null;
+      rewrite: boolean;
+      ios: string | null;
+      android: string | null;
+      geo: types.LinkGeoTargeting;
+      doIndex: boolean;
+      utm_source: string | null;
+      utm_medium: string | null;
+      utm_campaign: string | null;
+      utm_term: string | null;
+      utm_content: string | null;
+      ref: string | null;
+      programId: string | null;
+      webhookIds: string[] | null;
+    }>
+  ): Promise<types.Link> {
+    const response = await this.fetch({
+      method: 'PATCH',
+      path: `/links/${encodeURIComponent(linkId)}`,
+      body
     });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new ExampleError(errorData.error?.message || 'Failed to update link', {
+        status: response.status,
+        data: errorData
+      });
+    }
+
+    return response.json();
   }
-
-  return response.json();
 }
-```
 
-The implementation includes:
-- Strong typing for both input and output
-- Proper error handling using the existing ExampleError class
-- URL encoding for the linkId parameter
-- Support for all optional fields in the request body
-- Full response type based on the LinkSchema
-- Proper handling of both successful and error responses
-- Compatibility with both browser and Node.js environments
+// ... existing code ...
+```

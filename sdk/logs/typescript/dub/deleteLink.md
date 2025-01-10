@@ -345,65 +345,51 @@ components:
               - error
 
 ---
-Let's break down the implementation step by step:
+Let's break this down step by step:
 
-1. We need to add a new method to the ExampleClient class for deleting a link
-2. The method will take a linkId parameter as a string
-3. It will make a DELETE request to `/links/{linkId}`
-4. The response type is an object with an `id` property
-5. We need to handle all possible error responses defined in the schema
-6. We'll use the existing fetch method from the base class
+1. We need to add a new method to the `ExampleClient` class for deleting a link
+2. The method will:
+   - Take a `linkId` parameter as a string
+   - Make a DELETE request to `/links/{linkId}`
+   - Handle the response which returns an object with an `id` property
+   - Handle potential errors using the existing `ExampleError` class
+3. We'll use the existing `fetch` method in the class to make the request
+4. We'll add proper TypeScript types for both the request and response
+5. We'll add the required JSDoc comment with route information
 
-Here's the implementation:
+Here's the code to add to `client.ts`:
 
-```typescript:example-client.ts
+```typescript:client.ts
+// ... existing code ...
+
 export class ExampleClient {
   // ... existing code ...
 
   /**
    * DELETE /links/{linkId}
-   * Tags: Links
-   * Delete a link for the authenticated workspace.
+   * @tags Links
+   * @summary Delete a link
+   * @description Delete a link for the authenticated workspace.
+   * @param linkId The id of the link to delete. You may use either `linkId` (obtained via `/links/info` endpoint) or `externalId` prefixed with `ext_`.
+   * @returns Promise<{ id: string }>
    */
   async deleteLink(linkId: string): Promise<{ id: string }> {
-    try {
-      const response = await this.fetch({
-        method: 'DELETE',
-        path: `/links/${encodeURIComponent(linkId)}`
+    const response = await this.fetch({
+      method: 'DELETE',
+      path: `/links/${encodeURIComponent(linkId)}`,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new ExampleError('Failed to delete link', {
+        status: response.status,
+        data: errorData,
       });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new ExampleError(errorData.error.message, {
-          status: response.status,
-          data: errorData
-        });
-      }
-
-      return response.json();
-    } catch (error) {
-      if (error instanceof ExampleError) {
-        throw error;
-      }
-      throw new ExampleError('Unknown error occurred', { status: 500 });
     }
+
+    return response.json();
   }
 }
 
-// Error types based on the schema
-type ApiError = {
-  code: string;
-  message: string;
-  doc_url?: string;
-};
-
-type BadRequestError = { error: ApiError & { code: 'bad_request' } };
-type UnauthorizedError = { error: ApiError & { code: 'unauthorized' } };
-type ForbiddenError = { error: ApiError & { code: 'forbidden' } };
-type NotFoundError = { error: ApiError & { code: 'not_found' } };
-type ConflictError = { error: ApiError & { code: 'conflict' } };
-type InviteExpiredError = { error: ApiError & { code: 'invite_expired' } };
-type UnprocessableEntityError = { error: ApiError & { code: 'unprocessable_entity' } };
-type RateLimitExceededError = { error: ApiError & { code: 'rate_limit_exceeded' } };
-type InternalServerError = { error: ApiError & { code: 'internal_server_error' } };
+// ... rest of existing code ...
 ```

@@ -1453,6 +1453,31 @@ components:
         - projectId
         - programId
       title: Link
+    TagSchema:
+      type: object
+      properties:
+        id:
+          type: string
+          description: The unique ID of the tag.
+        name:
+          type: string
+          description: The name of the tag.
+        color:
+          type: string
+          enum:
+            - red
+            - yellow
+            - green
+            - blue
+            - purple
+            - pink
+            - brown
+          description: The color of the tag.
+      required:
+        - id
+        - name
+        - color
+      title: Tag
     linkGeoTargeting:
       type: object
       nullable: true
@@ -1961,126 +1986,84 @@ components:
       description: 'Geo targeting information for the short link in JSON format `{[COUNTRY]: https://example.com }`.'
 
 ---
-Let's break down the implementation step by step:
+Let me break down the implementation step by step:
 
-1. First, we need to define the types for the request and response:
-- Create an interface for the request body based on the schema
-- Create an interface for the response using the LinkSchema reference
-- Create error response types based on the error schemas
+1. First, we need to define the request body type based on the OpenAPI schema. Looking at the schema, it's a complex object with many optional fields.
 
-2. Then implement the upsert method in the client class:
-- Use the existing fetch method
-- Set proper headers and content type
-- Handle error responses
-- Return the typed response
+2. The response type is already defined in components.ts as `Link`.
+
+3. We'll create a new method in the ExampleClient class that:
+   - Takes the request body as input
+   - Makes a PUT request to /links/upsert
+   - Handles the response and error cases
+   - Returns the parsed Link object
+
+4. The method needs to handle:
+   - Required URL field
+   - Optional fields with default values
+   - Complex nested objects like geo targeting
+   - Array fields like tagIds and webhookIds
 
 Here's the implementation:
 
-```typescript
+```typescript:client.ts
 // ... existing code ...
 
-interface UpsertLinkRequest {
-  url: string;
-  domain?: string;
-  key?: string;
-  externalId?: string | null;
-  prefix?: string;
-  trackConversion?: boolean;
-  archived?: boolean;
-  publicStats?: boolean;
-  tagId?: string | null;
-  tagIds?: string | string[];
-  tagNames?: string | string[];
-  comments?: string | null;
-  expiresAt?: string | null;
-  expiredUrl?: string | null;
-  password?: string | null;
-  proxy?: boolean;
-  title?: string | null;
-  description?: string | null;
-  image?: string | null;
-  video?: string | null;
-  rewrite?: boolean;
-  doIndex?: boolean;
-  ios?: string | null;
-  android?: string | null;
-  geo?: Record<string, string> | null;
-  utm_source?: string | null;
-  utm_medium?: string | null;
-  utm_campaign?: string | null;
-  utm_term?: string | null;
-  utm_content?: string | null;
-  ref?: string | null;
-  programId?: string | null;
-  webhookIds?: string[] | null;
-}
-
-interface LinkResponse {
-  id: string;
-  domain: string;
-  key: string;
-  url: string;
-  trackConversion: boolean;
-  externalId: string | null;
-  archived: boolean;
-  expiresAt: string | null;
-  expiredUrl: string | null;
-  password: string | null;
-  proxy: boolean;
-  title: string | null;
-  description: string | null;
-  image: string | null;
-  video: string | null;
-  rewrite: boolean;
-  doIndex: boolean;
-  ios: string | null;
-  android: string | null;
-  geo: Record<string, string> | null;
-  publicStats: boolean;
-  tagId: string | null;
-  tags: any[] | null;
-  webhookIds: string[];
-  comments: string | null;
-  shortLink: string;
-  qrCode: string;
-  utm_source: string | null;
-  utm_medium: string | null;
-  utm_campaign: string | null;
-  utm_term: string | null;
-  utm_content: string | null;
-  userId: string | null;
-  workspaceId: string;
-  clicks: number;
-  lastClicked: string | null;
-  leads: number;
-  sales: number;
-  saleAmount: number;
-  createdAt: string;
-  updatedAt: string;
-  projectId: string;
-  programId: string | null;
-}
-
 export class ExampleClient {
-  // ... existing code ...
+  // ... existing methods ...
 
   /**
    * PUT /links/upsert
-   * Upsert a link for the authenticated workspace by its URL
-   * Tags: Links
+   * @tags Links
+   * @summary Upsert a link
+   * @description Upsert a link for the authenticated workspace by its URL. If a link with the same URL already exists, return it (or update it if there are any changes). Otherwise, a new link will be created.
    */
-  async upsertLink(body: UpsertLinkRequest): Promise<LinkResponse> {
+  async upsertLink(body: {
+    url: string;
+    domain?: string;
+    key?: string;
+    externalId?: string | null;
+    prefix?: string;
+    trackConversion?: boolean;
+    archived?: boolean;
+    publicStats?: boolean;
+    tagId?: string | null;
+    tagIds?: string | string[];
+    tagNames?: string | string[];
+    comments?: string | null;
+    expiresAt?: string | null;
+    expiredUrl?: string | null;
+    password?: string | null;
+    proxy?: boolean;
+    title?: string | null;
+    description?: string | null;
+    image?: string | null;
+    video?: string | null;
+    rewrite?: boolean;
+    ios?: string | null;
+    android?: string | null;
+    geo?: types.LinkGeoTargeting;
+    doIndex?: boolean;
+    utm_source?: string | null;
+    utm_medium?: string | null;
+    utm_campaign?: string | null;
+    utm_term?: string | null;
+    utm_content?: string | null;
+    ref?: string | null;
+    programId?: string | null;
+    webhookIds?: string[] | null;
+  }): Promise<types.Link> {
     const response = await this.fetch({
       method: 'PUT',
       path: '/links/upsert',
-      body
+      body,
     });
 
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new ExampleError(errorData.error.message, {
+      const error = await response.json();
+      throw new ExampleError(error.error?.message || 'Failed to upsert link', {
         status: response.status,
-        data: errorData
+        data: error,
       });
     }
 
