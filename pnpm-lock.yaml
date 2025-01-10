@@ -79,6 +79,9 @@ importers:
       ai:
         specifier: ^4.0.30
         version: 4.0.31(react@19.0.0)(zod@3.24.1)
+      camelcase:
+        specifier: ^8.0.0
+        version: 8.0.0
       diff:
         specifier: ^7.0.0
         version: 7.0.0
@@ -1155,6 +1158,10 @@ packages:
   callsites@3.1.0:
     resolution: {integrity: sha512-P8BjAsXvZS+VIDUI11hHCQEv74YT67YUi5JJFNWIqL235sBmjX4+qx9Muvls5ivyNENctx46xQLQ3aTuE7ssaQ==}
     engines: {node: '>=6'}
+
+  camelcase@8.0.0:
+    resolution: {integrity: sha512-8WB3Jcas3swSvjIeA2yvCJ+Miyz5l1ZmB6HFb9R1317dt9LCQoswg/BGrmAmkWVEszSrrg4RwmO46qIm2OEnSA==}
+    engines: {node: '>=16'}
 
   chai@5.1.2:
     resolution: {integrity: sha512-aGtmf24DW6MLHHG5gCx4zaI3uBq3KRtxeVs0DjFH6Z0rDNbsvTxFASFvdj79pxjxZ8/5u3PIiN3IwEIQkiiuPw==}
@@ -3813,6 +3820,8 @@ snapshots:
       get-intrinsic: 1.2.7
 
   callsites@3.1.0: {}
+
+  camelcase@8.0.0: {}
 
   chai@5.1.2:
     dependencies:

@@ -4,9 +4,11 @@ import {
   JSONSchemaInput,
   TypeScriptTargetLanguage,
   PythonTargetLanguage,
+  Namer,
 } from 'quicktype-core'
 import { Language } from './types'
 import { OpenAPIV3 } from 'openapi-types'
+import { camelCase, pascalCase } from 'quicktype-core/dist/support/Strings'
 
 interface GenerateTypesFromSchemaOptions {
   language: Language
@@ -16,21 +18,34 @@ interface GenerateTypesFromSchemaOptions {
 export async function generateTypesFromSchema({
   language,
   openApiSchema,
-}: GenerateTypesFromSchemaOptions): Promise<string> {
+}: GenerateTypesFromSchemaOptions) {
   const schemas = openApiSchema.components?.schemas || {}
 
   // Set up quicktype input data
   const inputData = new InputData()
   const schemaInput = new JSONSchemaInput(undefined)
-
-  // Add each schema as a named type
-  for (const [name, schema] of Object.entries(schemas)) {
-    await schemaInput.addSource({
-      name,
-      //   uris: [`#/components/schemas/${name}`],
-      schema: JSON.stringify({ ...schema, components: { schemas } }),
-    })
+  // Create a single type object containing all schemas as refs
+  const allTypesSchema = {
+    type: 'object',
+    properties: Object.fromEntries(
+      Object.entries(schemas).map(([name, _]) => [
+        name,
+        { $ref: `#/components/schemas/${name}` },
+      ]),
+    ),
+    required: Object.keys(schemas),
+    components: { schemas },
   }
+  const exportedNames = Object.keys(schemas).map((x) => {
+    return pascalCase(x)
+  })
+
+  // Add single source with all types
+  await schemaInput.addSource({
+    name: 'all',
+
+    schema: JSON.stringify(allTypesSchema),
+  })
 
   inputData.addInput(schemaInput)
 
@@ -44,19 +59,21 @@ export async function generateTypesFromSchema({
   }
 
   // Generate the types
-  const { lines } = await quicktype({
+  const { lines, annotations } = await quicktype({
     inputData,
     lang: targetLanguage,
     leadingComments: [],
-
+    alphabetizeProperties: true,
     rendererOptions: {
       'just-types': true,
       'nice-property-names': 'true',
       'prefer-unions': 'true',
+      'python-version': '3.7',
+      'python-style': 'dataclasses',
       'classes-only': 'true',
     },
     indentation: '  ',
   })
 
-  return lines.join('\n')
+  return { typesCode: lines.join('\n'), exportedNames }
 }

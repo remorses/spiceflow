@@ -21,6 +21,7 @@
     "@ai-sdk/openai": "^1.0.13",
     "@fastify/deepmerge": "^2.0.1",
     "ai": "^4.0.30",
+    "camelcase": "^8.0.0",
     "diff": "^7.0.0",
     "eventsource-parser": "^3.0.0",
     "fast-json-stable-stringify": "^2.1.0",
