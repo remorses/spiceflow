@@ -27,13 +27,13 @@ paths:
       description: Always throws an error for testing error handling
 
 ---
-Let's break down what we need to implement:
+Let's break this down step by step:
 
-1. The route is GET /errorWithSchema
-2. It returns a response with a message field (required)
+1. The route is GET /errorWithSchema with tag "example-tag"
+2. The response schema is an object with a required "message" string field
 3. We need to create a type for the successful response
 4. We'll add the method to ExampleClientAsync class
-5. We'll need to handle error responses
+5. We'll handle error responses using ExampleError
 6. We'll use the existing fetch method for making requests
 
 Here's the implementation:
@@ -45,41 +45,36 @@ class ExampleClientAsync:
     # ... existing code ...
 
     # GET /errorWithSchema
-    # tags: example-tag
-    async def get_error_with_schema(self) -> str:
-        """
-        Always throws an error for testing error handling
-        """
+    # Method: GET
+    # Tags: example-tag
+    async def get_error_with_schema(self) -> Dict[str, str]:
+        """Always throws an error for testing error handling"""
         response = await self.fetch(
             method="GET",
-            path="/errorWithSchema"
+            path="/errorWithSchema",
         )
         
         if response.status != 200:
             try:
                 error_data = await response.json()
-                raise ExampleError(
-                    error=f"Request failed with status {response.status}",
-                    status=response.status,
-                    data=error_data
-                )
-            except ValueError:
-                raise ExampleError(
-                    error=f"Request failed with status {response.status}",
-                    status=response.status
-                )
-        
-        response_data = await response.json()
-        return response_data["message"]
+            except:
+                error_data = None
+            raise ExampleError(
+                error=f"Request failed with status {response.status}",
+                status=response.status,
+                data=error_data,
+            )
+            
+        return await response.json()
 
 # ... existing code ...
 ```
 
 The implementation:
-1. Added a new async method `get_error_with_schema` that returns a string (the message from the response)
+1. Adds a new async method `get_error_with_schema`
 2. Uses the existing fetch method to make the GET request
-3. Handles error responses by raising ExampleError with status and data
-4. Returns the message from successful responses
-5. Includes a docstring with the route information and description
-6. Uses proper type hints for the return value
-7. Handles both JSON and non-JSON error responses
+3. Handles error responses by raising ExampleError
+4. Returns the parsed JSON response for successful requests
+5. Includes proper type hints for the return value
+6. Adds a docstring with the route description
+7. Includes the route path, method and tags in the comment above the method

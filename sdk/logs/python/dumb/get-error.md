@@ -19,18 +19,14 @@ paths:
       description: Always throws an error for testing error handling
 
 ---
-Let's break down what we need to implement:
+Let's break this down step by step:
 
-1. We need to add a new async method to the `ExampleClientAsync` class for the GET /error endpoint
-2. The method should:
-   - Use the existing `fetch` method
-   - Handle error responses
-   - Include proper type hints
-3. The endpoint:
-   - Path: /error
-   - Method: GET
-   - Tags: example-tag
-   - Always throws an error (so we need to handle error responses)
+1. The route is GET /error with tag "example-tag"
+2. It has no request parameters or body
+3. It always throws an error, so we need to handle error responses
+4. We'll add this as a method to the ExampleClientAsync class
+5. We'll use the existing fetch method and ExampleError class
+6. No specific types are needed from types.py since the endpoint has no defined schemas
 
 Here's the implementation:
 
@@ -41,37 +37,25 @@ class ExampleClientAsync:
     # ... existing code ...
 
     # GET /error
+    # Method: GET
     # Tags: example-tag
     async def get_error(self) -> None:
-        """
-        Error Endpoint
-        Always throws an error for testing error handling
-        """
-        response = await self.fetch(
-            method="GET",
-            path="/error"
-        )
+        """Always throws an error for testing error handling"""
+        response = await self.fetch("GET", "/error")
         
         if response.status >= 400:
             try:
                 error_data = await response.json()
-            except:
-                error_data = None
-            raise ExampleError(
-                error=f"Request failed with status {response.status}",
-                status=response.status,
-                data=error_data
-            )
+                raise ExampleError(
+                    error=error_data.get("error", "Unknown error"),
+                    status=response.status,
+                    data=error_data
+                )
+            except (json.JSONDecodeError, aiohttp.ContentTypeError):
+                raise ExampleError(
+                    error=await response.text(),
+                    status=response.status
+                )
 
 # ... existing code ...
 ```
-
-The implementation:
-1. Adds a new method `get_error` with proper type hints
-2. Uses the existing `fetch` method to make the GET request
-3. Includes error handling that checks for status codes >= 400
-4. Attempts to parse error response data if available
-5. Raises the existing `ExampleError` with appropriate details
-6. Includes a docstring with the endpoint description
-7. Follows the async/await pattern
-8. Uses the existing error handling infrastructure

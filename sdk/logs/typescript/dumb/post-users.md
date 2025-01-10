@@ -48,13 +48,14 @@ paths:
 Let's break this down step by step:
 
 1. We need to add a new method to the `ExampleClient` class for the POST /users endpoint
-2. The request body requires name, email, and age fields
-3. The response returns a message string
-4. We'll use the existing fetch method for making the API call
-5. We'll add proper TypeScript types for both request and response
-6. We'll include error handling using the existing ExampleError class
+2. The endpoint requires:
+   - Request body with name, email, and age (all required)
+   - Returns a response with a message string
+3. We'll use the existing `fetch` method in the class
+4. We'll need to create type interfaces for both the request and response
+5. We'll add proper error handling using the existing `ExampleError` class
 
-Here's the code to add to client.ts:
+Here's the code to add to `client.ts`:
 
 ```typescript:client.ts
 // ... existing code ...
@@ -64,21 +65,21 @@ export class ExampleClient {
 
   /**
    * POST /users
-   * Tags: users
+   * @tags users
    */
   async createUser(body: { name: string; email: string; age: number }): Promise<{ message: string }> {
     try {
       const response = await this.fetch({
         method: 'POST',
         path: '/users',
-        body
+        body,
       });
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         throw new ExampleError('Failed to create user', {
           status: response.status,
-          data: errorData
+          data: errorData,
         });
       }
 
@@ -88,18 +89,20 @@ export class ExampleClient {
         throw error;
       }
       throw new ExampleError('Network error while creating user', {
-        status: 500
+        status: 500,
+        data: error,
       });
     }
   }
 }
 
-// ... rest of existing code ...
+// ... existing code ...
 ```
 
 The code adds a new `createUser` method to the `ExampleClient` class that:
-- Takes a properly typed request body
-- Makes a POST request to /users
-- Handles both successful and error responses
-- Returns the typed response
-- Uses the existing fetch infrastructure and error handling
+- Takes a strongly typed body parameter
+- Returns a Promise with the response type
+- Includes proper error handling
+- Uses the existing fetch infrastructure
+- Has proper JSDoc documentation with route and tags
+- Maintains compatibility with both browser and Node.js environments

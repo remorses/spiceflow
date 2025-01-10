@@ -26,14 +26,11 @@ paths:
 Let's break this down step by step:
 
 1. We need to add a new async method to the `ExampleClientAsync` class
-2. The method will handle GET requests to `/users/{id}`
-3. The method needs to:
-   - Accept a required `id` parameter (string)
-   - Make an async HTTP request using aiohttp
-   - Handle potential errors
-   - Return the response data
-4. We'll use the existing `fetch` method to handle the actual HTTP request
-5. We'll add proper type hints and documentation
+2. The route is GET /users/{id} with a required path parameter
+3. We'll use the existing `fetch` method to make the API call
+4. We'll add proper type hints and error handling
+5. We'll add the required docstring with route information
+6. Since there are no response schemas defined, we'll return Any type
 
 Here's the implementation:
 
@@ -43,19 +40,18 @@ Here's the implementation:
 class ExampleClientAsync:
     # ... existing code ...
 
-    # GET /users/{id}
-    # tags: example-tag
+    # GET /users/{id} - example-tag
     async def get_user(self, id: str) -> Any:
         """Get user by ID
         
         Args:
-            id: The user ID to retrieve
+            id: User ID to retrieve
             
         Returns:
-            The user data
+            Any: The user data
             
         Raises:
-            ExampleError: If the request fails
+            ExampleError: If the API returns an error
         """
         response = await self.fetch(
             method="GET",
@@ -63,9 +59,9 @@ class ExampleClientAsync:
         )
         
         if response.status != 200:
-            error_data = await response.json() if response.content else None
+            error_data = await response.json()
             raise ExampleError(
-                error=f"Failed to get user: {response.status}",
+                error=f"Failed to get user: {error_data.get('message', 'Unknown error')}",
                 status=response.status,
                 data=error_data
             )
@@ -74,3 +70,11 @@ class ExampleClientAsync:
 
 # ... existing code ...
 ```
+
+The implementation adds a new `get_user` method that:
+- Takes a required `id` parameter
+- Makes a GET request to the /users/{id} endpoint
+- Handles error responses by raising ExampleError
+- Returns the parsed JSON response for successful requests
+- Includes proper type hints and documentation
+- Uses the existing fetch method for making the API call

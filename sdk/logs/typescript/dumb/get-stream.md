@@ -41,11 +41,12 @@ paths:
 ---
 Let's break down what we need to implement:
 
-1. The route is GET /stream with SSE streaming
-2. It returns an object with `count` (number) and `timestamp` (number) properties
-3. We need to use the existing `streamSSEResponse` function
-4. We'll add a new method to the ExampleClient class
-5. We'll create a specific type for the response data
+1. We need to add a new method to handle the GET /stream endpoint
+2. The endpoint returns a stream of Server-Sent Events (SSE)
+3. The response schema is defined with count (number) and timestamp (number) properties
+4. We'll use the existing `streamSSEResponse` function to handle the streaming
+5. We'll create a specific type for the stream response
+6. We'll add proper error handling
 
 Here's the implementation:
 
@@ -57,9 +58,8 @@ export class ExampleClient {
 
   /**
    * GET /stream
-   * @tags example-tag
-   * @summary Stream Endpoint
-   * @description Returns an async generator when used in the sdk
+   * Tags: example-tag
+   * Returns an async generator when used in the sdk
    * - Uses server sent events
    * - But also has a response schema
    */
@@ -70,26 +70,27 @@ export class ExampleClient {
       headers: {
         Accept: 'text/event-stream',
       },
-    });
+    })
 
     if (!response.ok) {
-      throw new ExampleError('Failed to start stream', {
+      const error = await response.json().catch(() => null)
+      throw new ExampleError(error?.message || 'Failed to start stream', {
         status: response.status,
-        data: await response.json().catch(() => undefined),
-      });
+        data: error,
+      })
     }
 
-    yield* streamSSEResponse(response);
+    yield* streamSSEResponse(response)
   }
 }
 
-// ... existing code ...
+// ... rest of existing code ...
 ```
 
-The implementation:
-1. Added a new `stream` method to ExampleClient
-2. Method is async generator that yields objects with count and timestamp
-3. Uses existing fetch method with proper headers for SSE
-4. Handles error cases by throwing ExampleError
-5. Uses existing streamSSEResponse function to handle the SSE stream
-6. Includes proper JSDoc comments with route information
+This implementation:
+1. Adds a new `stream` method that returns an async generator
+2. Uses the existing fetch method with proper headers for SSE
+3. Includes error handling for non-200 responses
+4. Uses the existing streamSSEResponse function to handle the streaming
+5. Returns properly typed stream events with count and timestamp properties
+6. Maintains compatibility with both browser and Node.js environments

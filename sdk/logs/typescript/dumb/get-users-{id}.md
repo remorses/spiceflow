@@ -26,19 +26,22 @@ paths:
 Let's break this down step by step:
 
 1. We need to add a new method to the `ExampleClient` class for the GET /users/{id} endpoint
-2. The endpoint has one required path parameter: `id` (string)
-3. The response type is not specified in the OpenAPI schema, so we'll use `any` as the return type
-4. We'll use the existing `fetch` method from the class
-5. We'll add proper error handling using the existing `ExampleError` class
-6. We'll add a JSDoc comment with the route details
+2. The method needs to:
+   - Accept the `id` parameter as a string
+   - Use the existing `fetch` method
+   - Handle potential errors
+   - Return a Promise with the response
+3. Since there's no response schema defined in the OpenAPI spec, we'll use `any` as the return type
+4. We'll add proper JSDoc comments with the route information
+5. We'll use the existing error handling infrastructure
 
-Here's the implementation:
+Here's the code to add:
 
 ```typescript:client.ts
 // ... existing code ...
 
 export class ExampleClient {
-  // ... existing code ...
+  // ... existing methods ...
 
   /**
    * GET /users/{id}
@@ -71,7 +74,5 @@ export class ExampleClient {
   }
 }
 
-// ... existing code ...
+// ... rest of existing code ...
 ```
-
-The code maintains compatibility with both Node.js and browser environments, uses the existing fetch implementation, and includes proper error handling. The response type is `any` since the OpenAPI schema doesn't specify a response schema.

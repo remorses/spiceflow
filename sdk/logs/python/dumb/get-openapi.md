@@ -15,16 +15,15 @@ paths:
           description: ''
 
 ---
-Let's break this down step by step:
+Let's break down what we need to add:
 
-1. The route is a simple GET request to `/openapi` with no parameters or request body
-2. It returns a 200 response with no specified schema
-3. We'll add a new async method to the `ExampleClientAsync` class
-4. Since there's no response schema defined, we'll return the raw response
-5. We'll add proper type hints and error handling
-6. We'll include a docstring with the route information
+1. We need to add a new method to the `ExampleClientAsync` class for the GET /openapi route
+2. The method should be async and use the existing fetch method
+3. The route has no parameters or request body
+4. The response is untyped in the OpenAPI spec, so we'll return Any
+5. We'll add proper type hints and documentation
 
-Here's the code to add to `client.py`:
+Here's the code to add:
 
 ```python:client.py
 # ... existing code ...
@@ -33,7 +32,7 @@ class ExampleClientAsync:
     # ... existing code ...
 
     # GET /openapi
-    # Tags: 
+    # tags: 
     async def get_openapi(self) -> Any:
         """Fetch OpenAPI specification
         
@@ -48,16 +47,20 @@ class ExampleClientAsync:
         if response.status != 200:
             raise ExampleError(
                 error=f"Failed to fetch OpenAPI specification: {response.status}",
-                status=response.status
+                status=response.status,
+                data=await response.text()
             )
             
-        try:
-            return await response.json()
-        except Exception as e:
-            raise ExampleError(
-                error=f"Failed to parse OpenAPI specification: {str(e)}",
-                status=response.status
-            )
+        return await response.json()
 
 # ... existing code ...
 ```
+
+The method is added to the existing `ExampleClientAsync` class and follows all the requirements:
+- Uses async/await
+- Includes type hints
+- Handles error cases
+- Uses the existing fetch method
+- Includes proper documentation
+- Returns the parsed JSON response
+- Throws ExampleError for non-200 responses

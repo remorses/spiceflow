@@ -18,10 +18,10 @@ paths:
 Let's break this down step by step:
 
 1. The route is a simple GET request to `/openapi`
-2. No request body or query parameters are defined in the OpenAPI spec
-3. No specific response schema is defined, so we'll use `any` as the return type
+2. No request body or query parameters are defined
+3. No specific response schema is defined, so we'll use `any` for the response type
 4. We'll add the method to the `ExampleClient` class
-5. We'll follow the existing pattern of using the `fetch` helper method
+5. We'll follow the existing pattern of using the `fetch` method
 6. We'll add proper error handling using the existing `ExampleError` class
 
 Here's the implementation:
@@ -37,23 +37,29 @@ export class ExampleClient {
    * @tags openapi
    */
   async getOpenApi(): Promise<any> {
-    const response = await this.fetch({
-      method: 'GET',
-      path: '/openapi',
-    })
-
-    if (!response.ok) {
-      throw new ExampleError('Failed to fetch OpenAPI spec', {
-        status: response.status,
-        data: await response.json().catch(() => undefined),
+    try {
+      const response = await this.fetch({
+        method: 'GET',
+        path: '/openapi',
       })
-    }
 
-    return response.json()
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new ExampleError('Request failed', {
+          status: response.status,
+          data: errorData,
+        })
+      }
+
+      return response.json()
+    } catch (error) {
+      if (error instanceof ExampleError) {
+        throw error
+      }
+      throw new ExampleError('Network error', { status: 500 })
+    }
   }
 }
 
-// ... rest of existing code ...
+// ... existing code ...
 ```
-
-The implementation follows the existing patterns in the codebase and adds proper error handling while maintaining compatibility with both browser and Node.js environments. The method is fully typed and includes the required documentation comment with route information.

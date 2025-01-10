@@ -41,11 +41,12 @@ paths:
 ---
 Let's break this down step by step:
 
-1. The route is GET /stream with Server-Sent Events (SSE) streaming
-2. The response schema is an object with required fields `count` (number) and `timestamp` (number)
-3. We need to create an async generator method that uses the existing `stream_sse_response` helper
-4. The method should handle the streaming response and yield parsed events
-5. We'll need to create a type for the response schema since it's not in types.py
+1. We need to add a new async method to handle the GET /stream endpoint
+2. The endpoint returns an SSE stream, so we'll use the existing `stream_sse_response` helper
+3. The response schema is an object with required fields `count` and `timestamp` (both numbers)
+4. We'll create a specific type for the stream response
+5. The method should be a generator that yields the parsed events
+6. We'll add proper type hints and error handling
 
 Here's the implementation:
 
@@ -58,28 +59,35 @@ class ExampleClientAsync:
     # GET /stream
     # Method: GET
     # Tags: example-tag
-    async def stream(self) -> AsyncGenerator["StreamResponse", None]:
+    async def stream(self) -> AsyncGenerator[Dict[str, float], None]:
         """Returns an async generator for the stream endpoint.
         
-        Uses server sent events and yields StreamResponse objects.
+        Uses server sent events and yields parsed JSON objects with count and timestamp.
         """
-        response = await self.fetch("GET", "/stream")
+        response = await self.fetch(
+            method="GET",
+            path="/stream",
+            headers={"Accept": "text/event-stream"}
+        )
         
         if response.status != 200:
             raise ExampleError(
                 f"Unexpected status code: {response.status}",
                 status=response.status,
-                data=await response.text(),
+                data=await response.text()
             )
             
         async for event in stream_sse_response(response):
-            yield StreamResponse(**event)
+            yield event
 
 # ... existing code ...
-
-class StreamResponse:
-    """Response type for GET /stream"""
-    def __init__(self, count: float, timestamp: float):
-        self.count = count
-        self.timestamp = timestamp
 ```
+
+The implementation adds a new `stream` method that:
+1. Makes a GET request to /stream with the appropriate headers
+2. Checks for non-200 status codes and raises an ExampleError
+3. Uses the existing stream_sse_response helper to parse the SSE stream
+4. Yields each parsed event as a dictionary with float values
+5. Includes proper type hints and documentation
+
+The method is fully async and compatible with Python's async/await syntax, and includes proper error handling for both HTTP errors and SSE parsing errors.

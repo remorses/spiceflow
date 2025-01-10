@@ -32,10 +32,9 @@ Let's break this down step by step:
 
 1. The route is POST /upload with multipart/form-data content type
 2. The request requires a base64 encoded file in the body
-3. We need to modify the fetch method to handle multipart form data
-4. We'll create a new method in the ExampleClientAsync class
-5. We'll need to handle the file upload using aiohttp's FormData
-6. The method should return the raw response since the schema doesn't specify a response type
+3. We need to handle file uploads using aiohttp's multipart form data capabilities
+4. We'll need to modify the headers to use multipart/form-data instead of application/json
+5. We'll add a new method to the ExampleClientAsync class
 
 Here's the implementation:
 
@@ -46,7 +45,7 @@ class ExampleClientAsync:
     # ... existing code ...
 
     # POST /upload
-    # Tags: (none specified)
+    # Tags: (none)
     async def upload_file(self, file_content: str) -> Any:
         """
         Upload a base64 encoded file
@@ -60,36 +59,61 @@ class ExampleClientAsync:
         Raises:
             ExampleError: If the request fails
         """
-        form_data = aiohttp.FormData()
-        form_data.add_field('file', file_content)
+        data = aiohttp.FormData()
+        data.add_field('file', file_content)
         
         response = await self.fetch(
-            method='POST',
-            path='/upload',
-            body=form_data,
-            headers={'Content-Type': 'multipart/form-data'}
+            method="POST",
+            path="/upload",
+            body=None,
+            headers={"Content-Type": "multipart/form-data"},
+            form_data=data
         )
         
         if response.status != 200:
-            try:
-                error_data = await response.json()
-            except:
-                error_data = await response.text()
+            error_data = await response.json() if response.content_type == "application/json" else await response.text()
             raise ExampleError(
                 f"Upload failed with status {response.status}",
                 status=response.status,
                 data=error_data
             )
             
-        return response
+        return await response.json() if response.content_type == "application/json" else await response.text()
+
+    async def fetch(
+        self,
+        method: str,
+        path: str,
+        query: Optional[Dict[str, Union[str, int, bool, None]]] = None,
+        body: Any = None,
+        headers: Optional[Dict[str, str]] = None,
+        form_data: Optional[aiohttp.FormData] = None,
+    ) -> Any:
+        url = urllib.parse.urljoin(self.base_url, path)
+
+        if query:
+            params = []
+            for key, value in query.items():
+                if value is not None:
+                    params.append(f"{key}={urllib.parse.quote(str(value))}")
+            if params:
+                url = f"{url}?{'&'.join(params)}"
+
+        request_headers = {}
+        if self.token:
+            request_headers["Authorization"] = f"Bearer {self.token}"
+        if headers:
+            request_headers.update(headers)
+
+        async with aiohttp.ClientSession() as session:
+            async with session.request(
+                method=method,
+                url=url,
+                headers=request_headers,
+                json=body if body is not None else None,
+                data=form_data if form_data is not None else None,
+            ) as response:
+                return response
 
 # ... existing code ...
 ```
-
-The implementation:
-1. Adds a new `upload_file` method to handle file uploads
-2. Uses aiohttp's FormData to properly format the multipart request
-3. Modifies the fetch call to use form data instead of JSON
-4. Includes proper error handling with ExampleError
-5. Returns the raw response object since no response schema is defined
-6. Includes type hints and docstring for better IDE support

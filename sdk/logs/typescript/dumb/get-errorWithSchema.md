@@ -30,13 +30,16 @@ paths:
 Let's break down what we need to implement:
 
 1. The route is GET /errorWithSchema
-2. It returns a 200 response with a schema containing a required message string
-3. It has a default error response
-4. It's tagged with "example-tag"
-5. We need to add a method to the ExampleClient class
-6. We'll use the existing fetch method for making the request
-7. We need to handle both success and error cases
-8. We'll create specific types for the response
+2. It returns a 200 response with a schema containing a required "message" string
+3. It can return other error responses (default case)
+4. We need to handle error responses using the existing ExampleError class
+5. We'll add this as a method to the ExampleClient class
+
+The method will:
+- Use the existing fetch method
+- Handle response parsing
+- Throw ExampleError for non-200 responses
+- Return the typed response for 200 status
 
 Here's the implementation:
 
@@ -48,33 +51,40 @@ export class ExampleClient {
 
   /**
    * GET /errorWithSchema
-   * @tags example-tag
-   * @description Always throws an error for testing error handling
+   * Tags: example-tag
+   * Description: Always throws an error for testing error handling
    */
-  async getErrorWithSchema(): Promise<{ message: string }> {
-    try {
-      const response = await this.fetch({
-        method: 'GET',
-        path: '/errorWithSchema',
-      });
+  async errorWithSchema(): Promise<{ message: string }> {
+    const response = await this.fetch({
+      method: 'GET',
+      path: '/errorWithSchema',
+    })
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new ExampleError('Request failed', {
-          status: response.status,
-          data: errorData,
-        });
+    if (!response.ok) {
+      let errorData: any
+      try {
+        errorData = await response.json()
+      } catch (error) {
+        errorData = await response.text()
       }
-
-      return response.json();
-    } catch (error) {
-      if (error instanceof ExampleError) {
-        throw error;
-      }
-      throw new ExampleError('Network error', { status: 500 });
+      throw new ExampleError('Request failed', {
+        status: response.status,
+        data: errorData,
+      })
     }
+
+    return response.json()
   }
 }
 
 // ... existing code ...
 ```
+
+The implementation adds a new method `errorWithSchema` to the ExampleClient class that:
+1. Makes a GET request to /errorWithSchema
+2. Checks if response is not OK (status >= 400)
+3. Attempts to parse error response as JSON, falls back to text
+4. Throws ExampleError with status and error data
+5. Returns parsed JSON response for successful requests
+
+The method is fully typed with the expected return type `{ message: string }` based on the OpenAPI schema.

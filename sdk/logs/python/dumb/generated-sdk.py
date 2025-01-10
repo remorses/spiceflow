@@ -18,6 +18,7 @@ class ExampleClientAsync:
         query: Optional[Dict[str, Union[str, int, bool, None]]] = None,
         body: Any = None,
         headers: Optional[Dict[str, str]] = None,
+        form_data: Optional[aiohttp.FormData] = None,
     ) -> Any:
         url = urllib.parse.urljoin(self.base_url, path)
 
@@ -29,7 +30,7 @@ class ExampleClientAsync:
             if params:
                 url = f"{url}?{'&'.join(params)}"
 
-        request_headers = {"Content-Type": "application/json"}
+        request_headers = {}
         if self.token:
             request_headers["Authorization"] = f"Bearer {self.token}"
         if headers:
@@ -41,62 +42,69 @@ class ExampleClientAsync:
                 url=url,
                 headers=request_headers,
                 json=body if body is not None else None,
+                data=form_data if form_data is not None else None,
             ) as response:
                 return response
 
-    # GET / - tags: one
+    # GET / - x-fern-sdk-group-name: one, x-fern-sdk-method-name: take
     async def take(self) -> Any:
         """Make a GET request to the root endpoint"""
-        response = await self.fetch(
-            method="GET",
-            path="/",
-        )
-        
-        if response.status != 200:
-            raise ExampleError(
-                error=f"Unexpected status code: {response.status}",
-                status=response.status,
-                data=await response.text(),
+        try:
+            response = await self.fetch(
+                method="GET",
+                path="/",
             )
             
-        try:
+            if response.status != 200:
+                raise ExampleError(
+                    error=f"Unexpected status code: {response.status}",
+                    status=response.status,
+                    data=await response.text(),
+                )
+                
             return await response.json()
-        except aiohttp.ContentTypeError:
-            return await response.text()
+        except aiohttp.ClientError as e:
+            raise ExampleError(
+                error=f"Network error: {str(e)}",
+                status=500,
+            ) from e
 
     # GET /stream
     # Method: GET
     # Tags: example-tag
-    async def stream(self) -> AsyncGenerator["StreamResponse", None]:
+    async def stream(self) -> AsyncGenerator[Dict[str, float], None]:
         """Returns an async generator for the stream endpoint.
         
-        Uses server sent events and yields StreamResponse objects.
+        Uses server sent events and yields parsed JSON objects with count and timestamp.
         """
-        response = await self.fetch("GET", "/stream")
+        response = await self.fetch(
+            method="GET",
+            path="/stream",
+            headers={"Accept": "text/event-stream"}
+        )
         
         if response.status != 200:
             raise ExampleError(
                 f"Unexpected status code: {response.status}",
                 status=response.status,
-                data=await response.text(),
+                data=await response.text()
             )
             
         async for event in stream_sse_response(response):
-            yield StreamResponse(**event)
+            yield event
 
-    # GET /users/{id}
-    # tags: example-tag
+    # GET /users/{id} - example-tag
     async def get_user(self, id: str) -> Any:
         """Get user by ID
         
         Args:
-            id: The user ID to retrieve
+            id: User ID to retrieve
             
         Returns:
-            The user data
+            Any: The user data
             
         Raises:
-            ExampleError: If the request fails
+            ExampleError: If the API returns an error
         """
         response = await self.fetch(
             method="GET",
@@ -104,9 +112,9 @@ class ExampleClientAsync:
         )
         
         if response.status != 200:
-            error_data = await response.json() if response.content else None
+            error_data = await response.json()
             raise ExampleError(
-                error=f"Failed to get user: {response.status}",
+                error=f"Failed to get user: {error_data.get('message', 'Unknown error')}",
                 status=response.status,
                 data=error_data
             )
@@ -131,12 +139,12 @@ class ExampleClientAsync:
             age: User's age
             
         Returns:
-            The success message from the API
+            Success message from the API
             
         Raises:
             ExampleError: If the API returns an error
         """
-        request_body = {
+        body = {
             "name": name,
             "email": email,
             "age": age,
@@ -145,7 +153,7 @@ class ExampleClientAsync:
         response = await self.fetch(
             method="POST",
             path="/users",
-            body=request_body,
+            body=body,
         )
         
         if response.status != 200:
@@ -163,18 +171,37 @@ class ExampleClientAsync:
         return response_data["message"]
 
     # GET /error
+    # Method: GET
     # Tags: example-tag
     async def get_error(self) -> None:
-        """
-        Error Endpoint
-        Always throws an error for testing error handling
-        """
-        response = await self.fetch(
-            method="GET",
-            path="/error"
-        )
+        """Always throws an error for testing error handling"""
+        response = await self.fetch("GET", "/error")
         
         if response.status >= 400:
+            try:
+                error_data = await response.json()
+                raise ExampleError(
+                    error=error_data.get("error", "Unknown error"),
+                    status=response.status,
+                    data=error_data
+                )
+            except (json.JSONDecodeError, aiohttp.ContentTypeError):
+                raise ExampleError(
+                    error=await response.text(),
+                    status=response.status
+                )
+
+    # GET /errorWithSchema
+    # Method: GET
+    # Tags: example-tag
+    async def get_error_with_schema(self) -> Dict[str, str]:
+        """Always throws an error for testing error handling"""
+        response = await self.fetch(
+            method="GET",
+            path="/errorWithSchema",
+        )
+        
+        if response.status != 200:
             try:
                 error_data = await response.json()
             except:
@@ -182,39 +209,13 @@ class ExampleClientAsync:
             raise ExampleError(
                 error=f"Request failed with status {response.status}",
                 status=response.status,
-                data=error_data
+                data=error_data,
             )
-
-    # GET /errorWithSchema
-    # tags: example-tag
-    async def get_error_with_schema(self) -> str:
-        """
-        Always throws an error for testing error handling
-        """
-        response = await self.fetch(
-            method="GET",
-            path="/errorWithSchema"
-        )
-        
-        if response.status != 200:
-            try:
-                error_data = await response.json()
-                raise ExampleError(
-                    error=f"Request failed with status {response.status}",
-                    status=response.status,
-                    data=error_data
-                )
-            except ValueError:
-                raise ExampleError(
-                    error=f"Request failed with status {response.status}",
-                    status=response.status
-                )
-        
-        response_data = await response.json()
-        return response_data["message"]
+            
+        return await response.json()
 
     # POST /upload
-    # Tags: (none specified)
+    # Tags: (none)
     async def upload_file(self, file_content: str) -> Any:
         """
         Upload a base64 encoded file
@@ -228,31 +229,29 @@ class ExampleClientAsync:
         Raises:
             ExampleError: If the request fails
         """
-        form_data = aiohttp.FormData()
-        form_data.add_field('file', file_content)
+        data = aiohttp.FormData()
+        data.add_field('file', file_content)
         
         response = await self.fetch(
-            method='POST',
-            path='/upload',
-            body=form_data,
-            headers={'Content-Type': 'multipart/form-data'}
+            method="POST",
+            path="/upload",
+            body=None,
+            headers={"Content-Type": "multipart/form-data"},
+            form_data=data
         )
         
         if response.status != 200:
-            try:
-                error_data = await response.json()
-            except:
-                error_data = await response.text()
+            error_data = await response.json() if response.content_type == "application/json" else await response.text()
             raise ExampleError(
                 f"Upload failed with status {response.status}",
                 status=response.status,
                 data=error_data
             )
             
-        return response
+        return await response.json() if response.content_type == "application/json" else await response.text()
 
     # GET /openapi
-    # Tags: 
+    # tags: 
     async def get_openapi(self) -> Any:
         """Fetch OpenAPI specification
         
@@ -267,16 +266,11 @@ class ExampleClientAsync:
         if response.status != 200:
             raise ExampleError(
                 error=f"Failed to fetch OpenAPI specification: {response.status}",
-                status=response.status
+                status=response.status,
+                data=await response.text()
             )
             
-        try:
-            return await response.json()
-        except Exception as e:
-            raise ExampleError(
-                error=f"Failed to parse OpenAPI specification: {str(e)}",
-                status=response.status
-            )
+        return await response.json()
 
 
 class ExampleError(Exception):
@@ -309,13 +303,6 @@ async def stream_sse_response(
             yield event
         except json.JSONDecodeError:
             continue
-
-
-class StreamResponse:
-    """Response type for GET /stream"""
-    def __init__(self, count: float, timestamp: float):
-        self.count = count
-        self.timestamp = timestamp
 
 
 

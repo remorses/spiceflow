@@ -47,15 +47,14 @@ paths:
 ---
 Let's break this down step by step:
 
-1. We need to create a new async method in the `ExampleClientAsync` class for POST /users
-2. The method needs to:
-   - Accept required parameters: name, email, age
-   - Return the response message
+1. We need to add a new method to handle POST /users
+2. The request body requires name (str), email (str), and age (float)
+3. The response returns a message (str)
+4. We'll need to:
+   - Add type hints for request and response
    - Handle error cases
-   - Use proper type hints
-3. We'll need to create a type for the request body since it's not in types.py
-4. We'll create a response type for the successful response
-5. We'll add proper error handling
+   - Use the existing fetch method
+   - Add proper documentation
 
 Here's the implementation:
 
@@ -83,12 +82,12 @@ class ExampleClientAsync:
             age: User's age
             
         Returns:
-            The success message from the API
+            Success message from the API
             
         Raises:
             ExampleError: If the API returns an error
         """
-        request_body = {
+        body = {
             "name": name,
             "email": email,
             "age": age,
@@ -97,7 +96,7 @@ class ExampleClientAsync:
         response = await self.fetch(
             method="POST",
             path="/users",
-            body=request_body,
+            body=body,
         )
         
         if response.status != 200:
@@ -116,11 +115,3 @@ class ExampleClientAsync:
 
 # ... rest of existing code ...
 ```
-
-The code adds a new `create_user` method that:
-1. Takes required parameters with proper type hints
-2. Creates the request body
-3. Makes the API call using the existing fetch method
-4. Handles error cases
-5. Returns the success message from the API
-6. Includes proper docstring and type hints for IDE support

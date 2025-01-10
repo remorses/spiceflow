@@ -21,10 +21,10 @@ Let's break this down step by step:
 
 1. The route is a simple GET request to the root path `/`
 2. No request body or parameters are defined in the OpenAPI spec
-3. The method should be added to the `ExampleClientAsync` class
-4. We'll need to handle the response and potential errors
-5. The method should be async and use the existing `fetch` method
-6. We'll add type hints for the return value (though in this case it's Any since the response schema isn't defined)
+3. We need to add a new async method to the `ExampleClientAsync` class
+4. The method should handle the GET request and return the response
+5. We'll use the existing `fetch` method to make the API call
+6. We'll add proper type hints and error handling
 
 Here's the implementation:
 
@@ -34,33 +34,37 @@ Here's the implementation:
 class ExampleClientAsync:
     # ... existing code ...
 
-    # GET / - tags: one
+    # GET / - x-fern-sdk-group-name: one, x-fern-sdk-method-name: take
     async def take(self) -> Any:
         """Make a GET request to the root endpoint"""
-        response = await self.fetch(
-            method="GET",
-            path="/",
-        )
-        
-        if response.status != 200:
-            raise ExampleError(
-                error=f"Unexpected status code: {response.status}",
-                status=response.status,
-                data=await response.text(),
+        try:
+            response = await self.fetch(
+                method="GET",
+                path="/",
             )
             
-        try:
+            if response.status != 200:
+                raise ExampleError(
+                    error=f"Unexpected status code: {response.status}",
+                    status=response.status,
+                    data=await response.text(),
+                )
+                
             return await response.json()
-        except aiohttp.ContentTypeError:
-            return await response.text()
+        except aiohttp.ClientError as e:
+            raise ExampleError(
+                error=f"Network error: {str(e)}",
+                status=500,
+            ) from e
 
-# ... existing code ...
+# ... rest of existing code ...
 ```
 
-The implementation:
-1. Adds a new async method `take` to match the `x-fern-sdk-method-name`
-2. Uses the existing `fetch` method to make the GET request
-3. Handles error cases by checking the status code
-4. Attempts to parse JSON response, falls back to text if not JSON
-5. Includes proper type hints and docstring
-6. Maintains consistency with the existing codebase style
+The new `take` method:
+1. Uses the existing `fetch` method to make the GET request
+2. Handles error cases by checking the response status
+3. Returns the parsed JSON response for successful requests
+4. Includes proper error handling for network issues
+5. Follows the naming convention specified in the OpenAPI schema (x-fern-sdk-method-name)
+6. Is fully async/await compatible
+7. Includes type hints for the return value (Any since the response schema isn't defined)

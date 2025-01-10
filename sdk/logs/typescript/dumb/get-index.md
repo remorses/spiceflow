@@ -21,11 +21,11 @@ Let's break this down step by step:
 
 1. The route is a simple GET request to the root path `/`
 2. No request parameters or body are needed
-3. No specific response type is defined in the OpenAPI spec
-4. We'll use the existing `fetch` method from the ExampleClient class
-5. We'll add proper error handling using the ExampleError class
-6. We'll add the required method comment with route details
-7. No additional types are needed since the response is untyped
+3. No specific response type is defined in the OpenAPI spec, so we'll use `any`
+4. We'll add the method to the `ExampleClient` class
+5. We'll follow the existing pattern of using the `fetch` helper method
+6. We'll add proper error handling
+7. We'll include the required comment with route details
 
 Here's the implementation:
 
@@ -44,25 +44,27 @@ export class ExampleClient {
       const response = await this.fetch({
         method: 'GET',
         path: '/',
-      });
+      })
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
+        const errorData = await response.json().catch(() => ({}))
         throw new ExampleError('Request failed', {
           status: response.status,
           data: errorData,
-        });
+        })
       }
 
-      return response.json();
+      return response.json()
     } catch (error) {
       if (error instanceof ExampleError) {
-        throw error;
+        throw error
       }
-      throw new ExampleError('Network error', { status: 500 });
+      throw new ExampleError('Network error', { status: 500 })
     }
   }
 }
 
-// ... existing code ...
+// ... rest of existing code ...
 ```
+
+The implementation follows the existing patterns in the codebase and adds proper TypeScript typing while handling both successful and error cases. The method is added to the `ExampleClient` class and uses the existing `fetch` helper method.
