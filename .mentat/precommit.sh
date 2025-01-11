@@ -1,1 +1,1 @@
-pnpm test
+NODE_ENV=test pnpm vitest run
