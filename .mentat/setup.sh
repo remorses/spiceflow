@@ -1,3 +1,5 @@
+apt-get update
+apt-get install -y unzip
 curl -fsSL https://fnm.vercel.app/install | bash
 export PATH=/root/.local/share/fnm:$PATH
 eval "$(fnm env)"
