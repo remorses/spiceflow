@@ -9,6 +9,7 @@ import {
 import { zodToJsonSchema } from 'zod-to-json-schema'
 import { SSEServerTransportSpiceflow } from './mcp-transport.js'
 import { isZodSchema, Spiceflow } from './spiceflow.js'
+import { OpenAPIV3 } from 'openapi-types'
 
 function getJsonSchema(schema: any) {
   if (!schema) return undefined
