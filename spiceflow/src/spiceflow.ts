@@ -1050,6 +1050,7 @@ export class Spiceflow<
             // 1. return() allows for cleanup in finally blocks
             // 2. throw() would trigger error handling which isn't needed for normal aborts
             // 3. return() is the more graceful way to stop iteration
+
             if ('return' in generator) {
               try {
                 await generator.return(undefined)
