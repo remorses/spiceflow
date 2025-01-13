@@ -26,6 +26,7 @@ export const cors = (options?: CORSOptions): MiddlewareHandler => {
     allowMethods: ['GET', 'HEAD', 'PUT', 'POST', 'DELETE', 'PATCH'],
     allowHeaders: [],
     exposeHeaders: [],
+    credentials: true,
     cacheAge: 21600 // 6 hours default
   }
   const opts = {
