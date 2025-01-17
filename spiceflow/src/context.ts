@@ -82,7 +82,7 @@ export type Context<
 
   request: SpiceflowRequest<Route['body']>
   state: Singleton['state']
-  response?: Route['response']
+  // response?: Route['response']
 }>
 
 // Use to mimic request before mapping route
