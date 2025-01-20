@@ -1,5 +1,11 @@
 # spiceflow
 
+## 1.5.0
+
+### Minor Changes
+
+- Add superjson support
+
 ## 1.4.1
 
 ### Patch Changes

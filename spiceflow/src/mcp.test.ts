@@ -220,14 +220,7 @@ describe('MCP Plugin', () => {
       [
         {
           "mimeType": "application/json",
-          "text": "{
-        "users": [
-          {
-            "id": 1,
-            "name": "John"
-          }
-        ]
-      }",
+          "text": "{"users":[{"id":1,"name":"John"}]}",
           "uri": "http://localhost:4000/users",
         },
       ]

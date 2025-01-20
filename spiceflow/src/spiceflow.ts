@@ -1312,7 +1312,8 @@ export async function turnHandlerResultIntoResponse(
   })
 }
 
-function superjsonSerialize(value: any, indent = true) {
+function superjsonSerialize(value: any, indent = false) {
+  // return JSON.stringify(value)
   const { json, meta } = superjson.serialize(value)
   if (json && meta) {
     json['__superjsonMeta'] = meta

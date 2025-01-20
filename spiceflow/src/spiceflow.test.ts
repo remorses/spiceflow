@@ -14,45 +14,82 @@ test('works', async () => {
 test('can encode superjson types', async () => {
   const res = await new Spiceflow()
     .post('/superjson', () => {
-      return {
-        date: new Date(),
+      const item = {
+        date: new Date('2025-01-20T18:01:57.852Z'),
         map: new Map([['a', 1]]),
         set: new Set([1, 2, 3]),
         bigint: BigInt(123),
       }
+      return { items: Array(2).fill(item) }
     })
     .handle(new Request('http://localhost/superjson', { method: 'POST' }))
   expect(res.status).toBe(200)
   expect(await res.json()).toMatchInlineSnapshot(`
     {
       "__superjsonMeta": {
+        "referentialEqualities": {
+          "items.0": [
+            "items.1",
+          ],
+        },
         "values": {
-          "bigint": [
+          "items.0.bigint": [
             "bigint",
           ],
-          "date": [
+          "items.0.date": [
             "Date",
           ],
-          "map": [
+          "items.0.map": [
             "map",
           ],
-          "set": [
+          "items.0.set": [
+            "set",
+          ],
+          "items.1.bigint": [
+            "bigint",
+          ],
+          "items.1.date": [
+            "Date",
+          ],
+          "items.1.map": [
+            "map",
+          ],
+          "items.1.set": [
             "set",
           ],
         },
       },
-      "bigint": "123",
-      "date": "2025-01-20T17:58:02.499Z",
-      "map": [
-        [
-          "a",
-          1,
-        ],
-      ],
-      "set": [
-        1,
-        2,
-        3,
+      "items": [
+        {
+          "bigint": "123",
+          "date": "2025-01-20T18:01:57.852Z",
+          "map": [
+            [
+              "a",
+              1,
+            ],
+          ],
+          "set": [
+            1,
+            2,
+            3,
+          ],
+        },
+        {
+          "bigint": "123",
+          "date": "2025-01-20T18:01:57.852Z",
+          "map": [
+            [
+              "a",
+              1,
+            ],
+          ],
+          "set": [
+            1,
+            2,
+            3,
+          ],
+        },
       ],
     }
   `)
@@ -357,13 +394,7 @@ test('validate body works, request fails', async () => {
     )
   expect(res.status).toBe(422)
   expect(await res.text()).toMatchInlineSnapshot(
-    `
-    "{
-      "code": "VALIDATION",
-      "status": 422,
-      "message": "data must have required property 'requiredField'"
-    }"
-  `,
+    `"{"code":"VALIDATION","status":422,"message":"data must have required property 'requiredField'"}"`,
   )
 })
 
@@ -631,11 +662,7 @@ test('errors inside basPath works', async () => {
     expect(onReqTriggered).toEqual(['root', 'two', 'nested'])
     expect(res.status).toBe(500)
     expect(await res.text()).toMatchInlineSnapshot(
-      `
-      "{
-        "message": "error message"
-      }"
-    `,
+      `"{"message":"error message"}"`,
     )
     // expect(await res.json()).toEqual('nested'))
   }

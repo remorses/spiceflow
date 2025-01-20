@@ -358,11 +358,7 @@ test('each middleware and route is called exactly once if an error is thrown', a
   const res = await app.handle(new Request('http://localhost/test'))
 
   expect(res.status).toBe(500)
-  expect(await res.text()).toMatchInlineSnapshot(`
-    "{
-      "message": "Route response"
-    }"
-  `)
+  expect(await res.text()).toMatchInlineSnapshot(`"{"message":"Route response"}"`)
   expect(callOrder).toEqual(['middleware1', 'middleware2', 'middleware3', 'route'])
   
   // Check that each middleware and route is called exactly once
