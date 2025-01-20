@@ -11,6 +11,52 @@ test('works', async () => {
   expect(res.status).toBe(200)
   expect(await res.json()).toEqual('hi')
 })
+test('can encode superjson types', async () => {
+  const res = await new Spiceflow()
+    .post('/superjson', () => {
+      return {
+        date: new Date(),
+        map: new Map([['a', 1]]),
+        set: new Set([1, 2, 3]),
+        bigint: BigInt(123),
+      }
+    })
+    .handle(new Request('http://localhost/superjson', { method: 'POST' }))
+  expect(res.status).toBe(200)
+  expect(await res.json()).toMatchInlineSnapshot(`
+    {
+      "__superjsonMeta": {
+        "values": {
+          "bigint": [
+            "bigint",
+          ],
+          "date": [
+            "Date",
+          ],
+          "map": [
+            "map",
+          ],
+          "set": [
+            "set",
+          ],
+        },
+      },
+      "bigint": "123",
+      "date": "2025-01-20T17:58:02.499Z",
+      "map": [
+        [
+          "a",
+          1,
+        ],
+      ],
+      "set": [
+        1,
+        2,
+        3,
+      ],
+    }
+  `)
+})
 test('dynamic route', async () => {
   const res = await new Spiceflow()
     .post('/ids/:id', () => 'hi')
@@ -311,7 +357,13 @@ test('validate body works, request fails', async () => {
     )
   expect(res.status).toBe(422)
   expect(await res.text()).toMatchInlineSnapshot(
-    `"{"message":"data must have required property 'requiredField'"}"`,
+    `
+    "{
+      "code": "VALIDATION",
+      "status": 422,
+      "message": "data must have required property 'requiredField'"
+    }"
+  `,
   )
 })
 
@@ -578,7 +630,13 @@ test('errors inside basPath works', async () => {
     expect(onErrorTriggered).toEqual(['root', 'two', 'nested'])
     expect(onReqTriggered).toEqual(['root', 'two', 'nested'])
     expect(res.status).toBe(500)
-    expect(await res.text()).toMatchInlineSnapshot(`"{"message":"error message"}"`)
+    expect(await res.text()).toMatchInlineSnapshot(
+      `
+      "{
+        "message": "error message"
+      }"
+    `,
+    )
     // expect(await res.json()).toEqual('nested'))
   }
 })

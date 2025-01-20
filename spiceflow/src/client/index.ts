@@ -2,6 +2,7 @@
 /* eslint-disable no-case-declarations */
 /* eslint-disable prefer-const */
 import type { Spiceflow } from '../spiceflow.js'
+import superjson from 'superjson'
 import { EventSourceParserStream } from 'eventsource-parser/stream'
 
 import type { SpiceflowClient } from './types.js'
@@ -161,17 +162,17 @@ export async function* streamSSEResponse(
     const { done, value: event } = await reader.read()
     if (done) break
     if (event?.event === 'error') {
-      throw new SpiceflowFetchError(500, event.data)
+      throw new SpiceflowFetchError(500, superjsonDeserialize(event.data))
     }
     if (event) {
-      yield tryParsingJson(event.data)
+      yield tryParsingSSEJson(event.data)
     }
   }
 }
 
-function tryParsingJson(data: string): any {
+function tryParsingSSEJson(data: string): any {
   try {
-    return JSON.parse(data)
+    return superjsonDeserialize(JSON.parse(data))
   } catch (error) {
     return null
   }
@@ -435,6 +436,7 @@ const createProxy = (
             console.trace({ error, data })
             data = null
           }
+          data = superjsonDeserialize(data)
 
           return {
             data,
@@ -476,4 +478,15 @@ export const createSpiceflowClient = <
     )
 
   return createProxy('http://e.ly', config, [], domain)
+}
+
+function superjsonDeserialize(data: any) {
+  if (data?.__superjsonMeta) {
+    const { __superjsonMeta, ...rest } = data
+    return superjson.deserialize({
+      json: rest,
+      meta: __superjsonMeta,
+    })
+  }
+  return data
 }

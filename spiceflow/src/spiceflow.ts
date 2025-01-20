@@ -1,4 +1,5 @@
 import addFormats from 'ajv-formats'
+import superjson from 'superjson'
 import {
   ComposeSpiceflowResponse,
   ContentType,
@@ -31,6 +32,7 @@ import { zodToJsonSchema } from 'zod-to-json-schema'
 import { Context, MiddlewareContext } from './context.js'
 import { isProduction, ValidationError } from './error.js'
 import { isAsyncIterable, isResponse, redirect } from './utils.js'
+import { json } from 'stream/consumers'
 
 const ajv = (addFormats.default || addFormats)(
   new (Ajv.default || Ajv)({ useDefaults: true }),
@@ -773,7 +775,10 @@ export class Spiceflow<
 
       let status = err?.status ?? 500
       res ||= new Response(
-        JSON.stringify({ message: err?.message || 'Internal Server Error' }),
+        superjsonSerialize({
+          ...err,
+          message: err?.message || 'Internal Server Error',
+        }),
         {
           status,
           headers: {
@@ -918,7 +923,7 @@ export class Spiceflow<
         error(error) {
           console.error(error)
           return new Response(
-            JSON.stringify({ message: 'Internal Server Error' }),
+            superjsonSerialize({ message: 'Internal Server Error' }),
             {
               status: 500,
             },
@@ -998,7 +1003,7 @@ export class Spiceflow<
       } catch (error) {
         console.error('Error handling request:', error)
         res.statusCode = 500
-        res.end(JSON.stringify({ message: 'Internal Server Error' }))
+        res.end(superjsonSerialize({ message: 'Internal Server Error' }))
       }
     })
 
@@ -1069,7 +1074,9 @@ export class Spiceflow<
           if (init?.value !== undefined && init?.value !== null)
             controller.enqueue(
               Buffer.from(
-                'event: message\ndata: ' + JSON.stringify(init.value) + '\n\n',
+                'event: message\ndata: ' +
+                  superjsonSerialize(init.value, false) +
+                  '\n\n',
               ),
             )
 
@@ -1080,7 +1087,9 @@ export class Spiceflow<
 
               controller.enqueue(
                 Buffer.from(
-                  'event: message\ndata: ' + JSON.stringify(chunk) + '\n\n',
+                  'event: message\ndata: ' +
+                    superjsonSerialize(chunk, false) +
+                    '\n\n',
                 ),
               )
             }
@@ -1093,7 +1102,13 @@ export class Spiceflow<
             controller.enqueue(
               Buffer.from(
                 'event: error\ndata: ' +
-                  JSON.stringify(error.message || error.name || 'Error') +
+                  superjsonSerialize(
+                    {
+                      ...error,
+                      message: error.message || error.name || 'Error',
+                    },
+                    false,
+                  ) +
                   '\n\n',
               ),
             )
@@ -1289,11 +1304,20 @@ export async function turnHandlerResultIntoResponse(
       })
     }
   }
-  return new Response(JSON.stringify(result ?? null, null, 2), {
+
+  return new Response(superjsonSerialize(result), {
     headers: {
       'content-type': 'application/json',
     },
   })
+}
+
+function superjsonSerialize(value: any, indent = true) {
+  const { json, meta } = superjson.serialize(value)
+  if (json && meta) {
+    json['__superjsonMeta'] = meta
+  }
+  return JSON.stringify(json ?? null, null, indent ? 2 : undefined)
 }
 
 export type AnySpiceflow = Spiceflow<any, any, any, any, any, any>

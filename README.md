@@ -18,6 +18,7 @@ Spiceflow is a lightweight, type-safe API framework for building web services us
 - Type safe schema based validation via Zod
 - Can easily generate OpenAPI document based on your routes
 - Native support for [Fern](https://github.com/fern-api/fern) to generate docs and SDKs (see example docs [here](https://remorses.docs.buildwithfern.com))
+- Returns extended JSON via [`superjson`](https://github.com/flightcontrolhq/superjson) to encode types like `Map`, `BigInt` and `Set` (Spiceflow will add a field `__superjsonMeta` property to the JSON in case you use one of these types)
 - Support for [Model Context Protocol](https://modelcontextprotocol.io/) to easily wire your app with LLMs
 - Type safe RPC client generation
 - Simple and intuitive API

@@ -69,8 +69,16 @@ describe('Stream', () => {
 
     const response = await app.handle(req('/')).then((x) => x.text())
 
-    expect(response).toBe(
-      'event: message\ndata: "a"\n\nevent: error\ndata: "an error"\n\n',
+    expect(response).toMatchInlineSnapshot(
+      `
+      "event: message
+      data: "a"
+
+      event: error
+      data: {"message":"an error"}
+
+      "
+    `,
     )
   })
 
