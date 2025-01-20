@@ -408,6 +408,7 @@ const createProxy = (
 
             case 'application/json':
               data = await response.json()
+              data = superjsonDeserialize(data)
               break
             case 'application/octet-stream':
               data = await response.arrayBuffer()
@@ -433,10 +434,9 @@ const createProxy = (
               response.status,
               data || 'Unknown error',
             )
-            console.trace({ error, data })
+            // console.trace({ error, data })
             data = null
           }
-          data = superjsonDeserialize(data)
 
           return {
             data,

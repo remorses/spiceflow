@@ -12,18 +12,51 @@ test('works', async () => {
   expect(await res.json()).toEqual('hi')
 })
 test('can encode superjson types', async () => {
-  const res = await new Spiceflow()
-    .post('/superjson', () => {
-      const item = {
-        date: new Date('2025-01-20T18:01:57.852Z'),
-        map: new Map([['a', 1]]),
-        set: new Set([1, 2, 3]),
-        bigint: BigInt(123),
-      }
-      return { items: Array(2).fill(item) }
-    })
-    .handle(new Request('http://localhost/superjson', { method: 'POST' }))
+  const app = new Spiceflow().post('/superjson', () => {
+    const item = {
+      date: new Date('2025-01-20T18:01:57.852Z'),
+      map: new Map([['a', 1]]),
+      set: new Set([1, 2, 3]),
+      bigint: BigInt(123),
+    }
+    return { items: Array(2).fill(item) }
+  })
+  const res = await app.handle(
+    new Request('http://localhost/superjson', { method: 'POST' }),
+  )
   expect(res.status).toBe(200)
+  const client = createSpiceflowClient(app)
+  expect(await client.superjson.post().then((x) => x.data))
+    .toMatchInlineSnapshot(`
+      {
+        "items": [
+          {
+            "bigint": 123n,
+            "date": 2025-01-20T18:01:57.852Z,
+            "map": Map {
+              "a" => 1,
+            },
+            "set": Set {
+              1,
+              2,
+              3,
+            },
+          },
+          {
+            "bigint": 123n,
+            "date": 2025-01-20T18:01:57.852Z,
+            "map": Map {
+              "a" => 1,
+            },
+            "set": Set {
+              1,
+              2,
+              3,
+            },
+          },
+        ],
+      }
+    `)
   expect(await res.json()).toMatchInlineSnapshot(`
     {
       "__superjsonMeta": {
