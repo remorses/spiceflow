@@ -1,7 +1,7 @@
 {
   "name": "sdk",
-  "version": "1.0.0",
   "description": "",
+  "private": true,
   "main": "index.js",
   "scripts": {
     "test": "doppler run --preserve-env -- pnpm vitest --reporter=basic --clearScreen=false"
