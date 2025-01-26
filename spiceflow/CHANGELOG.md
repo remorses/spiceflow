@@ -1,5 +1,11 @@
 # spiceflow
 
+## 1.5.1
+
+### Patch Changes
+
+- df08dbe: Changed json schema additional strategy to strict
+
 ## 1.5.0
 
 ### Minor Changes
