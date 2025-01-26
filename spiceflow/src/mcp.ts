@@ -14,7 +14,9 @@ import { OpenAPIV3 } from 'openapi-types'
 function getJsonSchema(schema: any) {
   if (!schema) return undefined
   if (isZodSchema(schema)) {
-    return zodToJsonSchema(schema, {})
+    return zodToJsonSchema(schema, {
+      removeAdditionalStrategy: 'strict',
+    })
   }
   return schema
 }

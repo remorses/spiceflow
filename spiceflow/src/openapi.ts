@@ -7,9 +7,8 @@ let excludeMethods = ['OPTIONS']
 
 import type { TypeSchema } from './types.js'
 
-
 import { z } from 'zod'
-import zodToJsonSchema from 'zod-to-json-schema'
+import { zodToJsonSchema } from 'zod-to-json-schema'
 
 const extractParamNames = (path: string): string[] => {
   return path.split('/').reduce((params: string[], segment) => {
@@ -466,8 +465,9 @@ export const openapi = <Path extends string = '/openapi'>({
 function getJsonSchema(schema: TypeSchema): JSONSchemaType<any> {
   if (!schema) return undefined as any
   if (isZodSchema(schema)) {
-    let fn = zodToJsonSchema.default ?? zodToJsonSchema
-    let jsonSchema = fn(schema, {})
+    let jsonSchema = zodToJsonSchema(schema, {
+      removeAdditionalStrategy: 'strict',
+    })
     const { $schema, ...rest } = jsonSchema
     return rest as any
   }
