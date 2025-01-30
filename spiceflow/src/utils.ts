@@ -13,6 +13,7 @@ export const req = (path: string, options?: RequestInit) =>
 
 export function isAsyncIterable(obj: any): obj is AsyncGenerator<any> {
   return (
+    obj &&
     typeof obj === 'object' &&
     typeof obj.next === 'function' &&
     typeof obj.return === 'function' &&
