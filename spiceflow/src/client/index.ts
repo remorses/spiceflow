@@ -243,11 +243,12 @@ const createProxy = (
         }
 
         return Promise.resolve().then(async () => {
-          let fetchInit = {
+          let fetchInit: RequestInit = {
             method: method?.toUpperCase(),
             body,
             // ...conf,
             headers,
+            credentials: 'include',
           } satisfies RequestInit
 
           fetchInit.headers = {
@@ -297,7 +298,7 @@ const createProxy = (
             const formData = new FormData()
 
             // FormData is 1 level deep
-            for (const [key, field] of Object.entries(fetchInit.body)) {
+            for (const [key, field] of Object.entries(fetchInit.body!)) {
               if (isServer) {
                 formData.append(key, field as any)
 
