@@ -1,5 +1,15 @@
 # spiceflow
 
+## 1.6.0
+
+### Minor Changes
+
+- Pass credentials include by default in spiceflow client
+
+### Patch Changes
+
+- Fix isAsyncIterable
+
 ## 1.5.1
 
 ### Patch Changes
