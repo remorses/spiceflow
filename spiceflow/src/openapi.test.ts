@@ -243,7 +243,7 @@ test('openapi response', async () => {
               "content": {
                 "application/json": {
                   "schema": {
-                    "additionalProperties": false,
+                    "additionalProperties": true,
                     "properties": {
                       "name": {
                         "type": "string",
@@ -456,7 +456,7 @@ test('openapi response', async () => {
               "content": {
                 "application/json": {
                   "schema": {
-                    "additionalProperties": false,
+                    "additionalProperties": true,
                     "properties": {
                       "name": {
                         "type": "string",
