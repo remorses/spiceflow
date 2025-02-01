@@ -1,5 +1,11 @@
 # spiceflow
 
+## 1.6.1
+
+### Patch Changes
+
+- Disable credentials include by default, casues many issues with CORS
+
 ## 1.6.0
 
 ### Minor Changes
