@@ -99,49 +99,49 @@ function createMCPServer({
   )
 
   server.setRequestHandler(ListToolsRequestSchema, async () => {
-    const tools = []
-    for (const [path, pathObj] of Object.entries(openapi.paths)) {
-      if (path === '/mcp-openapi') continue
-      if (path === '/mcp') continue
-      if (path === '/mcp/message') continue
-      for (const [method, operation] of Object.entries(pathObj)) {
-        if (method === 'parameters') continue
+    const tools = Object.entries(openapi.paths)
+      .filter(
+        ([path]) => !['/mcp-openapi', '/mcp', '/mcp/message'].includes(path),
+      )
+      .flatMap(([path, pathObj]) =>
+        Object.entries(pathObj || {})
+          .filter(([method]) => method !== 'parameters')
+          .map(([method, operation]) => {
+            const properties: Record<string, any> = {}
+            const required: string[] = []
 
-        const properties: Record<string, any> = {}
-        const required: string[] = []
+            const requestBody = getOperationRequestBody(
+              operation as OpenAPIV3.OperationObject,
+            )
+            if (requestBody) {
+              properties.body = requestBody
+              required.push('body')
+            }
 
-        const requestBody = getOperationRequestBody(
-          operation as OpenAPIV3.OperationObject,
-        )
-        if (requestBody) {
-          properties.body = requestBody
-          required.push('body')
-        }
+            const { queryParams, pathParams } = getOperationParameters(
+              operation as OpenAPIV3.OperationObject,
+            )
+            if (queryParams) {
+              properties.query = queryParams
+            }
+            if (pathParams) {
+              properties.params = pathParams
+            }
 
-        const { queryParams, pathParams } = getOperationParameters(
-          operation as OpenAPIV3.OperationObject,
-        )
-        if (queryParams) {
-          properties.query = queryParams
-        }
-        if (pathParams) {
-          properties.params = pathParams
-        }
-
-        tools.push({
-          name: getRouteName({ method, path }),
-          description:
-            operation.description ||
-            operation.summary ||
-            `${method.toUpperCase()} ${path}`,
-          inputSchema: {
-            type: 'object',
-            properties,
-            required: required.length > 0 ? required : undefined,
-          },
-        })
-      }
-    }
+            return {
+              name: getRouteName({ method, path }),
+              description:
+                (operation as OpenAPIV3.OperationObject).description ||
+                (operation as OpenAPIV3.OperationObject).summary ||
+                `${method.toUpperCase()} ${path}`,
+              inputSchema: {
+                type: 'object',
+                properties,
+                required: required.length > 0 ? required : undefined,
+              },
+            }
+          }),
+      )
 
     return { tools }
   })
@@ -209,12 +209,12 @@ function createMCPServer({
   })
 
   server.setRequestHandler(ListResourcesRequestSchema, async () => {
-    const resources = []
+    const resources: { uri: string; mimeType: string; name: string }[] = []
     for (const [path, pathObj] of Object.entries(openapi.paths)) {
       if (path.startsWith('/mcp')) {
         continue
       }
-      const getOperation = pathObj.get as OpenAPIV3.OperationObject
+      const getOperation = pathObj?.get as OpenAPIV3.OperationObject
       if (getOperation && !path.includes('{')) {
         const { queryParams } = getOperationParameters(getOperation)
         const hasRequiredQuery =
