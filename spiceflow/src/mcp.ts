@@ -43,7 +43,9 @@ function getOperationParameters(operation: OpenAPIV3.OperationObject): {
   const queryRequired: string[] = []
   const pathRequired: string[] = []
 
-  operation.parameters.forEach((param: OpenAPIV3.ParameterObject) => {
+  operation.parameters.forEach((param) => {
+    if ('$ref' in param) return // TODO referenced parameters
+    
     if (param.in === 'query') {
       queryProperties[param.name] = param.schema as OpenAPIV3.SchemaObject
       if (param.required) queryRequired.push(param.name)
