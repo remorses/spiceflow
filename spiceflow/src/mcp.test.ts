@@ -85,7 +85,6 @@ describe('MCP Plugin', () => {
             "description": "GET /goSomething",
             "inputSchema": {
               "properties": {},
-              "required": [],
               "type": "object",
             },
             "name": "GET /goSomething",
@@ -94,18 +93,15 @@ describe('MCP Plugin', () => {
             "description": "GET /users",
             "inputSchema": {
               "properties": {},
-              "required": [],
               "type": "object",
             },
             "name": "GET /users",
           },
           {
-            "description": "GET /somethingElse/:id",
+            "description": "GET /somethingElse/{id}",
             "inputSchema": {
               "properties": {
                 "params": {
-                  "$schema": "http://json-schema.org/draft-07/schema#",
-                  "additionalProperties": false,
                   "properties": {
                     "id": {
                       "type": "string",
@@ -117,24 +113,20 @@ describe('MCP Plugin', () => {
                   "type": "object",
                 },
               },
-              "required": [],
               "type": "object",
             },
-            "name": "GET /somethingElse/:id",
+            "name": "GET /somethingElse/{id}",
           },
           {
             "description": "GET /search",
             "inputSchema": {
               "properties": {
                 "query": {
-                  "$schema": "http://json-schema.org/draft-07/schema#",
-                  "additionalProperties": false,
                   "properties": {
                     "limit": {
                       "type": "number",
                     },
                     "q": {
-                      "description": "Search query",
                       "type": "string",
                     },
                   },
@@ -145,7 +137,6 @@ describe('MCP Plugin', () => {
                   "type": "object",
                 },
               },
-              "required": [],
               "type": "object",
             },
             "name": "GET /search",
@@ -195,12 +186,12 @@ describe('MCP Plugin', () => {
         {
           "mimeType": "application/json",
           "name": "GET /goSomething",
-          "uri": "http://localhost:4000/goSomething",
+          "uri": "http://localhost/goSomething",
         },
         {
           "mimeType": "application/json",
           "name": "GET /users",
-          "uri": "http://localhost:4000/users",
+          "uri": "http://localhost/users",
         },
       ]
     `)
