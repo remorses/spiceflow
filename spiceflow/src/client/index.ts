@@ -248,7 +248,7 @@ const createProxy = (
             body,
             // ...conf,
             headers,
-            credentials: 'include',
+            // credentials: 'include',
           } satisfies RequestInit
 
           fetchInit.headers = {
