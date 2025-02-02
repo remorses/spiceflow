@@ -27,7 +27,7 @@ Spiceflow is a lightweight, type-safe API framework for building web services us
 ## Installation
 
 ```bash
-npm install spiceflow
+npm install spiceflow zod
 ```
 
 ## Basic Usage
