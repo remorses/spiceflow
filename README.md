@@ -83,6 +83,7 @@ This project was born as a fork of Elysia with several changes:
 This project shares many inspirations with Hono with many differences
 
 - First class OpenAPI support, you don't need to change anything to produce an OpenAPI spec, just add the `openapi` plugin to automaitcally export your openapi schema on `/openapi`
+- Much simpler framework, everything is done with native `Request` and `Response` objects instead of framework specific utilities
 - Support for async generators
 - Adding schemas to your routes is easier and does not require using `validator` functions, which slow down TypeScript inference
 - The generated RPC client has much faster type inference, intellisense in VSCode appears in milliseconds instead of seconds
