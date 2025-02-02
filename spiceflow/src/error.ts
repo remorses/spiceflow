@@ -11,8 +11,8 @@ const env =
 export const ERROR_CODE = Symbol('SpiceflowErrorCode')
 export type ERROR_CODE = typeof ERROR_CODE
 
-export const ELYSIA_RESPONSE = Symbol('SpiceflowResponse')
-export type ELYSIA_RESPONSE = typeof ELYSIA_RESPONSE
+export const SPICEFLOW_RESPONSE = Symbol('SpiceflowResponse')
+export type SPICEFLOW_RESPONSE = typeof SPICEFLOW_RESPONSE
 
 export const isProduction = (env?.NODE_ENV ?? env?.ENV) === 'production'
 

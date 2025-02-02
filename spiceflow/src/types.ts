@@ -15,7 +15,7 @@ import type { OpenAPIV3 } from 'openapi-types'
 import { ZodObject, ZodTypeAny } from 'zod'
 import type { Context, ErrorContext, MiddlewareContext } from './context.js'
 import {
-  ELYSIA_RESPONSE,
+  SPICEFLOW_RESPONSE,
   InternalServerError,
   ParseError,
   ValidationError,
@@ -363,7 +363,7 @@ export type InlineHandler<
             | {
                 [Status in keyof Route['response']]: {
                   _type: Record<Status, Route['response'][Status]>
-                  [ELYSIA_RESPONSE]: Status
+                  [SPICEFLOW_RESPONSE]: Status
                 }
               }[keyof Route['response']]
     >
@@ -645,13 +645,13 @@ export type ComposeSpiceflowResponse<Response, Handle> = Handle extends (
 type _ComposeSpiceflowResponse<Response, Handle> = Prettify<
   {} extends Response
     ? {
-        200: Exclude<Handle, { [ELYSIA_RESPONSE]: any }>
+        200: Exclude<Handle, { [SPICEFLOW_RESPONSE]: any }>
       } & {
         [ErrorResponse in Extract<
           Handle,
           { response: any }
         > as ErrorResponse extends {
-          [ELYSIA_RESPONSE]: infer Status extends number
+          [SPICEFLOW_RESPONSE]: infer Status extends number
         }
           ? Status
           : never]: ErrorResponse['response']

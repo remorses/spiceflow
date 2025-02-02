@@ -351,11 +351,6 @@ const registerSchemaPath = ({
   }
 }
 
-/**
- * Plugin for [elysia](https://github.com/elysiajs/elysia) that auto-generate Swagger page.
- *
- * @see https://github.com/elysiajs/elysia-swagger
- */
 export const openapi = <Path extends string = '/openapi'>({
   path = '/openapi' as Path,
   ...additional
