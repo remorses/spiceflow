@@ -27,7 +27,7 @@ export const cors = (options?: CORSOptions): MiddlewareHandler => {
     allowHeaders: [],
     exposeHeaders: [],
     credentials: true,
-    cacheAge: 21600 // 6 hours default
+    cacheAge: 21600, // 6 hours default
   }
   const opts = {
     ...defaults,
@@ -49,7 +49,16 @@ export const cors = (options?: CORSOptions): MiddlewareHandler => {
     let response = await next()
 
     function set(key: string, value: string) {
-      response.headers.set(key, value)
+      try {
+        response.headers.set(key, value)
+      } catch (error) {
+        if (error instanceof TypeError && error.message.includes('immutable')) {
+          response = new Response(response.body, response)
+          set(key, value)
+        } else {
+          throw error
+        }
+      }
     }
 
     const allowOrigin = findAllowOrigin(c.request.headers.get('origin') || '')
@@ -82,10 +91,13 @@ export const cors = (options?: CORSOptions): MiddlewareHandler => {
       if (opts.cacheAge && opts.cacheAge > 0) {
         // CORS preflight cache
         set('Access-Control-Max-Age', opts.cacheAge.toString())
-        
+
         // Browser cache and CDN cache
-        set('Cache-Control', `public, max-age=${opts.cacheAge}, s-maxage=${opts.cacheAge}`)
-        
+        set(
+          'Cache-Control',
+          `public, max-age=${opts.cacheAge}, s-maxage=${opts.cacheAge}`,
+        )
+
         // Additional CDN-specific headers
         set('CDN-Cache-Control', `public, s-maxage=${opts.cacheAge}`)
         set('Cloudflare-CDN-Cache-Control', `public, s-maxage=${opts.cacheAge}`)
