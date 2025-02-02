@@ -9,11 +9,19 @@ body,
 }
 
 html {
-    background: theme('colors.gray.50');
+    /* background: theme('colors.gray.50'); */
     /* make the scroll to section be a bit lower than the top */
     scroll-padding-top: 40px;
     --max-width: 100%;
 }
+
+.ch-codeblock {
+    box-shadow: none !important;
+    border: 1px solid rgb(229 231 235) !important;
+    border-radius: 0px;
+    /* margin-left: -36px !important; */
+}
+
 
 @media screen(md) {
     html {

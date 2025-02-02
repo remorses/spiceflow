@@ -3,7 +3,6 @@
     <br/>
     <br/>
     <h1>spiceflow</h1>
-    <br/>
     <p>fast, simple and type safe API framework</p>
     <br/>
     <br/>
