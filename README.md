@@ -86,6 +86,7 @@ This project shares many inspirations with Hono with many differences
 - Support for async generators
 - Adding schemas to your routes is easier and does not require using `validator` functions, which slow down TypeScript inference
 - The generated RPC client has much faster type inference, intellisense in VSCode appears in milliseconds instead of seconds
+- Spiceflow uses whatwg Request and Response instead of custom utilities like `c.text` and `c.req`
 
 ## Requests and Responses
 
