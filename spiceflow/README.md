@@ -1,15 +1,12 @@
-<div align='center'>
+<div align='center' className='w-full'>
     <br/>
     <br/>
     <br/>
-    <h3>spiceflow</h3>
-    <br/>
+    <h1>spiceflow</h1>
     <p>fast, simple and type safe API framework</p>
     <br/>
     <br/>
 </div>
-
-# Spiceflow
 
 Spiceflow is a lightweight, type-safe API framework for building web services using modern web standards.
 
@@ -30,7 +27,7 @@ Spiceflow is a lightweight, type-safe API framework for building web services us
 ## Installation
 
 ```bash
-npm install spiceflow
+npm install spiceflow zod
 ```
 
 ## Basic Usage
@@ -312,7 +309,7 @@ The Spiceflow client provides type-safe error handling by returning either a `da
 - Thrown errors appear in the `error` field
 - Response objects can be thrown or returned
 - Responses with status codes 200-299 appear in the `data` field
-- Responses with status codes <200 or ≥300 appear in the `error` field
+- Responses with status codes < 200 or ≥ 300 appear in the `error` field
 
 The example below demonstrates handling different types of responses:
 
