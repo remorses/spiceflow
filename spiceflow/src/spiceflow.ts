@@ -1,4 +1,6 @@
 import addFormats from 'ajv-formats'
+import lodashCloneDeep from 'lodash.clonedeep'
+
 import superjson from 'superjson'
 import {
   ComposeSpiceflowResponse,
@@ -739,7 +741,7 @@ export class Spiceflow<
     } = route
     const middlewares = appsInScope.flatMap((x) => x.middlewares)
 
-    let state = structuredClone(defaultState)
+    let state = cloneDeep(defaultState)
 
     let content = route?.internalRoute?.hooks?.content
 
@@ -1339,7 +1341,6 @@ function getValidateFunction(schema: TypeSchema) {
   if (isZodSchema(schema)) {
     let jsonSchema = zodToJsonSchema(schema, {
       removeAdditionalStrategy: 'strict',
-      
     })
     return ajv.compile(jsonSchema)
   }
@@ -1378,4 +1379,8 @@ function parseQuery(queryString: string) {
     }
   }
   return paramsObject
+}
+
+export function cloneDeep(x) {
+  return lodashCloneDeep(x)
 }

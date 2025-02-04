@@ -1,6 +1,6 @@
 import { test, describe, expect } from 'vitest'
 import { Type } from '@sinclair/typebox'
-import { bfs, Spiceflow } from './spiceflow.js'
+import { bfs, cloneDeep, Spiceflow } from './spiceflow.js'
 import { z } from 'zod'
 import { createSpiceflowClient } from './client/index.js'
 
@@ -11,6 +11,24 @@ test('works', async () => {
   expect(res.status).toBe(200)
   expect(await res.json()).toEqual('hi')
 })
+
+describe('cloneDeep', () => {
+  test('works on promises', async () => {
+    const obj = {
+      promise: Promise.resolve({ value: 'hi' }),
+    }
+    const res = cloneDeep(obj)
+    expect(res.promise).toBeInstanceOf(Promise)
+    expect(await res.promise).toEqual({ value: 'hi' })
+    // expect(await res.promise).not.toBe(await obj.promise)
+    expect(res).toMatchInlineSnapshot(`
+      {
+        "promise": Promise {},
+      }
+    `)
+  })
+})
+
 test('can encode superjson types', async () => {
   const app = new Spiceflow().post('/superjson', () => {
     const item = {
