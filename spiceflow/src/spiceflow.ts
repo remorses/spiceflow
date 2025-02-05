@@ -251,7 +251,7 @@ export class Spiceflow<
 
   state<const Name extends string | number | symbol, Value>(
     name: Name,
-    value: Value,
+    value?: Value,
   ): Spiceflow<
     BasePath,
     Scoped,

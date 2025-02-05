@@ -558,12 +558,14 @@ new Spiceflow()
     state.userEmail = userEmailPromise.promise
 
     async function resolveUser() {
-      if (!sessionKey) return
-      const user = await getUser(sessionKey)
-      if (user) {
-        userIdPromise.resolve(user.id)
-        userEmailPromise.resolve(user.email)
+      if (!sessionKey) {
+        userIdPromise.resolve('')
+        userEmailPromise.resolve('')
+        return
       }
+      const user = await getUser(sessionKey)
+      userIdPromise.resolve(user?.id ?? '')
+      userEmailPromise.resolve(user?.email ?? '')
     }
 
     resolveUser()
