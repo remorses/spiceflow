@@ -1,0 +1,18 @@
+{
+  "name": "example-react",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": "vite"
+  },
+  "keywords": [],
+  "author": "remorses <beats.by.morse@gmail.com>",
+  "dependencies": {
+    "react": "19.0.0",
+    "react-dom": "19.0.0",
+    "spiceflow": "workspace:*",
+    "vite": "^6.1.0"
+  },
+  "license": "ISC"
+}

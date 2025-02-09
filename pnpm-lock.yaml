@@ -37,6 +37,21 @@ importers:
         specifier: ^3.0.4
         version: 3.0.4(@types/debug@4.1.12)(@types/node@22.13.0)(jiti@1.21.7)(terser@5.31.6)(tsx@4.19.2)(yaml@2.7.0)
 
+  example-react:
+    dependencies:
+      react:
+        specifier: 19.0.0
+        version: 19.0.0
+      react-dom:
+        specifier: 19.0.0
+        version: 19.0.0(react@19.0.0)
+      spiceflow:
+        specifier: workspace:*
+        version: link:../spiceflow
+      vite:
+        specifier: ^6.1.0
+        version: 6.1.0(@types/node@22.13.0)(jiti@1.21.7)(terser@5.31.6)(tsx@4.19.2)(yaml@2.7.0)
+
   openapi-schema-diff:
     dependencies:
       json-schema-ref-resolver:

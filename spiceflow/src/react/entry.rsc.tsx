@@ -18,6 +18,10 @@ export interface ServerPayload {
 	returnValue?: unknown;
 }
 
+function Router() {
+	return <div className="">hello world</div>
+}
+
 export async function handler(
 	url: URL,
 	request: Request,
