@@ -4,7 +4,8 @@ import ReactClient from "spiceflow/dist/react/server-dom-client-optimized";
 import type { ServerPayload } from "./entry.rsc.js";
 import type { CallServerFn } from "./types/index.js";
 import { clientReferenceManifest } from "./utils/client-reference.js";
-import { getFlightStreamBrowser } from "./utils/stream-script.js";
+import {rscStream} from 'rsc-html-stream/client';
+
 
 async function main() {
 	const callServer: CallServerFn = async (id, args) => {
@@ -36,7 +37,7 @@ async function main() {
 
 	const initialPayload =
 		await ReactClient.createFromReadableStream<ServerPayload>(
-			getFlightStreamBrowser(),
+			rscStream,
 			clientReferenceManifest,
 			{ callServer },
 		);

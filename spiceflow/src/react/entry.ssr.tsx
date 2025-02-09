@@ -10,7 +10,8 @@ import {
 	fromWebToNodeReadable,
 	sendResponse,
 } from "./utils/fetch.js";
-import { injectFlightStream } from "./utils/stream-script.js";
+import {injectRSCPayload} from 'rsc-html-stream/server';
+
 
 
 
@@ -59,8 +60,8 @@ export default async function handler(
 
 	const response = new Response(
 		htmlStream
-			.pipeThrough(new TextDecoderStream())
-			.pipeThrough(injectFlightStream(flightStream2)),
+			
+			.pipeThrough(injectRSCPayload(flightStream2)),
 		{
 			headers: {
 				"content-type": "text/html;charset=utf-8",

@@ -724,6 +724,13 @@ export class Spiceflow<
       hooks: hook,
       kind: 'react'
     })
+    this.add({
+      method: 'POST',
+      path,
+      handler: handler,
+      hooks: hook,
+      kind: 'react'
+    })
     return this as any
   }
 
@@ -820,7 +827,6 @@ export class Spiceflow<
 
     if (route?.internalRoute?.kind === 'react') {
       const root = await route.internalRoute?.handler(context)
-      console.log('root', root)
       return root
     }
     let handlerResponse: Response | undefined
