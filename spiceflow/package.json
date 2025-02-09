@@ -55,6 +55,8 @@
   "dependencies": {
     "@medley/router": "^0.2.1",
     "@sinclair/typebox": "^0.34.14",
+    "@vitejs/plugin-react": "^4.3.4",
+    "react-server-dom-vite": "npm:@jacob-ebey/react-server-dom-vite@19.0.0-experimental.14",
     "ajv": "^8.17.1",
     "ajv-formats": "^3.0.1",
     "eventsource-parser": "^3.0.0",
