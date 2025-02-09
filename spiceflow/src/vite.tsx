@@ -8,6 +8,7 @@ import {
   PluginOption,
   type RunnableDevEnvironment,
   createRunnableDevEnvironment,
+  createServerModuleRunner,
   defineConfig,
 } from 'vite'
 import { fileURLToPath } from 'node:url'
@@ -48,6 +49,7 @@ export function spiceflowPlugin({ entry }): PluginOption {
             },
           },
           rsc: {
+
             optimizeDeps: {
               include: [
                 'react',
@@ -65,6 +67,7 @@ export function spiceflowPlugin({ entry }): PluginOption {
               createEnvironment(name, config) {
                 return createRunnableDevEnvironment(name, config, {
                   hot: false,
+                  
                 })
               },
             },
