@@ -178,11 +178,12 @@ export class Spiceflow<
 
     const decoded: Record<string, string> =
       extractWildcardParam(internalRoute?.path, pathname) || {}
+    console.log({decoded, path: internalRoute?.path, pathname})
 
     const keys = Object.keys(matchResult[0][this.routeIndex][1])
     for (const key of keys) {
       const value = matchResult[0][this.routeIndex][1][key]
-      if (value && typeof value === 'string') {
+      if (value) {
         decoded[key] = /\%/.test(value) ? decodeURIComponent_(value) : value
       }
     }
@@ -1504,9 +1505,10 @@ function parseQuery(queryString: string) {
   }
   return paramsObject
 }
+
 export function extractWildcardParam(
-  url: string,
   patternUrl: string,
+  url: string
 ): { '*'?: string } | null {
   // Return empty object if pattern has no wildcard
   if (!patternUrl.includes('*')) {
@@ -1516,18 +1518,25 @@ export function extractWildcardParam(
   // Split pattern into parts before and after wildcard
   const [beforeWildcard] = patternUrl.split('*')
 
-  // Get the part of URL after the pattern prefix
-  const wildcardPart = url.slice(beforeWildcard.length)
-
-  // If no wildcard content, return empty string
-  if (!wildcardPart) {
-    return null
+  // Find position of :id param
+  const paramPos = beforeWildcard.indexOf('/:')
+  if (paramPos === -1) {
+    // No :id param, just match after prefix
+    const wildcardPart = url.slice(beforeWildcard.length)
+    return wildcardPart ? { '*': wildcardPart.replace(/\/$/, '') } : null
   }
 
-  // Remove trailing slash from wildcard part
-  const trimmedWildcard = wildcardPart.replace(/\/$/, '')
+  // Get static prefix before :id
+  const prefix = beforeWildcard.slice(0, paramPos)
+  
+  // Find the next / after the :id in the actual URL
+  const urlParamEnd = url.indexOf('/', prefix.length + 1)
+  if (urlParamEnd === -1) return null
 
-  return { '*': trimmedWildcard }
+  // Get everything after the :id param value
+  const wildcardPart = url.slice(urlParamEnd + 1)
+  
+  return wildcardPart ? { '*': wildcardPart.replace(/\/$/, '') } : null
 }
 
 export function cloneDeep(x) {
