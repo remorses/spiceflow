@@ -1,4 +1,4 @@
-import type { ClientReferenceManifest } from "../types.js";
+import type { ClientReferenceManifest } from "../types/index.js";
 
 export const clientReferenceManifest: ClientReferenceManifest = {
 	resolveClientReference(reference: string) {

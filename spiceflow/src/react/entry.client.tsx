@@ -2,7 +2,7 @@ import React from "react";
 import ReactDomClient from "react-dom/client";
 import ReactClient from "react-server-dom-vite/client";
 import type { ServerPayload } from "./entry.rsc.js";
-import type { CallServerFn } from "./types.js";
+import type { CallServerFn } from "./types/index.js";
 import { clientReferenceManifest } from "./utils/client-reference.js";
 import { getFlightStreamBrowser } from "./utils/stream-script.js";
 
