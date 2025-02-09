@@ -18,6 +18,21 @@ test("server reference in server @js", async ({ page }) => {
 	await testServerAction(page);
 });
 
+
+test.describe("redirect", () => {
+	test("redirect in outer route scope", async ({ page }) => {
+		await page.goto("/redirect");
+		await expect(page).toHaveURL("/");
+		await page.getByText("[hydrated: 1]").click();
+	});
+	test("redirect in RSC", async ({ page }) => {
+		await page.goto("/redirect-in-rsc");
+		await expect(page).toHaveURL("/");
+		await page.getByText("[hydrated: 1]").click();
+	});
+});
+
+
 test.describe(() => {
 	test.use({ javaScriptEnabled: false });
 	test("server reference in server @nojs", async ({ page }) => {

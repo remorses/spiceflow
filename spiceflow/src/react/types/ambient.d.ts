@@ -5,7 +5,14 @@ declare module "react-server-dom-vite/server" {
 	export function renderToPipeableStream<T>(
 		data: T,
 		manifest: import(".").ClientReferenceMetadataManifest,
-		opitons?: unknown,
+		options?: {
+			environmentName?: string | (() => string);
+			filterStackFrame?: (url: string, functionName: string) => boolean;
+			onError?: (error: any) => void;
+			onPostpone?: (reason: string) => void;
+			identifierPrefix?: string;
+			temporaryReferences?: any;
+		},
 	): import("react-dom/server").PipeableStream;
 
 	export function decodeReply(body: string | FormData): Promise<unknown[]>;

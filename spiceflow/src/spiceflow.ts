@@ -806,8 +806,12 @@ export class Spiceflow<
     } satisfies MiddlewareContext<any>
 
     if (route?.internalRoute?.kind === 'react') {
-      const root = await route.internalRoute?.handler(context)
-      return root as any
+      try {
+        const elem = await route.internalRoute?.handler(context)
+        return elem as any
+      } catch (err) {
+        return await getResForError(err)
+      }
     }
     let handlerResponse: Response | undefined
     async function getResForError(err: any) {
@@ -1428,3 +1432,5 @@ function parseQuery(queryString: string) {
 export function cloneDeep(x) {
   return lodashCloneDeep(x)
 }
+
+console.log(`piceflow running`)

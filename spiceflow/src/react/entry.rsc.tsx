@@ -62,18 +62,24 @@ export async function handler(
 		return root
 	}
 
+	let abortable = ReactServer.renderToPipeableStream<ServerPayload>(
+		{
+			root,
+			returnValue,
+			formState,
+		},
+		clientReferenceMetadataManifest,
+		{onError(error) {
+			
+		},},
+	)
 	// render flight stream
 	const stream = fromPipeableToWebReadable(
-		ReactServer.renderToPipeableStream<ServerPayload>(
-			{
-				root,
-				returnValue,
-				formState,
-			},
-			clientReferenceMetadataManifest,
-			{},
-		),
+		abortable
 	);
+	request.signal.addEventListener('abort', () => {
+		abortable.abort()
+	})
 
 	let r : RscHandlerResult = {
 		stream,
