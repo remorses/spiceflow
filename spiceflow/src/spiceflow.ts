@@ -46,6 +46,7 @@ import {
   Result,
 } from './trie-router/utils.js'
 import { decodeURIComponent_, tryDecode } from './trie-router/url.js'
+import path from 'path'
 
 const ajv = (addFormats.default || addFormats)(
   new (Ajv.default || Ajv)({ useDefaults: true }),
@@ -164,14 +165,20 @@ export class Spiceflow<
   routeIndex = 0
 
   private getAllDecodedParams(
-    matchResult?: Result<InternalRoute>,
+    matchResult: Result<InternalRoute>,
+    pathname: string,
   ): Record<string, string> {
     if (!matchResult?.length || !matchResult?.[0]?.[this.routeIndex]?.[1]) {
+      console.log('no match result', matchResult)
       return {}
     }
+    const internalRoute =
+      matchResult[0].find(([route]) => route.path.includes('*'))?.[0] ||
+      matchResult[0][this.routeIndex][0]
+    console.log({pathname})
 
-
-    const decoded: Record<string, string> = {}
+    const decoded: Record<string, string> =
+      extractWildcardParam(internalRoute?.path, pathname) || {}
 
     const keys = Object.keys(matchResult[0][this.routeIndex][1])
     for (const key of keys) {
@@ -187,6 +194,7 @@ export class Spiceflow<
   private match(method: string, path: string) {
     let root = this
     let foundApp: AnySpiceflow | undefined
+    let originalPath = path
     // remove trailing slash which can cause problems
     path = path.replace(/\/$/, '') || '/'
     const result = bfsFind(this, (app) => {
@@ -211,7 +219,7 @@ export class Spiceflow<
 
       const internalRoute = matchedRoutes?.[0]?.[0]?.[0]
 
-      const params = this.getAllDecodedParams(matchedRoutes)
+      const params = this.getAllDecodedParams(matchedRoutes, originalPath)
 
       if (internalRoute) {
         const res = {
@@ -240,7 +248,7 @@ export class Spiceflow<
               method,
               path,
             } as InternalRoute,
-            params: this.getAllDecodedParams(matched),
+            params: this.getAllDecodedParams(matched, originalPath),
           }
         }
       }
@@ -1496,6 +1504,31 @@ function parseQuery(queryString: string) {
     }
   }
   return paramsObject
+}
+
+function extractWildcardParam(
+  url: string,
+  patternUrl: string,
+): { '*'?: string } {
+  // Return empty object if pattern has no wildcard
+  if (!patternUrl.includes('*')) {
+    return {}
+  }
+
+  // Remove trailing slashes for consistent matching
+  url = url.replace(/\/$/, '')
+  patternUrl = patternUrl.replace(/\/$/, '')
+
+  // Convert pattern to regex by escaping special chars and replacing * with (.*)
+  const regexPattern = patternUrl
+    .replace(/[.*+?^${}()|[\]\\]/g, '\\$&') // Escape special regex chars
+    .replace('\\*', '(.*)') // Replace escaped * with capture group
+
+  const regex = new RegExp(`^${regexPattern}$`)
+  const match = url.match(regex)
+
+  // Return object with wildcard value or empty object if no match
+  return match ? { '*': match[1] } : {}
 }
 
 export function cloneDeep(x) {
