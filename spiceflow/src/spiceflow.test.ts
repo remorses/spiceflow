@@ -29,7 +29,6 @@ describe('cloneDeep', () => {
   })
 })
 
-
 test('can encode superjson types', async () => {
   const app = new Spiceflow().post('/superjson', () => {
     const item = {
@@ -344,6 +343,30 @@ test('GET dynamic route, params are typed with schema', async () => {
     .handle(new Request('http://localhost/ids/hi', { method: 'GET' }))
   expect(res.status).toBe(200)
   expect(await res.json()).toEqual('hi')
+})
+
+test('GET route with param and wildcard, both are captured', async () => {
+  const res = await new Spiceflow()
+    .state('id', '')
+    .use(({ state }) => {
+      state.id = '123'
+    })
+    .get('/files/:id/*', ({ params, state }) => {
+      expect(params.id).toBe('123')
+      expect(state.id).toBe('123')
+      expect(params['*']).toBe('path/to/file.txt')
+      return params
+    })
+    .handle(
+      new Request('http://localhost/files/123/path/to/file.txt', {
+        method: 'GET',
+      }),
+    )
+  expect(res.status).toBe(200)
+  expect(await res.json()).toEqual({
+    id: '123',
+    '*': 'path/to/file.txt',
+  })
 })
 
 test('missing route is not found', async () => {
