@@ -68,7 +68,7 @@ export function spiceflowPlugin({ entry }): PluginOption {
             dev: {
               createEnvironment(name, config) {
                 return createRunnableDevEnvironment(name, config, {
-                  hot: false,
+                  hot: false, // TODO investigate how to enable hmr for server
                 })
               },
             },
