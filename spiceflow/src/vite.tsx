@@ -30,7 +30,10 @@ export function spiceflowPlugin({ entry }): PluginOption {
         environments: {
           client: {
             optimizeDeps: {
-              include: ['react-dom/client', 'spiceflow/dist/react/server-dom-client-optimized'],
+              include: [
+                'react-dom/client',
+                'spiceflow/dist/react/server-dom-client-optimized',
+              ],
             },
             build: {
               manifest: true,
@@ -49,7 +52,6 @@ export function spiceflowPlugin({ entry }): PluginOption {
             },
           },
           rsc: {
-
             optimizeDeps: {
               include: [
                 'react',
@@ -63,14 +65,13 @@ export function spiceflowPlugin({ entry }): PluginOption {
               conditions: ['react-server'],
               // noExternal: true,
             },
-            // dev: {
-            //   createEnvironment(name, config) {
-            //     return createRunnableDevEnvironment(name, config, {
-            //       hot: false,
-                  
-            //     })
-            //   },
-            // },
+            dev: {
+              createEnvironment(name, config) {
+                return createRunnableDevEnvironment(name, config, {
+                  hot: false,
+                })
+              },
+            },
             build: {
               outDir: 'dist/rsc',
               ssr: true,
@@ -171,6 +172,7 @@ export function spiceflowPlugin({ entry }): PluginOption {
       hotUpdate(ctx) {
         if (this.environment.name === 'rsc') {
           const ids = ctx.modules.map((mod) => mod.id).filter((v) => v !== null)
+          // console.log('reload', ids, clientReferences)
           if (ids.length > 0) {
             // client reference id is also in react server module graph,
             // but we skip RSC HMR for this case since Client HMR handles it.
@@ -236,7 +238,7 @@ export function spiceflowPlugin({ entry }): PluginOption {
               `${JSON.stringify(id)}: () => import(${JSON.stringify(id)}),`,
           )
           .join('\n')
-        
+
         return `export default {${code}}`
       }),
     ]

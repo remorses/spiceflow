@@ -8,7 +8,7 @@ export const clientReferenceManifest: ClientReferenceManifest = {
 			async preload() {
 				let mod: Record<string, unknown>;
 				if (import.meta.env.DEV) {
-					console.log('importing client reference', id)
+					// console.log('importing client reference', id)
 					mod = await import(/* @vite-ignore */ id);
 				} else {
 					const references = await import(

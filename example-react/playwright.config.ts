@@ -23,6 +23,8 @@ export default defineConfig({
 	],
 	webServer: {
 		command,
+		stdout: 'pipe',
+		stderr: 'pipe',
 		port,
 	},
 	grepInvert: isPreview ? /@dev/ : /@build/,
