@@ -1,4 +1,5 @@
 /// <reference types="vite/client" />
+// import {Spiceflow} from '../../spiceflow.js'
 
 declare module "react-server-dom-vite/server" {
 	export function renderToPipeableStream<T>(
@@ -48,6 +49,12 @@ declare module "react-server-dom-vite/client" {
 
 declare module "virtual:ssr-assets" {
 	export const bootstrapModules: string[];
+}
+
+declare module "virtual:app-entry" {
+	import type { Spiceflow } from "spiceflow";
+	const app: Spiceflow;
+	export default app
 }
 
 declare module "virtual:build-client-references" {

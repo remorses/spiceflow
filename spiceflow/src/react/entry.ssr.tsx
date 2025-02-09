@@ -24,6 +24,11 @@ export default async function handler(
 	const rscEntry = await importRscEntry();
 	const rscResult = await rscEntry.handler(url, request);
 
+	if (rscResult instanceof Response) {
+		sendResponse(rscResult, res);
+		return;
+	}
+
 	if (url.searchParams.has("__rsc")) {
 		const response = new Response(rscResult.stream, {
 			headers: {

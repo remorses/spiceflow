@@ -6,6 +6,7 @@ import type {
 	ClientReferenceMetadataManifest,
 	ServerReferenceManifest,
 } from "./types/index.js";
+import app from 'virtual:app-entry'
 import { fromPipeableToWebReadable } from "./utils/fetch.js";
 
 export interface RscHandlerResult {
@@ -18,14 +19,11 @@ export interface ServerPayload {
 	returnValue?: unknown;
 }
 
-function Router() {
-	return <div className="">hello world</div>
-}
 
 export async function handler(
 	url: URL,
 	request: Request,
-): Promise<RscHandlerResult> {
+) {
 	// handle action
 	let returnValue: unknown | undefined;
 	let formState: ReactFormState | undefined;
@@ -58,11 +56,17 @@ export async function handler(
 		}
 	}
 
+	const root = await app.handle(request)
+	
+	if (root instanceof Response) {
+		return root
+	}
+
 	// render flight stream
 	const stream = fromPipeableToWebReadable(
 		ReactServer.renderToPipeableStream<ServerPayload>(
 			{
-				root: <Router url={url} />,
+				root,
 				returnValue,
 				formState,
 			},
@@ -71,9 +75,10 @@ export async function handler(
 		),
 	);
 
-	return {
+	let r : RscHandlerResult = {
 		stream,
 	};
+	return r
 }
 
 const serverReferenceManifest: ServerReferenceManifest = {

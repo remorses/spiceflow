@@ -61,18 +61,19 @@ export function spiceflowPlugin({ entry }): PluginOption {
             },
             resolve: {
               conditions: ['react-server'],
-              noExternal: true,
+              // noExternal: true,
             },
-            dev: {
-              createEnvironment(name, config) {
-                return createRunnableDevEnvironment(name, config, {
-                  hot: false,
+            // dev: {
+            //   createEnvironment(name, config) {
+            //     return createRunnableDevEnvironment(name, config, {
+            //       hot: false,
                   
-                })
-              },
-            },
+            //     })
+            //   },
+            // },
             build: {
               outDir: 'dist/rsc',
+              ssr: true,
               rollupOptions: {
                 input: { index: 'spiceflow/src/react/entry.rsc.tsx' },
               },
@@ -136,7 +137,7 @@ export function spiceflowPlugin({ entry }): PluginOption {
       },
     },
     createVirtualPlugin('app-entry', () => {
-      return `export * from '${url.pathToFileURL(path.resolve(entry))}'`
+      return `export {default} from '${url.pathToFileURL(path.resolve(entry))}'`
     }),
 
     createVirtualPlugin('ssr-assets', function () {
