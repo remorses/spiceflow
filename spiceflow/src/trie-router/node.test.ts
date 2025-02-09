@@ -2,6 +2,7 @@
 import { describe, it, expect } from 'vitest'
 
 import { Node } from './node.js'
+import { getQueryParams } from './url.js'
 
 describe('Root Node', () => {
   const node = new Node()
@@ -129,9 +130,25 @@ describe('Name path', () => {
     const node = new Node()
     node.insert('get', '/resource/a', 'A')
     node.insert('get', '/resource/*', 'Star')
-    const [res] = node.search('get', '/resource/a')
+    const all = node.search('get', '/resource/a')
+    const [res] = all
     expect(res).not.toBeNull()
     expect(res.length).toBe(2)
+    
+    expect(all).toMatchInlineSnapshot(`
+      [
+        [
+          [
+            "A",
+            {},
+          ],
+          [
+            "Star",
+            {},
+          ],
+        ],
+      ]
+    `)
     expect(res[0][0]).toEqual('A')
     expect(res[1][0]).toEqual('Star')
   })

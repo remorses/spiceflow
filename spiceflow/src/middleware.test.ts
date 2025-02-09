@@ -76,6 +76,7 @@ test('middleware state is not shared between requests', async () => {
     .state('x', -1)
     .use(async ({ request, state, query }, next) => {
       state.x = Number(query?.x || -1)
+      
     })
     .get('/get', ({ state }) => {
       return state.x

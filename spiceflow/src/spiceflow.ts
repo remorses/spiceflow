@@ -39,6 +39,13 @@ import { createElement, isValidElement } from 'react'
 import value from 'virtual:build-client-references'
 import { FlightData, LayoutContent } from './react/components.js'
 import { TrieRouter } from './trie-router/router.js'
+import {
+  ParamIndexMap,
+  Params,
+  ParamStash,
+  Result,
+} from './trie-router/utils.js'
+import { decodeURIComponent_, tryDecode } from './trie-router/url.js'
 
 const ajv = (addFormats.default || addFormats)(
   new (Ajv.default || Ajv)({ useDefaults: true }),
@@ -149,10 +156,32 @@ export class Spiceflow<
       validateParams,
       validateQuery,
     }
-    const store = this.router.add(method, path, route)
+    this.router.add(method!, path, route)
 
     this.routes.push(route)
-    store[method!] = route
+  }
+
+  routeIndex = 0
+
+  private getAllDecodedParams(
+    matchResult?: Result<InternalRoute>,
+  ): Record<string, string> {
+    if (!matchResult?.length || !matchResult?.[0]?.[this.routeIndex]?.[1]) {
+      return {}
+    }
+
+
+    const decoded: Record<string, string> = {}
+
+    const keys = Object.keys(matchResult[0][this.routeIndex][1])
+    for (const key of keys) {
+      const value = matchResult[0][this.routeIndex][1][key]
+      if (value && typeof value === 'string') {
+        decoded[key] = /\%/.test(value) ? decodeURIComponent_(value) : value
+      }
+    }
+
+    return decoded
   }
 
   private match(method: string, path: string) {
@@ -174,19 +203,19 @@ export class Spiceflow<
         pathWithoutPrefix = path.replace(prefix, '') || '/'
       }
 
-      const medleyRoute = app.router.find(pathWithoutPrefix)
-      if (!medleyRoute) {
+      const matchedRoutes = app.router.match(method, pathWithoutPrefix)
+      if (!matchedRoutes?.length) {
         foundApp = app
         return
       }
 
-      let internalRoute: InternalRoute = medleyRoute.store[method]
+      const internalRoute = matchedRoutes?.[0]?.[0]?.[0]
+
+      const params = this.getAllDecodedParams(matchedRoutes)
 
       if (internalRoute) {
-        const params = medleyRoute.params || {}
-
         const res = {
-          ...medleyRoute,
+          ...matchedRoutes,
           app,
           internalRoute: internalRoute,
           params,
@@ -194,25 +223,25 @@ export class Spiceflow<
         return res
       }
       if (method === 'HEAD') {
-        let internalRouteGet: InternalRoute = medleyRoute.store['GET']
-        if (!internalRouteGet?.handler) {
-          return
-        }
+        const matched = app.router.match('GET', pathWithoutPrefix)
+        if (matched) {
+          const [[[internalRouteGet]]] = matched
 
-        return {
-          ...medleyRoute,
-          app,
-          internalRoute: {
-            hooks: {},
-            handler:
-              internalRouteGet.handler ||
-              ((c) => {
-                return new Response(null, { status: 200 })
-              }),
-            method,
-            path,
-          } as InternalRoute,
-          params: medleyRoute.params,
+          return {
+            ...matchedRoutes,
+            app,
+            internalRoute: {
+              hooks: {},
+              handler:
+                internalRouteGet.handler ||
+                ((c) => {
+                  return new Response(null, { status: 200 })
+                }),
+              method,
+              path,
+            } as InternalRoute,
+            params: this.getAllDecodedParams(matched),
+          }
         }
       }
     })
@@ -780,10 +809,11 @@ export class Spiceflow<
   async handle(request: Request) {
     let u = new URL(request.url, 'http://localhost')
     const self = this
-    let path = u.pathname + u.search
+    let path = u.pathname
     const defaultContext = {
       redirect,
       error: null,
+      children: undefined,
       path,
     }
     const root = this.topLevelApp || this
@@ -1473,3 +1503,6 @@ export function cloneDeep(x) {
 }
 
 console.log(`piceflow running`)
+
+const tryDecodeURIComponent = (str: string) =>
+  tryDecode(str, decodeURIComponent_)

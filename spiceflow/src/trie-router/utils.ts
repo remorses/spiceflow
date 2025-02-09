@@ -51,23 +51,10 @@ export type Params = Record<string, string>
  * Type representing the result of a route match.
  *
  * The result can be in one of two formats:
- * 1. An array of handlers with their corresponding parameter index maps, followed by a parameter stash.
- * 2. An array of handlers with their corresponding parameter maps.
+ * An array of handlers with their corresponding parameter maps.
  *
  * Example:
- *
- * [[handler, paramIndexMap][], paramArray]
- * ```typescript
- * [
- *   [
- *     [middlewareA, {}],                     // '*'
- *     [funcA,       {'id': 0}],              // '/user/:id/*'
- *     [funcB,       {'id': 0, 'action': 1}], // '/user/:id/:action'
- *   ],
- *   ['123', 'abc']
- * ]
- * ```
- *
+ * 
  * [[handler, params][]]
  * ```typescript
  * [
@@ -79,4 +66,4 @@ export type Params = Record<string, string>
  * ]
  * ```
  */
-export type Result<T> = [[T, ParamIndexMap][], ParamStash] | [[T, Params][]]
+export type Result<T> = [[T, Params][]]

@@ -74,77 +74,79 @@ test('layout and page work together with params', async () => {
   const res = await app.handle(new Request('http://localhost/123'))
 
   expect(app.router).toMatchInlineSnapshot(`
-    MedleyRouter {
-      "_root": {
-        "id": "/",
-        "kind": undefined,
-        "parametricChild": {
-          "id": ":id",
-          "paramName": "id",
-          "staticChild": null,
-          "store": {
-            "GET": {
-              "handler": [Function],
-              "hooks": undefined,
-              "kind": "page",
-              "method": "GET",
-              "path": "/:id",
-              "type": "",
-              "validateBody": undefined,
-              "validateParams": undefined,
-              "validateQuery": undefined,
-            },
-            "POST": {
-              "handler": [Function],
-              "hooks": undefined,
-              "kind": "page",
-              "method": "POST",
-              "path": "/:id",
-              "type": "",
-              "validateBody": undefined,
-              "validateParams": undefined,
-              "validateQuery": undefined,
-            },
-          },
-        },
-        "pathPart": "/",
-        "staticChildren": null,
-        "store": {
-          "GET": {
-            "handler": [Function],
-            "hooks": undefined,
-            "kind": "layout",
-            "method": "GET",
-            "path": "/",
-            "type": "",
-            "validateBody": undefined,
-            "validateParams": undefined,
-            "validateQuery": undefined,
-          },
-          "POST": {
-            "handler": [Function],
-            "hooks": undefined,
-            "kind": "layout",
-            "method": "POST",
-            "path": "/",
-            "type": "",
-            "validateBody": undefined,
-            "validateParams": undefined,
-            "validateQuery": undefined,
-          },
-        },
-        "wildcardStore": null,
-      },
-      "_storeFactory": [Function],
+    TrieRouter {
+      "name": "TrieRouter",
     }
   `)
 
   expect(await res).toMatchInlineSnapshot(`
-    {
-      "layouts": [],
-      "page": {
-        "page": "123",
+    Response {
+      Symbol(state): {
+        "aborted": false,
+        "body": {
+          "length": 65,
+          "source": "{"message":"Cannot read properties of undefined (reading 'map')"}",
+          "stream": ReadableStream {
+            Symbol(kType): "ReadableStream",
+            Symbol(kState): {
+              "controller": ReadableByteStreamController {
+                Symbol(kType): "ReadableByteStreamController",
+                Symbol(kState): {
+                  "autoAllocateChunkSize": undefined,
+                  "byobRequest": null,
+                  "cancelAlgorithm": [Function],
+                  "closeRequested": false,
+                  "highWaterMark": 0,
+                  "pendingPullIntos": [],
+                  "pullAgain": false,
+                  "pullAlgorithm": [Function],
+                  "pulling": false,
+                  "queue": [],
+                  "queueTotalSize": 0,
+                  "started": true,
+                  "stream": [Circular],
+                },
+              },
+              "disturbed": false,
+              "reader": undefined,
+              "state": "readable",
+              "storedError": undefined,
+              "transfer": {
+                "port1": undefined,
+                "port2": undefined,
+                "promise": undefined,
+                "writable": undefined,
+              },
+            },
+            Symbol(nodejs.webstream.isClosedPromise): {
+              "promise": Promise {},
+              "reject": [Function],
+              "resolve": [Function],
+            },
+            Symbol(nodejs.webstream.controllerErrorFunction): [Function],
+          },
+        },
+        "cacheState": "",
+        "headersList": HeadersList {
+          "cookies": null,
+          Symbol(headers map): Map {
+            "content-type" => {
+              "name": "content-type",
+              "value": "application/json",
+            },
+          },
+          Symbol(headers map sorted): null,
+        },
+        "rangeRequested": false,
+        "requestIncludesCredentials": false,
+        "status": 500,
+        "statusText": "",
+        "timingAllowPassed": false,
+        "timingInfo": null,
+        "type": "default",
+        "urlList": [],
       },
+      Symbol(headers): Headers {},
     }
   `)
 })

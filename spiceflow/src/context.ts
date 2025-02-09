@@ -82,6 +82,8 @@ export type Context<
 
   request: SpiceflowRequest<Route['body']>
   state: Singleton['state']
+  // TODO remove this for api routes
+  children?: any
   // response?: Route['response']
 }>
 

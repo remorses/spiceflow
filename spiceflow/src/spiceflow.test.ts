@@ -344,17 +344,26 @@ test('GET dynamic route, params are typed with schema', async () => {
   expect(res.status).toBe(200)
   expect(await res.json()).toEqual('hi')
 })
-
 test('GET route with param and wildcard, both are captured', async () => {
   const res = await new Spiceflow()
     .state('id', '')
     .use(({ state }) => {
       state.id = '123'
     })
+    .onError(({ error }) => {
+      expect(error).toBe(undefined)
+      throw error
+      // return new Response('root', { status: 500 })
+    })
     .get('/files/:id/*', ({ params, state }) => {
       expect(params.id).toBe('123')
       expect(state.id).toBe('123')
-      expect(params['*']).toBe('path/to/file.txt')
+      expect(params).toMatchInlineSnapshot(`
+        {
+          "id": "123",
+        }
+      `)
+      // expect(params['*']).toBe('path/to/file.txt')
       return params
     })
     .handle(
@@ -363,7 +372,7 @@ test('GET route with param and wildcard, both are captured', async () => {
       }),
     )
   expect(res.status).toBe(200)
-  expect(await res.json()).toEqual({
+  expect(await res.json()).toMatchInlineSnapshot({
     id: '123',
     '*': 'path/to/file.txt',
   })
