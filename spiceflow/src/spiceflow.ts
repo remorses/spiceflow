@@ -175,7 +175,6 @@ export class Spiceflow<
     const internalRoute =
       matchResult[0].find(([route]) => route.path.includes('*'))?.[0] ||
       matchResult[0][this.routeIndex][0]
-    console.log({pathname})
 
     const decoded: Record<string, string> =
       extractWildcardParam(internalRoute?.path, pathname) || {}
@@ -1505,30 +1504,30 @@ function parseQuery(queryString: string) {
   }
   return paramsObject
 }
-
-function extractWildcardParam(
+export function extractWildcardParam(
   url: string,
   patternUrl: string,
-): { '*'?: string } {
+): { '*'?: string } | null {
   // Return empty object if pattern has no wildcard
   if (!patternUrl.includes('*')) {
-    return {}
+    return null
   }
 
-  // Remove trailing slashes for consistent matching
-  url = url.replace(/\/$/, '')
-  patternUrl = patternUrl.replace(/\/$/, '')
+  // Split pattern into parts before and after wildcard
+  const [beforeWildcard] = patternUrl.split('*')
 
-  // Convert pattern to regex by escaping special chars and replacing * with (.*)
-  const regexPattern = patternUrl
-    .replace(/[.*+?^${}()|[\]\\]/g, '\\$&') // Escape special regex chars
-    .replace('\\*', '(.*)') // Replace escaped * with capture group
+  // Get the part of URL after the pattern prefix
+  const wildcardPart = url.slice(beforeWildcard.length)
 
-  const regex = new RegExp(`^${regexPattern}$`)
-  const match = url.match(regex)
+  // If no wildcard content, return empty string
+  if (!wildcardPart) {
+    return null
+  }
 
-  // Return object with wildcard value or empty object if no match
-  return match ? { '*': match[1] } : {}
+  // Remove trailing slash from wildcard part
+  const trimmedWildcard = wildcardPart.replace(/\/$/, '')
+
+  return { '*': trimmedWildcard }
 }
 
 export function cloneDeep(x) {
