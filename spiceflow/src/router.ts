@@ -1,4 +1,5 @@
 import { InternalRoute, NodeKind } from './types.js'
+import treeify from 'object-treeify'
 
 interface Node {
   pathPart: string
@@ -116,7 +117,7 @@ export class MedleyRouter {
     this._root = createNode('/')
     this._storeFactory = storeFactory
   }
-  register(path: string, options?: { kind?: NodeKind }): any {
+  register(path: string, options: { kind?: NodeKind }): any {
     if (typeof path !== 'string') {
       throw new TypeError('Route path must be a string')
     }
@@ -393,10 +394,7 @@ export class MedleyRouter {
   }
 
   debugTree(): string {
-    return require('object-treeify')(debugNode(this._root)).replace(
-      /^.{3}/gm,
-      '',
-    ) // Remove the first 3 characters of every line
+    return treeify(debugNode(this._root))
   }
 
   getParentNode(targetNode: Node): Node | null {
@@ -433,7 +431,7 @@ export class MedleyRouter {
     while (current) {
       if (current.kind === 'layout' && current.store) {
         layouts.unshift({
-          ...node,
+          ...current,
           store: current.store,
           params: {},
           kind: 'layout',
@@ -496,8 +494,10 @@ function debugNode(node: any): Record<string, any> {
     childRoutes['* (s)'] = null
   }
 
+  const suffix = debugStore(node.store) + (node.kind === 'layout' ? ' (l)' : '')
+
   return {
-    [node.pathPart + debugStore(node.store)]: childRoutes,
+    [node.pathPart + suffix]: childRoutes,
   }
 }
 

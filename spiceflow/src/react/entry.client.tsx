@@ -56,7 +56,7 @@ async function main() {
 			return listenNavigation(onNavigation);
 		}, []);
 
-		return payload.root;
+		return payload.root?.layouts?.[0]?.element ?? payload.root.page;
 	}
 
 	ReactDomClient.hydrateRoot(document, <BrowserRoot />, {

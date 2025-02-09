@@ -50,8 +50,9 @@ export default async function handler(
 
 	const ssrAssets = await import("virtual:ssr-assets");
 
+	const el = payload.root?.layouts?.[0]?.element ?? payload.root.page
 	const htmlStream = fromPipeableToWebReadable(
-		ReactDomServer.renderToPipeableStream(payload.root, {
+		ReactDomServer.renderToPipeableStream(el, {
 			bootstrapModules: ssrAssets.bootstrapModules,
 			// @ts-ignore no type?
 			formState: payload.formState,

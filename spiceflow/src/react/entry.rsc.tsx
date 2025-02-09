@@ -8,13 +8,14 @@ import type {
 } from "./types/index.js";
 import app from 'virtual:app-entry'
 import { fromPipeableToWebReadable } from "./utils/fetch.js";
+import { FlightData } from "./components.js";
 
 export interface RscHandlerResult {
 	stream: ReadableStream<Uint8Array>;
 }
 
 export interface ServerPayload {
-	root: React.ReactNode;
+	root: FlightData;
 	formState?: ReactFormState;
 	returnValue?: unknown;
 }

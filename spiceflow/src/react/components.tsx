@@ -1,6 +1,7 @@
 import React from 'react'
-import {RouteMatch} from '../router.js'
+import { RouteMatch } from '../router.js'
 import { ReactFormState } from 'react-dom/client'
+import { InternalRoute } from '../types.js'
 
 export const FlightDataContext = React.createContext<Promise<FlightData>>(
   undefined!,
@@ -10,21 +11,26 @@ export function useFlightData() {
   return React.use(React.useContext(FlightDataContext))
 }
 
-export function LayoutContent(props: { name: string }) {
+export function LayoutContent(props: { id: string }) {
   const data = useFlightData()
-  const routeId = data.layoutContentMap[props.name]
-  //   tinyassert(routeId, `Unexpected layout content map`)
-  return data.nodeMap[routeId]
+  const layoutIndex = data.layouts.findIndex((layout) => layout.id === props.id)
+  if (layoutIndex >= 0) {
+    return data.layouts[layoutIndex + 1].element
+  }
+  if (data.page?.id !== props.id) {
+    throw new Error(`Layout id mismatch: expected ${props.id}`)
+  }
+  return data.page
 }
 
 export type FlightData = {
-//   action?: Pick<ActionResult, 'error' | 'data'>
-//   metadata?: React.ReactNode
-//   nodeMap: Record<string, React.ReactNode>
-//   layoutContentMap: Record<string, string>
+  //   action?: Pick<ActionResult, 'error' | 'data'>
+  //   metadata?: React.ReactNode
+  //   nodeMap: Record<string, React.ReactNode>
+  //   layoutContentMap: Record<string, string>
   //   segments: MatchSegment[]
   page: any
-  layouts: RouteMatch[]
+  layouts: { id: string; element: React.ReactNode }[]
   url: string
 }
 

@@ -34,9 +34,10 @@ import { zodToJsonSchema } from 'zod-to-json-schema'
 import { Context, MiddlewareContext } from './context.js'
 import { isProduction, ValidationError } from './error.js'
 import { isAsyncIterable, isResponse, redirect } from './utils.js'
-import { isValidElement } from 'react'
+import { createElement, isValidElement } from 'react'
 import { MedleyRouter } from './router.js'
 import value from 'virtual:build-client-references'
+import { FlightData, LayoutContent } from './react/components.js'
 
 const ajv = (addFormats.default || addFormats)(
   new (Ajv.default || Ajv)({ useDefaults: true }),
@@ -86,7 +87,7 @@ export class Spiceflow<
   const out Routes extends RouteBase = {},
 > {
   private id: number = globalIndex++
-  private router: MedleyRouter = new MedleyRouter()
+  router: MedleyRouter = new MedleyRouter()
   private middlewares: Function[] = []
   private onErrorHandlers: OnError[] = []
   private routes: InternalRoute[] = []
@@ -821,12 +822,31 @@ export class Spiceflow<
       redirect,
     } satisfies MiddlewareContext<any>
 
-    const kind = route?.kind
+    const kind = route?.internalRoute?.kind
+    console.log('kind', kind)
     if (kind === 'page' || kind === 'layout') {
-      try {
-        const page = await route.internalRoute?.handler(context)
 
-        return { page, layouts: route.layouts }
+      try {
+        const [page, ...layoutResults] = await Promise.all([
+          route.internalRoute?.handler(context),
+          ...route.layouts.map((layout) => {
+            const internalRoute: InternalRoute = layout.store['GET']
+            const children = createElement(LayoutContent, { id: layout.id })
+            return internalRoute.handler({ ...context, children })
+          }),
+        ])
+
+        let data: FlightData = {
+          page,
+          layouts: route.layouts.map((layout, i) => {
+            return {
+              id: layout.id,
+              element: layoutResults[i] as any,
+            }
+          }),
+        }
+        console.log(data)
+        return data
       } catch (err) {
         return await getResForError(err)
       }
@@ -1052,7 +1072,7 @@ export class Spiceflow<
       })
 
       try {
-        const response = await this.handle(typedRequest)
+        const response = (await this.handle(typedRequest)) as Response
 
         res.statusCode = response.status
         for (const [key, value] of response.headers) {

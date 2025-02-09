@@ -3,19 +3,18 @@ import { IndexPage } from "./app/index";
 import { Layout } from "./app/layout";
 
 const app = new Spiceflow()
+	.layout("/", async ({ children, request }) => {
+		return <Layout>{children}</Layout>;
+	})
 	.page("/", async ({ request }) => {
 		const url = new URL(request.url);
-		return (
-			<Layout>
-				<IndexPage url={url} />
-			</Layout>
-		);
+		return <IndexPage />;
 	})
 	.page("/:id", async ({ request, params }) => {
 		const url = new URL(request.url);
 		return (
 			<Layout>
-				<IndexPage url={url} />
+				<IndexPage />
 			</Layout>
 		);
 	})
@@ -43,6 +42,7 @@ async function Redirects() {
 			location: "/",
 		},
 	});
+	return <div>Redirect</div>;
 }
 
 export default app;
