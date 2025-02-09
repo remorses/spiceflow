@@ -34,7 +34,7 @@ import { zodToJsonSchema } from 'zod-to-json-schema'
 import { Context, MiddlewareContext } from './context.js'
 import { isProduction, ValidationError } from './error.js'
 import { isAsyncIterable, isResponse, redirect } from './utils.js'
-import { json } from 'stream/consumers'
+import { isValidElement } from 'react'
 
 const ajv = (addFormats.default || addFormats)(
   new (Ajv.default || Ajv)({ useDefaults: true }),
@@ -71,6 +71,7 @@ export type InternalRoute = {
   validateBody?: ValidateFunction
   validateQuery?: ValidateFunction
   validateParams?: ValidateFunction
+  kind?: 'react'
   // prefix: string
 }
 
@@ -675,6 +676,57 @@ export class Spiceflow<
     return this as any
   }
 
+  react<
+    const Path extends string,
+    const LocalSchema extends InputSchema<keyof Definitions['type'] & string>,
+    const Schema extends UnwrapRoute<LocalSchema, Definitions['type']>,
+    const Handle extends InlineHandler<
+      Schema,
+      Singleton,
+      JoinPath<BasePath, Path>
+    >,
+  >(
+    path: Path,
+    handler: Handle,
+    hook?: LocalHook<
+      LocalSchema,
+      Schema,
+      Singleton,
+      Definitions['error'],
+      Metadata['macro'],
+      JoinPath<BasePath, Path>
+    >,
+  ): Spiceflow<
+    BasePath,
+    Scoped,
+    Singleton,
+    Definitions,
+    Metadata,
+    Routes &
+      CreateClient<
+        JoinPath<BasePath, Path>,
+        {
+          get: {
+            body: Schema['body']
+            params: undefined extends Schema['params']
+              ? ResolvePath<Path>
+              : Schema['params']
+            query: Schema['query']
+            response: ComposeSpiceflowResponse<Schema['response'], Handle>
+          }
+        }
+      >
+  > {
+    this.add({ 
+      method: 'GET', 
+      path, 
+      handler: handler, 
+      hooks: hook,
+      kind: 'react'
+    })
+    return this as any
+  }
+
   private scoped?: Scoped = true as Scoped
 
   use<const NewSpiceflow extends AnySpiceflow>(
@@ -765,6 +817,12 @@ export class Spiceflow<
       params: _params,
       redirect,
     } satisfies MiddlewareContext<any>
+
+    if (route?.internalRoute?.kind === 'react') {
+      const root = await route.internalRoute?.handler(context)
+      console.log('root', root)
+      return root
+    }
     let handlerResponse: Response | undefined
     async function getResForError(err: any) {
       if (isResponse(err)) return err

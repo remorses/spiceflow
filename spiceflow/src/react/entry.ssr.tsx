@@ -1,6 +1,6 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import ReactDomServer from "react-dom/server";
-import ReactClient from "react-server-dom-vite/client";
+import ReactClient from "spiceflow/dist/react/server-dom-client-optimized";
 import type { ModuleRunner } from "vite/module-runner";
 import type { ServerPayload } from "./entry.rsc.js";
 import { clientReferenceManifest } from "./utils/client-reference.js";
@@ -28,6 +28,7 @@ export default async function handler(
 		sendResponse(rscResult, res);
 		return;
 	}
+	
 
 	if (url.searchParams.has("__rsc")) {
 		const response = new Response(rscResult.stream, {

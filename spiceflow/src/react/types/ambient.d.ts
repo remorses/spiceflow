@@ -22,7 +22,7 @@ declare module "react-server-dom-vite/server" {
 	): Promise<import("react-dom/client").ReactFormState>;
 }
 
-declare module "react-server-dom-vite/client" {
+declare module "spiceflow/dist/react/server-dom-client-optimized" {
 	export function createFromNodeStream<T>(
 		stream: import("node:stream").Readable,
 		manifest: import(".").ClientReferenceManifest,

@@ -67,10 +67,10 @@
     "react": "19.0.0",
     "react-dom": "19.0.0",
     "react-server-dom-vite": "npm:@jacob-ebey/react-server-dom-vite@19.0.0-experimental.14",
+    "spiceflow": "*",
     "superjson": "^2.2.2",
     "vite": "^6.1.0",
     "zod": "^3.24.1",
-    "spiceflow": "*",
     "zod-to-json-schema": "^3.24.1"
   },
   "peerDependencies": {
@@ -84,6 +84,7 @@
   "devDependencies": {
     "@types/lodash.clonedeep": "^4.5.9",
     "@types/node": "22.12.0",
+    "@types/react": "^19.0.8",
     "eventsource": "^3.0.5",
     "formdata-node": "^6.0.3",
     "js-base64": "^3.7.7",

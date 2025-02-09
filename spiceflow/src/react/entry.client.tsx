@@ -1,6 +1,6 @@
 import React from "react";
 import ReactDomClient from "react-dom/client";
-import ReactClient from "react-server-dom-vite/client";
+import ReactClient from "spiceflow/dist/react/server-dom-client-optimized";
 import type { ServerPayload } from "./entry.rsc.js";
 import type { CallServerFn } from "./types/index.js";
 import { clientReferenceManifest } from "./utils/client-reference.js";

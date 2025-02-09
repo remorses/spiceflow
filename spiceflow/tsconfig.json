@@ -2,7 +2,6 @@
   "extends": "../tsconfig.base.json",
   "compilerOptions": {
     "rootDir": "src",
-    "typeRoots": ["./src/react/types/ambient.d.ts"],
     "module": "NodeNext",
     "target": "ESNext",
     "lib": ["DOM", "ESNext", "dom.iterable"],

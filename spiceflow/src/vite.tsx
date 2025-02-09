@@ -30,7 +30,7 @@ export function spiceflowPlugin({ entry }): PluginOption {
         environments: {
           client: {
             optimizeDeps: {
-              include: ['react-dom/client', 'react-server-dom-vite/client'],
+              include: ['react-dom/client', 'spiceflow/dist/react/server-dom-client-optimized'],
             },
             build: {
               manifest: true,
@@ -262,7 +262,7 @@ export function spiceflowPlugin({ entry }): PluginOption {
             } else {
               const matches = code.matchAll(/export async function (\w+)\(/g)
               const result = [
-                `import $$ReactClient from "react-server-dom-vite/client"`,
+                `import $$ReactClient from "spiceflow/dist/react/server-dom-client-optimized"`,
                 ...[...matches].map(
                   ([, name]) =>
                     `export const ${name} = $$ReactClient.createServerReference(${JSON.stringify(id + '#' + name)}, (...args) => __callServer(...args))`,
