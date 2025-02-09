@@ -35,7 +35,11 @@ function generateNodeId(path: string, existingIds: Set<string>): string {
   return id
 }
 
-function createNode(pathPart: string, staticChildren?: Node[], existingIds: Set<string> = new Set()): Node {
+function createNode(
+  pathPart: string,
+  staticChildren?: Node[],
+  existingIds: Set<string> = new Set(),
+): Node {
   return {
     pathPart,
     store: null,
@@ -51,11 +55,15 @@ function createNode(pathPart: string, staticChildren?: Node[], existingIds: Set<
     parametricChild: null,
     wildcardStore: null,
     kind: undefined,
-    id: generateNodeId(pathPart, existingIds)
+    id: generateNodeId(pathPart, existingIds),
   }
 }
 
-function cloneNode(node: Node, newPathPart: string, existingIds: Set<string> = new Set()): Node {
+function cloneNode(
+  node: Node,
+  newPathPart: string,
+  existingIds: Set<string> = new Set(),
+): Node {
   return {
     pathPart: newPathPart,
     store: node.store,
@@ -63,16 +71,19 @@ function cloneNode(node: Node, newPathPart: string, existingIds: Set<string> = n
     parametricChild: node.parametricChild,
     wildcardStore: node.wildcardStore,
     kind: node.kind,
-    id: generateNodeId(newPathPart, existingIds)
+    id: generateNodeId(newPathPart, existingIds),
   }
 }
 
-function createParametricNode(paramName: string, existingIds: Set<string> = new Set()): ParametricNode {
+function createParametricNode(
+  paramName: string,
+  existingIds: Set<string> = new Set(),
+): ParametricNode {
   return {
     paramName,
     store: null,
     staticChild: null,
-    id: generateNodeId(`:${paramName}`, existingIds)
+    id: generateNodeId(`:${paramName}`, existingIds),
   }
 }
 
@@ -296,6 +307,7 @@ export class MedleyRouter {
       // Reached the end of the URL
       if (node.store !== null) {
         return {
+          ...node,
           store: node.store,
           params: {},
           kind: node.kind,
@@ -305,6 +317,7 @@ export class MedleyRouter {
 
       if (node.wildcardStore !== null) {
         return {
+          ...node,
           store: node.wildcardStore,
           params: { '*': '' },
           kind: node.kind,
@@ -338,6 +351,7 @@ export class MedleyRouter {
             const params: Record<string, string> = {}
             params[parametricNode.paramName] = url.slice(startIndex, urlLength)
             return {
+              ...node,
               store: parametricNode.store,
               params,
               kind: node.kind,
@@ -365,6 +379,7 @@ export class MedleyRouter {
 
     if (node.wildcardStore !== null) {
       return {
+        ...node,
         store: node.wildcardStore,
         params: {
           '*': url.slice(startIndex, urlLength),
@@ -414,10 +429,11 @@ export class MedleyRouter {
   private collectLayouts(node: Node): RouteMatch[] {
     const layouts: RouteMatch[] = []
     let current: Node | null = node
-    
+
     while (current) {
       if (current.kind === 'layout' && current.store) {
         layouts.unshift({
+          ...node,
           store: current.store,
           params: {},
           kind: 'layout',
@@ -426,7 +442,7 @@ export class MedleyRouter {
       }
       current = this.getParentNode(current)
     }
-    
+
     return layouts.filter(Boolean)
   }
 }
@@ -488,4 +504,3 @@ function debugNode(node: any): Record<string, any> {
 function debugStore(store: any): string {
   return store === null ? '' : ' (s)'
 }
-
