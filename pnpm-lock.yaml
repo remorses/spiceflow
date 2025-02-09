@@ -155,9 +155,6 @@ importers:
 
   spiceflow:
     dependencies:
-      '@medley/router':
-        specifier: ^0.2.1
-        version: 0.2.1
       '@modelcontextprotocol/sdk':
         specifier: ^1.0.4
         version: 1.0.4

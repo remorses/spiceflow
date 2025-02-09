@@ -27,7 +27,7 @@ import {
 } from './types.js'
 let globalIndex = 0
 
-import OriginalRouter from '@medley/router'
+
 import Ajv, { ValidateFunction } from 'ajv'
 import { z, ZodType } from 'zod'
 import { zodToJsonSchema } from 'zod-to-json-schema'
@@ -35,6 +35,7 @@ import { Context, MiddlewareContext } from './context.js'
 import { isProduction, ValidationError } from './error.js'
 import { isAsyncIterable, isResponse, redirect } from './utils.js'
 import { isValidElement } from 'react'
+import { MedleyRouter } from './router.js'
 
 const ajv = (addFormats.default || addFormats)(
   new (Ajv.default || Ajv)({ useDefaults: true }),
@@ -75,16 +76,6 @@ export type InternalRoute = {
   // prefix: string
 }
 
-type MedleyRouter = {
-  find: (path: string) =>
-    | {
-        store: Record<string, InternalRoute> //
-        params: Record<string, any>
-      }
-    | undefined
-  register: (path: string | undefined) => Record<string, InternalRoute>
-}
-
 const notFoundHandler = (c) => {
   return new Response('Not Found', { status: 404 })
 }
@@ -107,7 +98,7 @@ export class Spiceflow<
   const out Routes extends RouteBase = {},
 > {
   private id: number = globalIndex++
-  private router: MedleyRouter = new OriginalRouter()
+  private router: MedleyRouter = new MedleyRouter()
   private middlewares: Function[] = []
   private onErrorHandlers: OnError[] = []
   private routes: InternalRoute[] = []

@@ -56,7 +56,6 @@
   "author": "Tommaso De Rossi, morse <beats.by.morse@gmail.com>",
   "license": "",
   "dependencies": {
-    "@medley/router": "^0.2.1",
     "@sinclair/typebox": "^0.34.14",
     "@vitejs/plugin-react": "^4.3.4",
     "ajv": "^8.17.1",

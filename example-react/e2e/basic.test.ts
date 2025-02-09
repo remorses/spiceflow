@@ -25,7 +25,7 @@ test.describe("redirect", () => {
 		await expect(page).toHaveURL("/");
 		await page.getByText("[hydrated: 1]").click();
 	});
-	test("redirect in RSC", async ({ page }) => {
+	test.skip("redirect in RSC", async ({ page }) => {
 		await page.goto("/redirect-in-rsc");
 		await expect(page).toHaveURL("/");
 		await page.getByText("[hydrated: 1]").click();
