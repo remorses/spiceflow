@@ -169,7 +169,6 @@ export class Spiceflow<
     pathname: string,
   ): Record<string, string> {
     if (!matchResult?.length || !matchResult?.[0]?.[this.routeIndex]?.[1]) {
-      console.log('no match result', matchResult)
       return {}
     }
     const internalRoute =
@@ -178,7 +177,6 @@ export class Spiceflow<
 
     const decoded: Record<string, string> =
       extractWildcardParam(pathname, internalRoute?.path) || {}
-    console.log({ decoded, path: internalRoute?.path, pathname })
 
     const keys = Object.keys(matchResult[0][this.routeIndex][1])
     for (const key of keys) {
@@ -863,7 +861,6 @@ export class Spiceflow<
     } satisfies MiddlewareContext<any>
 
     const kind = route?.internalRoute?.kind
-    console.log('kind', kind)
     if (kind === 'page' || kind === 'layout') {
       try {
         const [page, ...layoutResults] = await Promise.all([
@@ -1520,7 +1517,6 @@ export function extractWildcardParam(
   const patternParts = patternUrl.split('/').filter(Boolean)
   const urlParts = url.split('/').filter(Boolean)
 
-  console.log(patternParts, urlParts)
   // Find wildcard index in pattern
   const wildcardIndex = patternParts.indexOf('*')
   if (wildcardIndex === -1) {
