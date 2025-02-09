@@ -35,9 +35,10 @@ import { Context, MiddlewareContext } from './context.js'
 import { isProduction, ValidationError } from './error.js'
 import { isAsyncIterable, isResponse, redirect } from './utils.js'
 import { createElement, isValidElement } from 'react'
-import { MedleyRouter } from './router.js'
+
 import value from 'virtual:build-client-references'
 import { FlightData, LayoutContent } from './react/components.js'
+import { TrieRouter } from './trie-router/router.js'
 
 const ajv = (addFormats.default || addFormats)(
   new (Ajv.default || Ajv)({ useDefaults: true }),
@@ -87,7 +88,7 @@ export class Spiceflow<
   const out Routes extends RouteBase = {},
 > {
   private id: number = globalIndex++
-  router: MedleyRouter = new MedleyRouter()
+  router: TrieRouter<InternalRoute> = new TrieRouter()
   private middlewares: Function[] = []
   private onErrorHandlers: OnError[] = []
   private routes: InternalRoute[] = []
@@ -137,7 +138,6 @@ export class Spiceflow<
 
     // remove trailing slash which can cause problems
     path = path?.replace(/\/$/, '') || '/'
-    const store = this.router.register(path, { kind })
     let route: InternalRoute = {
       ...rest,
       type: hooks?.type || '',
@@ -149,6 +149,8 @@ export class Spiceflow<
       validateParams,
       validateQuery,
     }
+    const store = this.router.add(method, path, route)
+
     this.routes.push(route)
     store[method!] = route
   }
@@ -825,7 +827,6 @@ export class Spiceflow<
     const kind = route?.internalRoute?.kind
     console.log('kind', kind)
     if (kind === 'page' || kind === 'layout') {
-
       try {
         const [page, ...layoutResults] = await Promise.all([
           route.internalRoute?.handler(context),
