@@ -115,7 +115,7 @@ test("server hmr @dev", async ({ page }) => {
 
 	// edit server
 	using file = createEditor("src/app/index.tsx");
-	file.edit((s) => s.replace("Server counter", "Server [EDIT] counter"));
+	await file.edit((s) => s.replace("Server counter", "Server [EDIT] counter"));
 	await page.getByText("Server [EDIT] counter: 1").click();
 	await page.getByText("Client counter: 1").click();
 
