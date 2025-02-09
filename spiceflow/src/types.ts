@@ -1,4 +1,6 @@
 // https://github.com/remorses/elysia/blob/main/src/types.ts#L6
+import Ajv, { ValidateFunction } from 'ajv'
+
 
 import z from 'zod'
 
@@ -586,12 +588,17 @@ export type LocalHook<
 
 export type ComposedHandler = (context: Context) => MaybePromise<Response>
 
-export interface InternalRoute {
+export type InternalRoute = {
   method: HTTPMethod
   path: string
-  composed: ComposedHandler | Response | null
-  handler: Handler
+  type: ContentType
+  handler: InlineHandler<any, any, any>
   hooks: LocalHook<any, any, any, any, any, any, any>
+  validateBody?: ValidateFunction
+  validateQuery?: ValidateFunction
+  validateParams?: ValidateFunction
+  kind?: 'react'
+  // prefix: string
 }
 
 export type AddPrefix<Prefix extends string, T> = {

@@ -11,6 +11,7 @@ import {
   HTTPMethod,
   InlineHandler,
   InputSchema,
+  InternalRoute,
   IsAny,
   JoinPath,
   LocalHook,
@@ -63,18 +64,6 @@ type AsyncResponse = Response | Promise<Response>
 
 type OnError = (x: { error: any; request: Request }) => AsyncResponse
 
-export type InternalRoute = {
-  method: HTTPMethod
-  path: string
-  type: ContentType
-  handler: InlineHandler<any, any, any>
-  hooks: LocalHook<any, any, any, any, any, any, any>
-  validateBody?: ValidateFunction
-  validateQuery?: ValidateFunction
-  validateParams?: ValidateFunction
-  kind?: 'react'
-  // prefix: string
-}
 
 const notFoundHandler = (c) => {
   return new Response('Not Found', { status: 404 })
