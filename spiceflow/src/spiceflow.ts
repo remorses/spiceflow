@@ -177,8 +177,8 @@ export class Spiceflow<
       matchResult[0][this.routeIndex][0]
 
     const decoded: Record<string, string> =
-      extractWildcardParam(internalRoute?.path, pathname) || {}
-    console.log({decoded, path: internalRoute?.path, pathname})
+      extractWildcardParam(pathname, internalRoute?.path) || {}
+    console.log({ decoded, path: internalRoute?.path, pathname })
 
     const keys = Object.keys(matchResult[0][this.routeIndex][1])
     for (const key of keys) {
@@ -1506,37 +1506,37 @@ function parseQuery(queryString: string) {
   return paramsObject
 }
 
+// TODO support things after *, like /files/*/path/to/file.txt
 export function extractWildcardParam(
+  url: string,
   patternUrl: string,
-  url: string
 ): { '*'?: string } | null {
-  // Return empty object if pattern has no wildcard
+  // Check if pattern contains wildcard
   if (!patternUrl.includes('*')) {
     return null
   }
 
-  // Split pattern into parts before and after wildcard
-  const [beforeWildcard] = patternUrl.split('*')
+  // Split pattern and url into segments
+  const patternParts = patternUrl.split('/').filter(Boolean)
+  const urlParts = url.split('/').filter(Boolean)
 
-  // Find position of :id param
-  const paramPos = beforeWildcard.indexOf('/:')
-  if (paramPos === -1) {
-    // No :id param, just match after prefix
-    const wildcardPart = url.slice(beforeWildcard.length)
-    return wildcardPart ? { '*': wildcardPart.replace(/\/$/, '') } : null
+  console.log(patternParts, urlParts)
+  // Find wildcard index in pattern
+  const wildcardIndex = patternParts.indexOf('*')
+  if (wildcardIndex === -1) {
+    return null
   }
 
-  // Get static prefix before :id
-  const prefix = beforeWildcard.slice(0, paramPos)
-  
-  // Find the next / after the :id in the actual URL
-  const urlParamEnd = url.indexOf('/', prefix.length + 1)
-  if (urlParamEnd === -1) return null
+  // Get all segments after wildcard index from url
+  const wildcardSegments = urlParts.slice(wildcardIndex)
+  if (!wildcardSegments.length) {
+    return null
+  }
 
-  // Get everything after the :id param value
-  const wildcardPart = url.slice(urlParamEnd + 1)
-  
-  return wildcardPart ? { '*': wildcardPart.replace(/\/$/, '') } : null
+  // Join segments with / to get full wildcard path
+  return {
+    '*': wildcardSegments.join('/'),
+  }
 }
 
 export function cloneDeep(x) {

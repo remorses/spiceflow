@@ -373,60 +373,59 @@ test('GET route with param and wildcard, both are captured', async () => {
       }),
     )
   expect(res.status).toBe(200)
-  expect(await res.json()).toMatchInlineSnapshot({
-    id: '123',
-    '*': 'path/to/file.txt',
-  }, `
+  expect(await res.json()).toMatchInlineSnapshot(
+    {
+      id: '123',
+      '*': 'path/to/file.txt',
+    },
+    `
     {
       "*": "path/to/file.txt",
       "id": "123",
     }
-  `)
+  `,
+  )
 })
 
 test('extractWildcardParam correctly extracts wildcard segments', () => {
-  expect(
-    extractWildcardParam('/files/123/path/to/file.txt', '/files/:id/*'),
-  ).toMatchInlineSnapshot(`
+  expect(extractWildcardParam('/files/123/path/to/file.txt', '/files/:id/*'))
+    .toMatchInlineSnapshot(`
+    {
+      "*": "path/to/file.txt",
+    }
+  `)
+
+  expect(extractWildcardParam('/files/path/to/file.txt', '/files/*'))
+    .toMatchInlineSnapshot(`
     {
       "*": "path/to/file.txt",
     }
   `)
 
   expect(
-    extractWildcardParam('/files/path/to/file.txt', '/files/*'),
-  ).toMatchInlineSnapshot(`
-    {
-      "*": "path/to/file.txt",
-    }
-  `)
-
-  expect(extractWildcardParam('/files/123', '/files/:id')).toMatchInlineSnapshot(
-    'null',
-  )
+    extractWildcardParam('/files/123', '/files/:id'),
+  ).toMatchInlineSnapshot('null')
 
   expect(
     extractWildcardParam('/files/123/', '/files/:id/*'),
   ).toMatchInlineSnapshot(`null`)
 
-  expect(
-    extractWildcardParam('/files/123/deep/path/', '/files/:id/*/'),
-  ).toMatchInlineSnapshot(`
+  expect(extractWildcardParam('/files/123/deep/path/', '/files/:id/*/'))
+    .toMatchInlineSnapshot(`
     {
       "*": "deep/path",
     }
   `)
 
-  expect(
-    extractWildcardParam('/files/123/path/to/file.txt', '/files/:id/*'),
-  ).toMatchInlineSnapshot(`
+  expect(extractWildcardParam('/files/123/path/to/file.txt', '/files/:id/*'))
+    .toMatchInlineSnapshot(`
     {
       "*": "path/to/file.txt",
     }
   `)
 
   expect(
-    extractWildcardParam('/files/:id/*', '/files/123/path/to/file.txt'),
+    extractWildcardParam('/files/123/path/to/file.txt', '/files/:id/*'),
   ).toMatchInlineSnapshot(`
     {
       "*": "path/to/file.txt",
