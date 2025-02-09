@@ -3,7 +3,15 @@ import { IndexPage } from './app/index'
 import { Layout } from './app/layout'
 
 const app = new Spiceflow()
-  .react('/', ({ request }) => {
+  .page('/', async ({ request }) => {
+    const url = new URL(request.url)
+    return (
+      <Layout>
+        <IndexPage url={url} />
+      </Layout>
+    )
+  })
+  .page('/:id', async ({ request, params }) => {
     const url = new URL(request.url)
     return (
       <Layout>

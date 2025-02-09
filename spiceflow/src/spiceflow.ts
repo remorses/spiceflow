@@ -676,7 +676,7 @@ export class Spiceflow<
     return this as any
   }
 
-  react<
+  page<
     const Path extends string,
     const LocalSchema extends InputSchema<keyof Definitions['type'] & string>,
     const Schema extends UnwrapRoute<LocalSchema, Definitions['type']>,
@@ -696,40 +696,20 @@ export class Spiceflow<
       Metadata['macro'],
       JoinPath<BasePath, Path>
     >,
-  ): Spiceflow<
-    BasePath,
-    Scoped,
-    Singleton,
-    Definitions,
-    Metadata,
-    Routes &
-      CreateClient<
-        JoinPath<BasePath, Path>,
-        {
-          get: {
-            body: Schema['body']
-            params: undefined extends Schema['params']
-              ? ResolvePath<Path>
-              : Schema['params']
-            query: Schema['query']
-            response: ComposeSpiceflowResponse<Schema['response'], Handle>
-          }
-        }
-      >
-  > {
-    this.add({ 
-      method: 'GET', 
-      path, 
-      handler: handler, 
+  ): Spiceflow<BasePath, Scoped, Singleton, Definitions, Metadata, Routes> {
+    this.add({
+      method: 'GET',
+      path,
+      handler: handler,
       hooks: hook,
-      kind: 'react'
+      kind: 'react',
     })
     this.add({
       method: 'POST',
       path,
       handler: handler,
       hooks: hook,
-      kind: 'react'
+      kind: 'react',
     })
     return this as any
   }
@@ -827,7 +807,7 @@ export class Spiceflow<
 
     if (route?.internalRoute?.kind === 'react') {
       const root = await route.internalRoute?.handler(context)
-      return root
+      return root as any
     }
     let handlerResponse: Response | undefined
     async function getResForError(err: any) {

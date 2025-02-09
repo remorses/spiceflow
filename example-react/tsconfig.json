@@ -1,27 +1,25 @@
 {
   "compilerOptions": {
-      "lib": ["DOM", "DOM.Iterable", "ES2022", "esnext"],
-      "types": [
-          "vite/client",
-      ],
-      "rootDir": "src",
-      "isolatedModules": true,
-      "esModuleInterop": true,
-      "jsx": "react-jsx",
-      "module": "ESNext",
-      "moduleResolution": "Bundler",
-      "resolveJsonModule": true,
-      "target": "ES2022",
-      "strict": true,
-      "allowJs": true,
-      "skipLibCheck": true,
-      "forceConsistentCasingInFileNames": true,
-      "baseUrl": ".",
-      "paths": {
-          "@/*": ["./app/*"]
-      },
-      "noImplicitAny": false,
-      // Vite takes care of building everything, not tsc.
-      "noEmit": true
+    "lib": ["DOM", "DOM.Iterable", "ES2022", "esnext"],
+    "types": ["vite/client"],
+    "rootDirs": ["src", "e2e"],
+    "isolatedModules": true,
+    "esModuleInterop": true,
+    "jsx": "react-jsx",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "resolveJsonModule": true,
+    "target": "ES2022",
+    "strict": true,
+    "allowJs": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./app/*"]
+    },
+    "noImplicitAny": false,
+    // Vite takes care of building everything, not tsc.
+    "noEmit": true
   }
 }

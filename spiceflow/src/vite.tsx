@@ -236,6 +236,7 @@ export function spiceflowPlugin({ entry }): PluginOption {
               `${JSON.stringify(id)}: () => import(${JSON.stringify(id)}),`,
           )
           .join('\n')
+        
         return `export default {${code}}`
       }),
     ]

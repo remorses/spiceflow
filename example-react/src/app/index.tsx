@@ -12,7 +12,7 @@ export async function IndexPage() {
 				data-testid="server-counter"
 				style={{ padding: "0.5rem" }}
 			>
-				<div>Server counter: {getCounter()}</div>
+				<div>Server [EDIT] counter: {getCounter()}</div>
 				<div>
 					<button name="change" value="-1">
 						-
