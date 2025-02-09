@@ -10,6 +10,9 @@ import {
   createRunnableDevEnvironment,
   defineConfig,
 } from 'vite'
+import { fileURLToPath } from 'node:url'
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 export function spiceflowPlugin({ entry }): PluginOption {
   // Move state variables inside plugin closure
@@ -40,7 +43,7 @@ export function spiceflowPlugin({ entry }): PluginOption {
             build: {
               outDir: 'dist/ssr',
               rollupOptions: {
-                input: { index: '/src/entry.ssr.tsx' },
+                input: { index: 'spiceflow/src/react/entry.ssr.tsx' },
               },
             },
           },
@@ -50,8 +53,9 @@ export function spiceflowPlugin({ entry }): PluginOption {
                 'react',
                 'react/jsx-runtime',
                 'react/jsx-dev-runtime',
-                'react-server-dom-vite/server',
+                'spiceflow/dist/react/server-dom-optimized',
               ],
+              exclude: ['util'],
             },
             resolve: {
               conditions: ['react-server'],
@@ -67,7 +71,7 @@ export function spiceflowPlugin({ entry }): PluginOption {
             build: {
               outDir: 'dist/rsc',
               rollupOptions: {
-                input: { index: '/src/entry.rsc.tsx' },
+                input: { index: 'spiceflow/src/react/entry.rsc.tsx' },
               },
             },
           },
@@ -96,7 +100,9 @@ export function spiceflowPlugin({ entry }): PluginOption {
         return () => {
           server.middlewares.use(async (req, res, next) => {
             try {
-              const mod: any = await ssrRunner.import('/src/entry.ssr.tsx')
+              const mod: any = await ssrRunner.import(
+                'spiceflow/src/react/entry.ssr.tsx',
+              )
               await mod.default(req, res)
             } catch (e) {
               next(e)
@@ -150,10 +156,10 @@ export function spiceflowPlugin({ entry }): PluginOption {
       window.$RefreshReg$ = () => {};
       window.$RefreshSig$ = () => (type) => type;
       window.__vite_plugin_react_preamble_installed__ = true;
-      await import("/src/entry.client.tsx");
+      await import("spiceflow/src/react/entry.client.tsx");
     `
       } else {
-        return `import "/src/entry.client.tsx";`
+        return `import "spiceflow/src/react/entry.client.tsx";`
       }
     }),
     {
@@ -208,7 +214,7 @@ export function spiceflowPlugin({ entry }): PluginOption {
                 ...code.matchAll(/export (default) (function|class) /g),
               ]
               const result = [
-                `import $$ReactServer from "react-server-dom-vite/server"`,
+                `import $$ReactServer from "spiceflow/dist/react/server-dom-optimized"`,
                 ...[...matches].map(
                   ([, name]) =>
                     `export ${name === 'default' ? 'default' : `const ${name} =`} $$ReactServer.registerClientReference({}, ${JSON.stringify(id)}, ${JSON.stringify(name)})`,
@@ -242,7 +248,7 @@ export function spiceflowPlugin({ entry }): PluginOption {
               const matches = code.matchAll(/export async function (\w+)\(/g)
               const result = [
                 code,
-                `import $$ReactServer from "react-server-dom-vite/server"`,
+                `import $$ReactServer from "spiceflow/dist/react/server-dom-optimized"`,
                 ...[...matches].map(
                   ([, name]) =>
                     `${name} = $$ReactServer.registerServerReference(${name}, ${JSON.stringify(id)}, ${JSON.stringify(name)})`,

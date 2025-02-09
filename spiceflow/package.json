@@ -27,6 +27,9 @@
       "types": "./dist/openapi.d.ts",
       "default": "./dist/openapi.js"
     },
+    "./src/*": {
+      "default": "./src/*"
+    },
     "./dist/*": {
       "types": "./dist/*.d.ts",
       "default": "./dist/*.js"
@@ -67,6 +70,7 @@
     "superjson": "^2.2.2",
     "vite": "^6.1.0",
     "zod": "^3.24.1",
+    "spiceflow": "*",
     "zod-to-json-schema": "^3.24.1"
   },
   "peerDependencies": {

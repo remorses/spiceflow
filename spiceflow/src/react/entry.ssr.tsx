@@ -65,7 +65,7 @@ declare let __rscRunner: ModuleRunner;
 
 async function importRscEntry(): Promise<typeof import("./entry.rsc.js")> {
 	if (import.meta.env.DEV) {
-		return await __rscRunner.import("/src/entry.rsc.tsx");
+		return await __rscRunner.import("spiceflow/src/react/entry.rsc.tsx");
 	} else {
 		return await import("virtual:build-rsc-entry" as any);
 	}

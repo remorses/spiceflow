@@ -1,6 +1,6 @@
 import type { ReactFormState } from "react-dom/client";
 import React from "react";
-import ReactServer from "react-server-dom-vite/server";
+import ReactServer from "spiceflow/dist/react/server-dom-optimized";
 
 import type {
 	ClientReferenceMetadataManifest,
