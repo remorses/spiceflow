@@ -61,6 +61,7 @@ export async function handler(
 	if (root instanceof Response) {
 		return root
 	}
+	const {page, layouts} = root
 
 	let abortable = ReactServer.renderToPipeableStream<ServerPayload>(
 		{

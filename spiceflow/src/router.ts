@@ -1,4 +1,4 @@
-import { InternalRoute } from './types.js'
+import { InternalRoute, NodeKind } from './types.js'
 
 interface Node {
   pathPart: string
@@ -6,20 +6,36 @@ interface Node {
   staticChildren: Map<number, Node> | null
   parametricChild: ParametricNode | null
   wildcardStore: any | null
+  kind?: NodeKind
+  id: string
 }
 
 interface ParametricNode {
   paramName: string
   store: Record<string, InternalRoute> | null
   staticChild: Node | null
+  id: string
 }
 
-interface RouteMatch {
+export interface RouteMatch {
   store: Record<string, InternalRoute>
   params: Record<string, string>
+  kind?: 'page' | 'layout'
+  layouts: RouteMatch[]
+  id: string
 }
 
-function createNode(pathPart: string, staticChildren?: Node[]): Node {
+function generateNodeId(path: string, existingIds: Set<string>): string {
+  let id = path
+  let counter = 1
+  while (existingIds.has(id)) {
+    id = `${path}_${counter}`
+    counter++
+  }
+  return id
+}
+
+function createNode(pathPart: string, staticChildren?: Node[], existingIds: Set<string> = new Set()): Node {
   return {
     pathPart,
     store: null,
@@ -34,24 +50,29 @@ function createNode(pathPart: string, staticChildren?: Node[]): Node {
           ),
     parametricChild: null,
     wildcardStore: null,
+    kind: undefined,
+    id: generateNodeId(pathPart, existingIds)
   }
 }
 
-function cloneNode(node: Node, newPathPart: string): Node {
+function cloneNode(node: Node, newPathPart: string, existingIds: Set<string> = new Set()): Node {
   return {
     pathPart: newPathPart,
     store: node.store,
     staticChildren: node.staticChildren,
     parametricChild: node.parametricChild,
     wildcardStore: node.wildcardStore,
+    kind: node.kind,
+    id: generateNodeId(newPathPart, existingIds)
   }
 }
 
-function createParametricNode(paramName: string): ParametricNode {
+function createParametricNode(paramName: string, existingIds: Set<string> = new Set()): ParametricNode {
   return {
     paramName,
     store: null,
     staticChild: null,
+    id: generateNodeId(`:${paramName}`, existingIds)
   }
 }
 
@@ -84,8 +105,7 @@ export class MedleyRouter {
     this._root = createNode('/')
     this._storeFactory = storeFactory
   }
-
-  register(path: string): any {
+  register(path: string, options?: { kind?: NodeKind }): any {
     if (typeof path !== 'string') {
       throw new TypeError('Route path must be a string')
     }
@@ -132,6 +152,7 @@ export class MedleyRouter {
 
         if (parametricChild.staticChild === null) {
           node = parametricChild.staticChild = createNode(pathPart)
+          if (options?.kind) node.kind = options.kind
           continue
         }
 
@@ -144,6 +165,7 @@ export class MedleyRouter {
             // Move the current node down
             const childNode = cloneNode(node, node.pathPart.slice(j))
             Object.assign(node, createNode(pathPart, [childNode]))
+            if (options?.kind) node.kind = options.kind
           }
           break
         }
@@ -162,6 +184,7 @@ export class MedleyRouter {
 
           // Create new node
           const childNode = createNode(pathPart.slice(j))
+          if (options?.kind) childNode.kind = options.kind
           node.staticChildren.set(pathPart.charCodeAt(j), childNode)
           node = childNode
 
@@ -172,6 +195,7 @@ export class MedleyRouter {
           // Split the node
           const existingChild = cloneNode(node, node.pathPart.slice(j))
           const newChild = createNode(pathPart.slice(j))
+          if (options?.kind) newChild.kind = options.kind
 
           Object.assign(
             node,
@@ -234,7 +258,123 @@ export class MedleyRouter {
     const queryIndex = url.indexOf('?')
     const urlLength = queryIndex >= 0 ? queryIndex : url.length
 
-    return matchRoute(url, urlLength, this._root, 0)
+    return this._matchRoute(url, urlLength, this._root, 0)
+  }
+
+  private _matchRoute(
+    url: string,
+    urlLength: number,
+    node: Node,
+    startIndex: number,
+  ): RouteMatch | null {
+    const { pathPart } = node
+    const pathPartLen = pathPart.length
+    const pathPartEndIndex = startIndex + pathPartLen
+
+    // Only check the pathPart if its length is > 1 since the parent has
+    // already checked that the url matches the first character
+    if (pathPartLen > 1) {
+      if (pathPartEndIndex > urlLength) {
+        return null
+      }
+
+      if (pathPartLen < 15) {
+        // Using a loop is faster for short strings
+        for (let i = 1, j = startIndex + 1; i < pathPartLen; ++i, ++j) {
+          if (pathPart[i] !== url[j]) {
+            return null
+          }
+        }
+      } else if (url.slice(startIndex, pathPartEndIndex) !== pathPart) {
+        return null
+      }
+    }
+
+    startIndex = pathPartEndIndex
+
+    if (startIndex === urlLength) {
+      // Reached the end of the URL
+      if (node.store !== null) {
+        return {
+          store: node.store,
+          params: {},
+          kind: node.kind,
+          layouts: this.collectLayouts(node),
+        }
+      }
+
+      if (node.wildcardStore !== null) {
+        return {
+          store: node.wildcardStore,
+          params: { '*': '' },
+          kind: node.kind,
+          layouts: this.collectLayouts(node),
+        }
+      }
+
+      return null
+    }
+
+    if (node.staticChildren !== null) {
+      const staticChild = node.staticChildren.get(url.charCodeAt(startIndex))
+
+      if (staticChild !== undefined) {
+        const route = this._matchRoute(url, urlLength, staticChild, startIndex)
+
+        if (route !== null) {
+          return route
+        }
+      }
+    }
+
+    if (node.parametricChild !== null) {
+      const parametricNode = node.parametricChild
+      const slashIndex = url.indexOf('/', startIndex)
+
+      if (slashIndex !== startIndex) {
+        // Params cannot be empty
+        if (slashIndex === -1 || slashIndex >= urlLength) {
+          if (parametricNode.store !== null) {
+            const params: Record<string, string> = {}
+            params[parametricNode.paramName] = url.slice(startIndex, urlLength)
+            return {
+              store: parametricNode.store,
+              params,
+              kind: node.kind,
+              layouts: this.collectLayouts(node),
+            }
+          }
+        } else if (parametricNode.staticChild !== null) {
+          const route = this._matchRoute(
+            url,
+            urlLength,
+            parametricNode.staticChild,
+            slashIndex,
+          )
+
+          if (route !== null) {
+            route.params[parametricNode.paramName] = url.slice(
+              startIndex,
+              slashIndex,
+            )
+            return route
+          }
+        }
+      }
+    }
+
+    if (node.wildcardStore !== null) {
+      return {
+        store: node.wildcardStore,
+        params: {
+          '*': url.slice(startIndex, urlLength),
+        },
+        kind: node.kind,
+        layouts: this.collectLayouts(node),
+      }
+    }
+
+    return null
   }
 
   debugTree(): string {
@@ -243,114 +383,52 @@ export class MedleyRouter {
       '',
     ) // Remove the first 3 characters of every line
   }
-}
 
-function matchRoute(
-  url: string,
-  urlLength: number,
-  node: Node,
-  startIndex: number,
-): RouteMatch | null {
-  const { pathPart } = node
-  const pathPartLen = pathPart.length
-  const pathPartEndIndex = startIndex + pathPartLen
+  getParentNode(targetNode: Node): Node | null {
+    // Start from root and try to find the parent
+    const findParent = (current: Node, target: Node): Node | null => {
+      // Check static children
+      if (current.staticChildren) {
+        for (const child of current.staticChildren.values()) {
+          if (child === target) return current
+          const found = findParent(child, target)
+          if (found) return found
+        }
+      }
 
-  // Only check the pathPart if its length is > 1 since the parent has
-  // already checked that the url matches the first character
-  if (pathPartLen > 1) {
-    if (pathPartEndIndex > urlLength) {
+      // Check parametric child
+      if (current.parametricChild) {
+        if (current.parametricChild.staticChild === target) return current
+        if (current.parametricChild.staticChild) {
+          const found = findParent(current.parametricChild.staticChild, target)
+          if (found) return found
+        }
+      }
+
       return null
     }
 
-    if (pathPartLen < 15) {
-      // Using a loop is faster for short strings
-      for (let i = 1, j = startIndex + 1; i < pathPartLen; ++i, ++j) {
-        if (pathPart[i] !== url[j]) {
-          return null
-        }
-      }
-    } else if (url.slice(startIndex, pathPartEndIndex) !== pathPart) {
-      return null
-    }
+    return findParent(this._root, targetNode)
   }
 
-  startIndex = pathPartEndIndex
-
-  if (startIndex === urlLength) {
-    // Reached the end of the URL
-    if (node.store !== null) {
-      return {
-        store: node.store,
-        params: {},
+  private collectLayouts(node: Node): RouteMatch[] {
+    const layouts: RouteMatch[] = []
+    let current: Node | null = node
+    
+    while (current) {
+      if (current.kind === 'layout' && current.store) {
+        layouts.unshift({
+          store: current.store,
+          params: {},
+          kind: 'layout',
+          layouts: [],
+        })
       }
+      current = this.getParentNode(current)
     }
-
-    if (node.wildcardStore !== null) {
-      return {
-        store: node.wildcardStore,
-        params: { '*': '' },
-      }
-    }
-
-    return null
+    
+    return layouts.filter(Boolean)
   }
-
-  if (node.staticChildren !== null) {
-    const staticChild = node.staticChildren.get(url.charCodeAt(startIndex))
-
-    if (staticChild !== undefined) {
-      const route = matchRoute(url, urlLength, staticChild, startIndex)
-
-      if (route !== null) {
-        return route
-      }
-    }
-  }
-
-  if (node.parametricChild !== null) {
-    const parametricNode = node.parametricChild
-    const slashIndex = url.indexOf('/', startIndex)
-
-    if (slashIndex !== startIndex) {
-      // Params cannot be empty
-      if (slashIndex === -1 || slashIndex >= urlLength) {
-        if (parametricNode.store !== null) {
-          const params: Record<string, string> = {} // This is much faster than using a computed property
-          params[parametricNode.paramName] = url.slice(startIndex, urlLength)
-          return {
-            store: parametricNode.store,
-            params,
-          }
-        }
-      } else if (parametricNode.staticChild !== null) {
-        const route = matchRoute(
-          url,
-          urlLength,
-          parametricNode.staticChild,
-          slashIndex,
-        )
-
-        if (route !== null) {
-          route.params[parametricNode.paramName] = url.slice(
-            startIndex,
-            slashIndex,
-          )
-          return route
-        }
-      }
-    }
-  }
-
-  if (node.wildcardStore !== null) {
-    return {
-      store: node.wildcardStore,
-      params: {
-        '*': url.slice(startIndex, urlLength),
-      },
-    }
-  }
-
-  return null
 }
 
 function debugNode(node: any): Record<string, any> {
@@ -410,3 +488,4 @@ function debugNode(node: any): Record<string, any> {
 function debugStore(store: any): string {
   return store === null ? '' : ' (s)'
 }
+

@@ -28,7 +28,6 @@ import {
 } from './types.js'
 let globalIndex = 0
 
-
 import Ajv, { ValidateFunction } from 'ajv'
 import { z, ZodType } from 'zod'
 import { zodToJsonSchema } from 'zod-to-json-schema'
@@ -37,6 +36,7 @@ import { isProduction, ValidationError } from './error.js'
 import { isAsyncIterable, isResponse, redirect } from './utils.js'
 import { isValidElement } from 'react'
 import { MedleyRouter } from './router.js'
+import value from 'virtual:build-client-references'
 
 const ajv = (addFormats.default || addFormats)(
   new (Ajv.default || Ajv)({ useDefaults: true }),
@@ -63,7 +63,6 @@ const ajv = (addFormats.default || addFormats)(
 type AsyncResponse = Response | Promise<Response>
 
 type OnError = (x: { error: any; request: Request }) => AsyncResponse
-
 
 const notFoundHandler = (c) => {
   return new Response('Not Found', { status: 404 })
@@ -119,8 +118,10 @@ export class Spiceflow<
     path,
     hooks,
     handler,
+
     ...rest
   }: Partial<InternalRoute>) {
+    const kind = rest.kind
     let bodySchema: TypeSchema = hooks?.body
     let validateBody = getValidateFunction(bodySchema)
     let validateQuery = getValidateFunction(hooks?.query)
@@ -135,7 +136,7 @@ export class Spiceflow<
 
     // remove trailing slash which can cause problems
     path = path?.replace(/\/$/, '') || '/'
-    const store = this.router.register(path)
+    const store = this.router.register(path, { kind })
     let route: InternalRoute = {
       ...rest,
       type: hooks?.type || '',
@@ -182,6 +183,7 @@ export class Spiceflow<
         const params = medleyRoute.params || {}
 
         const res = {
+          ...medleyRoute,
           app,
           internalRoute: internalRoute,
           params,
@@ -193,21 +195,17 @@ export class Spiceflow<
         if (!internalRouteGet?.handler) {
           return
         }
+
         return {
+          ...medleyRoute,
           app,
           internalRoute: {
             hooks: {},
-            handler: async (c) => {
-              const response = await internalRouteGet.handler(c)
-              if (isResponse(response)) {
-                return new Response('', {
-                  status: response.status,
-                  statusText: response.statusText,
-                  headers: response.headers,
-                })
-              }
-              return new Response(null, { status: 200 })
-            },
+            handler:
+              internalRouteGet.handler ||
+              ((c) => {
+                return new Response(null, { status: 200 })
+              }),
             method,
             path,
           } as InternalRoute,
@@ -218,6 +216,7 @@ export class Spiceflow<
 
     return (
       result || {
+        kind: undefined,
         app: foundApp || root,
         internalRoute: {
           hooks: {},
@@ -682,14 +681,51 @@ export class Spiceflow<
       path,
       handler: handler,
       hooks: hook,
-      kind: 'react',
+      kind: 'page',
     })
     this.add({
       method: 'POST',
       path,
       handler: handler,
       hooks: hook,
-      kind: 'react',
+      kind: 'page',
+    })
+    return this as any
+  }
+  layout<
+    const Path extends string,
+    const LocalSchema extends InputSchema<keyof Definitions['type'] & string>,
+    const Schema extends UnwrapRoute<LocalSchema, Definitions['type']>,
+    const Handle extends InlineHandler<
+      Schema,
+      Singleton,
+      JoinPath<BasePath, Path>
+    >,
+  >(
+    path: Path,
+    handler: Handle,
+    hook?: LocalHook<
+      LocalSchema,
+      Schema,
+      Singleton,
+      Definitions['error'],
+      Metadata['macro'],
+      JoinPath<BasePath, Path>
+    >,
+  ): Spiceflow<BasePath, Scoped, Singleton, Definitions, Metadata, Routes> {
+    this.add({
+      method: 'GET',
+      path,
+      handler: handler,
+      hooks: hook,
+      kind: 'layout',
+    })
+    this.add({
+      method: 'POST',
+      path,
+      handler: handler,
+      hooks: hook,
+      kind: 'layout',
     })
     return this as any
   }
@@ -738,7 +774,7 @@ export class Spiceflow<
     return this
   }
 
-  async handle(request: Request): Promise<Response> {
+  async handle(request: Request) {
     let u = new URL(request.url, 'http://localhost')
     const self = this
     let path = u.pathname + u.search
@@ -785,10 +821,12 @@ export class Spiceflow<
       redirect,
     } satisfies MiddlewareContext<any>
 
-    if (route?.internalRoute?.kind === 'react') {
+    const kind = route?.kind
+    if (kind === 'page' || kind === 'layout') {
       try {
-        const elem = await route.internalRoute?.handler(context)
-        return elem as any
+        const page = await route.internalRoute?.handler(context)
+
+        return { page, layouts: route.layouts }
       } catch (err) {
         return await getResForError(err)
       }

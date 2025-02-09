@@ -597,9 +597,11 @@ export type InternalRoute = {
   validateBody?: ValidateFunction
   validateQuery?: ValidateFunction
   validateParams?: ValidateFunction
-  kind?: 'react'
+  kind?: NodeKind
   // prefix: string
 }
+
+export type NodeKind = 'page' | 'layout'
 
 export type AddPrefix<Prefix extends string, T> = {
   [K in keyof T as Prefix extends string ? `${Prefix}${K & string}` : K]: T[K]
@@ -884,3 +886,4 @@ export type JoinPath<A extends string, B extends string> = `${A}${B extends '/'
 
 export type PartialWithRequired<T, K extends keyof T> = Partial<Omit<T, K>> &
   Pick<T, K>
+
