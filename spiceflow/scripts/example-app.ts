@@ -1,4 +1,4 @@
-import { Spiceflow } from '../src'
+import { Spiceflow } from "../src.js"
 import { z } from 'zod'
 import { openapi } from '../src/openapi.js'
 

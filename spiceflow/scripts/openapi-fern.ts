@@ -2,7 +2,7 @@ import fs from 'fs'
 import path from 'path'
 import yaml from 'js-yaml'
 
-import { createSpiceflowClient } from '../src/client'
+import { createSpiceflowClient } from "../src/client.js"
 import { app } from './example-app.js'
 
 async function main() {

@@ -1,11 +1,11 @@
 import type { ReactFormState } from "react-dom/client";
 import ReactServer from "react-server-dom-vite/server";
-import { Router } from "./app/routes";
+import { Router } from "./app/routes.js";
 import type {
 	ClientReferenceMetadataManifest,
 	ServerReferenceManifest,
-} from "./types";
-import { fromPipeableToWebReadable } from "./utils/fetch";
+} from "./types.js";
+import { fromPipeableToWebReadable } from "./utils/fetch.js";
 
 export interface RscHandlerResult {
 	stream: ReadableStream<Uint8Array>;

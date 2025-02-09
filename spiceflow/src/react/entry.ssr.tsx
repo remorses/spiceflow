@@ -2,15 +2,15 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import ReactDomServer from "react-dom/server";
 import ReactClient from "react-server-dom-vite/client";
 import type { ModuleRunner } from "vite/module-runner";
-import type { ServerPayload } from "./entry.rsc";
-import { clientReferenceManifest } from "./utils/client-reference";
+import type { ServerPayload } from "./entry.rsc.js";
+import { clientReferenceManifest } from "./utils/client-reference.js";
 import {
 	createRequest,
 	fromPipeableToWebReadable,
 	fromWebToNodeReadable,
 	sendResponse,
-} from "./utils/fetch";
-import { injectFlightStream } from "./utils/stream-script";
+} from "./utils/fetch.js";
+import { injectFlightStream } from "./utils/stream-script.js";
 
 export default async function handler(
 	req: IncomingMessage,

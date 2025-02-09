@@ -1,5 +1,5 @@
-import { app } from './example-app'
-import { ExampleSdkClient } from './sdk-typescript'
+import { app } from "./example-app.js"
+import { ExampleSdkClient } from "./sdk-typescript.js"
 
 async function main() {
   const port = 3340
