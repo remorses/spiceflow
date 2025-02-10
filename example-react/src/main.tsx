@@ -1,6 +1,7 @@
 import { Spiceflow } from "spiceflow";
 import { IndexPage } from "./app/index";
 import { Layout } from "./app/layout";
+import './styles.css'
 
 const app = new Spiceflow()
 	.layout("/*", async ({ children, request }) => {

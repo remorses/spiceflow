@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
+  "type": "module",
   "scripts": {
     "dev": "vite",
     "preview": "vite preview",
@@ -13,10 +14,11 @@
   "author": "remorses <beats.by.morse@gmail.com>",
   "dependencies": {
     "@playwright/test": "^1.50.1",
+    "@tailwindcss/vite": "^4.0.5",
     "react": "19.0.0",
     "react-dom": "19.0.0",
     "spiceflow": "workspace:*",
-    
+    "tailwindcss": "^4.0.5",
     "vite": "^6.1.0"
   },
   "license": "ISC",
