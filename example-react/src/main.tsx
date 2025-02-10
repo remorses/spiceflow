@@ -20,12 +20,25 @@ const app = new Spiceflow()
 			},
 		});
 	})
+	.layout("/page/*", async ({ request, children }) => {
+		return (
+			<div className="">
+				<h1>/page layout</h1>
+				{children}
+			</div>
+		);
+	})
+	.page("/page", async ({ request }) => {
+		const url = new URL(request.url);
+		return <IndexPage />;
+	})
 	.page("/:id", async ({ request, params }) => {
 		const url = new URL(request.url);
 		return (
-			<Layout>
+			<div className="">
+				<h1>:id page</h1>
 				<IndexPage />
-			</Layout>
+			</div>
 		);
 	})
 	.page("/redirect-in-rsc", async () => {
