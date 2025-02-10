@@ -39,9 +39,7 @@ export default function reactServerDOM(): vite.PluginOption {
     return noramlizeClientReferenceId(filename, server)
   }
 
-  return [
-    
-  ]
+  return []
 }
 
 function rollupInputsToArray(

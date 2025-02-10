@@ -20,7 +20,9 @@ export const splitRoutingPath = (routePath: string): string[] => {
   return replaceGroupMarks(paths, groups)
 }
 
-const extractGroupsFromPath = (path: string): { groups: [string, string][]; path: string } => {
+const extractGroupsFromPath = (
+  path: string,
+): { groups: [string, string][]; path: string } => {
   const groups: [string, string][] = []
 
   path = path.replace(/\{[^}]+\}/g, (match, index) => {
@@ -32,7 +34,10 @@ const extractGroupsFromPath = (path: string): { groups: [string, string][]; path
   return { groups, path }
 }
 
-const replaceGroupMarks = (paths: string[], groups: [string, string][]): string[] => {
+const replaceGroupMarks = (
+  paths: string[],
+  groups: [string, string][],
+): string[] => {
   for (let i = groups.length - 1; i >= 0; i--) {
     const [mark] = groups[i]
 
@@ -115,7 +120,9 @@ export const getPath = (request: Request): string => {
       // Although this is a performance disadvantage, it is acceptable since we prefer cases that do not include percent encoding.
       const queryIndex = url.indexOf('?', i)
       const path = url.slice(start, queryIndex === -1 ? undefined : queryIndex)
-      return tryDecodeURI(path.includes('%25') ? path.replace(/%25/g, '%2525') : path)
+      return tryDecodeURI(
+        path.includes('%25') ? path.replace(/%25/g, '%2525') : path,
+      )
     } else if (charCode === 63) {
       // '?'
       break
@@ -133,7 +140,9 @@ export const getPathNoStrict = (request: Request): string => {
   const result = getPath(request)
 
   // if strict routing is false => `/hello/hey/` and `/hello/hey` are treated the same
-  return result.length > 1 && result.at(-1) === '/' ? result.slice(0, -1) : result
+  return result.length > 1 && result.at(-1) === '/'
+    ? result.slice(0, -1)
+    : result
 }
 
 export const mergePath = (...paths: string[]): string => {
@@ -219,8 +228,13 @@ const _decodeURI = (value: string) => {
 const _getQueryParam = (
   url: string,
   key?: string,
-  multiple?: boolean
-): string | undefined | Record<string, string> | string[] | Record<string, string[]> => {
+  multiple?: boolean,
+):
+  | string
+  | undefined
+  | Record<string, string>
+  | string[]
+  | Record<string, string[]> => {
   let encoded
 
   if (!multiple && key && !/[%+]/.test(key)) {
@@ -235,7 +249,9 @@ const _getQueryParam = (
       if (trailingKeyCode === 61) {
         const valueIndex = keyIndex + key.length + 2
         const endIndex = url.indexOf('&', valueIndex)
-        return _decodeURI(url.slice(valueIndex, endIndex === -1 ? undefined : endIndex))
+        return _decodeURI(
+          url.slice(valueIndex, endIndex === -1 ? undefined : endIndex),
+        )
       } else if (trailingKeyCode == 38 || isNaN(trailingKeyCode)) {
         return ''
       }
@@ -261,7 +277,11 @@ const _getQueryParam = (
     }
     let name = url.slice(
       keyIndex + 1,
-      valueIndex === -1 ? (nextKeyIndex === -1 ? undefined : nextKeyIndex) : valueIndex
+      valueIndex === -1
+        ? nextKeyIndex === -1
+          ? undefined
+          : nextKeyIndex
+        : valueIndex,
     )
     if (encoded) {
       name = _decodeURI(name)
@@ -277,7 +297,10 @@ const _getQueryParam = (
     if (valueIndex === -1) {
       value = ''
     } else {
-      value = url.slice(valueIndex + 1, nextKeyIndex === -1 ? undefined : nextKeyIndex)
+      value = url.slice(
+        valueIndex + 1,
+        nextKeyIndex === -1 ? undefined : nextKeyIndex,
+      )
       if (encoded) {
         value = _decodeURI(value)
       }
@@ -298,17 +321,20 @@ const _getQueryParam = (
 
 export const getQueryParam: (
   url: string,
-  key?: string
+  key?: string,
 ) => string | undefined | Record<string, string> = _getQueryParam as (
   url: string,
-  key?: string
+  key?: string,
 ) => string | undefined | Record<string, string>
 
 export const getQueryParams = (
   url: string,
-  key?: string
+  key?: string,
 ): string[] | undefined | Record<string, string[]> => {
-  return _getQueryParam(url, key, true) as string[] | undefined | Record<string, string[]>
+  return _getQueryParam(url, key, true) as
+    | string[]
+    | undefined
+    | Record<string, string[]>
 }
 
 // `decodeURIComponent` is a long name.

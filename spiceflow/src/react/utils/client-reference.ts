@@ -9,7 +9,7 @@ export const clientReferenceManifest: ClientReferenceManifest = {
         let mod: Record<string, unknown>
         if (import.meta.env.DEV) {
           // console.log('importing client reference', id)
-		  console.log('importing client reference', id)
+          console.log('importing client reference', id)
           mod =
             typeof __raw_import !== 'undefined'
               ? // on browser development need to use __raw_import to not add ?import at the end, otherwise the browser duplicates the module instance, context stops working
@@ -19,10 +19,12 @@ export const clientReferenceManifest: ClientReferenceManifest = {
           const references = await import(
             'virtual:build-client-references' as string
           )
-		  const ref = references.default[id]
-		  if (!ref) {
-			throw new Error(`Can't find client reference for module ${id}, among ${Object.keys(references.default).join(', ')}`)
-		  }
+          const ref = references.default[id]
+          if (!ref) {
+            throw new Error(
+              `Can't find client reference for module ${id}, among ${Object.keys(references.default).join(', ')}`,
+            )
+          }
           mod = await ref()
         }
         resolved = mod[name]

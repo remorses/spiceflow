@@ -424,9 +424,8 @@ test('extractWildcardParam correctly extracts wildcard segments', () => {
     }
   `)
 
-  expect(
-    extractWildcardParam('/files/123/path/to/file.txt', '/files/:id/*'),
-  ).toMatchInlineSnapshot(`
+  expect(extractWildcardParam('/files/123/path/to/file.txt', '/files/:id/*'))
+    .toMatchInlineSnapshot(`
     {
       "*": "path/to/file.txt",
     }

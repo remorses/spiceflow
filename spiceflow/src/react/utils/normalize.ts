@@ -8,7 +8,7 @@ import { ModuleNode, ViteDevServer } from 'vite'
 export function noramlizeClientReferenceId(
   id: string,
   parentServer: ViteDevServer,
-  mod?: ModuleNode
+  mod?: ModuleNode,
 ) {
   const root = parentServer.config.root
   if (id.startsWith(root)) {
@@ -21,7 +21,7 @@ export function noramlizeClientReferenceId(
   // this is needed only for browser, so we'll strip it off
   // during ssr client reference import
   // TODO
-  
+
   if (mod && mod.lastHMRTimestamp > 0) {
     id += `?t=${mod.lastHMRTimestamp}`
   }

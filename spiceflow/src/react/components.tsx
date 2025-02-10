@@ -20,7 +20,7 @@ export function LayoutContent(props: { id: string }) {
   if (nextLayout) {
     return nextLayout
   }
-  
+
   return data.page
 }
 

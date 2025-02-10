@@ -54,7 +54,7 @@ export type Params = Record<string, string>
  * An array of handlers with their corresponding parameter maps.
  *
  * Example:
- * 
+ *
  * [[handler, params][]]
  * ```typescript
  * [
@@ -67,4 +67,3 @@ export type Params = Record<string, string>
  * ```
  */
 export type Result<T> = [[T, Params][]]
-

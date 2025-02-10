@@ -15,11 +15,11 @@ type ReplaceBlobWithFiles<in out RecordType extends Record<string, unknown>> = {
   [K in keyof RecordType]: RecordType[K] extends any
     ? RecordType[K]
     : RecordType[K] extends
-        | Blob
-        | Blob[]
-        | { arrayBuffer: () => Promise<ArrayBuffer> }
-    ? Files
-    : RecordType[K]
+          | Blob
+          | Blob[]
+          | { arrayBuffer: () => Promise<ArrayBuffer> }
+      ? Files
+      : RecordType[K]
 } & {}
 
 type And<A extends boolean, B extends boolean> = A extends true
@@ -34,18 +34,18 @@ type ReplaceGeneratorWithAsyncGenerator<
   [K in keyof RecordType]: RecordType[K] extends any
     ? RecordType[K]
     : RecordType[K] extends Generator<infer A, infer B, infer C>
-    ? And<Not<IsNever<A>>, void extends B ? true : false> extends true
-      ? AsyncGenerator<A, B, C>
-      : And<IsNever<A>, void extends B ? false : true> extends true
-      ? B
-      : AsyncGenerator<A, B, C> | B
-    : RecordType[K] extends AsyncGenerator<infer A, infer B, infer C>
-    ? And<Not<IsNever<A>>, void extends B ? true : false> extends true
-      ? AsyncGenerator<A, B, C>
-      : And<IsNever<A>, void extends B ? false : true> extends true
-      ? B
-      : AsyncGenerator<A, B, C> | B
-    : RecordType[K]
+      ? And<Not<IsNever<A>>, void extends B ? true : false> extends true
+        ? AsyncGenerator<A, B, C>
+        : And<IsNever<A>, void extends B ? false : true> extends true
+          ? B
+          : AsyncGenerator<A, B, C> | B
+      : RecordType[K] extends AsyncGenerator<infer A, infer B, infer C>
+        ? And<Not<IsNever<A>>, void extends B ? true : false> extends true
+          ? AsyncGenerator<A, B, C>
+          : And<IsNever<A>, void extends B ? false : true> extends true
+            ? B
+            : AsyncGenerator<A, B, C> | B
+        : RecordType[K]
 } & {}
 
 type MaybeArray<T> = T | T[]
@@ -97,40 +97,38 @@ export namespace SpiceflowClient {
                 ClientResponse<ReplaceGeneratorWithAsyncGenerator<Response>>
               >
           : K extends 'get' | 'head'
-          ? (
-              options: Prettify<Param & ClientParam>,
-            ) => Promise<
-              ClientResponse<ReplaceGeneratorWithAsyncGenerator<Response>>
-            >
-          : (
-              body: Body extends Record<string, unknown>
-                ? ReplaceBlobWithFiles<Body>
-                : Body,
-              options: Prettify<Param & ClientParam>,
-            ) => Promise<
-              ClientResponse<ReplaceGeneratorWithAsyncGenerator<Response>>
-            >
+            ? (
+                options: Prettify<Param & ClientParam>,
+              ) => Promise<
+                ClientResponse<ReplaceGeneratorWithAsyncGenerator<Response>>
+              >
+            : (
+                body: Body extends Record<string, unknown>
+                  ? ReplaceBlobWithFiles<Body>
+                  : Body,
+                options: Prettify<Param & ClientParam>,
+              ) => Promise<
+                ClientResponse<ReplaceGeneratorWithAsyncGenerator<Response>>
+              >
         : never
       : CreateParams<Route[K]>
   }
 
-  type CreateParams<Route extends Record<string, any>> = Extract<
-    keyof Route,
-    `:${string}`
-  > extends infer Path extends string
-    ? IsNever<Path> extends true
-      ? Prettify<Sign<Route>>
-      : // ! DO NOT USE PRETTIFY ON THIS LINE, OTHERWISE FUNCTION CALLING WILL BE OMITTED
-        (((params: {
-          [param in Path extends `:${infer Param}`
-            ? Param extends `${infer Param}?`
-              ? Param
-              : Param
-            : never]: string | number
-        }) => Prettify<Sign<Route[Path]>> & CreateParams<Route[Path]>) &
-          Prettify<Sign<Route>>) &
-          (Path extends `:${string}?` ? CreateParams<Route[Path]> : {})
-    : never
+  type CreateParams<Route extends Record<string, any>> =
+    Extract<keyof Route, `:${string}`> extends infer Path extends string
+      ? IsNever<Path> extends true
+        ? Prettify<Sign<Route>>
+        : // ! DO NOT USE PRETTIFY ON THIS LINE, OTHERWISE FUNCTION CALLING WILL BE OMITTED
+          (((params: {
+            [param in Path extends `:${infer Param}`
+              ? Param extends `${infer Param}?`
+                ? Param
+                : Param
+              : never]: string | number
+          }) => Prettify<Sign<Route[Path]>> & CreateParams<Route[Path]>) &
+            Prettify<Sign<Route>>) &
+            (Path extends `:${string}?` ? CreateParams<Route[Path]> : {})
+      : never
 
   export interface Config {
     // fetch?: Omit<RequestInit, 'headers' | 'method'>

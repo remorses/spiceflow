@@ -1,5 +1,3 @@
-
-
 import { Node } from './node.js'
 import { checkOptionalParameter, Result } from './utils.js'
 
