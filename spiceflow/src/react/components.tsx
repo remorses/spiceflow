@@ -76,7 +76,11 @@ function getErrorContext(error: Error): ReactServerErrorContext | undefined {
   return (error as any).serverError
 }
 
-export class ErrorBoundary extends React.Component<Props, State> {
+export function ErrorBoundary(props: Props) {
+  return <ErrorBoundary_ {...props} />
+}
+
+class ErrorBoundary_ extends React.Component<Props, State> {
   constructor(props: Props) {
     super(props)
     this.state = { error: null }

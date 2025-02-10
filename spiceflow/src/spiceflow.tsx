@@ -26,7 +26,7 @@ import {
   RouteSchema,
   SingletonBase,
   TypeSchema,
-  UnwrapRoute
+  UnwrapRoute,
 } from './types.js'
 let globalIndex = 0
 
@@ -38,15 +38,20 @@ import { MiddlewareContext } from './context.js'
 import { isProduction, ValidationError } from './error.js'
 import { isAsyncIterable, isResponse, redirect } from './utils.js'
 
-
-import { FlightData, LayoutContent } from './react/components.js'
-import { ClientReferenceMetadataManifest, ServerReferenceManifest } from './react/types/index.js'
+import {
+  DefaultGlobalErrorPage,
+  ErrorBoundary,
+  FlightData,
+  LayoutContent,
+} from './react/components.js'
+import {
+  ClientReferenceMetadataManifest,
+  ServerReferenceManifest,
+} from './react/types/index.js'
 import { fromPipeableToWebReadable } from './react/utils/fetch.js'
 import { TrieRouter } from './trie-router/router.js'
 import { decodeURIComponent_ } from './trie-router/url.js'
-import {
-  Result
-} from './trie-router/utils.js'
+import { Result } from './trie-router/utils.js'
 
 const ajv = (addFormats.default || addFormats)(
   new (Ajv.default || Ajv)({ useDefaults: true }),
@@ -880,29 +885,35 @@ export class Spiceflow<
           redirect,
         }
 
-        const [page, ...layouts] = await Promise.all([
-          pageRoute?.route?.handler({
-            ...baseContext,
-            state: cloneDeep(pageRoute.app.defaultState),
-            params: pageRoute.params,
-          }),
-          ...layoutRoutes.map(async (layout) => {
-            const id = layout.route.id
-            const children = createElement(LayoutContent, { id })
+        let Page = pageRoute?.route?.handler as any
+        let page = (
+          <Page
+            {...{
+              ...baseContext,
+              state: cloneDeep(pageRoute.app.defaultState),
+              params: pageRoute.params,
+            }}
+          />
+        )
+        const layouts = layoutRoutes.map((layout) => {
+          const id = layout.route.id
+          const children = createElement(LayoutContent, { id })
 
-            return {
-              element: (await layout.route.handler({
+          let Layout = layout.route.handler as any
+          const element = (
+            <Layout
+              {...{
                 ...baseContext,
                 path,
                 // TODO run the middleware on react pages and layouts too?
                 state: cloneDeep(pageRoute.app.defaultState),
                 params: pageRoute.params,
                 children,
-              })) as any,
-              id,
-            }
-          }),
-        ])
+              }}
+            />
+          )
+          return { element, id }
+        })
 
         let root: FlightData = {
           url: request.url,
@@ -942,12 +953,9 @@ export class Spiceflow<
           }
         }
 
-        
-
         if (root instanceof Response) {
           return root
         }
-        
 
         let abortable = ReactServer.renderToPipeableStream<ServerPayload>(
           {
@@ -966,8 +974,8 @@ export class Spiceflow<
 
         return new Response(stream, {
           headers: {
-            'content-type': 'text/x-component;charset=utf-8'
-          }
+            'content-type': 'text/x-component;charset=utf-8',
+          },
         })
       } catch (err) {
         return await getResForError(err)
@@ -1676,8 +1684,6 @@ function partition<T>(arr: T[], predicate: (item: T) => boolean): [T[], T[]] {
   )
 }
 
-
-
 const serverReferenceManifest: ServerReferenceManifest = {
   resolveServerReference(reference: string) {
     const [id, name] = reference.split('#')
@@ -1713,7 +1719,6 @@ const clientReferenceMetadataManifest: ClientReferenceMetadataManifest = {
     return metadata.$$id
   },
 }
-
 
 export interface ServerPayload {
   root: FlightData

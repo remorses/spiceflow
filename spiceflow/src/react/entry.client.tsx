@@ -64,13 +64,11 @@ async function main() {
     }, [])
 
     return (
-      <Suspense fallback={<div>Loading root...</div>}>
-        <ErrorBoundary errorComponent={DefaultGlobalErrorPage}>
-          <FlightDataContext.Provider value={payload.root}>
-            {payload.root?.layouts?.[0]?.element ?? payload.root.page}
-          </FlightDataContext.Provider>
-        </ErrorBoundary>
-      </Suspense>
+      <ErrorBoundary errorComponent={DefaultGlobalErrorPage}>
+        <FlightDataContext.Provider value={payload.root}>
+          {payload.root?.layouts?.[0]?.element ?? payload.root.page}
+        </FlightDataContext.Provider>
+      </ErrorBoundary>
     )
   }
 

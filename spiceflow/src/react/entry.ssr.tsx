@@ -1,5 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
-import ReactDomServer from 'react-dom/server'
+import ReactDOMServer from 'react-dom/server.edge'
 import ReactClient from 'spiceflow/dist/react/server-dom-client-optimized'
 import type { ModuleRunner } from 'vite/module-runner'
 
@@ -62,17 +62,15 @@ export default async function handler(
   let status = 200
 
   try {
-    const ssrStream = await ReactDomServer.renderToPipeableStream(el, {
+    htmlStream = await ReactDOMServer.renderToReadableStream(el, {
       bootstrapModules: ssrAssets.bootstrapModules,
-      // @ts-ignore
       formState: payload.formState,
       onError(error) {
-        console.error('[react-dom:renderToPipeableStream]', error)
-        status = 500
+		// This also throws outside, no need to do anything here
+        // console.error('[react-dom:renderToPipeableStream]', error)
+        // status = 500
       },
     })
-
-    htmlStream = fromPipeableToWebReadable(ssrStream)
   } catch (e) {
     console.log(`error during ssr render catch`, e)
     // On error, render minimal HTML shell
@@ -89,10 +87,9 @@ export default async function handler(
       </html>
     )
 
-    const errorStream = ReactDomServer.renderToPipeableStream(errorRoot, {
+    htmlStream = await ReactDOMServer.renderToReadableStream(errorRoot, {
       bootstrapModules: ssrAssets.bootstrapModules,
     })
-    htmlStream = fromPipeableToWebReadable(errorStream)
   }
 
   const htmlResponse = new Response(
