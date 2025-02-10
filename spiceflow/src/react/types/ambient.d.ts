@@ -27,6 +27,15 @@ declare module 'react-server-dom-vite/server' {
     body: FormData,
     manifest: import('.').ServerReferenceManifest,
   ): Promise<import('react-dom/client').ReactFormState>
+  const defaultExport: {
+	registerServerReference: Function
+	registerClientReference: Function
+	decodeReply: decodeReply
+	decodeAction: decodeAction
+	decodeFormState: decodeFormState
+	renderToPipeableStream: renderToPipeableStream
+  }
+  export default defaultExport
 }
 
 declare module 'spiceflow/dist/react/server-dom-client-optimized' {
@@ -56,6 +65,10 @@ declare module 'spiceflow/dist/react/server-dom-client-optimized' {
 
 declare module 'virtual:ssr-assets' {
   export const bootstrapModules: string[]
+}
+declare module 'virtual:app-styles' {
+   const cssUrls: string[]
+   export default cssUrls
 }
 
 declare module 'virtual:app-entry' {

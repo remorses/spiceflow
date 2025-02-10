@@ -1,28 +1,22 @@
 import assert from 'node:assert'
 import * as vite from 'vite'
 
-import fs from 'node:fs'
-import url from 'node:url'
-import path from 'node:path'
 import react from '@vitejs/plugin-react'
+import crypto from 'node:crypto'
+import fs from 'node:fs'
+import path from 'node:path'
+import url, { fileURLToPath } from 'node:url'
+import { clientTransform, serverTransform } from 'unplugin-rsc'
 import {
   type Manifest,
   type Plugin,
   PluginOption,
   type RunnableDevEnvironment,
-  UserConfig,
   ViteDevServer,
-  createRunnableDevEnvironment,
-  createServerModuleRunner,
-  defineConfig,
+  createRunnableDevEnvironment
 } from 'vite'
-import { fileURLToPath } from 'node:url'
-import crypto from 'node:crypto'
-import reactServerDOM from './vite-jacob.js'
-import { serverTransform, clientTransform } from 'unplugin-rsc'
-import { noramlizeClientReferenceId } from './react/utils/normalize.js'
 import { collectStyleUrls } from './react/css.js'
-import { normalizeId } from 'ajv/dist/compile/resolve.js'
+import { noramlizeClientReferenceId } from './react/utils/normalize.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 

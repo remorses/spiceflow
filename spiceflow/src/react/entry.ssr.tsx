@@ -2,7 +2,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 import ReactDomServer from 'react-dom/server'
 import ReactClient from 'spiceflow/dist/react/server-dom-client-optimized'
 import type { ModuleRunner } from 'vite/module-runner'
-import type { ServerPayload } from './entry.rsc.js'
+
 
 import {
   createRequest,
@@ -15,6 +15,7 @@ import { FlightDataContext } from './components.js'
 import { bootstrapModules } from 'virtual:ssr-assets'
 import { clientReferenceManifest } from './utils/client-reference.js'
 import cssUrls from 'virtual:app-styles'
+import { ServerPayload } from '../spiceflow.js'
 
 export default async function handler(
   req: IncomingMessage,

@@ -1,11 +1,12 @@
 import React from 'react'
 import ReactDomClient from 'react-dom/client'
 import ReactClient from 'spiceflow/dist/react/server-dom-client-optimized'
-import type { ServerPayload } from './entry.rsc.js'
+
 import type { CallServerFn } from './types/index.js'
 import { clientReferenceManifest } from './utils/client-reference.js'
 import { rscStream } from 'rsc-html-stream/client'
 import { FlightDataContext } from './components.js'
+import { ServerPayload } from '../spiceflow.js'
 
 async function main() {
   const callServer: CallServerFn = async (id, args) => {
