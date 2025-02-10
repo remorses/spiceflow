@@ -15,7 +15,6 @@ export function useFlightData() {
 
 export function LayoutContent(props: { id: string }) {
   const data = useFlightData()
-  console.log('data', data)
   const layoutIndex = data.layouts.findIndex((layout) => layout.id === props.id)
   let nextLayout = data.layouts[layoutIndex + 1]?.element
   if (nextLayout) {

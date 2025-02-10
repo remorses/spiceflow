@@ -14,9 +14,7 @@ import {injectRSCPayload} from 'rsc-html-stream/server';
 import { FlightDataContext } from "./components.js";
 import { bootstrapModules } from "virtual:ssr-assets";
 import { clientReferenceManifest } from "./utils/client-reference.js";
-
-
-
+import cssUrls from 'virtual:app-styles'
 
 
 export default async function handler(
@@ -52,15 +50,16 @@ export default async function handler(
 	);
 	const ssrAssets = await import("virtual:ssr-assets");
 
+	console.log(cssUrls)
 
-
-	console.log('payload', payload.root)
 	
 	const el = <FlightDataContext.Provider value={payload.root}>
+		{cssUrls.map((url) => (
+			<link key={url} rel="stylesheet" href={url} />
+		))}
 		{payload.root?.layouts?.[0]?.element ?? payload.root.page}
 	</FlightDataContext.Provider>
 	
-	console.log('bootstrapModules', bootstrapModules)
 	const htmlStream = fromPipeableToWebReadable(
 		ReactDomServer.renderToPipeableStream(el, {
 			bootstrapModules: ssrAssets.bootstrapModules,

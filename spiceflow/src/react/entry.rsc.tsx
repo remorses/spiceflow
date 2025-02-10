@@ -102,7 +102,12 @@ const serverReferenceManifest: ServerReferenceManifest = {
 					mod = await import(/* @vite-ignore */ id);
 				} else {
 					const references = await import("virtual:build-server-references");
-					mod = await references.default[id]();
+					const ref = references.default[id]
+					if (!ref) {
+						const availableKeys = Object.keys(references.default);
+						throw new Error(`Could not find server reference for id: ${id}. This likely means the server reference was not properly registered. Available reference keys are: ${availableKeys.join(', ')}`);
+					}
+					mod = await ref();
 				}
 				resolved = mod[name];
 			},

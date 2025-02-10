@@ -3,13 +3,14 @@ import { IndexPage } from "./app/index";
 import { Layout } from "./app/layout";
 import './styles.css'
 
+
 const app = new Spiceflow()
 	.layout("/*", async ({ children, request }) => {
 		return <Layout>{children}</Layout>;
 	})
 	.page("/", async ({ request }) => {
 		const url = new URL(request.url);
-		return <IndexPage />;
+		return <IndexPage  />;
 	})
 
 	.get("/hello", () => "Hello, World!")

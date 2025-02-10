@@ -19,7 +19,11 @@ export const clientReferenceManifest: ClientReferenceManifest = {
           const references = await import(
             'virtual:build-client-references' as string
           )
-          mod = await references.default[id]()
+		  const ref = references.default[id]
+		  if (!ref) {
+			throw new Error(`Can't find client reference for module ${id}, among ${Object.keys(references.default).join(', ')}`)
+		  }
+          mod = await ref()
         }
         resolved = mod[name]
       },

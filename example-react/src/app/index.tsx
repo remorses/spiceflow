@@ -1,9 +1,10 @@
+import { Button } from "./button";
 import { changeCounter, getCounter } from "./action";
 import { Calculator, Counter, Hydrated } from "./client";
 
 export async function IndexPage() {
 	return (
-		<div>
+		<div className=" bg-gray-50 gap-2">
 			<div>server random: {Math.random().toString(36).slice(2)}</div>
 			<Hydrated />
 			<Counter />
@@ -14,12 +15,12 @@ export async function IndexPage() {
 			>
 				<div>Server counter: {getCounter()}</div>
 				<div>
-					<button name="change" value="-1">
+					<Button className="p-4 border" name="change" value="-1">
 						-
-					</button>
-					<button name="change" value="+1">
+					</Button>
+					<Button className="p-4 border" name="change" value="+1">
 						+
-					</button>
+					</Button>
 				</div>
 			</form>
 			<Calculator />

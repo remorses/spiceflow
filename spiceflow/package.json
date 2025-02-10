@@ -87,7 +87,7 @@
   },
   "devDependencies": {
     "@types/lodash.clonedeep": "^4.5.9",
-    "@types/node": "22.12.0",
+    "@types/node": "22.13.1",
     "@types/react": "^19.0.8",
     "@types/react-dom": "^19.0.3",
     "eventsource": "^3.0.5",

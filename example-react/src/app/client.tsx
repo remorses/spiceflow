@@ -1,4 +1,5 @@
 "use client";
+import './client.css'
 
 import React from "react";
 import { add } from "./action-by-client";

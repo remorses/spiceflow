@@ -904,7 +904,6 @@ export class Spiceflow<
           page,
           layouts,
         }
-        console.log(data,)
         return data
       } catch (err) {
         return await getResForError(err)

@@ -19,6 +19,8 @@ import crypto from 'node:crypto'
 import reactServerDOM from './vite-jacob.js'
 import { serverTransform, clientTransform } from 'unplugin-rsc'
 import { noramlizeClientReferenceId } from './react/utils/normalize.js'
+import { collectStyleUrls } from './react/css.js'
+import { normalizeId } from 'ajv/dist/compile/resolve.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -34,13 +36,14 @@ function makeHash(filename: string) {
 export function spiceflowPlugin({ entry }): PluginOption {
   // Move state variables inside plugin closure
   let browserManifest: Manifest
+  let rscManifest: Manifest
   const clientModules = new Map<string, string>()
   const serverModules = new Map<string, string>()
   let buildScan = false
 
   let command: string = ''
   let server: ViteDevServer
-
+  let buildType: 'scan' | 'server' | 'browser' | 'ssr' | undefined
   return [
     react(),
 
@@ -55,15 +58,9 @@ export function spiceflowPlugin({ entry }): PluginOption {
       },
 
       async transform(code, id) {
-        if (id === '\0virtual:react-manifest') {
-          debugTransformResult({
-            envName: this.environment.name,
-            transformedCode: code,
-            id,
-          })
-        }
         let result = code
         const ext = id.slice(id.lastIndexOf('.'))
+
         if (
           EXTENSIONS_TO_TRANSFORM.has(ext) &&
           code.match(/['"]use (client|server)['"]/g)
@@ -85,6 +82,7 @@ export function spiceflowPlugin({ entry }): PluginOption {
             clientModules.set(filename, id)
             return id
           }
+
           if (this.environment.name === 'rsc') {
             const transformed = serverTransform(code, id, {
               id: generateId,
@@ -98,10 +96,7 @@ export function spiceflowPlugin({ entry }): PluginOption {
               transformedCode: result,
               id,
             })
-          } else if (
-            this.environment.name === 'client' ||
-            this.environment.name === 'ssr'
-          ) {
+          } else {
             const transformed = clientTransform(
               code,
               id,
@@ -159,6 +154,7 @@ export function spiceflowPlugin({ entry }): PluginOption {
               rollupOptions: {
                 input: { index: 'spiceflow/dist/react/entry.ssr' },
               },
+              ssrEmitAssets: true,
             },
           },
           rsc: {
@@ -172,9 +168,10 @@ export function spiceflowPlugin({ entry }): PluginOption {
               ],
               exclude: ['util'],
             },
+
             resolve: {
               conditions: ['react-server'],
-              // noExternal: ['spiceflow'],
+              noExternal: ['react', 'react-dom'],
             },
             dev: {
               createEnvironment(name, config) {
@@ -185,7 +182,10 @@ export function spiceflowPlugin({ entry }): PluginOption {
             },
             build: {
               outDir: 'dist/rsc',
+              manifest: true,
               ssr: true,
+              ssrEmitAssets: true,
+              emitAssets: true,
               rollupOptions: {
                 input: { index: 'spiceflow/dist/react/entry.rsc' },
               },
@@ -196,6 +196,7 @@ export function spiceflowPlugin({ entry }): PluginOption {
           sharedPlugins: true,
           async buildApp(builder) {
             buildScan = true
+            // this scan part seems necessary to find all the server references and client references, otherwise they are empty
             await builder.build(builder.environments.rsc)
             buildScan = false
             await builder.build(builder.environments.rsc)
@@ -255,6 +256,21 @@ export function spiceflowPlugin({ entry }): PluginOption {
     createVirtualPlugin('app-entry', () => {
       return `export {default} from '${url.pathToFileURL(path.resolve(entry))}'`
     }),
+    createVirtualPlugin('app-styles', async function () {
+      if (this.environment.mode !== 'dev') {
+        const rscCss = Object.values(rscManifest).flatMap((x) => x.css)
+        const clientCss = Object.values(browserManifest).flatMap((x) => x.css)
+
+        const allStyles = [...rscCss, ...clientCss].filter(Boolean)
+        return `export default ${JSON.stringify(allStyles)}`
+      }
+      const allStyles = await collectStyleUrls(server.environments['rsc'], {
+        entries: [entry],
+      })
+      const code = `export default ${JSON.stringify(allStyles)}\n\n`
+      // ensure hmr boundary since css module doesn't have `import.meta.hot.accept`
+      return code + `if (import.meta.hot) { import.meta.hot.accept() }`
+    }),
 
     createVirtualPlugin('ssr-assets', function () {
       // TODO this should also add other client modules used to speed loading up during build
@@ -313,24 +329,39 @@ export function spiceflowPlugin({ entry }): PluginOption {
           assert(typeof output.source === 'string')
           browserManifest = JSON.parse(output.source)
         }
+        if (this.environment.name === 'rsc') {
+          const output = bundle['.vite/manifest.json']
+          assert(output.type === 'asset')
+          assert(typeof output.source === 'string')
+          rscManifest = JSON.parse(output.source)
+        }
       },
     },
     createVirtualPlugin('build-client-references', () => {
-      const code = Array.from(clientModules.keys())
-        .map(
-          (id) => `${JSON.stringify(id)}: () => import(${JSON.stringify(id)}),`,
-        )
-        .join('\n')
+      let result = `export default {\n`
+      for (let [filename, id] of clientModules) {
+        // Handle virtual modules by removing \0 prefix if present
+        const importPath = filename.startsWith('\0')
+          ? filename.slice(1)
+          : filename
+        result += `"${id}": () => import("${importPath}"),\n`
+      }
+      result += `};\n`
 
-      return `export default {${code}}`
+      return { code: result, map: null }
     }),
     createVirtualPlugin('build-server-references', () => {
-      const code = Array.from(serverModules.keys())
-        .map(
-          (id) => `${JSON.stringify(id)}: () => import(${JSON.stringify(id)}),`,
-        )
-        .join('\n')
-      return `export default {${code}}`
+      let result = `export default {\n`
+      for (let [filename, id] of serverModules) {
+        // Handle virtual modules by removing \0 prefix if present
+        const importPath = filename.startsWith('\0')
+          ? filename.slice(1)
+          : filename
+        result += `"${id}": () => import("${importPath}"),\n`
+      }
+      result += `};\n`
+
+      return { code: result, map: null }
     }),
 
     // vitePluginSilenceDirectiveBuildWarning(),
@@ -340,6 +371,7 @@ export function spiceflowPlugin({ entry }): PluginOption {
     name = 'virtual:' + name
     return {
       name: `virtual-${name}`,
+      
       resolveId(source, _importer, _options) {
         return source === name ? '\0' + name : undefined
       },
