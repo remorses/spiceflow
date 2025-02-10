@@ -1,17 +1,21 @@
 import { Spiceflow } from "spiceflow";
+import { Suspense } from "react";
 import { IndexPage } from "./app/index";
 import { Layout } from "./app/layout";
-import './styles.css'
+import "./styles.css";
 import { ClientComponentThrows } from "./app/client";
-
 
 const app = new Spiceflow()
 	.layout("/*", async ({ children, request }) => {
-		return <Layout>{children}</Layout>;
+		return (
+			<Layout>
+				<Suspense fallback={<div>Loading...</div>}>{children}</Suspense>
+			</Layout>
+		);
 	})
 	.page("/", async ({ request }) => {
 		const url = new URL(request.url);
-		return <IndexPage  />;
+		return <IndexPage />;
 	})
 
 	.get("/hello", () => "Hello, World!")
@@ -66,15 +70,15 @@ const app = new Spiceflow()
 			</div>
 		);
 	})
-  .page('/loader-error', async () => {
-    throw new Error('test error');
-  })
-  .page('/rsc-error', async () => {
-    return <ServerComponentThrows />
-  })
-  .page('/client-error', async () => {
-    return <ClientComponentThrows />
-  })
+	.page("/loader-error", async () => {
+		throw new Error("test error");
+	})
+	.page("/rsc-error", async () => {
+		return <ServerComponentThrows />;
+	})
+	.page("/client-error", async () => {
+		return <ClientComponentThrows />;
+	})
 	.page("/redirect-in-rsc", async () => {
 		return <Redirects />;
 	})
@@ -94,9 +98,8 @@ async function Redirects() {
 }
 
 function ServerComponentThrows() {
-	throw new Error('Server component error');
+	throw new Error("Server component error");
 	return <div>Server component</div>;
 }
-
 
 export default app;

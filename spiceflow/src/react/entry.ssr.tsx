@@ -66,7 +66,7 @@ export default async function handler(
       bootstrapModules: ssrAssets.bootstrapModules,
       formState: payload.formState,
       onError(error) {
-		// This also throws outside, no need to do anything here
+        // This also throws outside, no need to do anything here
         // console.error('[react-dom:renderToPipeableStream]', error)
         // status = 500
       },
@@ -80,6 +80,11 @@ export default async function handler(
       <html data-no-hydrate>
         <head>
           <meta charSet="utf-8" />
+          {cssUrls.map((url) => (
+            // precedence to force head rendering
+            // https://react.dev/reference/react-dom/components/link#special-rendering-behavior
+            <link key={url} rel="stylesheet" href={url} precedence="high" />
+          ))}
         </head>
         <body>
           <noscript>{status} Internal Server Error</noscript>
