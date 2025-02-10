@@ -23,7 +23,15 @@ const app = new Spiceflow()
 	.layout("/page/*", async ({ request, children }) => {
 		return (
 			<div className="">
-				<h1>/page layout</h1>
+				<h1>/page layout 1</h1>
+				{children}
+			</div>
+		);
+	})
+	.layout("/page/*", async ({ request, children }) => {
+		return (
+			<div className="">
+				<h1>/page layout 2</h1>
 				{children}
 			</div>
 		);
