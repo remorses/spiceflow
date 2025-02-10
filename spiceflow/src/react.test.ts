@@ -4,16 +4,52 @@ import { bfs, cloneDeep, Spiceflow } from './spiceflow.js'
 import { z } from 'zod'
 import { createSpiceflowClient } from './client/index.js'
 
-test.skip('layout and page work together', async () => {
+test('layout and page work together', async () => {
   const res = await new Spiceflow()
     .layout('/xxx', () => ({ layout: 'layout' }))
-    .post('/xxx', () => ({ page: 'page' }))
+    .page('/xxx', () => ({ page: 'page' }))
     .handle(new Request('http://localhost/xxx', { method: 'POST' }))
-  expect(res.status).toBe(200)
-  expect(await res.json()).toEqual({
-    layout: 'layout',
-    page: 'page',
-  })
+
+  expect(res).toMatchInlineSnapshot(`
+    {
+      "layouts": [
+        {
+          "element": {
+            "layout": "layout",
+          },
+          "id": "layout-post--xxx",
+        },
+      ],
+      "page": {
+        "page": "page",
+      },
+      "url": "http://localhost/xxx",
+    }
+  `)
+})
+test('layout and page, static routes have priority', async () => {
+  const res = await new Spiceflow()
+    .layout('/xxx', () => ({ layout: 'layout' }))
+    .page('/:id', () => ({ page: ':id' }))
+    .page('/xxx', () => ({ page: 'page' }))
+    .handle(new Request('http://localhost/xxx', { method: 'POST' }))
+
+  expect(res).toMatchInlineSnapshot(`
+    {
+      "layouts": [
+        {
+          "element": {
+            "layout": "layout",
+          },
+          "id": "layout-post--xxx",
+        },
+      ],
+      "page": {
+        "page": "page",
+      },
+      "url": "http://localhost/xxx",
+    }
+  `)
 })
 
 test('layout and page work together with params', async () => {
@@ -27,6 +63,7 @@ test('layout and page work together with params', async () => {
       {
         "handler": [Function],
         "hooks": undefined,
+        "id": "layout-get--",
         "kind": "layout",
         "method": "GET",
         "path": "/",
@@ -38,6 +75,7 @@ test('layout and page work together with params', async () => {
       {
         "handler": [Function],
         "hooks": undefined,
+        "id": "layout-post--",
         "kind": "layout",
         "method": "POST",
         "path": "/",
@@ -49,6 +87,7 @@ test('layout and page work together with params', async () => {
       {
         "handler": [Function],
         "hooks": undefined,
+        "id": "page-get--:id",
         "kind": "page",
         "method": "GET",
         "path": "/:id",
@@ -60,6 +99,7 @@ test('layout and page work together with params', async () => {
       {
         "handler": [Function],
         "hooks": undefined,
+        "id": "page-post--:id",
         "kind": "page",
         "method": "POST",
         "path": "/:id",
@@ -80,73 +120,12 @@ test('layout and page work together with params', async () => {
   `)
 
   expect(await res).toMatchInlineSnapshot(`
-    Response {
-      Symbol(state): {
-        "aborted": false,
-        "body": {
-          "length": 65,
-          "source": "{"message":"Cannot read properties of undefined (reading 'map')"}",
-          "stream": ReadableStream {
-            Symbol(kType): "ReadableStream",
-            Symbol(kState): {
-              "controller": ReadableByteStreamController {
-                Symbol(kType): "ReadableByteStreamController",
-                Symbol(kState): {
-                  "autoAllocateChunkSize": undefined,
-                  "byobRequest": null,
-                  "cancelAlgorithm": [Function],
-                  "closeRequested": false,
-                  "highWaterMark": 0,
-                  "pendingPullIntos": [],
-                  "pullAgain": false,
-                  "pullAlgorithm": [Function],
-                  "pulling": false,
-                  "queue": [],
-                  "queueTotalSize": 0,
-                  "started": true,
-                  "stream": [Circular],
-                },
-              },
-              "disturbed": false,
-              "reader": undefined,
-              "state": "readable",
-              "storedError": undefined,
-              "transfer": {
-                "port1": undefined,
-                "port2": undefined,
-                "promise": undefined,
-                "writable": undefined,
-              },
-            },
-            Symbol(nodejs.webstream.isClosedPromise): {
-              "promise": Promise {},
-              "reject": [Function],
-              "resolve": [Function],
-            },
-            Symbol(nodejs.webstream.controllerErrorFunction): [Function],
-          },
-        },
-        "cacheState": "",
-        "headersList": HeadersList {
-          "cookies": null,
-          Symbol(headers map): Map {
-            "content-type" => {
-              "name": "content-type",
-              "value": "application/json",
-            },
-          },
-          Symbol(headers map sorted): null,
-        },
-        "rangeRequested": false,
-        "requestIncludesCredentials": false,
-        "status": 500,
-        "statusText": "",
-        "timingAllowPassed": false,
-        "timingInfo": null,
-        "type": "default",
-        "urlList": [],
+    {
+      "layouts": [],
+      "page": {
+        "page": "123",
       },
-      Symbol(headers): Headers {},
+      "url": "http://localhost/123",
     }
   `)
 })

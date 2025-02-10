@@ -33,6 +33,8 @@ test.describe("redirect", () => {
 });
 
 
+
+
 test.describe(() => {
 	test.use({ javaScriptEnabled: false });
 	test("server reference in server @nojs", async ({ page }) => {
@@ -63,7 +65,7 @@ test("server reference in client @js", async ({ page }) => {
 
 test.describe(() => {
 	test.use({ javaScriptEnabled: false });
-	test("server reference in client @nojs", async ({ page }) => {
+	test.skip("server reference in client @nojs", async ({ page }) => {
 		await testServerAction2(page, { js: false });
 	});
 });

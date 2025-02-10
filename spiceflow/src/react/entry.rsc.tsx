@@ -46,6 +46,7 @@ export async function handler(
 		} else {
 			// progressive enhancement
 			const formData = await request.formData();
+			console.log(formData);
 			const decodedAction = await ReactServer.decodeAction(
 				formData,
 				serverReferenceManifest,
@@ -93,6 +94,7 @@ export async function handler(
 
 const serverReferenceManifest: ServerReferenceManifest = {
 	resolveServerReference(reference: string) {
+
 		const [id, name] = reference.split("#");
 		let resolved: unknown;
 		return {

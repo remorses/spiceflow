@@ -65,6 +65,9 @@ const app = new Spiceflow()
 			</div>
 		);
 	})
+  .page('/rsc-error', async () => {
+    throw new Error('test error');
+  })
 	.page("/redirect-in-rsc", async () => {
 		return <Redirects />;
 	})

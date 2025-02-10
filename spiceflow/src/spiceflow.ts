@@ -188,23 +188,25 @@ export class Spiceflow<
   }
 
   private getAllDecodedParams(
-    matchResult: Result<InternalRoute>,
+    _matchResult: Result<InternalRoute>,
     pathname: string,
     routeIndex,
   ): Record<string, string> {
-    if (!matchResult?.length || !matchResult?.[0]?.[routeIndex]?.[1]) {
+    if (!_matchResult?.length || !_matchResult?.[0]?.[routeIndex]?.[1]) {
       return {}
     }
+
+    const matches = _matchResult[0]
     const internalRoute =
-      matchResult[0].find(([route]) => route.path.includes('*'))?.[0] ||
-      matchResult[0][routeIndex][0]
+      matches.find(([route]) => route.path.includes('*'))?.[0] ||
+      matches[routeIndex][0]
 
     const decoded: Record<string, string> =
       extractWildcardParam(pathname, internalRoute?.path) || {}
 
-    const keys = Object.keys(matchResult[0][routeIndex][1])
+    const keys = Object.keys(matches[routeIndex][1])
     for (const key of keys) {
-      const value = matchResult[0][routeIndex][1][key]
+      const value = matches[routeIndex][1][key]
       if (value) {
         decoded[key] = /\%/.test(value) ? decodeURIComponent_(value) : value
       }
@@ -240,11 +242,15 @@ export class Spiceflow<
       }
 
       // Get all matched routes
-      const routes = matchedRoutes[0].map(([route, params], index) => ({
-        app,
-        route,
-        params: this.getAllDecodedParams(matchedRoutes, originalPath, index),
-      }))
+      const routes = matchedRoutes[0]
+        .map(([route, params], index) => ({
+          app,
+          route,
+          params: this.getAllDecodedParams(matchedRoutes, originalPath, index),
+        }))
+        .sort((a, b) => {
+          return routeSorter(a.route, b.route)
+        })
 
       if (routes.length) {
         return routes
@@ -1591,10 +1597,17 @@ export function cloneDeep(x) {
   return lodashCloneDeep(x)
 }
 
-console.log(`piceflow running`)
+function routeSorter(a: InternalRoute, b: InternalRoute) {
+  // Count dynamic parameters (:param and *) in each route
+  const aCount = a.path
+    .split('/')
+    .filter((p) => p.startsWith(':') || p === '*').length
+  const bCount = b.path
+    .split('/')
+    .filter((p) => p.startsWith(':') || p === '*').length
+  return aCount - bCount
+}
 
-const tryDecodeURIComponent = (str: string) =>
-  tryDecode(str, decodeURIComponent_)
 function partition<T>(arr: T[], predicate: (item: T) => boolean): [T[], T[]] {
   return arr.reduce(
     (acc, item) => {
