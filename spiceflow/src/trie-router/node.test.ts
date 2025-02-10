@@ -1,5 +1,4 @@
-
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, test } from 'vitest'
 
 import { Node } from './node.js'
 import { getQueryParams } from './url.js'
@@ -13,6 +12,109 @@ describe('Root Node', () => {
     expect(res[0][0]).toEqual('get root')
     expect(node.search('get', '/hello')[0].length).toBe(0)
   })
+})
+
+describe('Layout routes with wildcards', () => {
+  const node = new Node()
+  // Add root and wildcard layouts
+  node.insert('get', '/', 'root layout')
+  node.insert('get', '/*', 'catch-all layout')
+  // Add /layout routes with wildcards
+  node.insert('get', '/layout', 'layout base')
+  node.insert('get', '/layout/*', 'layout wildcard')
+  node.insert('get', '/layout/*/page', 'layout nested page')
+  node.insert('get', '/layout/*/deep/*', 'layout deep wildcard')
+
+  it('matches multiple layout routes with wildcards', () => {
+    expect(node.search('get', '/layout')).toMatchInlineSnapshot(`
+      [
+        [
+          [
+            "catch-all layout",
+            {},
+          ],
+          [
+            "layout base",
+            {},
+          ],
+          [
+            "layout wildcard",
+            {},
+          ],
+        ],
+      ]
+    `)
+
+    expect(node.search('get', '/layout/something')).toMatchInlineSnapshot(`
+      [
+        [
+          [
+            "catch-all layout",
+            {},
+          ],
+          [
+            "layout wildcard",
+            {},
+          ],
+        ],
+      ]
+    `)
+
+    expect(node.search('get', '/layout/foo/page')).toMatchInlineSnapshot(`
+      [
+        [
+          [
+            "catch-all layout",
+            {},
+          ],
+          [
+            "layout wildcard",
+            {},
+          ],
+          [
+            "layout nested page",
+            {
+              "undefined": undefined,
+            },
+          ],
+        ],
+      ]
+    `)
+
+    expect(node.search('get', '/layout/foo/deep/bar')).toMatchInlineSnapshot(`
+      [
+        [
+          [
+            "catch-all layout",
+            {},
+          ],
+          [
+            "layout wildcard",
+            {},
+          ],
+          [
+            "layout deep wildcard",
+            {
+              "undefined": undefined,
+            },
+          ],
+        ],
+      ]
+    `)
+  })
+})
+
+test('nothing matches', () => {
+  const node = new Node()
+  node.insert('get', '/hello', 'get hello')
+  node.insert('post', '/hello', 'post hello')
+  node.insert('get', '/hello/foo', 'get hello foo')
+
+  expect(node.search('get', '/nothing')).toMatchInlineSnapshot(`
+    [
+      [],
+    ]
+  `)
 })
 
 describe('Root Node is not defined', () => {
@@ -134,7 +236,7 @@ describe('Name path', () => {
     const [res] = all
     expect(res).not.toBeNull()
     expect(res.length).toBe(2)
-    
+
     expect(all).toMatchInlineSnapshot(`
       [
         [
@@ -235,7 +337,11 @@ describe('Wildcard', () => {
 
 describe('Regexp', () => {
   const node = new Node()
-  node.insert('get', '/regex-abc/:id{[0-9]+}/comment/:comment_id{[a-z]+}', 'regexp')
+  node.insert(
+    'get',
+    '/regex-abc/:id{[0-9]+}/comment/:comment_id{[a-z]+}',
+    'regexp',
+  )
   it('/regexp-abc/123/comment/abc', () => {
     const [res] = node.search('get', '/regex-abc/123/comment/abc')
     expect(res.length).toBe(1)

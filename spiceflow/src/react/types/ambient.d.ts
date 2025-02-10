@@ -73,3 +73,7 @@ declare module "virtual:build-server-references" {
 	const value: Record<string, () => Promise<Record<string, unknown>>>;
 	export default value;
 }
+
+
+declare const __raw_import: (id: string) => Promise<any>;
+declare const __callServer: CallServerFn;

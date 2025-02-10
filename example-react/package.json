@@ -16,7 +16,11 @@
     "react": "19.0.0",
     "react-dom": "19.0.0",
     "spiceflow": "workspace:*",
+    
     "vite": "^6.1.0"
   },
-  "license": "ISC"
+  "license": "ISC",
+  "devDependencies": {
+    "vite-plugin-inspect": "^10.1.1"
+  }
 }

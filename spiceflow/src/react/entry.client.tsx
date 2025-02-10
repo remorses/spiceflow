@@ -5,6 +5,7 @@ import type { ServerPayload } from "./entry.rsc.js";
 import type { CallServerFn } from "./types/index.js";
 import { clientReferenceManifest } from "./utils/client-reference.js";
 import {rscStream} from 'rsc-html-stream/client';
+import { FlightDataContext } from "./components.js";
 
 
 async function main() {
@@ -30,6 +31,7 @@ async function main() {
 		const payload = await ReactClient.createFromFetch<ServerPayload>(
 			fetch(url),
 			clientReferenceManifest,
+
 			{ callServer },
 		);
 		setPayload(payload);
@@ -39,6 +41,7 @@ async function main() {
 		await ReactClient.createFromReadableStream<ServerPayload>(
 			rscStream,
 			clientReferenceManifest,
+
 			{ callServer },
 		);
 
@@ -56,7 +59,9 @@ async function main() {
 			return listenNavigation(onNavigation);
 		}, []);
 
-		return payload.root?.layouts?.[0]?.element ?? payload.root.page;
+		return <FlightDataContext.Provider value={payload.root}>
+		{payload.root?.layouts?.[0]?.element ?? payload.root.page}
+		</FlightDataContext.Provider>
 	}
 
 	ReactDomClient.hydrateRoot(document, <BrowserRoot />, {

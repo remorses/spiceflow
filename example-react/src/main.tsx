@@ -3,7 +3,7 @@ import { IndexPage } from "./app/index";
 import { Layout } from "./app/layout";
 
 const app = new Spiceflow()
-	.layout("/", async ({ children, request }) => {
+	.layout("/*", async ({ children, request }) => {
 		return <Layout>{children}</Layout>;
 	})
 	.page("/", async ({ request }) => {

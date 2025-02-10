@@ -1,4 +1,5 @@
 import assert from 'node:assert'
+import fs from 'node:fs'
 import url from 'node:url'
 import path from 'node:path'
 import react from '@vitejs/plugin-react'
@@ -7,24 +8,128 @@ import {
   type Plugin,
   PluginOption,
   type RunnableDevEnvironment,
+  UserConfig,
+  ViteDevServer,
   createRunnableDevEnvironment,
   createServerModuleRunner,
   defineConfig,
 } from 'vite'
 import { fileURLToPath } from 'node:url'
+import crypto from 'node:crypto'
+import reactServerDOM from './vite-jacob.js'
+import { serverTransform, clientTransform } from 'unplugin-rsc'
+import { noramlizeClientReferenceId } from './react/utils/normalize.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
+
+function makeHash(filename: string) {
+  const hash = crypto
+    .createHash('sha256')
+    .update(filename)
+    .digest('hex')
+    .slice(0, 8)
+  return hash
+}
 
 export function spiceflowPlugin({ entry }): PluginOption {
   // Move state variables inside plugin closure
   let browserManifest: Manifest
-  let clientReferences: Record<string, string> = {} // TODO: normalize id
-  let serverReferences: Record<string, string> = {}
+  const clientModules = new Map<string, string>()
+  const serverModules = new Map<string, string>()
   let buildScan = false
 
+  let command: string = ''
+  let server: ViteDevServer
+  let generateId = (filename, directive) => {
+    let hash =
+      command === 'build'
+        ? makeHash(filename)
+        : noramlizeClientReferenceId(filename, server)
+    if (directive === 'use server') {
+      serverModules.set(filename, hash)
+      return hash
+    }
+
+    clientModules.set(filename, hash)
+    return hash
+  }
   return [
+    react(),
+
+    {
+      name: 'react-server-dom',
+      enforce: 'post',
+      configureServer(_server) {
+        server = _server
+      },
+      config(_config, env) {
+        command = env.command
+      },
+
+      transform(code, id) {
+        if (id === '\0virtual:react-manifest') {
+          debugTransformResult({
+            envName: this.environment.name,
+            transformedCode: code,
+            id,
+          })
+        }
+        let result = code
+        const ext = id.slice(id.lastIndexOf('.'))
+        if (
+          EXTENSIONS_TO_TRANSFORM.has(ext) &&
+          code.match(/['"]use (client|server)['"]/g)
+        ) {
+          if (this.environment.name === 'rsc') {
+            const transformed = serverTransform(code, id, {
+              id: generateId,
+              importClient: 'registerClientReference',
+              importFrom: 'spiceflow/dist/react/server-dom-optimized',
+              importServer: 'registerServerReference',
+            })
+            result = transformed.code
+            debugTransformResult({
+              envName: this.environment.name,
+              transformedCode: result,
+              id,
+            })
+          } else if (
+            this.environment.name === 'client' ||
+            this.environment.name === 'ssr'
+          ) {
+            const transformed = clientTransform(
+              code,
+              id,
+              this.environment.name === 'client'
+                ? {
+                    id: generateId,
+                    importFrom: 'spiceflow/dist/react/references.browser',
+                    importServer: 'createServerReference',
+                  }
+                : {
+                    id: generateId,
+                    importFrom:
+                      'spiceflow/dist/react/server-dom-client-optimized',
+                    importServer: 'createServerReference',
+                  },
+            )
+            result = transformed.code
+            debugTransformResult({
+              envName: this.environment.name,
+              transformedCode: result,
+              id,
+            })
+          }
+        }
+
+        return result
+      },
+    },
     {
       name: 'spiceflow',
+      configureServer(_server) {
+        server = _server
+      },
       config: () => ({
         appType: 'custom',
         environments: {
@@ -47,7 +152,7 @@ export function spiceflowPlugin({ entry }): PluginOption {
             build: {
               outDir: 'dist/ssr',
               rollupOptions: {
-                input: { index: 'spiceflow/src/react/entry.ssr.tsx' },
+                input: { index: 'spiceflow/dist/react/entry.ssr' },
               },
             },
           },
@@ -58,12 +163,13 @@ export function spiceflowPlugin({ entry }): PluginOption {
                 'react/jsx-runtime',
                 'react/jsx-dev-runtime',
                 'spiceflow/dist/react/server-dom-optimized',
+                'spiceflow/dist/react/server-dom-client-optimized',
               ],
               exclude: ['util'],
             },
             resolve: {
               conditions: ['react-server'],
-              // noExternal: true,
+              // noExternal: ['spiceflow'],
             },
             dev: {
               createEnvironment(name, config) {
@@ -76,7 +182,7 @@ export function spiceflowPlugin({ entry }): PluginOption {
               outDir: 'dist/rsc',
               ssr: true,
               rollupOptions: {
-                input: { index: 'spiceflow/src/react/entry.rsc.tsx' },
+                input: { index: 'spiceflow/dist/react/entry.rsc' },
               },
             },
           },
@@ -94,6 +200,7 @@ export function spiceflowPlugin({ entry }): PluginOption {
         },
       }),
     },
+
     {
       name: 'ssr-middleware',
       configureServer(server) {
@@ -104,9 +211,12 @@ export function spiceflowPlugin({ entry }): PluginOption {
         Object.assign(globalThis, { __rscRunner: rscRunner })
         return () => {
           server.middlewares.use(async (req, res, next) => {
+            if (req.url?.includes('__inspect')) {
+              return next()
+            }
             try {
               const mod: any = await ssrRunner.import(
-                'spiceflow/src/react/entry.ssr.tsx',
+                'spiceflow/dist/react/entry.ssr',
               )
               await mod.default(req, res)
             } catch (e) {
@@ -142,6 +252,7 @@ export function spiceflowPlugin({ entry }): PluginOption {
     }),
 
     createVirtualPlugin('ssr-assets', function () {
+      // TODO this should also add other client modules used to speed loading up during build
       assert(this.environment.name === 'ssr')
       let bootstrapModules: string[] = []
       if (this.environment.mode === 'dev') {
@@ -156,15 +267,16 @@ export function spiceflowPlugin({ entry }): PluginOption {
       if (this.environment.mode === 'dev') {
         return `
       import "/@vite/client";
+      eval('globalThis.__raw_import = (id) => import(/* @vite-ignore */id)')
       import RefreshRuntime from "/@react-refresh";
       RefreshRuntime.injectIntoGlobalHook(window);
       window.$RefreshReg$ = () => {};
       window.$RefreshSig$ = () => (type) => type;
       window.__vite_plugin_react_preamble_installed__ = true;
-      await import("spiceflow/src/react/entry.client.tsx");
+      await import("spiceflow/dist/react/entry.client");
     `
       } else {
-        return `import "spiceflow/src/react/entry.client.tsx";`
+        return `import "spiceflow/dist/react/entry.client";`
       }
     }),
     {
@@ -176,7 +288,7 @@ export function spiceflowPlugin({ entry }): PluginOption {
           if (ids.length > 0) {
             // client reference id is also in react server module graph,
             // but we skip RSC HMR for this case since Client HMR handles it.
-            if (!ids.some((id) => id in clientReferences)) {
+            if (!ids.some((id) => clientModules.has(id))) {
               ctx.server.environments.client.hot.send({
                 type: 'custom',
                 event: 'react-server:update',
@@ -188,6 +300,7 @@ export function spiceflowPlugin({ entry }): PluginOption {
           }
         }
       },
+
       writeBundle(_options, bundle) {
         if (this.environment.name === 'client') {
           const output = bundle['.vite/manifest.json']
@@ -197,96 +310,18 @@ export function spiceflowPlugin({ entry }): PluginOption {
         }
       },
     },
-    vitePluginUseClient(),
-    vitePluginUseServer(),
-    vitePluginSilenceDirectiveBuildWarning(),
-    react(),
+    createVirtualPlugin('build-client-references', () => {
+      const code = Array.from(clientModules.keys())
+        .map(
+          (id) => `${JSON.stringify(id)}: () => import(${JSON.stringify(id)}),`,
+        )
+        .join('\n')
+
+      return `export default {${code}}`
+    }),
+
+    // vitePluginSilenceDirectiveBuildWarning(),
   ]
-
-  function vitePluginUseClient(): Plugin[] {
-    return [
-      {
-        name: vitePluginUseClient.name,
-        transform(code, id) {
-          if (this.environment.name === 'rsc') {
-            if (/^(("use client")|('use client'))/.test(code)) {
-              // pass through client code to find server reference used only by client
-              if (buildScan) {
-                return
-              }
-              clientReferences[id] = id // TODO: normalize
-              const matches = [
-                ...code.matchAll(/export function (\w+)\(/g),
-                ...code.matchAll(/export (default) (function|class) /g),
-              ]
-              const result = [
-                `import $$ReactServer from "spiceflow/dist/react/server-dom-optimized"`,
-                ...[...matches].map(
-                  ([, name]) =>
-                    `export ${name === 'default' ? 'default' : `const ${name} =`} $$ReactServer.registerClientReference({}, ${JSON.stringify(id)}, ${JSON.stringify(name)})`,
-                ),
-              ].join(';\n')
-              return { code: result, map: null }
-            }
-          }
-        },
-      },
-      createVirtualPlugin('build-client-references', () => {
-        const code = Object.keys(clientReferences)
-          .map(
-            (id) =>
-              `${JSON.stringify(id)}: () => import(${JSON.stringify(id)}),`,
-          )
-          .join('\n')
-
-        return `export default {${code}}`
-      }),
-    ]
-  }
-
-  function vitePluginUseServer(): Plugin[] {
-    return [
-      {
-        name: vitePluginUseServer.name,
-        transform(code, id) {
-          if (/^(("use server")|('use server'))/.test(code)) {
-            serverReferences[id] = id
-            if (this.environment.name === 'rsc') {
-              const matches = code.matchAll(/export async function (\w+)\(/g)
-              const result = [
-                code,
-                `import $$ReactServer from "spiceflow/dist/react/server-dom-optimized"`,
-                ...[...matches].map(
-                  ([, name]) =>
-                    `${name} = $$ReactServer.registerServerReference(${name}, ${JSON.stringify(id)}, ${JSON.stringify(name)})`,
-                ),
-              ].join(';\n')
-              return { code: result, map: null }
-            } else {
-              const matches = code.matchAll(/export async function (\w+)\(/g)
-              const result = [
-                `import $$ReactClient from "spiceflow/dist/react/server-dom-client-optimized"`,
-                ...[...matches].map(
-                  ([, name]) =>
-                    `export const ${name} = $$ReactClient.createServerReference(${JSON.stringify(id + '#' + name)}, (...args) => __callServer(...args))`,
-                ),
-              ].join(';\n')
-              return { code: result, map: null }
-            }
-          }
-        },
-      },
-      createVirtualPlugin('build-server-references', () => {
-        const code = Object.keys(serverReferences)
-          .map(
-            (id) =>
-              `${JSON.stringify(id)}: () => import(${JSON.stringify(id)}),`,
-          )
-          .join('\n')
-        return `export default {${code}}`
-      }),
-    ]
-  }
 
   function createVirtualPlugin(name: string, load: Plugin['load']) {
     name = 'virtual:' + name
@@ -342,3 +377,42 @@ export function spiceflowPlugin({ entry }): PluginOption {
     }
   }
 }
+
+export function debugTransformResult({ transformedCode, envName, id }) {
+  // If load() returns undefined, fall back to original code
+
+  // Create debug folder structure mirroring source
+  const relativePath = path.relative(process.cwd(), id.replace(/\0/g, ''))
+  // Replace any .. with _ to prevent directory traversal
+  const safePath = relativePath
+    .split(path.sep)
+    .map((segment) => (segment === '..' ? '_' : segment))
+    .join(path.sep)
+
+  // Add environment name to debug path
+  const debugPath = path.join(process.cwd(), 'debug', envName, safePath)
+
+  // Ensure debug directory exists
+  fs.mkdirSync(path.dirname(debugPath), { recursive: true })
+
+  // Write transformed code to debug file
+  fs.writeFileSync(debugPath, transformedCode)
+
+  // Return original result to not interfere with build
+  return null
+}
+
+const EXTENSIONS_TO_TRANSFORM = new Set([
+  '.js',
+  '.jsx',
+  '.cjs',
+  '.cjsx',
+  '.mjs',
+  '.mjsx',
+  '.ts',
+  '.tsx',
+  '.cts',
+  '.ctsx',
+  '.mts',
+  '.mtsx',
+])

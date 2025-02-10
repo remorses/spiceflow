@@ -1,25 +1,27 @@
+'use client'
+
 import React from 'react'
 import { RouteMatch } from '../router.js'
 import { ReactFormState } from 'react-dom/client'
 import { InternalRoute } from '../types.js'
 
-export const FlightDataContext = React.createContext<Promise<FlightData>>(
-  undefined!,
-)
+export const FlightDataContext = React.createContext<FlightData>(undefined!)
+// Get $$id property that was set by registerClientReference
 
 export function useFlightData() {
-  return React.use(React.useContext(FlightDataContext))
+  // return React.use(React.useContext(FlightDataContext))
+  return React.useContext(FlightDataContext)
 }
 
 export function LayoutContent(props: { id: string }) {
   const data = useFlightData()
+  console.log('data', data)
   const layoutIndex = data.layouts.findIndex((layout) => layout.id === props.id)
-  if (layoutIndex >= 0) {
-    return data.layouts[layoutIndex + 1].element
+  let nextLayout = data.layouts[layoutIndex + 1]?.element
+  if (nextLayout) {
+    return nextLayout
   }
-  if (data.page?.id !== props.id) {
-    throw new Error(`Layout id mismatch: expected ${props.id}`)
-  }
+  
   return data.page
 }
 

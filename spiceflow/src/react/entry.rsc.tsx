@@ -10,6 +10,7 @@ import app from 'virtual:app-entry'
 import { fromPipeableToWebReadable } from "./utils/fetch.js";
 import { FlightData } from "./components.js";
 
+
 export interface RscHandlerResult {
 	stream: ReadableStream<Uint8Array>;
 }
@@ -38,7 +39,7 @@ export async function handler(
 				: await request.text();
 			const args = await ReactServer.decodeReply(body);
 			const reference =
-				serverReferenceManifest.resolveServerReference(actionId);
+			serverReferenceManifest.resolveServerReference(actionId);
 			await reference.preload();
 			const action = await reference.get();
 			returnValue = await (action as any).apply(null, args);
@@ -89,6 +90,7 @@ export async function handler(
 	return r
 }
 
+
 const serverReferenceManifest: ServerReferenceManifest = {
 	resolveServerReference(reference: string) {
 		const [id, name] = reference.split("#");
@@ -117,3 +119,4 @@ const clientReferenceMetadataManifest: ClientReferenceMetadataManifest = {
 		return metadata.$$id;
 	},
 };
+

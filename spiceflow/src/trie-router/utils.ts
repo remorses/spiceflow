@@ -67,3 +67,4 @@ export type Params = Record<string, string>
  * ```
  */
 export type Result<T> = [[T, Params][]]
+

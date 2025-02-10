@@ -598,6 +598,7 @@ export type InternalRoute = {
   validateQuery?: ValidateFunction
   validateParams?: ValidateFunction
   kind?: NodeKind
+  id: string
   // prefix: string
 }
 

@@ -18,6 +18,7 @@ import {
   MaybeArray,
   MetadataBase,
   MiddlewareHandler,
+  NodeKind,
   Reconcile,
   ResolvePath,
   RouteBase,
@@ -122,13 +123,32 @@ export class Spiceflow<
     })
     return allRoutes
   }
+  usedIds = new Set<string>()
+
+  private generateRouteId(
+    kind: NodeKind | undefined,
+    method: string,
+    path: string,
+  ): string {
+    const prefix = kind ? kind : 'api'
+    const base = `${prefix}-${method.toLowerCase()}-${path.replace(/\//g, '-')}`
+    let id = base
+    let counter = 1
+
+    while (this.usedIds.has(id)) {
+      id = `${base}-${counter}`
+      counter++
+    }
+
+    this.usedIds.add(id)
+    return id
+  }
 
   private add({
     method,
     path,
     hooks,
     handler,
-
     ...rest
   }: Partial<InternalRoute>) {
     const kind = rest.kind
@@ -146,8 +166,12 @@ export class Spiceflow<
 
     // remove trailing slash which can cause problems
     path = path?.replace(/\/$/, '') || '/'
+
+    const id = this.generateRouteId(kind, method || '', path)
+
     let route: InternalRoute = {
       ...rest,
+      id,
       type: hooks?.type || '',
       method: (method || '') as any,
       path: path || '',
@@ -156,31 +180,31 @@ export class Spiceflow<
       validateBody,
       validateParams,
       validateQuery,
+      kind,
     }
     this.router.add(method!, path, route)
 
     this.routes.push(route)
   }
 
-  routeIndex = 0
-
   private getAllDecodedParams(
     matchResult: Result<InternalRoute>,
     pathname: string,
+    routeIndex,
   ): Record<string, string> {
-    if (!matchResult?.length || !matchResult?.[0]?.[this.routeIndex]?.[1]) {
+    if (!matchResult?.length || !matchResult?.[0]?.[routeIndex]?.[1]) {
       return {}
     }
     const internalRoute =
       matchResult[0].find(([route]) => route.path.includes('*'))?.[0] ||
-      matchResult[0][this.routeIndex][0]
+      matchResult[0][routeIndex][0]
 
     const decoded: Record<string, string> =
       extractWildcardParam(pathname, internalRoute?.path) || {}
 
-    const keys = Object.keys(matchResult[0][this.routeIndex][1])
+    const keys = Object.keys(matchResult[0][routeIndex][1])
     for (const key of keys) {
-      const value = matchResult[0][this.routeIndex][1][key]
+      const value = matchResult[0][routeIndex][1][key]
       if (value) {
         decoded[key] = /\%/.test(value) ? decodeURIComponent_(value) : value
       }
@@ -188,13 +212,13 @@ export class Spiceflow<
 
     return decoded
   }
-
   private match(method: string, path: string) {
     let root = this
     let foundApp: AnySpiceflow | undefined
     let originalPath = path
     // remove trailing slash which can cause problems
     path = path.replace(/\/$/, '') || '/'
+
     const result = bfsFind(this, (app) => {
       app.topLevelApp = root
       let prefix = this.getAppAndParents(app)
@@ -215,55 +239,52 @@ export class Spiceflow<
         return
       }
 
-      const internalRoute = matchedRoutes?.[0]?.[0]?.[0]
+      // Get all matched routes
+      const routes = matchedRoutes[0].map(([route, params], index) => ({
+        app,
+        route,
+        params: this.getAllDecodedParams(matchedRoutes, originalPath, index),
+      }))
 
-      const params = this.getAllDecodedParams(matchedRoutes, originalPath)
-
-      if (internalRoute) {
-        const res = {
-          ...matchedRoutes,
-          app,
-          internalRoute: internalRoute,
-          params,
-        }
-        return res
+      if (routes.length) {
+        return routes
       }
+
+      // TODO what is this shit?
       if (method === 'HEAD') {
         const matched = app.router.match('GET', pathWithoutPrefix)
         if (matched) {
-          const [[[internalRouteGet]]] = matched
-
-          return {
-            ...matchedRoutes,
-            app,
-            internalRoute: {
-              hooks: {},
-              handler:
-                internalRouteGet.handler ||
-                ((c) => {
+          return [
+            {
+              app,
+              route: {
+                hooks: {},
+                handler: (c) => {
                   return new Response(null, { status: 200 })
-                }),
-              method,
-              path,
-            } as InternalRoute,
-            params: this.getAllDecodedParams(matched, originalPath),
-          }
+                },
+                method,
+                path,
+              } as InternalRoute,
+              params: this.getAllDecodedParams(matched, originalPath, 0),
+            },
+          ]
         }
       }
     })
 
     return (
-      result || {
-        kind: undefined,
-        app: foundApp || root,
-        internalRoute: {
-          hooks: {},
-          handler: notFoundHandler,
-          method,
-          path,
-        } as InternalRoute,
-        params: {},
-      }
+      result || [
+        {
+          app: foundApp || root,
+          route: {
+            hooks: {},
+            handler: notFoundHandler,
+            method,
+            path,
+          } as InternalRoute,
+          params: {},
+        },
+      ]
     )
   }
 
@@ -825,9 +846,74 @@ export class Spiceflow<
     const root = this.topLevelApp || this
     let onErrorHandlers: OnError[] = []
 
-    const route = this.match(request.method, path)
+    const routes = this.match(request.method, path)
 
-    const appsInScope = this.getAppsInScope(route.app)
+    const [nonReactRoutes, reactRoutes] = partition(
+      routes,
+      (x) => !x.route.kind,
+    )
+    if (reactRoutes.length) {
+      const [pageRoutes, layoutRoutes] = partition(
+        reactRoutes,
+        (x) => x.route.kind === 'page',
+      )
+      const pageRoute = pageRoutes[0]
+      if (!pageRoute) {
+        // TODO customize not found route
+        return new Response('Not Found', { status: 404 })
+      }
+      const kind = pageRoute?.route?.kind
+
+      try {
+        const baseContext = {
+          ...defaultContext,
+          request,
+
+          path,
+          query: parseQuery((u.search || '').slice(1)),
+          // params: _params,
+          redirect,
+        }
+
+        const [page, ...layouts] = await Promise.all([
+          pageRoute?.route?.handler({
+            ...baseContext,
+            state: cloneDeep(pageRoute.app.defaultState),
+            params: pageRoute.params,
+          }),
+          ...layoutRoutes.map(async (layout) => {
+            const id = layout.route.id
+            const children = createElement(LayoutContent, { id })
+
+            return {
+              element: (await layout.route.handler({
+                ...baseContext,
+                path,
+                // TODO run the middleware on react pages and layouts too?
+                state: cloneDeep(pageRoute.app.defaultState),
+                params: pageRoute.params,
+                children,
+              })) as any,
+              id,
+            }
+          }),
+        ])
+
+        let data: FlightData = {
+          url: request.url,
+          page,
+          layouts,
+        }
+        console.log(data,)
+        return data
+      } catch (err) {
+        return await getResForError(err)
+      }
+    }
+    const route = nonReactRoutes[0]
+
+    // TODO get all apps in scope? layouts can match between apps when using .use?
+    const appsInScope = this.getAppsInScope(routes[0].app)
     onErrorHandlers = appsInScope.flatMap((x) => x.onErrorHandlers)
     let {
       params: _params,
@@ -837,15 +923,15 @@ export class Spiceflow<
 
     let state = cloneDeep(defaultState)
 
-    let content = route?.internalRoute?.hooks?.content
+    let content = route?.route?.hooks?.content
 
-    if (route.internalRoute?.validateBody) {
+    if (route?.route?.validateBody) {
       // TODO don't clone the request
       let typedRequest =
         request instanceof SpiceflowRequest
           ? request
           : new SpiceflowRequest(u, request)
-      typedRequest.validateBody = route.internalRoute?.validateBody
+      typedRequest.validateBody = route?.route?.validateBody
       request = typedRequest
     }
 
@@ -860,33 +946,6 @@ export class Spiceflow<
       redirect,
     } satisfies MiddlewareContext<any>
 
-    const kind = route?.internalRoute?.kind
-    if (kind === 'page' || kind === 'layout') {
-      try {
-        const [page, ...layoutResults] = await Promise.all([
-          route.internalRoute?.handler(context),
-          ...route.layouts.map((layout) => {
-            const internalRoute: InternalRoute = layout.store['GET']
-            const children = createElement(LayoutContent, { id: layout.id })
-            return internalRoute.handler({ ...context, children })
-          }),
-        ])
-
-        let data: FlightData = {
-          page,
-          layouts: route.layouts.map((layout, i) => {
-            return {
-              id: layout.id,
-              element: layoutResults[i] as any,
-            }
-          }),
-        }
-        console.log(data)
-        return data
-      } catch (err) {
-        return await getResForError(err)
-      }
-    }
     let handlerResponse: Response | undefined
     async function getResForError(err: any) {
       if (isResponse(err)) return err
@@ -926,10 +985,7 @@ export class Spiceflow<
           if (!result && index < middlewares.length) {
             return await next()
           } else if (result) {
-            return await turnHandlerResultIntoResponse(
-              result,
-              route.internalRoute,
-            )
+            return await turnHandlerResultIntoResponse(result, route?.route)
           }
         }
         if (handlerResponse) {
@@ -938,27 +994,24 @@ export class Spiceflow<
 
         context.query = runValidation(
           context.query,
-          route.internalRoute?.validateQuery,
+          route?.route?.validateQuery,
         )
         context.params = runValidation(
           context.params,
-          route.internalRoute?.validateParams,
+          route?.route?.validateParams,
         )
 
-        const res = await route.internalRoute?.handler(context)
+        const res = await route?.route?.handler(context)
         if (isAsyncIterable(res)) {
           handlerResponse = await this.handleStream({
             generator: res,
             request,
             onErrorHandlers,
-            route: route.internalRoute,
+            route: route?.route,
           })
           return handlerResponse
         }
-        handlerResponse = await turnHandlerResultIntoResponse(
-          res,
-          route.internalRoute,
-        )
+        handlerResponse = await turnHandlerResultIntoResponse(res, route?.route)
         return handlerResponse
       } catch (err) {
         handlerResponse = await getResForError(err)
@@ -1543,3 +1596,12 @@ console.log(`piceflow running`)
 
 const tryDecodeURIComponent = (str: string) =>
   tryDecode(str, decodeURIComponent_)
+function partition<T>(arr: T[], predicate: (item: T) => boolean): [T[], T[]] {
+  return arr.reduce(
+    (acc, item) => {
+      acc[predicate(item) ? 0 : 1].push(item)
+      return acc
+    },
+    [[], []] as [T[], T[]],
+  )
+}
