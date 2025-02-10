@@ -1,4 +1,6 @@
 import assert from 'node:assert'
+import * as vite from 'vite'
+
 import fs from 'node:fs'
 import url from 'node:url'
 import path from 'node:path'
@@ -147,6 +149,7 @@ export function spiceflowPlugin({ entry }): PluginOption {
             },
             build: {
               manifest: true,
+
               outDir: 'dist/client',
               rollupOptions: {
                 input: { index: 'virtual:browser-entry' },
@@ -155,10 +158,16 @@ export function spiceflowPlugin({ entry }): PluginOption {
           },
           ssr: {
             build: {
+              manifest: true,
+              ssrManifest: true,
+
               outDir: 'dist/ssr',
               rollupOptions: {
+                // preserveEntrySignatures: 'exports-only',
+
                 input: { index: 'spiceflow/dist/react/entry.ssr' },
               },
+              emitAssets: true,
               ssrEmitAssets: true,
             },
           },
@@ -186,12 +195,14 @@ export function spiceflowPlugin({ entry }): PluginOption {
               },
             },
             build: {
+              ssrManifest: true,
               outDir: 'dist/rsc',
               manifest: true,
-              ssr: true,
               ssrEmitAssets: true,
               emitAssets: true,
               rollupOptions: {
+                preserveEntrySignatures: 'exports-only',
+
                 input: { index: 'spiceflow/dist/react/entry.rsc' },
               },
             },
@@ -204,9 +215,28 @@ export function spiceflowPlugin({ entry }): PluginOption {
             // this scan part seems necessary to find all the server references and client references, otherwise they are empty
             await builder.build(builder.environments.rsc)
             buildScan = false
-            await builder.build(builder.environments.rsc)
-            await builder.build(builder.environments.client)
-            await builder.build(builder.environments.ssr)
+            const rscOutputs = (await builder.build(
+              builder.environments.rsc,
+            )) as vite.Rollup.RollupOutput
+            const clientOutputs = (await builder.build(
+              builder.environments.client,
+            )) as vite.Rollup.RollupOutput
+            const ssrOutputs = (await builder.build(
+              builder.environments.ssr,
+            )) as vite.Rollup.RollupOutput
+
+            const clientOutDir = builder.environments.client.config.build.outDir
+
+            moveStaticAssets(
+              ssrOutputs,
+              builder.environments.ssr.config.build.outDir,
+              clientOutDir,
+            )
+            moveStaticAssets(
+              rscOutputs,
+              builder.environments.rsc.config.build.outDir,
+              clientOutDir,
+            )
           },
         },
       }),
@@ -466,3 +496,33 @@ const EXTENSIONS_TO_TRANSFORM = new Set([
   '.mts',
   '.mtsx',
 ])
+
+function moveStaticAssets(
+  output: vite.Rollup.RollupOutput,
+  outDir: string,
+  clientOutDir: string,
+) {
+  const manifestAsset = output.output.find(
+    (asset) => asset.fileName === '.vite/ssr-manifest.json',
+  )
+  if (!manifestAsset || manifestAsset.type !== 'asset') {
+    // console.log(output.output)
+    throw new Error('could not find manifest')
+  }
+  const manifest = JSON.parse(manifestAsset.source as string)
+
+  const processed = new Set<string>()
+  for (const assets of Object.values(manifest) as string[][]) {
+    for (const asset of assets) {
+      const fullPath = path.join(outDir, asset.slice(1))
+
+      // console.log({ fullPath })
+      if (asset.endsWith('.js') || processed.has(fullPath)) continue
+      processed.add(fullPath)
+      if (!fs.existsSync(fullPath)) continue
+
+      const relative = path.relative(outDir, fullPath)
+      fs.renameSync(fullPath, path.join(clientOutDir, relative))
+    }
+  }
+}

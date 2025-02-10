@@ -50,8 +50,6 @@ export default async function handler(
 	);
 	const ssrAssets = await import("virtual:ssr-assets");
 
-	console.log(cssUrls)
-
 	
 	const el = <FlightDataContext.Provider value={payload.root}>
 		{cssUrls.map((url) => (
