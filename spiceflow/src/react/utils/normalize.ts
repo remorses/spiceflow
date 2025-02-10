@@ -1,13 +1,14 @@
 import nodePath from 'node:path'
-import { ViteDevServer } from 'vite'
+import { ModuleNode, ViteDevServer } from 'vite'
 
 // Apply same noramlizaion as Vite's dev import analysis
 // to avoid dual package with "/xyz" and "/@fs/xyz" for example.
 
 // https://github.com/vitejs/vite/blob/0c0aeaeb3f12d2cdc3c47557da209416c8d48fb7/packages/vite/src/node/plugins/importAnalysis.ts#L327-L399
-export  function noramlizeClientReferenceId(
+export function noramlizeClientReferenceId(
   id: string,
   parentServer: ViteDevServer,
+  mod?: ModuleNode
 ) {
   const root = parentServer.config.root
   if (id.startsWith(root)) {
@@ -20,10 +21,10 @@ export  function noramlizeClientReferenceId(
   // this is needed only for browser, so we'll strip it off
   // during ssr client reference import
   // TODO
-  // const mod = await parentServer.moduleGraph.getModuleByUrl(id)
-  // if (mod && mod.lastHMRTimestamp > 0) {
-  //   id += `?t=${mod.lastHMRTimestamp}`
-  // }
+  
+  if (mod && mod.lastHMRTimestamp > 0) {
+    id += `?t=${mod.lastHMRTimestamp}`
+  }
   return id
 }
 

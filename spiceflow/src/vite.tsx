@@ -40,19 +40,7 @@ export function spiceflowPlugin({ entry }): PluginOption {
 
   let command: string = ''
   let server: ViteDevServer
-  let generateId = (filename, directive) => {
-    let hash =
-      command === 'build'
-        ? makeHash(filename)
-        : noramlizeClientReferenceId(filename, server)
-    if (directive === 'use server') {
-      serverModules.set(filename, hash)
-      return hash
-    }
 
-    clientModules.set(filename, hash)
-    return hash
-  }
   return [
     react(),
 
@@ -66,7 +54,7 @@ export function spiceflowPlugin({ entry }): PluginOption {
         command = env.command
       },
 
-      transform(code, id) {
+      async transform(code, id) {
         if (id === '\0virtual:react-manifest') {
           debugTransformResult({
             envName: this.environment.name,
@@ -80,6 +68,23 @@ export function spiceflowPlugin({ entry }): PluginOption {
           EXTENSIONS_TO_TRANSFORM.has(ext) &&
           code.match(/['"]use (client|server)['"]/g)
         ) {
+          const mod = await server.moduleGraph.getModuleByUrl(id)
+          let generateId = (filename, directive) => {
+            let id = ''
+            if (command === 'build') {
+              id = makeHash(filename)
+            } else {
+              id = noramlizeClientReferenceId(filename, server, mod)
+            }
+            console.log('generateId', id)
+            if (directive === 'use server') {
+              serverModules.set(filename, id)
+              return id
+            }
+
+            clientModules.set(filename, id)
+            return id
+          }
           if (this.environment.name === 'rsc') {
             const transformed = serverTransform(code, id, {
               id: generateId,
