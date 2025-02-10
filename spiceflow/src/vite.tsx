@@ -65,7 +65,12 @@ export function spiceflowPlugin({ entry }): PluginOption {
           EXTENSIONS_TO_TRANSFORM.has(ext) &&
           code.match(/['"]use (client|server)['"]/g)
         ) {
-          const mod = await server.moduleGraph.getModuleByUrl(id)
+          const isUseClient = /^\s*(("use client")|('use client'))/.test(code)
+          if (isUseClient && buildScan) {
+            // This is needed to let scan discover server references found in the use client components
+            return
+          }
+          const mod = await server?.moduleGraph?.getModuleByUrl(id)
           let generateId = (filename, directive) => {
             let id = ''
             if (command === 'build') {
@@ -371,7 +376,7 @@ export function spiceflowPlugin({ entry }): PluginOption {
     name = 'virtual:' + name
     return {
       name: `virtual-${name}`,
-      
+
       resolveId(source, _importer, _options) {
         return source === name ? '\0' + name : undefined
       },
