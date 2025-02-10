@@ -57,12 +57,10 @@ export function Calculator() {
 				=<span data-testid="calculator-answer">{returnValue ?? "?"}</span>
 			</div>
 			<button hidden></button>
+			
 		</form>
 	);
 }
-
-
-
 
 
 

@@ -10,14 +10,7 @@ const app = new Spiceflow()
 		const url = new URL(request.url);
 		return <IndexPage />;
 	})
-	.page("/:id", async ({ request, params }) => {
-		const url = new URL(request.url);
-		return (
-			<Layout>
-				<IndexPage />
-			</Layout>
-		);
-	})
+
 	.get("/hello", () => "Hello, World!")
 	.page("/redirect", async () => {
 		throw new Response("Redirect", {
@@ -26,6 +19,14 @@ const app = new Spiceflow()
 				location: "/",
 			},
 		});
+	})
+	.page("/:id", async ({ request, params }) => {
+		const url = new URL(request.url);
+		return (
+			<Layout>
+				<IndexPage />
+			</Layout>
+		);
 	})
 	.page("/redirect-in-rsc", async () => {
 		return <Redirects />;
