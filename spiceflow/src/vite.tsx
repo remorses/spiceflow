@@ -319,6 +319,14 @@ export function spiceflowPlugin({ entry }): PluginOption {
 
       return `export default {${code}}`
     }),
+    createVirtualPlugin('build-server-references', () => {
+      const code = Array.from(serverModules.keys())
+        .map(
+          (id) => `${JSON.stringify(id)}: () => import(${JSON.stringify(id)}),`,
+        )
+        .join('\n')
+      return `export default {${code}}`
+    }),
 
     // vitePluginSilenceDirectiveBuildWarning(),
   ]
