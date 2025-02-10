@@ -1,11 +1,15 @@
-import React from 'react'
+import React, { Suspense } from 'react'
 import ReactDomClient from 'react-dom/client'
 import ReactClient from 'spiceflow/dist/react/server-dom-client-optimized'
 
 import type { CallServerFn } from './types/index.js'
 import { clientReferenceManifest } from './utils/client-reference.js'
 import { rscStream } from 'rsc-html-stream/client'
-import { FlightDataContext } from './components.js'
+import {
+  DefaultGlobalErrorPage,
+  ErrorBoundary,
+  FlightDataContext,
+} from './components.js'
 import { ServerPayload } from '../spiceflow.js'
 
 async function main() {
@@ -60,9 +64,13 @@ async function main() {
     }, [])
 
     return (
-      <FlightDataContext.Provider value={payload.root}>
-        {payload.root?.layouts?.[0]?.element ?? payload.root.page}
-      </FlightDataContext.Provider>
+      <Suspense fallback={<div>Loading root...</div>}>
+        <ErrorBoundary errorComponent={DefaultGlobalErrorPage}>
+          <FlightDataContext.Provider value={payload.root}>
+            {payload.root?.layouts?.[0]?.element ?? payload.root.page}
+          </FlightDataContext.Provider>
+        </ErrorBoundary>
+      </Suspense>
     )
   }
 

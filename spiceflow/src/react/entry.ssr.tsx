@@ -3,7 +3,6 @@ import ReactDomServer from 'react-dom/server'
 import ReactClient from 'spiceflow/dist/react/server-dom-client-optimized'
 import type { ModuleRunner } from 'vite/module-runner'
 
-
 import {
   createRequest,
   fromPipeableToWebReadable,
@@ -11,11 +10,16 @@ import {
   sendResponse,
 } from './utils/fetch.js'
 import { injectRSCPayload } from 'rsc-html-stream/server'
-import { FlightDataContext } from './components.js'
+import {
+  DefaultGlobalErrorPage,
+  ErrorBoundary,
+  FlightDataContext,
+} from './components.js'
 import { bootstrapModules } from 'virtual:ssr-assets'
 import { clientReferenceManifest } from './utils/client-reference.js'
 import cssUrls from 'virtual:app-styles'
 import { ServerPayload } from '../spiceflow.js'
+import { Suspense } from 'react'
 
 export default async function handler(
   req: IncomingMessage,
@@ -43,28 +47,58 @@ export default async function handler(
     clientReferenceManifest,
   )
   const ssrAssets = await import('virtual:ssr-assets')
-
   const el = (
     <FlightDataContext.Provider value={payload.root}>
       {cssUrls.map((url) => (
-        <link key={url} rel="stylesheet" href={url} />
+        // precedence to force head rendering
+        // https://react.dev/reference/react-dom/components/link#special-rendering-behavior
+        <link key={url} rel="stylesheet" href={url} precedence="high" />
       ))}
       {payload.root?.layouts?.[0]?.element ?? payload.root.page}
     </FlightDataContext.Provider>
   )
 
-  const htmlStream = fromPipeableToWebReadable(
-    ReactDomServer.renderToPipeableStream(el, {
-      bootstrapModules: ssrAssets.bootstrapModules,
+  let htmlStream: ReadableStream
+  let status = 200
 
-      // @ts-ignore no type?
+  try {
+    const ssrStream = await ReactDomServer.renderToPipeableStream(el, {
+      bootstrapModules: ssrAssets.bootstrapModules,
+      // @ts-ignore
       formState: payload.formState,
-    }),
-  )
+      onError(error) {
+        console.error('[react-dom:renderToPipeableStream]', error)
+        status = 500
+      },
+    })
+
+    htmlStream = fromPipeableToWebReadable(ssrStream)
+  } catch (e) {
+    console.log(`error during ssr render catch`, e)
+    // On error, render minimal HTML shell
+    // Client will do full CSR render and show error boundary
+    status = 500
+    const errorRoot = (
+      <html data-no-hydrate>
+        <head>
+          <meta charSet="utf-8" />
+        </head>
+        <body>
+          <noscript>{status} Internal Server Error</noscript>
+        </body>
+      </html>
+    )
+
+    const errorStream = ReactDomServer.renderToPipeableStream(errorRoot, {
+      bootstrapModules: ssrAssets.bootstrapModules,
+    })
+    htmlStream = fromPipeableToWebReadable(errorStream)
+  }
 
   const htmlResponse = new Response(
     htmlStream.pipeThrough(injectRSCPayload(flightStream2)),
     {
+      status,
       headers: {
         'content-type': 'text/html;charset=utf-8',
       },
