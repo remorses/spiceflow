@@ -27,3 +27,5 @@ export async function IndexPage() {
 		</div>
 	);
 }
+
+

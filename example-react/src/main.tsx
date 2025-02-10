@@ -2,6 +2,7 @@ import { Spiceflow } from "spiceflow";
 import { IndexPage } from "./app/index";
 import { Layout } from "./app/layout";
 import './styles.css'
+import { ClientComponentThrows } from "./app/client";
 
 
 const app = new Spiceflow()
@@ -65,8 +66,14 @@ const app = new Spiceflow()
 			</div>
 		);
 	})
-  .page('/rsc-error', async () => {
+  .page('/loader-error', async () => {
     throw new Error('test error');
+  })
+  .page('/rsc-error', async () => {
+    return <ServerComponentThrows />
+  })
+  .page('/client-error', async () => {
+    return <ClientComponentThrows />
   })
 	.page("/redirect-in-rsc", async () => {
 		return <Redirects />;
@@ -85,5 +92,11 @@ async function Redirects() {
 	});
 	return <div>Redirect</div>;
 }
+
+function ServerComponentThrows() {
+	throw new Error('Server component error');
+	return <div>Server component</div>;
+}
+
 
 export default app;
