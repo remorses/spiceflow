@@ -38,7 +38,21 @@ const app = new Spiceflow()
 	})
 	.page("/page", async ({ request }) => {
 		const url = new URL(request.url);
-		return <IndexPage />;
+		return (
+			<div>
+				<a href="/page/1">/page/1</a>
+				<IndexPage />
+			</div>
+		);
+	})
+	.page("/page/1", async ({ request }) => {
+		const url = new URL(request.url);
+		return (
+			<div>
+				<a href="/page">/page</a>
+				<IndexPage />
+			</div>
+		);
 	})
 	.page("/:id", async ({ request, params }) => {
 		const url = new URL(request.url);
