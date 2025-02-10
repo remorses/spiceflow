@@ -1,14 +1,15 @@
+import type { ReactFormState } from 'react-dom/client'
+import ReactServer from 'spiceflow/dist/react/server-dom-optimized'
+
 import addFormats from 'ajv-formats'
 import lodashCloneDeep from 'lodash.clonedeep'
 
 import superjson from 'superjson'
 import {
   ComposeSpiceflowResponse,
-  ContentType,
   CreateClient,
   DefinitionBase,
   ErrorHandler,
-  HTTPMethod,
   InlineHandler,
   InputSchema,
   InternalRoute,
@@ -25,29 +26,27 @@ import {
   RouteSchema,
   SingletonBase,
   TypeSchema,
-  UnwrapRoute,
+  UnwrapRoute
 } from './types.js'
 let globalIndex = 0
 
 import Ajv, { ValidateFunction } from 'ajv'
+import { createElement } from 'react'
 import { z, ZodType } from 'zod'
 import { zodToJsonSchema } from 'zod-to-json-schema'
-import { Context, MiddlewareContext } from './context.js'
+import { MiddlewareContext } from './context.js'
 import { isProduction, ValidationError } from './error.js'
 import { isAsyncIterable, isResponse, redirect } from './utils.js'
-import { createElement, isValidElement } from 'react'
 
-import value from 'virtual:build-client-references'
+
 import { FlightData, LayoutContent } from './react/components.js'
+import { ClientReferenceMetadataManifest, ServerReferenceManifest } from './react/types/index.js'
+import { fromPipeableToWebReadable } from './react/utils/fetch.js'
 import { TrieRouter } from './trie-router/router.js'
+import { decodeURIComponent_ } from './trie-router/url.js'
 import {
-  ParamIndexMap,
-  Params,
-  ParamStash,
-  Result,
+  Result
 } from './trie-router/utils.js'
-import { decodeURIComponent_, tryDecode } from './trie-router/url.js'
-import path from 'path'
 
 const ajv = (addFormats.default || addFormats)(
   new (Ajv.default || Ajv)({ useDefaults: true }),
@@ -905,12 +904,71 @@ export class Spiceflow<
           }),
         ])
 
-        let data: FlightData = {
+        let root: FlightData = {
           url: request.url,
           page,
           layouts,
         }
-        return data
+        let returnValue: unknown | undefined
+        let formState: ReactFormState | undefined
+        if (request.method === 'POST') {
+          const url = new URL(request.url)
+          const actionId = url.searchParams.get('__rsc')
+          if (actionId) {
+            // client stream request
+            const contentType = request.headers.get('content-type')
+            const body = contentType?.startsWith('multipart/form-data')
+              ? await request.formData()
+              : await request.text()
+            const args = await ReactServer.decodeReply(body)
+            const reference =
+              serverReferenceManifest.resolveServerReference(actionId)
+            await reference.preload()
+            const action = await reference.get()
+            returnValue = await (action as any).apply(null, args)
+          } else {
+            // progressive enhancement
+            const formData = await request.formData()
+            console.log(formData)
+            const decodedAction = await ReactServer.decodeAction(
+              formData,
+              serverReferenceManifest,
+            )
+            formState = await ReactServer.decodeFormState(
+              await decodedAction(),
+              formData,
+              serverReferenceManifest,
+            )
+          }
+        }
+
+        
+
+        if (root instanceof Response) {
+          return root
+        }
+        
+
+        let abortable = ReactServer.renderToPipeableStream<ServerPayload>(
+          {
+            root,
+            returnValue,
+            formState,
+          },
+          clientReferenceMetadataManifest,
+          { onError(error) {} },
+        )
+        // render flight stream
+        const stream = fromPipeableToWebReadable(abortable)
+        request.signal.addEventListener('abort', () => {
+          abortable.abort()
+        })
+
+        return new Response(stream, {
+          headers: {
+            'content-type': 'text/x-component;charset=utf-8'
+          }
+        })
       } catch (err) {
         return await getResForError(err)
       }
@@ -1616,4 +1674,49 @@ function partition<T>(arr: T[], predicate: (item: T) => boolean): [T[], T[]] {
     },
     [[], []] as [T[], T[]],
   )
+}
+
+
+
+const serverReferenceManifest: ServerReferenceManifest = {
+  resolveServerReference(reference: string) {
+    const [id, name] = reference.split('#')
+    let resolved: unknown
+    return {
+      async preload() {
+        let mod: Record<string, unknown>
+        if (import.meta.env.DEV) {
+          mod = await import(/* @vite-ignore */ id)
+        } else {
+          const references = await import('virtual:build-server-references')
+          const ref = references.default[id]
+          if (!ref) {
+            const availableKeys = Object.keys(references.default)
+            throw new Error(
+              `Could not find server reference for id: ${id}. This likely means the server reference was not properly registered. Available reference keys are: ${availableKeys.join(', ')}`,
+            )
+          }
+          mod = await ref()
+        }
+        resolved = mod[name]
+      },
+      get() {
+        return resolved
+      },
+    }
+  },
+}
+
+const clientReferenceMetadataManifest: ClientReferenceMetadataManifest = {
+  resolveClientReferenceMetadata(metadata) {
+    // console.log("[debug:resolveClientReferenceMetadata]", { metadata }, Object.getOwnPropertyDescriptors(metadata));
+    return metadata.$$id
+  },
+}
+
+
+export interface ServerPayload {
+  root: FlightData
+  formState?: ReactFormState
+  returnValue?: unknown
 }

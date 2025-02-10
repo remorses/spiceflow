@@ -23,24 +23,19 @@ export default async function handler(
   const request = createRequest(req, res)
   const url = new URL(request.url)
   const rscEntry = await importRscEntry()
-  const rscResult = await rscEntry.handler(url, request)
+  const response = await rscEntry.handler(url, request)
 
-  if (rscResult instanceof Response) {
-    sendResponse(rscResult, res)
-    return
-  }
-
-  if (url.searchParams.has('__rsc')) {
-    const response = new Response(rscResult.stream, {
-      headers: {
-        'content-type': 'text/x-component;charset=utf-8',
-      },
-    })
+  if (!response.headers.get('content-type')?.startsWith('text/x-component')) {
     sendResponse(response, res)
     return
   }
 
-  const [flightStream1, flightStream2] = rscResult.stream.tee()
+  if (url.searchParams.has('__rsc')) {
+    sendResponse(response, res)
+    return
+  }
+
+  const [flightStream1, flightStream2] = response.body!.tee()
 
   const payload = await ReactClient.createFromNodeStream<ServerPayload>(
     fromWebToNodeReadable(flightStream1),
@@ -66,7 +61,7 @@ export default async function handler(
     }),
   )
 
-  const response = new Response(
+  const htmlResponse = new Response(
     htmlStream.pipeThrough(injectRSCPayload(flightStream2)),
     {
       headers: {
@@ -74,7 +69,7 @@ export default async function handler(
       },
     },
   )
-  sendResponse(response, res)
+  sendResponse(htmlResponse, res)
 }
 
 declare let __rscRunner: ModuleRunner
