@@ -861,7 +861,9 @@ export class Spiceflow<
         reactRoutes,
         (x) => x.route.kind === 'page',
       )
-      const pageRoute = pageRoutes[0]
+      const pageRoute = pageRoutes.sort((a, b) => {
+        return routeSorter(a.route, b.route)
+      })[0]
       if (!pageRoute) {
         // TODO customize not found route
         return new Response('Not Found', { status: 404 })

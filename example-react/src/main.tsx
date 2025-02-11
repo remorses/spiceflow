@@ -4,7 +4,7 @@ import { IndexPage } from "./app/index";
 import { Layout } from "./app/layout";
 import "./styles.css";
 
-import { ClientComponentThrows } from "./app/client";
+import { ClientComponentThrows, ErrorRender } from "./app/client";
 import { ErrorBoundary } from "spiceflow/dist/react/components";
 import { redirect, sleep } from "spiceflow/dist/utils";
 
@@ -116,7 +116,14 @@ const app = new Spiceflow()
 			</div>
 		);
 	})
-	.page("/loader-error", async () => {
+	.layout("/error-boundary", async ({ children }) => {
+		return (
+			<ErrorBoundary errorComponent={ErrorRender}>
+				{children}
+			</ErrorBoundary>
+		);
+	})
+	.page("/error-boundary", async () => {
 		throw new Error("test error");
 	})
 	.page("/rsc-error", async () => {
@@ -143,3 +150,4 @@ async function ServerComponentThrows() {
 }
 
 export default app;
+

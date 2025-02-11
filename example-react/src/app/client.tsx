@@ -1,5 +1,5 @@
 "use client";
-import './client.css'
+import "./client.css";
 
 import React from "react";
 import { add } from "./action-by-client";
@@ -58,20 +58,16 @@ export function Calculator() {
 				=<span data-testid="calculator-answer">{returnValue ?? "?"}</span>
 			</div>
 			<button hidden></button>
-			
 		</form>
 	);
 }
 
-
-
-
 export function ClientComponentThrows() {
-	throw new Error('Client component error');
+	throw new Error("Client component error");
 	return <div>Client component</div>;
 }
 
-
-
-
-
+export function ErrorRender({ error }) {
+	console.log("caught error", error);
+	return <div>Error from rsc</div>;
+}
