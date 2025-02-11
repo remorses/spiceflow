@@ -8,9 +8,10 @@ import { clientReferenceManifest } from './utils/client-reference.js'
 import { rscStream } from 'rsc-html-stream/client'
 import {
   DefaultGlobalErrorPage,
+  DefaultNotFoundPage,
   ErrorBoundary,
-
   LayoutContent,
+  NotFoundBoundary,
 } from './components.js'
 import { ServerPayload } from '../spiceflow.js'
 import { FlightDataContext } from './context.js'
@@ -68,9 +69,11 @@ async function main() {
 
     return (
       <ErrorBoundary errorComponent={DefaultGlobalErrorPage}>
-        <FlightDataContext.Provider value={payload}>
-          <LayoutContent />
-        </FlightDataContext.Provider>
+        <NotFoundBoundary component={DefaultNotFoundPage}>
+          <FlightDataContext.Provider value={payload}>
+            <LayoutContent />
+          </FlightDataContext.Provider>
+        </NotFoundBoundary>
       </ErrorBoundary>
     )
   }

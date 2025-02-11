@@ -6,7 +6,7 @@ import type { ModuleRunner } from 'vite/module-runner'
 import { injectRSCPayload } from 'rsc-html-stream/server'
 import cssUrls from 'virtual:app-styles'
 import { ServerPayload } from '../spiceflow.js'
-import {  LayoutContent } from './components.js'
+import { DefaultNotFoundPage, LayoutContent } from './components.js'
 import { clientReferenceManifest } from './utils/client-reference.js'
 import {
   createRequest,
@@ -68,6 +68,7 @@ export default async function handler(
       },
     })
   } catch (e) {
+	status = 500
     console.log(`error during ssr render catch`, e)
     let errCtx = getErrorContext(e)
     if (errCtx && isRedirectError(errCtx)) {
@@ -81,12 +82,9 @@ export default async function handler(
       )
       return
     }
+    let content: any = null
     if (errCtx && isNotFoundError(errCtx)) {
-      // TODO show a not found component instead
-      sendResponse(
-        new Response('404', { status: errCtx.status, headers: errCtx.headers }),
-        res,
-      )
+      status = 404
       return
     }
     // https://bsky.app/profile/ebey.bsky.social/post/3lev4lqr2ak2j
@@ -103,6 +101,7 @@ export default async function handler(
         </head>
         <body>
           <noscript>{status} Internal Server Error</noscript>
+          {content}
         </body>
       </html>
     )

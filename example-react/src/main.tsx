@@ -7,6 +7,7 @@ import "./styles.css";
 import { ClientComponentThrows, ErrorRender } from "./app/client";
 import { ErrorBoundary } from "spiceflow/dist/react/components";
 import { redirect, sleep } from "spiceflow/dist/utils";
+import { notFound } from "spiceflow/dist/react/errors";
 
 const app = new Spiceflow()
 	.layout("/*", async ({ children, request }) => {
@@ -28,6 +29,16 @@ const app = new Spiceflow()
 	})
 
 	.get("/hello", () => "Hello, World!")
+	.page("/not-found", () => {
+		throw notFound();
+	})
+	.layout("/not-found-in-suspense", async ({ children }) => {
+		return <Suspense fallback={<div>not found...</div>}>{children}</Suspense>;
+	})
+	.page("/not-found-in-suspense", async () => {
+		await sleep(100);
+		throw notFound();
+	})
 	.page("/top-level-redirect", async () => {
 		throw redirect("/");
 	})
@@ -118,9 +129,7 @@ const app = new Spiceflow()
 	})
 	.layout("/error-boundary", async ({ children }) => {
 		return (
-			<ErrorBoundary errorComponent={ErrorRender}>
-				{children}
-			</ErrorBoundary>
+			<ErrorBoundary errorComponent={ErrorRender}>{children}</ErrorBoundary>
 		);
 	})
 	.page("/error-boundary", async () => {
@@ -150,4 +159,3 @@ async function ServerComponentThrows() {
 }
 
 export default app;
-

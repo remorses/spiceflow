@@ -38,7 +38,11 @@ import { isProduction, ValidationError } from './error.js'
 import { isAsyncIterable, isResponse, redirect } from './utils.js'
 
 import { PassThrough, Readable } from 'stream'
-import { FlightData, LayoutContent } from './react/components.js'
+import {
+  DefaultNotFoundPage,
+  FlightData,
+  LayoutContent,
+} from './react/components.js'
 import {
   ClientReferenceMetadataManifest,
   ServerReferenceManifest,
@@ -46,7 +50,11 @@ import {
 import { TrieRouter } from './trie-router/router.js'
 import { decodeURIComponent_ } from './trie-router/url.js'
 import { Result } from './trie-router/utils.js'
-import { isRedirectError } from './react/errors.js'
+import {
+  getErrorContext,
+  isNotFoundError,
+  isRedirectError,
+} from './react/errors.js'
 
 const ajv = (addFormats.default || addFormats)(
   new (Ajv.default || Ajv)({ useDefaults: true }),
@@ -975,7 +983,9 @@ export class Spiceflow<
         request.signal.addEventListener('abort', () => {
           abortable.abort()
         })
-        const passthrough = new PassThrough()
+        const passthrough = new PassThrough({
+          writableHighWaterMark: 1024 * 1024,
+        })
         const nodeStream = abortable.pipe(passthrough)
         const stream = Readable.toWeb(nodeStream) as ReadableStream
 
@@ -990,6 +1000,39 @@ export class Spiceflow<
 
         if (thrownError instanceof Response) {
           return thrownError
+        }
+        let errCtx = getErrorContext(thrownError)
+        if (errCtx && isRedirectError(errCtx)) {
+          console.log(`redirecting to ${errCtx.headers?.location}`)
+          return new Response(errCtx.headers?.location, {
+            status: errCtx.status,
+            headers: errCtx.headers,
+          })
+        }
+        if (errCtx && isNotFoundError(errCtx)) {
+          console.log(`not found error for ${request.url}`)
+          let el = <DefaultNotFoundPage />
+          let htmlAbortable = await ReactServer.renderToPipeableStream(
+            {
+              root: {
+                page: el,
+                layouts: [],
+              },
+              returnValue,
+              formState,
+            },
+            clientReferenceMetadataManifest,
+          )
+          const htmlStream = Readable.toWeb(
+            htmlAbortable.pipe(new PassThrough()),
+          ) as ReadableStream
+
+          return new Response(htmlStream, {
+            status: 404,
+            headers: {
+              'content-type': 'text/x-component;charset=utf-8',
+            },
+          })
         }
 
         return new Response(stream, {

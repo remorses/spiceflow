@@ -1,6 +1,20 @@
 import { type Page, expect, test } from "@playwright/test";
 import { createEditor } from "./helper.js";
 
+test.describe("not found", () => {
+	test("not found in outer route scope", async ({ page }) => {
+		await page.goto("/not-found");
+		await expect(page.getByText("404")).toBeVisible();
+		await expect(page.getByText("This page could not be found.")).toBeVisible();
+	});
+
+	test("not found in RSC inside suspense", async ({ page }) => {
+		await page.goto("/not-found-in-suspense");
+		await expect(page.getByText("404")).toBeVisible();
+		await expect(page.getByText("This page could not be found.")).toBeVisible();
+	});
+});
+
 test.describe("redirect", () => {
 	test("redirect in outer route scope", async ({ page }) => {
 		await page.goto("/top-level-redirect");
@@ -12,12 +26,16 @@ test.describe("redirect", () => {
 		await expect(page).toHaveURL("/");
 		await page.getByText("[hydrated: 1]").click();
 	});
-	test("redirect in RSC, slow (meaning not first rsc chunk)", async ({ page }) => {
+	test("redirect in RSC, slow (meaning not first rsc chunk)", async ({
+		page,
+	}) => {
 		await page.goto("/slow-redirect");
 		await expect(page).toHaveURL("/");
 		await page.getByText("[hydrated: 1]").click();
 	});
-	test("redirect in RSC inside suspense, redirect made by client", async ({ page }) => {
+	test("redirect in RSC inside suspense, redirect made by client", async ({
+		page,
+	}) => {
 		await page.goto("/redirect-in-rsc-suspense");
 		await expect(page).toHaveURL("/");
 		await page.getByText("[hydrated: 1]").click();

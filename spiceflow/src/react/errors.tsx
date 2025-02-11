@@ -30,6 +30,12 @@ export function redirect(
   })
 }
 
+export function notFound() {
+  return createError({
+    status: 404,
+  })
+}
+
 export function isRedirectError(ctx?: ReactServerErrorContext) {
   if (!ctx) return false
   const location = ctx.headers?.['location']
