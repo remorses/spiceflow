@@ -1,4 +1,5 @@
 import { Link } from "spiceflow/dist/react/components";
+import { ProgressBar } from "spiceflow/dist/react/progress";
 
 export function Layout(props: React.PropsWithChildren) {
 	return (
@@ -11,6 +12,7 @@ export function Layout(props: React.PropsWithChildren) {
 				/>
 			</head>
 			<body className="px-4 bg-gray-100">
+				<ProgressBar />
 				<ul>
 					<li>
 						<Link href="/">Home</Link>
