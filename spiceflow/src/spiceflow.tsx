@@ -842,6 +842,187 @@ export class Spiceflow<
     return this
   }
 
+  async renderReact({
+    request,
+    reactRoutes,
+    defaultContext,
+  }: {
+    request: Request
+    defaultContext
+    reactRoutes: Array<{
+      route: InternalRoute
+      app: AnySpiceflow
+      params: Record<string, string>
+    }>
+  }) {
+    const ReactServer = await import(
+      'spiceflow/dist/react/server-dom-optimized'
+    ).then((m) => m.default)
+    const [pageRoutes, layoutRoutes] = partition(
+      reactRoutes,
+      (x) => x.route.kind === 'page',
+    )
+    const pageRoute = pageRoutes.sort((a, b) => {
+      return routeSorter(a.route, b.route)
+    })[0]
+    if (!pageRoute) {
+      // TODO customize not found route
+      return new Response('Not Found', { status: 404 })
+    }
+    const kind = pageRoute?.route?.kind
+
+    let Page = pageRoute?.route?.handler as any
+    let page = (
+      <Page
+        {...{
+          ...defaultContext,
+          redirect,
+          state: cloneDeep(pageRoute.app.defaultState),
+          params: pageRoute.params,
+        }}
+      />
+    )
+    const layouts = layoutRoutes.map((layout) => {
+      const id = layout.route.id
+      const children = createElement(LayoutContent, { id })
+
+      let Layout = layout.route.handler as any
+      const element = (
+        <Layout
+          {...{
+            ...defaultContext,
+            // TODO run the middleware on react pages and layouts too?
+            redirect,
+            state: cloneDeep(pageRoute.app.defaultState),
+            params: pageRoute.params,
+            children,
+          }}
+        />
+      )
+      return { element, id }
+    })
+
+    let root: FlightData = {
+      url: request.url,
+      page,
+      layouts,
+    }
+    let returnValue: unknown | undefined
+    let formState: ReactFormState | undefined
+    if (request.method === 'POST') {
+      const url = new URL(request.url)
+      const actionId = url.searchParams.get('__rsc')
+      if (actionId) {
+        // client stream request
+        const contentType = request.headers.get('content-type')
+        const body = contentType?.startsWith('multipart/form-data')
+          ? await request.formData()
+          : await request.text()
+        const args = await ReactServer.decodeReply(body)
+        const reference =
+          serverReferenceManifest.resolveServerReference(actionId)
+        await reference.preload()
+        const action = await reference.get()
+        // TODO handle action errors, redirects, etc
+        returnValue = await (action as any).apply(null, args)
+      } else {
+        // progressive enhancement
+        const formData = await request.formData()
+        console.log(formData)
+        const decodedAction = await ReactServer.decodeAction(
+          formData,
+          serverReferenceManifest,
+        )
+        formState = await ReactServer.decodeFormState(
+          await decodedAction(),
+          formData,
+          serverReferenceManifest,
+        )
+      }
+    }
+
+    if (root instanceof Response) {
+      return root
+    }
+
+    let thrownError
+    let abortable = ReactServer.renderToPipeableStream<ServerPayload>(
+      {
+        root,
+        returnValue,
+        formState,
+      },
+      clientReferenceMetadataManifest,
+      {
+        onError(error) {
+          console.error('[spiceflow:renderToPipeableStream]', error)
+          thrownError = error
+          return error?.digest || error?.message
+        },
+      },
+    )
+    request.signal.addEventListener('abort', () => {
+      abortable.abort()
+    })
+    const passthrough = new PassThrough({
+      writableHighWaterMark: 1024 * 1024,
+    })
+    const nodeStream = abortable.pipe(passthrough)
+    const stream = Readable.toWeb(nodeStream) as ReadableStream
+
+    const timerId = `wait for first chunk ${Math.random().toString(36).slice(2)}`
+    console.time(timerId)
+    await new Promise<void>((resolve) => {
+      passthrough.once('data', () => {
+        resolve()
+      })
+    })
+    console.timeEnd(timerId)
+
+    if (thrownError instanceof Response) {
+      return thrownError
+    }
+    let errCtx = getErrorContext(thrownError)
+    if (errCtx && isRedirectError(errCtx)) {
+      console.log(`redirecting to ${errCtx.headers?.location}`)
+      return new Response(errCtx.headers?.location, {
+        status: errCtx.status,
+        headers: errCtx.headers,
+      })
+    }
+    if (errCtx && isNotFoundError(errCtx)) {
+      console.log(`not found error for ${request.url}`)
+      let el = <DefaultNotFoundPage />
+      let htmlAbortable = await ReactServer.renderToPipeableStream(
+        {
+          root: {
+            page: el,
+            layouts: [],
+          },
+          returnValue,
+          formState,
+        },
+        clientReferenceMetadataManifest,
+      )
+      const htmlStream = Readable.toWeb(
+        htmlAbortable.pipe(new PassThrough()),
+      ) as ReadableStream
+
+      return new Response(htmlStream, {
+        status: 404,
+        headers: {
+          'content-type': 'text/x-component;charset=utf-8',
+        },
+      })
+    }
+
+    return new Response(stream, {
+      headers: {
+        'content-type': 'text/x-component;charset=utf-8',
+      },
+    })
+  }
+
   async handle(request: Request) {
     let u = new URL(request.url, 'http://localhost')
     const self = this
@@ -850,6 +1031,8 @@ export class Spiceflow<
       redirect,
       error: null,
       children: undefined,
+      query: parseQuery((u.search || '').slice(1)),
+      request,
       path,
     }
     const root = this.topLevelApp || this
@@ -862,194 +1045,19 @@ export class Spiceflow<
       (x) => !x.route.kind,
     )
     if (reactRoutes.length) {
-      const ReactServer = await import(
-        'spiceflow/dist/react/server-dom-optimized'
-      ).then((m) => m.default)
-      const [pageRoutes, layoutRoutes] = partition(
+      const res = await this.renderReact({
+        request,
+        defaultContext,
         reactRoutes,
-        (x) => x.route.kind === 'page',
-      )
-      const pageRoute = pageRoutes.sort((a, b) => {
-        return routeSorter(a.route, b.route)
-      })[0]
-      if (!pageRoute) {
-        // TODO customize not found route
-        return new Response('Not Found', { status: 404 })
-      }
-      const kind = pageRoute?.route?.kind
-
-      try {
-        const baseContext = {
-          ...defaultContext,
-          request,
-
-          path,
-          query: parseQuery((u.search || '').slice(1)),
-          // params: _params,
-          redirect,
-        }
-
-        let Page = pageRoute?.route?.handler as any
-        let page = (
-          <Page
-            {...{
-              ...baseContext,
-              redirect,
-              state: cloneDeep(pageRoute.app.defaultState),
-              params: pageRoute.params,
-            }}
-          />
-        )
-        const layouts = layoutRoutes.map((layout) => {
-          const id = layout.route.id
-          const children = createElement(LayoutContent, { id })
-
-          let Layout = layout.route.handler as any
-          const element = (
-            <Layout
-              {...{
-                ...baseContext,
-                path,
-                // TODO run the middleware on react pages and layouts too?
-                redirect,
-                state: cloneDeep(pageRoute.app.defaultState),
-                params: pageRoute.params,
-                children,
-              }}
-            />
-          )
-          return { element, id }
-        })
-
-        let root: FlightData = {
-          url: request.url,
-          page,
-          layouts,
-        }
-        let returnValue: unknown | undefined
-        let formState: ReactFormState | undefined
-        if (request.method === 'POST') {
-          const url = new URL(request.url)
-          const actionId = url.searchParams.get('__rsc')
-          if (actionId) {
-            // client stream request
-            const contentType = request.headers.get('content-type')
-            const body = contentType?.startsWith('multipart/form-data')
-              ? await request.formData()
-              : await request.text()
-            const args = await ReactServer.decodeReply(body)
-            const reference =
-              serverReferenceManifest.resolveServerReference(actionId)
-            await reference.preload()
-            const action = await reference.get()
-            // TODO handle action errors, redirects, etc
-            returnValue = await (action as any).apply(null, args)
-          } else {
-            // progressive enhancement
-            const formData = await request.formData()
-            console.log(formData)
-            const decodedAction = await ReactServer.decodeAction(
-              formData,
-              serverReferenceManifest,
-            )
-            formState = await ReactServer.decodeFormState(
-              await decodedAction(),
-              formData,
-              serverReferenceManifest,
-            )
-          }
-        }
-
-        if (root instanceof Response) {
-          return root
-        }
-
-        let thrownError
-        let abortable = ReactServer.renderToPipeableStream<ServerPayload>(
-          {
-            root,
-            returnValue,
-            formState,
-          },
-          clientReferenceMetadataManifest,
-          {
-            onError(error) {
-              console.error('[spiceflow:renderToPipeableStream]', error)
-              thrownError = error
-              return error?.digest || error?.message
-            },
-          },
-        )
-        request.signal.addEventListener('abort', () => {
-          abortable.abort()
-        })
-        const passthrough = new PassThrough({
-          writableHighWaterMark: 1024 * 1024,
-        })
-        const nodeStream = abortable.pipe(passthrough)
-        const stream = Readable.toWeb(nodeStream) as ReadableStream
-
-        const timerId = `wait for first chunk ${Math.random().toString(36).slice(2)}`
-        console.time(timerId)
-        await new Promise<void>((resolve) => {
-          passthrough.once('data', () => {
-            resolve()
-          })
-        })
-        console.timeEnd(timerId)
-
-        if (thrownError instanceof Response) {
-          return thrownError
-        }
-        let errCtx = getErrorContext(thrownError)
-        if (errCtx && isRedirectError(errCtx)) {
-          console.log(`redirecting to ${errCtx.headers?.location}`)
-          return new Response(errCtx.headers?.location, {
-            status: errCtx.status,
-            headers: errCtx.headers,
-          })
-        }
-        if (errCtx && isNotFoundError(errCtx)) {
-          console.log(`not found error for ${request.url}`)
-          let el = <DefaultNotFoundPage />
-          let htmlAbortable = await ReactServer.renderToPipeableStream(
-            {
-              root: {
-                page: el,
-                layouts: [],
-              },
-              returnValue,
-              formState,
-            },
-            clientReferenceMetadataManifest,
-          )
-          const htmlStream = Readable.toWeb(
-            htmlAbortable.pipe(new PassThrough()),
-          ) as ReadableStream
-
-          return new Response(htmlStream, {
-            status: 404,
-            headers: {
-              'content-type': 'text/x-component;charset=utf-8',
-            },
-          })
-        }
-
-        return new Response(stream, {
-          headers: {
-            'content-type': 'text/x-component;charset=utf-8',
-          },
-        })
-      } catch (err) {
-        return await getResForError(err)
-      }
+      })
+      return res
     }
     const route = nonReactRoutes.sort((a, b) => {
       return routeSorter(a.route, b.route)
     })[0]
 
     // TODO get all apps in scope? layouts can match between apps when using .use?
-    const appsInScope = this.getAppsInScope(routes[0].app)
+    const appsInScope = this.getAppsInScope(route.app)
     onErrorHandlers = appsInScope.flatMap((x) => x.onErrorHandlers)
     let {
       params: _params,
@@ -1076,8 +1084,6 @@ export class Spiceflow<
       ...defaultContext,
       request,
       state,
-      path,
-      query: parseQuery((u.search || '').slice(1)),
       params: _params,
       redirect,
     } satisfies MiddlewareContext<any>
