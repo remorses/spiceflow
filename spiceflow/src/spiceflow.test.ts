@@ -515,10 +515,10 @@ test('validate body works, request fails', async () => {
         expect(body).toEqual({ name: 'John' })
       },
       {
-        body: Type.Object({
-          name: Type.String(),
-          requiredField: Type.String(),
-        }),
+        body: z.object({
+          name: z.string(),
+          requiredField: z.string(),
+        }).strict(),
       },
     )
     .handle(

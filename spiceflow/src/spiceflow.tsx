@@ -1022,13 +1022,14 @@ export class Spiceflow<
     let u = new URL(request.url, 'http://localhost')
     const self = this
     let path = u.pathname
-    const defaultContext = {
+    const context = {
       redirect,
       state: cloneDeep(this.defaultState),
       query: parseQuery((u.search || '').slice(1)),
       request,
       path,
-    } satisfies MiddlewareContext<any>
+      params: {},
+    }
     const root = this.topLevelApp || this
     let onErrorHandlers: OnError[] = []
 
@@ -1045,7 +1046,6 @@ export class Spiceflow<
       const middlewares = appsInScope.flatMap((x) => x.middlewares)
       let handlerResponse: Response | undefined
 
-      let context = defaultContext
       const next = async () => {
         try {
           if (index < middlewares.length) {
@@ -1090,10 +1090,7 @@ export class Spiceflow<
     const appsInScope = this.getAppsInScope(route.app)
     onErrorHandlers = appsInScope.flatMap((x) => x.onErrorHandlers)
     const middlewares = appsInScope.flatMap((x) => x.middlewares)
-    let {
-      params: _params,
-      app: { defaultState },
-    } = route
+    let { params: _params } = route
 
     let content = route?.route?.hooks?.content
 
@@ -1105,10 +1102,10 @@ export class Spiceflow<
           : new SpiceflowRequest(u, request)
       typedRequest.validateBody = route?.route?.validateBody
       request = typedRequest
+      context.request = typedRequest
     }
 
-    let context: any = defaultContext
-    context.params = _params
+    context['params'] = _params
 
     let handlerResponse: Response | undefined
     async function getResForError(err: any) {
