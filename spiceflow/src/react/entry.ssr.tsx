@@ -6,7 +6,7 @@ import type { ModuleRunner } from 'vite/module-runner'
 import { injectRSCPayload } from 'rsc-html-stream/server'
 import cssUrls from 'virtual:app-styles'
 import { ServerPayload } from '../spiceflow.js'
-import { FlightDataContext, LayoutContent } from './components.js'
+import {  LayoutContent } from './components.js'
 import { clientReferenceManifest } from './utils/client-reference.js'
 import {
   createRequest,
@@ -14,6 +14,7 @@ import {
   sendResponse,
 } from './utils/fetch.js'
 import { getErrorContext, isNotFoundError, isRedirectError } from './errors.js'
+import { FlightDataContext } from './context.js'
 
 export default async function handler(
   req: IncomingMessage,

@@ -68,7 +68,7 @@ export function spiceflowPlugin({ entry }): PluginOption {
           }
           const mod =
             await server?.environments.client.moduleGraph.getModuleById(id)
-          // console.log('mod', id, mod?.lastHMRTimestamp)
+          // console.log('mod', id, mod?.lastHMRTimestamp, )
           // console.log([...server?.moduleGraph.idToModuleMap.keys()])
           let generateId = (id) => {
             let generated = ''

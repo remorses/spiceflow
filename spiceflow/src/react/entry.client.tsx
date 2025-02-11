@@ -9,10 +9,11 @@ import { rscStream } from 'rsc-html-stream/client'
 import {
   DefaultGlobalErrorPage,
   ErrorBoundary,
-  FlightDataContext,
+
   LayoutContent,
 } from './components.js'
 import { ServerPayload } from '../spiceflow.js'
+import { FlightDataContext } from './context.js'
 
 async function main() {
   const callServer: CallServerFn = async (id, args) => {
