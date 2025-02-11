@@ -3,18 +3,28 @@
 import React, { Suspense } from 'react'
 import { ReactFormState } from 'react-dom/client'
 import { router } from './router.js'
+import { ServerPayload } from '../spiceflow.js'
 
-export const FlightDataContext = React.createContext<FlightData>(undefined!)
+export const FlightDataContext = React.createContext<Promise<ServerPayload>>(
+  undefined!,
+)
 // Get $$id property that was set by registerClientReference
 
 export function useFlightData() {
-  // return React.use(React.useContext(FlightDataContext))
-  return React.useContext(FlightDataContext)
+  const c = React.useContext(FlightDataContext)
+  if (c instanceof Promise) {
+    return React.use(c)?.root
+  }
+  return c?.['root']
+  // return React.useContext(FlightDataContext)
 }
 
-export function LayoutContent(props: { id: string }) {
+export function LayoutContent(props: { id?: string }) {
   const data = useFlightData()
   const elem = (() => {
+    if (!props.id) {
+      return data.layouts[0]?.element ?? data.page
+    }
     const layoutIndex = data.layouts.findIndex(
       (layout) => layout.id === props.id,
     )

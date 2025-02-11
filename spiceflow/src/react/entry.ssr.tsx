@@ -3,24 +3,19 @@ import ReactDOMServer from 'react-dom/server.edge'
 import ReactClient from 'spiceflow/dist/react/server-dom-client-optimized'
 import type { ModuleRunner } from 'vite/module-runner'
 
-import {
-  createRequest,
-  fromPipeableToWebReadable,
-  fromWebToNodeReadable,
-  sendResponse,
-} from './utils/fetch.js'
 import { injectRSCPayload } from 'rsc-html-stream/server'
-import {
-  DefaultGlobalErrorPage,
-  ErrorBoundary,
-  FlightDataContext,
-} from './components.js'
-import { bootstrapModules } from 'virtual:ssr-assets'
-import { clientReferenceManifest } from './utils/client-reference.js'
 import cssUrls from 'virtual:app-styles'
 import { ServerPayload } from '../spiceflow.js'
-import { Suspense } from 'react'
-import { sleep } from 'spiceflow/dist/utils'
+import {
+	FlightDataContext,
+	LayoutContent
+} from './components.js'
+import { clientReferenceManifest } from './utils/client-reference.js'
+import {
+	createRequest,
+	fromWebToNodeReadable,
+	sendResponse
+} from './utils/fetch.js'
 
 export default async function handler(
   req: IncomingMessage,
@@ -43,30 +38,31 @@ export default async function handler(
 
   const [flightStream1, flightStream2] = response.body!.tee()
 
-  const payload = await ReactClient.createFromNodeStream<ServerPayload>(
+  const payloadPromise = ReactClient.createFromNodeStream<ServerPayload>(
     fromWebToNodeReadable(flightStream1),
     clientReferenceManifest,
   )
   const ssrAssets = await import('virtual:ssr-assets')
   const el = (
-    <FlightDataContext.Provider value={payload.root}>
+    <FlightDataContext.Provider value={payloadPromise}>
       {cssUrls.map((url) => (
         // precedence to force head rendering
         // https://react.dev/reference/react-dom/components/link#special-rendering-behavior
         <link key={url} rel="stylesheet" href={url} precedence="high" />
       ))}
-      {payload.root?.layouts?.[0]?.element ?? payload.root.page}
+      <LayoutContent />
     </FlightDataContext.Provider>
   )
 
   let htmlStream: ReadableStream
   let status = 200
 
+  let payload = await payloadPromise
   try {
     htmlStream = await ReactDOMServer.renderToReadableStream(el, {
       bootstrapModules: ssrAssets.bootstrapModules,
       formState: payload.formState,
-      onError(e, ) {
+      onError(e) {
         // This also throws outside, no need to do anything here
         console.error('[react-dom:renderToPipeableStream]', e)
         if (e instanceof Response) {
@@ -80,12 +76,12 @@ export default async function handler(
     console.log(`error during ssr render catch`, e)
     // On error, render minimal HTML shell
     // Client will do full CSR render and show error boundary
-    
+
     if (e instanceof Response) {
       sendResponse(e, res)
       return
     }
-	// https://bsky.app/profile/ebey.bsky.social/post/3lev4lqr2ak2j
+    // https://bsky.app/profile/ebey.bsky.social/post/3lev4lqr2ak2j
 
     const errorRoot = (
       <html data-no-hydrate>
@@ -117,7 +113,7 @@ export default async function handler(
       },
     },
   )
-  
+
   console.log(`sending response`)
   sendResponse(htmlResponse, res)
 }

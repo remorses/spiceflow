@@ -10,6 +10,7 @@ import {
   DefaultGlobalErrorPage,
   ErrorBoundary,
   FlightDataContext,
+  LayoutContent,
 } from './components.js'
 import { ServerPayload } from '../spiceflow.js'
 
@@ -17,7 +18,7 @@ async function main() {
   const callServer: CallServerFn = async (id, args) => {
     const url = new URL(window.location.href)
     url.searchParams.set('__rsc', id)
-    const payload = await ReactClient.createFromFetch<ServerPayload>(
+    const payloadPromise = ReactClient.createFromFetch<ServerPayload>(
       fetch(url, {
         method: 'POST',
         body: await ReactClient.encodeReply(args),
@@ -26,20 +27,20 @@ async function main() {
       { callServer },
     )
     // console.log({ 'action payload': payload })
-    setPayload(payload)
+    setPayload(payloadPromise)
+    let payload = await payloadPromise
     return payload.returnValue
   }
   Object.assign(globalThis, { __callServer: callServer })
 
-  const initialPayload =
-    await ReactClient.createFromReadableStream<ServerPayload>(
-      rscStream,
-      clientReferenceManifest,
+  const initialPayload = ReactClient.createFromReadableStream<ServerPayload>(
+    rscStream,
+    clientReferenceManifest,
 
-      { callServer },
-    )
+    { callServer },
+  )
 
-  let setPayload: (v: ServerPayload) => void
+  let setPayload: (v: Promise<ServerPayload>) => void
 
   function BrowserRoot() {
     const [payload, setPayload_] = React.useState(initialPayload)
@@ -54,7 +55,7 @@ async function main() {
         console.log('onNavigation')
         const url = new URL(window.location.href)
         url.searchParams.set('__rsc', '')
-        const payload = await ReactClient.createFromFetch<ServerPayload>(
+        const payload = ReactClient.createFromFetch<ServerPayload>(
           fetch(url),
           clientReferenceManifest,
 
@@ -66,15 +67,15 @@ async function main() {
 
     return (
       <ErrorBoundary errorComponent={DefaultGlobalErrorPage}>
-        <FlightDataContext.Provider value={payload.root}>
-          {payload.root?.layouts?.[0]?.element ?? payload.root.page}
+        <FlightDataContext.Provider value={payload}>
+          <LayoutContent />
         </FlightDataContext.Provider>
       </ErrorBoundary>
     )
   }
 
   ReactDomClient.hydrateRoot(document, <BrowserRoot />, {
-    formState: initialPayload.formState,
+    formState: (await initialPayload).formState,
   })
 
   if (import.meta.hot) {
