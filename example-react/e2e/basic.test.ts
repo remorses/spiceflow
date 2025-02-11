@@ -1,21 +1,28 @@
 import { type Page, expect, test } from "@playwright/test";
 import { createEditor } from "./helper.js";
 
-
-
 test.describe("redirect", () => {
 	test("redirect in outer route scope", async ({ page }) => {
-		await page.goto("/redirect");
+		await page.goto("/top-level-redirect");
 		await expect(page).toHaveURL("/");
 		await page.getByText("[hydrated: 1]").click();
 	});
-	test.skip("redirect in RSC", async ({ page }) => {
+	test("redirect in RSC", async ({ page }) => {
 		await page.goto("/redirect-in-rsc");
 		await expect(page).toHaveURL("/");
 		await page.getByText("[hydrated: 1]").click();
 	});
+	test("redirect in RSC, slow (meaning not first rsc chunk)", async ({ page }) => {
+		await page.goto("/slow-redirect");
+		await expect(page).toHaveURL("/");
+		await page.getByText("[hydrated: 1]").click();
+	});
+	test("redirect in RSC inside suspense, redirect made by client", async ({ page }) => {
+		await page.goto("/redirect-in-rsc-suspense");
+		await expect(page).toHaveURL("/");
+		await page.getByText("[hydrated: 1]").click();
+	});
 });
-
 
 test("client reference", async ({ page }) => {
 	await page.goto("/");
@@ -33,10 +40,6 @@ test("client reference", async ({ page }) => {
 test("server reference in server @js", async ({ page }) => {
 	await testServerAction(page);
 });
-
-
-
-
 
 test.describe(() => {
 	test.use({ javaScriptEnabled: false });
