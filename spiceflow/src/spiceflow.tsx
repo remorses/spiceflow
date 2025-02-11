@@ -1115,6 +1115,11 @@ export class Spiceflow<
           headers: err.headers,
         })
       }
+      if (isNotFoundError(err)) {
+        return new Response(JSON.stringify('not found'), {
+          status: 404,
+        })
+      }
       if (isResponse(err)) return err
       let res = await self.runErrorHandlers({
         onErrorHandlers,
