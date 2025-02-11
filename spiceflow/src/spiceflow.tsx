@@ -37,20 +37,16 @@ import { MiddlewareContext } from './context.js'
 import { isProduction, ValidationError } from './error.js'
 import { isAsyncIterable, isResponse, redirect } from './utils.js'
 
-import {
-  DefaultGlobalErrorPage,
-  ErrorBoundary,
-  FlightData,
-  LayoutContent,
-} from './react/components.js'
+import { PassThrough, Readable } from 'stream'
+import { FlightData, LayoutContent } from './react/components.js'
 import {
   ClientReferenceMetadataManifest,
   ServerReferenceManifest,
 } from './react/types/index.js'
-import { fromPipeableToWebReadable } from './react/utils/fetch.js'
 import { TrieRouter } from './trie-router/router.js'
 import { decodeURIComponent_ } from './trie-router/url.js'
 import { Result } from './trie-router/utils.js'
+import { isRedirectError } from './react/errors.js'
 
 const ajv = (addFormats.default || addFormats)(
   new (Ajv.default || Ajv)({ useDefaults: true }),
@@ -888,6 +884,7 @@ export class Spiceflow<
           <Page
             {...{
               ...baseContext,
+              redirect,
               state: cloneDeep(pageRoute.app.defaultState),
               params: pageRoute.params,
             }}
@@ -904,6 +901,7 @@ export class Spiceflow<
                 ...baseContext,
                 path,
                 // TODO run the middleware on react pages and layouts too?
+                redirect,
                 state: cloneDeep(pageRoute.app.defaultState),
                 params: pageRoute.params,
                 children,
@@ -956,6 +954,7 @@ export class Spiceflow<
           return root
         }
 
+        let thrownError
         let abortable = ReactServer.renderToPipeableStream<ServerPayload>(
           {
             root,
@@ -963,13 +962,33 @@ export class Spiceflow<
             formState,
           },
           clientReferenceMetadataManifest,
-          { onError(error) {} },
+          {
+            onError(error) {
+              console.error('[spiceflow:renderToPipeableStream]', error)
+              thrownError = error
+              return error?.digest || error?.message
+            },
+          },
         )
-        // render flight stream
-        const stream = fromPipeableToWebReadable(abortable)
         request.signal.addEventListener('abort', () => {
           abortable.abort()
         })
+        const passthrough = new PassThrough()
+        const nodeStream = abortable.pipe(passthrough)
+        const stream = Readable.toWeb(nodeStream) as ReadableStream
+
+        const timerId = `wait for first chunk ${Math.random().toString(36).slice(2)}`
+        console.time(timerId)
+        await new Promise<void>((resolve) => {
+          passthrough.once('data', () => {
+            resolve()
+          })
+        })
+        console.timeEnd(timerId)
+
+        if (thrownError instanceof Response) {
+          return thrownError
+        }
 
         return new Response(stream, {
           headers: {
@@ -1020,12 +1039,19 @@ export class Spiceflow<
 
     let handlerResponse: Response | undefined
     async function getResForError(err: any) {
+      if (isRedirectError(err)) {
+        return new Response(err.location, {
+          status: err.status,
+          headers: err.headers,
+        })
+      }
       if (isResponse(err)) return err
       let res = await self.runErrorHandlers({
         onErrorHandlers,
         error: err,
         request,
       })
+
       if (isResponse(res)) return res
 
       let status = err?.status ?? 500
@@ -1107,6 +1133,12 @@ export class Spiceflow<
         const res = errHandler({ error: err, request })
         if (isResponse(res)) {
           return res
+        }
+        if (isRedirectError(err)) {
+          return new Response(err.location, {
+            status: err.status,
+            headers: err.headers,
+          })
         }
       }
     }

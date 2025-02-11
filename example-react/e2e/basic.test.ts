@@ -1,6 +1,22 @@
 import { type Page, expect, test } from "@playwright/test";
 import { createEditor } from "./helper.js";
 
+
+
+test.describe("redirect", () => {
+	test("redirect in outer route scope", async ({ page }) => {
+		await page.goto("/redirect");
+		await expect(page).toHaveURL("/");
+		await page.getByText("[hydrated: 1]").click();
+	});
+	test.skip("redirect in RSC", async ({ page }) => {
+		await page.goto("/redirect-in-rsc");
+		await expect(page).toHaveURL("/");
+		await page.getByText("[hydrated: 1]").click();
+	});
+});
+
+
 test("client reference", async ({ page }) => {
 	await page.goto("/");
 	await page.getByText("[hydrated: 1]").click();
@@ -18,19 +34,6 @@ test("server reference in server @js", async ({ page }) => {
 	await testServerAction(page);
 });
 
-
-test.describe("redirect", () => {
-	test("redirect in outer route scope", async ({ page }) => {
-		await page.goto("/redirect");
-		await expect(page).toHaveURL("/");
-		await page.getByText("[hydrated: 1]").click();
-	});
-	test.skip("redirect in RSC", async ({ page }) => {
-		await page.goto("/redirect-in-rsc");
-		await expect(page).toHaveURL("/");
-		await page.getByText("[hydrated: 1]").click();
-	});
-});
 
 
 

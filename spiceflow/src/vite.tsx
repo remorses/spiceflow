@@ -13,7 +13,7 @@ import {
   PluginOption,
   type RunnableDevEnvironment,
   ViteDevServer,
-  createRunnableDevEnvironment
+  createRunnableDevEnvironment,
 } from 'vite'
 import { collectStyleUrls } from './react/css.js'
 import { noramlizeClientReferenceId } from './react/utils/normalize.js'
@@ -66,22 +66,26 @@ export function spiceflowPlugin({ entry }): PluginOption {
             // This is needed to let scan discover server references found in the use client components
             return
           }
-          const mod = await server?.moduleGraph?.getModuleByUrl(id)
-          let generateId = (filename, directive) => {
-            let id = ''
+          const mod =
+            await server?.environments.client.moduleGraph.getModuleById(id)
+          // console.log('mod', id, mod?.lastHMRTimestamp)
+          // console.log([...server?.moduleGraph.idToModuleMap.keys()])
+          let generateId = (id) => {
+            let generated = ''
             if (command === 'build') {
-              id = makeHash(filename)
+              generated = makeHash(id)
             } else {
-              id = noramlizeClientReferenceId(filename, server, mod)
+              generated = noramlizeClientReferenceId(id, server, mod)
             }
-            console.log('generateId', id)
-            if (directive === 'use server') {
-              serverModules.set(filename, id)
-              return id
+            console.log('generateId', generated)
+
+            if (!isUseClient) {
+              serverModules.set(id, generated)
+            } else {
+              clientModules.set(id, generated)
             }
 
-            clientModules.set(filename, id)
-            return id
+            return generated
           }
 
           if (this.environment.name === 'rsc') {
@@ -128,9 +132,7 @@ export function spiceflowPlugin({ entry }): PluginOption {
     },
     {
       name: 'spiceflow',
-      configureServer(_server) {
-        server = _server
-      },
+
       config: () => ({
         appType: 'custom',
         environments: {

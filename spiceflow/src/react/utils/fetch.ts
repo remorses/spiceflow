@@ -66,12 +66,6 @@ export function sendResponse(response: Response, res: ServerResponse) {
   }
 }
 
-export function fromPipeableToWebReadable(stream: PipeableStream) {
-  return Readable.toWeb(
-    stream.pipe(new PassThrough()),
-  ) as ReadableStream<Uint8Array>
-}
-
 export function fromWebToNodeReadable(stream: ReadableStream<Uint8Array>) {
   return Readable.fromWeb(stream as any)
 }

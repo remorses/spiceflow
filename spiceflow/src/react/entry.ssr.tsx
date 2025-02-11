@@ -6,16 +6,14 @@ import type { ModuleRunner } from 'vite/module-runner'
 import { injectRSCPayload } from 'rsc-html-stream/server'
 import cssUrls from 'virtual:app-styles'
 import { ServerPayload } from '../spiceflow.js'
-import {
-	FlightDataContext,
-	LayoutContent
-} from './components.js'
+import { FlightDataContext, LayoutContent } from './components.js'
 import { clientReferenceManifest } from './utils/client-reference.js'
 import {
-	createRequest,
-	fromWebToNodeReadable,
-	sendResponse
+  createRequest,
+  fromWebToNodeReadable,
+  sendResponse,
 } from './utils/fetch.js'
+import { getErrorContext, isNotFoundError, isRedirectError } from './errors.js'
 
 export default async function handler(
   req: IncomingMessage,
@@ -57,28 +55,37 @@ export default async function handler(
   let htmlStream: ReadableStream
   let status = 200
 
-  let payload = await payloadPromise
   try {
+    let payload = await payloadPromise
     htmlStream = await ReactDOMServer.renderToReadableStream(el, {
       bootstrapModules: ssrAssets.bootstrapModules,
       formState: payload.formState,
       onError(e) {
         // This also throws outside, no need to do anything here
-        console.error('[react-dom:renderToPipeableStream]', e)
-        if (e instanceof Response) {
-          console.log('sending response')
-          sendResponse(e, res)
-          return
-        }
+        console.error('[entry.srr.tsx:renderToPipeableStream]', e)
+        return e?.digest || e?.message
       },
     })
   } catch (e) {
     console.log(`error during ssr render catch`, e)
-    // On error, render minimal HTML shell
-    // Client will do full CSR render and show error boundary
-
-    if (e instanceof Response) {
-      sendResponse(e, res)
+    let errCtx = getErrorContext(e)
+    if (errCtx && isRedirectError(errCtx)) {
+      console.log(`redirecting to ${errCtx.headers?.location}`)
+      sendResponse(
+        new Response(errCtx.headers?.location, {
+          status: errCtx.status,
+          headers: errCtx.headers,
+        }),
+        res,
+      )
+      return
+    }
+    if (errCtx && isNotFoundError(errCtx)) {
+      // TODO show a not found component instead
+      sendResponse(
+        new Response('404', { status: errCtx.status, headers: errCtx.headers }),
+        res,
+      )
       return
     }
     // https://bsky.app/profile/ebey.bsky.social/post/3lev4lqr2ak2j

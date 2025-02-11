@@ -30,10 +30,10 @@ declare module 'react-server-dom-vite/server' {
   const defaultExport: {
 	registerServerReference: Function
 	registerClientReference: Function
-	decodeReply: decodeReply
-	decodeAction: decodeAction
-	decodeFormState: decodeFormState
-	renderToPipeableStream: renderToPipeableStream
+	decodeReply: typeof decodeReply
+	decodeAction: typeof decodeAction
+	decodeFormState: typeof decodeFormState
+	renderToPipeableStream: typeof renderToPipeableStream
   }
   export default defaultExport
 }

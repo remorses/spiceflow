@@ -4,6 +4,7 @@ import React, { Suspense } from 'react'
 import { ReactFormState } from 'react-dom/client'
 import { router } from './router.js'
 import { ServerPayload } from '../spiceflow.js'
+import { isRedirectError, isNotFoundError, getErrorContext } from './errors.js'
 
 export const FlightDataContext = React.createContext<Promise<ServerPayload>>(
   undefined!,
@@ -12,23 +13,28 @@ export const FlightDataContext = React.createContext<Promise<ServerPayload>>(
 
 export function useFlightData() {
   const c = React.useContext(FlightDataContext)
-  if (c instanceof Promise) {
-    return React.use(c)?.root
+
+  const payload = React.use(c)
+  let root = payload?.root
+  if (!root) {
+    console.log('root not found', payload)
   }
-  return c?.['root']
+  return root
+
   // return React.useContext(FlightDataContext)
 }
 
 export function LayoutContent(props: { id?: string }) {
   const data = useFlightData()
+  if (!data) return null
   const elem = (() => {
     if (!props.id) {
-      return data.layouts[0]?.element ?? data.page
+      return data?.layouts[0]?.element ?? data.page
     }
-    const layoutIndex = data.layouts.findIndex(
+    const layoutIndex = data?.layouts.findIndex(
       (layout) => layout.id === props.id,
     )
-    let nextLayout = data.layouts[layoutIndex + 1]?.element
+    let nextLayout = data?.layouts[layoutIndex + 1]?.element
     if (nextLayout) {
       return nextLayout
     }
@@ -54,9 +60,9 @@ export type ActionResult = {
   data?: ReactFormState | null
 }
 
-// TODO not implemented
 interface ReactServerErrorContext {
   status: number
+  location?: string
   headers?: Record<string, string>
 }
 
@@ -75,18 +81,6 @@ interface State {
   error: Error | null
 }
 
-function isRedirectError(ctx: ReactServerErrorContext) {
-  return ctx.status >= 300 && ctx.status < 400
-}
-
-function isNotFoundError(ctx: ReactServerErrorContext) {
-  return ctx.status === 404
-}
-
-function getErrorContext(error: Error): ReactServerErrorContext | undefined {
-  return (error as any).serverError
-}
-
 export function ErrorBoundary(props: Props) {
   return <ErrorBoundary_ {...props} />
 }
@@ -99,8 +93,12 @@ class ErrorBoundary_ extends React.Component<Props, State> {
 
   static getDerivedStateFromError(error: Error) {
     const ctx = getErrorContext(error)
-    if (ctx && (isNotFoundError(ctx) || isRedirectError(ctx))) {
-      throw error
+    if (ctx && isRedirectError(ctx) && ctx.headers?.['location']) {
+      console.log('redirecting from browser to', ctx.headers?.['location'])
+      router.replace(ctx.headers?.['location'])
+    }
+    if (ctx && isNotFoundError(ctx)) {
+      // TODO somehow show the not found page
     }
     return { error }
   }

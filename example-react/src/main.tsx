@@ -3,9 +3,10 @@ import { Suspense } from "react";
 import { IndexPage } from "./app/index";
 import { Layout } from "./app/layout";
 import "./styles.css";
+
 import { ClientComponentThrows } from "./app/client";
 import { ErrorBoundary } from "spiceflow/dist/react/components";
-import { sleep } from "spiceflow/dist/utils";
+import { redirect, sleep } from "spiceflow/dist/utils";
 
 const app = new Spiceflow()
 	.layout("/*", async ({ children, request }) => {
@@ -27,13 +28,24 @@ const app = new Spiceflow()
 	})
 
 	.get("/hello", () => "Hello, World!")
-	.page("/redirect", async () => {
-		throw new Response("Redirect", {
-			status: 302,
-			headers: {
-				location: "/",
-			},
-		});
+	.page("/top-level-redirect", async () => {
+		throw redirect("/");
+	})
+	.page("/redirect-in-rsc", async () => {
+		return <Redirects />;
+	})
+	.page("/slow-redirect", async ({ request, children }) => {
+		await sleep(100);
+
+		throw redirect("/");
+	})
+
+	.page("/redirect-in-rsc-suspense", async () => {
+		return (
+			<Suspense fallback={<div>redirecting...</div>}>
+				<Redirects />
+			</Suspense>
+		);
 	})
 	.layout("/page/*", async ({ request, children }) => {
 		return (
@@ -113,21 +125,15 @@ const app = new Spiceflow()
 	.page("/client-error", async () => {
 		return <ClientComponentThrows />;
 	})
-	.page("/redirect-in-rsc", async () => {
-		return <Redirects />;
-	})
+
 	.post("/echo", async ({ request }) => {
 		const body = await request.json();
 		return { echo: body };
 	});
 
 async function Redirects() {
-	throw new Response("Redirect", {
-		status: 302,
-		headers: {
-			location: "/",
-		},
-	});
+	await sleep(100);
+	throw redirect("/");
 	return <div>Redirect</div>;
 }
 
