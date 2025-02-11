@@ -2,6 +2,7 @@ import './globals.css'
 import { Spiceflow } from 'spiceflow'
 import { sql } from '@vercel/postgres'
 import { Suspense } from 'react'
+import { Link } from 'spiceflow/dist/react/components'
 
 const app = new Spiceflow()
   .layout('/*', async ({ children }) => {
@@ -17,9 +18,38 @@ const app = new Spiceflow()
     return (
       <PokemonList>
         {rows.map((p) => (
-          <Pokemon key={p.id} id={p.id} name={p.name} />
+          <Link href={`/pokemon/${p.id}`} key={p.id}>
+            <Pokemon key={p.id} id={p.id} name={p.name} />
+          </Link>
         ))}
       </PokemonList>
+    )
+  })
+  .layout('/pokemon/:id', ({ children }) => {
+    return (
+      <div className="flex flex-col items-center p-4">
+        <Suspense fallback={<div>Loading...</div>}>{children}</Suspense>
+      </div>
+    )
+  })
+  .page('/pokemon/:id', async function PokemonDetails({ params: { id } }) {
+    const { rows } = await sql`SELECT * FROM pokemon WHERE id = ${id}`
+    const pokemon = rows[0]
+
+    if (!pokemon) {
+      return <div>Pokemon not found</div>
+    }
+
+    return (
+      <div className="flex flex-col items-center p-4">
+        <Pokemon id={pokemon.id} name={pokemon.name} />
+        <a
+          href="/"
+          className="mt-4 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+        >
+          Back to list
+        </a>
+      </div>
     )
   })
 
@@ -76,10 +106,7 @@ function RootLayout({ children }: { children: React.ReactNode }) {
         property="og:description"
         content="Querying Postgres directly from your components"
       />
-      <meta
-        property="og:url"
-        content="https://howisthisnotillegal.vercel.app"
-      />
+      <meta property="og:url" content="/test" />
       <meta property="og:site_name" content="How is this not illegal?" />
       <meta name="twitter:card" content="summary_large_image" />
       <meta name="twitter:site" content="@rauchg" />
