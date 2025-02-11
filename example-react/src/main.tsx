@@ -11,13 +11,19 @@ const app = new Spiceflow()
 	.layout("/*", async ({ children, request }) => {
 		return (
 			<Layout>
-				<Suspense fallback={<div>Loading...</div>}>{children}</Suspense>
+				<title>title from layout</title>
+				{children}
 			</Layout>
 		);
 	})
 	.page("/", async ({ request }) => {
 		const url = new URL(request.url);
-		return <IndexPage />;
+		return (
+			<>
+				<title>title from page</title>
+				<IndexPage />
+			</>
+		);
 	})
 
 	.get("/hello", () => "Hello, World!")
@@ -49,7 +55,9 @@ const app = new Spiceflow()
 		return (
 			<div className="">
 				<h1>/slow-suspense layout</h1>
-				<Suspense fallback={<div>Loading slow page layout...</div>}>{children}</Suspense>
+				<Suspense fallback={<div>Loading slow page layout...</div>}>
+					{children}
+				</Suspense>
 			</div>
 		);
 	})
