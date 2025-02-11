@@ -1,7 +1,7 @@
 import type {
   StatusMap,
   InvertedStatusMap,
-  redirect as Redirect,
+  Redirect,
 } from './utils.js'
 
 import type {
@@ -98,7 +98,7 @@ export type MiddlewareContext<
   path: string
   query?: Record<string, string | undefined>
   params?: Record<string, string | undefined>
-
+  
   redirect: Redirect
   // server: Server | null
 

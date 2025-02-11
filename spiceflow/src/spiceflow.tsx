@@ -33,7 +33,7 @@ import Ajv, { ValidateFunction } from 'ajv'
 import { createElement } from 'react'
 import { z, ZodType } from 'zod'
 import { zodToJsonSchema } from 'zod-to-json-schema'
-import { MiddlewareContext } from './context.js'
+import { Context, MiddlewareContext } from './context.js'
 import { isProduction, ValidationError } from './error.js'
 import { isAsyncIterable, isResponse, redirect } from './utils.js'
 
@@ -845,10 +845,10 @@ export class Spiceflow<
   async renderReact({
     request,
     reactRoutes,
-    defaultContext,
+    context,
   }: {
     request: Request
-    defaultContext
+    context
     reactRoutes: Array<{
       route: InternalRoute
       app: AnySpiceflow
@@ -875,9 +875,7 @@ export class Spiceflow<
     let page = (
       <Page
         {...{
-          ...defaultContext,
-          redirect,
-          state: cloneDeep(pageRoute.app.defaultState),
+          ...context,
           params: pageRoute.params,
         }}
       />
@@ -890,10 +888,7 @@ export class Spiceflow<
       const element = (
         <Layout
           {...{
-            ...defaultContext,
-            // TODO run the middleware on react pages and layouts too?
-            redirect,
-            state: cloneDeep(pageRoute.app.defaultState),
+            ...context,
             params: pageRoute.params,
             children,
           }}
@@ -1029,12 +1024,11 @@ export class Spiceflow<
     let path = u.pathname
     const defaultContext = {
       redirect,
-      error: null,
-      children: undefined,
+      state: cloneDeep(this.defaultState),
       query: parseQuery((u.search || '').slice(1)),
       request,
       path,
-    }
+    } satisfies MiddlewareContext<any>
     const root = this.topLevelApp || this
     let onErrorHandlers: OnError[] = []
 
@@ -1044,13 +1038,49 @@ export class Spiceflow<
       routes,
       (x) => !x.route.kind,
     )
+    let index = 0
     if (reactRoutes.length) {
-      const res = await this.renderReact({
-        request,
-        defaultContext,
-        reactRoutes,
-      })
-      return res
+      const appsInScope = this.getAppsInScope(reactRoutes[0].app)
+      onErrorHandlers = appsInScope.flatMap((x) => x.onErrorHandlers)
+      const middlewares = appsInScope.flatMap((x) => x.middlewares)
+      let handlerResponse: Response | undefined
+
+      let context = defaultContext
+      const next = async () => {
+        try {
+          if (index < middlewares.length) {
+            const middleware = middlewares[index]
+            index++
+
+            const result = await middleware(context, next)
+            if (isResponse(result)) {
+              handlerResponse = result
+            }
+            if (!result && index < middlewares.length) {
+              return await next()
+            } else if (result) {
+              return await turnHandlerResultIntoResponse(result)
+            }
+          }
+          if (handlerResponse) {
+            return handlerResponse
+          }
+
+          const res = await this.renderReact({
+            request,
+            context,
+            reactRoutes,
+          })
+
+          return res
+        } catch (err) {
+          handlerResponse = await getResForError(err)
+          return await next()
+        }
+      }
+      const response = await next()
+
+      return response
     }
     const route = nonReactRoutes.sort((a, b) => {
       return routeSorter(a.route, b.route)
@@ -1059,13 +1089,11 @@ export class Spiceflow<
     // TODO get all apps in scope? layouts can match between apps when using .use?
     const appsInScope = this.getAppsInScope(route.app)
     onErrorHandlers = appsInScope.flatMap((x) => x.onErrorHandlers)
+    const middlewares = appsInScope.flatMap((x) => x.middlewares)
     let {
       params: _params,
       app: { defaultState },
     } = route
-    const middlewares = appsInScope.flatMap((x) => x.middlewares)
-
-    let state = cloneDeep(defaultState)
 
     let content = route?.route?.hooks?.content
 
@@ -1079,14 +1107,8 @@ export class Spiceflow<
       request = typedRequest
     }
 
-    let index = 0
-    let context = {
-      ...defaultContext,
-      request,
-      state,
-      params: _params,
-      redirect,
-    } satisfies MiddlewareContext<any>
+    let context: any = defaultContext
+    context.params = _params
 
     let handlerResponse: Response | undefined
     async function getResForError(err: any) {
@@ -1579,7 +1601,7 @@ export function bfs(tree: AnySpiceflow) {
 
 export async function turnHandlerResultIntoResponse(
   result: any,
-  route: InternalRoute,
+  route?: InternalRoute,
 ) {
   // if user returns a promise, await it
   if (result instanceof Promise) {
@@ -1590,7 +1612,7 @@ export async function turnHandlerResultIntoResponse(
     return result
   }
 
-  if (route.type) {
+  if (route?.type) {
     if (route.type?.includes('multipart/form-data')) {
       if (!(result instanceof Response)) {
         throw new Error(

@@ -10,12 +10,29 @@ import { redirect, sleep } from "spiceflow/dist/utils";
 import { notFound } from "spiceflow/dist/react/errors";
 
 const app = new Spiceflow()
-	.layout("/*", async ({ children, request }) => {
+	.state("middleware1", "")
+	.use(async ({ request, state }, next) => {
+		console.log("middleware 1");
+		state.middleware1 = "state set by middleware1";
+		const res = await next();
+		res.headers.set("x-middleware-1", "ok");
+		console.log("middleware 2");
+		return res;
+	})
+	.layout("/*", async ({ children, state }) => {
 		return (
 			<Layout>
 				<title>title from layout</title>
 				{children}
 			</Layout>
+		);
+	})
+	.page("/state", async ({ state }) => {
+		return (
+			<>
+				<title>title from page</title>
+				state: {state.middleware1}
+			</>
 		);
 	})
 	.page("/", async ({ request }) => {

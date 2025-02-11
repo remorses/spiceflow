@@ -68,7 +68,7 @@ export default async function handler(
       },
     })
   } catch (e) {
-	status = 500
+    status = 500
     console.log(`error during ssr render catch`, e)
     let errCtx = getErrorContext(e)
     if (errCtx && isRedirectError(errCtx)) {
@@ -76,7 +76,11 @@ export default async function handler(
       sendResponse(
         new Response(errCtx.headers?.location, {
           status: errCtx.status,
-          headers: errCtx.headers,
+          headers: {
+            ...Object.fromEntries(response.headers),
+            ...errCtx.headers,
+            contentType: 'text/html',
+          },
         }),
         res,
       )
@@ -116,6 +120,8 @@ export default async function handler(
     {
       status,
       headers: {
+		// copy rsc headers, so spiceflow can add its own headers via .use()
+        ...Object.fromEntries(response.headers),
         'content-type': 'text/html;charset=utf-8',
       },
     },

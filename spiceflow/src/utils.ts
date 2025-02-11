@@ -30,6 +30,8 @@ export function sleep(ms: number) {
 
 export { redirect }
 
+export type Redirect = typeof redirect
+
 export const StatusMap = {
   Continue: 100,
   'Switching Protocols': 101,

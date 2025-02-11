@@ -14,6 +14,16 @@ test.describe("not found", () => {
 		await expect(page.getByText("This page could not be found.")).toBeVisible();
 	});
 });
+test.describe("middleware with use()", () => {
+	test("middleware sets response header", async ({ page }) => {
+		const response = await page.goto("/");
+		expect(response?.headers()["x-middleware-1"]).toBe("ok");
+	});
+	test("middleware sets state", async ({ page }) => {
+		await page.goto("/state");
+		await expect(page.getByText("state set by middleware1")).toBeVisible();
+	});
+});
 
 test.describe("redirect", () => {
 	test("redirect in outer route scope", async ({ page }) => {
