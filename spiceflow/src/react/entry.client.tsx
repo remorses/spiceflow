@@ -80,7 +80,7 @@ async function main() {
   if (import.meta.hot) {
     import.meta.hot.on('react-server:update', (e) => {
       console.log('[react-server:update]', e.file)
-      window.history.replaceState({}, '', window.location.href)
+      router.replace(router.location)
     })
   }
 }

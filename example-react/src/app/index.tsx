@@ -14,6 +14,7 @@ export async function IndexPage() {
 				style={{ padding: "0.5rem" }}
 			>
 				<div>Server counter: {getCounter()}</div>
+				<div>Unicode test: 🌟 你好 こんにちは ⚡️ 안녕하세요</div>
 				<div>
 					<Button className="p-4 border" name="change" value="-1">
 						-

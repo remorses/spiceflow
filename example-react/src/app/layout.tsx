@@ -22,6 +22,9 @@ export function Layout(props: React.PropsWithChildren) {
 					<li>
 						<Link href="/slow">slow page</Link>
 					</li>
+					<li>
+						<Link href="/slow-suspense">slow suspense page</Link>
+					</li>
 				</ul>
 				{props.children}
 			</body>

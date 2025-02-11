@@ -41,6 +41,22 @@ const app = new Spiceflow()
 		await sleep(1000);
 		return (
 			<div className="">
+				<h1>this is a slow page</h1>
+			</div>
+		);
+	})
+	.layout("/slow-suspense", async ({ request, children }) => {
+		return (
+			<div className="">
+				<h1>/slow-suspense layout</h1>
+				<Suspense fallback={<div>Loading slow page layout...</div>}>{children}</Suspense>
+			</div>
+		);
+	})
+	.page("/slow-suspense", async ({ request, children }) => {
+		await sleep(1000);
+		return (
+			<div className="">
 				<h1>slow page</h1>
 			</div>
 		);

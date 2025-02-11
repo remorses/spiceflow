@@ -1,6 +1,5 @@
 import type { ReactFormState } from 'react-dom/client'
 
-
 import addFormats from 'ajv-formats'
 import lodashCloneDeep from 'lodash.clonedeep'
 
@@ -246,15 +245,11 @@ export class Spiceflow<
       }
 
       // Get all matched routes
-      const routes = matchedRoutes[0]
-        .map(([route, params], index) => ({
-          app,
-          route,
-          params: this.getAllDecodedParams(matchedRoutes, originalPath, index),
-        }))
-        .sort((a, b) => {
-          return routeSorter(a.route, b.route)
-        })
+      const routes = matchedRoutes[0].map(([route, params], index) => ({
+        app,
+        route,
+        params: this.getAllDecodedParams(matchedRoutes, originalPath, index),
+      }))
 
       if (routes.length) {
         return routes
@@ -863,7 +858,9 @@ export class Spiceflow<
       (x) => !x.route.kind,
     )
     if (reactRoutes.length) {
-      const ReactServer = await import('spiceflow/dist/react/server-dom-optimized').then(m => m.default)
+      const ReactServer = await import(
+        'spiceflow/dist/react/server-dom-optimized'
+      ).then((m) => m.default)
       const [pageRoutes, layoutRoutes] = partition(
         reactRoutes,
         (x) => x.route.kind === 'page',
@@ -983,7 +980,9 @@ export class Spiceflow<
         return await getResForError(err)
       }
     }
-    const route = nonReactRoutes[0]
+    const route = nonReactRoutes.sort((a, b) => {
+      return routeSorter(a.route, b.route)
+    })[0]
 
     // TODO get all apps in scope? layouts can match between apps when using .use?
     const appsInScope = this.getAppsInScope(routes[0].app)
