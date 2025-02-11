@@ -1,5 +1,5 @@
 import type { ReactFormState } from 'react-dom/client'
-import ReactServer from 'spiceflow/dist/react/server-dom-optimized'
+
 
 import addFormats from 'ajv-formats'
 import lodashCloneDeep from 'lodash.clonedeep'
@@ -863,6 +863,7 @@ export class Spiceflow<
       (x) => !x.route.kind,
     )
     if (reactRoutes.length) {
+      const ReactServer = await import('spiceflow/dist/react/server-dom-optimized').then(m => m.default)
       const [pageRoutes, layoutRoutes] = partition(
         reactRoutes,
         (x) => x.route.kind === 'page',
@@ -936,6 +937,7 @@ export class Spiceflow<
               serverReferenceManifest.resolveServerReference(actionId)
             await reference.preload()
             const action = await reference.get()
+            // TODO handle action errors, redirects, etc
             returnValue = await (action as any).apply(null, args)
           } else {
             // progressive enhancement

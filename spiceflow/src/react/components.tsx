@@ -2,6 +2,7 @@
 
 import React, { Suspense } from 'react'
 import { ReactFormState } from 'react-dom/client'
+import { router } from './router.js'
 
 export const FlightDataContext = React.createContext<FlightData>(undefined!)
 // Get $$id property that was set by registerClientReference
@@ -156,5 +157,28 @@ export function DefaultGlobalErrorPage(props: ErrorPageProps) {
         <h2>{message}</h2>
       </body>
     </html>
+  )
+}
+
+export function Link(props: React.ComponentPropsWithRef<'a'>) {
+  return (
+    <a
+      {...props}
+      onClick={(e) => {
+        if (
+          e.metaKey ||
+          e.ctrlKey ||
+          e.shiftKey ||
+          e.altKey ||
+          (props.target && props.target === '_blank')
+        ) {
+          props.onClick?.(e)
+          return
+        }
+        e.preventDefault()
+        props.onClick?.(e)
+        router.push(e.currentTarget.href)
+      }}
+    />
   )
 }

@@ -1,3 +1,5 @@
+import { Link } from "spiceflow/dist/react/components";
+
 export function Layout(props: React.PropsWithChildren) {
 	return (
 		<html>
@@ -9,13 +11,16 @@ export function Layout(props: React.PropsWithChildren) {
 					content="width=device-width, height=device-height, initial-scale=1.0"
 				/>
 			</head>
-			<body>
+			<body className="px-4 bg-gray-100">
 				<ul>
 					<li>
-						<a href="/">Home</a>
+						<Link href="/">Home</Link>
 					</li>
 					<li>
-						<a href="/other">Other</a>
+						<Link href="/other">Other</Link>
+					</li>
+					<li>
+						<Link href="/slow">slow page</Link>
 					</li>
 				</ul>
 				{props.children}

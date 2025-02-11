@@ -1,4 +1,5 @@
 import React, { Suspense } from 'react'
+import { router } from './router.js'
 import ReactDomClient from 'react-dom/client'
 import ReactClient from 'spiceflow/dist/react/server-dom-client-optimized'
 
@@ -24,22 +25,11 @@ async function main() {
       clientReferenceManifest,
       { callServer },
     )
+    // console.log({ 'action payload': payload })
     setPayload(payload)
     return payload.returnValue
   }
   Object.assign(globalThis, { __callServer: callServer })
-
-  async function onNavigation() {
-    const url = new URL(window.location.href)
-    url.searchParams.set('__rsc', '')
-    const payload = await ReactClient.createFromFetch<ServerPayload>(
-      fetch(url),
-      clientReferenceManifest,
-
-      { callServer },
-    )
-    setPayload(payload)
-  }
 
   const initialPayload =
     await ReactClient.createFromReadableStream<ServerPayload>(
@@ -60,7 +50,18 @@ async function main() {
     }, [startTransition, setPayload_])
 
     React.useEffect(() => {
-      return listenNavigation(onNavigation)
+      return router.listen(async function onNavigation() {
+        console.log('onNavigation')
+        const url = new URL(window.location.href)
+        url.searchParams.set('__rsc', '')
+        const payload = await ReactClient.createFromFetch<ServerPayload>(
+          fetch(url),
+          clientReferenceManifest,
+
+          { callServer },
+        )
+        setPayload(payload)
+      })
     }, [])
 
     return (
@@ -81,53 +82,6 @@ async function main() {
       console.log('[react-server:update]', e.file)
       window.history.replaceState({}, '', window.location.href)
     })
-  }
-}
-
-function listenNavigation(onNavigation: () => void) {
-  window.addEventListener('popstate', onNavigation)
-
-  const oldPushState = window.history.pushState
-  window.history.pushState = function (...args) {
-    const res = oldPushState.apply(this, args)
-    onNavigation()
-    return res
-  }
-
-  const oldReplaceState = window.history.replaceState
-  window.history.replaceState = function (...args) {
-    const res = oldReplaceState.apply(this, args)
-    onNavigation()
-    return res
-  }
-
-  function onClick(e: MouseEvent) {
-    let link = (e.target as Element).closest('a')
-    if (
-      link &&
-      link instanceof HTMLAnchorElement &&
-      link.href &&
-      (!link.target || link.target === '_self') &&
-      link.origin === location.origin &&
-      !link.hasAttribute('download') &&
-      e.button === 0 && // left clicks only
-      !e.metaKey && // open in new tab (mac)
-      !e.ctrlKey && // open in new tab (windows)
-      !e.altKey && // download
-      !e.shiftKey &&
-      !e.defaultPrevented
-    ) {
-      e.preventDefault()
-      history.pushState(null, '', link.href)
-    }
-  }
-  document.addEventListener('click', onClick)
-
-  return () => {
-    document.removeEventListener('click', onClick)
-    window.removeEventListener('popstate', onNavigation)
-    window.history.pushState = oldPushState
-    window.history.replaceState = oldReplaceState
   }
 }
 

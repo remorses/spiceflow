@@ -138,6 +138,7 @@ export function spiceflowPlugin({ entry }): PluginOption {
             optimizeDeps: {
               include: [
                 'react-dom/client',
+                'react-server-dom-vite/client',
                 'spiceflow/dist/react/server-dom-client-optimized',
               ],
             },

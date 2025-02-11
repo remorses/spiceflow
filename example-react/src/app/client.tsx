@@ -70,3 +70,5 @@ export function ClientComponentThrows() {
 	throw new Error('Client component error');
 	return <div>Client component</div>;
 }
+
+

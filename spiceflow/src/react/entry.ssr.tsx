@@ -20,6 +20,7 @@ import { clientReferenceManifest } from './utils/client-reference.js'
 import cssUrls from 'virtual:app-styles'
 import { ServerPayload } from '../spiceflow.js'
 import { Suspense } from 'react'
+import { sleep } from 'spiceflow/dist/utils'
 
 export default async function handler(
   req: IncomingMessage,
@@ -65,17 +66,27 @@ export default async function handler(
     htmlStream = await ReactDOMServer.renderToReadableStream(el, {
       bootstrapModules: ssrAssets.bootstrapModules,
       formState: payload.formState,
-      onError(error) {
+      onError(e, ) {
         // This also throws outside, no need to do anything here
-        // console.error('[react-dom:renderToPipeableStream]', error)
-        // status = 500
+        console.error('[react-dom:renderToPipeableStream]', e)
+        if (e instanceof Response) {
+          console.log('sending response')
+          sendResponse(e, res)
+          return
+        }
       },
     })
   } catch (e) {
     console.log(`error during ssr render catch`, e)
     // On error, render minimal HTML shell
     // Client will do full CSR render and show error boundary
-    status = 500
+    
+    if (e instanceof Response) {
+      sendResponse(e, res)
+      return
+    }
+	// https://bsky.app/profile/ebey.bsky.social/post/3lev4lqr2ak2j
+
     const errorRoot = (
       <html data-no-hydrate>
         <head>
@@ -106,6 +117,8 @@ export default async function handler(
       },
     },
   )
+  
+  console.log(`sending response`)
   sendResponse(htmlResponse, res)
 }
 

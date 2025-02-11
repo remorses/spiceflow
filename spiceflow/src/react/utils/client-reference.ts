@@ -8,8 +8,8 @@ export const clientReferenceManifest: ClientReferenceManifest = {
       async preload() {
         let mod: Record<string, unknown>
         if (import.meta.env.DEV) {
-          // console.log('importing client reference', id)
-          console.log('importing client reference', id)
+          
+        //   console.log('importing client reference', id)
           mod =
             typeof __raw_import !== 'undefined'
               ? // on browser development need to use __raw_import to not add ?import at the end, otherwise the browser duplicates the module instance, context stops working

@@ -4,6 +4,8 @@ import { IndexPage } from "./app/index";
 import { Layout } from "./app/layout";
 import "./styles.css";
 import { ClientComponentThrows } from "./app/client";
+import { ErrorBoundary } from "spiceflow/dist/react/components";
+import { sleep } from "spiceflow/dist/utils";
 
 const app = new Spiceflow()
 	.layout("/*", async ({ children, request }) => {
@@ -32,6 +34,14 @@ const app = new Spiceflow()
 			<div className="">
 				<h1>/page layout 1</h1>
 				{children}
+			</div>
+		);
+	})
+	.page("/slow", async ({ request, children }) => {
+		await sleep(1000);
+		return (
+			<div className="">
+				<h1>slow page</h1>
 			</div>
 		);
 	})
@@ -97,7 +107,7 @@ async function Redirects() {
 	return <div>Redirect</div>;
 }
 
-function ServerComponentThrows() {
+async function ServerComponentThrows() {
 	throw new Error("Server component error");
 	return <div>Server component</div>;
 }
