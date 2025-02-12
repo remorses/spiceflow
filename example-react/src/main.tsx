@@ -210,7 +210,7 @@ const app = new Spiceflow()
 		return { echo: body };
 	});
 
-const somePaths = ["/static/boh", "/static/another"];
+const somePaths = ["/static/one", "/static/two"];
 for (const path of somePaths) {
 	app.staticPage(path);
 }

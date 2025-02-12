@@ -50,6 +50,20 @@ export function spiceflowPlugin({ entry }): PluginOption {
     react(),
     prerenderPlugin(),
     {
+      name: 'write-node-entry',
+      enforce: 'post',
+      apply: 'build',
+      closeBundle: {
+        sequential: true,
+        async handler() {
+          await fs.promises.writeFile(
+            path.resolve('dist/node.js'),
+            `import('./ssr/index.js')`,
+          )
+        },
+      },
+    },
+    {
       name: 'react-server-dom',
       enforce: 'post',
       configureServer(_server) {
