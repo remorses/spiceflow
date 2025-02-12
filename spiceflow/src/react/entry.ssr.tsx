@@ -90,7 +90,7 @@ async function renderHtml({
     let payload = await payloadPromise
     htmlStream = await ReactDOMServer.renderToReadableStream(el, {
       bootstrapModules: ssrAssets.bootstrapModules,
-	  signal: request.signal,
+      signal: request.signal,
       formState: payload.formState,
       onError(e) {
         // This also throws outside, no need to do anything here
@@ -139,7 +139,7 @@ async function renderHtml({
 
     htmlStream = await ReactDOMServer.renderToReadableStream(errorRoot, {
       bootstrapModules: ssrAssets.bootstrapModules,
-	  signal: request.signal,
+      signal: request.signal,
     })
   }
 
@@ -196,5 +196,4 @@ export async function getPrerenderRoutes() {
         route.kind === 'staticPageWithoutHandler',
     )
     .filter((x) => x.method === 'GET')
-    .filter((x) => x.handler)
 }
