@@ -16,6 +16,7 @@ import {
 import { DialogDemo } from "./app/dialog";
 import { WithSelect } from "./app/select";
 import { Head } from "spiceflow/dist/react/head";
+import { SpiceflowContext } from "spiceflow/dist/context";
 
 const app = new Spiceflow()
 	.state("middleware1", "")
@@ -177,6 +178,14 @@ const app = new Spiceflow()
 	.page("/select", async () => {
 		return <WithSelect />;
 	})
+	.page(
+		"/static/:id",
+		function StaticComponent({
+			params: { id },
+		}: SpiceflowContext<"/static/:id">) {
+			return <div className="">This is a static page with id {id}</div>;
+		},
+	)
 	.page("/meta", async ({ request }) => {
 		return (
 			<div className="">
@@ -184,7 +193,10 @@ const app = new Spiceflow()
 					<meta name="test" content="value" />
 					<meta name="test" content="value" />
 					<meta property="og:title" content="Spiceflow Example" />
-					<meta property="og:description" content="An example application built with Spiceflow" />
+					<meta
+						property="og:description"
+						content="An example application built with Spiceflow"
+					/>
 					<meta property="og:type" content="website" />
 					<meta property="og:image" content="/og-image.jpg" />
 					<meta property="og:url" content="https://example.com" />
@@ -197,6 +209,11 @@ const app = new Spiceflow()
 		const body = await request.json();
 		return { echo: body };
 	});
+
+const somePaths = ["/static/boh", "/static/another"];
+for (const path of somePaths) {
+	app.staticPage(path);
+}
 
 async function Redirects() {
 	await sleep(100);

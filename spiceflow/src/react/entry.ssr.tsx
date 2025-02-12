@@ -15,9 +15,9 @@ import { MetaState } from './metastate.js'
 import { injectRSCPayload } from './transform.js'
 import { clientReferenceManifest } from './utils/client-reference.js'
 import {
-	createRequest,
-	fromWebToNodeReadable,
-	sendResponse,
+  createRequest,
+  fromWebToNodeReadable,
+  sendResponse,
 } from './utils/fetch.js'
 
 export default async function handler(
@@ -185,7 +185,11 @@ export async function getPrerenderRoutes() {
   const app = rsc.app
   return app
     .getAllRoutes()
-    .filter((route) => route.kind === 'page')
+    .filter(
+      (route) =>
+        route.kind === 'staticPage' ||
+        route.kind === 'staticPageWithoutHandler',
+    )
     .filter((x) => x.method === 'GET')
     .filter((x) => x.handler)
 }

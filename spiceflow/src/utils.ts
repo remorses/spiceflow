@@ -125,3 +125,8 @@ export function isResponse(result: any): result is Response {
 
   return false
 }
+
+
+export function isTruthy<T>(x: T | undefined | null | false): x is T {
+  return Boolean(x)
+}

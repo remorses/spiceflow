@@ -14,7 +14,11 @@ import type {
 import type { OpenAPIV3 } from 'openapi-types'
 
 import { ZodObject, ZodTypeAny } from 'zod'
-import type { Context, ErrorContext, MiddlewareContext } from './context.js'
+import type {
+  SpiceflowContext,
+  ErrorContext,
+  MiddlewareContext,
+} from './context.js'
 import {
   SPICEFLOW_RESPONSE,
   InternalServerError,
@@ -310,7 +314,7 @@ export type Handler<
   },
   Path extends string = '',
 > = (
-  context: Context<Path, Route, Singleton>,
+  context: SpiceflowContext<Path, Route, Singleton>,
 ) => MaybePromise<
   {} extends Route['response']
     ? unknown
@@ -352,8 +356,8 @@ export type InlineHandler<
   MacroContext = {},
 > = (
   context: MacroContext extends Record<string | number | symbol, unknown>
-    ? Prettify<MacroContext & Context<Path, Route, Singleton>>
-    : Context<Path, Route, Singleton>,
+    ? Prettify<MacroContext & SpiceflowContext<Path, Route, Singleton>>
+    : SpiceflowContext<Path, Route, Singleton>,
 ) =>
   | Response
   | MaybePromiseIterable<
@@ -427,7 +431,7 @@ export type VoidHandler<
   in out Singleton extends SingletonBase = {
     state: {}
   },
-> = (context: Context<'', Route, Singleton>) => MaybePromise<void>
+> = (context: SpiceflowContext<'', Route, Singleton>) => MaybePromise<void>
 
 export type TransformHandler<
   in out Route extends RouteSchema = {},
@@ -438,7 +442,7 @@ export type TransformHandler<
 > = {
   (
     context: Prettify<
-      Context<
+      SpiceflowContext<
         BasePath,
         Route,
         Omit<Singleton, 'resolve'> & {
@@ -459,7 +463,7 @@ export type BodyHandler<
   context: Prettify<
     {
       contentType: string
-    } & Context<Path, Route, Singleton>
+    } & SpiceflowContext<Path, Route, Singleton>
   >,
 
   contentType: string,
@@ -480,7 +484,7 @@ export type AfterResponseHandler<
   },
 > = (
   context: Prettify<
-    Context<'', Route, Singleton> & {
+    SpiceflowContext<'', Route, Singleton> & {
       response: Route['response']
     }
   >,
@@ -591,7 +595,9 @@ export type LocalHook<
     type?: ContentType
   }
 
-export type ComposedHandler = (context: Context) => MaybePromise<Response>
+export type ComposedHandler = (
+  context: SpiceflowContext,
+) => MaybePromise<Response>
 
 export type InternalRoute = {
   method: HTTPMethod
@@ -607,7 +613,7 @@ export type InternalRoute = {
   // prefix: string
 }
 
-export type NodeKind = 'page' | 'layout'
+export type NodeKind = 'page' | 'layout' | 'staticPage' | 'staticPageWithoutHandler'
 
 export type AddPrefix<Prefix extends string, T> = {
   [K in keyof T as Prefix extends string ? `${Prefix}${K & string}` : K]: T[K]

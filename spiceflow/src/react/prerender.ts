@@ -57,6 +57,7 @@ function urlPathToHtmlPath(pathname: string) {
 }
 
 async function processPrerender(outDir: string) {
+  process.env.SPICEFLOW_PRERENDER = '1'
   console.log('▶▶▶ PRERENDER')
   const entry: typeof import('./entry.ssr.tsx') = await import(
     path.resolve(path.join(outDir, 'ssr', 'index.js'))

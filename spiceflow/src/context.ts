@@ -53,7 +53,7 @@ export type ErrorContext<
   // response: Route['response']
 }>
 
-export type Context<
+export type SpiceflowContext<
   Path extends string = '',
   in out Route extends RouteSchema = {},
   in out Singleton extends SingletonBase = {

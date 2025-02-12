@@ -33,9 +33,9 @@ import Ajv, { ValidateFunction } from 'ajv'
 import { createElement } from 'react'
 import { z, ZodType } from 'zod'
 import { zodToJsonSchema } from 'zod-to-json-schema'
-import { Context, MiddlewareContext } from './context.js'
+import { SpiceflowContext, MiddlewareContext } from './context.js'
 import { isProduction, ValidationError } from './error.js'
-import { isAsyncIterable, isResponse, redirect } from './utils.js'
+import { isAsyncIterable, isResponse, isTruthy, redirect } from './utils.js'
 
 import { PassThrough, Readable } from 'stream'
 import {
@@ -746,6 +746,32 @@ export class Spiceflow<
     this.add({ ...routeConfig, method: 'POST' })
     return this as any
   }
+  staticPage<
+    const Path extends string,
+    const LocalSchema extends InputSchema<keyof Definitions['type'] & string>,
+    const Schema extends UnwrapRoute<LocalSchema, Definitions['type']>,
+    const Handle extends InlineHandler<
+      Schema,
+      Singleton,
+      JoinPath<BasePath, Path>
+    >,
+  >(
+    path: Path,
+    handler?: Handle,
+  ): Spiceflow<BasePath, Scoped, Singleton, Definitions, Metadata, Routes> {
+    let kind: NodeKind = 'staticPage'
+    if (!handler) {
+      kind = 'staticPageWithoutHandler'
+    }
+    const routeConfig = {
+      path,
+      handler: handler,
+      kind,
+    }
+    this.add({ ...routeConfig, method: 'GET' })
+    this.add({ ...routeConfig, path: path + '.rsc', method: 'GET' })
+    return this as any
+  }
   layout<
     const Path extends string,
     const LocalSchema extends InputSchema<keyof Definitions['type'] & string>,
@@ -833,7 +859,7 @@ export class Spiceflow<
     ).then((m) => m.default)
     const [pageRoutes, layoutRoutes] = partition(
       reactRoutes,
-      (x) => x.route.kind === 'page',
+      (x) => x.route.kind === 'page' || x.route.kind === 'staticPage',
     )
     const pageRoute = pageRoutes.sort((a, b) => {
       return routeSorter(a.route, b.route)
@@ -853,22 +879,25 @@ export class Spiceflow<
         }}
       />
     )
-    const layouts = layoutRoutes.map((layout) => {
-      const id = layout.route.id
-      const children = createElement(LayoutContent, { id })
+    const layouts = layoutRoutes
+      .map((layout) => {
+        if (layout.route.kind !== 'layout') return
+        const id = layout.route.id
+        const children = createElement(LayoutContent, { id })
 
-      let Layout = layout.route.handler as any
-      const element = (
-        <Layout
-          {...{
-            ...context,
-            params: pageRoute.params,
-            children,
-          }}
-        />
-      )
-      return { element, id }
-    })
+        let Layout = layout.route.handler as any
+        const element = (
+          <Layout
+            {...{
+              ...context,
+              params: pageRoute.params,
+              children,
+            }}
+          />
+        )
+        return { element, id }
+      })
+      .filter(isTruthy)
 
     let root: FlightData = {
       url: request.url,
@@ -940,15 +969,14 @@ export class Spiceflow<
     })
     const nodeStream = abortable.pipe(passthrough)
     const stream = Readable.toWeb(nodeStream) as ReadableStream
-
-    const timerId = `wait for first chunk ${Math.random().toString(36).slice(2)}`
-    console.time(timerId)
+    const start = performance.now()
     await new Promise<void>((resolve) => {
       passthrough.once('data', () => {
         resolve()
       })
     })
-    console.timeEnd(timerId)
+    const end = performance.now()
+    // console.log(`First chunk took ${Math.round(end - start)}ms`)
 
     if (thrownError instanceof Response) {
       return thrownError

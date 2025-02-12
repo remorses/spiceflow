@@ -312,7 +312,9 @@ export function spiceflowPlugin({ entry }): PluginOption {
         const rscCss = Object.values(rscManifest).flatMap((x) => x.css)
         const clientCss = Object.values(browserManifest).flatMap((x) => x.css)
 
-        const allStyles = [...rscCss, ...clientCss].filter(Boolean)
+        const allStyles = [...rscCss, ...clientCss]
+          .filter(Boolean)
+          .map((s) => (s && s.startsWith('/') ? s : '/' + s))
         return `export default ${JSON.stringify(allStyles)}`
       }
       const allStyles = await collectStyleUrls(server.environments['rsc'], {
@@ -658,10 +660,10 @@ function moveStaticAssets(
       // console.log({ fullPath })
       if (asset.endsWith('.js') || processed.has(fullPath)) continue
       processed.add(fullPath)
-      // if (!fs.existsSync(fullPath)) {
-      //   console.log(`[vite:build-client-references] ${fullPath} does not exist`)
-      //   continue
-      // }
+      if (!fs.existsSync(fullPath)) {
+        // console.log(`[vite:build-client-references] ${fullPath} does not exist`)
+        continue
+      }
 
       const relative = path.relative(outDir, fullPath)
       fs.renameSync(fullPath, path.join(clientOutDir, relative))
