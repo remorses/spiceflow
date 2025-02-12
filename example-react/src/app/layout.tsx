@@ -15,6 +15,7 @@ export function Layout(props: React.PropsWithChildren) {
 				<ProgressBar />
 				<ul>
 					<li>
+						
 						<Link href="/">Home</Link>
 					</li>
 					<li>

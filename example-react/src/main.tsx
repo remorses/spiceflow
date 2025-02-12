@@ -19,11 +19,11 @@ import { Chakra } from "./app/chakra";
 const app = new Spiceflow()
 	.state("middleware1", "")
 	.use(async ({ request, state }, next) => {
-		console.log("middleware 1");
+
 		state.middleware1 = "state set by middleware1";
 		const res = await next();
 		res.headers.set("x-middleware-1", "ok");
-		console.log("middleware 2");
+
 		return res;
 	})
 	.layout("/*", async ({ children, state }) => {
@@ -195,3 +195,5 @@ async function ServerComponentThrows() {
 }
 
 export default app;
+
+
