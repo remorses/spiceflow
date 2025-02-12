@@ -17,6 +17,15 @@ export function Counter() {
 	);
 }
 
+export function ErrorInUseEffect() {
+	React.useEffect(() => {
+		setTimeout(() => {
+			throw new Error("Error in useEffect");
+		}, 0);
+	}, []);
+	return <div>ErrorInUseEffect</div>;
+}
+
 export function Hydrated() {
 	return <pre>[hydrated: {Number(useHydrated())}]</pre>;
 }

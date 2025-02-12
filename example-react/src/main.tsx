@@ -4,7 +4,11 @@ import { IndexPage } from "./app/index";
 import { Layout } from "./app/layout";
 import "./styles.css";
 
-import { ClientComponentThrows, ErrorRender } from "./app/client";
+import {
+	ClientComponentThrows,
+	ErrorInUseEffect,
+	ErrorRender,
+} from "./app/client";
 import { ErrorBoundary } from "spiceflow/dist/react/components";
 import { redirect, sleep } from "spiceflow/dist/utils";
 import { notFound } from "spiceflow/dist/react/errors";
@@ -151,6 +155,9 @@ const app = new Spiceflow()
 	})
 	.page("/error-boundary", async () => {
 		throw new Error("test error");
+	})
+	.page("/error-in-use-effect", async () => {
+		return <ErrorInUseEffect />;
 	})
 	.page("/rsc-error", async () => {
 		return <ServerComponentThrows />;
