@@ -13,4 +13,12 @@ export default defineConfig({
 			entry: "./src/main.tsx",
 		}),
 	],
+	// appType: "custom",
+	// environments: {
+	// 	rsc: {
+	// 		resolve: {
+	// 			noExternal: ["@chakra-ui/react"],
+	// 		},
+	// 	},
+	// },
 });

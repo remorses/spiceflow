@@ -1,6 +1,7 @@
 import assert from 'node:assert'
 import * as vite from 'vite'
 
+import { createDebug, memoize, tinyassert } from '@hiogawa/utils'
 import react from '@vitejs/plugin-react'
 import crypto from 'node:crypto'
 import fs from 'node:fs'
@@ -39,6 +40,10 @@ export function spiceflowPlugin({ entry }): PluginOption {
 
   let command: string = ''
   let server: ViteDevServer
+  let nodeModulesFilesWithUseClient = new Map<
+    string,
+    { id: string; exportNames: Set<string> }
+  >()
   let buildType: 'scan' | 'server' | 'browser' | 'ssr' | undefined
   return [
     react(),
@@ -61,10 +66,18 @@ export function spiceflowPlugin({ entry }): PluginOption {
           EXTENSIONS_TO_TRANSFORM.has(ext) &&
           code.match(/['"]use (client|server)['"]/g)
         ) {
-          const isUseClient = /^\s*(("use client")|('use client'))/.test(code)
+          const isUseClient = USE_CLIENT_RE.test(code)
           if (isUseClient && buildScan) {
             // This is needed to let scan discover server references found in the use client components
             return
+          }
+          // when using external library's server component includes client reference,
+          // it will end up here with deps optimization hash `?v=` resolved by server module graph.
+          // this is not entirely free from double module issue,
+          // but it allows handling simple server-client-mixed package such as react-tweet.
+          // cf. https://github.com/hi-ogawa/vite-plugins/issues/379
+          if (isUseClient && command !== 'build' && id.includes('?v=')) {
+            id = id.split('?v=')[0]!
           }
           const mod =
             await server?.environments.client.moduleGraph.getModuleById(id)
@@ -130,6 +143,7 @@ export function spiceflowPlugin({ entry }): PluginOption {
         return result
       },
     },
+
     {
       name: 'spiceflow',
 
@@ -139,7 +153,7 @@ export function spiceflowPlugin({ entry }): PluginOption {
           client: {
             optimizeDeps: {
               include: [
-                'react-dom/client',
+                // 'react-dom/client',
                 'spiceflow/dist/react/server-dom-client-optimized',
               ],
             },
@@ -190,7 +204,9 @@ export function spiceflowPlugin({ entry }): PluginOption {
                 })
               },
             },
+            // keepProcessEnv: true,
             build: {
+              ssr: true,
               ssrManifest: true,
               outDir: 'dist/rsc',
               manifest: true,
@@ -454,8 +470,11 @@ export function spiceflowPlugin({ entry }): PluginOption {
   }
 }
 
+const USE_CLIENT_RE = /^(("use client")|('use client'))/m
+
 export function debugTransformResult({ transformedCode, envName, id }) {
   // If load() returns undefined, fall back to original code
+  if (!process.env.DEBUG_SPICEFLOW) return
 
   // Create debug folder structure mirroring source
   const relativePath = path.relative(process.cwd(), id.replace(/\0/g, ''))
@@ -476,6 +495,126 @@ export function debugTransformResult({ transformedCode, envName, id }) {
 
   // Return original result to not interfere with build
   return null
+}
+
+// TODO this does not work if use client is not used directly in the entrypoint, i could resolve up until 4 levels to add support, worth it?
+function useClientNodeModules({ nodeModulesFilesWithUseClient }) {
+  const NODE_MODULES_USE_CLIENT_VIRTUAL_PREFIX =
+    'virtual:use-client-node-module/'
+
+  function wrapId(id: string) {
+    return id.startsWith(`/@id`) ? id : `/@id/${id.replace('\0', '__x00__')}`
+  }
+  let plugins: Plugin[] = [
+    {
+      name: 'server-virtual-use-client-node-modules',
+      enforce: 'pre',
+      apply: 'serve',
+      applyToEnvironment: (x) => x.name === 'rsc',
+      resolveId: memoize(async function (this, source, importer) {
+        const debug = createDebug('react-server:plugin:use-client')
+
+        if (
+          source[0] !== '.' &&
+          source[0] !== '/' &&
+          !source.startsWith('virtual') &&
+          !source.startsWith('\0virtual')
+        ) {
+          const resolved = await this.resolve(source, importer, {
+            skipSelf: true,
+          })
+          debug('[rsc.use-client-node-modules.resolveId]', {
+            source,
+            resolved,
+          })
+          if (resolved && resolved.id.includes('/node_modules/')) {
+            const [id] = resolved.id.split('?v=')
+            tinyassert(id)
+            const code = await fs.promises.readFile(id!, 'utf-8')
+
+            if (USE_CLIENT_RE.test(code)) {
+              console.log(`found use client node module: ${id}`)
+              nodeModulesFilesWithUseClient.set(source, {
+                id,
+                exportNames: new Set(),
+              })
+              return `\0${NODE_MODULES_USE_CLIENT_VIRTUAL_PREFIX}${source}`
+            } else {
+              if (id.includes('chakra')) {
+                console.log(id, code.split('\n').slice(0, 3).join(' '))
+              }
+            }
+          }
+        }
+        return
+      } satisfies Plugin['resolveId']),
+      async load(id, _options) {
+        if (id.startsWith(`\0${NODE_MODULES_USE_CLIENT_VIRTUAL_PREFIX}`)) {
+          const source = id.slice(
+            `\0${NODE_MODULES_USE_CLIENT_VIRTUAL_PREFIX}`.length,
+          )
+          const meta = nodeModulesFilesWithUseClient.get(source)
+          tinyassert(meta)
+          // node_modules is already transpiled so we can parse it right away
+          const code = await fs.promises.readFile(meta.id, 'utf-8')
+          // const ast = await vite.parseAstAsync(code)
+          // meta.exportNames = new Set(
+          //   getExportNames(ast, { ignoreExportAllDeclaration: true }).exportNames,
+          // )
+          // we need to transform to client reference directly
+          // otherwise `soruce` will be resolved infinitely by recursion
+          id = wrapId(id)
+          let generateId = (id) => {
+            let generated = id
+
+            return generated
+          }
+          const output = serverTransform(code, id, {
+            id: generateId,
+            importClient: 'registerClientReference',
+            importFrom: 'spiceflow/dist/react/server-dom-optimized',
+            importServer: 'registerServerReference',
+          })
+
+          tinyassert(output.code)
+
+          debugTransformResult({
+            envName: this.environment.name,
+            transformedCode: output.code,
+            id,
+          })
+          return output.code
+        }
+        return
+      },
+    },
+
+    {
+      name: 'browser-node-modules-use-client:dev-external',
+      apply: 'serve',
+      applyToEnvironment: (x) => x.name !== 'rsc',
+      resolveId(source, _importer, _options) {
+        if (source.startsWith(NODE_MODULES_USE_CLIENT_VIRTUAL_PREFIX)) {
+          return '\0' + source
+        }
+        return
+      },
+      load(id, _options) {
+        if (id.startsWith(`\0${NODE_MODULES_USE_CLIENT_VIRTUAL_PREFIX}`)) {
+          const source = id.slice(
+            `\0${NODE_MODULES_USE_CLIENT_VIRTUAL_PREFIX}`.length,
+          )
+          return `export * from "${source}"`
+          // const meta = nodeModulesFilesWithUseClient.get(source);
+          // debug("[parent.use-client-node-modules]", { source, meta });
+          // tinyassert(meta);
+          // return `export {${[...meta.exportNames].join(", ")}} from "${source}"`;
+        }
+        return
+      },
+    },
+  ]
+  return plugins
 }
 
 const EXTENSIONS_TO_TRANSFORM = new Set([

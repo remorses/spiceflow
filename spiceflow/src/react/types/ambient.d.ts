@@ -1,7 +1,7 @@
 /// <reference types="vite/client" />
 // import {Spiceflow} from '../../spiceflow.js'
 
-declare module 'react-server-dom-vite/server' {
+declare module '@jacob-ebey/react-server-dom-vite/server' {
   export function renderToPipeableStream<T>(
     data: T,
     manifest: import('.').ClientReferenceMetadataManifest,

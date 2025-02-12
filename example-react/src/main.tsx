@@ -12,6 +12,9 @@ import {
 import { ErrorBoundary } from "spiceflow/dist/react/components";
 import { redirect, sleep } from "spiceflow/dist/utils";
 import { notFound } from "spiceflow/dist/react/errors";
+import { DialogDemo } from "./app/dialog";
+import { WithSelect } from "./app/select";
+import { Chakra } from "./app/chakra";
 
 const app = new Spiceflow()
 	.state("middleware1", "")
@@ -164,6 +167,15 @@ const app = new Spiceflow()
 	})
 	.page("/client-error", async () => {
 		return <ClientComponentThrows />;
+	})
+	.page("/dialog", async () => {
+		return <DialogDemo />;
+	})
+	.page("/chakra", async () => {
+		return <Chakra />;
+	})
+	.page("/select", async () => {
+		return <WithSelect />;
 	})
 
 	.post("/echo", async ({ request }) => {

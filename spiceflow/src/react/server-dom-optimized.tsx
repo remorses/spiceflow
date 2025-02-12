@@ -1,4 +1,4 @@
-import RSD from 'react-server-dom-vite/server'
+import RSD from '@jacob-ebey/react-server-dom-vite/server'
 
 export const registerServerReference = RSD.registerServerReference
 export const registerClientReference = RSD.registerClientReference
