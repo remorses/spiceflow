@@ -1,25 +1,24 @@
-import { Spiceflow } from "spiceflow";
 import { Suspense } from "react";
+import { Spiceflow } from "spiceflow";
 import { IndexPage } from "./app/index";
 import { Layout } from "./app/layout";
 import "./styles.css";
 
-import {
-	ClientComponentThrows,
-	ErrorInUseEffect,
-	ErrorRender,
-} from "./app/client";
 import { ErrorBoundary } from "spiceflow/dist/react/components";
-import { redirect, sleep } from "spiceflow/dist/utils";
 import { notFound } from "spiceflow/dist/react/errors";
+import { redirect, sleep } from "spiceflow/dist/utils";
+import { Chakra } from "./app/chakra";
+import {
+  ClientComponentThrows,
+  ErrorInUseEffect,
+  ErrorRender,
+} from "./app/client";
 import { DialogDemo } from "./app/dialog";
 import { WithSelect } from "./app/select";
-import { Chakra } from "./app/chakra";
 
 const app = new Spiceflow()
 	.state("middleware1", "")
 	.use(async ({ request, state }, next) => {
-
 		state.middleware1 = "state set by middleware1";
 		const res = await next();
 		res.headers.set("x-middleware-1", "ok");
@@ -177,6 +176,7 @@ const app = new Spiceflow()
 	.page("/select", async () => {
 		return <WithSelect />;
 	})
+	
 
 	.post("/echo", async ({ request }) => {
 		const body = await request.json();
@@ -195,5 +195,3 @@ async function ServerComponentThrows() {
 }
 
 export default app;
-
-

@@ -5,7 +5,7 @@ import ReactDOMServer from 'react-dom/server.edge'
 import ReactClient from 'spiceflow/dist/react/server-dom-client-optimized'
 import type { ModuleRunner } from 'vite/module-runner'
 
-import { injectRSCPayload } from 'rsc-html-stream/server'
+
 import cssUrls from 'virtual:app-styles'
 import { ServerPayload } from '../spiceflow.js'
 import { DefaultNotFoundPage, LayoutContent } from './components.js'
@@ -17,6 +17,7 @@ import {
 } from './utils/fetch.js'
 import { getErrorContext, isNotFoundError, isRedirectError } from './errors.js'
 import { FlightDataContext } from './context.js'
+import { injectRSCPayload } from './transform.js'
 
 export default async function handler(
   req: IncomingMessage,
@@ -39,7 +40,6 @@ export default async function handler(
 
   const htmlResponse = await renderHtml({ response, request })
 
-  console.log(`sending response`)
   sendResponse(htmlResponse, res)
 }
 

@@ -939,6 +939,9 @@ export class Spiceflow<
       },
       clientReferenceMetadataManifest,
       {
+        onPostpone(reason) {
+          console.log(`POSTPONE`, reason)
+        },
         onError(error) {
           console.error('[spiceflow:renderToPipeableStream]', error)
           thrownError = error
