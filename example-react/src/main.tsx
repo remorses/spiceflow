@@ -15,7 +15,7 @@ import {
 } from "./app/client";
 import { DialogDemo } from "./app/dialog";
 import { WithSelect } from "./app/select";
-import { Meta } from "spiceflow/dist/react/meta";
+import { Head } from "spiceflow/dist/react/meta";
 
 const app = new Spiceflow()
 	.state("middleware1", "")
@@ -180,9 +180,15 @@ const app = new Spiceflow()
 	.page("/meta", async ({ request }) => {
 		return (
 			<div className="">
-				<Meta>
+				<Head>
 					<meta name="test" content="value" />
-				</Meta>
+					<meta name="test" content="value" />
+					<meta property="og:title" content="Spiceflow Example" />
+					<meta property="og:description" content="An example application built with Spiceflow" />
+					<meta property="og:type" content="website" />
+					<meta property="og:image" content="/og-image.jpg" />
+					<meta property="og:url" content="https://example.com" />
+				</Head>
 			</div>
 		);
 	})

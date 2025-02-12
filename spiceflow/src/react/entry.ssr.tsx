@@ -58,7 +58,11 @@ async function renderHtml({
     fromWebToNodeReadable(flightStream1),
     clientReferenceManifest,
   )
-  const metaState = new MetaState()
+  let baseUrl = new URL('/', request.url).href
+  if (baseUrl.endsWith('/')) {
+    baseUrl = baseUrl.slice(0, -1)
+  }
+  const metaState = new MetaState({ baseUrl })
 
   const ssrAssets = await import('virtual:ssr-assets')
   const el = (

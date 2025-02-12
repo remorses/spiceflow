@@ -3,10 +3,14 @@ import React from 'react'
 import ReactDOMServer from 'react-dom/server'
 
 const VALID_TAGS = new Set(['title', 'meta', 'link', 'base', 'style', 'script'])
-
 export class MetaState {
   private tags: React.ReactElement[] = []
   private counter: number = 0
+  private baseUrl?: string
+
+  constructor({ baseUrl }) {
+    this.baseUrl = baseUrl
+  }
 
   addTag(tag: React.ReactElement) {
     this.tags.push(tag)
@@ -25,11 +29,27 @@ export class MetaState {
     const tagMap = new Map()
 
     this.tags.forEach((tag) => {
-      const key = this.getTagKey(tag)
-      tagMap.set(key, ReactDOMServer.renderToStaticMarkup(tag))
+      const processedTag = this.processTag(tag)
+      const key = this.getTagKey(processedTag)
+      tagMap.set(key, ReactDOMServer.renderToStaticMarkup(processedTag))
     })
 
     return Array.from(tagMap.values()).join('')
+  }
+
+  private processTag(tag: React.ReactElement): React.ReactElement {
+    if (!this.baseUrl) return tag
+
+    if (tag.type === 'meta') {
+      const props = { ...(tag.props || undefined) } as Record<string, string>
+      // Handle og:image, twitter:image etc
+      if (props.content?.startsWith('/')) {
+        props.content = this.baseUrl + props.content
+      }
+      return React.cloneElement(tag, props)
+    }
+
+    return tag
   }
 
   private getTagKey(tag: React.ReactElement) {
@@ -64,20 +84,18 @@ export const MetaProvider = ({
   )
 }
 
-export const Meta = ({ children }) => {
+export const Head = ({ children }) => {
   if (typeof window !== 'undefined') {
     return children
   }
   const metaState = React.useContext(MetaContext)
   if (!metaState) throw new Error('Meta must be used within MetaProvider')
 
-  if (typeof window === 'undefined') {
-    React.Children.forEach(children, (child) => {
-      if (React.isValidElement(child) && VALID_TAGS.has(child.type as string)) {
-        metaState.addTag(child)
-      }
-    })
-  }
+  React.Children.forEach(children, (child) => {
+    if (React.isValidElement(child) && VALID_TAGS.has(child.type as string)) {
+      metaState.addTag(child)
+    }
+  })
 
   return null
 }
