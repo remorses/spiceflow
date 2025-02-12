@@ -38,7 +38,7 @@ declare module '@jacob-ebey/react-server-dom-vite/server' {
   export default defaultExport
 }
 
-declare module 'spiceflow/dist/react/server-dom-client-optimized' {
+declare module 'spiceflow/dist/react/references.ssr' {
   export function createFromNodeStream<T>(
     stream: import('node:stream').Readable,
     manifest: import('.').ClientReferenceManifest,

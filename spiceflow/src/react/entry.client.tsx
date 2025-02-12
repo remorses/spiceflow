@@ -2,7 +2,7 @@ import React, { Suspense } from 'react'
 import type { ErrorPayload } from 'vite'
 import { router } from './router.js'
 import ReactDomClient from 'react-dom/client'
-import ReactClient from 'spiceflow/dist/react/server-dom-client-optimized'
+import ReactClient from 'spiceflow/dist/react/references.ssr'
 
 import type { CallServerFn } from './types/index.js'
 import { clientReferenceManifest } from './utils/client-reference.js'

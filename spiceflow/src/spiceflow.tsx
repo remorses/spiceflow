@@ -854,7 +854,7 @@ export class Spiceflow<
     }>
   }) {
     const ReactServer = await import(
-      'spiceflow/dist/react/server-dom-optimized'
+      'spiceflow/dist/react/references.rsc'
     ).then((m) => m.default)
     const [pageRoutes, layoutRoutes] = partition(
       reactRoutes,

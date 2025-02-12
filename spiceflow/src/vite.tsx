@@ -116,7 +116,7 @@ export function spiceflowPlugin({ entry }): PluginOption {
             const transformed = serverTransform(code, id, {
               id: generateId,
               importClient: 'registerClientReference',
-              importFrom: 'spiceflow/dist/react/server-dom-optimized',
+              importFrom: 'spiceflow/dist/react/references.rsc',
               importServer: 'registerServerReference',
             })
             result = transformed.code
@@ -138,7 +138,7 @@ export function spiceflowPlugin({ entry }): PluginOption {
                 : {
                     id: generateId,
                     importFrom:
-                      'spiceflow/dist/react/server-dom-client-optimized',
+                      'spiceflow/dist/react/references.ssr',
                     importServer: 'createServerReference',
                   },
             )
@@ -165,7 +165,7 @@ export function spiceflowPlugin({ entry }): PluginOption {
             optimizeDeps: {
               include: [
                 // 'react-dom/client',
-                'spiceflow/dist/react/server-dom-client-optimized',
+                'spiceflow/dist/react/references.ssr',
               ],
             },
             build: {
@@ -201,8 +201,8 @@ export function spiceflowPlugin({ entry }): PluginOption {
                 'react',
                 'react/jsx-runtime',
                 'react/jsx-dev-runtime',
-                'spiceflow/dist/react/server-dom-optimized',
-                'spiceflow/dist/react/server-dom-client-optimized',
+                'spiceflow/dist/react/references.rsc',
+                'spiceflow/dist/react/references.ssr',
               ],
               exclude: ['util'],
             },
@@ -588,7 +588,7 @@ function useClientNodeModules({ nodeModulesFilesWithUseClient }) {
           const output = serverTransform(code, id, {
             id: generateId,
             importClient: 'registerClientReference',
-            importFrom: 'spiceflow/dist/react/server-dom-optimized',
+            importFrom: 'spiceflow/dist/react/references.rsc',
             importServer: 'registerServerReference',
           })
 

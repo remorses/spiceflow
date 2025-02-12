@@ -2,7 +2,7 @@ import { isbot } from 'isbot'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 
 import ReactDOMServer from 'react-dom/server.edge'
-import ReactClient from 'spiceflow/dist/react/server-dom-client-optimized'
+import ReactClient from 'spiceflow/dist/react/references.ssr'
 import type { ModuleRunner } from 'vite/module-runner'
 
 import cssUrls from 'virtual:app-styles'
