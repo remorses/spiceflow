@@ -1,4 +1,5 @@
 import React, { Suspense } from 'react'
+import type { ErrorPayload } from 'vite'
 import { router } from './router.js'
 import ReactDomClient from 'react-dom/client'
 import ReactClient from 'spiceflow/dist/react/server-dom-client-optimized'
@@ -87,6 +88,19 @@ async function main() {
       console.log('[react-server:update]', e.file)
       router.replace(router.location)
     })
+  }
+}
+
+if (import.meta.env.DEV) {
+  window.onerror = (event, source, lineno, colno, err) => {
+    // must be within function call because that's when the element is defined for sure.
+    const ErrorOverlay = customElements.get('vite-error-overlay')
+    // don't open outside vite environment
+    if (!ErrorOverlay) {
+      return
+    }
+    const overlay = new ErrorOverlay(err)
+    document.body.appendChild(overlay)
   }
 }
 
