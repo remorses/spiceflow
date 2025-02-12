@@ -1,4 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
+import { isbot } from 'isbot'
+
 import ReactDOMServer from 'react-dom/server.edge'
 import ReactClient from 'spiceflow/dist/react/server-dom-client-optimized'
 import type { ModuleRunner } from 'vite/module-runner'
@@ -23,7 +25,7 @@ export default async function handler(
   const request = createRequest(req, res)
   const url = new URL(request.url)
   const rscEntry = await importRscEntry()
-  const response = await rscEntry.handler(url, request)
+  const response = await rscEntry.handler(request)
 
   if (!response.headers.get('content-type')?.startsWith('text/x-component')) {
     sendResponse(response, res)
@@ -35,12 +37,28 @@ export default async function handler(
     return
   }
 
+  const htmlResponse = await renderHtml({ response, request })
+
+  console.log(`sending response`)
+  sendResponse(htmlResponse, res)
+}
+
+async function renderHtml({
+  response,
+  request,
+  prerender,
+}: {
+  prerender?: boolean
+  request: Request
+  response: Response
+}) {
   const [flightStream1, flightStream2] = response.body!.tee()
 
   const payloadPromise = ReactClient.createFromNodeStream<ServerPayload>(
     fromWebToNodeReadable(flightStream1),
     clientReferenceManifest,
   )
+
   const ssrAssets = await import('virtual:ssr-assets')
   const el = (
     <FlightDataContext.Provider value={payloadPromise}>
@@ -53,7 +71,8 @@ export default async function handler(
     </FlightDataContext.Provider>
   )
 
-  let htmlStream: ReadableStream
+  // https://react.dev/reference/react-dom/server/renderToReadableStream
+  let htmlStream: ReadableStream & { allReady: Promise<void> }
   let status = 200
 
   try {
@@ -67,29 +86,27 @@ export default async function handler(
         return e?.digest || e?.message
       },
     })
+    if (prerender || isbot(request.headers.get('user-agent') || '')) {
+      await htmlStream.allReady
+    }
   } catch (e) {
     status = 500
     console.log(`error during ssr render catch`, e)
     let errCtx = getErrorContext(e)
     if (errCtx && isRedirectError(errCtx)) {
       console.log(`redirecting to ${errCtx.headers?.location}`)
-      sendResponse(
-        new Response(errCtx.headers?.location, {
-          status: errCtx.status,
-          headers: {
-            ...Object.fromEntries(response.headers),
-            ...errCtx.headers,
-            contentType: 'text/html',
-          },
-        }),
-        res,
-      )
-      return
+      return new Response(errCtx.headers?.location, {
+        status: errCtx.status,
+        headers: {
+          ...Object.fromEntries(response.headers),
+          ...errCtx.headers,
+          contentType: 'text/html',
+        },
+      })
     }
-    let content: any = null
+
     if (errCtx && isNotFoundError(errCtx)) {
       status = 404
-      return
     }
     // https://bsky.app/profile/ebey.bsky.social/post/3lev4lqr2ak2j
 
@@ -105,7 +122,6 @@ export default async function handler(
         </head>
         <body>
           <noscript>{status} Internal Server Error</noscript>
-          {content}
         </body>
       </html>
     )
@@ -115,20 +131,14 @@ export default async function handler(
     })
   }
 
-  const htmlResponse = new Response(
-    htmlStream.pipeThrough(injectRSCPayload(flightStream2)),
-    {
-      status,
-      headers: {
-        // copy rsc headers, so spiceflow can add its own headers via .use()
-        ...Object.fromEntries(response.headers),
-        'content-type': 'text/html;charset=utf-8',
-      },
+  return new Response(htmlStream.pipeThrough(injectRSCPayload(flightStream2)), {
+    status,
+    headers: {
+      // copy rsc headers, so spiceflow can add its own headers via .use()
+      ...Object.fromEntries(response.headers),
+      'content-type': 'text/html;charset=utf-8',
     },
-  )
-
-  console.log(`sending response`)
-  sendResponse(htmlResponse, res)
+  })
 }
 
 declare let __rscRunner: ModuleRunner
@@ -139,4 +149,27 @@ async function importRscEntry(): Promise<typeof import('./entry.rsc.js')> {
   } else {
     return await import('virtual:build-rsc-entry' as any)
   }
+}
+
+// return stream and ssr at once for prerender
+export async function prerender(request: Request) {
+  const reactServer = await importRscEntry()
+
+  const response = await reactServer.handler(request)
+
+  const responseClone = response.clone()
+
+  const htmlRes = await renderHtml({ response, request, prerender: true })
+  const html = await htmlRes.text()
+  return { rscResponse: responseClone, response, html }
+}
+
+export async function getPrerenderRoutes() {
+  let rsc = await importRscEntry()
+  const app = rsc.app
+  return app
+    .getAllRoutes()
+    .filter((route) => route.kind === 'page')
+    .filter((x) => x.method === 'GET')
+    .filter((x) => x.handler)
 }

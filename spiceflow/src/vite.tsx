@@ -18,6 +18,7 @@ import {
 } from 'vite'
 import { collectStyleUrls } from './react/css.js'
 import { noramlizeClientReferenceId } from './react/utils/normalize.js'
+import { prerenderPlugin } from './react/prerender.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -47,7 +48,7 @@ export function spiceflowPlugin({ entry }): PluginOption {
   let buildType: 'scan' | 'server' | 'browser' | 'ssr' | undefined
   return [
     react(),
-
+    prerenderPlugin(),
     {
       name: 'react-server-dom',
       enforce: 'post',
@@ -410,7 +411,7 @@ export function spiceflowPlugin({ entry }): PluginOption {
 
       return { code: result, map: null }
     }),
-
+    
     // vitePluginSilenceDirectiveBuildWarning(),
   ]
 
