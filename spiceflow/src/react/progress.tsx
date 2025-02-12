@@ -1,8 +1,9 @@
 'use client'
-import { useEffect, useRef, useState } from 'react'
+import { useContext, useEffect, useRef, useState } from 'react'
 
 import { ReactNode } from 'react'
 import { router } from './router.js'
+import { FlightDataContext } from './context.js'
 
 export interface ProgressBarProps {
   /**
@@ -24,6 +25,13 @@ export function ProgressBar({
   const progress = useProgress()
   const [isExiting, setIsExiting] = useState(false)
 
+  const data = useContext(FlightDataContext)
+  useEffect(() => {
+    progress.done()
+  }, [data])
+
+  ProgressBar.done = () => progress.done()
+  ProgressBar.start = () => progress.start()
   useEffect(() => {
     if (progress.state === 'complete') {
       setIsExiting(true)
@@ -43,7 +51,7 @@ export function ProgressBar({
         height: '4px',
         backgroundColor: color,
         boxShadow: `0 4px 6px -1px ${color}33`,
-        transition: `all ${duration}ms`,
+        transition: progress.state === 'initial' ? '' : `all ${duration}ms`,
         width: `${progress.width}%`,
         opacity: isExiting ? 0 : 1,
       }}
@@ -56,6 +64,9 @@ export function ProgressBar({
     />
   )
 }
+
+ProgressBar.done = () => {}
+ProgressBar.start = () => {}
 
 function useProgress() {
   const [state, setState] = useState<

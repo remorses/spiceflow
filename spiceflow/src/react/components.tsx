@@ -1,11 +1,12 @@
 'use client'
 
-import React, { Suspense } from 'react'
+import React, { startTransition, Suspense } from 'react'
 import { ReactFormState } from 'react-dom/client'
 import { router } from './router.js'
 import { ServerPayload } from '../spiceflow.js'
 import { isRedirectError, isNotFoundError, getErrorContext } from './errors.js'
 import { useFlightData } from './context.js'
+import { ProgressBar } from './progress.js'
 
 export function LayoutContent(props: { id?: string }) {
   const data = useFlightData()
@@ -172,6 +173,7 @@ export function Link(props: React.ComponentPropsWithRef<'a'>) {
           return
         }
         e.preventDefault()
+
         props.onClick?.(e)
         router.push(e.currentTarget.href)
       }}
