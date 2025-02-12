@@ -5,7 +5,6 @@ import ReactDOMServer from 'react-dom/server.edge'
 import ReactClient from 'spiceflow/dist/react/server-dom-client-optimized'
 import type { ModuleRunner } from 'vite/module-runner'
 
-
 import cssUrls from 'virtual:app-styles'
 import { ServerPayload } from '../spiceflow.js'
 import { DefaultNotFoundPage, LayoutContent } from './components.js'
@@ -18,6 +17,7 @@ import {
 import { getErrorContext, isNotFoundError, isRedirectError } from './errors.js'
 import { FlightDataContext } from './context.js'
 import { injectRSCPayload } from './transform.js'
+import { MetaState, MetaProvider } from './meta.js'
 
 export default async function handler(
   req: IncomingMessage,
@@ -58,17 +58,20 @@ async function renderHtml({
     fromWebToNodeReadable(flightStream1),
     clientReferenceManifest,
   )
+  const metaState = new MetaState()
 
   const ssrAssets = await import('virtual:ssr-assets')
   const el = (
-    <FlightDataContext.Provider value={payloadPromise}>
-      {cssUrls.map((url) => (
-        // precedence to force head rendering
-        // https://react.dev/reference/react-dom/components/link#special-rendering-behavior
-        <link key={url} rel="stylesheet" href={url} precedence="high" />
-      ))}
-      <LayoutContent />
-    </FlightDataContext.Provider>
+    <MetaProvider metaState={metaState}>
+      <FlightDataContext.Provider value={payloadPromise}>
+        {cssUrls.map((url) => (
+          // precedence to force head rendering
+          // https://react.dev/reference/react-dom/components/link#special-rendering-behavior
+          <link key={url} rel="stylesheet" href={url} precedence="high" />
+        ))}
+        <LayoutContent />
+      </FlightDataContext.Provider>
+    </MetaProvider>
   )
 
   // https://react.dev/reference/react-dom/server/renderToReadableStream
@@ -108,7 +111,6 @@ async function renderHtml({
     if (errCtx && isNotFoundError(errCtx)) {
       status = 404
     }
-    // https://bsky.app/profile/ebey.bsky.social/post/3lev4lqr2ak2j
 
     const errorRoot = (
       <html data-no-hydrate>
@@ -131,14 +133,23 @@ async function renderHtml({
     })
   }
 
-  return new Response(htmlStream.pipeThrough(injectRSCPayload(flightStream2)), {
-    status,
-    headers: {
-      // copy rsc headers, so spiceflow can add its own headers via .use()
-      ...Object.fromEntries(response.headers),
-      'content-type': 'text/html;charset=utf-8',
+  let appendToHead = metaState.getProcessedTags()
+  return new Response(
+    htmlStream.pipeThrough(
+      injectRSCPayload({
+        rscStream: flightStream2,
+        appendToHead,
+      }),
+    ),
+    {
+      status,
+      headers: {
+        // copy rsc headers, so spiceflow can add its own headers via .use()
+        ...Object.fromEntries(response.headers),
+        'content-type': 'text/html;charset=utf-8',
+      },
     },
-  })
+  )
 }
 
 declare let __rscRunner: ModuleRunner

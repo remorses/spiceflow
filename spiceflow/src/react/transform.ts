@@ -3,15 +3,20 @@
 const encoder = new TextEncoder()
 const trailerBody = '</body></html>'
 
-const trailerHead = `<head/>`
-
-export function injectRSCPayload(rscStream: ReadableStream<Uint8Array>) {
+export function injectRSCPayload({
+  rscStream,
+  appendToHead,
+}: {
+  rscStream?: ReadableStream<Uint8Array>
+  appendToHead?: string
+}) {
   let decoder = new TextDecoder()
   let resolveFlightDataPromise: (value: void) => void
   let flightDataPromise = new Promise<void>(
     (resolve) => (resolveFlightDataPromise = resolve),
   )
   let startedRSC = false
+  let addedHead = false
 
   // Buffer all HTML chunks enqueued during the current tick of the event loop (roughly)
   // and write them to the output stream all at once. This ensures that we don't generate
@@ -23,8 +28,14 @@ export function injectRSCPayload(rscStream: ReadableStream<Uint8Array>) {
   ) {
     for (let chunk of buffered) {
       let buf = decoder.decode(chunk)
+      // TODO this relies on html document not having a newline after </body>, can easily break? but react dom currently returns it always together so it's fine?
       if (buf.endsWith(trailerBody)) {
         buf = buf.slice(0, -trailerBody.length)
+      }
+      // TODO what if the user includes </head> in the html document content?
+      if (!addedHead && appendToHead && buf.includes('</head>')) {
+        buf = buf.replace('</head>', appendToHead + '\n</head>')
+        addedHead = true
       }
       controller.enqueue(encoder.encode(buf))
     }
@@ -62,10 +73,13 @@ export function injectRSCPayload(rscStream: ReadableStream<Uint8Array>) {
 }
 
 async function writeRSCStream(
-  rscStream: ReadableStream<Uint8Array>,
+  rscStream: ReadableStream<Uint8Array> | undefined,
   controller: TransformStreamDefaultController<Uint8Array>,
 ) {
   let decoder = new TextDecoder('utf-8', { fatal: true })
+  if (!rscStream) {
+    return
+  }
   for await (let chunk of rscStream as any) {
     // Try decoding the chunk to send as a string.
     // If that fails (e.g. binary data that is invalid unicode), write as base64.

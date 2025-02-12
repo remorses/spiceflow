@@ -65,6 +65,9 @@ export const MetaProvider = ({
 }
 
 export const Meta = ({ children }) => {
+  if (typeof window !== 'undefined') {
+    return children
+  }
   const metaState = React.useContext(MetaContext)
   if (!metaState) throw new Error('Meta must be used within MetaProvider')
 
@@ -77,10 +80,4 @@ export const Meta = ({ children }) => {
   }
 
   return null
-}
-
-export const createMetaState = () => new MetaState()
-
-export const processMetaTags = (metaState: MetaState) => {
-  return metaState.getProcessedTags()
 }

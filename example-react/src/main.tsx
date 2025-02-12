@@ -9,12 +9,13 @@ import { notFound } from "spiceflow/dist/react/errors";
 import { redirect, sleep } from "spiceflow/dist/utils";
 import { Chakra } from "./app/chakra";
 import {
-  ClientComponentThrows,
-  ErrorInUseEffect,
-  ErrorRender,
+	ClientComponentThrows,
+	ErrorInUseEffect,
+	ErrorRender,
 } from "./app/client";
 import { DialogDemo } from "./app/dialog";
 import { WithSelect } from "./app/select";
+import { Meta } from "spiceflow/dist/react/meta";
 
 const app = new Spiceflow()
 	.state("middleware1", "")
@@ -176,7 +177,15 @@ const app = new Spiceflow()
 	.page("/select", async () => {
 		return <WithSelect />;
 	})
-	
+	.page("/meta", async ({ request }) => {
+		return (
+			<div className="">
+				<Meta>
+					<meta name="test" content="value" />
+				</Meta>
+			</div>
+		);
+	})
 
 	.post("/echo", async ({ request }) => {
 		const body = await request.json();
