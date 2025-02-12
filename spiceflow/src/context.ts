@@ -1,8 +1,4 @@
-import type {
-  StatusMap,
-  InvertedStatusMap,
-  Redirect,
-} from './utils.js'
+import type { StatusMap, InvertedStatusMap, Redirect } from './utils.js'
 
 import type {
   RouteSchema,
@@ -15,13 +11,13 @@ import type {
 import { SpiceflowRequest } from './spiceflow.js'
 
 export type ErrorContext<
+  Path extends string = '',
   in out Route extends RouteSchema = {},
   in out Singleton extends SingletonBase = {
     state: {}
     derive: {}
     resolve: {}
   },
-  Path extends string = '',
 > = Prettify<{
   // body: Route['body']
   query: undefined extends Route['query']
@@ -58,13 +54,13 @@ export type ErrorContext<
 }>
 
 export type Context<
+  Path extends string = '',
   in out Route extends RouteSchema = {},
   in out Singleton extends SingletonBase = {
     state: {}
     derive: {}
     resolve: {}
   },
-  Path extends string = '',
 > = Prettify<{
   query: undefined extends Route['query']
     ? Record<string, string | undefined>
@@ -98,7 +94,7 @@ export type MiddlewareContext<
   path: string
   query?: Record<string, string | undefined>
   params?: Record<string, string | undefined>
-  
+
   redirect: Redirect
   // server: Server | null
 

@@ -310,7 +310,7 @@ export type Handler<
   },
   Path extends string = '',
 > = (
-  context: Context<Route, Singleton, Path>,
+  context: Context<Path, Route, Singleton>,
 ) => MaybePromise<
   {} extends Route['response']
     ? unknown
@@ -352,8 +352,8 @@ export type InlineHandler<
   MacroContext = {},
 > = (
   context: MacroContext extends Record<string | number | symbol, unknown>
-    ? Prettify<MacroContext & Context<Route, Singleton, Path>>
-    : Context<Route, Singleton, Path>,
+    ? Prettify<MacroContext & Context<Path, Route, Singleton>>
+    : Context<Path, Route, Singleton>,
 ) =>
   | Response
   | MaybePromiseIterable<
@@ -427,7 +427,7 @@ export type VoidHandler<
   in out Singleton extends SingletonBase = {
     state: {}
   },
-> = (context: Context<Route, Singleton>) => MaybePromise<void>
+> = (context: Context<'', Route, Singleton>) => MaybePromise<void>
 
 export type TransformHandler<
   in out Route extends RouteSchema = {},
@@ -439,11 +439,11 @@ export type TransformHandler<
   (
     context: Prettify<
       Context<
+        BasePath,
         Route,
         Omit<Singleton, 'resolve'> & {
           resolve: {}
-        },
-        BasePath
+        }
       >
     >,
   ): MaybePromise<void>
@@ -459,7 +459,7 @@ export type BodyHandler<
   context: Prettify<
     {
       contentType: string
-    } & Context<Route, Singleton, Path>
+    } & Context<Path, Route, Singleton>
   >,
 
   contentType: string,
@@ -480,7 +480,7 @@ export type AfterResponseHandler<
   },
 > = (
   context: Prettify<
-    Context<Route, Singleton> & {
+    Context<'', Route, Singleton> & {
       response: Route['response']
     }
   >,
@@ -498,6 +498,7 @@ export type ErrorHandler<
   },
 > = (
   context: ErrorContext<
+    '',
     Route,
     {
       state: Singleton['state']
