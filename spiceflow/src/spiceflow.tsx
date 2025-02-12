@@ -33,7 +33,6 @@ import Ajv, { ValidateFunction } from 'ajv'
 import { createElement } from 'react'
 import { z, ZodType } from 'zod'
 import { zodToJsonSchema } from 'zod-to-json-schema'
-import { SpiceflowContext, MiddlewareContext } from './context.js'
 import { isProduction, ValidationError } from './error.js'
 import { isAsyncIterable, isResponse, isTruthy, redirect } from './utils.js'
 
@@ -44,17 +43,17 @@ import {
   LayoutContent,
 } from './react/components.js'
 import {
+  getErrorContext,
+  isNotFoundError,
+  isRedirectError,
+} from './react/errors.js'
+import {
   ClientReferenceMetadataManifest,
   ServerReferenceManifest,
 } from './react/types/index.js'
 import { TrieRouter } from './trie-router/router.js'
 import { decodeURIComponent_ } from './trie-router/url.js'
 import { Result } from './trie-router/utils.js'
-import {
-  getErrorContext,
-  isNotFoundError,
-  isRedirectError,
-} from './react/errors.js'
 
 const ajv = (addFormats.default || addFormats)(
   new (Ajv.default || Ajv)({ useDefaults: true }),
@@ -1006,6 +1005,9 @@ export class Spiceflow<
       const htmlStream = Readable.toWeb(
         htmlAbortable.pipe(new PassThrough()),
       ) as ReadableStream
+      request.signal.addEventListener('abort', () => {
+        htmlAbortable.abort()
+      })
 
       return new Response(htmlStream, {
         status: 404,

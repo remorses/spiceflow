@@ -25,23 +25,26 @@ export default async function handler(
   res: ServerResponse,
 ) {
   const request = createRequest(req, res)
+  const response = await fetchHandler(request)
+  sendResponse(response, res)
+}
+
+export async function fetchHandler(request: Request) {
   const url = new URL(request.url)
   const rscEntry = await importRscEntry()
   const response = await rscEntry.handler(request)
 
   if (!response.headers.get('content-type')?.startsWith('text/x-component')) {
-    sendResponse(response, res)
-    return
+    return response
   }
 
   if (url.searchParams.has('__rsc')) {
-    sendResponse(response, res)
-    return
+    return response
   }
 
   const htmlResponse = await renderHtml({ response, request })
 
-  sendResponse(htmlResponse, res)
+  return htmlResponse
 }
 
 async function renderHtml({
@@ -87,6 +90,7 @@ async function renderHtml({
     let payload = await payloadPromise
     htmlStream = await ReactDOMServer.renderToReadableStream(el, {
       bootstrapModules: ssrAssets.bootstrapModules,
+	  signal: request.signal,
       formState: payload.formState,
       onError(e) {
         // This also throws outside, no need to do anything here
@@ -135,6 +139,7 @@ async function renderHtml({
 
     htmlStream = await ReactDOMServer.renderToReadableStream(errorRoot, {
       bootstrapModules: ssrAssets.bootstrapModules,
+	  signal: request.signal,
     })
   }
 

@@ -41,11 +41,7 @@ export function spiceflowPlugin({ entry }): PluginOption {
 
   let command: string = ''
   let server: ViteDevServer
-  let nodeModulesFilesWithUseClient = new Map<
-    string,
-    { id: string; exportNames: Set<string> }
-  >()
-  let buildType: 'scan' | 'server' | 'browser' | 'ssr' | undefined
+  
   return [
     react(),
     prerenderPlugin(),
@@ -58,7 +54,7 @@ export function spiceflowPlugin({ entry }): PluginOption {
         async handler() {
           await fs.promises.writeFile(
             path.resolve('dist/node.js'),
-            `import('./ssr/index.js')`,
+            `import('./ssr/node.js')`,
           )
         },
       },

@@ -1,6 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
-import { PassThrough, Readable } from 'node:stream'
-import type { PipeableStream } from 'react-dom/server'
+import { Readable } from 'node:stream'
 
 export function createRequest(
   req: IncomingMessage,
