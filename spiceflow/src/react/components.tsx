@@ -36,7 +36,7 @@ export type FlightData = {
   //   segments: MatchSegment[]
   page: any
   layouts: { id: string; element: React.ReactNode }[]
-  url: string
+  // url: string
 }
 
 export type ActionResult = {

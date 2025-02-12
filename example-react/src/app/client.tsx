@@ -1,7 +1,7 @@
 "use client";
 import "./client.css";
 
-import React from "react";
+import React, { useActionState } from "react";
 import { add } from "./action-by-client";
 
 export function Counter() {
@@ -79,4 +79,23 @@ export function ClientComponentThrows() {
 export function ErrorRender({ error }) {
 	console.log("caught error", error);
 	return <div>Error from rsc</div>;
+}
+
+
+export function ClientFormWithError() {
+	async function action(_, data: FormData) {
+		"use server";
+		console.log("action", data);
+		throw new Error("test error");
+		return "ok";
+	}
+
+	const [state, formAction] = useActionState(action, null);
+
+	return (
+		<form action={formAction} className="">
+			<input name="name" className="border" type="text" />
+			<button type="submit">Submit</button>
+		</form>
+	);
 }

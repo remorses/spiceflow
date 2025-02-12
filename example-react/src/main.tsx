@@ -1,4 +1,5 @@
-import { Suspense } from "react";
+import { Suspense, useActionState } from "react";
+
 import { Spiceflow } from "spiceflow";
 import { IndexPage } from "./app/index";
 import { Layout } from "./app/layout";
@@ -10,6 +11,7 @@ import { redirect, sleep } from "spiceflow/dist/utils";
 import { Chakra } from "./app/chakra";
 import {
 	ClientComponentThrows,
+	ClientFormWithError,
 	ErrorInUseEffect,
 	ErrorRender,
 } from "./app/client";
@@ -116,6 +118,24 @@ const app = new Spiceflow()
 				<h1>slow page</h1>
 			</div>
 		);
+	})
+	.page("/form", async ({ request, children }) => {
+		async function action(data: FormData) {
+			"use server";
+			console.log("action", data);
+			throw new Error("test error");
+			return "ok";
+		}
+
+		return (
+			<form action={action} className="">
+				<input name="name" className="border" type="text" />
+				<button type="submit">Submit</button>
+			</form>
+		);
+	})
+	.page("/form-error", async ({ request, children }) => {
+		return <ClientFormWithError />;
 	})
 	.layout("/page/*", async ({ request, children }) => {
 		return (

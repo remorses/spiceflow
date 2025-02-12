@@ -29,9 +29,13 @@ async function main() {
       clientReferenceManifest,
       { callServer },
     )
-    // console.log({ 'action payload': payload })
-    setPayload(payloadPromise)
+
     let payload = await payloadPromise
+    
+    if (payload.actionError) {
+      throw payload.actionError
+    }
+    setPayload(payloadPromise)
     return payload.returnValue
   }
   Object.assign(globalThis, { __callServer: callServer })

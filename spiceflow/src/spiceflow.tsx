@@ -899,41 +899,46 @@ export class Spiceflow<
       .filter(isTruthy)
 
     let root: FlightData = {
-      url: request.url,
+      // url: request.url,
       page,
       layouts,
     }
+    let actionError: Error | undefined
     let returnValue: unknown | undefined
     let formState: ReactFormState | undefined
     if (request.method === 'POST') {
-      const url = new URL(request.url)
-      const actionId = url.searchParams.get('__rsc')
-      if (actionId) {
-        // client stream request
-        const contentType = request.headers.get('content-type')
-        const body = contentType?.startsWith('multipart/form-data')
-          ? await request.formData()
-          : await request.text()
-        const args = await ReactServer.decodeReply(body)
-        const reference =
-          serverReferenceManifest.resolveServerReference(actionId)
-        await reference.preload()
-        const action = await reference.get()
-        // TODO handle action errors, redirects, etc
-        returnValue = await (action as any).apply(null, args)
-      } else {
-        // progressive enhancement
-        const formData = await request.formData()
-        console.log(formData)
-        const decodedAction = await ReactServer.decodeAction(
-          formData,
-          serverReferenceManifest,
-        )
-        formState = await ReactServer.decodeFormState(
-          await decodedAction(),
-          formData,
-          serverReferenceManifest,
-        )
+      try {
+        const url = new URL(request.url)
+        const actionId = url.searchParams.get('__rsc')
+        if (actionId) {
+          // client stream request
+          const contentType = request.headers.get('content-type')
+          const body = contentType?.startsWith('multipart/form-data')
+            ? await request.formData()
+            : await request.text()
+          const args = await ReactServer.decodeReply(body)
+          const reference =
+            serverReferenceManifest.resolveServerReference(actionId)
+          await reference.preload()
+          const action = await reference.get()
+          // TODO handle action errors, redirects, etc
+          returnValue = await (action as any).apply(null, args)
+        } else {
+          // progressive enhancement
+          const formData = await request.formData()
+          const decodedAction = await ReactServer.decodeAction(
+            formData,
+            serverReferenceManifest,
+          )
+          formState = await ReactServer.decodeFormState(
+            await decodedAction(),
+            formData,
+            serverReferenceManifest,
+          )
+        }
+      } catch (e) {
+        console.log('action error', e)
+        actionError = e
       }
     }
 
@@ -947,7 +952,8 @@ export class Spiceflow<
         root,
         returnValue,
         formState,
-      },
+        actionError,
+      } satisfies ServerPayload,
       clientReferenceMetadataManifest,
       {
         onPostpone(reason) {
@@ -999,7 +1005,8 @@ export class Spiceflow<
           },
           returnValue,
           formState,
-        },
+          actionError,
+        } satisfies ServerPayload,
         clientReferenceMetadataManifest,
       )
       const htmlStream = Readable.toWeb(
@@ -1838,4 +1845,5 @@ export interface ServerPayload {
   root: FlightData
   formState?: ReactFormState
   returnValue?: unknown
+  actionError?: Error
 }
