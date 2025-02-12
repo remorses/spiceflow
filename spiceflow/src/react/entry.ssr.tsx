@@ -120,7 +120,7 @@ export default async function handler(
     {
       status,
       headers: {
-		// copy rsc headers, so spiceflow can add its own headers via .use()
+        // copy rsc headers, so spiceflow can add its own headers via .use()
         ...Object.fromEntries(response.headers),
         'content-type': 'text/html;charset=utf-8',
       },

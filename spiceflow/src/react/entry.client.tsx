@@ -57,6 +57,7 @@ async function main() {
       return router.listen(async function onNavigation() {
         console.log('onNavigation')
         const url = new URL(window.location.href)
+        url.pathname += '.rsc'
         url.searchParams.set('__rsc', '')
         const payload = ReactClient.createFromFetch<ServerPayload>(
           fetch(url),

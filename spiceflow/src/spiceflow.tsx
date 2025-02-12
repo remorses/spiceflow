@@ -744,20 +744,15 @@ export class Spiceflow<
       JoinPath<BasePath, Path>
     >,
   ): Spiceflow<BasePath, Scoped, Singleton, Definitions, Metadata, Routes> {
-    this.add({
-      method: 'GET',
+    const routeConfig = {
       path,
       handler: handler,
       hooks: hook,
-      kind: 'page',
-    })
-    this.add({
-      method: 'POST',
-      path,
-      handler: handler,
-      hooks: hook,
-      kind: 'page',
-    })
+      kind: 'page' as const,
+    }
+    this.add({ ...routeConfig, method: 'GET' })
+    this.add({ ...routeConfig, path: path + '.rsc', method: 'GET' })
+    this.add({ ...routeConfig, method: 'POST' })
     return this as any
   }
   layout<
@@ -781,20 +776,15 @@ export class Spiceflow<
       JoinPath<BasePath, Path>
     >,
   ): Spiceflow<BasePath, Scoped, Singleton, Definitions, Metadata, Routes> {
-    this.add({
-      method: 'GET',
+    const routeConfig = {
       path,
       handler: handler,
       hooks: hook,
-      kind: 'layout',
-    })
-    this.add({
-      method: 'POST',
-      path,
-      handler: handler,
-      hooks: hook,
-      kind: 'layout',
-    })
+      kind: 'layout' as const,
+    }
+    this.add({ ...routeConfig, method: 'GET' })
+    this.add({ ...routeConfig, path: path + '.rsc', method: 'GET' })
+    this.add({ ...routeConfig, method: 'POST' })
     return this as any
   }
 
