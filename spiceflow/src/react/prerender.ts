@@ -84,7 +84,7 @@ async function processPrerender(outDir: string) {
     }
 
     const htmlFile = urlPathToHtmlPath(route.path)
-    const dataFile = route + '.rsc'
+    const dataFile = route.path + '.rsc'
     await mkdir(path.dirname(path.join(outDir, 'client', htmlFile)), {
       recursive: true,
     })

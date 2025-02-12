@@ -195,5 +195,5 @@ export async function getPrerenderRoutes() {
         route.kind === 'staticPage' ||
         route.kind === 'staticPageWithoutHandler',
     )
-    .filter((x) => x.method === 'GET')
+    .filter((x) => x.method === 'GET' && !x.path.endsWith('.rsc'))
 }
