@@ -735,19 +735,10 @@ export class Spiceflow<
   >(
     path: Path,
     handler: Handle,
-    hook?: LocalHook<
-      LocalSchema,
-      Schema,
-      Singleton,
-      Definitions['error'],
-      Metadata['macro'],
-      JoinPath<BasePath, Path>
-    >,
   ): Spiceflow<BasePath, Scoped, Singleton, Definitions, Metadata, Routes> {
     const routeConfig = {
       path,
       handler: handler,
-      hooks: hook,
       kind: 'page' as const,
     }
     this.add({ ...routeConfig, method: 'GET' })
@@ -767,19 +758,11 @@ export class Spiceflow<
   >(
     path: Path,
     handler: Handle,
-    hook?: LocalHook<
-      LocalSchema,
-      Schema,
-      Singleton,
-      Definitions['error'],
-      Metadata['macro'],
-      JoinPath<BasePath, Path>
-    >,
   ): Spiceflow<BasePath, Scoped, Singleton, Definitions, Metadata, Routes> {
     const routeConfig = {
       path,
       handler: handler,
-      hooks: hook,
+
       kind: 'layout' as const,
     }
     this.add({ ...routeConfig, method: 'GET' })

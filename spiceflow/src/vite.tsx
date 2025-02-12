@@ -176,7 +176,10 @@ export function spiceflowPlugin({ entry }): PluginOption {
               rollupOptions: {
                 // preserveEntrySignatures: 'exports-only',
 
-                input: { index: 'spiceflow/dist/react/entry.ssr' },
+                input: {
+                  index: 'spiceflow/dist/react/entry.ssr',
+                  server: 'spiceflow/dist/react/launchers/node',
+                },
               },
               emitAssets: true,
               ssrEmitAssets: true,
@@ -411,7 +414,7 @@ export function spiceflowPlugin({ entry }): PluginOption {
 
       return { code: result, map: null }
     }),
-    
+
     // vitePluginSilenceDirectiveBuildWarning(),
   ]
 
@@ -655,7 +658,10 @@ function moveStaticAssets(
       // console.log({ fullPath })
       if (asset.endsWith('.js') || processed.has(fullPath)) continue
       processed.add(fullPath)
-      if (!fs.existsSync(fullPath)) continue
+      // if (!fs.existsSync(fullPath)) {
+      //   console.log(`[vite:build-client-references] ${fullPath} does not exist`)
+      //   continue
+      // }
 
       const relative = path.relative(outDir, fullPath)
       fs.renameSync(fullPath, path.join(clientOutDir, relative))

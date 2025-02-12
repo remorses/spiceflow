@@ -1,8 +1,5 @@
-'use client'
-import React from 'react'
 import ReactDOMServer from 'react-dom/server'
-
-const VALID_TAGS = new Set(['title', 'meta', 'link', 'base', 'style', 'script'])
+import React from 'react'
 export class MetaState {
   private tags: React.ReactElement[] = []
   private counter: number = 0
@@ -68,34 +65,4 @@ export class MetaState {
       return `${tag.type}:${this.incrementCounter()}`
     }
   }
-}
-
-const MetaContext = React.createContext<MetaState | null>(null)
-
-export const MetaProvider = ({
-  metaState,
-  children,
-}: {
-  metaState: MetaState
-  children: React.ReactNode
-}) => {
-  return (
-    <MetaContext.Provider value={metaState}>{children}</MetaContext.Provider>
-  )
-}
-
-export const Head = ({ children }) => {
-  if (typeof window !== 'undefined') {
-    return children
-  }
-  const metaState = React.useContext(MetaContext)
-  if (!metaState) throw new Error('Meta must be used within MetaProvider')
-
-  React.Children.forEach(children, (child) => {
-    if (React.isValidElement(child) && VALID_TAGS.has(child.type as string)) {
-      metaState.addTag(child)
-    }
-  })
-
-  return null
 }

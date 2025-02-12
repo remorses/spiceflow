@@ -15,7 +15,7 @@ import {
 } from "./app/client";
 import { DialogDemo } from "./app/dialog";
 import { WithSelect } from "./app/select";
-import { Head } from "spiceflow/dist/react/meta";
+import { Head } from "spiceflow/dist/react/head";
 
 const app = new Spiceflow()
 	.state("middleware1", "")

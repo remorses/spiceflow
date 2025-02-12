@@ -1,5 +1,5 @@
-import type { IncomingMessage, ServerResponse } from 'node:http'
 import { isbot } from 'isbot'
+import type { IncomingMessage, ServerResponse } from 'node:http'
 
 import ReactDOMServer from 'react-dom/server.edge'
 import ReactClient from 'spiceflow/dist/react/server-dom-client-optimized'
@@ -7,17 +7,18 @@ import type { ModuleRunner } from 'vite/module-runner'
 
 import cssUrls from 'virtual:app-styles'
 import { ServerPayload } from '../spiceflow.js'
-import { DefaultNotFoundPage, LayoutContent } from './components.js'
+import { LayoutContent } from './components.js'
+import { FlightDataContext } from './context.js'
+import { getErrorContext, isNotFoundError, isRedirectError } from './errors.js'
+import { MetaProvider } from './head.js'
+import { MetaState } from './metastate.js'
+import { injectRSCPayload } from './transform.js'
 import { clientReferenceManifest } from './utils/client-reference.js'
 import {
-  createRequest,
-  fromWebToNodeReadable,
-  sendResponse,
+	createRequest,
+	fromWebToNodeReadable,
+	sendResponse,
 } from './utils/fetch.js'
-import { getErrorContext, isNotFoundError, isRedirectError } from './errors.js'
-import { FlightDataContext } from './context.js'
-import { injectRSCPayload } from './transform.js'
-import { MetaState, MetaProvider } from './meta.js'
 
 export default async function handler(
   req: IncomingMessage,
