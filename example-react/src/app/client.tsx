@@ -3,12 +3,14 @@ import "./client.css";
 
 import React, { useActionState } from "react";
 import { add } from "./action-by-client";
+import { redirect } from "spiceflow/dist/utils";
+import { action } from "./form-action";
 
-export function Counter() {
+export function Counter({ name = "Client" }) {
 	const [count, setCount] = React.useState(0);
 	return (
 		<div data-testid="client-counter" style={{ padding: "0.5rem" }}>
-			<div>Client counter: {count}</div>
+			<div>{name} counter: {count}</div>
 			<div>
 				<button onClick={() => setCount((c) => c - 1)}>-</button>
 				<button onClick={() => setCount((c) => c + 1)}>+</button>
@@ -80,22 +82,22 @@ export function ErrorRender({ error }) {
 	console.log("caught error", error);
 	return <div>Error from rsc</div>;
 }
-
-
-export function ClientFormWithError() {
-	async function action(_, data: FormData) {
-		"use server";
-		console.log("action", data);
-		throw new Error("test error");
-		return "ok";
-	}
-
-	const [state, formAction] = useActionState(action, null);
+export function ClientFormWithError({
+	shouldRedirect = false,
+	shouldError = false,
+	action: _action = undefined as Function,
+}) {
+	const [state, formAction] = useActionState(_action || action, {
+		shouldRedirect,
+		shouldError,
+		result: "",
+	});
 
 	return (
-		<form action={formAction} className="">
+		<form action={formAction} className="flex flex-col gap-2">
 			<input name="name" className="border" type="text" />
 			<button type="submit">Submit</button>
+			<pre>{JSON.stringify(state)}</pre>
 		</form>
 	);
 }

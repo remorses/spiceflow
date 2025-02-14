@@ -119,12 +119,14 @@ const app = new Spiceflow()
 			</div>
 		);
 	})
-	.page("/form", async ({ request, children }) => {
+	.page("/form-server", async ({ state, children }) => {
 		async function action(data: FormData) {
 			"use server";
-			console.log("action", data);
-			throw new Error("test error");
-			return "ok";
+			if (!state) {
+				throw new Error("userId not set");
+			}
+
+			return
 		}
 
 		return (
@@ -135,7 +137,21 @@ const app = new Spiceflow()
 		);
 	})
 	.page("/form-error", async ({ request, children }) => {
+		return <ClientFormWithError shouldError />;
+	})
+	.page("/form", async ({ request, children }) => {
 		return <ClientFormWithError />;
+	})
+	.page("/form-redirect", async ({ request, children }) => {
+		return <ClientFormWithError shouldRedirect />;
+	})
+	.page("/form-inline-action-server", async ({ state, children }) => {
+		async function action({}) {
+			"use server";
+			console.log({ state });
+			return { state, hello: true };
+		}
+		return <ClientFormWithError action={action} shouldRedirect />;
 	})
 	.layout("/page/*", async ({ request, children }) => {
 		return (

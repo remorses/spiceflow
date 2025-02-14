@@ -16,6 +16,7 @@ import {
 } from './components.js'
 import { ServerPayload } from '../spiceflow.js'
 import { FlightDataContext } from './context.js'
+import { createError, getErrorContext } from './errors.js'
 
 async function main() {
   const callServer: CallServerFn = async (id, args) => {
@@ -31,8 +32,9 @@ async function main() {
     )
 
     let payload = await payloadPromise
-    
+
     if (payload.actionError) {
+      console.log(getErrorContext(payload.actionError))
       throw payload.actionError
     }
     setPayload(payloadPromise)
