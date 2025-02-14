@@ -15,3 +15,6 @@ dist-play-sdk
 
 
 __pycache__
+debug
+.env
+.last-run.json
