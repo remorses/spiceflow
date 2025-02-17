@@ -976,9 +976,18 @@ export class Spiceflow<
     const nodeStream = abortable.pipe(passthrough)
     const stream = Readable.toWeb(nodeStream) as ReadableStream
     const start = performance.now()
-    await new Promise<void>((resolve) => {
+    await new Promise<void>((resolve, reject) => {
       passthrough.once('data', () => {
         resolve()
+      })
+      passthrough.once('error', (err) => {
+        reject(err)
+      })
+      passthrough.once('end', () => {
+        resolve() // Resolve if stream ends before data
+      })
+      passthrough.once('close', () => {
+        resolve() // Resolve if stream closes
       })
     })
     const end = performance.now()
