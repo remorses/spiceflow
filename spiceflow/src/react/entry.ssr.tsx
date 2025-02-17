@@ -30,21 +30,26 @@ export default async function handler(
 }
 
 export async function fetchHandler(request: Request) {
-  const url = new URL(request.url)
-  const rscEntry = await importRscEntry()
-  const response = await rscEntry.handler(request)
+  try {
+    const url = new URL(request.url)
+    const rscEntry = await importRscEntry()
+    const response = await rscEntry.handler(request)
 
-  if (!response.headers.get('content-type')?.startsWith('text/x-component')) {
-    return response
+    if (!response.headers.get('content-type')?.startsWith('text/x-component')) {
+      return response
+    }
+
+    if (url.searchParams.has('__rsc')) {
+      return response
+    }
+
+    const htmlResponse = await renderHtml({ response, request })
+
+    return htmlResponse
+  } catch (err) {
+    console.error('[fetchHandler] unexpected error', err)
+    return new Response('', { status: 500 })
   }
-
-  if (url.searchParams.has('__rsc')) {
-    return response
-  }
-
-  const htmlResponse = await renderHtml({ response, request })
-
-  return htmlResponse
 }
 
 async function renderHtml({
