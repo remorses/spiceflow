@@ -1,8 +1,8 @@
 {
   "name": "example-react",
-  "version": "1.0.0",
   "description": "",
   "main": "index.js",
+  "private": true,
   "type": "module",
   "scripts": {
     "dev": "DEBUG_SPICEFLOW=1 vite",

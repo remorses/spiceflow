@@ -1,5 +1,29 @@
 # spiceflow
 
+## 1.6.2-rsc.2
+
+### Patch Changes
+
+- initial rsc release
+- Updated dependencies
+  - spiceflow@1.6.2-rsc.2
+
+## 1.6.2-rsc.1
+
+### Patch Changes
+
+- initial rsc release
+- Updated dependencies
+  - spiceflow@1.6.2-rsc.1
+
+## 1.6.2-rsc.0
+
+### Patch Changes
+
+- initial rsc release
+- Updated dependencies
+  - spiceflow@1.6.2-rsc.0
+
 ## 1.6.1
 
 ### Patch Changes

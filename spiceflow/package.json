@@ -1,6 +1,6 @@
 {
   "name": "spiceflow",
-  "version": "1.6.1",
+  "version": "1.6.2-rsc.2",
   "description": "Simple API framework with RPC and type safety",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -75,7 +75,7 @@
     "react-dom": "19.0.0",
     "rsc-html-stream": "^0.0.4",
     "sirv": "^3.0.0",
-    "spiceflow": "*",
+    "spiceflow": "1.6.2-rsc.2",
     "superjson": "^2.2.2",
     "unplugin-rsc": "^0.0.11",
     "vite": "^6.1.0",
