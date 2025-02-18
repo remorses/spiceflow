@@ -16,11 +16,11 @@
     "js-yaml": "^4.1.0"
   },
   "dependencies": {
-    "@ai-sdk/deepseek": "^0.1.8",
-    "@ai-sdk/fireworks": "^0.1.8",
-    "@ai-sdk/openai": "^1.1.9",
+    "@ai-sdk/deepseek": "^0.1.10",
+    "@ai-sdk/fireworks": "^0.1.10",
+    "@ai-sdk/openai": "^1.1.12",
     "@fastify/deepmerge": "^2.0.1",
-    "ai": "^4.1.17",
+    "ai": "^4.1.41",
     "camelcase": "^8.0.0",
     "diff": "^7.0.0",
     "eventsource-parser": "^3.0.0",
