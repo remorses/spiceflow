@@ -234,12 +234,19 @@ describe('client', () => {
 
   it('stream return', async () => {
     const { data } = await client['stream-return'].get()
-    expect(data).toEqual('a')
+    let all = ''
+    for await (const chunk of data!) {
+      all += chunk
+    }
+    expect(all).toEqual('a')
   })
   it('stream return async', async () => {
-    const { data } = await client['stream-return-async'].get({})
-    // console.log(data)
-    expect(data).toEqual('a')
+    const { data } = await client['stream-return-async'].get()
+    let all = ''
+    for await (const chunk of data!) {
+      all += chunk
+    }
+    expect(all).toEqual('a')
   })
   it('post zodAny', async () => {
     const body = [{ key: 'value' }, 123, 'string', true, null]

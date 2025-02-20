@@ -285,10 +285,16 @@ describe('Stream', () => {
       app.handle(req('/json')),
     ])
 
-    expect(await response[0].text()).toBe('"hello"')
-    expect(await response[1].json()).toEqual({
-      hello: 'world',
-    })
+    const text = await response[0].text()
+    expect(text).toMatchInlineSnapshot(`
+      "event: message
+      data: "hello"
+
+      event: done
+
+      "
+    `)
+    expect(parseTextEventStreamItem(text)).toMatchInlineSnapshot(`"hello"`)
   })
 
   it('return async value if not yield', async () => {
@@ -305,10 +311,17 @@ describe('Stream', () => {
       app.handle(req('/json')),
     ])
 
-    expect(await response[0].text()).toBe('"hello"')
-    expect(await response[1].json()).toEqual({
-      hello: 'world',
-    })
+    const text = await response[0].text()
+    expect(text).toMatchInlineSnapshot(`
+      "event: message
+      data: "hello"
+
+      event: done
+
+      "
+    `)
+    expect(parseTextEventStreamItem(text)).toMatchInlineSnapshot(`"hello"`)
+    
   })
 
   it('handle object and array', async () => {

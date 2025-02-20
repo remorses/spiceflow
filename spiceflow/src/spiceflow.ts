@@ -1033,7 +1033,18 @@ export class Spiceflow<
     if (init instanceof Promise) init = await init
 
     if (init?.done) {
-      return await turnHandlerResultIntoResponse(init.value, route)
+      return new Response(
+        'event: message\ndata: ' +
+          superjsonSerialize(init.value, false) +
+          '\n\n' +
+          'event: done\n\n',
+        {
+          headers: {
+            'Content-Type': 'text/event-stream',
+            'Cache-Control': 'no-cache',
+          },
+        },
+      )
     }
 
     let self = this
