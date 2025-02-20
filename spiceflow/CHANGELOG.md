@@ -1,5 +1,11 @@
 # spiceflow
 
+## 1.6.2
+
+### Patch Changes
+
+- 4874fc4: Async generator always return a sse stream, even if they have only one return
+
 ## 1.6.1
 
 ### Patch Changes
