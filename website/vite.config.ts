@@ -2,10 +2,8 @@ import { remarkCodeHike } from '@code-hike/mdx'
 import withSlugs from 'rehype-slug'
 import withToc from '@stefanprobst/rehype-extract-toc'
 import withTocExport from '@stefanprobst/rehype-extract-toc/mdx'
-import {
-  vitePlugin as remix,
-  cloudflareDevProxyVitePlugin as remixCloudflareDevProxy,
-} from '@remix-run/dev'
+import { reactRouter } from '@react-router/dev/vite'
+
 import mdx from '@mdx-js/rollup'
 import remarkMdxFrontmatter from 'remark-mdx-frontmatter'
 import remarkFrontmatter from 'remark-frontmatter'
@@ -14,12 +12,21 @@ import { defineConfig } from 'vite'
 import tsconfigPaths from 'vite-tsconfig-paths'
 
 const chConfig = {
-  components: { code: "MyCode" },
+  components: { code: 'MyCode' },
 }
 
+import { cloudflare } from '@cloudflare/vite-plugin'
+
 export default defineConfig({
+  environments: {
+    ssr: {
+      optimizeDeps: {
+        include: ['@code-hike/mdx/dist/index.css', ],
+      },
+    },
+  },
   plugins: [
-    remixCloudflareDevProxy(),
+    cloudflare({ viteEnvironment: { name: 'ssr' } }),
     mdx({
       remarkPlugins: [
         remarkFrontmatter,
@@ -47,7 +54,7 @@ export default defineConfig({
       mdExtensions: [],
       // providerImportSource: '@mdx-js/react',
     }),
-    remix({}),
+    reactRouter(),
     tsconfigPaths(),
   ],
 })

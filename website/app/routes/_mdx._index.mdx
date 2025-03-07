@@ -537,6 +537,54 @@ new Spiceflow()
   })
 ```
 
+## Non blocking authentication middleware
+
+Sometimes authentication is only required for specific routes, and you don't want to block public routes while waiting for authentication. You can use `Promise.withResolvers()` to start fetching user data in parallel, allowing public routes to respond immediately while protected routes wait for authentication to complete.
+
+The example below demonstrates this pattern - the `/public` route responds instantly while `/protected` waits for authentication:
+
+```ts
+import { Spiceflow } from 'spiceflow'
+
+new Spiceflow()
+  .state('userId', Promise.resolve(''))
+  .state('userEmail', Promise.resolve(''))
+  .use(async ({ request, state }, next) => {
+    const sessionKey = request.headers.get('sessionKey')
+    const userIdPromise = Promise.withResolvers<string>()
+    const userEmailPromise = Promise.withResolvers<string>()
+
+    state.userId = userIdPromise.promise
+    state.userEmail = userEmailPromise.promise
+
+    async function resolveUser() {
+      if (!sessionKey) {
+        userIdPromise.resolve('')
+        userEmailPromise.resolve('')
+        return
+      }
+      const user = await getUser(sessionKey)
+      userIdPromise.resolve(user?.id ?? '')
+      userEmailPromise.resolve(user?.email ?? '')
+    }
+
+    resolveUser()
+  })
+  .get('/protected', async ({ state }) => {
+    const userId = await state.userId
+    if (!userId) throw new Error('Not authenticated')
+    return { message: 'Protected data' }
+  })
+  .get('/public', () => ({ message: 'Public data' }))
+
+async function getUser(sessionKey: string) {
+  await new Promise((resolve) => setTimeout(resolve, 100))
+  return sessionKey === 'valid'
+    ? { id: '123', email: 'user@example.com' }
+    : null
+}
+```
+
 ## Model Context Protocol (MCP)
 
 Spiceflow includes a Model Context Protocol (MCP) plugin that exposes your API routes as tools and resources that can be used by AI language models like Claude. The MCP plugin makes it easy to let AI assistants interact with your API endpoints in a controlled way.

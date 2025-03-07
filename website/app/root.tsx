@@ -1,12 +1,6 @@
-import "@code-hike/mdx/styles"
+// import "@code-hike/mdx/styles"
 
-import {
-  Links,
-  Meta,
-  Outlet,
-  Scripts,
-  ScrollRestoration,
-} from "@remix-run/react";
+import { Links, Meta, Outlet, Scripts, ScrollRestoration } from "react-router";
 
 
 import './global.css';

@@ -18,3 +18,4 @@ __pycache__
 debug
 .env
 .last-run.json
+.react-router
