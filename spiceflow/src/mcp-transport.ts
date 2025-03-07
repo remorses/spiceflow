@@ -1,16 +1,16 @@
 // https://github.com/modelcontextprotocol/typescript-sdk/blob/3164da64d085ec4e022ae881329eee7b72f208d4/src/server/sse.ts
-import { Transport } from '@modelcontextprotocol/sdk/shared/transport.js'
+import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js'
 import {
   JSONRPCMessage,
   JSONRPCMessageSchema,
 } from '@modelcontextprotocol/sdk/types.js'
-import { randomUUID } from 'node:crypto'
 
 /**
  * Server transport for SSE: this will send messages over an SSE connection and receive messages from HTTP POST requests.
  *
  * This transport is only available in Node.js environments.
  */
+
 export class SSEServerTransportSpiceflow implements Transport {
   private _sessionId: string
   private _endpoint: string
@@ -25,7 +25,7 @@ export class SSEServerTransportSpiceflow implements Transport {
    * Creates a new SSE server transport, which will direct the client to POST messages to the relative or absolute URL identified by `_endpoint`.
    */
   constructor(endpoint: string) {
-    this._sessionId = randomUUID()
+    this._sessionId = crypto.randomUUID()
     this._endpoint = endpoint
   }
 

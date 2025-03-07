@@ -45,7 +45,7 @@ function getOperationParameters(operation: OpenAPIV3.OperationObject): {
 
   operation.parameters.forEach((param) => {
     if ('$ref' in param) return // TODO referenced parameters
-    
+
     if (param.in === 'query') {
       queryProperties[param.name] = param.schema as OpenAPIV3.SchemaObject
       if (param.required) queryRequired.push(param.name)
@@ -100,50 +100,55 @@ function createMCPServer({
     },
   )
 
+  const basePath = app.topLevelApp!.prefix || ''
   server.setRequestHandler(ListToolsRequestSchema, async () => {
-    const tools = Object.entries(openapi.paths)
-      .filter(
-        ([path]) => !['/mcp-openapi', '/mcp', '/mcp/message'].includes(path),
-      )
-      .flatMap(([path, pathObj]) =>
-        Object.entries(pathObj || {})
-          .filter(([method]) => method !== 'parameters')
-          .map(([method, operation]) => {
-            const properties: Record<string, any> = {}
-            const required: string[] = []
+    const paths = Object.entries(openapi.paths).filter(
+      ([path]) =>
+        !['/mcp-openapi', '/mcp', '/mcp/message'].includes(
+          path.replace(basePath, ''),
+        ),
+    )
 
-            const requestBody = getOperationRequestBody(
-              operation as OpenAPIV3.OperationObject,
-            )
-            if (requestBody) {
-              properties.body = requestBody
-              required.push('body')
-            }
+    
+    const tools = paths.flatMap(([path, pathObj]) =>
+      Object.entries(pathObj || {})
+        .filter(([method]) => method !== 'parameters')
+        .map(([method, operation]) => {
+          const properties: Record<string, any> = {}
+          const required: string[] = []
 
-            const { queryParams, pathParams } = getOperationParameters(
-              operation as OpenAPIV3.OperationObject,
-            )
-            if (queryParams) {
-              properties.query = queryParams
-            }
-            if (pathParams) {
-              properties.params = pathParams
-            }
+          const requestBody = getOperationRequestBody(
+            operation as OpenAPIV3.OperationObject,
+          )
+          if (requestBody) {
+            properties.body = requestBody
+            required.push('body')
+          }
 
-            return {
-              name: getRouteName({ method, path }),
-              description:
-                (operation as OpenAPIV3.OperationObject).description ||
-                (operation as OpenAPIV3.OperationObject).summary ||
-                `${method.toUpperCase()} ${path}`,
-              inputSchema: {
-                type: 'object',
-                properties,
-                required: required.length > 0 ? required : undefined,
-              },
-            }
-          }),
-      )
+          const { queryParams, pathParams } = getOperationParameters(
+            operation as OpenAPIV3.OperationObject,
+          )
+          if (queryParams) {
+            properties.query = queryParams
+          }
+          if (pathParams) {
+            properties.params = pathParams
+          }
+
+          return {
+            name: getRouteName({ method, path }),
+            description:
+              (operation as OpenAPIV3.OperationObject).description ||
+              (operation as OpenAPIV3.OperationObject).summary ||
+              `${method.toUpperCase()} ${path}`,
+            inputSchema: {
+              type: 'object',
+              properties,
+              required: required.length > 0 ? required : undefined,
+            },
+          }
+        }),
+    )
 
     return { tools }
   })
@@ -169,7 +174,8 @@ function createMCPServer({
         })
       }
 
-      const url = new URL(`http://localhost${path}`)
+      const basePath = app.topLevelApp!.prefix || ''
+      const url = new URL(`http://localhost${basePath}${path}`)
       if (query) {
         Object.entries(query).forEach(([key, value]) => {
           url.searchParams.set(key, String(value))
@@ -302,10 +308,13 @@ export const mcp = <Path extends string = '/mcp'>({
       return 'ok'
     })
     .get(path, async ({ request }) => {
-      const transport = new SSEServerTransportSpiceflow(messagePath)
+      const basePath = app.topLevelApp!.prefix || ''
+      const transport = new SSEServerTransportSpiceflow(basePath + messagePath)
       transports.set(transport.sessionId, transport)
       const openapi = await app
-        .topLevelApp!.handle(new Request('http://localhost/mcp-openapi'))
+        .topLevelApp!.handle(
+          new Request(`http://localhost${basePath}/mcp-openapi`),
+        )
         .then((r) => r.json())
       const { server } = createMCPServer({
         name,

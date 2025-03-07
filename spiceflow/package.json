@@ -42,7 +42,7 @@
     "fern-docs": "pnpm run gen-openapi && fern generate --docs --force",
     "play-sdk:build": "pnpm vite build --config ./scripts/play-sdk.vite.ts",
     "test": "pnpm vitest",
-    "prepare": "pnpm build",
+    "_prepare": "pnpm build",
     "watch": "tsc -w"
   },
   "files": [

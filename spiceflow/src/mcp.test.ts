@@ -18,7 +18,7 @@ describe('MCP Plugin', () => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ;(global as any).EventSource = EventSource
 
-  let app: Spiceflow
+  let app: Spiceflow<any>
   let port: number
   let client: Client
   let transport: SSEClientTransport
@@ -26,7 +26,7 @@ describe('MCP Plugin', () => {
   beforeAll(async () => {
     port = await getAvailablePort()
 
-    app = new Spiceflow()
+    app = new Spiceflow({ basePath: '/api' })
       .use(mcp({ path: '/mcp' }))
       .get('/goSomething', () => 'hi')
       .get('/users', () => ({ users: [{ id: 1, name: 'John' }] }))
@@ -55,7 +55,7 @@ describe('MCP Plugin', () => {
       )
     await app.listen(port)
 
-    transport = new SSEClientTransport(new URL(`http://localhost:${port}/mcp`))
+    transport = new SSEClientTransport(new URL(`http://localhost:${port}/api/mcp`))
 
     client = new Client(
       {
@@ -82,23 +82,23 @@ describe('MCP Plugin', () => {
       {
         "tools": [
           {
-            "description": "GET /goSomething",
+            "description": "GET /api/goSomething",
             "inputSchema": {
               "properties": {},
               "type": "object",
             },
-            "name": "GET /goSomething",
+            "name": "GET /api/goSomething",
           },
           {
-            "description": "GET /users",
+            "description": "GET /api/users",
             "inputSchema": {
               "properties": {},
               "type": "object",
             },
-            "name": "GET /users",
+            "name": "GET /api/users",
           },
           {
-            "description": "GET /somethingElse/{id}",
+            "description": "GET /api/somethingElse/{id}",
             "inputSchema": {
               "properties": {
                 "params": {
@@ -115,10 +115,10 @@ describe('MCP Plugin', () => {
               },
               "type": "object",
             },
-            "name": "GET /somethingElse/{id}",
+            "name": "GET /api/somethingElse/{id}",
           },
           {
-            "description": "GET /search",
+            "description": "GET /api/search",
             "inputSchema": {
               "properties": {
                 "query": {
@@ -139,7 +139,7 @@ describe('MCP Plugin', () => {
               },
               "type": "object",
             },
-            "name": "GET /search",
+            "name": "GET /api/search",
           },
         ],
       }
@@ -185,13 +185,23 @@ describe('MCP Plugin', () => {
       [
         {
           "mimeType": "application/json",
-          "name": "GET /goSomething",
-          "uri": "http://localhost/goSomething",
+          "name": "GET /api/goSomething",
+          "uri": "http://localhost/api/goSomething",
         },
         {
           "mimeType": "application/json",
-          "name": "GET /users",
-          "uri": "http://localhost/users",
+          "name": "GET /api/users",
+          "uri": "http://localhost/api/users",
+        },
+        {
+          "mimeType": "application/json",
+          "name": "GET /api/mcp",
+          "uri": "http://localhost/api/mcp",
+        },
+        {
+          "mimeType": "application/json",
+          "name": "GET /api/mcp-openapi",
+          "uri": "http://localhost/api/mcp-openapi",
         },
       ]
     `)
@@ -200,7 +210,7 @@ describe('MCP Plugin', () => {
       {
         method: 'resources/read',
         params: {
-          uri: `http://localhost:${port}/users`,
+          uri: `http://localhost:${port}/api/users`,
         },
       },
       ReadResourceResultSchema,
@@ -212,7 +222,7 @@ describe('MCP Plugin', () => {
         {
           "mimeType": "application/json",
           "text": "{"users":[{"id":1,"name":"John"}]}",
-          "uri": "http://localhost:4000/users",
+          "uri": "http://localhost:4000/api/users",
         },
       ]
     `)

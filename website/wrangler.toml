@@ -5,4 +5,7 @@ assets = { directory = "build/client/assets/", binding = "ASSETS"  }
 
 compatibility_date = "2025-01-01"
 
+node_compat = true
+
 main = "./workers/app.ts"
+

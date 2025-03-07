@@ -7,8 +7,9 @@
     "lib": ["DOM", "ESNext", "dom.iterable"],
     "moduleResolution": "NodeNext",
     "declarationMap": true,
-    "sourceMap": true,
+    "sourceMap": false,
     "resolveJsonModule": true,
+    
     "outDir": "dist"
   },
   "include": ["src"]
