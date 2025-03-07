@@ -206,7 +206,7 @@ importers:
         version: 3.1.0(@types/react@19.0.10)(react@19.0.0)
       '@mdx-js/rollup':
         specifier: ^3.1.0
-        version: 3.1.0(acorn@8.14.0)(rollup@4.34.0)
+        version: 3.1.0(acorn@8.14.0)(rollup@4.34.9)
       '@react-router/cloudflare':
         specifier: ^7.3.0
         version: 7.3.0(@cloudflare/workers-types@4.20250303.0)(react-router@7.3.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0))(tsup@8.4.0(jiti@1.21.7)(postcss@8.5.1)(tsx@4.19.2)(typescript@5.7.3)(yaml@2.7.0))(typescript@5.7.3)
@@ -246,6 +246,9 @@ importers:
       remark-mdx-frontmatter:
         specifier: ^5.0.0
         version: 5.0.0
+      spiceflow:
+        specifier: workspace:*
+        version: link:../spiceflow
       unified:
         specifier: ^11.0.5
         version: 11.0.5
@@ -5785,11 +5788,11 @@ snapshots:
       '@types/react': 19.0.10
       react: 19.0.0
 
-  '@mdx-js/rollup@3.1.0(acorn@8.14.0)(rollup@4.34.0)':
+  '@mdx-js/rollup@3.1.0(acorn@8.14.0)(rollup@4.34.9)':
     dependencies:
       '@mdx-js/mdx': 3.1.0(acorn@8.14.0)
-      '@rollup/pluginutils': 5.1.4(rollup@4.34.0)
-      rollup: 4.34.0
+      '@rollup/pluginutils': 5.1.4(rollup@4.34.9)
+      rollup: 4.34.9
       source-map: 0.7.4
       vfile: 6.0.3
     transitivePeerDependencies:
@@ -5931,13 +5934,13 @@ snapshots:
     optionalDependencies:
       typescript: 5.7.3
 
-  '@rollup/pluginutils@5.1.4(rollup@4.34.0)':
+  '@rollup/pluginutils@5.1.4(rollup@4.34.9)':
     dependencies:
       '@types/estree': 1.0.6
       estree-walker: 2.0.2
       picomatch: 4.0.2
     optionalDependencies:
-      rollup: 4.34.0
+      rollup: 4.34.9
 
   '@rollup/rollup-android-arm-eabi@4.34.0':
     optional: true

@@ -26,6 +26,7 @@
     "@stefanprobst/rehype-extract-toc": "^2.2.1",
     "@tailwindcss/typography": "^0.5.13",
     "@types/mdx": "^2.0.13",
+    "spiceflow": "workspace:*",
     "isbot": "^4.1.0",
     "miniflare": "^3.20240404.0",
     "react": "19.0.0",
