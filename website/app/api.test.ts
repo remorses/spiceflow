@@ -20,9 +20,9 @@ test('list', async () => {
     },
   )
   const port = 5173
-  const transport = new SSEClientTransport(
-    new URL(`http://localhost:${port}/api/mcp`),
-  )
+  let url = `http://localhost:${port}/api/mcp`
+  // url = `https://spiceflow-website-worker.remorses.workers.dev/api/mcp`
+  const transport = new SSEClientTransport(new URL(url))
   await client.connect(transport)
   const resources = await client.request(
     { method: 'tools/list' },

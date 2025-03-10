@@ -109,7 +109,6 @@ function createMCPServer({
         ),
     )
 
-    
     const tools = paths.flatMap(([path, pathObj]) =>
       Object.entries(pathObj || {})
         .filter(([method]) => method !== 'parameters')

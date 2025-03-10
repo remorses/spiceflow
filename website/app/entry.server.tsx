@@ -7,7 +7,7 @@ import { redirect } from 'react-router';
 import type { AppLoadContext, EntryContext } from 'react-router';
 import { ServerRouter } from 'react-router';
 import { isbot } from 'isbot'
-import { renderToReadableStream } from 'react-dom/server'
+import dom from 'react-dom/server'
 
 export default async function handleRequest(
     request: Request,
@@ -19,7 +19,7 @@ export default async function handleRequest(
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     loadContext: AppLoadContext,
 ) {
-    const body = await renderToReadableStream(
+    const body = await dom.renderToReadableStream(
         <ServerRouter context={reactRouterContext} url={request.url} />,
         {
             signal: request.signal,

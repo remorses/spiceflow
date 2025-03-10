@@ -18,13 +18,7 @@ const chConfig = {
 import { cloudflare } from '@cloudflare/vite-plugin'
 
 export default defineConfig({
-  environments: {
-    ssr: {
-      optimizeDeps: {
-        include: ['@code-hike/mdx/dist/index.css', ],
-      },
-    },
-  },
+  
   plugins: [
     cloudflare({ viteEnvironment: { name: 'ssr' } }),
     mdx({
