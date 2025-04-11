@@ -1,8 +1,9 @@
 import { test, describe, expect } from 'vitest'
-import { Type } from '@sinclair/typebox'
+
 import { bfs, cloneDeep, Spiceflow } from './spiceflow.js'
 import { z } from 'zod'
 import { createSpiceflowClient } from './client/index.js'
+import { Type } from 'ajv/dist/compile/util.js'
 
 test('works', async () => {
   const res = await new Spiceflow()
@@ -316,7 +317,7 @@ test('GET dynamic route, params are typed', async () => {
   const res = await new Spiceflow()
     .get('/ids/:id', ({ params }) => {
       let id = params.id
-      // @ts-expect-error
+
       params.sdfsd
       return id
     })
@@ -400,8 +401,8 @@ test('validate body works, request success', async () => {
         return 'ok'
       },
       {
-        body: Type.Object({
-          name: Type.String(),
+        body: z.object({
+          name: z.string(),
         }),
       },
     )
@@ -429,9 +430,9 @@ test('validate body works, request fails', async () => {
         expect(body).toEqual({ name: 'John' })
       },
       {
-        body: Type.Object({
-          name: Type.String(),
-          requiredField: Type.String(),
+        body: z.object({
+          name: z.string(),
+          requiredField: z.string(),
         }),
       },
     )

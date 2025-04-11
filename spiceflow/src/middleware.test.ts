@@ -1,7 +1,6 @@
-import { test, describe, expect } from 'vitest'
-import { Type } from '@sinclair/typebox'
-import { bfs, Spiceflow } from './spiceflow.js'
+import { expect, test } from 'vitest'
 import { z } from 'zod'
+import { Spiceflow } from './spiceflow.js'
 
 test('middleware with next changes the response', async () => {
   const res = await new Spiceflow()
