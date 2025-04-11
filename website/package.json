@@ -41,8 +41,8 @@
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20240502.0",
     "@react-router/dev": "^7.5.0",
-    "@types/react": "^19.0.10",
-    "@types/react-dom": "^19.0.4",
+    "@types/react": "^19.1.1",
+    "@types/react-dom": "^19.1.2",
     "autoprefixer": "^10.4.19",
     "node-fetch": "^3.3.2",
     "postcss": "^8.4.38",
