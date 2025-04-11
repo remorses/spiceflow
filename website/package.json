@@ -1,5 +1,5 @@
 {
-  "name": "website",
+  "name": "spiceflow-website",
   "private": true,
   "sideEffects": false,
   "type": "module",
