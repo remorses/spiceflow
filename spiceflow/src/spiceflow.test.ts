@@ -317,7 +317,7 @@ test('GET dynamic route, params are typed', async () => {
   const res = await new Spiceflow()
     .get('/ids/:id', ({ params }) => {
       let id = params.id
-
+      // @ts-expect-error
       params.sdfsd
       return id
     })
