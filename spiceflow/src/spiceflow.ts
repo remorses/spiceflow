@@ -945,68 +945,11 @@ export class Spiceflow<
     }
     return this.listenNode(port, hostname)
   }
-
   async listenNode(port: number, hostname: string = '0.0.0.0') {
-    const { Readable } = await import('stream')
     const { createServer } = await import('http')
 
-    const server = createServer(async (req, res) => {
-      const abortController = new AbortController()
-      const { signal } = abortController
-
-      req.on('error', (err) => {
-        abortController.abort()
-      })
-      req.on('aborted', (err) => {
-        abortController.abort()
-      })
-      // this is how you see when a request is aborted in Node.js, laughable
-      res.on('close', function () {
-        let aborted = !res.writableFinished
-        if (aborted) {
-          abortController.abort()
-        }
-      })
-
-      const url = new URL(
-        req.url || '',
-        `http://${req.headers.host || hostname || 'localhost'}`,
-      )
-      const typedRequest = new SpiceflowRequest(url.toString(), {
-        method: req.method,
-        headers: req.headers as HeadersInit,
-        body:
-          req.method !== 'GET' && req.method !== 'HEAD'
-            ? (Readable.toWeb(req) as any)
-            : null,
-        signal,
-        // @ts-ignore
-        duplex: 'half',
-        // keepalive: true,
-      })
-
-      try {
-        const response = await this.handle(typedRequest)
-
-        res.statusCode = response.status
-        for (const [key, value] of response.headers) {
-          res.setHeader(key, value)
-        }
-
-        if (response.body) {
-          const reader = response.body.getReader()
-          while (true) {
-            const { done, value } = await reader.read()
-            if (done) break
-            res.write(value)
-          }
-        }
-        res.end()
-      } catch (error) {
-        console.error('Error handling request:', error)
-        res.statusCode = 500
-        res.end(superjsonSerialize({ message: 'Internal Server Error' }))
-      }
+    const server = createServer((req, res) => {
+      return this.handleNode(req, res, hostname)
     })
 
     await new Promise((resolve, reject) => {
@@ -1017,6 +960,63 @@ export class Spiceflow<
     })
 
     return server
+  }
+
+  async handleNode(req: any, res: any, hostname: string = '0.0.0.0') {
+    const { Readable } = await import('stream')
+    const abortController = new AbortController()
+    const { signal } = abortController
+
+    req.on('error', (err) => {
+      abortController.abort()
+    })
+    req.on('aborted', (err) => {
+      abortController.abort()
+    })
+    res.on('close', function () {
+      let aborted = !res.writableFinished
+      if (aborted) {
+        abortController.abort()
+      }
+    })
+
+    const url = new URL(
+      req.url || '',
+      `http://${req.headers.host || hostname || 'localhost'}`,
+    )
+    const typedRequest = new SpiceflowRequest(url.toString(), {
+      method: req.method,
+      headers: req.headers as HeadersInit,
+      body:
+        req.method !== 'GET' && req.method !== 'HEAD'
+          ? (Readable.toWeb(req) as any)
+          : null,
+      signal,
+      // @ts-ignore
+      duplex: 'half',
+    })
+
+    try {
+      const response = await this.handle(typedRequest)
+      res.statusCode = response.status
+      for (const [key, value] of response.headers) {
+        res.setHeader(key, value)
+      }
+
+      if (response.body) {
+        const reader = response.body.getReader()
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          res.write(value)
+        }
+      }
+      res.end()
+    } catch (error) {
+      console.error('Error handling request:', error)
+      res.statusCode = 500
+      res.end(superjsonSerialize({ message: 'Internal Server Error' }))
+    }
   }
   private async handleStream({
     onErrorHandlers,
