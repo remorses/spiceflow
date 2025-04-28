@@ -1,5 +1,11 @@
 # spiceflow
 
+## 1.7.1
+
+### Patch Changes
+
+- Use writeHead in handleNode
+
 ## 1.7.0
 
 ### Minor Changes

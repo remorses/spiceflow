@@ -967,6 +967,11 @@ export class Spiceflow<
     res: ServerResponse,
     hostname: string = '0.0.0.0',
   ) {
+    if (req?.['body']) {
+      throw new Error(
+        'req.body is defined, you should disable your framework body parser to be able to use the request in Spiceflow',
+      )
+    }
     const { Readable } = await import('stream')
     const abortController = new AbortController()
     const { signal } = abortController
