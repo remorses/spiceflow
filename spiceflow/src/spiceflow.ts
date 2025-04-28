@@ -998,7 +998,22 @@ export class Spiceflow<
       headers: req.headers as HeadersInit,
       body:
         req.method !== 'GET' && req.method !== 'HEAD'
-          ? (Readable.toWeb(req) as any)
+          ? new ReadableStream({
+              start(controller) {
+                req.on('data', (chunk) => {
+                  controller.enqueue(
+                    new Uint8Array(
+                      chunk.buffer,
+                      chunk.byteOffset,
+                      chunk.byteLength,
+                    ),
+                  )
+                })
+                req.on('end', () => {
+                  controller.close()
+                })
+              },
+            })
           : null,
       signal,
       // @ts-ignore

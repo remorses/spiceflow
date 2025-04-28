@@ -1,5 +1,11 @@
 # spiceflow
 
+## 1.7.2
+
+### Patch Changes
+
+- Fix Next.js usage, Next.js is so retarded it manages to fuck up Readable.toWeb somehow
+
 ## 1.7.1
 
 ### Patch Changes
