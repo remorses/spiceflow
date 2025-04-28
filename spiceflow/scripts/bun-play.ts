@@ -1,7 +1,10 @@
 import { Spiceflow } from '../src/spiceflow.js'
 
 const app = new Spiceflow()
-  .get('/', () => 'Hi')
+  .get('/', () => {
+    console.log('running')
+    return new Response('Hello World')
+  })
   .get('/id/:id', (c) => {
     const responseBody = `${c.params.id} ${c.query.name}`
     const headers = new Headers({
@@ -14,4 +17,4 @@ const app = new Spiceflow()
     type: 'json',
   })
 
-app.listen(3000)
+app.listen(3020)

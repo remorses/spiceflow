@@ -29,12 +29,12 @@ let globalIndex = 0
 
 import OriginalRouter from '@medley/router'
 import Ajv, { ValidateFunction } from 'ajv'
+import type { IncomingMessage, ServerResponse } from 'http'
 import { z, ZodType } from 'zod'
 import { zodToJsonSchema } from 'zod-to-json-schema'
-import { Context, MiddlewareContext } from './context.js'
+import { MiddlewareContext } from './context.js'
 import { isProduction, ValidationError } from './error.js'
 import { isAsyncIterable, isResponse, redirect } from './utils.js'
-import { json } from 'stream/consumers'
 
 const ajv = (addFormats.default || addFormats)(
   new (Ajv.default || Ajv)({ useDefaults: true }),
@@ -962,7 +962,11 @@ export class Spiceflow<
     return server
   }
 
-  async handleNode(req: any, res: any, hostname: string = '0.0.0.0') {
+  async handleNode(
+    req: IncomingMessage,
+    res: ServerResponse,
+    hostname: string = '0.0.0.0',
+  ) {
     const { Readable } = await import('stream')
     const abortController = new AbortController()
     const { signal } = abortController
@@ -998,10 +1002,10 @@ export class Spiceflow<
 
     try {
       const response = await this.handle(typedRequest)
-      res.statusCode = response.status
-      for (const [key, value] of response.headers) {
-        res.setHeader(key, value)
-      }
+      res.writeHead(
+        response.status,
+        Object.fromEntries(response.headers.entries()),
+      )
 
       if (response.body) {
         const reader = response.body.getReader()
