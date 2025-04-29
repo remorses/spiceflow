@@ -11,6 +11,13 @@
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     },
+    "./_node_utils": {
+      "types": "./dist/_node_utils.d.ts",
+      "browser": "./dist/_node_utils_browser.js",
+      "workerd": "./dist/_node_utils_browser.js",
+      "edge-light": "./dist/_node_utils_browser.js",
+      "default": "./dist/_node_utils.js"
+    },
     "./cors": {
       "types": "./dist/cors.d.ts",
       "default": "./dist/cors.js"

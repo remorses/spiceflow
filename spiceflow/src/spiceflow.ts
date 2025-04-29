@@ -1,6 +1,6 @@
 import addFormats from 'ajv-formats'
+import { createServer } from 'spiceflow/_node_utils'
 import lodashCloneDeep from 'lodash.clonedeep'
-
 import superjson from 'superjson'
 import {
   ComposeSpiceflowResponse,
@@ -25,17 +25,16 @@ import {
   TypeSchema,
   UnwrapRoute,
 } from './types.js'
-let globalIndex = 0
 
 import OriginalRouter from '@medley/router'
 import Ajv, { ValidateFunction } from 'ajv'
-import type { IncomingMessage, ServerResponse } from 'http'
+import { type IncomingMessage, type ServerResponse } from 'http'
 import { z, ZodType } from 'zod'
 import { zodToJsonSchema } from 'zod-to-json-schema'
 import { MiddlewareContext } from './context.js'
 import { isProduction, ValidationError } from './error.js'
 import { isAsyncIterable, isResponse, redirect } from './utils.js'
-
+let globalIndex = 0
 const ajv = (addFormats.default || addFormats)(
   new (Ajv.default || Ajv)({ useDefaults: true }),
   [
@@ -949,8 +948,6 @@ export class Spiceflow<
     return this.listenNode(port, hostname)
   }
   async listenNode(port: number, hostname: string = '0.0.0.0') {
-    const { createServer } = await import('http')
-
     const server = createServer((req, res) => {
       return this.handleNode(req, res)
     })
@@ -975,7 +972,7 @@ export class Spiceflow<
         'req.body is defined, you should disable your framework body parser to be able to use the request in Spiceflow',
       )
     }
-    const { Readable } = await import('stream')
+
     const abortController = new AbortController()
     const { signal } = abortController
 
