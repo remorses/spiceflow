@@ -1,5 +1,11 @@
 # spiceflow
 
+## 1.8.0
+
+### Minor Changes
+
+- Allow passing state as second arg to handle.
+
 ## 1.7.2
 
 ### Patch Changes

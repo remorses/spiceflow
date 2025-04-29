@@ -22,6 +22,27 @@ test('`use` on non Spiceflow return', async () => {
   expect(res.status).toBe(200)
   expect(await res.json()).toEqual('hi')
 })
+
+test('`handle` accepts state as second argument in object', async () => {
+  const app = new Spiceflow().state('counter', 0).post('/state-test', (c) => {
+    return { counter: c.state.counter }
+  })
+
+  const res = await app.handle(
+    new Request('http://localhost/state-test', { method: 'POST' }),
+    { state: { counter: 42 } },
+  )
+
+  expect(res.status).toBe(200)
+  expect(await res.json()).toEqual({ counter: 42 })
+
+  const invalidRes = await app.handle(
+    new Request('http://localhost/state-test', { method: 'POST' }),
+    // @ts-expect-error - Invalid state key
+    { state: { invalidKey: 100 } },
+  )
+})
+
 test('`use` on Spiceflow return', async () => {
   function nonSpiceflowReturn() {
     return new Spiceflow().post('/usePost', () => 'hi')

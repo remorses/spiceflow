@@ -719,7 +719,10 @@ export class Spiceflow<
     return this
   }
 
-  async handle(request: Request): Promise<Response> {
+  async handle(
+    request: Request,
+    { state: customState }: { state?: Singleton['state'] } = {},
+  ): Promise<Response> {
     let u = new URL(request.url, 'http://localhost')
     const self = this
     let path = u.pathname + u.search
@@ -741,7 +744,7 @@ export class Spiceflow<
     } = route
     const middlewares = appsInScope.flatMap((x) => x.middlewares)
 
-    let state = cloneDeep(defaultState)
+    let state = customState || cloneDeep(defaultState)
 
     let content = route?.internalRoute?.hooks?.content
 
@@ -949,7 +952,7 @@ export class Spiceflow<
     const { createServer } = await import('http')
 
     const server = createServer((req, res) => {
-      return this.handleNode(req, res, hostname)
+      return this.handleNode(req, res)
     })
 
     await new Promise((resolve, reject) => {
@@ -965,7 +968,7 @@ export class Spiceflow<
   async handleNode(
     req: IncomingMessage,
     res: ServerResponse,
-    hostname: string = '0.0.0.0',
+    context: { state?: Singleton['state'] } = {},
   ) {
     if (req?.['body']) {
       throw new Error(
@@ -991,7 +994,7 @@ export class Spiceflow<
 
     const url = new URL(
       req.url || '',
-      `http://${req.headers.host || hostname || 'localhost'}`,
+      `http://${req.headers.host || 'localhost'}`,
     )
     const typedRequest = new SpiceflowRequest(url.toString(), {
       method: req.method,
@@ -1021,7 +1024,7 @@ export class Spiceflow<
     })
 
     try {
-      const response = await this.handle(typedRequest)
+      const response = await this.handle(typedRequest, context)
       res.writeHead(
         response.status,
         Object.fromEntries(response.headers.entries()),
