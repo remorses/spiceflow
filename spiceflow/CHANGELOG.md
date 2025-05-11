@@ -1,5 +1,11 @@
 # spiceflow
 
+## 1.9.1
+
+### Patch Changes
+
+- return parsed schema value if defined
+
 ## 1.9.0
 
 ### Minor Changes
