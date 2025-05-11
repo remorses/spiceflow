@@ -1334,6 +1334,9 @@ async function runValidation(value: any, validate?: ValidationFunction) {
       .join('\\n')
     throw new ValidationError(errorMessages || 'Validation failed')
   }
+  if ('value' in result) {
+    return result.value
+  }
   return value
 }
 
