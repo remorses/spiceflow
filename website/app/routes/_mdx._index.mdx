@@ -13,9 +13,8 @@ Spiceflow is a lightweight, type-safe API framework for building web services us
 ## Features
 
 - Type safe schema based validation via Zod
-- Can easily generate OpenAPI document based on your routes
+- Can easily generate OpenAPI spec based on your routes
 - Native support for [Fern](https://github.com/fern-api/fern) to generate docs and SDKs (see example docs [here](https://remorses.docs.buildwithfern.com))
-- Returns extended JSON via [`superjson`](https://github.com/flightcontrolhq/superjson) to encode types like `Map`, `BigInt` and `Set` (Spiceflow will add a field `__superjsonMeta` property to the JSON in case you use one of these types)
 - Support for [Model Context Protocol](https://modelcontextprotocol.io/) to easily wire your app with LLMs
 - Type safe RPC client generation
 - Simple and intuitive API
@@ -712,6 +711,41 @@ main().catch((e) => {
 Then follow Fern docs to generate the SDK and docs. You will need to create some Fern yml config files.
 
 You can take a look at the [`scripts/example-app.ts`](spiceflow/scripts/example-app.ts) file for an example app that generates the docs and SDK.
+
+## Passing Cloudflare env bindings
+
+You can use bindings type safely using a .state method and then passing the state in the handle method in the second argument:
+
+```tsx
+import { Spiceflow } from 'spiceflow'
+import { z } from 'zod'
+
+
+interface Env {
+  KV: KVNamespace
+  QUEUE: Queue
+  SECRET: string
+}
+
+const app = new Spiceflow()
+  .state('env', null as Env | null)
+  .get('/kv/:key', async ({ params, state }) => {
+    const value = await state.env!.KV.get(params.key)
+    return { key: params.key, value }
+  })
+  .post('/queue', async ({ request, state }) => {
+    const body = await request.json()
+    await state.env!.QUEUE.send(body)
+    return { success: true, message: 'Added to queue' }
+  })
+
+export default {
+  fetch(request: Request, env: Env, ctx: ExecutionContext) {
+    // Pass the env bindings to the app
+    return app.handle(request, { env })
+  }
+}
+```
 
 ## Fern SDK streaming support
 

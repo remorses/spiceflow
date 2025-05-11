@@ -712,6 +712,41 @@ Then follow Fern docs to generate the SDK and docs. You will need to create some
 
 You can take a look at the [`scripts/example-app.ts`](spiceflow/scripts/example-app.ts) file for an example app that generates the docs and SDK.
 
+## Passing state during handle, passing Cloudflare env bindings
+
+You can use bindings type safely using a .state method and then passing the state in the handle method in the second argument:
+
+```tsx
+import { Spiceflow } from 'spiceflow'
+import { z } from 'zod'
+
+
+interface Env {
+  KV: KVNamespace
+  QUEUE: Queue
+  SECRET: string
+}
+
+const app = new Spiceflow()
+  .state('env', null as Env | null)
+  .get('/kv/:key', async ({ params, state }) => {
+    const value = await state.env!.KV.get(params.key)
+    return { key: params.key, value }
+  })
+  .post('/queue', async ({ request, state }) => {
+    const body = await request.json()
+    await state.env!.QUEUE.send(body)
+    return { success: true, message: 'Added to queue' }
+  })
+
+export default {
+  fetch(request: Request, env: Env, ctx: ExecutionContext) {
+    // Pass the env bindings to the app
+    return app.handle(request, { env })
+  }
+}
+```
+
 ## Fern SDK streaming support
 
 When you use an async generator in your app, Spiceflow will automatically add the required `x-fern` extensions to the OpenAPI spec to support streaming.
