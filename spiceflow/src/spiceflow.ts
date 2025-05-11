@@ -27,17 +27,21 @@ import {
 
 import OriginalRouter from '@medley/router'
 import { type IncomingMessage, type ServerResponse } from 'http'
-import { z, ZodType, ZodError } from 'zod'
+import { z, ZodType } from 'zod'
+
 import { MiddlewareContext } from './context.js'
 import { isProduction, ValidationError } from './error.js'
 import { isAsyncIterable, isResponse, redirect } from './utils.js'
+import { StandardSchemaV1 } from '@standard-schema/spec'
 let globalIndex = 0
 
 type AsyncResponse = Response | Promise<Response>
 
 type OnError = (x: { error: any; request: Request }) => AsyncResponse
 
-type ValidationFunction = (data: any) => { success: boolean; data?: any; error?: ZodError }
+type ValidationFunction = (
+  value: unknown,
+) => StandardSchemaV1.Result<any> | Promise<StandardSchemaV1.Result<any>>
 
 export type InternalRoute = {
   method: HTTPMethod
@@ -721,7 +725,7 @@ export class Spiceflow<
     } = route
     const middlewares = appsInScope.flatMap((x) => x.middlewares)
 
-    let state = customState || cloneDeep(defaultState)
+    let state = customState || lodashCloneDeep(defaultState)
 
     let content = route?.internalRoute?.hooks?.content
 
@@ -794,11 +798,11 @@ export class Spiceflow<
           return handlerResponse
         }
 
-        context.query = runValidation(
+        context.query = await runValidation(
           context.query,
           route.internalRoute?.validateQuery,
         )
-        context.params = runValidation(
+        context.params = await runValidation(
           context.params,
           route.internalRoute?.validateParams,
         )
@@ -1296,26 +1300,41 @@ export function isZodSchema(value: unknown): value is ZodType {
   )
 }
 
-function getValidateFunction(schema: TypeSchema): ValidationFunction | undefined {
-  if (isZodSchema(schema)) {
-    return (data: any) => schema.safeParse(data)
+function getValidateFunction(
+  schema: TypeSchema,
+): ValidationFunction | undefined {
+  if (!schema) {
+    return
   }
-  // Removed ajv logic, as only Zod schemas are now supported for validation
-  // if a non-zod schema is passed, it will not be validated.
-  // Consider throwing an error here or logging a warning if non-Zod schemas are common.
-  return undefined
+  try {
+    return schema['~standard'].validate
+  } catch (error) {
+    console.log(`not a standard schema: ${schema}`)
+    return undefined
+  }
 }
 
-function runValidation(value: any, validate?: ValidationFunction) {
+async function runValidation(value: any, validate?: ValidationFunction) {
   if (!validate) return value
-  const result = validate(value)
-  if (!result.success) {
-    // Adapt ZodError to ValidationError or directly use ZodError
-    // For now, creating a ValidationError from ZodError's issues.
-    const errorMessages = result.error?.issues.map(issue => `${issue.path.join('.')}: ${issue.message}`).join('\\n')
+
+  let result = validate(value)
+  if (result instanceof Promise) {
+    result = await result
+  }
+
+  if (result.issues && result.issues.length > 0) {
+    const errorMessages = result.issues
+      .map((issue) => {
+        let pathString = ''
+        if (issue.path && issue.path.length > 0) {
+          pathString = issue.path.join('.') + ': '
+        }
+        return pathString + issue.message
+      })
+      .join('\\n')
     throw new ValidationError(errorMessages || 'Validation failed')
   }
-  return result.data
+  return value
 }
 
 function parseQuery(queryString: string) {

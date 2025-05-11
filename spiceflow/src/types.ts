@@ -1,6 +1,7 @@
 // https://github.com/remorses/elysia/blob/main/src/types.ts#L6
 
 import z from 'zod'
+import { StandardSchemaV1 } from '@standard-schema/spec'
 
 import type { OpenAPIV3 } from 'openapi-types'
 
@@ -151,29 +152,31 @@ export interface MetadataBase {
   macroFn: BaseMacroFn
 }
 
-export interface RouteSchema {
+export type RouteSchema = {
   body?: unknown
   query?: unknown
   params?: unknown
   response?: unknown
 }
 
-export type TypeSchema = ZodTypeAny
+export type TypeSchema = StandardSchemaV1
 
 export type TypeObject = ZodObject<any, any, any>
 
 export type UnwrapSchema<
   Schema extends TypeSchema | string | undefined,
   Definitions extends Record<string, unknown> = {},
-> = undefined extends Schema
+> = Schema extends undefined
   ? unknown
+  : Schema extends StandardSchemaV1
+  ? StandardSchemaV1.InferOutput<Schema>
   : Schema extends ZodTypeAny
-    ? z.infer<Schema>
-    : Schema extends string
-      ? Definitions extends Record<Schema, infer NamedSchema>
-        ? NamedSchema
-        : Definitions
-      : unknown
+  ? z.infer<Schema>
+  : Schema extends string
+  ? Definitions extends Record<Schema, infer NamedSchema>
+    ? NamedSchema
+    : Definitions
+  : unknown
 
 export interface UnwrapRoute<
   in out Schema extends InputSchema<any>,

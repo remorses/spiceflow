@@ -6,21 +6,12 @@ import {
   ListToolsRequestSchema,
   ReadResourceRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js'
-import { zodToJsonSchema } from 'zod-to-json-schema'
-import { SSEServerTransportSpiceflow } from './mcp-transport.js'
-import { isZodSchema, Spiceflow } from './spiceflow.js'
 import { OpenAPIV3 } from 'openapi-types'
+import { SSEServerTransportSpiceflow } from './mcp-transport.js'
 import { openapi } from './openapi.js'
+import { Spiceflow } from './spiceflow.js'
 
-function getJsonSchema(schema: any) {
-  if (!schema) return undefined
-  if (isZodSchema(schema)) {
-    return zodToJsonSchema(schema, {
-      removeAdditionalStrategy: 'strict',
-    })
-  }
-  return schema
-}
+
 const transports = new Map<string, SSEServerTransportSpiceflow>()
 function getOperationRequestBody(
   operation: OpenAPIV3.OperationObject,
