@@ -238,7 +238,7 @@ test('onError fires on validation errors', async () => {
   )
 
   expect(res.status).toBe(400)
-  expect(errorMessage).toContain('data/name must be string')
+  expect(errorMessage).toMatchInlineSnapshot(`"name: Expected string, received number"`)
   expect(await res.text()).toMatchInlineSnapshot(`"Error"`)
 })
 
@@ -447,7 +447,7 @@ test('validate body works, request fails', async () => {
     )
   expect(res.status).toBe(422)
   expect(await res.text()).toMatchInlineSnapshot(
-    `"{"code":"VALIDATION","status":422,"message":"data must have required property 'requiredField'"}"`,
+    `"{"code":"VALIDATION","status":422,"message":"requiredField: Required"}"`,
   )
 })
 
@@ -820,7 +820,7 @@ test('can pass additional props to body schema', async () => {
       name: z.string(),
       age: z.number(),
       email: z.string().email(),
-    }),
+    }).passthrough(),
   })
 
   const res = await app.handle(

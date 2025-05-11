@@ -221,56 +221,54 @@ const registerSchemaPath = ({
         },
       }
     } else {
-      Object.entries(responseSchema as Record<string, TypeSchema>).forEach(
-        ([key, value]) => {
-          if (typeof value === 'string') {
-            if (!models[value]) return
+      Object.entries(responseSchema).forEach(([key, value]) => {
+        if (typeof value === 'string') {
+          if (!models[value]) return
 
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            const {
-              type,
-              properties,
-              required,
-              additionalProperties: _1,
-              patternProperties: _2,
-              ...rest
-            } = getJsonSchema(models[value])
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          const {
+            type,
+            properties,
+            required,
+            additionalProperties: _1,
+            patternProperties: _2,
+            ...rest
+          } = getJsonSchema(models[value])
 
-            openapiResponse[key] = {
-              ...rest,
-              description: rest.description as any,
-              content: mapTypesResponse(contentTypes, value),
-            }
-          } else {
-            const schema = getJsonSchema(value)
-            const {
-              type,
-              properties,
-              required,
-              additionalProperties,
-              patternProperties,
-              ...rest
-            } = schema
-
-            openapiResponse[key] = {
-              ...rest,
-              description: (rest.description as any) || '',
-              content: mapTypesResponse(
-                contentTypes,
-                type === 'object' || type === 'array'
-                  ? ({
-                      type,
-                      properties,
-                      patternProperties,
-                      items: rest.items,
-                      required,
-                    } as any)
-                  : schema,
-              ),
-            }
+          openapiResponse[key] = {
+            ...rest,
+            description: rest.description as any,
+            content: mapTypesResponse(contentTypes, value),
           }
-        },
-      )
+        } else {
+          const schema = getJsonSchema(value)
+          const {
+            type,
+            properties,
+            required,
+            additionalProperties,
+            patternProperties,
+            ...rest
+          } = schema
+
+          openapiResponse[key] = {
+            ...rest,
+            description: (rest.description as any) || '',
+            content: mapTypesResponse(
+              contentTypes,
+              type === 'object' || type === 'array'
+                ? ({
+                    type,
+                    properties,
+                    patternProperties,
+                    items: rest.items,
+                    required,
+                  } as any)
+                : schema,
+            ),
+          }
+        }
+      })
     }
   } else if (typeof responseSchema === 'string') {
     if (!(responseSchema in models)) return

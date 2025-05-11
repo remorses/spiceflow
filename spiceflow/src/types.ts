@@ -2,14 +2,6 @@
 
 import z from 'zod'
 
-import type {
-  OptionalKind,
-  Static,
-  StaticDecode,
-  TObject,
-  TSchema,
-} from '@sinclair/typebox'
-
 import type { OpenAPIV3 } from 'openapi-types'
 
 import { ZodObject, ZodTypeAny } from 'zod'
@@ -31,8 +23,8 @@ export type ObjectValues<T extends object> = T[keyof T]
 type IsPathParameter<Part extends string> = Part extends `:${infer Parameter}`
   ? Parameter
   : Part extends `*`
-  ? '*'
-  : never
+    ? '*'
+    : never
 
 export type GetPathParameter<Path extends string> =
   Path extends `${infer A}/${infer B}`
@@ -68,15 +60,16 @@ export type NeverKey<T> = {
   [K in keyof T]?: T[K]
 } & {}
 
-type IsBothObject<A, B> = A extends Record<string | number | symbol, unknown>
-  ? B extends Record<string | number | symbol, unknown>
-    ? IsClass<A> extends false
-      ? IsClass<B> extends false
-        ? true
+type IsBothObject<A, B> =
+  A extends Record<string | number | symbol, unknown>
+    ? B extends Record<string | number | symbol, unknown>
+      ? IsClass<A> extends false
+        ? IsClass<B> extends false
+          ? true
+          : false
         : false
       : false
     : false
-  : false
 
 type IsClass<V> = V extends abstract new (...args: any) => any ? true : false
 
@@ -89,57 +82,57 @@ export type Reconcile<
 > = Stack['length'] extends 16
   ? A
   : Override extends true
-  ? {
-      [key in keyof A as key extends keyof B ? never : key]: A[key]
-    } extends infer Collision
-    ? {} extends Collision
-      ? {
-          [key in keyof B]: IsBothObject<
-            // @ts-ignore trust me bro
-            A[key],
-            B[key]
-          > extends true
-            ? Reconcile<
-                // @ts-ignore trust me bro
-                A[key],
-                B[key],
-                Override,
-                [0, ...Stack]
-              >
-            : B[key]
-        }
-      : Prettify<
-          Collision & {
-            [key in keyof B]: B[key]
-          }
-        >
-    : never
-  : {
-      [key in keyof B as key extends keyof A ? never : key]: B[key]
-    } extends infer Collision
-  ? {} extends Collision
     ? {
-        [key in keyof A]: IsBothObject<
-          A[key],
-          // @ts-ignore trust me bro
-          B[key]
-        > extends true
-          ? Reconcile<
+        [key in keyof A as key extends keyof B ? never : key]: A[key]
+      } extends infer Collision
+      ? {} extends Collision
+        ? {
+            [key in keyof B]: IsBothObject<
               // @ts-ignore trust me bro
               A[key],
+              B[key]
+            > extends true
+              ? Reconcile<
+                  // @ts-ignore trust me bro
+                  A[key],
+                  B[key],
+                  Override,
+                  [0, ...Stack]
+                >
+              : B[key]
+          }
+        : Prettify<
+            Collision & {
+              [key in keyof B]: B[key]
+            }
+          >
+      : never
+    : {
+          [key in keyof B as key extends keyof A ? never : key]: B[key]
+        } extends infer Collision
+      ? {} extends Collision
+        ? {
+            [key in keyof A]: IsBothObject<
+              A[key],
               // @ts-ignore trust me bro
-              B[key],
-              Override,
-              [0, ...Stack]
-            >
-          : A[key]
-      }
-    : Prettify<
-        {
-          [key in keyof A]: A[key]
-        } & Collision
-      >
-  : never
+              B[key]
+            > extends true
+              ? Reconcile<
+                  // @ts-ignore trust me bro
+                  A[key],
+                  // @ts-ignore trust me bro
+                  B[key],
+                  Override,
+                  [0, ...Stack]
+                >
+              : A[key]
+          }
+        : Prettify<
+            {
+              [key in keyof A]: A[key]
+            } & Collision
+          >
+      : never
 
 export interface SingletonBase {
   state: Record<string, unknown>
@@ -165,13 +158,9 @@ export interface RouteSchema {
   response?: unknown
 }
 
-type OptionalField = {
-  [OptionalKind]: 'Optional'
-}
+export type TypeSchema = ZodTypeAny
 
-export type TypeSchema = TSchema | ZodTypeAny
-
-export type TypeObject = TObject | ZodObject<any, any, any>
+export type TypeObject = ZodObject<any, any, any>
 
 export type UnwrapSchema<
   Schema extends TypeSchema | string | undefined,
@@ -179,16 +168,12 @@ export type UnwrapSchema<
 > = undefined extends Schema
   ? unknown
   : Schema extends ZodTypeAny
-  ? z.infer<Schema>
-  : Schema extends TSchema
-  ? Schema extends OptionalField
-    ? Prettify<Partial<Static<Schema>>>
-    : StaticDecode<Schema>
-  : Schema extends string
-  ? Definitions extends Record<Schema, infer NamedSchema>
-    ? NamedSchema
-    : Definitions
-  : unknown
+    ? z.infer<Schema>
+    : Schema extends string
+      ? Definitions extends Record<Schema, infer NamedSchema>
+        ? NamedSchema
+        : Definitions
+      : unknown
 
 export interface UnwrapRoute<
   in out Schema extends InputSchema<any>,
@@ -202,13 +187,13 @@ export interface UnwrapRoute<
         200: UnwrapSchema<Schema['response'], Definitions>
       }
     : Schema['response'] extends Record<number, TypeSchema | string>
-    ? {
-        [k in keyof Schema['response']]: UnwrapSchema<
-          Schema['response'][k],
-          Definitions
-        >
-      }
-    : unknown | void
+      ? {
+          [k in keyof Schema['response']]: UnwrapSchema<
+            Schema['response'][k],
+            Definitions
+          >
+        }
+      : unknown | void
 }
 
 export type LifeCycleEvent =
@@ -297,8 +282,8 @@ export interface MergeSchema<
       ? {}
       : B['response']
     : {} extends B['response']
-    ? A['response']
-    : A['response'] & Omit<B['response'], keyof A['response']>
+      ? A['response']
+      : A['response'] & Omit<B['response'], keyof A['response']>
 }
 
 export type Handler<
@@ -315,29 +300,31 @@ export type Handler<
     : Route['response'][keyof Route['response']]
 >
 
-export type Replace<Original, Target, With> = IsAny<Target> extends true
-  ? Original
-  : Original extends Record<string, unknown>
-  ? {
-      [K in keyof Original]: Original[K] extends Target ? With : Original[K]
-    }
-  : Original extends Target
-  ? With
-  : Original
+export type Replace<Original, Target, With> =
+  IsAny<Target> extends true
+    ? Original
+    : Original extends Record<string, unknown>
+      ? {
+          [K in keyof Original]: Original[K] extends Target ? With : Original[K]
+        }
+      : Original extends Target
+        ? With
+        : Original
 
 export type IsAny<T> = 0 extends 1 & T ? true : false
 
-export type CoExist<Original, Target, With> = IsAny<Target> extends true
-  ? Original
-  : Original extends Record<string, unknown>
-  ? {
-      [K in keyof Original]: Original[K] extends Target
-        ? Original[K] | With
-        : Original[K]
-    }
-  : Original extends Target
-  ? Original | With
-  : Original
+export type CoExist<Original, Target, With> =
+  IsAny<Target> extends true
+    ? Original
+    : Original extends Record<string, unknown>
+      ? {
+          [K in keyof Original]: Original[K] extends Target
+            ? Original[K] | With
+            : Original[K]
+        }
+      : Original extends Target
+        ? Original | With
+        : Original
 
 export type InlineHandler<
   Route extends RouteSchema = {},
@@ -374,11 +361,12 @@ export type OptionalHandler<
     state: {}
   },
   Path extends string = '',
-> = Handler<Route, Singleton, Path> extends (
-  context: infer Context,
-) => infer Returned
-  ? (context: Context) => Returned | MaybePromise<void>
-  : never
+> =
+  Handler<Route, Singleton, Path> extends (
+    context: infer Context,
+  ) => infer Returned
+    ? (context: Context) => Returned | MaybePromise<void>
+    : never
 
 export type AfterHandler<
   in out Route extends RouteSchema = {},
@@ -386,17 +374,18 @@ export type AfterHandler<
     state: {}
   },
   Path extends string = '',
-> = Handler<Route, Singleton, Path> extends (
-  context: infer Context,
-) => infer Returned
-  ? (
-      context: Prettify<
-        {
-          response: Route['response']
-        } & Context
-      >,
-    ) => Returned | MaybePromise<void>
-  : never
+> =
+  Handler<Route, Singleton, Path> extends (
+    context: infer Context,
+  ) => infer Returned
+    ? (
+        context: Prettify<
+          {
+            response: Route['response']
+          } & Context
+        >,
+      ) => Returned | MaybePromise<void>
+    : never
 
 export type MapResponse<
   in out Route extends RouteSchema = {},
@@ -633,8 +622,8 @@ export type CreateClient<
 > = Path extends `/${infer Rest}`
   ? _CreateClient<Rest, Property>
   : Path extends ''
-  ? _CreateClient<'index', Property>
-  : _CreateClient<Path, Property>
+    ? _CreateClient<'index', Property>
+    : _CreateClient<Path, Property>
 
 export type ComposeSpiceflowResponse<Response, Handle> = Handle extends (
   ...a: any[]
@@ -870,10 +859,10 @@ export type HTTPHeaders = Record<string, string> & {
 export type JoinPath<A extends string, B extends string> = `${A}${B extends '/'
   ? '/index'
   : B extends ''
-  ? B
-  : B extends `/${string}`
-  ? B
-  : B}`
+    ? B
+    : B extends `/${string}`
+      ? B
+      : B}`
 
 export type PartialWithRequired<T, K extends keyof T> = Partial<Omit<T, K>> &
   Pick<T, K>

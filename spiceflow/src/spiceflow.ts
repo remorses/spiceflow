@@ -1,4 +1,3 @@
-import addFormats from 'ajv-formats'
 import { createServer } from 'spiceflow/_node_utils'
 import lodashCloneDeep from 'lodash.clonedeep'
 import superjson from 'superjson'
@@ -27,39 +26,18 @@ import {
 } from './types.js'
 
 import OriginalRouter from '@medley/router'
-import Ajv, { ValidateFunction } from 'ajv'
 import { type IncomingMessage, type ServerResponse } from 'http'
-import { z, ZodType } from 'zod'
-import { zodToJsonSchema } from 'zod-to-json-schema'
+import { z, ZodType, ZodError } from 'zod'
 import { MiddlewareContext } from './context.js'
 import { isProduction, ValidationError } from './error.js'
 import { isAsyncIterable, isResponse, redirect } from './utils.js'
 let globalIndex = 0
-const ajv = (addFormats.default || addFormats)(
-  new (Ajv.default || Ajv)({ useDefaults: true }),
-  [
-    'date-time',
-    'time',
-    'date',
-    'email',
-    'hostname',
-    'ipv4',
-    'ipv6',
-    'uri',
-    'uri-reference',
-    'uuid',
-    'uri-template',
-    'json-pointer',
-    'relative-json-pointer',
-    'regex',
-  ],
-)
-
-// Should be exported from `hono/router`
 
 type AsyncResponse = Response | Promise<Response>
 
 type OnError = (x: { error: any; request: Request }) => AsyncResponse
+
+type ValidationFunction = (data: any) => { success: boolean; data?: any; error?: ZodError }
 
 export type InternalRoute = {
   method: HTTPMethod
@@ -67,9 +45,9 @@ export type InternalRoute = {
   type: ContentType
   handler: InlineHandler<any, any, any>
   hooks: LocalHook<any, any, any, any, any, any, any>
-  validateBody?: ValidateFunction
-  validateQuery?: ValidateFunction
-  validateParams?: ValidateFunction
+  validateBody?: ValidationFunction
+  validateQuery?: ValidationFunction
+  validateParams?: ValidationFunction
   // prefix: string
 }
 
@@ -1169,60 +1147,6 @@ export class Spiceflow<
   }
 }
 
-// async function getRequestBody({
-// 	request,
-// 	content,
-// }: {
-// 	content
-// 	request: Request
-// }) {
-// 	let body: string | Record<string, any> | undefined
-// 	if (request.method === 'GET' || request.method === 'HEAD') {
-// 		return
-// 	}
-
-// 	const contentType =
-// 		content || request.headers.get('content-type')?.split(';')?.[0]
-
-// 	if (!contentType) {
-// 		return
-// 	}
-
-// 	switch (contentType) {
-// 		case 'application/json':
-// 			body = (await request.json()) as any
-// 			break
-
-// 		case 'text/plain':
-// 			body = await request.text()
-// 			break
-
-// 		case 'application/x-www-form-urlencoded':
-// 			body = parseQuery.parse(await request.text()) as any
-// 			break
-
-// 		case 'application/octet-stream':
-// 			body = await request.arrayBuffer()
-// 			break
-
-// 		case 'multipart/form-data':
-// 			body = {}
-
-// 			const form = await request.formData()
-// 			for (const key of form.keys()) {
-// 				if (body[key]) continue
-
-// 				const value = form.getAll(key)
-// 				if (value.length === 1) body[key] = value[0]
-// 				else body[key] = value
-// 			}
-
-// 			break
-// 	}
-
-// 	return body
-// }
-
 const METHODS = [
   'ALL',
   'CONNECT',
@@ -1257,7 +1181,7 @@ function bfsFind<T>(
   return
 }
 export class SpiceflowRequest<T = any> extends Request {
-  validateBody?: ValidateFunction
+  validateBody?: ValidationFunction
 
   async json(): Promise<T> {
     const body = (await super.json()) as Promise<T>
@@ -1362,7 +1286,7 @@ export type AnySpiceflow = Spiceflow<any, any, any, any, any, any>
 
 export function isZodSchema(value: unknown): value is ZodType {
   return (
-    value instanceof z.ZodType ||
+    value instanceof ZodType ||
     (typeof value === 'object' &&
       value !== null &&
       'parse' in value &&
@@ -1372,29 +1296,26 @@ export function isZodSchema(value: unknown): value is ZodType {
   )
 }
 
-function getValidateFunction(schema: TypeSchema) {
+function getValidateFunction(schema: TypeSchema): ValidationFunction | undefined {
   if (isZodSchema(schema)) {
-    let jsonSchema = zodToJsonSchema(schema, {
-      removeAdditionalStrategy: 'strict',
-    })
-    return ajv.compile(jsonSchema)
+    return (data: any) => schema.safeParse(data)
   }
-
-  if (schema) {
-    return ajv.compile(schema)
-  }
+  // Removed ajv logic, as only Zod schemas are now supported for validation
+  // if a non-zod schema is passed, it will not be validated.
+  // Consider throwing an error here or logging a warning if non-Zod schemas are common.
+  return undefined
 }
 
-function runValidation(value: any, validate?: ValidateFunction) {
+function runValidation(value: any, validate?: ValidationFunction) {
   if (!validate) return value
-  const valid = validate(value)
-  if (!valid) {
-    const error = ajv.errorsText(validate.errors, {
-      separator: '\n',
-    })
-    throw new ValidationError(error)
+  const result = validate(value)
+  if (!result.success) {
+    // Adapt ZodError to ValidationError or directly use ZodError
+    // For now, creating a ValidationError from ZodError's issues.
+    const errorMessages = result.error?.issues.map(issue => `${issue.path.join('.')}: ${issue.message}`).join('\\n')
+    throw new ValidationError(errorMessages || 'Validation failed')
   }
-  return value
+  return result.data
 }
 
 function parseQuery(queryString: string) {
