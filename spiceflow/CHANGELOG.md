@@ -1,5 +1,11 @@
 # spiceflow
 
+## 1.9.0
+
+### Minor Changes
+
+- Use @standard-schema/spec, remove ajv, works on Cloudflare workers
+
 ## 1.8.0
 
 ### Minor Changes
