@@ -3,7 +3,6 @@ import { test, describe, expect } from 'vitest'
 import { bfs, cloneDeep, Spiceflow } from './spiceflow.js'
 import { z } from 'zod'
 import { createSpiceflowClient } from './client/index.js'
-import { Type } from 'ajv/dist/compile/util.js'
 
 test('works', async () => {
   const res = await new Spiceflow()

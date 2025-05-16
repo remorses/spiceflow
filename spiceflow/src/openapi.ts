@@ -1,4 +1,4 @@
-import { JSONSchemaType } from 'ajv'
+
 import { InternalRoute, isZodSchema, Spiceflow } from './spiceflow.js'
 
 import type { OpenAPIV3 } from 'openapi-types'
@@ -455,7 +455,7 @@ export const openapi = <Path extends string = '/openapi'>({
   return app
 }
 
-function getJsonSchema(schema: TypeSchema): JSONSchemaType<any> {
+function getJsonSchema(schema: TypeSchema) {
   if (!schema) return undefined as any
   if (isZodSchema(schema)) {
     let jsonSchema = zodToJsonSchema(schema, {
