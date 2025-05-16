@@ -21,6 +21,10 @@
   "repository": "https://github.com/remorses/",
   "author": "remorses <beats.by.morse@gmail.com>",
   "license": "MIT",
+  "packageManager": "pnpm@10.9.0",
+  "engines": {
+    "node": ">=22"
+  },
   "dependencies": {
     "@cfworker/json-schema": "^4.1.1",
     "@standard-schema/spec": "^1.0.0",
