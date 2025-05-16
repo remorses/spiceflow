@@ -3,9 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "NODE_ENV=test vitest",
+    "test": "pnpm run -r test",
     "watch": "pnpm -r watch",
-    "example-sdk": "cd example-app && pnpm spiceflow sdk --outDir ../example-sdk --url http://localhost:7754 --name example-sdk",
     "build": "pnpm -r build",
     "release": "pnpm build && changeset"
   },
