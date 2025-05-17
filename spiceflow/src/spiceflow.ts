@@ -52,7 +52,6 @@ export type InternalRoute = {
   validateBody?: ValidationFunction
   validateQuery?: ValidationFunction
   validateParams?: ValidationFunction
-  // prefix: string
 }
 
 type MedleyRouter = {
