@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "pnpm readme && react-router build",
-    "readme": "cp ../readme.md ./app/routes/_mdx._index.mdx",
+    "readme": "cp ../README.md ./app/routes/_mdx._index.mdx",
     "deploy:prod": "pnpm run build && wrangler deploy ",
     "dev": "pnpm readme && react-router dev",
     "lint": "eslint --ignore-path .gitignore --cache --cache-location ./node_modules/.cache/eslint .",
