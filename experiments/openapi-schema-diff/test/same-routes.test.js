@@ -17,16 +17,16 @@ test('compare two equal schemas', () => {
                   type: 'object',
                   properties: {
                     bar: {
-                      type: 'integer'
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
+                      type: 'integer',
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
   }
 
   const target = JSON.parse(JSON.stringify(source))
@@ -39,11 +39,11 @@ test('compare two equal schemas', () => {
         method: 'get',
         path: '/foo',
         sourceSchema: source.paths['/foo'].get,
-        targetSchema: target.paths['/foo'].get
-      }
+        targetSchema: target.paths['/foo'].get,
+      },
     ],
     addedRoutes: [],
     deletedRoutes: [],
-    changedRoutes: []
+    changedRoutes: [],
   })
 })

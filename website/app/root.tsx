@@ -1,9 +1,8 @@
 // import "@code-hike/mdx/styles"
 
-import { Links, Meta, Outlet, Scripts, ScrollRestoration } from "react-router";
+import { Links, Meta, Outlet, Scripts, ScrollRestoration } from 'react-router'
 
-
-import './global.css';
+import './global.css'
 
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
@@ -20,9 +19,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <Scripts />
       </body>
     </html>
-  );
+  )
 }
 
 export default function App() {
-  return <Outlet />;
+  return <Outlet />
 }

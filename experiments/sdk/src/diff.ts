@@ -78,11 +78,11 @@ export function getOpenApiDiffPrompt({
           diffPrompt: dedent`
             This route should be updated in the SDK as it was updated from the OpenAPI schema.
               <route type="changed" method="${route.method.toUpperCase()}" path="${
-            route.path
-          }">
+                route.path
+              }">
               <comment>${change.type} ${change.action}: ${
-            change.comment
-          }</comment>
+                change.comment
+              }</comment>
               <diff>
               ${diffText}
               </diff>
@@ -107,8 +107,8 @@ export function getOpenApiDiffPrompt({
       diffPrompt: dedent`
             This route should be added to the SDK as it was added to the OpenAPI schema.
             <route type="added" method="${route.method.toUpperCase()}" path="${
-        route.path
-      }">
+              route.path
+            }">
             <comment>Added new route</comment>
             <diff>
             ${lessIndentation(schema)
@@ -135,8 +135,8 @@ export function getOpenApiDiffPrompt({
       diffPrompt: dedent`
         This route should be removed from the SDK as it was deleted from the OpenAPI schema.
         <route type="deleted" method="${route.method.toUpperCase()}" path="${
-        route.path
-      }">
+          route.path
+        }">
         <comment>Deleted route</comment>
         <diff>
         ${lessIndentation(schema)

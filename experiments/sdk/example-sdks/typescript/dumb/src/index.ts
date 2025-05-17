@@ -54,23 +54,23 @@ export class ExampleClient {
     try {
       const response = await this.fetch({
         method: 'GET',
-        path: `/users/${encodeURIComponent(id)}`
-      });
+        path: `/users/${encodeURIComponent(id)}`,
+      })
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
+        const errorData = await response.json().catch(() => ({}))
         throw new ExampleError('Failed to fetch user', {
           status: response.status,
-          data: errorData
-        });
+          data: errorData,
+        })
       }
 
-      return response.json();
+      return response.json()
     } catch (error) {
       if (error instanceof ExampleError) {
-        throw error;
+        throw error
       }
-      throw new ExampleError('Network error', { status: 500 });
+      throw new ExampleError('Network error', { status: 500 })
     }
   }
 
@@ -84,20 +84,20 @@ export class ExampleClient {
         method: 'POST',
         path: '/users',
         body,
-      });
+      })
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
+        const errorData = await response.json().catch(() => ({}))
         throw new ExampleError('Failed to create user', {
           status: response.status,
           data: errorData,
-        });
+        })
       }
 
-      return response.json();
+      return response.json()
     } catch (error) {
-      if (error instanceof ExampleError) throw error;
-      throw new ExampleError('Network error', { status: 500 });
+      if (error instanceof ExampleError) throw error
+      throw new ExampleError('Network error', { status: 500 })
     }
   }
 }
@@ -143,14 +143,12 @@ export async function* streamSSEResponse(
 
 // Type definitions
 interface CreateUserRequestBody {
-  name: string;
-  email: string;
-  age: number;
+  name: string
+  email: string
+  age: number
 }
 
 interface CreateUserResponse {
-  message: string;
-  data?: any;
+  message: string
+  data?: any
 }
-
-

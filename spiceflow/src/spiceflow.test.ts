@@ -29,7 +29,6 @@ describe('cloneDeep', () => {
   })
 })
 
-
 test('can encode superjson types', async () => {
   const app = new Spiceflow().post('/superjson', () => {
     const item = {
@@ -237,7 +236,9 @@ test('onError fires on validation errors', async () => {
   )
 
   expect(res.status).toBe(400)
-  expect(errorMessage).toMatchInlineSnapshot(`"name: Expected string, received number"`)
+  expect(errorMessage).toMatchInlineSnapshot(
+    `"name: Expected string, received number"`,
+  )
   expect(await res.text()).toMatchInlineSnapshot(`"Error"`)
 })
 
@@ -815,11 +816,13 @@ test('async generators handle non-ASCII characters correctly', async () => {
 
 test('can pass additional props to body schema', async () => {
   const app = new Spiceflow().post('/user', ({ request }) => request.json(), {
-    body: z.object({
-      name: z.string(),
-      age: z.number(),
-      email: z.string().email(),
-    }).passthrough(),
+    body: z
+      .object({
+        name: z.string(),
+        age: z.number(),
+        email: z.string().email(),
+      })
+      .passthrough(),
   })
 
   const res = await app.handle(

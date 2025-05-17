@@ -21,7 +21,7 @@ export function cleanupOpenApi(
   obj: any,
   maxLength: number = 400,
   path: string[] = [],
-  removedPaths: string[] = []
+  removedPaths: string[] = [],
 ): any {
   if (obj === null || typeof obj !== 'object') {
     // Check if string is too long
@@ -36,7 +36,12 @@ export function cleanupOpenApi(
   if (Array.isArray(obj)) {
     const newArray = obj
       .map((item, index) =>
-        cleanupOpenApi(item, maxLength, [...path, index.toString()], removedPaths)
+        cleanupOpenApi(
+          item,
+          maxLength,
+          [...path, index.toString()],
+          removedPaths,
+        ),
       )
       .filter((x) => x !== undefined)
     return newArray.length > 0 ? newArray : undefined
@@ -50,7 +55,12 @@ export function cleanupOpenApi(
     if (keysToRemove.includes(key)) {
       continue
     }
-    const cleaned = cleanupOpenApi(value, maxLength, [...path, key], removedPaths)
+    const cleaned = cleanupOpenApi(
+      value,
+      maxLength,
+      [...path, key],
+      removedPaths,
+    )
     if (cleaned !== undefined) {
       newObj[key] = cleaned
       hasValidProps = true
@@ -59,8 +69,6 @@ export function cleanupOpenApi(
 
   return hasValidProps ? newObj : undefined
 }
-
-
 
 export function getSubSchemas(
   schemas: SchemaLocation[],

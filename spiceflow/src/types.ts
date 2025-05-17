@@ -169,14 +169,14 @@ export type UnwrapSchema<
 > = Schema extends undefined
   ? unknown
   : Schema extends StandardSchemaV1
-  ? StandardSchemaV1.InferOutput<Schema>
-  : Schema extends ZodTypeAny
-  ? z.infer<Schema>
-  : Schema extends string
-  ? Definitions extends Record<Schema, infer NamedSchema>
-    ? NamedSchema
-    : Definitions
-  : unknown
+    ? StandardSchemaV1.InferOutput<Schema>
+    : Schema extends ZodTypeAny
+      ? z.infer<Schema>
+      : Schema extends string
+        ? Definitions extends Record<Schema, infer NamedSchema>
+          ? NamedSchema
+          : Definitions
+        : unknown
 
 export interface UnwrapRoute<
   in out Schema extends InputSchema<any>,

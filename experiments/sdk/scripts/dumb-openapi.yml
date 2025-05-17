@@ -64,7 +64,7 @@ paths:
 
                 - Uses server sent events
                 - But also has a response schema
-                
+
   /users/{id}:
     get:
       parameters:

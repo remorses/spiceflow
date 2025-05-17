@@ -393,7 +393,7 @@ export async function mergeSDKOutputs({
     })
 
     let resultLines = result.resultFile.trim().split('\n').length
-    
+
     let snippetLines = snippet.trim().split('\n').length
     if (resultLines === previousLines) {
       extractMarkdownSnippets(output.code).join('\n\n')

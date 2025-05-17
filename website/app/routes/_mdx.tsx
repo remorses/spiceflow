@@ -1,4 +1,4 @@
-import { MetaFunction, Outlet } from 'react-router';
+import { MetaFunction, Outlet } from 'react-router'
 import { MDXProvider } from '@mdx-js/react'
 import { MDXComponents } from 'mdx/types'
 

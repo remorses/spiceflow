@@ -9,9 +9,9 @@ test('adding request query schema property value', () => {
     openapi: '1.0.0',
     paths: {
       '/foo': {
-        get: {}
-      }
-    }
+        get: {},
+      },
+    },
   }
 
   const target = {
@@ -19,16 +19,18 @@ test('adding request query schema property value', () => {
     paths: {
       '/foo': {
         get: {
-          parameters: [{
-            name: 'bar',
-            in: 'query',
-            schema: {
-              type: 'string'
-            }
-          }]
-        }
-      }
-    }
+          parameters: [
+            {
+              name: 'bar',
+              in: 'query',
+              schema: {
+                type: 'string',
+              },
+            },
+          ],
+        },
+      },
+    },
   }
 
   const diff = compareOpenApiSchemas(source, target)
@@ -51,11 +53,11 @@ test('adding request query schema property value', () => {
             action: 'added',
             sourceSchema: undefined,
             targetSchema: target.paths['/foo'].get.parameters[0],
-            comment: 'query parameter "bar" has been added to GET "/foo" route'
-          }
-        ]
-      }
-    ]
+            comment: 'query parameter "bar" has been added to GET "/foo" route',
+          },
+        ],
+      },
+    ],
   })
 })
 
@@ -65,16 +67,18 @@ test('changing request header schema property value', () => {
     paths: {
       '/foo': {
         get: {
-          parameters: [{
-            name: 'bar',
-            in: 'header',
-            schema: {
-              type: 'integer'
-            }
-          }]
-        }
-      }
-    }
+          parameters: [
+            {
+              name: 'bar',
+              in: 'header',
+              schema: {
+                type: 'integer',
+              },
+            },
+          ],
+        },
+      },
+    },
   }
 
   const target = {
@@ -82,16 +86,18 @@ test('changing request header schema property value', () => {
     paths: {
       '/foo': {
         get: {
-          parameters: [{
-            name: 'bar',
-            in: 'header',
-            schema: {
-              type: 'string'
-            }
-          }]
-        }
-      }
-    }
+          parameters: [
+            {
+              name: 'bar',
+              in: 'header',
+              schema: {
+                type: 'string',
+              },
+            },
+          ],
+        },
+      },
+    },
   }
 
   const diff = compareOpenApiSchemas(source, target)
@@ -121,17 +127,18 @@ test('changing request header schema property value', () => {
                   {
                     jsonPath: '#/type',
                     source: 'integer',
-                    target: 'string'
-                  }
+                    target: 'string',
+                  },
                 ],
-                comment: 'parameter schema has been changed'
-              }
+                comment: 'parameter schema has been changed',
+              },
             ],
-            comment: 'header parameter "bar" has been changed in GET "/foo" route'
-          }
-        ]
-      }
-    ]
+            comment:
+              'header parameter "bar" has been changed in GET "/foo" route',
+          },
+        ],
+      },
+    ],
   })
 })
 
@@ -141,25 +148,27 @@ test('removing request path param schema property value', () => {
     paths: {
       '/foo': {
         get: {
-          parameters: [{
-            name: 'bar',
-            in: 'path',
-            schema: {
-              type: 'string'
-            }
-          }]
-        }
-      }
-    }
+          parameters: [
+            {
+              name: 'bar',
+              in: 'path',
+              schema: {
+                type: 'string',
+              },
+            },
+          ],
+        },
+      },
+    },
   }
 
   const target = {
     openapi: '1.0.0',
     paths: {
       '/foo': {
-        get: {}
-      }
-    }
+        get: {},
+      },
+    },
   }
 
   const diff = compareOpenApiSchemas(source, target)
@@ -182,11 +191,12 @@ test('removing request path param schema property value', () => {
             action: 'deleted',
             sourceSchema: source.paths['/foo'].get.parameters[0],
             targetSchema: undefined,
-            comment: 'path parameter "bar" has been deleted from GET "/foo" route'
-          }
-        ]
-      }
-    ]
+            comment:
+              'path parameter "bar" has been deleted from GET "/foo" route',
+          },
+        ],
+      },
+    ],
   })
 })
 
@@ -196,16 +206,18 @@ test('making parameter required should count as a breaking change', () => {
     paths: {
       '/foo': {
         get: {
-          parameters: [{
-            name: 'bar',
-            in: 'header',
-            schema: {
-              type: 'integer'
-            }
-          }]
-        }
-      }
-    }
+          parameters: [
+            {
+              name: 'bar',
+              in: 'header',
+              schema: {
+                type: 'integer',
+              },
+            },
+          ],
+        },
+      },
+    },
   }
 
   const target = {
@@ -213,17 +225,19 @@ test('making parameter required should count as a breaking change', () => {
     paths: {
       '/foo': {
         get: {
-          parameters: [{
-            name: 'bar',
-            in: 'header',
-            schema: {
-              type: 'integer'
+          parameters: [
+            {
+              name: 'bar',
+              in: 'header',
+              schema: {
+                type: 'integer',
+              },
+              required: true,
             },
-            required: true
-          }]
-        }
-      }
-    }
+          ],
+        },
+      },
+    },
   }
 
   const diff = compareOpenApiSchemas(source, target)
@@ -251,14 +265,15 @@ test('making parameter required should count as a breaking change', () => {
                 keyword: 'required',
                 source: undefined,
                 target: true,
-                comment: 'parameter has been made required'
-              }
+                comment: 'parameter has been made required',
+              },
             ],
-            comment: 'header parameter "bar" has been changed in GET "/foo" route'
-          }
-        ]
-      }
-    ]
+            comment:
+              'header parameter "bar" has been changed in GET "/foo" route',
+          },
+        ],
+      },
+    ],
   })
 })
 
@@ -268,17 +283,19 @@ test('making parameter optional should not count as a breaking change', () => {
     paths: {
       '/foo': {
         get: {
-          parameters: [{
-            name: 'bar',
-            in: 'header',
-            schema: {
-              type: 'integer'
+          parameters: [
+            {
+              name: 'bar',
+              in: 'header',
+              schema: {
+                type: 'integer',
+              },
+              required: true,
             },
-            required: true
-          }]
-        }
-      }
-    }
+          ],
+        },
+      },
+    },
   }
 
   const target = {
@@ -286,17 +303,19 @@ test('making parameter optional should not count as a breaking change', () => {
     paths: {
       '/foo': {
         get: {
-          parameters: [{
-            name: 'bar',
-            in: 'header',
-            schema: {
-              type: 'integer'
+          parameters: [
+            {
+              name: 'bar',
+              in: 'header',
+              schema: {
+                type: 'integer',
+              },
+              required: false,
             },
-            required: false
-          }]
-        }
-      }
-    }
+          ],
+        },
+      },
+    },
   }
 
   const diff = compareOpenApiSchemas(source, target)
@@ -307,11 +326,11 @@ test('making parameter optional should not count as a breaking change', () => {
         method: 'get',
         path: '/foo',
         sourceSchema: source.paths['/foo'].get,
-        targetSchema: target.paths['/foo'].get
-      }
+        targetSchema: target.paths['/foo'].get,
+      },
     ],
     addedRoutes: [],
     deletedRoutes: [],
-    changedRoutes: []
+    changedRoutes: [],
   })
 })

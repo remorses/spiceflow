@@ -13,11 +13,11 @@ test('modifying routes schema through ref', () => {
           type: 'object',
           properties: {
             bar: {
-              type: 'integer'
-            }
-          }
-        }
-      }
+              type: 'integer',
+            },
+          },
+        },
+      },
     },
     paths: {
       '/foo': {
@@ -27,15 +27,15 @@ test('modifying routes schema through ref', () => {
               content: {
                 'application/json': {
                   schema: {
-                    $ref: '#/components/schemas/Bar'
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
+                    $ref: '#/components/schemas/Bar',
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
   }
 
   const target = {
@@ -46,11 +46,11 @@ test('modifying routes schema through ref', () => {
           type: 'object',
           properties: {
             bar: {
-              type: 'string'
-            }
-          }
-        }
-      }
+              type: 'string',
+            },
+          },
+        },
+      },
     },
     paths: {
       '/foo': {
@@ -60,15 +60,15 @@ test('modifying routes schema through ref', () => {
               content: {
                 'application/json': {
                   schema: {
-                    $ref: '#/components/schemas/Bar'
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
+                    $ref: '#/components/schemas/Bar',
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
   }
 
   const diff = compareOpenApiSchemas(source, target)
@@ -89,8 +89,14 @@ test('modifying routes schema through ref', () => {
             action: 'changed',
             statusCode: '200',
             mediaType: 'application/json',
-            sourceSchema: source.paths['/foo'].get.responses['200'].content['application/json'],
-            targetSchema: target.paths['/foo'].get.responses['200'].content['application/json'],
+            sourceSchema:
+              source.paths['/foo'].get.responses['200'].content[
+                'application/json'
+              ],
+            targetSchema:
+              target.paths['/foo'].get.responses['200'].content[
+                'application/json'
+              ],
             changes: [
               {
                 keyword: 'schema',
@@ -98,17 +104,18 @@ test('modifying routes schema through ref', () => {
                   {
                     jsonPath: '#/properties/bar/type',
                     source: 'integer',
-                    target: 'string'
-                  }
+                    target: 'string',
+                  },
                 ],
-                comment: 'response body schema has been changed'
-              }
+                comment: 'response body schema has been changed',
+              },
             ],
-            comment: 'response body for "200" status code and "application/json" media type has been changed in GET "/foo" route'
-          }
-        ]
-      }
-    ]
+            comment:
+              'response body for "200" status code and "application/json" media type has been changed in GET "/foo" route',
+          },
+        ],
+      },
+    ],
   })
 })
 
@@ -121,11 +128,11 @@ test('different $ref property values', () => {
           type: 'object',
           properties: {
             bar: {
-              type: 'integer'
-            }
-          }
-        }
-      }
+              type: 'integer',
+            },
+          },
+        },
+      },
     },
     paths: {
       '/foo': {
@@ -135,15 +142,15 @@ test('different $ref property values', () => {
               content: {
                 'application/json': {
                   schema: {
-                    $ref: '#/components/schemas/Bar1'
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
+                    $ref: '#/components/schemas/Bar1',
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
   }
 
   const target = {
@@ -154,11 +161,11 @@ test('different $ref property values', () => {
           type: 'object',
           properties: {
             bar: {
-              type: 'string'
-            }
-          }
-        }
-      }
+              type: 'string',
+            },
+          },
+        },
+      },
     },
     paths: {
       '/foo': {
@@ -168,15 +175,15 @@ test('different $ref property values', () => {
               content: {
                 'application/json': {
                   schema: {
-                    $ref: '#/components/schemas/Bar2'
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
+                    $ref: '#/components/schemas/Bar2',
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
   }
 
   const diff = compareOpenApiSchemas(source, target)
@@ -197,8 +204,14 @@ test('different $ref property values', () => {
             action: 'changed',
             statusCode: '200',
             mediaType: 'application/json',
-            sourceSchema: source.paths['/foo'].get.responses['200'].content['application/json'],
-            targetSchema: target.paths['/foo'].get.responses['200'].content['application/json'],
+            sourceSchema:
+              source.paths['/foo'].get.responses['200'].content[
+                'application/json'
+              ],
+            targetSchema:
+              target.paths['/foo'].get.responses['200'].content[
+                'application/json'
+              ],
             changes: [
               {
                 keyword: 'schema',
@@ -206,17 +219,18 @@ test('different $ref property values', () => {
                   {
                     jsonPath: '#/$ref',
                     source: '#/components/schemas/Bar1',
-                    target: '#/components/schemas/Bar2'
-                  }
+                    target: '#/components/schemas/Bar2',
+                  },
                 ],
-                comment: 'response body schema has been changed'
-              }
+                comment: 'response body schema has been changed',
+              },
             ],
-            comment: 'response body for "200" status code and "application/json" media type has been changed in GET "/foo" route'
-          }
-        ]
-      }
-    ]
+            comment:
+              'response body for "200" status code and "application/json" media type has been changed in GET "/foo" route',
+          },
+        ],
+      },
+    ],
   })
 })
 
@@ -229,14 +243,14 @@ test('compare two equal schemas with circular refs', () => {
           type: 'object',
           properties: {
             bar: {
-              type: 'integer'
+              type: 'integer',
             },
             self: {
-              $ref: '#/components/schemas/Bar'
-            }
-          }
-        }
-      }
+              $ref: '#/components/schemas/Bar',
+            },
+          },
+        },
+      },
     },
     paths: {
       '/foo': {
@@ -246,15 +260,15 @@ test('compare two equal schemas with circular refs', () => {
               content: {
                 'application/json': {
                   schema: {
-                    $ref: '#/components/schemas/Bar'
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
+                    $ref: '#/components/schemas/Bar',
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
   }
 
   const target = JSON.parse(JSON.stringify(source))
@@ -267,12 +281,12 @@ test('compare two equal schemas with circular refs', () => {
         method: 'get',
         path: '/foo',
         sourceSchema: source.paths['/foo'].get,
-        targetSchema: target.paths['/foo'].get
-      }
+        targetSchema: target.paths['/foo'].get,
+      },
     ],
     addedRoutes: [],
     deletedRoutes: [],
-    changedRoutes: []
+    changedRoutes: [],
   })
 })
 
@@ -285,14 +299,14 @@ test('compare two different schemas with circular refs', () => {
           type: 'object',
           properties: {
             bar: {
-              type: 'integer'
+              type: 'integer',
             },
             self: {
-              $ref: '#/components/schemas/Bar'
-            }
-          }
-        }
-      }
+              $ref: '#/components/schemas/Bar',
+            },
+          },
+        },
+      },
     },
     paths: {
       '/foo': {
@@ -302,15 +316,15 @@ test('compare two different schemas with circular refs', () => {
               content: {
                 'application/json': {
                   schema: {
-                    $ref: '#/components/schemas/Bar'
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
+                    $ref: '#/components/schemas/Bar',
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
   }
 
   const target = {
@@ -321,14 +335,14 @@ test('compare two different schemas with circular refs', () => {
           type: 'object',
           properties: {
             bar: {
-              type: 'string'
+              type: 'string',
             },
             self: {
-              $ref: '#/components/schemas/Bar'
-            }
-          }
-        }
-      }
+              $ref: '#/components/schemas/Bar',
+            },
+          },
+        },
+      },
     },
     paths: {
       '/foo': {
@@ -338,15 +352,15 @@ test('compare two different schemas with circular refs', () => {
               content: {
                 'application/json': {
                   schema: {
-                    $ref: '#/components/schemas/Bar'
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
+                    $ref: '#/components/schemas/Bar',
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
   }
 
   const diff = compareOpenApiSchemas(source, target)
@@ -367,8 +381,14 @@ test('compare two different schemas with circular refs', () => {
             action: 'changed',
             statusCode: '200',
             mediaType: 'application/json',
-            sourceSchema: source.paths['/foo'].get.responses['200'].content['application/json'],
-            targetSchema: target.paths['/foo'].get.responses['200'].content['application/json'],
+            sourceSchema:
+              source.paths['/foo'].get.responses['200'].content[
+                'application/json'
+              ],
+            targetSchema:
+              target.paths['/foo'].get.responses['200'].content[
+                'application/json'
+              ],
             changes: [
               {
                 keyword: 'schema',
@@ -376,17 +396,18 @@ test('compare two different schemas with circular refs', () => {
                   {
                     jsonPath: '#/properties/bar/type',
                     source: 'integer',
-                    target: 'string'
-                  }
+                    target: 'string',
+                  },
                 ],
-                comment: 'response body schema has been changed'
-              }
+                comment: 'response body schema has been changed',
+              },
             ],
-            comment: 'response body for "200" status code and "application/json" media type has been changed in GET "/foo" route'
-          }
-        ]
-      }
-    ]
+            comment:
+              'response body for "200" status code and "application/json" media type has been changed in GET "/foo" route',
+          },
+        ],
+      },
+    ],
   })
 })
 
@@ -399,25 +420,25 @@ test('compare two equal schemas with cross circular refs', () => {
           type: 'object',
           properties: {
             self: {
-              $ref: '#/components/schemas/Bar2'
+              $ref: '#/components/schemas/Bar2',
             },
             bar: {
-              type: 'integer'
-            }
-          }
+              type: 'integer',
+            },
+          },
         },
         Bar2: {
           type: 'object',
           properties: {
             self: {
-              $ref: '#/components/schemas/Bar1'
+              $ref: '#/components/schemas/Bar1',
             },
             bar: {
-              type: 'integer'
-            }
-          }
-        }
-      }
+              type: 'integer',
+            },
+          },
+        },
+      },
     },
     paths: {
       '/foo': {
@@ -427,15 +448,15 @@ test('compare two equal schemas with cross circular refs', () => {
               content: {
                 'application/json': {
                   schema: {
-                    $ref: '#/components/schemas/Bar1'
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
+                    $ref: '#/components/schemas/Bar1',
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
   }
 
   const target = JSON.parse(JSON.stringify(source))
@@ -448,12 +469,12 @@ test('compare two equal schemas with cross circular refs', () => {
         method: 'get',
         path: '/foo',
         sourceSchema: source.paths['/foo'].get,
-        targetSchema: target.paths['/foo'].get
-      }
+        targetSchema: target.paths['/foo'].get,
+      },
     ],
     addedRoutes: [],
     deletedRoutes: [],
-    changedRoutes: []
+    changedRoutes: [],
   })
 })
 
@@ -466,25 +487,25 @@ test('compare two different schemas with cross circular refs', () => {
           type: 'object',
           properties: {
             self: {
-              $ref: '#/components/schemas/Bar2'
+              $ref: '#/components/schemas/Bar2',
             },
             bar: {
-              type: 'integer'
-            }
-          }
+              type: 'integer',
+            },
+          },
         },
         Bar2: {
           type: 'object',
           properties: {
             self: {
-              $ref: '#/components/schemas/Bar1'
+              $ref: '#/components/schemas/Bar1',
             },
             bar: {
-              type: 'integer'
-            }
-          }
-        }
-      }
+              type: 'integer',
+            },
+          },
+        },
+      },
     },
     paths: {
       '/foo': {
@@ -494,15 +515,15 @@ test('compare two different schemas with cross circular refs', () => {
               content: {
                 'application/json': {
                   schema: {
-                    $ref: '#/components/schemas/Bar1'
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
+                    $ref: '#/components/schemas/Bar1',
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
   }
 
   const target = {
@@ -513,25 +534,25 @@ test('compare two different schemas with cross circular refs', () => {
           type: 'object',
           properties: {
             self: {
-              $ref: '#/components/schemas/Bar2'
+              $ref: '#/components/schemas/Bar2',
             },
             bar: {
-              type: 'string'
-            }
-          }
+              type: 'string',
+            },
+          },
         },
         Bar2: {
           type: 'object',
           properties: {
             self: {
-              $ref: '#/components/schemas/Bar1'
+              $ref: '#/components/schemas/Bar1',
             },
             bar: {
-              type: 'integer'
-            }
-          }
-        }
-      }
+              type: 'integer',
+            },
+          },
+        },
+      },
     },
     paths: {
       '/foo': {
@@ -541,15 +562,15 @@ test('compare two different schemas with cross circular refs', () => {
               content: {
                 'application/json': {
                   schema: {
-                    $ref: '#/components/schemas/Bar1'
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
+                    $ref: '#/components/schemas/Bar1',
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
   }
 
   const diff = compareOpenApiSchemas(source, target)
@@ -570,8 +591,14 @@ test('compare two different schemas with cross circular refs', () => {
             action: 'changed',
             statusCode: '200',
             mediaType: 'application/json',
-            sourceSchema: source.paths['/foo'].get.responses['200'].content['application/json'],
-            targetSchema: target.paths['/foo'].get.responses['200'].content['application/json'],
+            sourceSchema:
+              source.paths['/foo'].get.responses['200'].content[
+                'application/json'
+              ],
+            targetSchema:
+              target.paths['/foo'].get.responses['200'].content[
+                'application/json'
+              ],
             changes: [
               {
                 keyword: 'schema',
@@ -579,16 +606,17 @@ test('compare two different schemas with cross circular refs', () => {
                   {
                     jsonPath: '#/properties/bar/type',
                     source: 'integer',
-                    target: 'string'
-                  }
+                    target: 'string',
+                  },
                 ],
-                comment: 'response body schema has been changed'
-              }
+                comment: 'response body schema has been changed',
+              },
             ],
-            comment: 'response body for "200" status code and "application/json" media type has been changed in GET "/foo" route'
-          }
-        ]
-      }
-    ]
+            comment:
+              'response body for "200" status code and "application/json" media type has been changed in GET "/foo" route',
+          },
+        ],
+      },
+    ],
   })
 })

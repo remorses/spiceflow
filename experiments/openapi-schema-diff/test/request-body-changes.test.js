@@ -9,9 +9,9 @@ test('adding request body schema property value', () => {
     openapi: '1.0.0',
     paths: {
       '/foo': {
-        get: {}
-      }
-    }
+        get: {},
+      },
+    },
   }
 
   const target = {
@@ -26,16 +26,16 @@ test('adding request body schema property value', () => {
                   type: 'object',
                   properties: {
                     bar: {
-                      type: 'string'
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
+                      type: 'string',
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
   }
 
   const diff = compareOpenApiSchemas(source, target)
@@ -56,12 +56,14 @@ test('adding request body schema property value', () => {
             mediaType: 'application/json',
             action: 'added',
             sourceSchema: undefined,
-            targetSchema: target.paths['/foo'].get.requestBody.content['application/json'],
-            comment: 'request body for "application/json" media type has been added to GET "/foo" route'
-          }
-        ]
-      }
-    ]
+            targetSchema:
+              target.paths['/foo'].get.requestBody.content['application/json'],
+            comment:
+              'request body for "application/json" media type has been added to GET "/foo" route',
+          },
+        ],
+      },
+    ],
   })
 })
 
@@ -78,16 +80,16 @@ test('changing request body schema property value', () => {
                   type: 'object',
                   properties: {
                     bar: {
-                      type: 'integer'
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
+                      type: 'integer',
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
   }
 
   const target = {
@@ -102,16 +104,16 @@ test('changing request body schema property value', () => {
                   type: 'object',
                   properties: {
                     bar: {
-                      type: 'string'
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
+                      type: 'string',
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
   }
 
   const diff = compareOpenApiSchemas(source, target)
@@ -131,8 +133,10 @@ test('changing request body schema property value', () => {
             type: 'requestBody',
             mediaType: 'application/json',
             action: 'changed',
-            sourceSchema: source.paths['/foo'].get.requestBody.content['application/json'],
-            targetSchema: target.paths['/foo'].get.requestBody.content['application/json'],
+            sourceSchema:
+              source.paths['/foo'].get.requestBody.content['application/json'],
+            targetSchema:
+              target.paths['/foo'].get.requestBody.content['application/json'],
             changes: [
               {
                 keyword: 'schema',
@@ -140,17 +144,18 @@ test('changing request body schema property value', () => {
                   {
                     jsonPath: '#/properties/bar/type',
                     source: 'integer',
-                    target: 'string'
-                  }
+                    target: 'string',
+                  },
                 ],
-                comment: 'request body schema has been changed'
-              }
+                comment: 'request body schema has been changed',
+              },
             ],
-            comment: 'request body for "application/json" media type has been changed in GET "/foo" route'
-          }
-        ]
-      }
-    ]
+            comment:
+              'request body for "application/json" media type has been changed in GET "/foo" route',
+          },
+        ],
+      },
+    ],
   })
 })
 
@@ -167,25 +172,25 @@ test('removing request body schema property value', () => {
                   type: 'object',
                   properties: {
                     bar: {
-                      type: 'string'
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
+                      type: 'string',
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
   }
 
   const target = {
     openapi: '1.0.0',
     paths: {
       '/foo': {
-        get: {}
-      }
-    }
+        get: {},
+      },
+    },
   }
 
   const diff = compareOpenApiSchemas(source, target)
@@ -205,13 +210,15 @@ test('removing request body schema property value', () => {
             type: 'requestBody',
             action: 'deleted',
             mediaType: 'application/json',
-            sourceSchema: source.paths['/foo'].get.requestBody.content['application/json'],
+            sourceSchema:
+              source.paths['/foo'].get.requestBody.content['application/json'],
             targetSchema: undefined,
-            comment: 'request body for "application/json" media type has been deleted from GET "/foo" route'
-          }
-        ]
-      }
-    ]
+            comment:
+              'request body for "application/json" media type has been deleted from GET "/foo" route',
+          },
+        ],
+      },
+    ],
   })
 })
 
@@ -225,15 +232,15 @@ test('making request body required should count as a breaking change', () => {
             content: {
               'application/json': {
                 schema: {
-                  type: 'object'
+                  type: 'object',
                 },
-                required: false
-              }
-            }
-          }
-        }
-      }
-    }
+                required: false,
+              },
+            },
+          },
+        },
+      },
+    },
   }
 
   const target = {
@@ -245,15 +252,15 @@ test('making request body required should count as a breaking change', () => {
             content: {
               'application/json': {
                 schema: {
-                  type: 'object'
+                  type: 'object',
                 },
-                required: true
-              }
-            }
-          }
-        }
-      }
-    }
+                required: true,
+              },
+            },
+          },
+        },
+      },
+    },
   }
 
   const diff = compareOpenApiSchemas(source, target)
@@ -273,21 +280,24 @@ test('making request body required should count as a breaking change', () => {
             type: 'requestBody',
             mediaType: 'application/json',
             action: 'changed',
-            sourceSchema: source.paths['/foo'].get.requestBody.content['application/json'],
-            targetSchema: target.paths['/foo'].get.requestBody.content['application/json'],
+            sourceSchema:
+              source.paths['/foo'].get.requestBody.content['application/json'],
+            targetSchema:
+              target.paths['/foo'].get.requestBody.content['application/json'],
             changes: [
               {
                 keyword: 'required',
                 source: false,
                 target: true,
-                comment: 'request body has been made required'
-              }
+                comment: 'request body has been made required',
+              },
             ],
-            comment: 'request body for "application/json" media type has been changed in GET "/foo" route'
-          }
-        ]
-      }
-    ]
+            comment:
+              'request body for "application/json" media type has been changed in GET "/foo" route',
+          },
+        ],
+      },
+    ],
   })
 })
 
@@ -301,15 +311,15 @@ test('making request body optional should count as a breaking change', () => {
             content: {
               'application/json': {
                 schema: {
-                  type: 'object'
+                  type: 'object',
                 },
-                required: true
-              }
-            }
-          }
-        }
-      }
-    }
+                required: true,
+              },
+            },
+          },
+        },
+      },
+    },
   }
 
   const target = {
@@ -321,15 +331,15 @@ test('making request body optional should count as a breaking change', () => {
             content: {
               'application/json': {
                 schema: {
-                  type: 'object'
+                  type: 'object',
                 },
-                required: false
-              }
-            }
-          }
-        }
-      }
-    }
+                required: false,
+              },
+            },
+          },
+        },
+      },
+    },
   }
 
   const diff = compareOpenApiSchemas(source, target)
@@ -340,11 +350,11 @@ test('making request body optional should count as a breaking change', () => {
         method: 'get',
         path: '/foo',
         sourceSchema: source.paths['/foo'].get,
-        targetSchema: target.paths['/foo'].get
-      }
+        targetSchema: target.paths['/foo'].get,
+      },
     ],
     addedRoutes: [],
     deletedRoutes: [],
-    changedRoutes: []
+    changedRoutes: [],
   })
 })

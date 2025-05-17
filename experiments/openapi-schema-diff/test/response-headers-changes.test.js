@@ -11,11 +11,11 @@ test('adding response header schema property', () => {
       '/foo': {
         get: {
           responses: {
-            200: {}
-          }
-        }
-      }
-    }
+            200: {},
+          },
+        },
+      },
+    },
   }
 
   const target = {
@@ -28,15 +28,15 @@ test('adding response header schema property', () => {
               headers: {
                 'x-header-foo': {
                   schema: {
-                    type: 'integer'
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
+                    type: 'integer',
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
   }
 
   const diff = compareOpenApiSchemas(source, target)
@@ -58,12 +58,14 @@ test('adding response header schema property', () => {
             header: 'x-header-foo',
             action: 'added',
             sourceSchema: undefined,
-            targetSchema: target.paths['/foo'].get.responses['200'].headers['x-header-foo'],
-            comment: 'response header for "200" status code has been added to GET "/foo" route'
-          }
-        ]
-      }
-    ]
+            targetSchema:
+              target.paths['/foo'].get.responses['200'].headers['x-header-foo'],
+            comment:
+              'response header for "200" status code has been added to GET "/foo" route',
+          },
+        ],
+      },
+    ],
   })
 })
 
@@ -78,15 +80,15 @@ test('removing response header schema property', () => {
               headers: {
                 'x-header-foo': {
                   schema: {
-                    type: 'integer'
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
+                    type: 'integer',
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
   }
 
   const target = {
@@ -95,11 +97,11 @@ test('removing response header schema property', () => {
       '/foo': {
         get: {
           responses: {
-            200: {}
-          }
-        }
-      }
-    }
+            200: {},
+          },
+        },
+      },
+    },
   }
 
   const diff = compareOpenApiSchemas(source, target)
@@ -120,13 +122,15 @@ test('removing response header schema property', () => {
             statusCode: '200',
             header: 'x-header-foo',
             action: 'deleted',
-            sourceSchema: source.paths['/foo'].get.responses['200'].headers['x-header-foo'],
+            sourceSchema:
+              source.paths['/foo'].get.responses['200'].headers['x-header-foo'],
             targetSchema: undefined,
-            comment: 'response header for "200" status code has been deleted from GET "/foo" route'
-          }
-        ]
-      }
-    ]
+            comment:
+              'response header for "200" status code has been deleted from GET "/foo" route',
+          },
+        ],
+      },
+    ],
   })
 })
 
@@ -141,15 +145,15 @@ test('changing response header schema property', () => {
               headers: {
                 'x-header-foo': {
                   schema: {
-                    type: 'integer'
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
+                    type: 'integer',
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
   }
 
   const target = {
@@ -162,15 +166,15 @@ test('changing response header schema property', () => {
               headers: {
                 'x-header-foo': {
                   schema: {
-                    type: 'string'
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
+                    type: 'string',
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
   }
 
   const diff = compareOpenApiSchemas(source, target)
@@ -191,8 +195,10 @@ test('changing response header schema property', () => {
             action: 'changed',
             statusCode: '200',
             header: 'x-header-foo',
-            sourceSchema: source.paths['/foo'].get.responses['200'].headers['x-header-foo'],
-            targetSchema: target.paths['/foo'].get.responses['200'].headers['x-header-foo'],
+            sourceSchema:
+              source.paths['/foo'].get.responses['200'].headers['x-header-foo'],
+            targetSchema:
+              target.paths['/foo'].get.responses['200'].headers['x-header-foo'],
             changes: [
               {
                 keyword: 'schema',
@@ -200,16 +206,17 @@ test('changing response header schema property', () => {
                   {
                     jsonPath: '#/type',
                     source: 'integer',
-                    target: 'string'
-                  }
+                    target: 'string',
+                  },
                 ],
-                comment: 'response header schema has been changed'
-              }
+                comment: 'response header schema has been changed',
+              },
             ],
-            comment: 'response header for "200" status code has been changed in GET "/foo" route'
-          }
-        ]
-      }
-    ]
+            comment:
+              'response header for "200" status code has been changed in GET "/foo" route',
+          },
+        ],
+      },
+    ],
   })
 })

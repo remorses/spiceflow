@@ -6,7 +6,9 @@
     "test": "pnpm run -r test",
     "watch": "pnpm -r watch",
     "build": "pnpm -r build",
-    "release": "pnpm build && changeset"
+    "release": "pnpm build && changeset",
+    "format": "prettier --write .",
+    "format-check": "prettier --check ."
   },
   "devDependencies": {
     "@changesets/cli": "^2.27.12",

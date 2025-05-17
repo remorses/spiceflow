@@ -9,7 +9,7 @@
     "declarationMap": true,
     "sourceMap": false,
     "resolveJsonModule": true,
-    
+
     "outDir": "dist"
   },
   "include": ["src"]
