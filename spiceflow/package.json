@@ -77,7 +77,7 @@
     }
   },
   "devDependencies": {
-    "@modelcontextprotocol/sdk": "^1.6.1",
+    "@modelcontextprotocol/sdk": "^1.11.4",
     "@types/lodash.clonedeep": "^4.5.9",
     "@types/node": "22.13.4",
     "eventsource": "^3.0.5",

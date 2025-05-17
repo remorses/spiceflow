@@ -65,12 +65,6 @@ export class SSEServerTransportSpiceflow implements Transport {
         }\n\n`,
       ),
     )
-
-    // readable.getReader().closed.then(() => {
-    //   this.response = undefined
-    //   this._writableStream = undefined
-    //   this.onclose?.()
-    // })
   }
 
   /**
@@ -78,10 +72,7 @@ export class SSEServerTransportSpiceflow implements Transport {
    *
    * This should be called when a POST request is made to send a message to the server.
    */
-  async handlePostMessage(
-    req: Request,
-    parsedBody?: unknown,
-  ): Promise<Response> {
+  async handlePostMessage(req: Request): Promise<Response> {
     if (!this.response) {
       const message = 'SSE connection not established'
       throw new Error(message)

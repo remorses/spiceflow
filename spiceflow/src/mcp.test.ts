@@ -1,23 +1,19 @@
-import { describe, it, expect, beforeEach, beforeAll } from 'vitest'
-import { EventSource } from 'eventsource'
+import { beforeAll, describe, expect, it } from 'vitest'
 
-import { mcp } from './mcp.js'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
+import { mcp } from './mcp.js'
 
-import {
-  ListResourcesResultSchema,
-  ListToolsRequestSchema,
-  ListToolsResultSchema,
-  ReadResourceResultSchema,
-  CallToolResultSchema,
-} from '@modelcontextprotocol/sdk/types.js'
 import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js'
+import {
+  CallToolResultSchema,
+  ListResourcesResultSchema,
+  ListToolsResultSchema,
+  ReadResourceResultSchema
+} from '@modelcontextprotocol/sdk/types.js'
 import { z } from 'zod'
 import { Spiceflow } from './spiceflow.js'
-describe('MCP Plugin', () => {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  ;(global as any).EventSource = EventSource
 
+describe('MCP Plugin', () => {
   let app: Spiceflow<any>
   let port: number
   let client: Client
@@ -55,7 +51,9 @@ describe('MCP Plugin', () => {
       )
     await app.listen(port)
 
-    transport = new SSEClientTransport(new URL(`http://localhost:${port}/api/mcp`))
+    transport = new SSEClientTransport(
+      new URL(`http://localhost:${port}/api/mcp`),
+    )
 
     client = new Client(
       {
