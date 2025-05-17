@@ -11,14 +11,9 @@ import rehypeMdxImportMedia from 'rehype-mdx-import-media'
 import { defineConfig } from 'vite'
 import tsconfigPaths from 'vite-tsconfig-paths'
 
-const chConfig = {
-  components: { code: 'MyCode' },
-}
-
 import { cloudflare } from '@cloudflare/vite-plugin'
 
 export default defineConfig({
-  
   plugins: [
     cloudflare({ viteEnvironment: { name: 'ssr' } }),
     mdx({
@@ -29,9 +24,6 @@ export default defineConfig({
           remarkCodeHike,
           {
             theme: 'github-light',
-            // components: { code: 'MyCode' },
-
-            // lineNumbers: true, //
             showCopyButton: true,
           },
         ],
@@ -46,7 +38,6 @@ export default defineConfig({
       ],
       mdxExtensions: ['.md', '.mdx'],
       mdExtensions: [],
-      // providerImportSource: '@mdx-js/react',
     }),
     reactRouter(),
     tsconfigPaths(),
