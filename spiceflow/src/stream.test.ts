@@ -6,6 +6,19 @@ import { Spiceflow } from './spiceflow.js'
 
 import { req, sleep } from './utils.js'
 
+// Promise compatibility for environments without createDeferredPromise
+function createDeferredPromise<T = any>() {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: any) => void;
+  
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  
+  return { promise, resolve, reject };
+}
+
 function textEventStream(items: string[]) {
   return items
     .map((item) => `event: message\ndata: ${JSON.stringify(item)}\n\n`)
@@ -40,7 +53,7 @@ describe('Stream', () => {
         const reader = x?.getReader()
 
         let acc = ''
-        const { promise, resolve } = Promise.withResolvers()
+        const { promise, resolve } = createDeferredPromise()
 
         reader.read().then(function pump({ done, value }): unknown {
           if (done) return resolve(acc)
@@ -157,7 +170,7 @@ describe('Stream', () => {
         const reader = x?.getReader()
 
         let acc = ''
-        const { promise, resolve } = Promise.withResolvers()
+        const { promise, resolve } = createDeferredPromise()
 
         reader.read().then(function pump({ done, value }): unknown {
           if (done) {
@@ -217,7 +230,7 @@ describe('Stream', () => {
         events.push(event)
       },
     })
-    const { promise, resolve } = Promise.withResolvers<void>()
+    const { promise, resolve } = createDeferredPromise<void>()
     const reader = body?.getReader()!
 
     reader.read().then(function pump({ done, value }): unknown {
@@ -347,7 +360,7 @@ describe('Stream', () => {
 
         const reader = x?.getReader()
 
-        const { promise, resolve } = Promise.withResolvers<void>()
+        const { promise, resolve } = createDeferredPromise<void>()
 
         reader.read().then(function pump({ done, value }): unknown {
           if (done) return resolve()

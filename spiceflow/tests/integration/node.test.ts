@@ -27,8 +27,32 @@ describe('Node.js Runtime Integration Tests', () => {
   })
   
   test('should handle basic HTTP endpoints correctly', async () => {
-    const passed = await verifyBasicEndpoints(baseUrl)
-    expect(passed).toBe(true)
+    // Test each endpoint individually for better error reporting
+    
+    // Root endpoint
+    let response = await fetch(`${baseUrl}/`)
+    expect(response.status).toBe(200)
+    let text = await response.text()
+    expect(text).toBe('Hello World!')
+    
+    // JSON endpoint
+    response = await fetch(`${baseUrl}/json`)
+    expect(response.status).toBe(200)
+    let json = await response.json()
+    expect(json).toEqual({ message: 'Hello World!', success: true })
+    
+    // Path parameter endpoint
+    response = await fetch(`${baseUrl}/users/123`)
+    expect(response.status).toBe(200)
+    json = await response.json()
+    expect(json).toEqual({ id: '123', name: 'User 123' })
+    
+    // Query parameter endpoint
+    response = await fetch(`${baseUrl}/search?q=test`)
+    expect(response.status).toBe(200)
+    json = await response.json()
+    expect(json.query).toBe('test')
+    expect(json.results).toContain('Result for test')
   })
   
   test('should handle 404 for non-existent routes', async () => {
