@@ -7,12 +7,12 @@ import {
   ReadResourceRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js'
 import { OpenAPIV3 } from 'openapi-types'
-import { SSEServerTransportSpiceflow } from './mcp-transport.js'
+import { createSSEServerTransport, SSEServerTransportBase } from './mcp/transports/index.js'
 import { openapi } from './openapi.js'
 import { Spiceflow } from './spiceflow.js'
 
 
-const transports = new Map<string, SSEServerTransportSpiceflow>()
+const transports = new Map<string, SSEServerTransportBase>()
 function getOperationRequestBody(
   operation: OpenAPIV3.OperationObject,
 ): OpenAPIV3.SchemaObject | undefined {
@@ -299,7 +299,7 @@ export const mcp = <Path extends string = '/mcp'>({
     })
     .get(path, async ({ request }) => {
       const basePath = app.topLevelApp!.prefix || ''
-      const transport = new SSEServerTransportSpiceflow(basePath + messagePath)
+      const transport = createSSEServerTransport(basePath + messagePath)
       transports.set(transport.sessionId, transport)
       const openapi = await app
         .topLevelApp!.handle(

@@ -9,8 +9,9 @@
     "declarationMap": true,
     "sourceMap": false,
     "resolveJsonModule": true,
-    
+    "allowImportingTsExtensions": true,
+    "rewriteRelativeImportExtensions": true,
     "outDir": "dist"
   },
-  "include": ["src"]
+  "include": ["src", "tests"]
 }

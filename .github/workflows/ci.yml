@@ -4,7 +4,153 @@ on:
   push:
 
 jobs:
-  ci:
+  # Standard Node.js tests
+  node:
+    name: Node.js ${{ matrix.node }}
+    timeout-minutes: 30
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node: [20, 22, 24]
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v3
+        with:
+          node-version: ${{ matrix.node }}
+          registry-url: https://registry.npmjs.org/
+      - uses: pnpm/action-setup@v2
+        with:
+          version: 10
+          run_install: false
+      - name: Install pnpm dependencies (with cache)
+        uses: covbot/pnpm-install-with-cache@v1
+      # Run unit tests and build
+      - run: pnpm build
+      - run: pnpm test
+      # Run Node.js integration tests
+      - name: Run Node.js integration tests
+        run: pnpm vitest run --config spiceflow/vitest.config.js spiceflow/tests/integration/node.test.ts
+
+  # Deno tests
+  deno:
+    name: Deno
+    timeout-minutes: 30
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - uses: denoland/setup-deno@v1
+        with:
+          deno-version: v2.x
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org/
+      - uses: pnpm/action-setup@v2
+        with:
+          version: 10
+          run_install: false
+      - name: Install pnpm dependencies (with cache)
+        uses: covbot/pnpm-install-with-cache@v1
+      # Build project
+      - run: pnpm build
+      # Create Deno test runner script
+      - name: Create Deno test runner
+        run: |
+          echo 'import { createTestApi } from "./spiceflow/tests/integration/common/test-api.ts";
+          import { verifyBasicEndpoints } from "./spiceflow/tests/integration/common/setup.ts";
+          
+          const app = createTestApi();
+          
+          // Start server
+          const port = 3000;
+          const controller = new AbortController();
+          const { signal } = controller;
+          
+          const server = Deno.serve({ port, signal }, app.handle.bind(app));
+          console.log(`Server running at http://localhost:${port}`);
+          
+          // Run tests
+          try {
+            const result = await verifyBasicEndpoints(`http://localhost:${port}`);
+            console.log("Tests passed:", result);
+            if (!result) {
+              Deno.exit(1);
+            }
+          } catch (error) {
+            console.error("Tests failed:", error);
+            Deno.exit(1);
+          } finally {
+            controller.abort();
+          }' > deno-test.ts
+      # Run Deno tests
+      - name: Run Deno tests
+        run: deno run --allow-net deno-test.ts
+
+  # Bun tests
+  bun:
+    name: Bun
+    timeout-minutes: 30
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org/
+      - uses: pnpm/action-setup@v2
+        with:
+          version: 10
+          run_install: false
+      - name: Install pnpm dependencies (with cache)
+        uses: covbot/pnpm-install-with-cache@v1
+      # Build project
+      - run: pnpm build
+      # Create Bun test runner script
+      - name: Create Bun test runner
+        run: |
+          echo 'import { createTestApi } from "./spiceflow/dist/tests/integration/common/test-api.js";
+          import { verifyBasicEndpoints } from "./spiceflow/dist/tests/integration/common/setup.js";
+          import { serve } from "./spiceflow/dist/server/bun.js";
+          
+          async function runTests() {
+            const app = createTestApi();
+            
+            // Start server
+            const port = 3000;
+            const server = await serve(app, { port });
+            
+            try {
+              // Run tests
+              const result = await verifyBasicEndpoints(`http://localhost:${port}`);
+              console.log("Tests passed:", result);
+              if (!result) {
+                process.exit(1);
+              }
+            } catch (error) {
+              console.error("Tests failed:", error);
+              process.exit(1);
+            } finally {
+              await server.close();
+            }
+          }
+          
+          runTests();' > bun-test.js
+      # Run Bun tests
+      - name: Run Bun tests
+        run: bun bun-test.js
+  
+  # Cloudflare Workers tests using workerd
+  workerd:
+    name: Cloudflare Workers (workerd)
     timeout-minutes: 30
     runs-on: ubuntu-latest
     steps:
@@ -21,6 +167,71 @@ jobs:
           run_install: false
       - name: Install pnpm dependencies (with cache)
         uses: covbot/pnpm-install-with-cache@v1
-      # scripts
+      # Build project
       - run: pnpm build
-      - run: pnpm test
+      # Install workerd
+      - name: Install workerd
+        run: npm install -g workerd
+      # Create Workers test script
+      - name: Create Workers test script
+        run: |
+          echo 'import { createTestApi } from "./spiceflow/dist/tests/integration/common/test-api.js";
+          
+          export default {
+            async fetch(request, env, ctx) {
+              const app = createTestApi();
+              return app.handle(request);
+            }
+          };' > worker.js
+          
+          echo 'export const config = {
+            workers: [
+              {
+                name: "test-worker",
+                modules: [
+                  { type: "esm", path: "./worker.js" }
+                ],
+                bindings: {},
+                pipeline: {
+                  entrypoint: "test-worker"
+                }
+              }
+            ],
+            interfaces: [
+              {
+                name: "http",
+                port: 8787,
+                external: true,
+                tlsOptions: null,
+                service: "test-worker"
+              }
+            ]
+          };' > workerd.capnp.js
+      # Run Workers tests using Node.js to make requests to workerd
+      - name: Run Workers tests
+        run: |
+          echo 'import { verifyBasicEndpoints } from "./spiceflow/dist/tests/integration/common/setup.js";
+          import { exec } from "child_process";
+          
+          // Start workerd in background
+          const child = exec("workerd serve workerd.capnp.js");
+          
+          // Give workerd time to start
+          await new Promise(resolve => setTimeout(resolve, 3000));
+          
+          try {
+            // Run tests
+            const result = await verifyBasicEndpoints("http://localhost:8787");
+            console.log("Tests passed:", result);
+            if (!result) {
+              process.exit(1);
+            }
+          } catch (error) {
+            console.error("Tests failed:", error);
+            process.exit(1);
+          } finally {
+            // Kill workerd
+            child.kill();
+          }' > workerd-test.mjs
+          
+          node workerd-test.mjs

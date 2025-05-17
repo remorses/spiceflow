@@ -26,6 +26,24 @@
       "types": "./dist/mcp.d.ts",
       "default": "./dist/mcp.js"
     },
+    "./mcp/transports": {
+      "types": "./dist/mcp/transports/index.d.ts",
+      "node": "./dist/mcp/transports/node.impl.js",
+      "deno": "./dist/mcp/transports/deno.impl.js",
+      "bun": "./dist/mcp/transports/bun.impl.js",
+      "workerd": "./dist/mcp/transports/cloudflare.impl.js",
+      "edge-light": "./dist/mcp/transports/cloudflare.impl.js",
+      "default": "./dist/mcp/transports/index.js"
+    },
+    "./server": {
+      "types": "./dist/server/index.d.ts",
+      "node": "./dist/server/node.js",
+      "deno": "./dist/server/deno.js",
+      "bun": "./dist/server/bun.js",
+      "workerd": "./dist/server/cloudflare.js",
+      "edge-light": "./dist/server/cloudflare.js",
+      "default": "./dist/server/index.js"
+    },
     "./client": {
       "types": "./dist/client/index.d.ts",
       "default": "./dist/client/index.js"
