@@ -458,7 +458,7 @@ export const openapi = <Path extends string = '/openapi'>({
 function getJsonSchema(schema: TypeSchema) {
   if (!schema) return undefined as any
   if (isZodSchema(schema)) {
-    let jsonSchema = zodToJsonSchema(schema, {
+    let jsonSchema = zodToJsonSchema(schema as any, {
       removeAdditionalStrategy: 'strict',
     })
     const { $schema, ...rest } = jsonSchema
