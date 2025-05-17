@@ -720,7 +720,6 @@ You can use bindings type safely using a .state method and then passing the stat
 import { Spiceflow } from 'spiceflow'
 import { z } from 'zod'
 
-
 interface Env {
   KV: KVNamespace
   QUEUE: Queue
@@ -743,7 +742,7 @@ export default {
   fetch(request: Request, env: Env, ctx: ExecutionContext) {
     // Pass the env bindings to the app
     return app.handle(request, { env })
-  }
+  },
 }
 ```
 

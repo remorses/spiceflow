@@ -321,7 +321,6 @@ describe('Stream', () => {
       "
     `)
     expect(parseTextEventStreamItem(text)).toMatchInlineSnapshot(`"hello"`)
-    
   })
 
   it('handle object and array', async () => {

@@ -14,22 +14,22 @@ test('should not count summery and description properties', () => {
           responses: {
             200: {
               content: {
-                'application/json': {}
-              }
-            }
-          }
-        }
+                'application/json': {},
+              },
+            },
+          },
+        },
       },
       '/bar': {
         get: {
           responses: {
             200: {
               content: {
-                'application/json': {}
-              }
-            }
-          }
-        }
+                'application/json': {},
+              },
+            },
+          },
+        },
       },
       '/baz': {
         summary: 'target',
@@ -37,13 +37,13 @@ test('should not count summery and description properties', () => {
           responses: {
             200: {
               content: {
-                'application/json': {}
-              }
-            }
-          }
-        }
-      }
-    }
+                'application/json': {},
+              },
+            },
+          },
+        },
+      },
+    },
   }
 
   const target = {
@@ -55,11 +55,11 @@ test('should not count summery and description properties', () => {
           responses: {
             200: {
               content: {
-                'application/json': {}
-              }
-            }
-          }
-        }
+                'application/json': {},
+              },
+            },
+          },
+        },
       },
       '/bar': {
         description: 'source',
@@ -67,24 +67,24 @@ test('should not count summery and description properties', () => {
           responses: {
             200: {
               content: {
-                'application/json': {}
-              }
-            }
-          }
-        }
+                'application/json': {},
+              },
+            },
+          },
+        },
       },
       '/baz': {
         get: {
           responses: {
             200: {
               content: {
-                'application/json': {}
-              }
-            }
-          }
-        }
-      }
-    }
+                'application/json': {},
+              },
+            },
+          },
+        },
+      },
+    },
   }
 
   const diff = compareOpenApiSchemas(source, target)
@@ -95,24 +95,24 @@ test('should not count summery and description properties', () => {
         method: 'get',
         path: '/foo',
         sourceSchema: source.paths['/foo'].get,
-        targetSchema: target.paths['/foo'].get
+        targetSchema: target.paths['/foo'].get,
       },
       {
         method: 'get',
         path: '/bar',
         sourceSchema: source.paths['/bar'].get,
-        targetSchema: target.paths['/bar'].get
+        targetSchema: target.paths['/bar'].get,
       },
       {
         method: 'get',
         path: '/baz',
         sourceSchema: source.paths['/baz'].get,
-        targetSchema: target.paths['/baz'].get
-      }
+        targetSchema: target.paths['/baz'].get,
+      },
     ],
     addedRoutes: [],
     deletedRoutes: [],
-    changedRoutes: []
+    changedRoutes: [],
   })
 })
 
@@ -126,11 +126,11 @@ test('should not count summery and description properties', () => {
           responses: {
             200: {
               content: {
-                'application/json': {}
-              }
-            }
-          }
-        }
+                'application/json': {},
+              },
+            },
+          },
+        },
       },
       '/bar': {
         summary: 'target',
@@ -138,13 +138,13 @@ test('should not count summery and description properties', () => {
           responses: {
             200: {
               content: {
-                'application/json': {}
-              }
-            }
-          }
-        }
-      }
-    }
+                'application/json': {},
+              },
+            },
+          },
+        },
+      },
+    },
   }
 
   const target = {
@@ -156,11 +156,11 @@ test('should not count summery and description properties', () => {
           responses: {
             200: {
               content: {
-                'application/json': {}
-              }
-            }
-          }
-        }
+                'application/json': {},
+              },
+            },
+          },
+        },
       },
       '/baz': {
         description: 'source',
@@ -168,13 +168,13 @@ test('should not count summery and description properties', () => {
           responses: {
             200: {
               content: {
-                'application/json': {}
-              }
-            }
-          }
-        }
-      }
-    }
+                'application/json': {},
+              },
+            },
+          },
+        },
+      },
+    },
   }
 
   const diff = compareOpenApiSchemas(source, target)
@@ -185,23 +185,23 @@ test('should not count summery and description properties', () => {
         method: 'get',
         path: '/foo',
         sourceSchema: source.paths['/foo'].get,
-        targetSchema: target.paths['/foo'].get
-      }
+        targetSchema: target.paths['/foo'].get,
+      },
     ],
     addedRoutes: [
       {
         method: 'get',
         path: '/baz',
-        targetSchema: target.paths['/baz'].get
-      }
+        targetSchema: target.paths['/baz'].get,
+      },
     ],
     deletedRoutes: [
       {
         method: 'get',
         path: '/bar',
-        sourceSchema: source.paths['/bar'].get
-      }
+        sourceSchema: source.paths['/bar'].get,
+      },
     ],
-    changedRoutes: []
+    changedRoutes: [],
   })
 })

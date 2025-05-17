@@ -9,9 +9,9 @@ test('adding response body schema', () => {
     openapi: '1.0.0',
     paths: {
       '/foo': {
-        get: {}
-      }
-    }
+        get: {},
+      },
+    },
   }
 
   const target = {
@@ -27,17 +27,17 @@ test('adding response body schema', () => {
                     type: 'object',
                     properties: {
                       bar: {
-                        type: 'integer'
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
+                        type: 'integer',
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
   }
 
   const diff = compareOpenApiSchemas(source, target)
@@ -59,12 +59,16 @@ test('adding response body schema', () => {
             statusCode: '200',
             mediaType: 'application/json',
             sourceSchema: undefined,
-            targetSchema: target.paths['/foo'].get.responses['200'].content['application/json'],
-            comment: 'response body for "200" status code and "application/json" media type has been added to GET "/foo" route'
-          }
-        ]
-      }
-    ]
+            targetSchema:
+              target.paths['/foo'].get.responses['200'].content[
+                'application/json'
+              ],
+            comment:
+              'response body for "200" status code and "application/json" media type has been added to GET "/foo" route',
+          },
+        ],
+      },
+    ],
   })
 })
 
@@ -75,11 +79,11 @@ test('adding response body schema for status code', () => {
       '/foo': {
         get: {
           responses: {
-            200: {}
-          }
-        }
-      }
-    }
+            200: {},
+          },
+        },
+      },
+    },
   }
 
   const target = {
@@ -95,17 +99,17 @@ test('adding response body schema for status code', () => {
                     type: 'object',
                     properties: {
                       bar: {
-                        type: 'integer'
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
+                        type: 'integer',
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
   }
 
   const diff = compareOpenApiSchemas(source, target)
@@ -127,12 +131,16 @@ test('adding response body schema for status code', () => {
             statusCode: '200',
             mediaType: 'application/json',
             sourceSchema: undefined,
-            targetSchema: target.paths['/foo'].get.responses['200'].content['application/json'],
-            comment: 'response body for "200" status code and "application/json" media type has been added to GET "/foo" route'
-          }
-        ]
-      }
-    ]
+            targetSchema:
+              target.paths['/foo'].get.responses['200'].content[
+                'application/json'
+              ],
+            comment:
+              'response body for "200" status code and "application/json" media type has been added to GET "/foo" route',
+          },
+        ],
+      },
+    ],
   })
 })
 
@@ -150,26 +158,26 @@ test('removing response body schemas', () => {
                     type: 'object',
                     properties: {
                       bar: {
-                        type: 'integer'
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
+                        type: 'integer',
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
   }
 
   const target = {
     openapi: '1.0.0',
     paths: {
       '/foo': {
-        get: {}
-      }
-    }
+        get: {},
+      },
+    },
   }
 
   const diff = compareOpenApiSchemas(source, target)
@@ -190,13 +198,17 @@ test('removing response body schemas', () => {
             action: 'deleted',
             statusCode: '200',
             mediaType: 'application/json',
-            sourceSchema: source.paths['/foo'].get.responses['200'].content['application/json'],
+            sourceSchema:
+              source.paths['/foo'].get.responses['200'].content[
+                'application/json'
+              ],
             targetSchema: undefined,
-            comment: 'response body for "200" status code and "application/json" media type has been deleted from GET "/foo" route'
-          }
-        ]
-      }
-    ]
+            comment:
+              'response body for "200" status code and "application/json" media type has been deleted from GET "/foo" route',
+          },
+        ],
+      },
+    ],
   })
 })
 
@@ -214,17 +226,17 @@ test('removing response body schema for status code', () => {
                     type: 'object',
                     properties: {
                       bar: {
-                        type: 'integer'
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
+                        type: 'integer',
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
   }
 
   const target = {
@@ -233,11 +245,11 @@ test('removing response body schema for status code', () => {
       '/foo': {
         get: {
           responses: {
-            200: {}
-          }
-        }
-      }
-    }
+            200: {},
+          },
+        },
+      },
+    },
   }
 
   const diff = compareOpenApiSchemas(source, target)
@@ -258,13 +270,17 @@ test('removing response body schema for status code', () => {
             statusCode: '200',
             mediaType: 'application/json',
             action: 'deleted',
-            sourceSchema: source.paths['/foo'].get.responses['200'].content['application/json'],
+            sourceSchema:
+              source.paths['/foo'].get.responses['200'].content[
+                'application/json'
+              ],
             targetSchema: undefined,
-            comment: 'response body for "200" status code and "application/json" media type has been deleted from GET "/foo" route'
-          }
-        ]
-      }
-    ]
+            comment:
+              'response body for "200" status code and "application/json" media type has been deleted from GET "/foo" route',
+          },
+        ],
+      },
+    ],
   })
 })
 
@@ -279,15 +295,15 @@ test('adding response body schema property', () => {
               content: {
                 'application/json': {
                   schema: {
-                    type: 'object'
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
+                    type: 'object',
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
   }
 
   const target = {
@@ -303,17 +319,17 @@ test('adding response body schema property', () => {
                     type: 'object',
                     properties: {
                       bar: {
-                        type: 'integer'
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
+                        type: 'integer',
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
   }
 
   const diff = compareOpenApiSchemas(source, target)
@@ -334,8 +350,14 @@ test('adding response body schema property', () => {
             action: 'changed',
             statusCode: '200',
             mediaType: 'application/json',
-            sourceSchema: source.paths['/foo'].get.responses['200'].content['application/json'],
-            targetSchema: target.paths['/foo'].get.responses['200'].content['application/json'],
+            sourceSchema:
+              source.paths['/foo'].get.responses['200'].content[
+                'application/json'
+              ],
+            targetSchema:
+              target.paths['/foo'].get.responses['200'].content[
+                'application/json'
+              ],
             changes: [
               {
                 keyword: 'schema',
@@ -345,19 +367,20 @@ test('adding response body schema property', () => {
                     source: undefined,
                     target: {
                       bar: {
-                        type: 'integer'
-                      }
-                    }
-                  }
+                        type: 'integer',
+                      },
+                    },
+                  },
                 ],
-                comment: 'response body schema has been changed'
-              }
+                comment: 'response body schema has been changed',
+              },
             ],
-            comment: 'response body for "200" status code and "application/json" media type has been changed in GET "/foo" route'
-          }
-        ]
-      }
-    ]
+            comment:
+              'response body for "200" status code and "application/json" media type has been changed in GET "/foo" route',
+          },
+        ],
+      },
+    ],
   })
 })
 
@@ -375,17 +398,17 @@ test('removing schema property', () => {
                     type: 'object',
                     properties: {
                       bar: {
-                        type: 'integer'
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
+                        type: 'integer',
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
   }
 
   const target = {
@@ -398,15 +421,15 @@ test('removing schema property', () => {
               content: {
                 'application/json': {
                   schema: {
-                    type: 'object'
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
+                    type: 'object',
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
   }
 
   const diff = compareOpenApiSchemas(source, target)
@@ -427,8 +450,14 @@ test('removing schema property', () => {
             statusCode: '200',
             mediaType: 'application/json',
             action: 'changed',
-            sourceSchema: source.paths['/foo'].get.responses['200'].content['application/json'],
-            targetSchema: target.paths['/foo'].get.responses['200'].content['application/json'],
+            sourceSchema:
+              source.paths['/foo'].get.responses['200'].content[
+                'application/json'
+              ],
+            targetSchema:
+              target.paths['/foo'].get.responses['200'].content[
+                'application/json'
+              ],
             changes: [
               {
                 keyword: 'schema',
@@ -437,20 +466,21 @@ test('removing schema property', () => {
                     jsonPath: '#/properties',
                     source: {
                       bar: {
-                        type: 'integer'
-                      }
+                        type: 'integer',
+                      },
                     },
-                    target: undefined
-                  }
+                    target: undefined,
+                  },
                 ],
-                comment: 'response body schema has been changed'
-              }
+                comment: 'response body schema has been changed',
+              },
             ],
-            comment: 'response body for "200" status code and "application/json" media type has been changed in GET "/foo" route'
-          }
-        ]
-      }
-    ]
+            comment:
+              'response body for "200" status code and "application/json" media type has been changed in GET "/foo" route',
+          },
+        ],
+      },
+    ],
   })
 })
 
@@ -468,17 +498,17 @@ test('adding schema property', () => {
                     type: 'object',
                     properties: {
                       bar: {
-                        type: 'integer'
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
+                        type: 'integer',
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
   }
 
   const target = {
@@ -491,15 +521,15 @@ test('adding schema property', () => {
               content: {
                 'application/json': {
                   schema: {
-                    type: 'object'
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
+                    type: 'object',
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
   }
 
   const diff = compareOpenApiSchemas(source, target)
@@ -520,8 +550,14 @@ test('adding schema property', () => {
             action: 'changed',
             statusCode: '200',
             mediaType: 'application/json',
-            sourceSchema: source.paths['/foo'].get.responses['200'].content['application/json'],
-            targetSchema: target.paths['/foo'].get.responses['200'].content['application/json'],
+            sourceSchema:
+              source.paths['/foo'].get.responses['200'].content[
+                'application/json'
+              ],
+            targetSchema:
+              target.paths['/foo'].get.responses['200'].content[
+                'application/json'
+              ],
             changes: [
               {
                 keyword: 'schema',
@@ -530,19 +566,20 @@ test('adding schema property', () => {
                     jsonPath: '#/properties',
                     source: {
                       bar: {
-                        type: 'integer'
-                      }
+                        type: 'integer',
+                      },
                     },
-                    target: undefined
-                  }
+                    target: undefined,
+                  },
                 ],
-                comment: 'response body schema has been changed'
-              }
+                comment: 'response body schema has been changed',
+              },
             ],
-            comment: 'response body for "200" status code and "application/json" media type has been changed in GET "/foo" route'
-          }
-        ]
-      }
-    ]
+            comment:
+              'response body for "200" status code and "application/json" media type has been changed in GET "/foo" route',
+          },
+        ],
+      },
+    ],
   })
 })

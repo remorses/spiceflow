@@ -7,7 +7,7 @@ const compareOpenApiSchemas = require('../dist/index.js')
 test('adding new route', () => {
   const source = {
     openapi: '1.0.0',
-    paths: {}
+    paths: {},
   }
 
   const target = {
@@ -23,17 +23,17 @@ test('adding new route', () => {
                     type: 'object',
                     properties: {
                       bar: {
-                        type: 'integer'
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
+                        type: 'integer',
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
   }
 
   const diff = compareOpenApiSchemas(source, target)
@@ -44,11 +44,11 @@ test('adding new route', () => {
       {
         method: 'get',
         path: '/foo',
-        targetSchema: target.paths['/foo'].get
-      }
+        targetSchema: target.paths['/foo'].get,
+      },
     ],
     deletedRoutes: [],
-    changedRoutes: []
+    changedRoutes: [],
   })
 })
 
@@ -57,9 +57,9 @@ test('adding new operation object', () => {
     openapi: '1.0.0',
     paths: {
       '/foo': {
-        description: 'target'
-      }
-    }
+        description: 'target',
+      },
+    },
   }
 
   const target = {
@@ -76,17 +76,17 @@ test('adding new operation object', () => {
                     type: 'object',
                     properties: {
                       bar: {
-                        type: 'integer'
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
+                        type: 'integer',
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
   }
 
   const diff = compareOpenApiSchemas(source, target)
@@ -97,10 +97,10 @@ test('adding new operation object', () => {
       {
         method: 'get',
         path: '/foo',
-        targetSchema: target.paths['/foo'].get
-      }
+        targetSchema: target.paths['/foo'].get,
+      },
     ],
     deletedRoutes: [],
-    changedRoutes: []
+    changedRoutes: [],
   })
 })

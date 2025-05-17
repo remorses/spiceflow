@@ -2,7 +2,6 @@ import { z } from 'zod'
 import { createSpiceflowClient } from './client/index.js'
 import { Spiceflow } from './spiceflow.js'
 
-
 import { describe, expect, it } from 'vitest'
 const app = new Spiceflow()
   .get('/', () => 'a')

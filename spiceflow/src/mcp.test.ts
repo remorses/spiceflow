@@ -8,7 +8,7 @@ import {
   CallToolResultSchema,
   ListResourcesResultSchema,
   ListToolsResultSchema,
-  ReadResourceResultSchema
+  ReadResourceResultSchema,
 } from '@modelcontextprotocol/sdk/types.js'
 import { z } from 'zod'
 import { Spiceflow } from './spiceflow.js'

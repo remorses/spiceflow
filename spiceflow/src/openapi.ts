@@ -1,4 +1,3 @@
-
 import { InternalRoute, isZodSchema, Spiceflow } from './spiceflow.js'
 
 import type { OpenAPIV3 } from 'openapi-types'

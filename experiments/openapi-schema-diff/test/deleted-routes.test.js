@@ -10,15 +10,15 @@ test('removing a route', () => {
     paths: {
       '/foo1': {
         get: {
-          description: 'source'
-        }
+          description: 'source',
+        },
       },
       '/foo2': {
         get: {
-          description: 'source'
-        }
-      }
-    }
+          description: 'source',
+        },
+      },
+    },
   }
 
   const target = {
@@ -26,10 +26,10 @@ test('removing a route', () => {
     paths: {
       '/foo1': {
         get: {
-          description: 'source'
-        }
-      }
-    }
+          description: 'source',
+        },
+      },
+    },
   }
 
   const diff = compareOpenApiSchemas(source, target)
@@ -40,18 +40,18 @@ test('removing a route', () => {
         method: 'get',
         path: '/foo1',
         sourceSchema: source.paths['/foo1'].get,
-        targetSchema: target.paths['/foo1'].get
-      }
+        targetSchema: target.paths['/foo1'].get,
+      },
     ],
     addedRoutes: [],
     deletedRoutes: [
       {
         method: 'get',
         path: '/foo2',
-        sourceSchema: source.paths['/foo2'].get
-      }
+        sourceSchema: source.paths['/foo2'].get,
+      },
     ],
-    changedRoutes: []
+    changedRoutes: [],
   })
 })
 
@@ -70,26 +70,26 @@ test('removing an operation object', () => {
                     type: 'object',
                     properties: {
                       bar: {
-                        type: 'integer'
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
+                        type: 'integer',
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
   }
 
   const target = {
     openapi: '1.0.0',
     paths: {
       '/foo': {
-        description: 'target'
-      }
-    }
+        description: 'target',
+      },
+    },
   }
 
   const diff = compareOpenApiSchemas(source, target)
@@ -101,9 +101,9 @@ test('removing an operation object', () => {
       {
         method: 'get',
         path: '/foo',
-        sourceSchema: source.paths['/foo'].get
-      }
+        sourceSchema: source.paths['/foo'].get,
+      },
     ],
-    changedRoutes: []
+    changedRoutes: [],
   })
 })

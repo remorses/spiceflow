@@ -36,7 +36,10 @@ test('should throw if major version does not equal', () => {
     compareOpenApiSchemas(source, target)
     assert.fail('should throw')
   } catch (err) {
-    assert.strictEqual(err.message, 'source and target schemas must have the same major version')
+    assert.strictEqual(
+      err.message,
+      'source and target schemas must have the same major version',
+    )
   }
 })
 

@@ -11,7 +11,6 @@ import { SSEServerTransportSpiceflow } from './mcp-transport.js'
 import { openapi } from './openapi.js'
 import { Spiceflow } from './spiceflow.js'
 
-
 const transports = new Map<string, SSEServerTransportSpiceflow>()
 function getOperationRequestBody(
   operation: OpenAPIV3.OperationObject,

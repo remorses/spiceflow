@@ -6,6 +6,6 @@
     "binding": "ASSETS",
   },
   "compatibility_date": "2025-03-17",
-  
+
   "main": "./workers/app.ts",
 }

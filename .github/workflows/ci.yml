@@ -24,3 +24,4 @@ jobs:
       # scripts
       - run: pnpm build
       - run: pnpm test
+      - run: pnpm format-check
