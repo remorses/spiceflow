@@ -31,7 +31,7 @@ jobs:
       - run: pnpm test
       # Run Node.js integration tests
       - name: Run Node.js integration tests
-        run: pnpm vitest run --config spiceflow/vitest.config.js spiceflow/tests/integration/node.test.ts
+        run: cd spiceflow && pnpm vitest run --config vitest.config.js tests/integration/node.test.ts --typecheck.tsconfig tsconfig.test.json
 
   # Deno tests
   deno:
@@ -60,8 +60,25 @@ jobs:
       # Create Deno test runner script
       - name: Create Deno test runner
         run: |
-          echo 'import { createTestApi } from "./spiceflow/tests/integration/common/test-api.ts";
-          import { verifyBasicEndpoints } from "./spiceflow/tests/integration/common/setup.ts";
+          echo 'import { Spiceflow } from "./spiceflow/src/index.ts";
+          
+          // Simple test API directly inline for Deno compatibility
+          function createTestApi() {
+            const app = new Spiceflow();
+            
+            // Simple hello world endpoint
+            app.get("/", () => "Hello World!");
+            
+            // JSON response endpoint
+            app.get("/json", () => ({ message: "Hello World!", success: true }));
+            
+            // Path parameter endpoint
+            app.get("/users/:id", ({ params }) => {
+              return { id: params.id, name: `User ${params.id}` };
+            });
+            
+            return app;
+          }
           
           const app = createTestApi();
           
@@ -73,13 +90,29 @@ jobs:
           const server = Deno.serve({ port, signal }, app.handle.bind(app));
           console.log(`Server running at http://localhost:${port}`);
           
-          // Run tests
+          // Simple test
           try {
-            const result = await verifyBasicEndpoints(`http://localhost:${port}`);
-            console.log("Tests passed:", result);
-            if (!result) {
-              Deno.exit(1);
+            // Test root endpoint
+            let response = await fetch(`http://localhost:${port}/`);
+            if (response.status !== 200) {
+              throw new Error(`Expected status 200, got ${response.status}`);
             }
+            const rootText = await response.text();
+            if (rootText !== "Hello World!") {
+              throw new Error(`Unexpected response: ${rootText}`);
+            }
+            
+            // Test JSON endpoint
+            response = await fetch(`http://localhost:${port}/json`);
+            if (response.status !== 200) {
+              throw new Error(`Expected status 200, got ${response.status}`);
+            }
+            const jsonData = await response.json();
+            if (jsonData.message !== "Hello World!" || jsonData.success !== true) {
+              throw new Error(`Unexpected response: ${JSON.stringify(jsonData)}`);
+            }
+            
+            console.log("Tests passed!");
           } catch (error) {
             console.error("Tests failed:", error);
             Deno.exit(1);
@@ -117,9 +150,26 @@ jobs:
       # Create Bun test runner script
       - name: Create Bun test runner
         run: |
-          echo 'import { createTestApi } from "./spiceflow/dist/tests/integration/common/test-api.js";
-          import { verifyBasicEndpoints } from "./spiceflow/dist/tests/integration/common/setup.js";
+          echo 'import { Spiceflow } from "./spiceflow/dist/index.js";
           import { serve } from "./spiceflow/dist/server/bun.js";
+          
+          // Simple test API directly inline for Bun compatibility
+          function createTestApi() {
+            const app = new Spiceflow();
+            
+            // Simple hello world endpoint
+            app.get("/", () => "Hello World!");
+            
+            // JSON response endpoint
+            app.get("/json", () => ({ message: "Hello World!", success: true }));
+            
+            // Path parameter endpoint
+            app.get("/users/:id", ({ params }) => {
+              return { id: params.id, name: `User ${params.id}` };
+            });
+            
+            return app;
+          }
           
           async function runTests() {
             const app = createTestApi();
@@ -129,12 +179,27 @@ jobs:
             const server = await serve(app, { port });
             
             try {
-              // Run tests
-              const result = await verifyBasicEndpoints(`http://localhost:${port}`);
-              console.log("Tests passed:", result);
-              if (!result) {
-                process.exit(1);
+              // Test root endpoint
+              let response = await fetch(`http://localhost:${port}/`);
+              if (response.status !== 200) {
+                throw new Error(`Expected status 200, got ${response.status}`);
               }
+              const rootText = await response.text();
+              if (rootText !== "Hello World!") {
+                throw new Error(`Unexpected response: ${rootText}`);
+              }
+              
+              // Test JSON endpoint
+              response = await fetch(`http://localhost:${port}/json`);
+              if (response.status !== 200) {
+                throw new Error(`Expected status 200, got ${response.status}`);
+              }
+              const jsonData = await response.json();
+              if (jsonData.message !== "Hello World!" || jsonData.success !== true) {
+                throw new Error(`Unexpected response: ${JSON.stringify(jsonData)}`);
+              }
+              
+              console.log("Tests passed!");
             } catch (error) {
               console.error("Tests failed:", error);
               process.exit(1);
@@ -175,7 +240,25 @@ jobs:
       # Create Workers test script
       - name: Create Workers test script
         run: |
-          echo 'import { createTestApi } from "./spiceflow/dist/tests/integration/common/test-api.js";
+          echo 'import { Spiceflow } from "./spiceflow/dist/index.js";
+          
+          // Simple test API directly inline for Workers compatibility
+          function createTestApi() {
+            const app = new Spiceflow();
+            
+            // Simple hello world endpoint
+            app.get("/", () => "Hello World!");
+            
+            // JSON response endpoint
+            app.get("/json", () => ({ message: "Hello World!", success: true }));
+            
+            // Path parameter endpoint
+            app.get("/users/:id", ({ params }) => {
+              return { id: params.id, name: `User ${params.id}` };
+            });
+            
+            return app;
+          }
           
           export default {
             async fetch(request, env, ctx) {
@@ -210,8 +293,7 @@ jobs:
       # Run Workers tests using Node.js to make requests to workerd
       - name: Run Workers tests
         run: |
-          echo 'import { verifyBasicEndpoints } from "./spiceflow/dist/tests/integration/common/setup.js";
-          import { exec } from "child_process";
+          echo 'import { exec } from "child_process";
           
           // Start workerd in background
           const child = exec("workerd serve workerd.capnp.js");
@@ -220,12 +302,27 @@ jobs:
           await new Promise(resolve => setTimeout(resolve, 3000));
           
           try {
-            // Run tests
-            const result = await verifyBasicEndpoints("http://localhost:8787");
-            console.log("Tests passed:", result);
-            if (!result) {
-              process.exit(1);
+            // Test root endpoint
+            let response = await fetch("http://localhost:8787/");
+            if (response.status !== 200) {
+              throw new Error(`Expected status 200, got ${response.status}`);
             }
+            const rootText = await response.text();
+            if (rootText !== "Hello World!") {
+              throw new Error(`Unexpected response: ${rootText}`);
+            }
+            
+            // Test JSON endpoint
+            response = await fetch("http://localhost:8787/json");
+            if (response.status !== 200) {
+              throw new Error(`Expected status 200, got ${response.status}`);
+            }
+            const jsonData = await response.json();
+            if (jsonData.message !== "Hello World!" || jsonData.success !== true) {
+              throw new Error(`Unexpected response: ${JSON.stringify(jsonData)}`);
+            }
+            
+            console.log("Tests passed!");
           } catch (error) {
             console.error("Tests failed:", error);
             process.exit(1);

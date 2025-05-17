@@ -13,5 +13,5 @@
     "rewriteRelativeImportExtensions": true,
     "outDir": "dist"
   },
-  "include": ["src", "tests"]
+  "include": ["src"]
 }
