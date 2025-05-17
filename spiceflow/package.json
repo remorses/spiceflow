@@ -101,6 +101,7 @@
     "eventsource": "^3.0.5",
     "formdata-node": "^6.0.3",
     "js-base64": "^3.7.7",
-    "js-yaml": "^4.1.0"
+    "js-yaml": "^4.1.0",
+    "typescript": "^5.8.3"
   }
 }
