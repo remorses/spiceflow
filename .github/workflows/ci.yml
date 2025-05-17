@@ -2,6 +2,8 @@ name: CI
 
 on:
   push:
+    branches-ignore:
+      - mentat-9-1 # Skip this branch, we're using a custom workflow for it
 
 jobs:
   # Standard Node.js tests

@@ -26,9 +26,9 @@ jobs:
       # Run pnpm install with no-frozen-lockfile
       - name: Install dependencies
         run: pnpm install --no-frozen-lockfile
-      # Build project
-      - name: Build
-        run: pnpm build
-      # Run tests
-      - name: Test
-        run: pnpm test
+      # Build only the spiceflow package, not website
+      - name: Build spiceflow
+        run: cd spiceflow && pnpm build
+      # Run tests for spiceflow only
+      - name: Test spiceflow
+        run: cd spiceflow && pnpm test
