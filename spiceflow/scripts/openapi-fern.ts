@@ -3,7 +3,7 @@ import path from 'path'
 import yaml from 'js-yaml'
 
 import { createSpiceflowClient } from '../src/client'
-import { app } from './example-app.js'
+import { app } from './example-app.ts'
 
 async function main() {
   console.log('Creating Spiceflow client...')

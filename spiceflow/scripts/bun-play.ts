@@ -1,4 +1,4 @@
-import { Spiceflow } from '../src/spiceflow.js'
+import { Spiceflow } from '../src/spiceflow.ts'
 
 const app = new Spiceflow()
   .get('/', () => {

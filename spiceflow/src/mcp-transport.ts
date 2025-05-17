@@ -1,5 +1,5 @@
 // https://github.com/modelcontextprotocol/typescript-sdk/blob/3164da64d085ec4e022ae881329eee7b72f208d4/src/server/sse.ts
-import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js'
+import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.ts'
 import {
   JSONRPCMessage,
   JSONRPCMessageSchema,

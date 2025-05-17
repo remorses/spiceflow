@@ -1,4 +1,4 @@
-import { MiddlewareHandler } from './types.js'
+import { MiddlewareHandler } from './types.ts'
 /**
  * Options for configuring CORS (Cross-Origin Resource Sharing) middleware.
  * @see {@link https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS MDN CORS documentation}

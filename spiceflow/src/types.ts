@@ -6,14 +6,14 @@ import { StandardSchemaV1 } from '@standard-schema/spec'
 import type { OpenAPIV3 } from 'openapi-types'
 
 import { ZodObject, ZodTypeAny } from 'zod'
-import type { Context, ErrorContext, MiddlewareContext } from './context.js'
+import type { Context, ErrorContext, MiddlewareContext } from './context.ts'
 import {
   SPICEFLOW_RESPONSE,
   InternalServerError,
   ParseError,
   ValidationError,
-} from './error.js'
-import { Spiceflow } from './spiceflow.js'
+} from './error.ts'
+import { Spiceflow } from './spiceflow.ts'
 
 export type MaybeArray<T> = T | T[]
 export type MaybePromise<T> = T | Promise<T>

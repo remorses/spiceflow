@@ -7,9 +7,9 @@ import {
   ReadResourceRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js'
 import { OpenAPIV3 } from 'openapi-types'
-import { SSEServerTransportSpiceflow } from './mcp-transport.js'
-import { openapi } from './openapi.js'
-import { Spiceflow } from './spiceflow.js'
+import { SSEServerTransportSpiceflow } from './mcp-transport.ts'
+import { openapi } from './openapi.ts'
+import { Spiceflow } from './spiceflow.ts'
 
 const transports = new Map<string, SSEServerTransportSpiceflow>()
 function getOperationRequestBody(

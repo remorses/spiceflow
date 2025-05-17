@@ -1,7 +1,7 @@
 /// <reference lib="dom" />
-import type { Spiceflow } from '../spiceflow.js'
+import type { Spiceflow } from '../spiceflow.ts'
 
-import { SpiceflowFetchError } from './errors.js'
+import { SpiceflowFetchError } from './errors.ts'
 
 export type Prettify<T> = {
   [K in keyof T]: T[K]

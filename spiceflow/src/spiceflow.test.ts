@@ -1,8 +1,8 @@
 import { test, describe, expect } from 'vitest'
 
-import { bfs, cloneDeep, Spiceflow } from './spiceflow.js'
+import { bfs, cloneDeep, Spiceflow } from './spiceflow.ts'
 import { z } from 'zod'
-import { createSpiceflowClient } from './client/index.js'
+import { createSpiceflowClient } from './client/index.ts'
 
 test('works', async () => {
   const res = await new Spiceflow()
