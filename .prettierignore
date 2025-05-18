@@ -1,3 +1,5 @@
 /experiments/sdk/logs/
 build/
 extracted.json5
+routes/*.mdx
+.wrangler
