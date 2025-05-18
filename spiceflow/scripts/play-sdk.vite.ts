@@ -7,7 +7,7 @@ export default defineConfig({
       entry: './scripts/play-sdk.ts',
       formats: ['es'],
 
-      fileName: () => 'play-sdk.js',
+      fileName: () => 'play-sdk.ts',
     },
     rollupOptions: {
       external: ['node-fetch'],

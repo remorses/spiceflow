@@ -23,15 +23,15 @@ import {
   SingletonBase,
   TypeSchema,
   UnwrapRoute,
-} from './types.js'
+} from './types.ts'
 
 import OriginalRouter from '@medley/router'
 import { type IncomingMessage, type ServerResponse } from 'http'
 import { z, ZodType } from 'zod'
 
-import { MiddlewareContext } from './context.js'
-import { isProduction, ValidationError } from './error.js'
-import { isAsyncIterable, isResponse, redirect } from './utils.js'
+import { MiddlewareContext } from './context.ts'
+import { isProduction, ValidationError } from './error.ts'
+import { isAsyncIterable, isResponse, redirect } from './utils.ts'
 import { StandardSchemaV1 } from '@standard-schema/spec'
 let globalIndex = 0
 

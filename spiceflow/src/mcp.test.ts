@@ -1,7 +1,7 @@
 import { beforeAll, describe, expect, it } from 'vitest'
 
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
-import { mcp } from './mcp.js'
+import { mcp } from './mcp.ts'
 
 import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js'
 import {
@@ -11,7 +11,7 @@ import {
   ReadResourceResultSchema,
 } from '@modelcontextprotocol/sdk/types.js'
 import { z } from 'zod'
-import { Spiceflow } from './spiceflow.js'
+import { Spiceflow } from './spiceflow.ts'
 
 describe('MCP Plugin', () => {
   let app: Spiceflow<any>

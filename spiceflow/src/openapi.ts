@@ -1,10 +1,10 @@
-import { InternalRoute, isZodSchema, Spiceflow } from './spiceflow.js'
+import { InternalRoute, isZodSchema, Spiceflow } from './spiceflow.ts'
 
 import type { OpenAPIV3 } from 'openapi-types'
 
 let excludeMethods = ['OPTIONS']
 
-import type { TypeSchema } from './types.js'
+import type { TypeSchema } from './types.ts'
 
 import { z } from 'zod'
 import { zodToJsonSchema } from 'zod-to-json-schema'

@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest'
 import { z } from 'zod'
-import { cors } from './cors.js'
-import { Spiceflow } from './spiceflow.js'
+import { cors } from './cors.ts'
+import { Spiceflow } from './spiceflow.ts'
 
 function request(path, method = 'GET') {
   return new Request(`http://localhost/${path}`, {

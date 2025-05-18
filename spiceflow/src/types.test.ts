@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest'
-import { createSpiceflowClient } from './client/index.js'
-import { Spiceflow } from './spiceflow.js'
-import { Prettify } from './types.js'
+import { createSpiceflowClient } from './client/index.ts'
+import { Spiceflow } from './spiceflow.ts'
+import { Prettify } from './types.ts'
 
 test('`use` on non Spiceflow return', async () => {
   function nonSpiceflowReturn() {

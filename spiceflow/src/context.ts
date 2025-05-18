@@ -2,7 +2,7 @@ import type {
   StatusMap,
   InvertedStatusMap,
   redirect as Redirect,
-} from './utils.js'
+} from './utils.ts'
 
 import type {
   RouteSchema,
@@ -10,9 +10,9 @@ import type {
   ResolvePath,
   SingletonBase,
   HTTPHeaders,
-} from './types.js'
+} from './types.ts'
 
-import { SpiceflowRequest } from './spiceflow.js'
+import { SpiceflowRequest } from './spiceflow.ts'
 
 export type ErrorContext<
   in out Route extends RouteSchema = {},

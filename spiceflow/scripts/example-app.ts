@@ -1,6 +1,6 @@
 import { Spiceflow } from '../src'
 import { z } from 'zod'
-import { openapi } from '../src/openapi.js'
+import { openapi } from '../src/openapi.ts'
 
 const app = new Spiceflow()
   .use(

@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest'
 import { z } from 'zod'
-import { Spiceflow } from './spiceflow.js'
+import { Spiceflow } from './spiceflow.ts'
 
 test('middleware with next changes the response', async () => {
   const res = await new Spiceflow()

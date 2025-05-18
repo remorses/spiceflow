@@ -1,5 +1,5 @@
-import { MiddlewareHandler } from './types.js'
-import { isResponse } from './utils.js'
+import { MiddlewareHandler } from './types.ts'
+import { isResponse } from './utils.ts'
 
 type Env = {}
 type Context<E extends Env = Env> = {}

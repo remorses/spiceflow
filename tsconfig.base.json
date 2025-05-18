@@ -4,6 +4,8 @@
     "module": "commonjs",
     "allowJs": true,
     "moduleResolution": "Node",
+    "allowImportingTsExtensions": true,
+    "rewriteRelativeImportExtensions": true,
     "lib": ["es2022", "es2017", "es7", "es6", "dom", "ESNext"],
     "declaration": true,
     "declarationMap": true,

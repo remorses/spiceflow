@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest'
-import { Spiceflow } from './spiceflow.js'
-import { openapi } from './openapi.js'
+import { Spiceflow } from './spiceflow.ts'
+import { openapi } from './openapi.ts'
 import { z } from 'zod'
 
 test('openapi response', async () => {

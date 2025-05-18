@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest'
 import { z } from 'zod'
-import { Spiceflow } from './spiceflow.js'
-import { req } from './utils.js'
+import { Spiceflow } from './spiceflow.ts'
+import { req } from './utils.ts'
 
 test('body is parsed as json', async () => {
   let name = ''

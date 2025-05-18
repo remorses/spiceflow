@@ -1,7 +1,7 @@
 import { stat } from 'fs/promises'
 import fs from 'fs'
-import { ServeStaticOptions, serveStatic as baseServeStatic } from './static.js'
-import { MiddlewareHandler } from './types.js'
+import { ServeStaticOptions, serveStatic as baseServeStatic } from './static.ts'
+import { MiddlewareHandler } from './types.ts'
 
 export const serveStatic = (options: ServeStaticOptions): MiddlewareHandler => {
   const getContent = (path: string) => {

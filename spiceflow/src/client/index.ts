@@ -1,17 +1,17 @@
 /* eslint-disable no-extra-semi */
 /* eslint-disable no-case-declarations */
 /* eslint-disable prefer-const */
-import type { Spiceflow } from '../spiceflow.js'
+import type { Spiceflow } from '../spiceflow.ts'
 import superjson from 'superjson'
 import { EventSourceParserStream } from 'eventsource-parser/stream'
 
-import type { SpiceflowClient } from './types.js'
+import type { SpiceflowClient } from './types.ts'
 
 export { SpiceflowClient }
 
-import { SpiceflowFetchError } from './errors.js'
+import { SpiceflowFetchError } from './errors.ts'
 
-import { parseStringifiedValue } from './utils.js'
+import { parseStringifiedValue } from './utils.ts'
 
 const method = [
   'get',
