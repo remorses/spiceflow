@@ -1,8 +1,8 @@
 import { beforeAll, describe, expect, it } from 'vitest'
 
+import { Spiceflow } from 'spiceflow'
+import { mcp } from 'spiceflow/mcp'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
-import { mcp } from './mcp.ts'
-
 import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js'
 import {
   CallToolResultSchema,
@@ -11,7 +11,7 @@ import {
   ReadResourceResultSchema,
 } from '@modelcontextprotocol/sdk/types.js'
 import { z } from 'zod'
-import { Spiceflow } from './spiceflow.ts'
+import { getAvailablePort } from './get-available-port.ts'
 
 describe('MCP Plugin', () => {
   let app: Spiceflow<any>
@@ -49,7 +49,7 @@ describe('MCP Plugin', () => {
             .required(),
         },
       )
-    await app.listen(port)
+    await app.listenForNode(port)
 
     transport = new SSEClientTransport(
       new URL(`http://localhost:${port}/api/mcp`),
@@ -226,40 +226,3 @@ describe('MCP Plugin', () => {
     `)
   })
 })
-
-async function getAvailablePort(startPort = 4000, maxRetries = 10) {
-  const net = await import('net')
-
-  return await new Promise<number>((resolve, reject) => {
-    let port = startPort
-    let attempts = 0
-
-    const checkPort = () => {
-      const server = net.createServer()
-
-      server.once('error', (err: any) => {
-        if (err.code === 'EADDRINUSE') {
-          attempts++
-          if (attempts >= maxRetries) {
-            reject(new Error('No available ports found'))
-          } else {
-            port++
-            checkPort()
-          }
-        } else {
-          reject(err)
-        }
-      })
-
-      server.once('listening', () => {
-        server.close(() => {
-          resolve(port)
-        })
-      })
-
-      server.listen(port)
-    }
-
-    checkPort()
-  })
-}
