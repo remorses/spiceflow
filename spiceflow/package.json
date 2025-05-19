@@ -15,6 +15,7 @@
       "types": "./dist/listen-for-node.d.ts",
       "node": "./dist/listen-for-node.js",
       "bun": "./dist/listen-for-node.js",
+      "deno": "./dist/listen-for-node.js",
       "default": "./dist/listen-for-node-unsupported.js"
     },
     "./cors": {

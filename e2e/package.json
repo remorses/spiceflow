@@ -12,6 +12,7 @@
     "@modelcontextprotocol/sdk": "^1.11.4",
     "@types/ps-tree": "^1.1.6",
     "bun": "~1.2.13",
+    "deno": "~2.3.3",
     "node": "~22.15.1",
     "ps-tree": "^1.2.0",
     "wrangler": "~4.15.2"

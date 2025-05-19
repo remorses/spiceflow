@@ -42,6 +42,26 @@ describe('smoke test with bun', () => {
   })
 })
 
+describe('smoke test with deno', () => {
+  test('running app.listen()', async () => {
+    await smokeTestServer({
+      command: 'deno',
+      args: ['run', '--allow-net', '--allow-env', './app-listen.js'],
+      port: await getAvailablePort(62210),
+    })
+  })
+
+  // Deno has a Node compatibility layer. Checking that the Node-specific
+  // implementation also works there.
+  test('running app.listenForNode()', async () => {
+    await smokeTestServer({
+      command: 'deno',
+      args: ['run', '--allow-net', '--allow-env', './app-listen-for-node.js'],
+      port: await getAvailablePort(62220),
+    })
+  })
+})
+
 interface SmokeTestServerInput {
   port: number
   command: string

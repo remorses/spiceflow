@@ -24,6 +24,9 @@ importers:
       '@types/bun':
         specifier: ~1.2.13
         version: 1.2.13
+      '@types/deno':
+        specifier: ~2.3.0
+        version: 2.3.0
       '@types/node':
         specifier: ~22.13.4
         version: 22.13.4
@@ -64,6 +67,9 @@ importers:
       bun:
         specifier: ~1.2.13
         version: 1.2.13
+      deno:
+        specifier: ~2.3.3
+        version: 2.3.3
       node:
         specifier: ~22.15.1
         version: 22.15.1
@@ -638,6 +644,36 @@ packages:
   '@cspotcode/source-map-support@0.8.1':
     resolution: {integrity: sha512-IchNf6dN4tHoMFIn/7OE8LWZ19Y6q/67Bmf6vnGREv8RSbBVb9LPJxEcnwrcwX6ixSvaiGoomAUvu4YSxXrVgw==}
     engines: {node: '>=12'}
+
+  '@deno/darwin-arm64@2.3.3':
+    resolution: {integrity: sha512-nvbEP3fLINcs4IAvlBrDv6H2WxRxyeGne/704kP62weUFFh/XVHW/QLAdcvkBnWcW6as6BhAX0870wiMgtw6wQ==}
+    cpu: [arm64]
+    os: [darwin]
+
+  '@deno/darwin-x64@2.3.3':
+    resolution: {integrity: sha512-g7kC/l2RWar/p+9y5E3spgB3lPHYMGmNqYYFH5jULw5k6bVzsyn+4ID14RRI0BlyYtg/N3F2TBuFWTYmgVN9uA==}
+    cpu: [x64]
+    os: [darwin]
+
+  '@deno/linux-arm64-glibc@2.3.3':
+    resolution: {integrity: sha512-GJwc6x5J6ZSaCr1Xv8mYLoMfoPdFzfweJIBDqRVjdEowFCkRbaaS0rhgBPDataQ6IfCN2nt6jO5lyDjg/byTwg==}
+    cpu: [arm64]
+    os: [linux]
+
+  '@deno/linux-x64-glibc@2.3.3':
+    resolution: {integrity: sha512-+w+XtukKjF7O3GiZKyaoOxFadu8HWfwijaQK1qQgUsB82QCmfmmDssRAX/MYiOeveM2izj/QlIzCOwb+O2Ovaw==}
+    cpu: [x64]
+    os: [linux]
+
+  '@deno/win32-arm64@2.3.3':
+    resolution: {integrity: sha512-vEA4HY1sjUeKXXoRpbyKJXyuF69jqz+Z4bDYxLGTUqXa8mYpK/QJpjYD0UtCewWMMfH6Q5IqpKEm2Fw6hOLuQw==}
+    cpu: [arm64]
+    os: [win32]
+
+  '@deno/win32-x64@2.3.3':
+    resolution: {integrity: sha512-0YeiukjSTLuiXMghry/liRQEbp20l1nDmgjbG7Mf98Rw2Zz68xZ9IZMXMzWS3J5xfTYexEjQCWPJJk3NRWyufQ==}
+    cpu: [x64]
+    os: [win32]
 
   '@emnapi/runtime@1.4.3':
     resolution: {integrity: sha512-pBPWdu6MLKROBX05wSNKcNb++m5Er+KQ9QkB+WVM+pW2Kx9hoSrVTnu3BdkI5eBLZoKu/J6mW/B6i6bJB2ytXQ==}
@@ -1479,6 +1515,9 @@ packages:
   '@types/debug@4.1.12':
     resolution: {integrity: sha512-vIChWdVG3LG1SMxEvI/AK+FWJthlrqlTu7fbrlywTkkaONwk/UAGaULXRlf8vkzFBLVm0zkMdCquhL5aOjhXPQ==}
 
+  '@types/deno@2.3.0':
+    resolution: {integrity: sha512-/4SyefQpKjwNKGkq9qG3Ln7MazfbWKvydyVFBnXzP5OQA4u1paoFtaOe1iHKycIWHHkhYag0lPxyheThV1ijzw==}
+
   '@types/diff-match-patch@1.0.36':
     resolution: {integrity: sha512-xFdR6tkm0MWvBfO8xXCSsinYxHcqkQUlcHeSpMC2ukzOb6lwQAfDmW+Qt0AvlGd8HpsS28qKsB+oPeJn9I39jg==}
 
@@ -2119,6 +2158,10 @@ packages:
 
   defu@6.1.4:
     resolution: {integrity: sha512-mEQCMmwJu317oSz8CwdIOdwf3xMif1ttiM8LTufzc3g6kR+9Pe236twL8j3IYT1F7GfRgGcW6MWxzZjLIkuHIg==}
+
+  deno@2.3.3:
+    resolution: {integrity: sha512-98lcMdDYMFCx3OjI2HKNCxRqNh5iEgJXESg0BahrOddwfjEVyqrYz63lAy/fysph+ADbdVhKvuBxHdlTRhOHtw==}
+    hasBin: true
 
   depd@2.0.0:
     resolution: {integrity: sha512-g7nH6P6dyDioJogAAGprGpCtVImJhpPk/roCzdb3fIh61/s/nPsfR6onyMwkCAR/OlC3yBC0lESvUoQEAssIrw==}
@@ -5173,6 +5216,24 @@ snapshots:
     dependencies:
       '@jridgewell/trace-mapping': 0.3.9
 
+  '@deno/darwin-arm64@2.3.3':
+    optional: true
+
+  '@deno/darwin-x64@2.3.3':
+    optional: true
+
+  '@deno/linux-arm64-glibc@2.3.3':
+    optional: true
+
+  '@deno/linux-x64-glibc@2.3.3':
+    optional: true
+
+  '@deno/win32-arm64@2.3.3':
+    optional: true
+
+  '@deno/win32-x64@2.3.3':
+    optional: true
+
   '@emnapi/runtime@1.4.3':
     dependencies:
       tslib: 2.8.1
@@ -5886,6 +5947,8 @@ snapshots:
     dependencies:
       '@types/ms': 2.1.0
 
+  '@types/deno@2.3.0': {}
+
   '@types/diff-match-patch@1.0.36': {}
 
   '@types/diff@7.0.1': {}
@@ -6577,6 +6640,15 @@ snapshots:
       object-keys: 1.1.1
 
   defu@6.1.4: {}
+
+  deno@2.3.3:
+    optionalDependencies:
+      '@deno/darwin-arm64': 2.3.3
+      '@deno/darwin-x64': 2.3.3
+      '@deno/linux-arm64-glibc': 2.3.3
+      '@deno/linux-x64-glibc': 2.3.3
+      '@deno/win32-arm64': 2.3.3
+      '@deno/win32-x64': 2.3.3
 
   depd@2.0.0: {}
 
