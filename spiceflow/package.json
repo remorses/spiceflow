@@ -11,12 +11,11 @@
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     },
-    "./_node_utils": {
-      "types": "./dist/_node_utils.d.ts",
-      "browser": "./dist/_node_utils_browser.js",
-      "workerd": "./dist/_node_utils_browser.js",
-      "edge-light": "./dist/_node_utils_browser.js",
-      "default": "./dist/_node_utils.js"
+    "./_listen-for-node": {
+      "types": "./dist/listen-for-node.d.ts",
+      "node": "./dist/listen-for-node.js",
+      "bun": "./dist/listen-for-node.js",
+      "default": "./dist/listen-for-node-unsupported.js"
     },
     "./cors": {
       "types": "./dist/cors.d.ts",
@@ -79,7 +78,6 @@
   "devDependencies": {
     "@modelcontextprotocol/sdk": "^1.11.4",
     "@types/lodash.clonedeep": "^4.5.9",
-    "@types/node": "22.13.4",
     "eventsource": "^3.0.5",
     "formdata-node": "^6.0.3",
     "js-base64": "^3.7.7",

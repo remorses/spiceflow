@@ -1,6 +1,4 @@
-import { createServer } from 'spiceflow/_node_utils'
 import lodashCloneDeep from 'lodash.clonedeep'
-import superjson from 'superjson'
 import {
   ComposeSpiceflowResponse,
   ContentType,
@@ -26,13 +24,15 @@ import {
 } from './types.ts'
 
 import OriginalRouter from '@medley/router'
-import { type IncomingMessage, type ServerResponse } from 'http'
 import { z, ZodType } from 'zod'
 
+import { listenForNode } from 'spiceflow/_listen-for-node'
 import { MiddlewareContext } from './context.ts'
-import { isProduction, ValidationError } from './error.ts'
+import { ValidationError } from './error.ts'
 import { isAsyncIterable, isResponse, redirect } from './utils.ts'
 import { StandardSchemaV1 } from '@standard-schema/spec'
+import { superjsonSerialize } from './serialize.ts'
+
 let globalIndex = 0
 
 type AsyncResponse = Response | Promise<Response>
@@ -897,12 +897,11 @@ export class Spiceflow<
   }
 
   async listen(port: number, hostname: string = '0.0.0.0') {
-    // @ts-ignore
+    const app = this
     if (typeof Bun !== 'undefined') {
-      // @ts-ignore
       const server = Bun.serve({
         port,
-        development: !isProduction,
+        development: (Bun.env.NODE_ENV ?? Bun.env.ENV) !== 'production',
         hostname,
         reusePort: true,
         error(error) {
@@ -914,115 +913,35 @@ export class Spiceflow<
             },
           )
         },
-
-        fetch: async (request) => {
-          const res = await this.handle(request)
+        async fetch(request) {
+          const res = await app.handle(request)
           return res
         },
       })
+
       process.on('beforeExit', () => {
         server.stop()
       })
-      console.log(`Listening on http://localhost:${port}`)
+
+      const displayedHost =
+        server.hostname === '0.0.0.0' ? 'localhost' : server.hostname
+      console.log(`Listening on http://${displayedHost}:${server.port}`)
+
       return server
     }
-    return this.listenNode(port, hostname)
-  }
-  async listenNode(port: number, hostname: string = '0.0.0.0') {
-    const server = createServer((req, res) => {
-      return this.handleNode(req, res)
-    })
 
-    await new Promise((resolve, reject) => {
-      server.listen(port, hostname, () => {
-        console.log(`Listening on http://localhost:${port}`)
-        resolve(null)
-      })
-    })
-
-    return server
+    return this.listenForNode(port, hostname)
   }
 
-  async handleNode(
-    req: IncomingMessage,
-    res: ServerResponse,
-    context: { state?: Singleton['state'] } = {},
-  ) {
-    if (req?.['body']) {
-      throw new Error(
-        'req.body is defined, you should disable your framework body parser to be able to use the request in Spiceflow',
+  async listenForNode(port: number, hostname: string = '0.0.0.0') {
+    if (typeof Bun !== 'undefined') {
+      console.warn(
+        "Server is being started with node:http but the current runtime is Bun, not Node. Consider using the method 'handle' with 'Bun.serve' instead.",
       )
     }
-
-    const abortController = new AbortController()
-    const { signal } = abortController
-
-    req.on('error', (err) => {
-      abortController.abort()
-    })
-    req.on('aborted', (err) => {
-      abortController.abort()
-    })
-    res.on('close', function () {
-      let aborted = !res.writableFinished
-      if (aborted) {
-        abortController.abort()
-      }
-    })
-
-    const url = new URL(
-      req.url || '',
-      `http://${req.headers.host || 'localhost'}`,
-    )
-    const typedRequest = new SpiceflowRequest(url.toString(), {
-      method: req.method,
-      headers: req.headers as HeadersInit,
-      body:
-        req.method !== 'GET' && req.method !== 'HEAD'
-          ? new ReadableStream({
-              start(controller) {
-                req.on('data', (chunk) => {
-                  controller.enqueue(
-                    new Uint8Array(
-                      chunk.buffer,
-                      chunk.byteOffset,
-                      chunk.byteLength,
-                    ),
-                  )
-                })
-                req.on('end', () => {
-                  controller.close()
-                })
-              },
-            })
-          : null,
-      signal,
-      // @ts-ignore
-      duplex: 'half',
-    })
-
-    try {
-      const response = await this.handle(typedRequest, context)
-      res.writeHead(
-        response.status,
-        Object.fromEntries(response.headers.entries()),
-      )
-
-      if (response.body) {
-        const reader = response.body.getReader()
-        while (true) {
-          const { done, value } = await reader.read()
-          if (done) break
-          res.write(value)
-        }
-      }
-      res.end()
-    } catch (error) {
-      console.error('Error handling request:', error)
-      res.statusCode = 500
-      res.end(superjsonSerialize({ message: 'Internal Server Error' }))
-    }
+    return listenForNode(this, port, hostname)
   }
+
   private async handleStream({
     onErrorHandlers,
     generator,
@@ -1274,15 +1193,6 @@ export async function turnHandlerResultIntoResponse(
       'content-type': 'application/json',
     },
   })
-}
-
-function superjsonSerialize(value: any, indent = false) {
-  // return JSON.stringify(value)
-  const { json, meta } = superjson.serialize(value)
-  if (json && meta) {
-    json['__superjsonMeta'] = meta
-  }
-  return JSON.stringify(json ?? null, null, indent ? 2 : undefined)
 }
 
 export type AnySpiceflow = Spiceflow<any, any, any, any, any, any>
