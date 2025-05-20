@@ -13,7 +13,7 @@ describe('smoke test with node', () => {
       port: await getAvailablePort(62010),
     })
   })
-  test('running app.listenForNode()', async () => {
+  test('running app.listenForNode() (deprecated)', async () => {
     await smokeTestServer({
       command: 'node',
       args: ['./app-listen-for-node.js'],
@@ -30,10 +30,9 @@ describe('smoke test with bun', () => {
       port: await getAvailablePort(62110),
     })
   })
-
   // Bun has a Node compatibility layer. Checking that the Node-specific
   // implementation also works there.
-  test('running app.listenForNode()', async () => {
+  test('running app.listenForNode() (deprecated)', async () => {
     await smokeTestServer({
       command: 'bun',
       args: ['./app-listen-for-node.js'],
@@ -50,7 +49,6 @@ describe('smoke test with deno', () => {
       port: await getAvailablePort(62210),
     })
   })
-
   // Deno has a Node compatibility layer. Checking that the Node-specific
   // implementation also works there.
   test('running app.listenForNode()', async () => {

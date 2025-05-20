@@ -5,10 +5,11 @@ import {
   createServer,
 } from 'node:http'
 import { AddressInfo } from 'node:net'
-import { type Spiceflow, SpiceflowRequest } from './spiceflow.ts'
-import { superjsonSerialize } from './serialize.ts'
+import type { Spiceflow } from 'spiceflow'
+import { SpiceflowRequest } from '../spiceflow-request.ts'
+import { superjsonSerialize } from '../serialize.ts'
 
-export async function listenForNode(
+export async function listen(
   app: Spiceflow<any, any, any, any, any, any>,
   port: number,
   hostname: string = '0.0.0.0',

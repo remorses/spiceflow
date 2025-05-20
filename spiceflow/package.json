@@ -11,13 +11,6 @@
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     },
-    "./_listen-for-node": {
-      "types": "./dist/listen-for-node.d.ts",
-      "node": "./dist/listen-for-node.js",
-      "bun": "./dist/listen-for-node.js",
-      "deno": "./dist/listen-for-node.js",
-      "default": "./dist/listen-for-node-unsupported.js"
-    },
     "./cors": {
       "types": "./dist/cors.d.ts",
       "default": "./dist/cors.js"
@@ -29,6 +22,20 @@
     "./client": {
       "types": "./dist/client/index.d.ts",
       "default": "./dist/client/index.js"
+    },
+    "./listen": {
+      "types": "./dist/listen/unsupported.d.ts",
+      "node": "./dist/listen/node.js",
+      "bun": "./dist/listen/bun.js",
+      "deno": "./dist/listen/deno.js",
+      "default": "./dist/listen/unsupported.js"
+    },
+    "./listen/node": {
+      "types": "./dist/listen/node.d.ts",
+      "node": "./dist/listen/node.js",
+      "bun": "./dist/listen/node.js",
+      "deno": "./dist/listen/node.js",
+      "default": "./dist/listen/node-unsupported.js"
     },
     "./openapi": {
       "types": "./dist/openapi.d.ts",

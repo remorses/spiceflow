@@ -12,7 +12,7 @@ import type {
   HTTPHeaders,
 } from './types.ts'
 
-import { SpiceflowRequest } from './spiceflow.ts'
+import { SpiceflowRequest } from './spiceflow-request.ts'
 
 export type ErrorContext<
   in out Route extends RouteSchema = {},

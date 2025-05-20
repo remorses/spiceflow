@@ -1,4 +1,5 @@
 import lodashCloneDeep from 'lodash.clonedeep'
+import type { Server, IncomingMessage, ServerResponse } from 'node:http'
 import {
   ComposeSpiceflowResponse,
   ContentType,
@@ -24,24 +25,21 @@ import {
 } from './types.ts'
 
 import OriginalRouter from '@medley/router'
-import { z, ZodType } from 'zod'
+import { ZodType } from 'zod'
 
-import { listenForNode } from 'spiceflow/_listen-for-node'
+import { listen } from 'spiceflow/listen'
+import { listen as listenForNode } from 'spiceflow/listen/node'
 import { MiddlewareContext } from './context.ts'
-import { ValidationError } from './error.ts'
 import { isAsyncIterable, isResponse, redirect } from './utils.ts'
-import { StandardSchemaV1 } from '@standard-schema/spec'
 import { superjsonSerialize } from './serialize.ts'
+import { runValidation, ValidationFunction } from './validation.ts'
+import { SpiceflowRequest } from './spiceflow-request.ts'
 
 let globalIndex = 0
 
 type AsyncResponse = Response | Promise<Response>
 
 type OnError = (x: { error: any; request: Request }) => AsyncResponse
-
-type ValidationFunction = (
-  value: unknown,
-) => StandardSchemaV1.Result<any> | Promise<StandardSchemaV1.Result<any>>
 
 export type InternalRoute = {
   method: HTTPMethod
@@ -896,99 +894,30 @@ export class Spiceflow<
     return appsInScope
   }
 
-  async listen(port: number, hostname: string = '0.0.0.0') {
-    const app = this
-    if (typeof Bun !== 'undefined') {
-      const server = Bun.serve({
-        port,
-        development: (Bun.env.NODE_ENV ?? Bun.env.ENV) !== 'production',
-        hostname,
-        reusePort: true,
-        error(error) {
-          console.error(error)
-          return new Response(
-            superjsonSerialize({ message: 'Internal Server Error' }),
-            {
-              status: 500,
-            },
-          )
-        },
-        async fetch(request) {
-          const res = await app.handle(request)
-          return res
-        },
-      })
-
-      process.on('beforeExit', () => {
-        server.stop()
-      })
-
-      const displayedHost =
-        server.hostname === '0.0.0.0' ? 'localhost' : server.hostname
-      console.log(`Listening on http://${displayedHost}:${server.port}`)
-
-      return server
-    }
-    if (typeof Deno !== 'undefined') {
-      const abortController = new AbortController()
-
-      // We need to defer the moment we print the "Listening..." message because
-      // the `onListen()` is executed synchronously, before `serve` is initialized,
-      // meaning that we wouldn't be able to read the hostname and port from it.
-      // We could print from what we take as arguments of `serve`, but by reading
-      // the `server` object, we can ensure that they are properly set.
-      const { resolve: resolveListen, promise: promiseListen } =
-        Promise.withResolvers<void>()
-
-      const server = Deno.serve({
-        port,
-        hostname,
-        signal: abortController.signal,
-        onListen() {
-          resolveListen()
-        },
-        async handler(request) {
-          const response = await app.handle(request)
-          return response
-        },
-        onError(error) {
-          console.error(error)
-          return new Response(
-            JSON.stringify({ message: 'Internal Server Error' }),
-            {
-              status: 500,
-            },
-          )
-        },
-      })
-
-      globalThis.addEventListener('beforeunload', () => {
-        abortController.abort()
-      })
-
-      await promiseListen
-
-      const { addr } = server
-      const displayedHost =
-        addr.hostname === '0.0.0.0' ? 'localhost' : addr.hostname
-      console.log(`Listening on http://${displayedHost}:${addr.port}`)
-      return server
-    }
-
-    return this.listenForNode(port, hostname)
+  async listen(port: number, hostname: string = '0.0.0.0'): Promise<void> {
+    // The TypeScript return type is always `Promise<void>`, but in reality,
+    // the returned promise resolves to the node server when the runtime is
+    // node. This is for backwards compatibility.
+    return await listen(this, port, hostname)
   }
 
-  async listenForNode(port: number, hostname: string = '0.0.0.0') {
+  /**
+   * @deprecated Use the method `listen()` instead.
+   */
+  async listenForNode(
+    port: number,
+    hostname: string = '0.0.0.0',
+  ): Promise<Server<typeof IncomingMessage, typeof ServerResponse>> {
     if (typeof Bun !== 'undefined') {
       console.warn(
-        "Server is being started with node:http but the current runtime is Bun, not Node. Consider using the method 'handle' with 'Bun.serve' instead.",
+        "Server is being started with node:http but the current runtime is Bun, not Node. Consider using the method 'listen' instead, which uses 'Bun.serve'.",
       )
     } else if (typeof Deno !== 'undefined') {
       console.warn(
-        "Server is being started with node:http but the current runtime is Deno, not Node. Consider using the method 'handle' with 'Deno.serve' instead.",
+        "Server is being started with node:http but the current runtime is Deno, not Node. Consider using the method 'listen' instead, which uses 'Deno.serve'.",
       )
     }
-    return listenForNode(this, port, hostname)
+    return await listenForNode(this, port, hostname)
   }
 
   private async handleStream({
@@ -1151,14 +1080,6 @@ function bfsFind<T>(
   }
   return
 }
-export class SpiceflowRequest<T = any> extends Request {
-  validateBody?: ValidationFunction
-
-  async json(): Promise<T> {
-    const body = (await super.json()) as Promise<T>
-    return runValidation(body, this.validateBody)
-  }
-}
 
 export function bfs(tree: AnySpiceflow) {
   const queue = [tree]
@@ -1270,32 +1191,6 @@ function getValidateFunction(
     console.log(`not a standard schema: ${schema}`)
     return undefined
   }
-}
-
-async function runValidation(value: any, validate?: ValidationFunction) {
-  if (!validate) return value
-
-  let result = validate(value)
-  if (result instanceof Promise) {
-    result = await result
-  }
-
-  if (result.issues && result.issues.length > 0) {
-    const errorMessages = result.issues
-      .map((issue) => {
-        let pathString = ''
-        if (issue.path && issue.path.length > 0) {
-          pathString = issue.path.join('.') + ': '
-        }
-        return pathString + issue.message
-      })
-      .join('\\n')
-    throw new ValidationError(errorMessages || 'Validation failed')
-  }
-  if ('value' in result) {
-    return result.value
-  }
-  return value
 }
 
 function parseQuery(queryString: string) {
