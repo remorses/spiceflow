@@ -15,9 +15,10 @@ type CORSOptions = {
   /** Configures the Access-Control-Allow-Credentials CORS header */
   credentials?: boolean
   /** Configures the Access-Control-Expose-Headers CORS header */
-  exposeHeaders?: string[]
+  exposeHeaders?: string[] | boolean
   /** Configures browser and CDN caching duration for CORS preflight requests in seconds. Set to 0 to disable. */
   cacheAge?: number
+  
 }
 
 export const cors = (options?: CORSOptions): MiddlewareHandler => {
@@ -25,8 +26,8 @@ export const cors = (options?: CORSOptions): MiddlewareHandler => {
     origin: '*',
     allowMethods: ['GET', 'HEAD', 'PUT', 'POST', 'DELETE', 'PATCH'],
     allowHeaders: [],
-    exposeHeaders: [],
     credentials: true,
+    exposeHeaders: true,
     cacheAge: 21600, // 6 hours default
   }
   const opts = {
@@ -81,8 +82,9 @@ export const cors = (options?: CORSOptions): MiddlewareHandler => {
     if (opts.credentials) {
       set('Access-Control-Allow-Credentials', 'true')
     }
-
-    if (opts.exposeHeaders?.length) {
+    if (opts.exposeHeaders === true) {
+      set('Access-Control-Expose-Headers', '*')
+    } else if (opts.exposeHeaders && opts.exposeHeaders?.length) {
       set('Access-Control-Expose-Headers', opts.exposeHeaders.join(','))
     }
 
