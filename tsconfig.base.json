@@ -1,9 +1,9 @@
 {
   "compilerOptions": {
     "target": "ES2017",
-    "module": "commonjs",
+    "module": "ESNext",
     "allowJs": true,
-    "moduleResolution": "Node",
+    "moduleResolution": "nodenext",
     "allowImportingTsExtensions": true,
     "rewriteRelativeImportExtensions": true,
     "lib": ["es2022", "es2017", "es7", "es6", "dom", "ESNext"],
