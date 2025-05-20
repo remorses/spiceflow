@@ -36,6 +36,9 @@
     "./dist/*": {
       "types": "./dist/*.d.ts",
       "default": "./dist/*.js"
+    },
+    "./src/*": {
+      "default": "./src/*.ts"
     }
   },
   "scripts": {
