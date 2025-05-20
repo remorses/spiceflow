@@ -673,12 +673,7 @@ export class Spiceflow<
           : Routes & CreateClient<BasePath, NewSpiceflow['_routes']>
       >
   use<const Schema extends RouteSchema>(
-    handler: MiddlewareHandler<
-      Schema,
-      {
-        state: Singleton['state']
-      }
-    >,
+    handler: MiddlewareHandler<Schema, Singleton>,
   ): this
 
   use(appOrHandler) {
