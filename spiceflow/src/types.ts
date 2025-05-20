@@ -483,12 +483,7 @@ export type ErrorHandler<
     state: {}
   },
 > = (
-  context: ErrorContext<
-    Route,
-    {
-      state: Singleton['state']
-    }
-  > &
+  context: ErrorContext<Route, Singleton> &
     (
       | Prettify<
           {
@@ -697,9 +692,7 @@ export type MergeSpiceflowInstances<
   : Spiceflow<
       Prefix,
       Scoped,
-      {
-        state: Prettify<Singleton['state']>
-      },
+      Prettify<Singleton>,
       {
         type: Prettify<Definitions['type']>
         error: Prettify<Definitions['error']>

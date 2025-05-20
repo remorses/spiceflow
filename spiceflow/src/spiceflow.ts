@@ -697,7 +697,7 @@ export class Spiceflow<
 
   async handle(
     request: Request,
-    { state: customState }: { state?: Singleton['state'] } = {},
+    singleton: Partial<Singleton> = {},
   ): Promise<Response> {
     let u = new URL(request.url, 'http://localhost')
     const self = this
@@ -720,8 +720,6 @@ export class Spiceflow<
     } = route
     const middlewares = appsInScope.flatMap((x) => x.middlewares)
 
-    let state = customState || lodashCloneDeep(defaultState)
-
     let content = route?.internalRoute?.hooks?.content
 
     if (route.internalRoute?.validateBody) {
@@ -736,9 +734,10 @@ export class Spiceflow<
 
     let index = 0
     let context = {
+      ...singleton,
       ...defaultContext,
       request,
-      state,
+      state: singleton.state || lodashCloneDeep(defaultState),
       path,
       query: parseQuery((u.search || '').slice(1)),
       params: _params,
@@ -935,7 +934,7 @@ export class Spiceflow<
   async handleNode(
     req: IncomingMessage,
     res: ServerResponse,
-    context: { state?: Singleton['state'] } = {},
+    context: Partial<Singleton> = {},
   ) {
     return this.handleForNode(req, res, context)
   }
@@ -943,7 +942,7 @@ export class Spiceflow<
   async handleForNode(
     req: IncomingMessage,
     res: ServerResponse,
-    context: { state?: Singleton['state'] } = {},
+    context: Partial<Singleton> = {},
   ) {
     return handleForNode(this, req, res, context)
   }
