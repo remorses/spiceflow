@@ -1,4 +1,4 @@
-Contributions are welcome. Especially as additional plugins, exports in the spiceflow package to reach feature parity with Hono and other API frameworks.
+Contributions are welcome. Especially for additional exports like /mcp and /cors or docs.
 
 ## Running tests
 
