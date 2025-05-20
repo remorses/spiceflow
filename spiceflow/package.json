@@ -11,11 +11,11 @@
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     },
-    "./_listen-for-node": {
-      "types": "./dist/listen-for-node.d.ts",
-      "node": "./dist/listen-for-node.js",
-      "bun": "./dist/listen-for-node.js",
-      "default": "./dist/listen-for-node-unsupported.js"
+    "./_node-server": {
+      "types": "./dist/_node-server.d.ts",
+      "node": "./dist/_node-server.js",
+      "bun": "./dist/_node-server.js",
+      "default": "./dist/_node-server-unsupported.js"
     },
     "./cors": {
       "types": "./dist/cors.d.ts",

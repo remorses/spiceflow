@@ -26,12 +26,13 @@ import {
 import OriginalRouter from '@medley/router'
 import { z, ZodType } from 'zod'
 
-import { listenForNode } from 'spiceflow/_listen-for-node'
+import { listenForNode, handleForNode } from 'spiceflow/_node-server'
 import { MiddlewareContext } from './context.ts'
 import { ValidationError } from './error.ts'
 import { isAsyncIterable, isResponse, redirect } from './utils.ts'
 import { StandardSchemaV1 } from '@standard-schema/spec'
 import { superjsonSerialize } from './serialize.ts'
+import { IncomingMessage, ServerResponse } from 'node:http'
 
 let globalIndex = 0
 
@@ -931,6 +932,25 @@ export class Spiceflow<
     }
 
     return this.listenForNode(port, hostname)
+  }
+
+  /**
+   * @deprecated Use `handleForNode` instead.
+   */
+  async handleNode(
+    req: IncomingMessage,
+    res: ServerResponse,
+    context: { state?: Singleton['state'] } = {},
+  ) {
+    return this.handleForNode(req, res, context)
+  }
+
+  async handleForNode(
+    req: IncomingMessage,
+    res: ServerResponse,
+    context: { state?: Singleton['state'] } = {},
+  ) {
+    return handleForNode(this, req, res, context)
   }
 
   async listenForNode(port: number, hostname: string = '0.0.0.0') {

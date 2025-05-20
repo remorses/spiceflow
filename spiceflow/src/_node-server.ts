@@ -14,7 +14,7 @@ export async function listenForNode(
   hostname: string = '0.0.0.0',
 ): Promise<Server<typeof IncomingMessage, typeof ServerResponse>> {
   const server = createServer((req, res) => {
-    return handleNodeRequest(app, req, res)
+    return app.handleForNode(req, res)
   })
 
   await new Promise((resolve) => {
@@ -32,8 +32,8 @@ export async function listenForNode(
   return server
 }
 
-async function handleNodeRequest(
-  app: Spiceflow,
+export async function handleForNode(
+  app: Spiceflow<any, any, any, any, any, any>,
   req: IncomingMessage,
   res: ServerResponse,
   context: { state?: {} | undefined } = {},
