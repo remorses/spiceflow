@@ -687,7 +687,7 @@ export class Spiceflow<
   }
 
   onError<const Schema extends RouteSchema>(
-    handler: MaybeArray<ErrorHandler<Definitions['error'], Schema, Singleton>>,
+    handler: ErrorHandler<Definitions['error'], Schema, Singleton>,
   ): this {
     this.onErrorHandlers ??= []
     this.onErrorHandlers.push(handler as any)
