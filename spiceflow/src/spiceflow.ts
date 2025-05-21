@@ -1,4 +1,6 @@
 import lodashCloneDeep from 'lodash.clonedeep'
+import { ValidationError, ParseError, InternalServerError } from './error.ts';
+import { SpiceflowFetchError } from './client/errors.ts';
 import {
   ComposeSpiceflowResponse,
   ContentType,
@@ -38,7 +40,14 @@ let globalIndex = 0
 
 type AsyncResponse = Response | Promise<Response>
 
-type OnError = (x: { error: any; request: Request }) => AsyncResponse
+export type SpiceflowServerError =
+  | ValidationError
+  | ParseError
+  | InternalServerError
+  | SpiceflowFetchError<number, any>
+  | Error;
+
+type OnError = (x: { error: SpiceflowServerError; request: Request }) => AsyncResponse
 
 type ValidationFunction = (
   value: unknown,
