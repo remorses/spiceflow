@@ -30,7 +30,7 @@ import { z, ZodType } from 'zod'
 
 import { listenForNode, handleForNode } from 'spiceflow/_node-server'
 import { MiddlewareContext } from './context.ts'
-import { ValidationError } from './error.ts'
+// ValidationError is already imported above (line 2)
 import { isAsyncIterable, isResponse, redirect } from './utils.ts'
 import { StandardSchemaV1 } from '@standard-schema/spec'
 import { superjsonSerialize } from './serialize.ts'

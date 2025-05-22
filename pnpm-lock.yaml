@@ -15,8 +15,8 @@ importers:
         specifier: ^1.0.0
         version: 1.0.0
       zod:
-        specifier: ^3.24.1
-        version: 3.24.4
+        specifier: ^3.25.7
+        version: 3.25.16
     devDependencies:
       '@changesets/cli':
         specifier: ^2.27.12
@@ -40,8 +40,8 @@ importers:
         specifier: ^4.19.2
         version: 4.19.2
       typescript:
-        specifier: ^5.7.3
-        version: 5.7.3
+        specifier: ^5.8.3
+        version: 5.8.3
       vite:
         specifier: ^6.3.5
         version: 6.3.5(@types/node@22.13.4)(jiti@1.21.7)(terser@5.31.6)(tsx@4.19.2)(yaml@2.7.0)
@@ -190,11 +190,11 @@ importers:
         specifier: ^2.2.2
         version: 2.2.2
       zod:
-        specifier: ^3.24.1
-        version: 3.24.4
+        specifier: ^3.25.7
+        version: 3.25.16
       zod-to-json-schema:
         specifier: ^3.24.5
-        version: 3.24.5(zod@3.24.4)
+        version: 3.24.5(zod@3.25.16)
     devDependencies:
       '@modelcontextprotocol/sdk':
         specifier: ^1.11.4
@@ -237,16 +237,16 @@ importers:
         version: 1.11.4
       '@react-router/cloudflare':
         specifier: ^7.6.0
-        version: 7.6.0(@cloudflare/workers-types@4.20250520.0)(react-router@7.6.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0))(tsup@8.4.0(jiti@1.21.7)(postcss@8.5.3)(tsx@4.19.2)(typescript@5.7.3)(yaml@2.7.0))(typescript@5.7.3)
+        version: 7.6.0(@cloudflare/workers-types@4.20250520.0)(react-router@7.6.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0))(tsup@8.4.0(jiti@1.21.7)(postcss@8.5.3)(tsx@4.19.2)(typescript@5.8.3)(yaml@2.7.0))(typescript@5.8.3)
       '@react-router/fs-routes':
         specifier: ^7.6.0
-        version: 7.6.0(@react-router/dev@7.6.0(@types/node@22.13.4)(jiti@1.21.7)(react-router@7.6.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0))(terser@5.31.6)(tsx@4.19.2)(typescript@5.7.3)(vite@6.3.5(@types/node@22.13.4)(jiti@1.21.7)(terser@5.31.6)(tsx@4.19.2)(yaml@2.7.0))(wrangler@4.16.0(@cloudflare/workers-types@4.20250520.0))(yaml@2.7.0))(typescript@5.7.3)
+        version: 7.6.0(@react-router/dev@7.6.0(@types/node@22.13.4)(jiti@1.21.7)(react-router@7.6.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0))(terser@5.31.6)(tsx@4.19.2)(typescript@5.8.3)(vite@6.3.5(@types/node@22.13.4)(jiti@1.21.7)(terser@5.31.6)(tsx@4.19.2)(yaml@2.7.0))(wrangler@4.16.0(@cloudflare/workers-types@4.20250520.0))(yaml@2.7.0))(typescript@5.8.3)
       '@stefanprobst/rehype-extract-toc':
         specifier: ^2.2.1
         version: 2.2.1
       '@tailwindcss/typography':
         specifier: ^0.5.16
-        version: 0.5.16(tailwindcss@3.4.17(ts-node@10.9.2(@types/node@22.13.4)(typescript@5.7.3)))
+        version: 0.5.16(tailwindcss@3.4.17(ts-node@10.9.2(@types/node@22.13.4)(typescript@5.8.3)))
       '@types/mdx':
         specifier: ^2.0.13
         version: 2.0.13
@@ -283,7 +283,7 @@ importers:
     devDependencies:
       '@react-router/dev':
         specifier: ^7.6.0
-        version: 7.6.0(@types/node@22.13.4)(jiti@1.21.7)(react-router@7.6.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0))(terser@5.31.6)(tsx@4.19.2)(typescript@5.7.3)(vite@6.3.5(@types/node@22.13.4)(jiti@1.21.7)(terser@5.31.6)(tsx@4.19.2)(yaml@2.7.0))(wrangler@4.16.0(@cloudflare/workers-types@4.20250520.0))(yaml@2.7.0)
+        version: 7.6.0(@types/node@22.13.4)(jiti@1.21.7)(react-router@7.6.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0))(terser@5.31.6)(tsx@4.19.2)(typescript@5.8.3)(vite@6.3.5(@types/node@22.13.4)(jiti@1.21.7)(terser@5.31.6)(tsx@4.19.2)(yaml@2.7.0))(wrangler@4.16.0(@cloudflare/workers-types@4.20250520.0))(yaml@2.7.0)
       '@types/react':
         specifier: ^19.1.1
         version: 19.1.3
@@ -304,16 +304,16 @@ importers:
         version: 1.2.0
       tailwindcss:
         specifier: ^3.4.17
-        version: 3.4.17(ts-node@10.9.2(@types/node@22.13.4)(typescript@5.7.3))
+        version: 3.4.17(ts-node@10.9.2(@types/node@22.13.4)(typescript@5.8.3))
       typescript:
-        specifier: ^5.7.3
-        version: 5.7.3
+        specifier: ^5.8.3
+        version: 5.8.3
       vite:
         specifier: ^6.3.5
         version: 6.3.5(@types/node@22.13.4)(jiti@1.21.7)(terser@5.31.6)(tsx@4.19.2)(yaml@2.7.0)
       vite-tsconfig-paths:
         specifier: ^4.2.1
-        version: 4.3.2(typescript@5.7.3)(vite@6.3.5(@types/node@22.13.4)(jiti@1.21.7)(terser@5.31.6)(tsx@4.19.2)(yaml@2.7.0))
+        version: 4.3.2(typescript@5.8.3)(vite@6.3.5(@types/node@22.13.4)(jiti@1.21.7)(terser@5.31.6)(tsx@4.19.2)(yaml@2.7.0))
       wrangler:
         specifier: ^4.16.0
         version: 4.16.0(@cloudflare/workers-types@4.20250520.0)
@@ -4363,6 +4363,11 @@ packages:
     engines: {node: '>=14.17'}
     hasBin: true
 
+  typescript@5.8.3:
+    resolution: {integrity: sha512-p1diW6TqL9L07nNxvRMM7hMMw4c5XOo/1ibL4aAIGmSAt9slTE1Xgw5KWuof2uTOvCg9BY7ZRi+GaF+7sfgPeQ==}
+    engines: {node: '>=14.17'}
+    hasBin: true
+
   typical@4.0.0:
     resolution: {integrity: sha512-VAH4IvQ7BDFYglMd7BPRDfLgxZZX4O4TFcRDA6EN5X7erNJJq+McIEp8np9aVtxrCJ6qx4GTYVfOWNjcqwZgRw==}
     engines: {node: '>=8'}
@@ -4734,6 +4739,9 @@ packages:
 
   zod@3.24.4:
     resolution: {integrity: sha512-OdqJE9UDRPwWsrHjLN2F8bPxvwJBK22EHLWtanu0LSYr5YqzsaaW3RMgmjwr8Rypg5k+meEJdSPXJZXE/yqOMg==}
+
+  zod@3.25.16:
+    resolution: {integrity: sha512-3lOav31WLa1MstEvkM0QlcsFjKmJ2TI9IFYlIVpLE3upguhaeiRfPOzqqtisS/Hetk4ri2fLLC3OtW15lS5jxQ==}
 
   zwitch@2.0.4:
     resolution: {integrity: sha512-bXE4cR/kVZhKZX/RjPEflHaKVhUVl85noU3v6b8apfQEc1x4A+zBxjZ4lN8LqGd6WZ3dl98pY4o717VFmoPp+A==}
@@ -5633,8 +5641,8 @@ snapshots:
       express-rate-limit: 7.5.0(express@5.1.0)
       pkce-challenge: 5.0.0
       raw-body: 3.0.0
-      zod: 3.24.4
-      zod-to-json-schema: 3.24.5(zod@3.24.4)
+      zod: 3.25.16
+      zod-to-json-schema: 3.24.5(zod@3.25.16)
     transitivePeerDependencies:
       - supports-color
 
@@ -5719,15 +5727,15 @@ snapshots:
   '@pkgjs/parseargs@0.11.0':
     optional: true
 
-  '@react-router/cloudflare@7.6.0(@cloudflare/workers-types@4.20250520.0)(react-router@7.6.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0))(tsup@8.4.0(jiti@1.21.7)(postcss@8.5.3)(tsx@4.19.2)(typescript@5.7.3)(yaml@2.7.0))(typescript@5.7.3)':
+  '@react-router/cloudflare@7.6.0(@cloudflare/workers-types@4.20250520.0)(react-router@7.6.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0))(tsup@8.4.0(jiti@1.21.7)(postcss@8.5.3)(tsx@4.19.2)(typescript@5.8.3)(yaml@2.7.0))(typescript@5.8.3)':
     dependencies:
       '@cloudflare/workers-types': 4.20250520.0
       react-router: 7.6.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
-      tsup: 8.4.0(jiti@1.21.7)(postcss@8.5.3)(tsx@4.19.2)(typescript@5.7.3)(yaml@2.7.0)
+      tsup: 8.4.0(jiti@1.21.7)(postcss@8.5.3)(tsx@4.19.2)(typescript@5.8.3)(yaml@2.7.0)
     optionalDependencies:
-      typescript: 5.7.3
+      typescript: 5.8.3
 
-  '@react-router/dev@7.6.0(@types/node@22.13.4)(jiti@1.21.7)(react-router@7.6.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0))(terser@5.31.6)(tsx@4.19.2)(typescript@5.7.3)(vite@6.3.5(@types/node@22.13.4)(jiti@1.21.7)(terser@5.31.6)(tsx@4.19.2)(yaml@2.7.0))(wrangler@4.16.0(@cloudflare/workers-types@4.20250520.0))(yaml@2.7.0)':
+  '@react-router/dev@7.6.0(@types/node@22.13.4)(jiti@1.21.7)(react-router@7.6.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0))(terser@5.31.6)(tsx@4.19.2)(typescript@5.8.3)(vite@6.3.5(@types/node@22.13.4)(jiti@1.21.7)(terser@5.31.6)(tsx@4.19.2)(yaml@2.7.0))(wrangler@4.16.0(@cloudflare/workers-types@4.20250520.0))(yaml@2.7.0)':
     dependencies:
       '@babel/core': 7.27.1
       '@babel/generator': 7.27.1
@@ -5738,7 +5746,7 @@ snapshots:
       '@babel/traverse': 7.27.1
       '@babel/types': 7.27.1
       '@npmcli/package-json': 4.0.1
-      '@react-router/node': 7.6.0(react-router@7.6.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0))(typescript@5.7.3)
+      '@react-router/node': 7.6.0(react-router@7.6.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0))(typescript@5.8.3)
       arg: 5.0.2
       babel-dead-code-elimination: 1.0.10
       chokidar: 4.0.3
@@ -5755,11 +5763,11 @@ snapshots:
       react-router: 7.6.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
       semver: 7.7.2
       set-cookie-parser: 2.7.1
-      valibot: 0.41.0(typescript@5.7.3)
+      valibot: 0.41.0(typescript@5.8.3)
       vite: 6.3.5(@types/node@22.13.4)(jiti@1.21.7)(terser@5.31.6)(tsx@4.19.2)(yaml@2.7.0)
       vite-node: 3.0.0-beta.2(@types/node@22.13.4)(jiti@1.21.7)(terser@5.31.6)(tsx@4.19.2)(yaml@2.7.0)
     optionalDependencies:
-      typescript: 5.7.3
+      typescript: 5.8.3
       wrangler: 4.16.0(@cloudflare/workers-types@4.20250520.0)
     transitivePeerDependencies:
       - '@types/node'
@@ -5777,14 +5785,14 @@ snapshots:
       - tsx
       - yaml
 
-  '@react-router/fs-routes@7.6.0(@react-router/dev@7.6.0(@types/node@22.13.4)(jiti@1.21.7)(react-router@7.6.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0))(terser@5.31.6)(tsx@4.19.2)(typescript@5.7.3)(vite@6.3.5(@types/node@22.13.4)(jiti@1.21.7)(terser@5.31.6)(tsx@4.19.2)(yaml@2.7.0))(wrangler@4.16.0(@cloudflare/workers-types@4.20250520.0))(yaml@2.7.0))(typescript@5.7.3)':
+  '@react-router/fs-routes@7.6.0(@react-router/dev@7.6.0(@types/node@22.13.4)(jiti@1.21.7)(react-router@7.6.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0))(terser@5.31.6)(tsx@4.19.2)(typescript@5.8.3)(vite@6.3.5(@types/node@22.13.4)(jiti@1.21.7)(terser@5.31.6)(tsx@4.19.2)(yaml@2.7.0))(wrangler@4.16.0(@cloudflare/workers-types@4.20250520.0))(yaml@2.7.0))(typescript@5.8.3)':
     dependencies:
-      '@react-router/dev': 7.6.0(@types/node@22.13.4)(jiti@1.21.7)(react-router@7.6.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0))(terser@5.31.6)(tsx@4.19.2)(typescript@5.7.3)(vite@6.3.5(@types/node@22.13.4)(jiti@1.21.7)(terser@5.31.6)(tsx@4.19.2)(yaml@2.7.0))(wrangler@4.16.0(@cloudflare/workers-types@4.20250520.0))(yaml@2.7.0)
+      '@react-router/dev': 7.6.0(@types/node@22.13.4)(jiti@1.21.7)(react-router@7.6.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0))(terser@5.31.6)(tsx@4.19.2)(typescript@5.8.3)(vite@6.3.5(@types/node@22.13.4)(jiti@1.21.7)(terser@5.31.6)(tsx@4.19.2)(yaml@2.7.0))(wrangler@4.16.0(@cloudflare/workers-types@4.20250520.0))(yaml@2.7.0)
       minimatch: 9.0.5
     optionalDependencies:
-      typescript: 5.7.3
+      typescript: 5.8.3
 
-  '@react-router/node@7.6.0(react-router@7.6.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0))(typescript@5.7.3)':
+  '@react-router/node@7.6.0(react-router@7.6.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0))(typescript@5.8.3)':
     dependencies:
       '@mjackson/node-fetch-server': 0.2.0
       react-router: 7.6.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
@@ -5792,7 +5800,7 @@ snapshots:
       stream-slice: 0.1.2
       undici: 6.21.3
     optionalDependencies:
-      typescript: 5.7.3
+      typescript: 5.8.3
 
   '@rollup/plugin-replace@6.0.2(rollup@4.40.2)':
     dependencies:
@@ -5891,13 +5899,13 @@ snapshots:
       - supports-color
       - typescript
 
-  '@tailwindcss/typography@0.5.16(tailwindcss@3.4.17(ts-node@10.9.2(@types/node@22.13.4)(typescript@5.7.3)))':
+  '@tailwindcss/typography@0.5.16(tailwindcss@3.4.17(ts-node@10.9.2(@types/node@22.13.4)(typescript@5.8.3)))':
     dependencies:
       lodash.castarray: 4.4.0
       lodash.isplainobject: 4.0.6
       lodash.merge: 4.6.2
       postcss-selector-parser: 6.0.10
-      tailwindcss: 3.4.17(ts-node@10.9.2(@types/node@22.13.4)(typescript@5.7.3))
+      tailwindcss: 3.4.17(ts-node@10.9.2(@types/node@22.13.4)(typescript@5.8.3))
 
   '@tsconfig/node10@1.0.11': {}
 
@@ -8493,13 +8501,13 @@ snapshots:
       camelcase-css: 2.0.1
       postcss: 8.5.3
 
-  postcss-load-config@4.0.2(postcss@8.5.3)(ts-node@10.9.2(@types/node@22.13.4)(typescript@5.7.3)):
+  postcss-load-config@4.0.2(postcss@8.5.3)(ts-node@10.9.2(@types/node@22.13.4)(typescript@5.8.3)):
     dependencies:
       lilconfig: 3.1.3
       yaml: 2.7.0
     optionalDependencies:
       postcss: 8.5.3
-      ts-node: 10.9.2(@types/node@22.13.4)(typescript@5.7.3)
+      ts-node: 10.9.2(@types/node@22.13.4)(typescript@5.8.3)
 
   postcss-load-config@6.0.1(jiti@1.21.7)(postcss@8.5.3)(tsx@4.19.2)(yaml@2.7.0):
     dependencies:
@@ -9235,7 +9243,7 @@ snapshots:
       array-back: 6.2.2
       wordwrapjs: 5.1.0
 
-  tailwindcss@3.4.17(ts-node@10.9.2(@types/node@22.13.4)(typescript@5.7.3)):
+  tailwindcss@3.4.17(ts-node@10.9.2(@types/node@22.13.4)(typescript@5.8.3)):
     dependencies:
       '@alloc/quick-lru': 5.2.0
       arg: 5.0.2
@@ -9254,7 +9262,7 @@ snapshots:
       postcss: 8.5.3
       postcss-import: 15.1.0(postcss@8.5.3)
       postcss-js: 4.0.1(postcss@8.5.3)
-      postcss-load-config: 4.0.2(postcss@8.5.3)(ts-node@10.9.2(@types/node@22.13.4)(typescript@5.7.3))
+      postcss-load-config: 4.0.2(postcss@8.5.3)(ts-node@10.9.2(@types/node@22.13.4)(typescript@5.8.3))
       postcss-nested: 6.2.0(postcss@8.5.3)
       postcss-selector-parser: 6.1.2
       resolve: 1.22.10
@@ -9357,7 +9365,7 @@ snapshots:
       v8-compile-cache-lib: 3.0.1
       yn: 3.1.1
 
-  ts-node@10.9.2(@types/node@22.13.4)(typescript@5.7.3):
+  ts-node@10.9.2(@types/node@22.13.4)(typescript@5.8.3):
     dependencies:
       '@cspotcode/source-map-support': 0.8.1
       '@tsconfig/node10': 1.0.11
@@ -9371,18 +9379,18 @@ snapshots:
       create-require: 1.1.1
       diff: 4.0.2
       make-error: 1.3.6
-      typescript: 5.7.3
+      typescript: 5.8.3
       v8-compile-cache-lib: 3.0.1
       yn: 3.1.1
     optional: true
 
-  tsconfck@3.1.4(typescript@5.7.3):
+  tsconfck@3.1.4(typescript@5.8.3):
     optionalDependencies:
-      typescript: 5.7.3
+      typescript: 5.8.3
 
   tslib@2.8.1: {}
 
-  tsup@8.4.0(jiti@1.21.7)(postcss@8.5.3)(tsx@4.19.2)(typescript@5.7.3)(yaml@2.7.0):
+  tsup@8.4.0(jiti@1.21.7)(postcss@8.5.3)(tsx@4.19.2)(typescript@5.8.3)(yaml@2.7.0):
     dependencies:
       bundle-require: 5.1.0(esbuild@0.25.4)
       cac: 6.7.14
@@ -9402,7 +9410,7 @@ snapshots:
       tree-kill: 1.2.2
     optionalDependencies:
       postcss: 8.5.3
-      typescript: 5.7.3
+      typescript: 5.8.3
     transitivePeerDependencies:
       - jiti
       - supports-color
@@ -9474,6 +9482,8 @@ snapshots:
   typescript@4.9.5: {}
 
   typescript@5.7.3: {}
+
+  typescript@5.8.3: {}
 
   typical@4.0.0: {}
 
@@ -9612,9 +9622,9 @@ snapshots:
       '@types/istanbul-lib-coverage': 2.0.6
       convert-source-map: 2.0.0
 
-  valibot@0.41.0(typescript@5.7.3):
+  valibot@0.41.0(typescript@5.8.3):
     optionalDependencies:
-      typescript: 5.7.3
+      typescript: 5.8.3
 
   validate-npm-package-license@3.0.4:
     dependencies:
@@ -9677,11 +9687,11 @@ snapshots:
       - tsx
       - yaml
 
-  vite-tsconfig-paths@4.3.2(typescript@5.7.3)(vite@6.3.5(@types/node@22.13.4)(jiti@1.21.7)(terser@5.31.6)(tsx@4.19.2)(yaml@2.7.0)):
+  vite-tsconfig-paths@4.3.2(typescript@5.8.3)(vite@6.3.5(@types/node@22.13.4)(jiti@1.21.7)(terser@5.31.6)(tsx@4.19.2)(yaml@2.7.0)):
     dependencies:
       debug: 4.4.0
       globrex: 0.1.2
-      tsconfck: 3.1.4(typescript@5.7.3)
+      tsconfck: 3.1.4(typescript@5.8.3)
     optionalDependencies:
       vite: 6.3.5(@types/node@22.13.4)(jiti@1.21.7)(terser@5.31.6)(tsx@4.19.2)(yaml@2.7.0)
     transitivePeerDependencies:
@@ -9912,8 +9922,14 @@ snapshots:
     dependencies:
       zod: 3.24.4
 
+  zod-to-json-schema@3.24.5(zod@3.25.16):
+    dependencies:
+      zod: 3.25.16
+
   zod@3.22.3: {}
 
   zod@3.24.4: {}
+
+  zod@3.25.16: {}
 
   zwitch@2.0.4: {}
