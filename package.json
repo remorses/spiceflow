@@ -32,6 +32,6 @@
   "dependencies": {
     "@cfworker/json-schema": "^4.1.1",
     "@standard-schema/spec": "^1.0.0",
-    "zod": "^3.25.21"
+    "zod": "^3.25.42"
   }
 }

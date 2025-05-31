@@ -1,38 +1,37 @@
 import lodashCloneDeep from 'lodash.clonedeep'
 import {
-  ComposeSpiceflowResponse,
-  ContentType,
-  CreateClient,
-  DefinitionBase,
-  ErrorHandler,
-  HTTPMethod,
-  InlineHandler,
-  InputSchema,
-  IsAny,
-  JoinPath,
-  LocalHook,
-  MaybeArray,
-  MetadataBase,
-  MiddlewareHandler,
-  Reconcile,
-  ResolvePath,
-  RouteBase,
-  RouteSchema,
-  SingletonBase,
-  TypeSchema,
-  UnwrapRoute,
+    ComposeSpiceflowResponse,
+    ContentType,
+    CreateClient,
+    DefinitionBase,
+    ErrorHandler,
+    HTTPMethod,
+    InlineHandler,
+    InputSchema,
+    IsAny,
+    JoinPath,
+    LocalHook,
+    MetadataBase,
+    MiddlewareHandler,
+    Reconcile,
+    ResolvePath,
+    RouteBase,
+    RouteSchema,
+    SingletonBase,
+    TypeSchema,
+    UnwrapRoute
 } from './types.ts'
 
 import OriginalRouter from '@medley/router'
-import { z, ZodType } from 'zod'
+import { ZodType } from 'zod'
 
-import { listenForNode, handleForNode } from 'spiceflow/_node-server'
+import { StandardSchemaV1 } from '@standard-schema/spec'
+import { IncomingMessage, ServerResponse } from 'node:http'
+import { handleForNode, listenForNode } from 'spiceflow/_node-server'
 import { MiddlewareContext } from './context.ts'
 import { ValidationError } from './error.ts'
-import { isAsyncIterable, isResponse, redirect } from './utils.ts'
-import { StandardSchemaV1 } from '@standard-schema/spec'
 import { superjsonSerialize } from './serialize.ts'
-import { IncomingMessage, ServerResponse } from 'node:http'
+import { isAsyncIterable, isResponse, redirect } from './utils.ts'
 
 let globalIndex = 0
 
@@ -1222,6 +1221,13 @@ export function isZodSchema(value: unknown): value is ZodType {
       'optional' in value &&
       'nullable' in value)
   )
+}
+
+import type * as z4 from 'zod/v4/core'
+
+/** `true` ⇒ the value was created by Zod 4, `false` ⇒ Zod 3 */
+export function isZod4(schema: any): schema is z4.$ZodObject {
+  return '_zod' in schema // ⇦ only v4 adds this marker
 }
 
 function getValidateFunction(

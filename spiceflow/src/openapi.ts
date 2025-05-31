@@ -1,4 +1,4 @@
-import { InternalRoute, isZodSchema, Spiceflow } from './spiceflow.ts'
+import { InternalRoute, isZod4, isZodSchema, Spiceflow } from './spiceflow.ts'
 
 import type { OpenAPIV3 } from 'openapi-types'
 
@@ -6,8 +6,8 @@ let excludeMethods = ['OPTIONS']
 
 import type { TypeSchema } from './types.ts'
 
-import { z } from 'zod'
 import { zodToJsonSchema } from 'zod-to-json-schema'
+import { z } from 'zod/v4'
 
 const extractParamNames = (path: string): string[] => {
   return path.split('/').reduce((params: string[], segment) => {
@@ -456,8 +456,14 @@ export const openapi = <Path extends string = '/openapi'>({
 
 function getJsonSchema(schema: TypeSchema) {
   if (!schema) return undefined as any
+
+  if (isZod4(schema)) {
+    let jsonSchema = z.toJSONSchema(schema, {})
+    const { $schema, ...rest } = jsonSchema
+    return rest as any
+  }
   if (isZodSchema(schema)) {
-    let jsonSchema = zodToJsonSchema(schema as any, {
+    let jsonSchema = zodToJsonSchema(schema, {
       removeAdditionalStrategy: 'strict',
     })
     const { $schema, ...rest } = jsonSchema

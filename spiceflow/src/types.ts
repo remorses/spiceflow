@@ -1,17 +1,17 @@
 // https://github.com/remorses/elysia/blob/main/src/types.ts#L6
 
-import z from 'zod'
 import { StandardSchemaV1 } from '@standard-schema/spec'
+import z from 'zod'
 
 import type { OpenAPIV3 } from 'openapi-types'
 
-import { ZodObject, ZodTypeAny } from 'zod'
+import { ZodTypeAny } from 'zod'
 import type { Context, ErrorContext, MiddlewareContext } from './context.ts'
 import {
-  SPICEFLOW_RESPONSE,
-  InternalServerError,
-  ParseError,
-  ValidationError,
+    InternalServerError,
+    ParseError,
+    SPICEFLOW_RESPONSE,
+    ValidationError,
 } from './error.ts'
 import { Spiceflow } from './spiceflow.ts'
 
@@ -161,7 +161,7 @@ export type RouteSchema = {
 
 export type TypeSchema = StandardSchemaV1
 
-export type TypeObject = ZodObject<any, any, any>
+export type TypeObject = StandardSchemaV1
 
 export type UnwrapSchema<
   Schema extends TypeSchema | string | undefined,

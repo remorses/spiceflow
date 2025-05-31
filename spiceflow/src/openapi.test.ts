@@ -1,10 +1,11 @@
 import { expect, test } from 'vitest'
-import { Spiceflow } from './spiceflow.ts'
-import { openapi } from './openapi.ts'
 import { z } from 'zod'
+import { z as z4 } from 'zod/v4'
+import { openapi } from './openapi.ts'
+import { Spiceflow } from './spiceflow.ts'
 
 test('openapi response', async () => {
-  const app = await new Spiceflow()
+  const app = new Spiceflow()
     .use(
       openapi({
         info: {
@@ -148,8 +149,8 @@ test('openapi response', async () => {
         '/ids/:id',
         ({ params }) => params.id,
         {
-          params: z.object({
-            id: z.string(),
+          params: z4.object({
+            id: z4.string(),
           }),
         },
       ),
