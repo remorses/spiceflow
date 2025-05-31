@@ -1,4 +1,6 @@
 import lodashCloneDeep from 'lodash.clonedeep'
+import { ValidationError } from './error.ts';
+import { SpiceflowFetchError } from './client/errors.ts';
 import {
   ComposeSpiceflowResponse,
   ContentType,
@@ -28,7 +30,7 @@ import { z, ZodType } from 'zod'
 
 import { listenForNode, handleForNode } from 'spiceflow/_node-server'
 import { MiddlewareContext } from './context.ts'
-import { ValidationError } from './error.ts'
+// ValidationError is already imported above (line 2)
 import { isAsyncIterable, isResponse, redirect } from './utils.ts'
 import { StandardSchemaV1 } from '@standard-schema/spec'
 import { superjsonSerialize } from './serialize.ts'
@@ -38,7 +40,12 @@ let globalIndex = 0
 
 type AsyncResponse = Response | Promise<Response>
 
-type OnError = (x: { error: any; request: Request }) => AsyncResponse
+export type SpiceflowServerError =
+  | ValidationError
+  | SpiceflowFetchError<number, any>
+  | Error;
+
+type OnError = (x: { error: SpiceflowServerError; request: Request }) => AsyncResponse
 
 type ValidationFunction = (
   value: unknown,
