@@ -458,7 +458,17 @@ function getJsonSchema(schema: TypeSchema) {
   if (!schema) return undefined as any
 
   if (isZod4(schema)) {
-    let jsonSchema = z.toJSONSchema(schema, {})
+    let jsonSchema = z.toJSONSchema(schema, {
+      override(ctx) {
+        const schema = ctx.zodSchema
+        if (
+          schema instanceof z.core.$ZodObject &&
+          schema._zod.def.catchall === undefined
+        ) {
+          delete ctx.jsonSchema.additionalProperties
+        }
+      },
+    })
     const { $schema, ...rest } = jsonSchema
     return rest as any
   }

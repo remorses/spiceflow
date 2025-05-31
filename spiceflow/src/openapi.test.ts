@@ -44,8 +44,8 @@ test('openapi response', async () => {
         return body
       },
       {
-        body: z.object({
-          name: z.string(),
+        body: z4.object({
+          name: z4.string(),
         }),
         response: z.object({
           name: z.string().optional(),
@@ -244,7 +244,6 @@ test('openapi response', async () => {
               "content": {
                 "application/json": {
                   "schema": {
-                    "additionalProperties": true,
                     "properties": {
                       "name": {
                         "type": "string",
