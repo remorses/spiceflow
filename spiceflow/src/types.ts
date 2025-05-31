@@ -8,10 +8,8 @@ import type { OpenAPIV3 } from 'openapi-types'
 import { ZodTypeAny } from 'zod'
 import type { Context, ErrorContext, MiddlewareContext } from './context.ts'
 import {
-    InternalServerError,
-    ParseError,
-    SPICEFLOW_RESPONSE,
-    ValidationError,
+  SPICEFLOW_RESPONSE,
+  ValidationError,
 } from './error.ts'
 import { Spiceflow } from './spiceflow.ts'
 
@@ -511,20 +509,7 @@ export type ErrorHandler<
       // 			error: Readonly<NotFoundError>
       // 		} & NeverKey<Singleton['state']>
       //   >
-      | Prettify<
-          {
-            request: Request
-            code: 'PARSE'
-            error: Readonly<ParseError>
-          } & Singleton['state']
-        >
-      | Prettify<
-          {
-            request: Request
-            code: 'INTERNAL_SERVER_ERROR'
-            error: Readonly<InternalServerError>
-          } & Partial<Singleton['state']>
-        >
+      // Removed ParseError and InternalServerError from here
       | Prettify<
           {
             [K in keyof T]: {
