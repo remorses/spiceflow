@@ -1,27 +1,27 @@
 import lodashCloneDeep from 'lodash.clonedeep'
-import { ValidationError } from './error.ts';
-import { SpiceflowFetchError } from './client/errors.ts';
+import { ValidationError } from './error.ts'
+import { SpiceflowFetchError } from './client/errors.ts'
 import {
-    ComposeSpiceflowResponse,
-    ContentType,
-    CreateClient,
-    DefinitionBase,
-    ErrorHandler,
-    HTTPMethod,
-    InlineHandler,
-    InputSchema,
-    IsAny,
-    JoinPath,
-    LocalHook,
-    MetadataBase,
-    MiddlewareHandler,
-    Reconcile,
-    ResolvePath,
-    RouteBase,
-    RouteSchema,
-    SingletonBase,
-    TypeSchema,
-    UnwrapRoute
+  ComposeSpiceflowResponse,
+  ContentType,
+  CreateClient,
+  DefinitionBase,
+  ErrorHandler,
+  HTTPMethod,
+  InlineHandler,
+  InputSchema,
+  IsAny,
+  JoinPath,
+  LocalHook,
+  MetadataBase,
+  MiddlewareHandler,
+  Reconcile,
+  ResolvePath,
+  RouteBase,
+  RouteSchema,
+  SingletonBase,
+  TypeSchema,
+  UnwrapRoute,
 } from './types.ts'
 
 import OriginalRouter from '@medley/router'
@@ -41,9 +41,12 @@ type AsyncResponse = Response | Promise<Response>
 export type SpiceflowServerError =
   | ValidationError
   | SpiceflowFetchError<number, any>
-  | Error;
+  | Error
 
-type OnError = (x: { error: SpiceflowServerError; request: Request }) => AsyncResponse
+type OnError = (x: {
+  error: SpiceflowServerError
+  request: Request
+}) => AsyncResponse
 
 type ValidationFunction = (
   value: unknown,

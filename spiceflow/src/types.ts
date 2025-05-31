@@ -7,10 +7,7 @@ import type { OpenAPIV3 } from 'openapi-types'
 
 import { ZodTypeAny } from 'zod'
 import type { Context, ErrorContext, MiddlewareContext } from './context.ts'
-import {
-  SPICEFLOW_RESPONSE,
-  ValidationError,
-} from './error.ts'
+import { SPICEFLOW_RESPONSE, ValidationError } from './error.ts'
 import { Spiceflow } from './spiceflow.ts'
 
 export type MaybeArray<T> = T | T[]
