@@ -31,7 +31,6 @@ import { StandardSchemaV1 } from '@standard-schema/spec'
 import { IncomingMessage, ServerResponse } from 'node:http'
 import { handleForNode, listenForNode } from 'spiceflow/_node-server'
 import { MiddlewareContext } from './context.ts'
-import { ValidationError } from './error.ts'
 import { superjsonSerialize } from './serialize.ts'
 import { isAsyncIterable, isResponse, redirect } from './utils.ts'
 
