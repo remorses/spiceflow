@@ -1,5 +1,11 @@
 # spiceflow
 
+## 1.10.1
+
+### Patch Changes
+
+- Disable exposeHeaders in cors by default
+
 ## 1.10.0
 
 ### Minor Changes
