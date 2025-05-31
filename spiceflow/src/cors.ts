@@ -18,7 +18,7 @@ type CORSOptions = {
   exposeHeaders?: string[] | boolean
   /** Configures browser and CDN caching duration for CORS preflight requests in seconds. Set to 0 to disable. */
   cacheAge?: number
-  
+
 }
 
 export const cors = (options?: CORSOptions): MiddlewareHandler => {
@@ -27,7 +27,7 @@ export const cors = (options?: CORSOptions): MiddlewareHandler => {
     allowMethods: ['GET', 'HEAD', 'PUT', 'POST', 'DELETE', 'PATCH'],
     allowHeaders: [],
     credentials: true,
-    exposeHeaders: true,
+    exposeHeaders: [],
     cacheAge: 21600, // 6 hours default
   }
   const opts = {

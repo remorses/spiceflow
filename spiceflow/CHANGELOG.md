@@ -1,5 +1,11 @@
 # spiceflow
 
+## 1.10.0
+
+### Minor Changes
+
+- add support for zod v4
+
 ## 1.9.1
 
 ### Patch Changes
