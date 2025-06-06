@@ -730,13 +730,11 @@ export class Spiceflow<
    * // app.safePath('/invalid', {})                              // Error: invalid path
    * ```
    */
-  safePath<const Path extends string>(
+  safePath<Path extends string>(
     path: Path,
-    ...args: {} extends ResolvePath<Path>
-      ? [params?: ResolvePath<Path>] 
-      : [params: ResolvePath<Path>]
+    params?: ResolvePath<Path>
   ): string {
-    const params = args[0] || {}
+    const resolvedParams = params || {}
     
     // Replace path parameters with actual values
     let result = path as string
@@ -750,8 +748,8 @@ export class Spiceflow<
       const isOptional = paramName.endsWith('?')
       const cleanParamName = isOptional ? paramName.slice(0, -1) : paramName
       
-      if (cleanParamName in params) {
-        const value = (params as any)[cleanParamName]
+      if (cleanParamName in resolvedParams) {
+        const value = (resolvedParams as any)[cleanParamName]
         result = result.replace(match[0], String(value))
       } else if (!isOptional) {
         throw new Error(`Missing required parameter: ${cleanParamName}`)
