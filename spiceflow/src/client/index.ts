@@ -1,6 +1,3 @@
-/* eslint-disable no-extra-semi */
-/* eslint-disable no-case-declarations */
-/* eslint-disable prefer-const */
 import type { Spiceflow } from '../spiceflow.ts'
 import superjson from 'superjson'
 import { EventSourceParserStream } from 'eventsource-parser/stream'
@@ -180,11 +177,14 @@ function tryParsingSSEJson(data: string): any {
 
 const createProxy = (
   domain: string,
-  config: SpiceflowClient.Config,
+  config: SpiceflowClient.Config & { state?: any },
   paths: string[] = [],
   instance?: Spiceflow<any, any, any, any, any, any>,
-): any =>
-  new Proxy(() => {}, {
+): any => {
+  if (config.state && !instance) {
+    throw new Error(`State is only available when using a Spiceflow instance`)
+  }
+  return new Proxy(() => {}, {
     get(_, param: string): any {
       // handle case where createClient returns a promise and await calls .then on it
       if ((!paths.length && param === 'then') || param === 'catch') {
@@ -374,6 +374,7 @@ const createProxy = (
           // console.log({ url, fetchInit })
           const response = await (instance?.handle(
             new Request(url, fetchInit),
+            { state: config.state },
           ) ?? fetcher!(url, fetchInit))
 
           let data = null as any
@@ -460,17 +461,22 @@ const createProxy = (
       return createProxy(domain, config, paths)
     },
   }) as any
+}
 
 export const createSpiceflowClient = <
   const App extends Spiceflow<any, any, any, any, any, any>,
 >(
-  domain: string | App,
-  config: SpiceflowClient.Config = {},
+  domain: App | string,
+  config?: SpiceflowClient.Config &
+    (App extends Spiceflow<any, any, infer Singleton, any, any, any>
+      ? { state?: Singleton['state'] }
+      : {}),
 ): SpiceflowClient.Create<App> => {
   if (typeof domain === 'string') {
-    if (domain.endsWith('/')) domain = domain.slice(0, -1)
+    let domainStr = String(domain)
+    if (domain.endsWith('/')) domainStr = domain.slice(0, -1)
 
-    return createProxy(domain, config)
+    return createProxy(domainStr, config || {})
   }
 
   if (typeof window !== 'undefined')
@@ -478,7 +484,7 @@ export const createSpiceflowClient = <
       'Spiceflow instance server found on client side, this is not recommended for security reason. Use generic type instead.',
     )
 
-  return createProxy('http://e.ly', config, [], domain)
+  return createProxy('http://e.ly', config || {}, [], domain)
 }
 
 function superjsonDeserialize(data: any) {

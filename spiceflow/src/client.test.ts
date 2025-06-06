@@ -4,9 +4,11 @@ import { Spiceflow } from './spiceflow.ts'
 
 import { describe, expect, it } from 'vitest'
 const app = new Spiceflow()
+  .state('someState', 1 as number | undefined)
   .get('/', () => 'a')
   .post('/', () => 'a')
   .get('/number', () => 1)
+  .get('/someState', ({ state }) => state.someState)
   .get('/true', () => true)
   .get('/false', () => false)
   .post('/array', async ({ request }) => await request.json(), {
@@ -104,6 +106,14 @@ const app = new Spiceflow()
   .get('/id/:id?', ({ params: { id = 'unknown' } }) => id)
 
 const client = createSpiceflowClient(app)
+
+describe('client can pass state to app', () => {
+  const client = createSpiceflowClient(app, { state: { someState: 3 } })
+  it('should return state value 3', async () => {
+    const { data } = await client.someState.get({})
+    expect(data).toBe(3)
+  })
+})
 
 describe('client', () => {
   it('get index', async () => {
