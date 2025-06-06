@@ -1,5 +1,3 @@
 export { Spiceflow } from './spiceflow.ts'
 export type { AnySpiceflow } from './spiceflow.ts'
 export { ValidationError } from './error.ts'
-export { createSafePath, safeUrl } from './safe-path.ts'
-export type { SafePaths, SafePathParams, SafePathBuilder } from './safe-path.ts'

@@ -22,6 +22,8 @@ import {
   SingletonBase,
   TypeSchema,
   UnwrapRoute,
+  GetPathParameter,
+  Prettify,
 } from './types.ts'
 
 import OriginalRouter from '@medley/router'
@@ -701,6 +703,73 @@ export class Spiceflow<
     this.onErrorHandlers.push(handler as any)
 
     return this
+  }
+
+  /**
+   * Creates type-safe URLs for defined routes with compile-time validation.
+   * 
+   * @param path - The route path pattern (must match a defined route)
+   * @param params - Parameters to substitute in the path (required for paths with parameters)
+   * @returns The built URL string with parameters substituted
+   * 
+   * @example
+   * ```typescript
+   * const app = new Spiceflow()
+   *   .get('/users/:id', ({ params }) => params.id)
+   *   .get('/posts/:postId/comments/:commentId', ({ params }) => params)
+   * 
+   * // Type-safe usage:
+   * const userUrl = app.safePath('/users/:id', { id: '123' })       // '/users/123'
+   * const commentUrl = app.safePath('/posts/:postId/comments/:commentId', { 
+   *   postId: 'abc', 
+   *   commentId: 'def' 
+   * })  // '/posts/abc/comments/def'
+   * 
+   * // TypeScript errors:
+   * // app.safePath('/users/:id', { name: 'john' })              // Error: missing 'id'
+   * // app.safePath('/invalid', {})                              // Error: invalid path
+   * ```
+   */
+  safePath<
+    Path extends this extends {
+      _routes: infer Routes extends Record<string, any>
+    }
+      ? keyof Routes extends string
+        ? keyof Routes
+        : never
+      : never
+  >(
+    path: Path,
+    ...args: {} extends (GetPathParameter<Path> extends never ? {} : ResolvePath<Path>)
+      ? [params?: GetPathParameter<Path> extends never ? {} : ResolvePath<Path>] 
+      : [params: GetPathParameter<Path> extends never ? {} : ResolvePath<Path>]
+  ): string {
+    const params = args[0] || {}
+    
+    // Replace path parameters with actual values
+    let result = path as string
+    
+    // Find all parameter patterns in the path
+    const paramPattern = /:([^\/\?]+)/g
+    let match
+    
+    while ((match = paramPattern.exec(path as string)) !== null) {
+      const paramName = match[1]
+      const isOptional = paramName.endsWith('?')
+      const cleanParamName = isOptional ? paramName.slice(0, -1) : paramName
+      
+      if (cleanParamName in params) {
+        const value = (params as any)[cleanParamName]
+        result = result.replace(match[0], String(value))
+      } else if (!isOptional) {
+        throw new Error(`Missing required parameter: ${cleanParamName}`)
+      } else {
+        // Remove optional parameter from path if not provided
+        result = result.replace(match[0], '')
+      }
+    }
+    
+    return result
   }
 
   async handle(
