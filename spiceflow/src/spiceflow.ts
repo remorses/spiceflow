@@ -730,11 +730,11 @@ export class Spiceflow<
    * // app.safePath('/invalid', {})                              // Error: invalid path
    * ```
    */
-  safePath<Path extends keyof Routes>(
+  safePath<const Path extends string>(
     path: Path,
-    ...args: {} extends ResolvePath<Path & string>
-      ? [params?: ResolvePath<Path & string>] 
-      : [params: ResolvePath<Path & string>]
+    ...args: {} extends ResolvePath<Path>
+      ? [params?: ResolvePath<Path>] 
+      : [params: ResolvePath<Path>]
   ): string {
     const params = args[0] || {}
     
