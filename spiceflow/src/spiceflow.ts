@@ -18,6 +18,7 @@ import {
   MetadataBase,
   MiddlewareHandler,
   Reconcile,
+  ReconstructPath,
   ResolvePath,
   RouteBase,
   RouteSchema,
@@ -95,6 +96,7 @@ export class Spiceflow<
     macroFn: {}
   },
   const out Routes extends RouteBase = {},
+  const out RoutePaths extends string = '',
 > {
   private id: number = globalIndex++
   private router: MedleyRouter = new OriginalRouter()
@@ -103,6 +105,15 @@ export class Spiceflow<
   private routes: InternalRoute[] = []
   private defaultState: Record<any, any> = {}
   topLevelApp?: AnySpiceflow
+  _routes: Routes = {} as any
+  _pathsType: RoutePaths = '' as any
+  _types = {
+    Prefix: '' as BasePath,
+    Scoped: false as Scoped,
+    Singleton: {} as Singleton,
+    Definitions: {} as Definitions,
+    Metadata: {} as Metadata,
+  }
 
   /** @internal */
   prefix?: string
@@ -256,7 +267,8 @@ export class Spiceflow<
     },
     Definitions,
     Metadata,
-    Routes
+    Routes,
+    RoutePaths
   > {
     this.defaultState[name] = value
     return this as any
@@ -277,16 +289,6 @@ export class Spiceflow<
     this.scoped = options.scoped
 
     this.prefix = options.basePath
-  }
-
-  _routes: Routes = {} as any
-
-  _types = {
-    Prefix: '' as BasePath,
-    Scoped: false as Scoped,
-    Singleton: {} as Singleton,
-    Definitions: {} as Definitions,
-    Metadata: {} as Metadata,
   }
 
   post<
@@ -328,7 +330,8 @@ export class Spiceflow<
             response: ComposeSpiceflowResponse<Schema['response'], Handle>
           }
         }
-      >
+      >,
+    RoutePaths | JoinPath<BasePath, Path>
   > {
     this.add({ method: 'POST', path, handler: handler, hooks: hook })
 
@@ -376,7 +379,8 @@ export class Spiceflow<
             response: ComposeSpiceflowResponse<Schema['response'], Handle>
           }
         }
-      >
+      >,
+    RoutePaths | JoinPath<BasePath, Path>
   > {
     this.add({ method: 'GET', path, handler: handler, hooks: hook })
     return this as any
@@ -422,7 +426,8 @@ export class Spiceflow<
             response: ComposeSpiceflowResponse<Schema['response'], Handle>
           }
         }
-      >
+      >,
+    RoutePaths | JoinPath<BasePath, Path>
   > {
     this.add({ method: 'PUT', path, handler: handler, hooks: hook })
 
@@ -469,7 +474,8 @@ export class Spiceflow<
             response: ComposeSpiceflowResponse<Schema['response'], Handle>
           }
         }
-      >
+      >,
+    RoutePaths | JoinPath<BasePath, Path>
   > {
     this.add({ method: 'PATCH', path, handler: handler, hooks: hook })
 
@@ -516,7 +522,8 @@ export class Spiceflow<
             response: ComposeSpiceflowResponse<Schema['response'], Handle>
           }
         }
-      >
+      >,
+    RoutePaths | JoinPath<BasePath, Path>
   > {
     this.add({ method: 'DELETE', path, handler: handler, hooks: hook })
 
@@ -563,7 +570,8 @@ export class Spiceflow<
             response: ComposeSpiceflowResponse<Schema['response'], Handle>
           }
         }
-      >
+      >,
+    RoutePaths | JoinPath<BasePath, Path>
   > {
     this.add({ method: 'OPTIONS', path, handler: handler, hooks: hook })
 
@@ -610,7 +618,8 @@ export class Spiceflow<
             response: ComposeSpiceflowResponse<Schema['response'], Handle>
           }
         }
-      >
+      >,
+    RoutePaths | JoinPath<BasePath, Path>
   > {
     for (const method of METHODS) {
       this.add({ method, path, handler: handler, hooks: hook })
@@ -659,7 +668,8 @@ export class Spiceflow<
             response: ComposeSpiceflowResponse<Schema['response'], Handle>
           }
         }
-      >
+      >,
+    RoutePaths | JoinPath<BasePath, Path>
   > {
     this.add({ method: 'HEAD', path, handler: handler, hooks: hook })
 
@@ -680,7 +690,8 @@ export class Spiceflow<
         Metadata,
         BasePath extends ``
           ? Routes & NewSpiceflow['_routes']
-          : Routes & CreateClient<BasePath, NewSpiceflow['_routes']>
+          : Routes & CreateClient<BasePath, NewSpiceflow['_routes']>,
+        RoutePaths | NewSpiceflow['_pathsType']
       >
   use<const Schema extends RouteSchema>(
     handler: MiddlewareHandler<Schema, Singleton>,
@@ -1094,14 +1105,11 @@ export class Spiceflow<
   }
 
   safePath<
-    const Path extends GetPathsFromRoutes<Routes>,
-    const Params extends ExtractParamsFromPath<Path>
-  >(
-    path: Path,
-    params: Params
-  ): string {
+    const Path extends RoutePaths,
+    const Params extends ExtractParamsFromPath<Path>,
+  >(path: Path, params: Params): string {
     let result = path as string
-    
+
     // First, handle all provided parameters
     if (params && typeof params === 'object') {
       Object.entries(params).forEach(([key, value]) => {
@@ -1110,11 +1118,11 @@ export class Spiceflow<
         result = result.replace(regex, String(value))
       })
     }
-    
+
     // Then, handle any remaining optional parameters that weren't provided
     // Replace any remaining :param? with empty string (keeping trailing slash)
     result = result.replace(/:[\w-]+\?/g, '')
-    
+
     return result
   }
 }
@@ -1245,7 +1253,7 @@ export async function turnHandlerResultIntoResponse(
   })
 }
 
-export type AnySpiceflow = Spiceflow<any, any, any, any, any, any>
+export type AnySpiceflow = Spiceflow<any, any, any, any, any, any, any>
 
 export function isZodSchema(value: unknown): value is ZodType {
   return (
