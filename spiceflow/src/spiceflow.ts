@@ -1,30 +1,28 @@
 import lodashCloneDeep from 'lodash.clonedeep'
-import { ValidationError } from './error.ts'
 import { SpiceflowFetchError } from './client/errors.ts'
+import { ValidationError } from './error.ts'
 import {
-  ComposeSpiceflowResponse,
-  ContentType,
-  CreateClient,
-  DefinitionBase,
-  ErrorHandler,
-  ExtractParamsFromPath,
-  GetPathsFromRoutes,
-  HTTPMethod,
-  InlineHandler,
-  InputSchema,
-  IsAny,
-  JoinPath,
-  LocalHook,
-  MetadataBase,
-  MiddlewareHandler,
-  Reconcile,
-  ReconstructPath,
-  ResolvePath,
-  RouteBase,
-  RouteSchema,
-  SingletonBase,
-  TypeSchema,
-  UnwrapRoute,
+    ComposeSpiceflowResponse,
+    ContentType,
+    CreateClient,
+    DefinitionBase,
+    ErrorHandler,
+    ExtractParamsFromPath,
+    HTTPMethod,
+    InlineHandler,
+    InputSchema,
+    IsAny,
+    JoinPath,
+    LocalHook,
+    MetadataBase,
+    MiddlewareHandler,
+    Reconcile,
+    ResolvePath,
+    RouteBase,
+    RouteSchema,
+    SingletonBase,
+    TypeSchema,
+    UnwrapRoute
 } from './types.ts'
 
 import OriginalRouter from '@medley/router'
@@ -106,9 +104,10 @@ export class Spiceflow<
   private defaultState: Record<any, any> = {}
   topLevelApp?: AnySpiceflow
   _routes: Routes = {} as any
-  _pathsType: RoutePaths = '' as any
+
   _types = {
     Prefix: '' as BasePath,
+    _pathsType: '' as RoutePaths,
     Scoped: false as Scoped,
     Singleton: {} as Singleton,
     Definitions: {} as Definitions,
@@ -691,7 +690,7 @@ export class Spiceflow<
         BasePath extends ``
           ? Routes & NewSpiceflow['_routes']
           : Routes & CreateClient<BasePath, NewSpiceflow['_routes']>,
-        RoutePaths | NewSpiceflow['_pathsType']
+        RoutePaths | NewSpiceflow['_types']['_pathsType']
       >
   use<const Schema extends RouteSchema>(
     handler: MiddlewareHandler<Schema, Singleton>,
