@@ -8,7 +8,7 @@ import type { OpenAPIV3 } from 'openapi-types'
 import { ZodTypeAny } from 'zod'
 import type { Context, ErrorContext, MiddlewareContext } from './context.ts'
 import { SPICEFLOW_RESPONSE, ValidationError } from './error.ts'
-import { Spiceflow } from './spiceflow.ts'
+import { AnySpiceflow, Spiceflow } from './spiceflow.ts'
 
 export type MaybeArray<T> = T | T[]
 export type MaybePromise<T> = T | Promise<T>
@@ -634,7 +634,7 @@ type _ComposeSpiceflowResponse<Response, Handle> = Prettify<
 >
 
 export type MergeSpiceflowInstances<
-  Instances extends Spiceflow<any, any, any, any, any, any>[] = [],
+  Instances extends AnySpiceflow[] = [],
   Prefix extends string = '',
   Scoped extends boolean = false,
   Singleton extends SingletonBase = {
@@ -651,8 +651,8 @@ export type MergeSpiceflowInstances<
   },
   Routes extends RouteBase = {},
 > = Instances extends [
-  infer Current extends Spiceflow<any, any, any, any, any, any>,
-  ...infer Rest extends Spiceflow<any, any, any, any, any, any>[],
+  infer Current extends AnySpiceflow,
+  ...infer Rest extends AnySpiceflow[],
 ]
   ? Current['_types']['Scoped'] extends true
     ? MergeSpiceflowInstances<
@@ -673,8 +673,8 @@ export type MergeSpiceflowInstances<
         Metadata & Current['_types']['Metadata'],
         Routes &
           (Prefix extends ``
-            ? Current['_routes']
-            : AddPrefix<Prefix, Current['_routes']>)
+            ? Current['_types']['ClientRoutes']
+            : AddPrefix<Prefix, Current['_types']['ClientRoutes']>)
       >
   : Spiceflow<
       Prefix,
@@ -851,3 +851,17 @@ export type JoinPath<A extends string, B extends string> = `${A}${B extends '/'
 
 export type PartialWithRequired<T, K extends keyof T> = Partial<Omit<T, K>> &
   Pick<T, K>
+
+export type GetPathsFromRoutes<Routes extends Record<string, unknown>> =
+  Routes extends Record<infer K, any> ? (K extends string ? K : never) : never
+
+export type ExtractParamsFromPath<Path extends string> =
+  Path extends `${string}:${infer Param}/${infer Rest}`
+    ? Param extends `${infer Name}?`
+      ? { [K in Name]?: string } & ExtractParamsFromPath<`/${Rest}`>
+      : { [K in Param]: string } & ExtractParamsFromPath<`/${Rest}`>
+    : Path extends `${string}:${infer Param}`
+      ? Param extends `${infer Name}?`
+        ? { [K in Name]?: string }
+        : { [K in Param]: string }
+      : {}

@@ -1,12 +1,13 @@
 import lodashCloneDeep from 'lodash.clonedeep'
-import { ValidationError } from './error.ts'
 import { SpiceflowFetchError } from './client/errors.ts'
+import { ValidationError } from './error.ts'
 import {
   ComposeSpiceflowResponse,
   ContentType,
   CreateClient,
   DefinitionBase,
   ErrorHandler,
+  ExtractParamsFromPath,
   HTTPMethod,
   InlineHandler,
   InputSchema,
@@ -92,7 +93,8 @@ export class Spiceflow<
     macro: {}
     macroFn: {}
   },
-  const out Routes extends RouteBase = {},
+  const out ClientRoutes extends RouteBase = {},
+  const out RoutePaths extends string = '',
 > {
   private id: number = globalIndex++
   private router: MedleyRouter = new OriginalRouter()
@@ -101,6 +103,16 @@ export class Spiceflow<
   private routes: InternalRoute[] = []
   private defaultState: Record<any, any> = {}
   topLevelApp?: AnySpiceflow
+
+  _types = {
+    Prefix: '' as BasePath,
+    ClientRoutes: {} as ClientRoutes,
+    RoutePaths: '' as RoutePaths,
+    Scoped: false as Scoped,
+    Singleton: {} as Singleton,
+    Definitions: {} as Definitions,
+    Metadata: {} as Metadata,
+  }
 
   /** @internal */
   prefix?: string
@@ -254,7 +266,8 @@ export class Spiceflow<
     },
     Definitions,
     Metadata,
-    Routes
+    ClientRoutes,
+    RoutePaths
   > {
     this.defaultState[name] = value
     return this as any
@@ -275,16 +288,6 @@ export class Spiceflow<
     this.scoped = options.scoped
 
     this.prefix = options.basePath
-  }
-
-  _routes: Routes = {} as any
-
-  _types = {
-    Prefix: '' as BasePath,
-    Scoped: false as Scoped,
-    Singleton: {} as Singleton,
-    Definitions: {} as Definitions,
-    Metadata: {} as Metadata,
   }
 
   post<
@@ -313,7 +316,7 @@ export class Spiceflow<
     Singleton,
     Definitions,
     Metadata,
-    Routes &
+    ClientRoutes &
       CreateClient<
         JoinPath<BasePath, Path>,
         {
@@ -326,7 +329,8 @@ export class Spiceflow<
             response: ComposeSpiceflowResponse<Schema['response'], Handle>
           }
         }
-      >
+      >,
+    RoutePaths | JoinPath<BasePath, Path>
   > {
     this.add({ method: 'POST', path, handler: handler, hooks: hook })
 
@@ -360,7 +364,7 @@ export class Spiceflow<
     Singleton,
     Definitions,
     Metadata,
-    Routes &
+    ClientRoutes &
       CreateClient<
         JoinPath<BasePath, Path>,
         {
@@ -374,7 +378,8 @@ export class Spiceflow<
             response: ComposeSpiceflowResponse<Schema['response'], Handle>
           }
         }
-      >
+      >,
+    RoutePaths | JoinPath<BasePath, Path>
   > {
     this.add({ method: 'GET', path, handler: handler, hooks: hook })
     return this as any
@@ -406,7 +411,7 @@ export class Spiceflow<
     Singleton,
     Definitions,
     Metadata,
-    Routes &
+    ClientRoutes &
       CreateClient<
         JoinPath<BasePath, Path>,
         {
@@ -420,7 +425,8 @@ export class Spiceflow<
             response: ComposeSpiceflowResponse<Schema['response'], Handle>
           }
         }
-      >
+      >,
+    RoutePaths | JoinPath<BasePath, Path>
   > {
     this.add({ method: 'PUT', path, handler: handler, hooks: hook })
 
@@ -453,7 +459,7 @@ export class Spiceflow<
     Singleton,
     Definitions,
     Metadata,
-    Routes &
+    ClientRoutes &
       CreateClient<
         JoinPath<BasePath, Path>,
         {
@@ -467,7 +473,8 @@ export class Spiceflow<
             response: ComposeSpiceflowResponse<Schema['response'], Handle>
           }
         }
-      >
+      >,
+    RoutePaths | JoinPath<BasePath, Path>
   > {
     this.add({ method: 'PATCH', path, handler: handler, hooks: hook })
 
@@ -500,7 +507,7 @@ export class Spiceflow<
     Singleton,
     Definitions,
     Metadata,
-    Routes &
+    ClientRoutes &
       CreateClient<
         JoinPath<BasePath, Path>,
         {
@@ -514,7 +521,8 @@ export class Spiceflow<
             response: ComposeSpiceflowResponse<Schema['response'], Handle>
           }
         }
-      >
+      >,
+    RoutePaths | JoinPath<BasePath, Path>
   > {
     this.add({ method: 'DELETE', path, handler: handler, hooks: hook })
 
@@ -547,7 +555,7 @@ export class Spiceflow<
     Singleton,
     Definitions,
     Metadata,
-    Routes &
+    ClientRoutes &
       CreateClient<
         JoinPath<BasePath, Path>,
         {
@@ -561,7 +569,8 @@ export class Spiceflow<
             response: ComposeSpiceflowResponse<Schema['response'], Handle>
           }
         }
-      >
+      >,
+    RoutePaths | JoinPath<BasePath, Path>
   > {
     this.add({ method: 'OPTIONS', path, handler: handler, hooks: hook })
 
@@ -594,7 +603,7 @@ export class Spiceflow<
     Singleton,
     Definitions,
     Metadata,
-    Routes &
+    ClientRoutes &
       CreateClient<
         JoinPath<BasePath, Path>,
         {
@@ -608,7 +617,8 @@ export class Spiceflow<
             response: ComposeSpiceflowResponse<Schema['response'], Handle>
           }
         }
-      >
+      >,
+    RoutePaths | JoinPath<BasePath, Path>
   > {
     for (const method of METHODS) {
       this.add({ method, path, handler: handler, hooks: hook })
@@ -643,7 +653,7 @@ export class Spiceflow<
     Singleton,
     Definitions,
     Metadata,
-    Routes &
+    ClientRoutes &
       CreateClient<
         JoinPath<BasePath, Path>,
         {
@@ -657,7 +667,8 @@ export class Spiceflow<
             response: ComposeSpiceflowResponse<Schema['response'], Handle>
           }
         }
-      >
+      >,
+    RoutePaths | JoinPath<BasePath, Path>
   > {
     this.add({ method: 'HEAD', path, handler: handler, hooks: hook })
 
@@ -677,8 +688,10 @@ export class Spiceflow<
         Definitions,
         Metadata,
         BasePath extends ``
-          ? Routes & NewSpiceflow['_routes']
-          : Routes & CreateClient<BasePath, NewSpiceflow['_routes']>
+          ? ClientRoutes & NewSpiceflow['_types']['ClientRoutes']
+          : ClientRoutes &
+              CreateClient<BasePath, NewSpiceflow['_types']['ClientRoutes']>,
+        RoutePaths | NewSpiceflow['_types']['RoutePaths']
       >
   use<const Schema extends RouteSchema>(
     handler: MiddlewareHandler<Schema, Singleton>,
@@ -1090,6 +1103,28 @@ export class Spiceflow<
       },
     )
   }
+
+  safePath<
+    const Path extends RoutePaths,
+    const Params extends ExtractParamsFromPath<Path>,
+  >(path: Path, params: Params): string {
+    let result = path as string
+
+    // First, handle all provided parameters
+    if (params && typeof params === 'object') {
+      Object.entries(params).forEach(([key, value]) => {
+        // Handle both required (:key) and optional (:key?) parameters
+        const regex = new RegExp(`:${key}\\??`, 'g')
+        result = result.replace(regex, String(value))
+      })
+    }
+
+    // Then, handle any remaining optional parameters that weren't provided
+    // Replace any remaining :param? with empty string (keeping trailing slash)
+    result = result.replace(/:[\w-]+\?/g, '')
+
+    return result
+  }
 }
 
 const METHODS = [
@@ -1218,7 +1253,7 @@ export async function turnHandlerResultIntoResponse(
   })
 }
 
-export type AnySpiceflow = Spiceflow<any, any, any, any, any, any>
+export type AnySpiceflow = Spiceflow<any, any, any, any, any, any, any>
 
 export function isZodSchema(value: unknown): value is ZodType {
   return (

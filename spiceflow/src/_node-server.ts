@@ -5,11 +5,11 @@ import {
   createServer,
 } from 'node:http'
 import { AddressInfo } from 'node:net'
-import { type Spiceflow, SpiceflowRequest } from './spiceflow.ts'
+import { AnySpiceflow, type Spiceflow, SpiceflowRequest } from './spiceflow.ts'
 import { superjsonSerialize } from './serialize.ts'
 
 export async function listenForNode(
-  app: Spiceflow<any, any, any, any, any, any>,
+  app: AnySpiceflow,
   port: number,
   hostname: string = '0.0.0.0',
 ): Promise<Server<typeof IncomingMessage, typeof ServerResponse>> {
@@ -33,7 +33,7 @@ export async function listenForNode(
 }
 
 export async function handleForNode(
-  app: Spiceflow<any, any, any, any, any, any>,
+  app: AnySpiceflow,
   req: IncomingMessage,
   res: ServerResponse,
   context: { state?: {} | undefined } = {},

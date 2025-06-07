@@ -1,4 +1,4 @@
-import type { Spiceflow } from '../spiceflow.ts'
+import type { AnySpiceflow, Spiceflow } from '../spiceflow.ts'
 import superjson from 'superjson'
 import { EventSourceParserStream } from 'eventsource-parser/stream'
 
@@ -179,7 +179,7 @@ const createProxy = (
   domain: string,
   config: SpiceflowClient.Config & { state?: any },
   paths: string[] = [],
-  instance?: Spiceflow<any, any, any, any, any, any>,
+  instance?: AnySpiceflow,
 ): any => {
   if (config.state && !instance) {
     throw new Error(`State is only available when using a Spiceflow instance`)
@@ -464,11 +464,11 @@ const createProxy = (
 }
 
 export const createSpiceflowClient = <
-  const App extends Spiceflow<any, any, any, any, any, any>,
+  const App extends AnySpiceflow,
 >(
   domain: App | string,
   config?: SpiceflowClient.Config &
-    (App extends Spiceflow<any, any, infer Singleton, any, any, any>
+    (App extends Spiceflow<any, any, infer Singleton, any, any, any, any>
       ? { state?: Singleton['state'] }
       : {}),
 ): SpiceflowClient.Create<App> => {
