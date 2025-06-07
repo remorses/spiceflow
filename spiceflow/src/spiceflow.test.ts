@@ -846,3 +846,73 @@ test('can pass additional props to body schema', async () => {
     additionalProp: 'extra data',
   })
 })
+
+describe('safePath', () => {
+  test('handles simple paths without parameters', () => {
+    const app = new Spiceflow()
+      .get('/users', () => 'users')
+      .get('/posts', () => 'posts')
+
+    expect(app.safePath('/users', {})).toBe('/users')
+    expect(app.safePath('/posts', {})).toBe('/posts')
+  })
+
+  test('handles paths with required parameters', () => {
+    const app = new Spiceflow()
+      .get('/users/:id', ({ params }) => params.id)
+      .get('/posts/:postId/comments/:commentId', ({ params }) => params)
+
+    expect(app.safePath('/users/:id', { id: '123' })).toBe('/users/123')
+    expect(app.safePath('/posts/:postId/comments/:commentId', { 
+      postId: 'abc', 
+      commentId: '456' 
+    })).toBe('/posts/abc/comments/456')
+  })
+
+  test('handles paths with optional parameters', () => {
+    const app = new Spiceflow()
+      .get('/users/:id?', ({ params }) => params.id)
+      .get('/posts/:postId/comments/:commentId?', ({ params }) => params)
+
+    expect(app.safePath('/users/:id?', { id: '123' })).toBe('/users/123')
+    expect(app.safePath('/users/:id?', {})).toBe('/users/')
+    expect(app.safePath('/posts/:postId/comments/:commentId?', { 
+      postId: 'abc', 
+      commentId: '456' 
+    })).toBe('/posts/abc/comments/456')
+    expect(app.safePath('/posts/:postId/comments/:commentId?', { 
+      postId: 'abc' 
+    })).toBe('/posts/abc/comments/')
+  })
+
+  test('handles mixed required and optional parameters', () => {
+    const app = new Spiceflow()
+      .get('/api/:version/users/:id/posts/:postId?', ({ params }) => params)
+
+    expect(app.safePath('/api/:version/users/:id/posts/:postId?', {
+      version: 'v1',
+      id: '123',
+      postId: 'abc'
+    })).toBe('/api/v1/users/123/posts/abc')
+
+    expect(app.safePath('/api/:version/users/:id/posts/:postId?', {
+      version: 'v1',
+      id: '123'
+    })).toBe('/api/v1/users/123/posts/')
+  })
+
+  test('handles numeric parameter values', () => {
+    const app = new Spiceflow()
+      .get('/users/:id', ({ params }) => params.id)
+
+    expect(app.safePath('/users/:id', { id: 123 })).toBe('/users/123')
+    expect(app.safePath('/users/:id', { id: 0 })).toBe('/users/0')
+  })
+
+  test('handles empty parameters object', () => {
+    const app = new Spiceflow()
+      .get('/static', () => 'static')
+
+    expect(app.safePath('/static', {})).toBe('/static')
+  })
+})

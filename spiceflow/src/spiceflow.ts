@@ -7,6 +7,8 @@ import {
   CreateClient,
   DefinitionBase,
   ErrorHandler,
+  ExtractParamsFromPath,
+  GetPathsFromRoutes,
   HTTPMethod,
   InlineHandler,
   InputSchema,
@@ -1089,6 +1091,31 @@ export class Spiceflow<
         },
       },
     )
+  }
+
+  safePath<
+    const Path extends GetPathsFromRoutes<Routes>,
+    const Params extends ExtractParamsFromPath<Path>
+  >(
+    path: Path,
+    params: Params
+  ): string {
+    let result = path as string
+    
+    // First, handle all provided parameters
+    if (params && typeof params === 'object') {
+      Object.entries(params).forEach(([key, value]) => {
+        // Handle both required (:key) and optional (:key?) parameters
+        const regex = new RegExp(`:${key}\\??`, 'g')
+        result = result.replace(regex, String(value))
+      })
+    }
+    
+    // Then, handle any remaining optional parameters that weren't provided
+    // Replace any remaining :param? with empty string (keeping trailing slash)
+    result = result.replace(/:[\w-]+\?/g, '')
+    
+    return result
   }
 }
 
