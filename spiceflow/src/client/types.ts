@@ -1,5 +1,5 @@
 /// <reference lib="dom" />
-import type { Spiceflow } from '../spiceflow.ts'
+import type { AnySpiceflow, Spiceflow } from '../spiceflow.ts'
 
 import { SpiceflowFetchError } from './errors.ts'
 
@@ -56,7 +56,7 @@ export namespace SpiceflowClient {
     fetch?: RequestInit
   }
 
-  export type Create<App extends Spiceflow<any, any, any, any, any, any>> =
+  export type Create<App extends AnySpiceflow> =
     App extends {
       _routes: infer Schema extends Record<string, any>
     }

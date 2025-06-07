@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, it } from 'vitest'
 
-import { Spiceflow } from 'spiceflow'
+import { AnySpiceflow, Spiceflow } from 'spiceflow'
 import { mcp } from 'spiceflow/mcp'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js'
@@ -14,7 +14,7 @@ import { z } from 'zod'
 import { getAvailablePort } from './get-available-port.ts'
 
 describe('MCP Plugin', () => {
-  let app: Spiceflow<any>
+  let app: AnySpiceflow
   let port: number
   let client: Client
   let transport: SSEClientTransport
