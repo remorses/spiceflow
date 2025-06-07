@@ -2,27 +2,27 @@ import lodashCloneDeep from 'lodash.clonedeep'
 import { SpiceflowFetchError } from './client/errors.ts'
 import { ValidationError } from './error.ts'
 import {
-    ComposeSpiceflowResponse,
-    ContentType,
-    CreateClient,
-    DefinitionBase,
-    ErrorHandler,
-    ExtractParamsFromPath,
-    HTTPMethod,
-    InlineHandler,
-    InputSchema,
-    IsAny,
-    JoinPath,
-    LocalHook,
-    MetadataBase,
-    MiddlewareHandler,
-    Reconcile,
-    ResolvePath,
-    RouteBase,
-    RouteSchema,
-    SingletonBase,
-    TypeSchema,
-    UnwrapRoute
+  ComposeSpiceflowResponse,
+  ContentType,
+  CreateClient,
+  DefinitionBase,
+  ErrorHandler,
+  ExtractParamsFromPath,
+  HTTPMethod,
+  InlineHandler,
+  InputSchema,
+  IsAny,
+  JoinPath,
+  LocalHook,
+  MetadataBase,
+  MiddlewareHandler,
+  Reconcile,
+  ResolvePath,
+  RouteBase,
+  RouteSchema,
+  SingletonBase,
+  TypeSchema,
+  UnwrapRoute,
 } from './types.ts'
 
 import OriginalRouter from '@medley/router'
@@ -93,7 +93,7 @@ export class Spiceflow<
     macro: {}
     macroFn: {}
   },
-  const out Routes extends RouteBase = {},
+  const out ClientRoutes extends RouteBase = {},
   const out RoutePaths extends string = '',
 > {
   private id: number = globalIndex++
@@ -103,11 +103,11 @@ export class Spiceflow<
   private routes: InternalRoute[] = []
   private defaultState: Record<any, any> = {}
   topLevelApp?: AnySpiceflow
-  _routes: Routes = {} as any
 
   _types = {
     Prefix: '' as BasePath,
-    _pathsType: '' as RoutePaths,
+    ClientRoutes: {} as ClientRoutes,
+    RoutePaths: '' as RoutePaths,
     Scoped: false as Scoped,
     Singleton: {} as Singleton,
     Definitions: {} as Definitions,
@@ -266,7 +266,7 @@ export class Spiceflow<
     },
     Definitions,
     Metadata,
-    Routes,
+    ClientRoutes,
     RoutePaths
   > {
     this.defaultState[name] = value
@@ -316,7 +316,7 @@ export class Spiceflow<
     Singleton,
     Definitions,
     Metadata,
-    Routes &
+    ClientRoutes &
       CreateClient<
         JoinPath<BasePath, Path>,
         {
@@ -364,7 +364,7 @@ export class Spiceflow<
     Singleton,
     Definitions,
     Metadata,
-    Routes &
+    ClientRoutes &
       CreateClient<
         JoinPath<BasePath, Path>,
         {
@@ -411,7 +411,7 @@ export class Spiceflow<
     Singleton,
     Definitions,
     Metadata,
-    Routes &
+    ClientRoutes &
       CreateClient<
         JoinPath<BasePath, Path>,
         {
@@ -459,7 +459,7 @@ export class Spiceflow<
     Singleton,
     Definitions,
     Metadata,
-    Routes &
+    ClientRoutes &
       CreateClient<
         JoinPath<BasePath, Path>,
         {
@@ -507,7 +507,7 @@ export class Spiceflow<
     Singleton,
     Definitions,
     Metadata,
-    Routes &
+    ClientRoutes &
       CreateClient<
         JoinPath<BasePath, Path>,
         {
@@ -555,7 +555,7 @@ export class Spiceflow<
     Singleton,
     Definitions,
     Metadata,
-    Routes &
+    ClientRoutes &
       CreateClient<
         JoinPath<BasePath, Path>,
         {
@@ -603,7 +603,7 @@ export class Spiceflow<
     Singleton,
     Definitions,
     Metadata,
-    Routes &
+    ClientRoutes &
       CreateClient<
         JoinPath<BasePath, Path>,
         {
@@ -653,7 +653,7 @@ export class Spiceflow<
     Singleton,
     Definitions,
     Metadata,
-    Routes &
+    ClientRoutes &
       CreateClient<
         JoinPath<BasePath, Path>,
         {
@@ -688,9 +688,10 @@ export class Spiceflow<
         Definitions,
         Metadata,
         BasePath extends ``
-          ? Routes & NewSpiceflow['_routes']
-          : Routes & CreateClient<BasePath, NewSpiceflow['_routes']>,
-        RoutePaths | NewSpiceflow['_types']['_pathsType']
+          ? ClientRoutes & NewSpiceflow['_types']['ClientRoutes']
+          : ClientRoutes &
+              CreateClient<BasePath, NewSpiceflow['_types']['ClientRoutes']>,
+        RoutePaths | NewSpiceflow['_types']['RoutePaths']
       >
   use<const Schema extends RouteSchema>(
     handler: MiddlewareHandler<Schema, Singleton>,

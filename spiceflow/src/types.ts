@@ -673,8 +673,8 @@ export type MergeSpiceflowInstances<
         Metadata & Current['_types']['Metadata'],
         Routes &
           (Prefix extends ``
-            ? Current['_routes']
-            : AddPrefix<Prefix, Current['_routes']>)
+            ? Current['_types']['ClientRoutes']
+            : AddPrefix<Prefix, Current['_types']['ClientRoutes']>)
       >
   : Spiceflow<
       Prefix,
