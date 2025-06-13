@@ -252,7 +252,7 @@ const app = new Spiceflow()
   })
   .route({
     method: 'GET',
-    path: '/users/:id/posts/:postId?',
+    path: '/users/:id/posts/:postId',
     handler({ params }) {
       return { userId: params.id, postId: params.postId }
     },
@@ -262,18 +262,12 @@ const app = new Spiceflow()
 const userPath = app.safePath('/users/:id', { id: '123' })
 // Result: '/users/123'
 
-// Building URLs with optional parameters
-const userPostPath = app.safePath('/users/:id/posts/:postId?', {
+// Building URLs with required parameters
+const userPostPath = app.safePath('/users/:id/posts/:postId', {
   id: '456',
   postId: 'abc'
 })
 // Result: '/users/456/posts/abc'
-
-// Optional parameters can be omitted
-const userPostsPath = app.safePath('/users/:id/posts/:postId?', {
-  id: '456'
-})
-// Result: '/users/456/posts/'
 ```
 
 ### OAuth Callback Example
@@ -286,7 +280,7 @@ import { Spiceflow } from 'spiceflow'
 const app = new Spiceflow()
   .route({
     method: 'GET',
-    path: '/auth/callback/:provider/:userId?',
+    path: '/auth/callback/:provider/:userId',
     handler({ params, query }) {
       const { provider, userId } = params
       const { code, state } = query
@@ -309,7 +303,7 @@ const app = new Spiceflow()
       
       // Build the OAuth callback URL safely
       const callbackUrl = new URL(
-        app.safePath('/auth/callback/:provider/:userId?', {
+        app.safePath('/auth/callback/:provider/:userId', {
           provider,
           userId
         }),
@@ -330,8 +324,7 @@ const app = new Spiceflow()
 
 In this example:
 - The callback URL is built safely using `safePath` with type checking
-- Required parameters like `provider` must be provided
-- Optional parameters like `userId` can be included or omitted
+- Required parameters like `provider` and `userId` must be provided
 - The resulting URL is guaranteed to be properly formatted
 
 ## Mounting Sub-Apps
