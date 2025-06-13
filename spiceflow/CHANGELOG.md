@@ -1,5 +1,11 @@
 # spiceflow
 
+## 1.11.1
+
+### Patch Changes
+
+- Fix support for request to pass schema
+
 ## 1.11.0
 
 ### Minor Changes
