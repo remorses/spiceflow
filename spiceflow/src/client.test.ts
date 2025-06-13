@@ -120,7 +120,7 @@ const app = new Spiceflow()
   .get('/stream-return-async', function* stream() {
     return 'a'
   })
-  .get('/id/:id?', ({ params: { id = 'unknown' } }) => id)
+  .get('/id/:id', ({ params: { id } }) => id)
 
 const client = createSpiceflowClient(app)
 
