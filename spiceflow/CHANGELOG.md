@@ -1,5 +1,16 @@
 # spiceflow
 
+## 1.11.0
+
+### Minor Changes
+
+- 7da7fb9: Deprecate body, use request instead. It aligns better with request reponse
+- fe3c152: Added .route
+
+### Patch Changes
+
+- fe3c152: Fix missing package.json package
+
 ## 1.10.1
 
 ### Patch Changes
