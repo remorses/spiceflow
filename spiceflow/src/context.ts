@@ -10,6 +10,7 @@ import type {
   ResolvePath,
   SingletonBase,
   HTTPHeaders,
+  GetRequestSchema,
 } from './types.ts'
 
 import { SpiceflowRequest } from './spiceflow.ts'
@@ -52,7 +53,7 @@ export type ErrorContext<
    * @example '/id/:id'
    */
   // route: string
-  request: SpiceflowRequest<Route['body']>
+  request: SpiceflowRequest<GetRequestSchema<Route>>
   state: Singleton['state']
   // response: Route['response']
 }>
@@ -80,7 +81,7 @@ export type Context<
 
   path: string
 
-  request: SpiceflowRequest<Route['body']>
+  request: SpiceflowRequest<GetRequestSchema<Route>>
   state: Singleton['state']
   // response?: Route['response']
 }>

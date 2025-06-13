@@ -9,6 +9,7 @@ import {
   DefinitionBase,
   ErrorHandler,
   ExtractParamsFromPath,
+  GetRequestSchema,
   HTTPMethod,
   InlineHandler,
   InputSchema,
@@ -322,7 +323,7 @@ export class Spiceflow<
         JoinPath<BasePath, Path>,
         {
           post: {
-            body: Schema['body']
+            request: GetRequestSchema<Schema>
             params: undefined extends Schema['params']
               ? ResolvePath<Path>
               : Schema['params']
@@ -370,7 +371,7 @@ export class Spiceflow<
         JoinPath<BasePath, Path>,
         {
           get: {
-            body: Schema['body']
+            request: GetRequestSchema<Schema>
             params: undefined extends Schema['params']
               ? ResolvePath<Path>
               : Schema['params']
@@ -417,7 +418,7 @@ export class Spiceflow<
         JoinPath<BasePath, Path>,
         {
           put: {
-            body: Schema['body']
+            request: GetRequestSchema<Schema>
             params: undefined extends Schema['params']
               ? ResolvePath<Path>
               : Schema['params']
@@ -467,7 +468,7 @@ export class Spiceflow<
         JoinPath<BasePath, Path>,
         {
           put: {
-            body: Schema['body']
+            request: GetRequestSchema<Schema>
             params: undefined extends Schema['params']
               ? ResolvePath<Path>
               : Schema['params']
@@ -531,7 +532,7 @@ export class Spiceflow<
         JoinPath<BasePath, Path>,
         {
           patch: {
-            body: Schema['body']
+            request: GetRequestSchema<Schema>
             params: undefined extends Schema['params']
               ? ResolvePath<Path>
               : Schema['params']
@@ -579,7 +580,7 @@ export class Spiceflow<
         JoinPath<BasePath, Path>,
         {
           delete: {
-            body: Schema['body']
+            request: GetRequestSchema<Schema>
             params: undefined extends Schema['params']
               ? ResolvePath<Path>
               : Schema['params']
@@ -627,7 +628,7 @@ export class Spiceflow<
         JoinPath<BasePath, Path>,
         {
           options: {
-            body: Schema['body']
+            request: GetRequestSchema<Schema>
             params: undefined extends Schema['params']
               ? ResolvePath<Path>
               : Schema['params']
@@ -675,7 +676,7 @@ export class Spiceflow<
         JoinPath<BasePath, Path>,
         {
           [method in string]: {
-            body: Schema['body']
+            request: GetRequestSchema<Schema>
             params: undefined extends Schema['params']
               ? ResolvePath<Path>
               : Schema['params']
@@ -725,7 +726,7 @@ export class Spiceflow<
         JoinPath<BasePath, Path>,
         {
           head: {
-            body: Schema['body']
+            request: GetRequestSchema<Schema>
             params: undefined extends Schema['params']
               ? ResolvePath<Path>
               : Schema['params']

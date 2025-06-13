@@ -37,23 +37,26 @@ Objects returned from route handlers are automatically serialized to JSON
 import { Spiceflow } from 'spiceflow'
 
 const app = new Spiceflow()
-  .get('/hello', () => 'Hello, World!')
-  .post('/echo', async ({ request }) => {
-    const body = await request.json()
-    return { echo: body }
+  .route({
+    method: 'POST',
+    path: '/hello',
+    handler() {
+      return 'Hello, World!'
+    },
   })
-
-const app = new Spiceflow()
-  .route({ method: 'POST', path: '/hello' }, () => 'Hello, World!')
-  .post('/echo', async ({ request }) => {
-    const body = await request.json()
-    return { echo: body }
+  .route({
+    method: 'POST',
+    path: '/echo',
+    async handler({ request }) {
+      const body = await request.json()
+      return { echo: body }
+    },
   })
 
 app.listen(3000)
 ```
 
-> Never declare app and add routes separately, that way you lose the type safety. Instead always append routes with .post and .get in a single expression.
+> Never declare app and add routes separately, that way you lose the type safety. Instead always append routes with .route in a single expression.
 
 ```ts
 // This is an example of what NOT to do when using Spiceflow
@@ -64,10 +67,20 @@ import { Spiceflow } from 'spiceflow'
 const app = new Spiceflow()
 
 // Do NOT do this! Adding routes separately like this will lose type safety
-app.get('/hello', () => 'Hello, World!')
-app.post('/echo', async ({ request }) => {
-  const body = await request.json()
-  return body
+app.route({
+  method: 'GET',
+  path: '/hello',
+  handler() {
+    return 'Hello, World!'
+  },
+})
+app.route({
+  method: 'POST',
+  path: '/echo',
+  async handler({ request }) {
+    const body = await request.json()
+    return body
+  },
 })
 ```
 
@@ -100,19 +113,18 @@ This project shares many inspirations with Hono with many differences
 import { z } from 'zod'
 import { Spiceflow } from 'spiceflow'
 
-new Spiceflow().post(
-  '/users',
-  async ({ request }) => {
+new Spiceflow().route({
+  method: 'POST',
+  path: '/users',
+  request: z.object({
+    name: z.string(),
+    email: z.string().email(),
+  }),
+  async handler({ request }) {
     const body = await request.json() // here body has type { name: string, email: string }
     return `Created user: ${body.name}`
   },
-  {
-    body: z.object({
-      name: z.string(),
-      email: z.string().email(),
-    }),
-  },
-)
+})
 ```
 
 > Notice that to get the body of the request, you need to call `request.json()` to parse the body as JSON.
@@ -124,25 +136,24 @@ new Spiceflow().post(
 import { z } from 'zod'
 import { Spiceflow } from 'spiceflow'
 
-new Spiceflow().get(
-  '/users/:id',
-  ({ request, params }) => {
+new Spiceflow().route({
+  method: 'GET',
+  path: '/users/:id',
+  request: z.object({
+    name: z.string(),
+  }),
+  response: z.object({
+    id: z.number(),
+    name: z.string(),
+  }),
+  params: z.object({
+    id: z.string(),
+  }),
+  async handler({ request, params }) {
     const typedJson = await request.json() // this body will have the correct type
     return { id: Number(params.id), name: typedJson.name }
   },
-  {
-    body: z.object({
-      name: z.string(),
-    }),
-    response: z.object({
-      id: z.number(),
-      name: z.string(),
-    }),
-    params: z.object({
-      id: z.string(),
-    }),
-  },
-)
+})
 ```
 
 ## Generate RPC Client
@@ -154,26 +165,35 @@ import { z } from 'zod'
 
 // Define the app with multiple routes and features
 const app = new Spiceflow()
-  .get('/hello/:id', ({ params }) => `Hello, ${params.id}!`)
-  .post(
-    '/users',
-    async ({ request }) => {
+  .route({
+    method: 'GET',
+    path: '/hello/:id',
+    handler({ params }) {
+      return `Hello, ${params.id}!`
+    },
+  })
+  .route({
+    method: 'POST',
+    path: '/users',
+    async handler({ request }) {
       const body = await request.json() // here body has type { name?: string, email?: string }
       return `Created user: ${body.name}`
     },
-    {
-      body: z.object({
-        name: z.string().optional(),
-        email: z.string().email().optional(),
-      }),
+    request: z.object({
+      name: z.string().optional(),
+      email: z.string().email().optional(),
+    }),
+  })
+  .route({
+    method: 'GET',
+    path: '/stream',
+    async *handler() {
+      yield 'Start'
+      await new Promise((resolve) => setTimeout(resolve, 1000))
+      yield 'Middle'
+      await new Promise((resolve) => setTimeout(resolve, 1000))
+      yield 'End'
     },
-  )
-  .get('/stream', async function* () {
-    yield 'Start'
-    await new Promise((resolve) => setTimeout(resolve, 1000))
-    yield 'Middle'
-    await new Promise((resolve) => setTimeout(resolve, 1000))
-    yield 'End'
   })
 
 // Create the client
@@ -221,16 +241,25 @@ import { Spiceflow } from 'spiceflow'
 import { z } from 'zod'
 
 const mainApp = new Spiceflow()
-  .post(
-    '/users',
-    async ({ request }) => `Created user: ${(await request.json()).name}`,
-    {
-      body: z.object({
-        name: z.string(),
-      }),
+  .route({
+    method: 'POST',
+    path: '/users',
+    async handler({ request }) {
+      return `Created user: ${(await request.json()).name}`
     },
+    request: z.object({
+      name: z.string(),
+    }),
+  })
+  .use(
+    new Spiceflow().route({
+      method: 'GET',
+      path: '/',
+      handler() {
+        return 'Users list'
+      },
+    }),
   )
-  .use(new Spiceflow().get('/', () => 'Users list'))
 ```
 
 ## Base Path
@@ -239,7 +268,13 @@ const mainApp = new Spiceflow()
 import { Spiceflow } from 'spiceflow'
 
 const app = new Spiceflow({ basePath: '/api/v1' })
-app.get('/hello', () => 'Hello') // Accessible at /api/v1/hello
+app.route({
+  method: 'GET',
+  path: '/hello',
+  handler() {
+    return 'Hello'
+  },
+}) // Accessible at /api/v1/hello
 ```
 
 ## Async Generators (Streaming)
@@ -249,12 +284,16 @@ Async generators will create a server sent event response.
 ```ts
 import { Spiceflow } from 'spiceflow'
 
-const app = new Spiceflow().get('/sseStream', async function* () {
-  yield { message: 'Start' }
-  await new Promise((resolve) => setTimeout(resolve, 1000))
-  yield { message: 'Middle' }
-  await new Promise((resolve) => setTimeout(resolve, 1000))
-  yield { message: 'End' }
+const app = new Spiceflow().route({
+  method: 'GET',
+  path: '/sseStream',
+  async *handler() {
+    yield { message: 'Start' }
+    await new Promise((resolve) => setTimeout(resolve, 1000))
+    yield { message: 'Middle' }
+    await new Promise((resolve) => setTimeout(resolve, 1000))
+    yield { message: 'End' }
+  },
 })
 
 // Server-Sent Events (SSE) format
@@ -324,15 +363,27 @@ import { Spiceflow } from 'spiceflow'
 import { createSpiceflowClient } from 'spiceflow/client'
 
 const app = new Spiceflow()
-  .get('/error', () => {
-    throw new Error('Something went wrong')
+  .route({
+    method: 'GET',
+    path: '/error',
+    handler() {
+      throw new Error('Something went wrong')
+    },
   })
-  .get('/unauthorized', () => {
-    return new Response('Unauthorized access', { status: 401 })
+  .route({
+    method: 'GET',
+    path: '/unauthorized',
+    handler() {
+      return new Response('Unauthorized access', { status: 401 })
+    },
   })
-  .get('/success', () => {
-    throw new Response('Success message', { status: 200 })
-    return ''
+  .route({
+    method: 'GET',
+    path: '/success',
+    handler() {
+      throw new Response('Success message', { status: 200 })
+      return ''
+    },
   })
 
 const client = createSpiceflowClient<typeof app>('http://localhost:3000')
@@ -375,11 +426,23 @@ import { writeFile } from 'node:fs/promises'
 
 const app = new Spiceflow()
   .use(openapi({ path: '/openapi' }))
-  .get('/users', () => [
-    { id: 1, name: 'John' },
-    { id: 2, name: 'Jane' },
-  ])
-  .post('/users', ({ request }) => request.json())
+  .route({
+    method: 'GET',
+    path: '/users',
+    handler() {
+      return [
+        { id: 1, name: 'John' },
+        { id: 2, name: 'Jane' },
+      ]
+    },
+  })
+  .route({
+    method: 'POST',
+    path: '/users',
+    handler({ request }) {
+      return request.json()
+    },
+  })
 
 // Create client by passing app instance directly
 const client = createSpiceflowClient(app)
@@ -408,8 +471,12 @@ new Spiceflow()
     }
     return response
   })
-  .get('/example', () => {
-    return { message: 'Hello, World!' }
+  .route({
+    method: 'GET',
+    path: '/example',
+    handler() {
+      return { message: 'Hello, World!' }
+    },
   })
 ```
 
@@ -422,25 +489,29 @@ import { z } from 'zod'
 
 const app = new Spiceflow()
   .use(openapi({ path: '/openapi.json' }))
-  .get('/hello', () => 'Hello, World!', {
+  .route({
+    method: 'GET',
+    path: '/hello',
+    handler() {
+      return 'Hello, World!'
+    },
     query: z.object({
       name: z.string(),
       age: z.number(),
     }),
     response: z.string(),
   })
-  .post(
-    '/user',
-    () => {
+  .route({
+    method: 'POST',
+    path: '/user',
+    handler() {
       return new Response('Hello, World!')
     },
-    {
-      body: z.object({
-        name: z.string(),
-        email: z.string().email(),
-      }),
-    },
-  )
+    request: z.object({
+      name: z.string(),
+      email: z.string().email(),
+    }),
+  })
 
 const openapiSchema = await (
   await app.handle(new Request('http://localhost:3000/openapi.json'))
@@ -453,7 +524,13 @@ const openapiSchema = await (
 import { cors } from 'spiceflow/cors'
 import { Spiceflow } from 'spiceflow'
 
-const app = new Spiceflow().use(cors()).get('/hello', () => 'Hello, World!')
+const app = new Spiceflow().use(cors()).route({
+  method: 'GET',
+  path: '/hello',
+  handler() {
+    return 'Hello, World!'
+  },
+})
 ```
 
 ## Proxy requests
@@ -534,12 +611,16 @@ new Spiceflow()
 
     return response
   })
-  .post('/protected', async ({ state }) => {
-    const { session } = state
-    if (!session) {
-      throw new Error('Not logged in')
-    }
-    return { ok: true }
+  .route({
+    method: 'POST',
+    path: '/protected',
+    async handler({ state }) {
+      const { session } = state
+      if (!session) {
+        throw new Error('Not logged in')
+      }
+      return { ok: true }
+    },
   })
 ```
 
@@ -576,12 +657,22 @@ new Spiceflow()
 
     resolveUser()
   })
-  .get('/protected', async ({ state }) => {
-    const userId = await state.userId
-    if (!userId) throw new Error('Not authenticated')
-    return { message: 'Protected data' }
+  .route({
+    method: 'GET',
+    path: '/protected',
+    async handler({ state }) {
+      const userId = await state.userId
+      if (!userId) throw new Error('Not authenticated')
+      return { message: 'Protected data' }
+    },
   })
-  .get('/public', () => ({ message: 'Public data' }))
+  .route({
+    method: 'GET',
+    path: '/public',
+    handler() {
+      return { message: 'Public data' }
+    },
+  })
 
 async function getUser(sessionKey: string) {
   await new Promise((resolve) => setTimeout(resolve, 100))
@@ -621,11 +712,27 @@ const app = new Spiceflow()
   // Mount the MCP plugin at /mcp (default path)
   .use(mcp())
   // These routes will be available as tools
-  .get('/hello', () => 'Hello World')
-  .get('/users/:id', ({ params }) => ({ id: params.id }))
-  .post('/echo', async ({ request }) => {
-    const body = await request.json()
-    return body
+  .route({
+    method: 'GET',
+    path: '/hello',
+    handler() {
+      return 'Hello World'
+    },
+  })
+  .route({
+    method: 'GET',
+    path: '/users/:id',
+    handler({ params }) {
+      return { id: params.id }
+    },
+  })
+  .route({
+    method: 'POST',
+    path: '/echo',
+    async handler({ request }) {
+      const body = await request.json()
+      return body
+    },
   })
 
 // Start the server
@@ -682,9 +789,13 @@ import { Spiceflow } from 'spiceflow'
 import { openapi } from 'spiceflow/openapi'
 import { createSpiceflowClient } from 'spiceflow/client'
 
-const app = new Spiceflow()
-  .use(openapi({ path: '/openapi' }))
-  .get('/hello', () => 'Hello World')
+const app = new Spiceflow().use(openapi({ path: '/openapi' })).route({
+  method: 'GET',
+  path: '/hello',
+  handler() {
+    return 'Hello World'
+  },
+})
 
 async function main() {
   console.log('Creating Spiceflow client...')
@@ -735,14 +846,22 @@ interface Env {
 
 const app = new Spiceflow()
   .state('env', null as Env | null)
-  .get('/kv/:key', async ({ params, state }) => {
-    const value = await state.env!.KV.get(params.key)
-    return { key: params.key, value }
+  .route({
+    method: 'GET',
+    path: '/kv/:key',
+    async handler({ params, state }) {
+      const value = await state.env!.KV.get(params.key)
+      return { key: params.key, value }
+    },
   })
-  .post('/queue', async ({ request, state }) => {
-    const body = await request.json()
-    await state.env!.QUEUE.send(body)
-    return { success: true, message: 'Added to queue' }
+  .route({
+    method: 'POST',
+    path: '/queue',
+    async handler({ request, state }) {
+      const body = await request.json()
+      await state.env!.QUEUE.send(body)
+      return { success: true, message: 'Added to queue' }
+    },
   })
 
 export default {

@@ -149,6 +149,7 @@ export interface MetadataBase {
 
 export type RouteSchema = {
   body?: unknown
+  request?: unknown
   query?: unknown
   params?: unknown
   response?: unknown
@@ -173,11 +174,18 @@ export type UnwrapSchema<
           : Definitions
         : unknown
 
+export type GetRequestSchema<Schema extends InputSchema<any>> =
+  'request' extends keyof Schema
+    ? Schema['request']
+    : 'body' extends keyof Schema
+      ? Schema['body']
+      : undefined
+
 export interface UnwrapRoute<
   in out Schema extends InputSchema<any>,
   in out Definitions extends DefinitionBase['type'] = {},
 > {
-  body: UnwrapSchema<Schema['body'], Definitions>
+  request: UnwrapSchema<GetRequestSchema<Schema>, Definitions>
   query: UnwrapSchema<Schema['query'], Definitions>
   params: UnwrapSchema<Schema['params'], Definitions>
   response: Schema['response'] extends TypeSchema | string
@@ -258,7 +266,11 @@ export type HTTPMethod =
   | 'ALL'
 
 export interface InputSchema<Name extends string = string> {
+  /**
+   * @deprecated The 'body' property is deprecated, use request instead.
+   */
   body?: TypeSchema | Name
+  request?: TypeSchema | Name
   query?: TypeObject | Name
   params?: TypeObject | Name
   response?:
@@ -272,7 +284,9 @@ export interface MergeSchema<
   in out A extends RouteSchema,
   in out B extends RouteSchema,
 > {
-  body: undefined extends A['body'] ? B['body'] : A['body']
+  request: undefined extends GetRequestSchema<A>
+    ? GetRequestSchema<B>
+    : GetRequestSchema<A>
   query: undefined extends A['query'] ? B['query'] : A['query']
   params: undefined extends A['params'] ? B['params'] : A['params']
   response: {} extends A['response']

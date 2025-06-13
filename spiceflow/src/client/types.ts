@@ -64,7 +64,7 @@ export namespace SpiceflowClient {
 
   export type Sign<in out Route extends Record<string, any>> = {
     [K in keyof Route as K extends `:${string}` ? never : K]: Route[K] extends {
-      body: infer Body
+      request: infer Body
       // headers: infer Headers
       params: any
       query: infer Query
@@ -82,13 +82,13 @@ export namespace SpiceflowClient {
                   ClientResponse<ReplaceGeneratorWithAsyncGenerator<Response>>
                 >
               : (
-                  body?: Body,
+                  request?: Body,
                   options?: Prettify<Param & ClientParam>,
                 ) => Promise<
                   ClientResponse<ReplaceGeneratorWithAsyncGenerator<Response>>
                 >
             : (
-                body: Body extends Record<string, unknown>
+                request: Body extends Record<string, unknown>
                   ? ReplaceBlobWithFiles<Body>
                   : Body,
                 options?: Prettify<Param & ClientParam>,
@@ -102,7 +102,7 @@ export namespace SpiceflowClient {
                 ClientResponse<ReplaceGeneratorWithAsyncGenerator<Response>>
               >
             : (
-                body: Body extends Record<string, unknown>
+                request: Body extends Record<string, unknown>
                   ? ReplaceBlobWithFiles<Body>
                   : Body,
                 options: Prettify<Param & ClientParam>,
