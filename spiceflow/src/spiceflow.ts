@@ -143,7 +143,7 @@ export class Spiceflow<
     handler,
     ...rest
   }: Partial<InternalRoute>) {
-    let bodySchema: TypeSchema = hooks?.body
+    let bodySchema: TypeSchema = hooks?.request || hooks?.body
     let validateBody = getValidateFunction(bodySchema)
     let validateQuery = getValidateFunction(hooks?.query)
     let validateParams = getValidateFunction(hooks?.params)

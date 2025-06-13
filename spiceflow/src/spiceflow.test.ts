@@ -459,7 +459,7 @@ test('validate body works, request fails', async () => {
         expect(body).toEqual({ name: 'John' })
       },
       {
-        body: z.object({
+        request: z.object({
           name: z.string(),
           requiredField: z.string(),
         }),
