@@ -1,6 +1,6 @@
 {
   "name": "spiceflow",
-  "version": "1.11.1",
+  "version": "1.11.2",
   "description": "Simple API framework with RPC and type safety",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -13,6 +13,9 @@
     },
     "./_node-server": {
       "types": "./dist/_node-server.d.ts",
+      "workerd": "./dist/_node-server-unsupported.js",
+      "browser": "./dist/_node-server-unsupported.js",
+      "deno": "./dist/_node-server-unsupported.js",
       "node": "./dist/_node-server.js",
       "bun": "./dist/_node-server.js",
       "default": "./dist/_node-server-unsupported.js"

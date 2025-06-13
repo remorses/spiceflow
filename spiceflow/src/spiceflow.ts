@@ -31,7 +31,7 @@ import OriginalRouter from '@medley/router'
 import { ZodType } from 'zod'
 
 import { StandardSchemaV1 } from '@standard-schema/spec'
-import { IncomingMessage, ServerResponse } from 'node:http'
+import type { IncomingMessage, ServerResponse } from 'node:http'
 import { handleForNode, listenForNode } from 'spiceflow/_node-server'
 import { MiddlewareContext } from './context.ts'
 import { superjsonSerialize } from './serialize.ts'

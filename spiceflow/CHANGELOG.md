@@ -1,5 +1,11 @@
 # spiceflow
 
+## 1.11.2
+
+### Patch Changes
+
+- Fix support for Cloudflare without node, fix ./\_node-server exports
+
 ## 1.11.1
 
 ### Patch Changes
