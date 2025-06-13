@@ -14,18 +14,35 @@ const app = new Spiceflow()
   .post('/array', async ({ request }) => await request.json(), {
     body: z.array(z.string()),
   })
-  .post('/mirror', async ({ request }) => await request.json())
-  .post('/body', async ({ request }) => await request.text(), {
+  .route({
+    method: 'POST',
+    path: '/mirror',
+    handler: async ({ request }) => await request.json(),
+  })
+  .route({
+    method: 'POST',
+    path: '/body',
+    handler: async ({ request }) => await request.text(),
     body: z.string(),
   })
-  .post('/zodAny', async ({ request }) => await request.json(), {
+  .route({
+    method: 'POST',
+    path: '/zodAny',
+    handler: async ({ request }) => await request.json(),
     body: z.object({ body: z.array(z.any()) }),
   })
-  .delete('/empty', async ({ request }) => {
-    const body = await request.text()
-    return { body: body || null }
+  .route({
+    method: 'DELETE',
+    path: '/empty',
+    handler: async ({ request }) => {
+      const body = await request.text()
+      return { body: body || null }
+    },
   })
-  .post('/deep/nested/mirror', async ({ request }) => await request.json(), {
+  .route({
+    method: 'POST',
+    path: '/deep/nested/mirror',
+    handler: async ({ request }) => await request.json(),
     body: z.object({
       username: z.string(),
       password: z.string(),

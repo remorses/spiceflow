@@ -444,10 +444,11 @@ export class Spiceflow<
       Singleton,
       JoinPath<BasePath, Path>
     >,
+    Method extends HTTPMethod | HTTPMethod[],
   >(
     options: {
       path: Path
-      method: HTTPMethod | HTTPMethod[]
+      method: Method
       handler: Handle
     } & LocalHook<
       LocalSchema,
@@ -467,13 +468,12 @@ export class Spiceflow<
       CreateClient<
         JoinPath<BasePath, Path>,
         {
-          put: {
+          [M in Method extends readonly (infer E)[] ? Lowercase<E & string> : Lowercase<Method & string>]: {
             request: GetRequestSchema<Schema>
             params: undefined extends Schema['params']
               ? ResolvePath<Path>
               : Schema['params']
             query: Schema['query']
-
             response: ComposeSpiceflowResponse<Schema['response'], Handle>
           }
         }

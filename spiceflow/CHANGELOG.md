@@ -1,5 +1,11 @@
 # spiceflow
 
+## 1.11.3
+
+### Patch Changes
+
+- Fix type safety for .route and methods on client
+
 ## 1.11.2
 
 ### Patch Changes
