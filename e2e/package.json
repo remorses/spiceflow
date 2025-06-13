@@ -6,7 +6,8 @@
     "test": "vitest --run"
   },
   "dependencies": {
-    "spiceflow": "workspace:*"
+    "spiceflow": "workspace:*",
+    "zod": "^3.25.64"
   },
   "devDependencies": {
     "@modelcontextprotocol/sdk": "^1.12.1",

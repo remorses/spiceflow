@@ -44,6 +44,9 @@ importers:
       spiceflow:
         specifier: workspace:*
         version: link:../spiceflow
+      zod:
+        specifier: ^3.25.64
+        version: 3.25.64
     devDependencies:
       '@modelcontextprotocol/sdk':
         specifier: ^1.12.1
