@@ -4,7 +4,7 @@
   "sideEffects": false,
   "type": "module",
   "scripts": {
-    "build": "pnpm readme && react-router build",
+    "build": "pnpm --filter spiceflow build && pnpm readme && react-router build",
     "readme": "cp ../README.md ./app/routes/_mdx._index.mdx",
     "deploy:prod": "pnpm run build && wrangler deploy ",
     "dev": "pnpm readme && react-router dev",
