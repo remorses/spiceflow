@@ -434,6 +434,72 @@ export class Spiceflow<
     return this as any
   }
 
+  route<
+    const Path extends string,
+    const LocalSchema extends InputSchema<keyof Definitions['type'] & string>,
+    const Schema extends UnwrapRoute<LocalSchema, Definitions['type']>,
+    const Handle extends InlineHandler<
+      Schema,
+      Singleton,
+      JoinPath<BasePath, Path>
+    >,
+  >(
+    options: {
+      path: Path
+      method: HTTPMethod | HTTPMethod[]
+      handler: Handle
+    } & LocalHook<
+      LocalSchema,
+      Schema,
+      Singleton,
+      Definitions['error'],
+      Metadata['macro'],
+      JoinPath<BasePath, Path>
+    >,
+  ): Spiceflow<
+    BasePath,
+    Scoped,
+    Singleton,
+    Definitions,
+    Metadata,
+    ClientRoutes &
+      CreateClient<
+        JoinPath<BasePath, Path>,
+        {
+          put: {
+            body: Schema['body']
+            params: undefined extends Schema['params']
+              ? ResolvePath<Path>
+              : Schema['params']
+            query: Schema['query']
+
+            response: ComposeSpiceflowResponse<Schema['response'], Handle>
+          }
+        }
+      >,
+    RoutePaths | JoinPath<BasePath, Path>
+  > {
+    if (Array.isArray(options.method)) {
+      options.method.map((method) =>
+        this.add({
+          method,
+          path: options.path,
+          handler: options.handler,
+          hooks: options,
+        }),
+      )
+    } else {
+      this.add({
+        method: options.method,
+        path: options.path,
+        handler: options.handler,
+        hooks: options,
+      })
+    }
+
+    return this as any
+  }
+
   patch<
     const Path extends string,
     const LocalSchema extends InputSchema<keyof Definitions['type'] & string>,
@@ -717,10 +783,10 @@ export class Spiceflow<
     return this
   }
 
-  async handle(
+  handle = async (
     request: Request,
     { state: customState }: { state?: Singleton['state'] } = {},
-  ): Promise<Response> {
+  ): Promise<Response> => {
     let u = new URL(request.url, 'http://localhost')
     const self = this
     let path = u.pathname + u.search
@@ -962,14 +1028,15 @@ export class Spiceflow<
     return this.handleForNode(req, res, context)
   }
 
-  async handleForNode(
+  handleForNode = (
     req: IncomingMessage,
     res: ServerResponse,
     context: { state?: Singleton['state'] } = {},
-  ) {
+  ) => {
     return handleForNode(this, req, res, context)
   }
 
+  /* @deprecated */
   async listenForNode(port: number, hostname: string = '0.0.0.0') {
     if (typeof Bun !== 'undefined') {
       console.warn(

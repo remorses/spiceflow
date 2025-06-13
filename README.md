@@ -43,6 +43,13 @@ const app = new Spiceflow()
     return { echo: body }
   })
 
+const app = new Spiceflow()
+  .route({ method: 'POST', path: '/hello' }, () => 'Hello, World!')
+  .post('/echo', async ({ request }) => {
+    const body = await request.json()
+    return { echo: body }
+  })
+
 app.listen(3000)
 ```
 

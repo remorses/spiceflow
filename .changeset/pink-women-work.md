@@ -1,0 +1,5 @@
+---
+'spiceflow': minor
+---
+
+Added .route

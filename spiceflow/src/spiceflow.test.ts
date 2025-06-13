@@ -12,6 +12,18 @@ test('works', async () => {
   expect(await res.json()).toEqual('hi')
 })
 
+test('routes works', async () => {
+  const res = await new Spiceflow()
+    .route({
+      method: 'POST',
+      path: '/xxx',
+      handler: () => 'hi',
+    })
+    .handle(new Request('http://localhost/xxx', { method: 'POST' }))
+  expect(res.status).toBe(200)
+  expect(await res.json()).toEqual('hi')
+})
+
 describe('cloneDeep', () => {
   test('works on promises', async () => {
     const obj = {
@@ -320,6 +332,23 @@ test('GET dynamic route, params are typed', async () => {
       // @ts-expect-error
       params.sdfsd
       return id
+    })
+    .handle(new Request('http://localhost/ids/hi', { method: 'GET' }))
+  expect(res.status).toBe(200)
+  expect(await res.json()).toEqual('hi')
+})
+
+test('GET dynamic route with .route(), params are typed', async () => {
+  const res = await new Spiceflow()
+    .route({
+      handler: ({ params }) => {
+        let id = params.id
+        // @ts-expect-error
+        params.sdfsd
+        return id
+      },
+      method: 'GET',
+      path: '/ids/:id',
     })
     .handle(new Request('http://localhost/ids/hi', { method: 'GET' }))
   expect(res.status).toBe(200)
