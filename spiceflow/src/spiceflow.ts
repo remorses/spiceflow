@@ -1,4 +1,5 @@
-import lodashCloneDeep from 'lodash.clonedeep'
+import { copy } from 'copy-anything'
+
 import { SpiceflowFetchError } from './client/errors.ts'
 import { ValidationError } from './error.ts'
 import {
@@ -741,7 +742,7 @@ export class Spiceflow<
     } = route
     const middlewares = appsInScope.flatMap((x) => x.middlewares)
 
-    let state = customState || lodashCloneDeep(defaultState)
+    let state = customState || copy(defaultState)
 
     let content = route?.internalRoute?.hooks?.content
 
@@ -1334,5 +1335,5 @@ function parseQuery(queryString: string) {
 }
 
 export function cloneDeep(x) {
-  return lodashCloneDeep(x)
+  return copy(x)
 }
