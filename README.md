@@ -66,7 +66,7 @@ import { Spiceflow } from 'spiceflow'
 // DO NOT declare the app separately and add routes later
 const app = new Spiceflow()
 
-// Do NOT do this! Adding routes separately like this will lose type safety
+// Do NOT do this! Defining routes separately will lose type safety
 app.route({
   method: 'GET',
   path: '/hello',
@@ -74,6 +74,7 @@ app.route({
     return 'Hello, World!'
   },
 })
+// Do NOT do this! Adding routes separately like this will lose type safety
 app.route({
   method: 'POST',
   path: '/echo',
