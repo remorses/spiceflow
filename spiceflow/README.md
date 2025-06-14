@@ -235,6 +235,98 @@ async function exampleUsage() {
 }
 ```
 
+## Safe Path Building
+
+The `safePath` method provides a type-safe way to build URLs with parameters. It helps prevent runtime errors by ensuring all required parameters are provided and properly substituted into the path.
+
+```ts
+import { Spiceflow } from 'spiceflow'
+
+const app = new Spiceflow()
+  .route({
+    method: 'GET',
+    path: '/users/:id',
+    handler({ params }) {
+      return { id: params.id }
+    },
+  })
+  .route({
+    method: 'GET',
+    path: '/users/:id/posts/:postId',
+    handler({ params }) {
+      return { userId: params.id, postId: params.postId }
+    },
+  })
+
+// Building URLs with required parameters
+const userPath = app.safePath('/users/:id', { id: '123' })
+// Result: '/users/123'
+
+// Building URLs with required parameters
+const userPostPath = app.safePath('/users/:id/posts/:postId', {
+  id: '456',
+  postId: 'abc'
+})
+// Result: '/users/456/posts/abc'
+```
+
+### OAuth Callback Example
+
+The `safePath` method is particularly useful when building callback URLs for OAuth flows, where you need to construct URLs dynamically based on user data or session information:
+
+```ts
+import { Spiceflow } from 'spiceflow'
+
+const app = new Spiceflow()
+  .route({
+    method: 'GET',
+    path: '/auth/callback/:provider/:userId',
+    handler({ params, query }) {
+      const { provider, userId } = params
+      const { code, state } = query
+      
+      // Handle OAuth callback logic here
+      return {
+        provider,
+        userId,
+        authCode: code,
+        state
+      }
+    },
+  })
+  .route({
+    method: 'POST',
+    path: '/auth/login',
+    handler({ request }) {
+      const userId = '12345'
+      const provider = 'google'
+      
+      // Build the OAuth callback URL safely
+      const callbackUrl = new URL(
+        app.safePath('/auth/callback/:provider/:userId', {
+          provider,
+          userId
+        }),
+        'https://myapp.com'
+      ).toString()
+      
+      // Redirect to OAuth provider with callback URL
+      const oauthUrl = `https://accounts.google.com/oauth/authorize?` +
+        `client_id=your-client-id&` +
+        `redirect_uri=${encodeURIComponent(callbackUrl)}&` +
+        `response_type=code&` +
+        `scope=openid%20profile%20email`
+      
+      return { redirectUrl: oauthUrl }
+    },
+  })
+```
+
+In this example:
+- The callback URL is built safely using `safePath` with type checking
+- Required parameters like `provider` and `userId` must be provided
+- The resulting URL is guaranteed to be properly formatted
+
 ## Mounting Sub-Apps
 
 ```ts

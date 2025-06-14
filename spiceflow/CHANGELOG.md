@@ -1,5 +1,11 @@
 # spiceflow
 
+## 1.12.0
+
+### Minor Changes
+
+- Add this type inside handlers to reference the app
+
 ## 1.11.3
 
 ### Patch Changes
