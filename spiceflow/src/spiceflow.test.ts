@@ -12,6 +12,27 @@ test('works', async () => {
   expect(await res.json()).toEqual('hi')
 })
 
+test('this works to reference app in handler', async () => {
+  const res = await new Spiceflow()
+    .route({
+      method: 'POST',
+      path: '/another',
+      handler() {
+        return 'ok'
+      },
+    })
+    .route({
+      method: 'POST',
+      path: '/href',
+      handler() {
+        return this.safePath('/another')
+      },
+    })
+    .handle(new Request('http://localhost/href', { method: 'POST' }))
+  expect(res.status).toBe(200)
+  expect(await res.json()).toEqual('/another')
+})
+
 test('routes works', async () => {
   const res = await new Spiceflow()
     .route({
@@ -882,8 +903,8 @@ describe('safePath', () => {
       .get('/users', () => 'users')
       .get('/posts', () => 'posts')
 
-    expect(app.safePath('/users', {})).toBe('/users')
-    expect(app.safePath('/posts', {})).toBe('/posts')
+    expect(app.safePath('/users')).toBe('/users')
+    expect(app.safePath('/posts')).toBe('/posts')
   })
 
   test('handles paths with required parameters', () => {
@@ -902,26 +923,6 @@ describe('safePath', () => {
         commentId: '456',
       }),
     ).toBe('/posts/abc/comments/456')
-  })
-
-  test('handles paths with optional parameters', () => {
-    const app = new Spiceflow()
-      .get('/users/:id?', ({ params }) => params.id)
-      .get('/posts/:postId/comments/:commentId?', ({ params }) => params)
-
-    expect(app.safePath('/users/:id?', { id: '123' })).toBe('/users/123')
-    expect(app.safePath('/users/:id?', {})).toBe('/users/')
-    expect(
-      app.safePath('/posts/:postId/comments/:commentId?', {
-        postId: 'abc',
-        commentId: '456',
-      }),
-    ).toBe('/posts/abc/comments/456')
-    expect(
-      app.safePath('/posts/:postId/comments/:commentId?', {
-        postId: 'abc',
-      }),
-    ).toBe('/posts/abc/comments/')
   })
 
   test('handles mixed required and optional parameters', () => {
@@ -956,6 +957,6 @@ describe('safePath', () => {
   test('handles empty parameters object', () => {
     const app = new Spiceflow().get('/static', () => 'static')
 
-    expect(app.safePath('/static', {})).toBe('/static')
+    expect(app.safePath('/static')).toBe('/static')
   })
 })

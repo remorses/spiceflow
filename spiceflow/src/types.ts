@@ -339,6 +339,7 @@ export type CoExist<Original, Target, With> =
         : Original
 
 export type InlineHandler<
+  This,
   Route extends RouteSchema = {},
   Singleton extends SingletonBase = {
     state: {}
@@ -346,6 +347,7 @@ export type InlineHandler<
   Path extends string = '',
   MacroContext = {},
 > = (
+  this: This,
   context: MacroContext extends Record<string | number | symbol, unknown>
     ? Prettify<MacroContext & Context<Route, Singleton, Path>>
     : Context<Route, Singleton, Path>,
@@ -868,7 +870,6 @@ export type PartialWithRequired<T, K extends keyof T> = Partial<Omit<T, K>> &
 
 export type GetPathsFromRoutes<Routes extends Record<string, unknown>> =
   Routes extends Record<infer K, any> ? (K extends string ? K : never) : never
-
 export type ExtractParamsFromPath<Path extends string> =
   Path extends `${string}:${infer Param}/${infer Rest}`
     ? Param extends `${infer Name}?`
@@ -878,4 +879,4 @@ export type ExtractParamsFromPath<Path extends string> =
       ? Param extends `${infer Name}?`
         ? { [K in Name]?: string }
         : { [K in Param]: string }
-      : {}
+      : undefined

@@ -59,7 +59,7 @@ export type InternalRoute = {
   method: HTTPMethod
   path: string
   type: ContentType
-  handler: InlineHandler<any, any, any>
+  handler: InlineHandler<any, any, any, any>
   hooks: LocalHook<any, any, any, any, any, any, any>
   validateBody?: ValidationFunction
   validateQuery?: ValidationFunction
@@ -297,6 +297,7 @@ export class Spiceflow<
     const LocalSchema extends InputSchema<keyof Definitions['type'] & string>,
     const Schema extends UnwrapRoute<LocalSchema, Definitions['type']>,
     const Handle extends InlineHandler<
+      this,
       Schema,
       Singleton,
       JoinPath<BasePath, Path>
@@ -345,6 +346,7 @@ export class Spiceflow<
     const Schema extends UnwrapRoute<LocalSchema, Definitions['type']>,
     const Macro extends Metadata['macro'],
     const Handle extends InlineHandler<
+      this,
       Schema,
       Singleton,
       JoinPath<BasePath, Path>
@@ -392,6 +394,7 @@ export class Spiceflow<
     const LocalSchema extends InputSchema<keyof Definitions['type'] & string>,
     const Schema extends UnwrapRoute<LocalSchema, Definitions['type']>,
     const Handle extends InlineHandler<
+      this,
       Schema,
       Singleton,
       JoinPath<BasePath, Path>
@@ -440,6 +443,7 @@ export class Spiceflow<
     const LocalSchema extends InputSchema<keyof Definitions['type'] & string>,
     const Schema extends UnwrapRoute<LocalSchema, Definitions['type']>,
     const Handle extends InlineHandler<
+      this,
       Schema,
       Singleton,
       JoinPath<BasePath, Path>
@@ -468,7 +472,9 @@ export class Spiceflow<
       CreateClient<
         JoinPath<BasePath, Path>,
         {
-          [M in Method extends readonly (infer E)[] ? Lowercase<E & string> : Lowercase<Method & string>]: {
+          [M in Method extends readonly (infer E)[]
+            ? Lowercase<E & string>
+            : Lowercase<Method & string>]: {
             request: GetRequestSchema<Schema>
             params: undefined extends Schema['params']
               ? ResolvePath<Path>
@@ -506,6 +512,7 @@ export class Spiceflow<
     const LocalSchema extends InputSchema<keyof Definitions['type'] & string>,
     const Schema extends UnwrapRoute<LocalSchema, Definitions['type']>,
     const Handle extends InlineHandler<
+      this,
       Schema,
       Singleton,
       JoinPath<BasePath, Path>
@@ -554,6 +561,7 @@ export class Spiceflow<
     const LocalSchema extends InputSchema<keyof Definitions['type'] & string>,
     const Schema extends UnwrapRoute<LocalSchema, Definitions['type']>,
     const Handle extends InlineHandler<
+      this,
       Schema,
       Singleton,
       JoinPath<BasePath, Path>
@@ -602,6 +610,7 @@ export class Spiceflow<
     const LocalSchema extends InputSchema<keyof Definitions['type'] & string>,
     const Schema extends UnwrapRoute<LocalSchema, Definitions['type']>,
     const Handle extends InlineHandler<
+      this,
       Schema,
       Singleton,
       JoinPath<BasePath, Path>
@@ -650,6 +659,7 @@ export class Spiceflow<
     const LocalSchema extends InputSchema<keyof Definitions['type'] & string>,
     const Schema extends UnwrapRoute<LocalSchema, Definitions['type']>,
     const Handle extends InlineHandler<
+      this,
       Schema,
       Singleton,
       JoinPath<BasePath, Path>
@@ -700,6 +710,7 @@ export class Spiceflow<
     const LocalSchema extends InputSchema<keyof Definitions['type'] & string>,
     const Schema extends UnwrapRoute<LocalSchema, Definitions['type']>,
     const Handle extends InlineHandler<
+      this,
       Schema,
       Singleton,
       JoinPath<BasePath, Path>
@@ -891,7 +902,7 @@ export class Spiceflow<
           route.internalRoute?.validateParams,
         )
 
-        const res = await route.internalRoute?.handler(context)
+        const res = await route.internalRoute?.handler.call(this, context)
         if (isAsyncIterable(res)) {
           handlerResponse = await this.handleStream({
             generator: res,
@@ -1172,11 +1183,16 @@ export class Spiceflow<
       },
     )
   }
-
   safePath<
     const Path extends RoutePaths,
     const Params extends ExtractParamsFromPath<Path>,
-  >(path: Path, params: Params): string {
+  >(
+    path: Path,
+    ...rest: [Params] extends [undefined]
+      ? [] | [params?: Params]
+      : [params: Params]
+  ): string {
+    let params = (rest.length > 0 ? rest[0] : undefined) as Params | undefined
     let result = path as string
 
     // First, handle all provided parameters
