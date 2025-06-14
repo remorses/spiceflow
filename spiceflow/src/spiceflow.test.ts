@@ -13,17 +13,27 @@ test('works', async () => {
 })
 
 test('* param is a path without front slash', async () => {
-  const res = await new Spiceflow()
-    .post('/upload/*', ({ params }) => {
-      return params['*']
-    })
-    .handle(
+  const app = new Spiceflow().post('/upload/*', ({ params }) => {
+    return params['*']
+  })
+
+  {
+    const res = await app.handle(
+      new Request('http://localhost/upload/', {
+        method: 'POST',
+      }),
+    )
+    expect(res.status).toBe(404)
+  }
+  {
+    const res = await app.handle(
       new Request('http://localhost/upload/some/nested/key.txt', {
         method: 'POST',
       }),
     )
-  expect(res.status).toBe(200)
-  expect(await res.json()).toEqual(`some/nested/key.txt`)
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual(`some/nested/key.txt`)
+  }
 })
 
 test('this works to reference app in handler', async () => {
