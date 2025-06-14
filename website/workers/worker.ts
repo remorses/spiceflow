@@ -2,6 +2,7 @@ import { createPagesFunctionHandler } from '@react-router/cloudflare'
 import { createRequestHandler } from 'react-router'
 
 declare global {
+  interface Env {}
   interface CloudflareEnvironment extends Env {}
 }
 
