@@ -926,9 +926,13 @@ describe('safePath', () => {
     const app = new Spiceflow()
       .get('/users', () => 'users')
       .get('/posts', () => 'posts')
+      .get('/posts/*', () => 'posts')
 
     expect(app.safePath('/users')).toBe('/users')
     expect(app.safePath('/posts')).toBe('/posts')
+    // @ts-expect-error
+    app.safePath('/posts/*')
+    expect(app.safePath('/posts/*', { '*': 'some/key' })).toBe('/posts/some/key')
   })
 
   test('handles paths with required parameters', () => {

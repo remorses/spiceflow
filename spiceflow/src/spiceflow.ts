@@ -1198,9 +1198,14 @@ export class Spiceflow<
     // Handle all provided parameters
     if (params && typeof params === 'object') {
       Object.entries(params).forEach(([key, value]) => {
-        // Handle required parameters only
-        const regex = new RegExp(`:${key}`, 'g')
-        result = result.replace(regex, String(value))
+        if (key === '*') {
+          // Replace wildcard
+          result = result.replace(/\*/, String(value))
+        } else {
+          // Replace named parameters as before
+          const regex = new RegExp(`:${key}`, 'g')
+          result = result.replace(regex, String(value))
+        }
       })
     }
 

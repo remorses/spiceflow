@@ -1,5 +1,11 @@
 # spiceflow
 
+## 1.12.1
+
+### Patch Changes
+
+- app.safePath('/posts/_', { '_': 'some/key' }) support
+
 ## 1.12.0
 
 ### Minor Changes
