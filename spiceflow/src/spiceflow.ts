@@ -1195,18 +1195,14 @@ export class Spiceflow<
     let params = (rest.length > 0 ? rest[0] : undefined) as Params | undefined
     let result = path as string
 
-    // First, handle all provided parameters
+    // Handle all provided parameters
     if (params && typeof params === 'object') {
       Object.entries(params).forEach(([key, value]) => {
-        // Handle both required (:key) and optional (:key?) parameters
-        const regex = new RegExp(`:${key}\\??`, 'g')
+        // Handle required parameters only
+        const regex = new RegExp(`:${key}`, 'g')
         result = result.replace(regex, String(value))
       })
     }
-
-    // Then, handle any remaining optional parameters that weren't provided
-    // Replace any remaining :param? with empty string (keeping trailing slash)
-    result = result.replace(/:[\w-]+\?/g, '')
 
     return result
   }

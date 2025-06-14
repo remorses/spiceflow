@@ -925,27 +925,6 @@ describe('safePath', () => {
     ).toBe('/posts/abc/comments/456')
   })
 
-  test('handles mixed required and optional parameters', () => {
-    const app = new Spiceflow().get(
-      '/api/:version/users/:id/posts/:postId?',
-      ({ params }) => params,
-    )
-
-    expect(
-      app.safePath('/api/:version/users/:id/posts/:postId?', {
-        version: 'v1',
-        id: '123',
-        postId: 'abc',
-      }),
-    ).toBe('/api/v1/users/123/posts/abc')
-
-    expect(
-      app.safePath('/api/:version/users/:id/posts/:postId?', {
-        version: 'v1',
-        id: '123',
-      }),
-    ).toBe('/api/v1/users/123/posts/')
-  })
 
   test('handles numeric parameter values', () => {
     const app = new Spiceflow().get('/users/:id', ({ params }) => params.id)
