@@ -12,6 +12,20 @@ test('works', async () => {
   expect(await res.json()).toEqual('hi')
 })
 
+test('* param is a path without front slash', async () => {
+  const res = await new Spiceflow()
+    .post('/upload/*', ({ params }) => {
+      return params['*']
+    })
+    .handle(
+      new Request('http://localhost/upload/some/nested/key.txt', {
+        method: 'POST',
+      }),
+    )
+  expect(res.status).toBe(200)
+  expect(await res.json()).toEqual(`some/nested/key.txt`)
+})
+
 test('this works to reference app in handler', async () => {
   const res = await new Spiceflow()
     .route({
@@ -924,7 +938,6 @@ describe('safePath', () => {
       }),
     ).toBe('/posts/abc/comments/456')
   })
-
 
   test('handles numeric parameter values', () => {
     const app = new Spiceflow().get('/users/:id', ({ params }) => params.id)
