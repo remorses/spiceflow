@@ -870,13 +870,10 @@ export type PartialWithRequired<T, K extends keyof T> = Partial<Omit<T, K>> &
 
 export type GetPathsFromRoutes<Routes extends Record<string, unknown>> =
   Routes extends Record<infer K, any> ? (K extends string ? K : never) : never
+
 export type ExtractParamsFromPath<Path extends string> =
   Path extends `${string}:${infer Param}/${infer Rest}`
-    ? Param extends `${infer Name}?`
-      ? { [K in Name]?: string } & ExtractParamsFromPath<`/${Rest}`>
-      : { [K in Param]: string } & ExtractParamsFromPath<`/${Rest}`>
+    ? { [K in Param]: string } & ExtractParamsFromPath<`/${Rest}`>
     : Path extends `${string}:${infer Param}`
-      ? Param extends `${infer Name}?`
-        ? { [K in Name]?: string }
-        : { [K in Param]: string }
+      ? { [K in Param]: string }
       : undefined
