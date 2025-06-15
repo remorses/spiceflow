@@ -1,5 +1,11 @@
 # spiceflow
 
+## 1.12.2
+
+### Patch Changes
+
+- 915f7d9: query type has values always defined, no optional keys
+
 ## 1.12.1
 
 ### Patch Changes
