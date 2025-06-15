@@ -26,7 +26,7 @@ export type ErrorContext<
 > = Prettify<{
   // body: Route['body']
   query: undefined extends Route['query']
-    ? Record<string, string | undefined>
+    ? Record<string, string>
     : Route['query']
   params: undefined extends Route['params']
     ? Path extends `${string}/${':' | '*'}${string}`
@@ -68,7 +68,7 @@ export type Context<
   Path extends string = '',
 > = Prettify<{
   query: undefined extends Route['query']
-    ? Record<string, string | undefined>
+    ? Record<string, string>
     : Route['query']
   params: undefined extends Route['params']
     ? Path extends `${string}/${':' | '*'}${string}`

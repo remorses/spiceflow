@@ -2,7 +2,7 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "spiceflow-website-worker",
   "assets": {
-    "directory": "build/client/assets/",
+    "directory": "build/client",
     "binding": "ASSETS",
   },
   "compatibility_date": "2025-03-17",
