@@ -18,17 +18,28 @@ import { getAvailablePort } from './get-available-port.ts'
 
 describe('ai sdk mcp', () => {
   it('should work', async () => {
-    const app = new Spiceflow({})
+    const app = new Spiceflow({ basePath: '/api' })
       .use(mcp({ path: '/mcp' }))
       .get('/goSomething', () => 'hi')
-      .post('/users', () => ({ users: [{ id: 1, name: 'John' }] }))
-      .post(
+      .get(
         '/somethingElse/:id',
         ({ params: { id } }) => {
           return 'hello ' + id
         },
         {
           params: z.object({ id: z.string() }),
+        },
+      )
+      .post(
+        '/somethingElse/:id',
+        ({ params: { id } }) => {
+          return {
+            message: 'hello ' + id,
+          }
+        },
+        {
+          params: z.object({ id: z.string() }),
+          body: z.any(),
         },
       )
       .get(
@@ -48,13 +59,123 @@ describe('ai sdk mcp', () => {
 
     // Snapshot OpenAPI doc
 
-    const clientTransport = new FetchMCPCLientTransport({
+    const transport = new FetchMCPCLientTransport({
       fetch: app.handle,
-      url: 'http://localhost/mcp',
+      url: 'http://localhost/api/mcp',
     })
 
+    const client = new Client(
+      {
+        name: 'example-client',
+        version: '1.0.0',
+      },
+      {
+        capabilities: {},
+      },
+    )
+
+    await client.connect(transport)
+    expect(await client.listTools()).toMatchInlineSnapshot(`
+      {
+        "tools": [
+          {
+            "description": "GET /api/goSomething",
+            "inputSchema": {
+              "properties": {},
+              "type": "object",
+            },
+            "name": "GET /api/goSomething",
+          },
+          {
+            "description": "GET /api/somethingElse/{id}",
+            "inputSchema": {
+              "properties": {
+                "params": {
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                    },
+                  },
+                  "required": [
+                    "id",
+                  ],
+                  "type": "object",
+                },
+              },
+              "type": "object",
+            },
+            "name": "GET /api/somethingElse/{id}",
+          },
+          {
+            "description": "POST /api/somethingElse/{id}",
+            "inputSchema": {
+              "properties": {
+                "body": {},
+                "params": {
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                    },
+                  },
+                  "required": [
+                    "id",
+                  ],
+                  "type": "object",
+                },
+              },
+              "required": [
+                "body",
+              ],
+              "type": "object",
+            },
+            "name": "POST /api/somethingElse/{id}",
+          },
+          {
+            "description": "GET /api/search",
+            "inputSchema": {
+              "properties": {
+                "query": {
+                  "properties": {
+                    "limit": {
+                      "type": "number",
+                    },
+                    "q": {
+                      "type": "string",
+                    },
+                  },
+                  "required": [
+                    "q",
+                    "limit",
+                  ],
+                  "type": "object",
+                },
+              },
+              "type": "object",
+            },
+            "name": "GET /api/search",
+          },
+          {
+            "description": "POST /api/mcp/message",
+            "inputSchema": {
+              "properties": {},
+              "type": "object",
+            },
+            "name": "POST /api/mcp/message",
+          },
+          {
+            "description": "GET /api/mcp",
+            "inputSchema": {
+              "properties": {},
+              "type": "object",
+            },
+            "name": "GET /api/mcp",
+          },
+        ],
+      }
+    `)
+
     const customClient = await experimental_createMCPClient({
-      transport: clientTransport,
+      transport: transport,
 
       onUncaughtError(error) {
         console.error(error)
@@ -65,8 +186,145 @@ describe('ai sdk mcp', () => {
     await customClient.init()
 
     const tools = await customClient.tools()
-    console.log({ tools })
-    expect(tools).toMatchInlineSnapshot(`{}`)
+
+    expect(tools).toMatchInlineSnapshot(`
+      {
+        "GET /api/goSomething": {
+          "description": "GET /api/goSomething",
+          "execute": [Function],
+          "parameters": {
+            "_type": undefined,
+            "jsonSchema": {
+              "additionalProperties": false,
+              "properties": {},
+              "type": "object",
+            },
+            "validate": undefined,
+            Symbol(vercel.ai.schema): true,
+            Symbol(vercel.ai.validator): true,
+          },
+        },
+        "GET /api/mcp": {
+          "description": "GET /api/mcp",
+          "execute": [Function],
+          "parameters": {
+            "_type": undefined,
+            "jsonSchema": {
+              "additionalProperties": false,
+              "properties": {},
+              "type": "object",
+            },
+            "validate": undefined,
+            Symbol(vercel.ai.schema): true,
+            Symbol(vercel.ai.validator): true,
+          },
+        },
+        "GET /api/search": {
+          "description": "GET /api/search",
+          "execute": [Function],
+          "parameters": {
+            "_type": undefined,
+            "jsonSchema": {
+              "additionalProperties": false,
+              "properties": {
+                "query": {
+                  "properties": {
+                    "limit": {
+                      "type": "number",
+                    },
+                    "q": {
+                      "type": "string",
+                    },
+                  },
+                  "required": [
+                    "q",
+                    "limit",
+                  ],
+                  "type": "object",
+                },
+              },
+              "type": "object",
+            },
+            "validate": undefined,
+            Symbol(vercel.ai.schema): true,
+            Symbol(vercel.ai.validator): true,
+          },
+        },
+        "GET /api/somethingElse/{id}": {
+          "description": "GET /api/somethingElse/{id}",
+          "execute": [Function],
+          "parameters": {
+            "_type": undefined,
+            "jsonSchema": {
+              "additionalProperties": false,
+              "properties": {
+                "params": {
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                    },
+                  },
+                  "required": [
+                    "id",
+                  ],
+                  "type": "object",
+                },
+              },
+              "type": "object",
+            },
+            "validate": undefined,
+            Symbol(vercel.ai.schema): true,
+            Symbol(vercel.ai.validator): true,
+          },
+        },
+        "POST /api/mcp/message": {
+          "description": "POST /api/mcp/message",
+          "execute": [Function],
+          "parameters": {
+            "_type": undefined,
+            "jsonSchema": {
+              "additionalProperties": false,
+              "properties": {},
+              "type": "object",
+            },
+            "validate": undefined,
+            Symbol(vercel.ai.schema): true,
+            Symbol(vercel.ai.validator): true,
+          },
+        },
+        "POST /api/somethingElse/{id}": {
+          "description": "POST /api/somethingElse/{id}",
+          "execute": [Function],
+          "parameters": {
+            "_type": undefined,
+            "jsonSchema": {
+              "additionalProperties": false,
+              "properties": {
+                "body": {},
+                "params": {
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                    },
+                  },
+                  "required": [
+                    "id",
+                  ],
+                  "type": "object",
+                },
+              },
+              "required": [
+                "body",
+              ],
+              "type": "object",
+            },
+            "validate": undefined,
+            Symbol(vercel.ai.schema): true,
+            Symbol(vercel.ai.validator): true,
+          },
+        },
+      }
+    `)
   })
 })
 
@@ -119,6 +377,7 @@ describe('MCP Plugin', () => {
       },
       {
         capabilities: {},
+        enforceStrictCapabilities: true,
       },
     )
 

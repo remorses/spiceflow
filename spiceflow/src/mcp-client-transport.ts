@@ -48,6 +48,7 @@ export class FetchMCPCLientTransport implements Transport {
   }
 
   log(...x: any[]) {
+    console.log(...x)
     //
   }
   async consumeEvents() {
@@ -73,7 +74,6 @@ export class FetchMCPCLientTransport implements Transport {
       event: string
       data: any
     }>) {
-      this.log(evt)
       if (evt.event === 'endpoint') {
         const url = new URL(evt.data, this.sseUrl)
         if (url.origin !== this.sseUrl.origin) {
@@ -85,9 +85,9 @@ export class FetchMCPCLientTransport implements Transport {
         // JSON-RPC payload
         try {
           const msg = JSONRPCMessageSchema.parse(JSON.parse(evt.data))
+          this.log(msg)
           this.onmessage?.(msg)
         } catch (err) {
-          console.error(err)
           this.onerror?.(err as Error)
         }
       } else {

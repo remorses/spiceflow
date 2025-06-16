@@ -10,7 +10,7 @@
     "zod": "^3.25.64"
   },
   "devDependencies": {
-    "@modelcontextprotocol/sdk": "^1.12.1",
+    "@modelcontextprotocol/sdk": "^1.12.3",
     "@types/ps-tree": "^1.1.6",
     "ai": "5.0.0-alpha.13",
     "bun": "~1.2.13",
