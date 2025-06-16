@@ -12,6 +12,7 @@
   "devDependencies": {
     "@modelcontextprotocol/sdk": "^1.12.1",
     "@types/ps-tree": "^1.1.6",
+    "ai": "^4.3.16",
     "bun": "~1.2.13",
     "node": "~22.15.1",
     "ps-tree": "^1.2.0",

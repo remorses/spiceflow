@@ -9,7 +9,7 @@ import {
 import { OpenAPIV3 } from 'openapi-types'
 import { SSEServerTransportSpiceflow } from './mcp-transport.ts'
 import { openapi } from './openapi.ts'
-import { Spiceflow } from './spiceflow.ts'
+import { AnySpiceflow, Spiceflow } from './spiceflow.ts'
 
 const transports = new Map<string, SSEServerTransportSpiceflow>()
 function getOperationRequestBody(
@@ -69,17 +69,16 @@ function getOperationParameters(operation: OpenAPIV3.OperationObject): {
   return result
 }
 
-function createMCPServer({
+export async function createMCPServer({
   name = 'spiceflow',
   version = '1.0.0',
-  openapi,
   app,
 }: {
   name?: string
   version?: string
-  openapi: OpenAPIV3.Document
-  app: Spiceflow
+  app: AnySpiceflow
 }) {
+  const basePath = app.topLevelApp!.prefix || ''
   const server = new Server(
     { name, version },
     {
@@ -89,8 +88,10 @@ function createMCPServer({
       },
     },
   )
+  const openapi: OpenAPIV3.Document = await app
+    .topLevelApp!.handle(new Request(`http://localhost${basePath}/mcp-openapi`))
+    .then((r) => r.json())
 
-  const basePath = app.topLevelApp!.prefix || ''
   server.setRequestHandler(ListToolsRequestSchema, async () => {
     const paths = Object.entries(openapi.paths).filter(
       ([path]) =>
@@ -273,7 +274,7 @@ function createMCPServer({
     }
   })
 
-  return { server, transports }
+  return { server }
 }
 
 export const mcp = <Path extends string = '/mcp'>({
@@ -300,17 +301,13 @@ export const mcp = <Path extends string = '/mcp'>({
       const basePath = app.topLevelApp!.prefix || ''
       const transport = new SSEServerTransportSpiceflow(basePath + messagePath)
       transports.set(transport.sessionId, transport)
-      const openapi = await app
-        .topLevelApp!.handle(
-          new Request(`http://localhost${basePath}/mcp-openapi`),
-        )
-        .then((r) => r.json())
-      const { server } = createMCPServer({
+
+      const { server } = await createMCPServer({
         name,
         version,
-        openapi,
         app: app!.topLevelApp!,
       })
+
       server.onclose = () => {
         transports.delete(transport.sessionId)
       }

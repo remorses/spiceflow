@@ -104,7 +104,7 @@ export class Spiceflow<
   private onErrorHandlers: OnError[] = []
   private routes: InternalRoute[] = []
   private defaultState: Record<any, any> = {}
-  topLevelApp?: AnySpiceflow
+  topLevelApp?: AnySpiceflow = this
 
   _types = {
     Prefix: '' as BasePath,

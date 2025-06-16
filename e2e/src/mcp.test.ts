@@ -1,7 +1,11 @@
 import { beforeAll, describe, expect, it } from 'vitest'
 
 import { AnySpiceflow, Spiceflow } from 'spiceflow'
-import { mcp } from 'spiceflow/mcp'
+import {
+  createMCPServer,
+  SSEServerTransportSpiceflow,
+  mcp,
+} from 'spiceflow/mcp'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js'
 import {
@@ -11,7 +15,55 @@ import {
   ReadResourceResultSchema,
 } from '@modelcontextprotocol/sdk/types.js'
 import { z } from 'zod'
+import { experimental_createMCPClient, streamText } from 'ai'
+
 import { getAvailablePort } from './get-available-port.ts'
+
+describe('ai mcp', () => {
+  it('should work', async () => {
+    const app = new Spiceflow({ basePath: '/api' })
+      .use(mcp())
+      .get('/goSomething', () => 'hi')
+      .get('/users', () => ({ users: [{ id: 1, name: 'John' }] }))
+      .get(
+        '/somethingElse/:id',
+        ({ params: { id } }) => {
+          return 'hello ' + id
+        },
+        {
+          params: z.object({ id: z.string() }),
+        },
+      )
+      .get(
+        '/search',
+        ({ query }) => {
+          return { results: [`Found results for: ${query.q}`] }
+        },
+        {
+          query: z
+            .object({
+              q: z.string().describe('Search query'),
+              limit: z.number().optional().describe('Max number of results'),
+            })
+            .required(),
+        },
+      )
+    const { server } = await createMCPServer({
+      name: 'spiceflow',
+      version: '1.0.0',
+      app,
+    })
+
+    const transport = new SSEServerTransportSpiceflow('')
+    await server.connect(transport)
+
+    const customClient = await experimental_createMCPClient({
+      transport,
+    })
+    const tools = await customClient.tools()
+    expect(tools).toMatchInlineSnapshot()
+  })
+})
 
 describe('MCP Plugin', () => {
   let app: AnySpiceflow
