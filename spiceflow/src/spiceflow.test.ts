@@ -600,7 +600,7 @@ test('getRouteAndParents', async () => {
   let routers = bfs(app)
   let last = routers[routers.length - 1]
 
-  expect(app['getAppAndParents'](last).map((x) => x.prefix))
+  expect(app['getAppAndParents'](last).map((x) => x.basePath))
     .toMatchInlineSnapshot(`
 			[
 			  "/one",
@@ -626,7 +626,7 @@ test('getAppsInScope include all parent apps', async () => {
   let routers = bfs(app)
   let secondLast = routers[routers.length - 2]
 
-  expect(app['getAppsInScope'](secondLast).map((x) => x.prefix))
+  expect(app['getAppsInScope'](secondLast).map((x) => x.basePath))
     .toMatchInlineSnapshot(`
 			[
 			  "/one",
@@ -652,7 +652,7 @@ test('getAppsInScope include all parent apps and non scoped apps', async () => {
   let routers = bfs(app)
   let secondLast = routers[routers.length - 2]
 
-  expect(app['getAppsInScope'](secondLast).map((x) => x.prefix))
+  expect(app['getAppsInScope'](secondLast).map((x) => x.basePath))
     .toMatchInlineSnapshot(`
 			[
 			  "/one",

@@ -78,7 +78,7 @@ export async function createMCPServer({
   version?: string
   app: AnySpiceflow
 }) {
-  const basePath = app.topLevelApp!.prefix || ''
+  const basePath = app.topLevelApp!.basePath || ''
   const server = new Server(
     { name, version },
     {
@@ -88,14 +88,26 @@ export async function createMCPServer({
       },
     },
   )
-  const openapi: OpenAPIV3.Document = await app
-    .topLevelApp!.handle(new Request(`http://localhost${basePath}/mcp-openapi`))
-    .then((r) => r.json())
+
+  const [openapi, mcpConfig] = await Promise.all([
+    app
+      .topLevelApp!.handle(
+        new Request(`http://localhost${basePath}/_mcp_openapi`),
+      )
+      .then((r) => r.json()) as Promise<OpenAPIV3.Document>,
+    app
+      .topLevelApp!.handle(
+        new Request(`http://localhost${basePath}/_mcp_config`),
+      )
+      .then((r) => r.json()),
+  ])
+  const mcpPath = mcpConfig?.path
+  if (!mcpPath) throw new Error('Missing MCP path from app, make sure to use the mcp() Spiceflow plugin')
 
   server.setRequestHandler(ListToolsRequestSchema, async () => {
     const paths = Object.entries(openapi.paths).filter(
       ([path]) =>
-        !['/mcp-openapi', '/mcp', '/mcp/message'].includes(
+        !['/_mcp_openapi', '/_mcp_config', path, path + '/message'].includes(
           path.replace(basePath, ''),
         ),
     )
@@ -164,7 +176,7 @@ export async function createMCPServer({
         })
       }
 
-      const basePath = app.topLevelApp!.prefix || ''
+      const basePath = app.topLevelApp!.basePath || ''
       const url = new URL(`http://localhost${basePath}${path}`)
       if (query) {
         Object.entries(query).forEach(([key, value]) => {
@@ -209,7 +221,7 @@ export async function createMCPServer({
   server.setRequestHandler(ListResourcesRequestSchema, async () => {
     const resources: { uri: string; mimeType: string; name: string }[] = []
     for (const [path, pathObj] of Object.entries(openapi.paths)) {
-      if (path.startsWith('/mcp')) {
+      if (path.startsWith(basePath + mcpPath)) {
         continue
       }
       const getOperation = pathObj?.get as OpenAPIV3.OperationObject
@@ -285,7 +297,18 @@ export const mcp = <Path extends string = '/mcp'>({
   const messagePath = path + '/message'
 
   let app = new Spiceflow({ name: 'mcp' })
-    .use(openapi({ path: '/mcp-openapi' }))
+    .use(openapi({ path: '/_mcp_openapi' }))
+    .route({
+      method: 'GET',
+      path: '/_mcp_config',
+      handler: async () => {
+        return {
+          name,
+          version,
+          path,
+        }
+      },
+    })
     .post(messagePath, async ({ request, query }) => {
       const sessionId = query.sessionId!
 

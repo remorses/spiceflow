@@ -18,6 +18,7 @@ import { z } from 'zod'
 import { experimental_createMCPClient, streamText } from 'ai'
 
 import { getAvailablePort } from './get-available-port.ts'
+import { SpiceflowClientTransport } from 'spiceflow/dist/mcp-client-transport'
 
 describe('ai mcp', () => {
   it('should work', async () => {
@@ -54,7 +55,7 @@ describe('ai mcp', () => {
       app,
     })
 
-    const transport = new SSEServerTransportSpiceflow('')
+    const transport = new SpiceflowClientTransport({ app })
     await server.connect(transport)
 
     const customClient = await experimental_createMCPClient({
@@ -191,6 +192,22 @@ describe('MCP Plugin', () => {
             },
             "name": "GET /api/search",
           },
+          {
+            "description": "POST /api/mcp/message",
+            "inputSchema": {
+              "properties": {},
+              "type": "object",
+            },
+            "name": "POST /api/mcp/message",
+          },
+          {
+            "description": "GET /api/mcp",
+            "inputSchema": {
+              "properties": {},
+              "type": "object",
+            },
+            "name": "GET /api/mcp",
+          },
         ],
       }
     `)
@@ -245,13 +262,13 @@ describe('MCP Plugin', () => {
         },
         {
           "mimeType": "application/json",
-          "name": "GET /api/mcp",
-          "uri": "http://localhost/api/mcp",
+          "name": "GET /api/_mcp_config",
+          "uri": "http://localhost/api/_mcp_config",
         },
         {
           "mimeType": "application/json",
-          "name": "GET /api/mcp-openapi",
-          "uri": "http://localhost/api/mcp-openapi",
+          "name": "GET /api/_mcp_openapi",
+          "uri": "http://localhost/api/_mcp_openapi",
         },
       ]
     `)

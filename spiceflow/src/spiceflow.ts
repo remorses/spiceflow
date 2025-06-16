@@ -117,7 +117,7 @@ export class Spiceflow<
   }
 
   /** @internal */
-  prefix?: string
+  basePath?: string
 
   /** @internal */
   childrenApps: AnySpiceflow[] = []
@@ -128,7 +128,7 @@ export class Spiceflow<
     const allApps = bfs(root) || []
     const allRoutes = allApps.flatMap((x) => {
       const prefix = this.getAppAndParents(x)
-        .map((x) => x.prefix)
+        .map((x) => x.basePath)
         .join('')
 
       return x.routes.map((x) => ({ ...x, path: prefix + x.path }))
@@ -181,7 +181,7 @@ export class Spiceflow<
     const result = bfsFind(this, (app) => {
       app.topLevelApp = root
       let prefix = this.getAppAndParents(app)
-        .map((x) => x.prefix)
+        .map((x) => x.basePath)
         .join('')
         .replace(/\/$/, '')
       if (prefix && !path.startsWith(prefix)) {
@@ -289,7 +289,7 @@ export class Spiceflow<
   ) {
     this.scoped = options.scoped
 
-    this.prefix = options.basePath
+    this.basePath = options.basePath
   }
 
   post<

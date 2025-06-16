@@ -392,6 +392,7 @@ export const openapi = <Path extends string = '/openapi'>({
       totalRoutes = routes.length
 
       routes.forEach((route: InternalRoute) => {
+        if (route.path.startsWith('_mcp_')) return
         if (route.hooks?.detail?.hide === true) return
         // TODO: route.hooks?.detail?.hide !== false  add ability to hide: false to prevent excluding
         if (excludeMethods.includes(route.method)) return
