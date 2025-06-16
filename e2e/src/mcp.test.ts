@@ -1,7 +1,6 @@
 import { beforeAll, describe, expect, it } from 'vitest'
 
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
-import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js'
 import {
   CallToolResultSchema,
   ListResourcesResultSchema,
@@ -10,7 +9,7 @@ import {
 } from '@modelcontextprotocol/sdk/types.js'
 import { experimental_createMCPClient } from 'ai'
 import { AnySpiceflow, Spiceflow } from 'spiceflow'
-import { createMCPServer, mcp } from 'spiceflow/mcp'
+import { mcp } from 'spiceflow/mcp'
 import { z } from 'zod'
 
 import { FetchMCPCLientTransport } from 'spiceflow/dist/mcp-client-transport'
@@ -79,8 +78,8 @@ describe('ai sdk mcp', () => {
 
     expect(tools).toMatchInlineSnapshot(`
       {
-        "GET /goSomething": {
-          "description": "GET /goSomething",
+        "GET_goSomething": {
+          "description": "GET route for /goSomething",
           "execute": [Function],
           "parameters": {
             "_type": undefined,
@@ -94,8 +93,8 @@ describe('ai sdk mcp', () => {
             Symbol(vercel.ai.validator): true,
           },
         },
-        "GET /search": {
-          "description": "GET /search",
+        "GET_search": {
+          "description": "GET route for /search",
           "execute": [Function],
           "parameters": {
             "_type": undefined,
@@ -125,8 +124,8 @@ describe('ai sdk mcp', () => {
             Symbol(vercel.ai.validator): true,
           },
         },
-        "GET /somethingElse/{id}": {
-          "description": "GET /somethingElse/{id}",
+        "GET_somethingElse_id": {
+          "description": "GET route for /somethingElse/{id}",
           "execute": [Function],
           "parameters": {
             "_type": undefined,
@@ -152,8 +151,8 @@ describe('ai sdk mcp', () => {
             Symbol(vercel.ai.validator): true,
           },
         },
-        "POST /somethingElse/{id}": {
-          "description": "POST /somethingElse/{id}",
+        "POST_somethingElse_id": {
+          "description": "POST route for /somethingElse/{id}",
           "execute": [Function],
           "parameters": {
             "_type": undefined,
