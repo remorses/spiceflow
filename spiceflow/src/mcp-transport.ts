@@ -36,7 +36,6 @@ export class SSEServerTransportSpiceflow implements Transport {
    */
   async start(): Promise<void> {
     if (this.response) {
-      return
       throw new Error(
         'SSEServerTransport already started! If using Server class, note that connect() calls start() automatically.',
       )

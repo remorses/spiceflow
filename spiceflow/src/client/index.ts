@@ -113,7 +113,7 @@ const processHeaders = (
 }
 
 interface SSEEvent {
-  event: string
+  event?: string
   data: any
   id?: string
 }
@@ -146,6 +146,7 @@ export class TextDecoderStream extends TransformStream<Uint8Array, string> {
 
 export async function* streamSSEResponse(
   response: Response,
+  map: (x: SSEEvent) => any,
 ): AsyncGenerator<SSEEvent> {
   const body = response.body
   if (!body) return
@@ -162,7 +163,7 @@ export async function* streamSSEResponse(
       throw new SpiceflowFetchError(500, superjsonDeserialize(event.data))
     }
     if (event) {
-      yield tryParsingSSEJson(event.data)
+      yield map({ ...event, data: event.data })
     }
   }
 }
@@ -171,7 +172,7 @@ function tryParsingSSEJson(data: string): any {
   try {
     return superjsonDeserialize(JSON.parse(data))
   } catch (error) {
-    return null
+    return data
   }
 }
 
@@ -405,7 +406,10 @@ const createProxy = (
 
           switch (response.headers.get('Content-Type')?.split(';')[0]) {
             case 'text/event-stream':
-              data = streamSSEResponse(response)
+              data = streamSSEResponse(response, (x) => {
+                return tryParsingSSEJson(x.data)
+              })
+
               break
 
             case 'application/json':
@@ -463,9 +467,7 @@ const createProxy = (
   }) as any
 }
 
-export const createSpiceflowClient = <
-  const App extends AnySpiceflow,
->(
+export const createSpiceflowClient = <const App extends AnySpiceflow>(
   domain: App | string,
   config?: SpiceflowClient.Config &
     (App extends Spiceflow<any, any, infer Singleton, any, any, any, any>

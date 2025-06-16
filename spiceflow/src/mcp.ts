@@ -102,7 +102,10 @@ export async function createMCPServer({
       .then((r) => r.json()),
   ])
   const mcpPath = mcpConfig?.path
-  if (!mcpPath) throw new Error('Missing MCP path from app, make sure to use the mcp() Spiceflow plugin')
+  if (!mcpPath)
+    throw new Error(
+      'Missing MCP path from app, make sure to use the mcp() Spiceflow plugin',
+    )
 
   server.setRequestHandler(ListToolsRequestSchema, async () => {
     const paths = Object.entries(openapi.paths).filter(
@@ -321,7 +324,7 @@ export const mcp = <Path extends string = '/mcp'>({
       return 'ok'
     })
     .get(path, async ({ request }) => {
-      const basePath = app.topLevelApp!.prefix || ''
+      const basePath = app.topLevelApp!.basePath || ''
       const transport = new SSEServerTransportSpiceflow(basePath + messagePath)
       transports.set(transport.sessionId, transport)
 
@@ -332,7 +335,7 @@ export const mcp = <Path extends string = '/mcp'>({
       })
 
       server.onclose = () => {
-        transports.delete(transport.sessionId)
+        // transports.delete(transport.sessionId)
       }
       await server.connect(transport)
 
@@ -341,10 +344,6 @@ export const mcp = <Path extends string = '/mcp'>({
           console.error('Error closing transport:', error)
         })
       })
-
-      if (request.method === 'POST') {
-        return await transport.handlePostMessage(request)
-      }
 
       return transport.response
     })

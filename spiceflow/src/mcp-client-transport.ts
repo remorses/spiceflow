@@ -1,84 +1,158 @@
+// fetch version of https://github.com/modelcontextprotocol/typescript-sdk/blob/main/src/client/sse.ts
 import { Transport } from '@modelcontextprotocol/sdk/shared/transport.js'
-import {
-  JSONRPCMessage,
-  JSONRPCMessageSchema,
-} from '@modelcontextprotocol/sdk/types.js'
-import { AnySpiceflow } from './spiceflow.ts'
+import { JSONRPCMessage, JSONRPCMessageSchema } from '@modelcontextprotocol/sdk/types.js'
 import { streamSSEResponse } from './client/index.ts'
 
-
-
-export type SpiceflowClientTransportClientTransportOptions = {
-  app: AnySpiceflow
+export type SpiceflowClientTransportOptions = {
+  fetch?: FetchType
+  url: string
 }
 
-/**
- * Client transport for Apps: this uses the provided app instance locally.
- */
-export class SpiceflowClientTransport implements Transport {
-  private readonly app: AnySpiceflow
+export type FetchType = (input: Request) => Promise<Response>
 
-  onclose?: () => void
-  onerror?: (error: Error) => void
+export class FetchMCPCLientTransport implements Transport {
+  private _endpoint?: URL
+  private sseUrl: URL
+  private _abortController: AbortController
+  fetch: FetchType
   onmessage?: (message: JSONRPCMessage) => void
-
-  constructor(opts: SpiceflowClientTransportClientTransportOptions) {
-    if (!opts.app) throw new Error('App instance required')
-    this.app = opts.app
+  onerror?: (error: Error) => void = (e) => {
+    throw e
   }
+  onclose?: () => void
+
+  constructor(opts: SpiceflowClientTransportOptions) {
+    this.fetch = opts.fetch || fetch
+    this.sseUrl = new URL(opts.url)
+    this._abortController = new AbortController()
+  }
+
+  onEndpointMessage: (endpoint: URL) => void = () => {}
 
   async start(): Promise<void> {
-    // Nothing needed for local App-based transport
+    const { promise, resolve, reject } = withResolvers<URL>()
+    this.consumeEvents().catch((e) => {
+      reject(e)
+    })
+
+    this.onEndpointMessage = (endpoint) => {
+      this._endpoint = endpoint
+      resolve(endpoint)
+    }
+
+    await promise
+    console.log(`finished start`)
   }
 
-  async close(): Promise<void> {
-    // No-op, since no persistent resources or connections
-    this.onclose?.()
+  async consumeEvents() {
+    const sseRes = await this.fetch(
+      new Request(this.sseUrl!.toString(), {
+        method: 'GET',
+        signal: this._abortController.signal,
+      }),
+    )
+    if (!sseRes.ok || !sseRes.body) {
+      const text = sseRes.body ? await sseRes.text().catch(() => '') : ''
+      throw new Error(
+        `SSE connection failed (HTTP ${sseRes.status})\nURL: ${this.sseUrl}\nText: ${text}`,
+      )
+    }
+    for await (const evt of streamSSEResponse(sseRes, (x) => {
+      return x
+    }) as AsyncGenerator<{
+      event: string
+      data: any
+    }>) {
+      console.log(evt)
+      if (evt.event === 'endpoint') {
+        const url = new URL(evt.data, this.sseUrl)
+        if (url.origin !== this.sseUrl.origin) {
+          throw new Error(`Endpoint origin mismatch: ${url.origin}`)
+        }
+        this.onEndpointMessage(url)
+        this._endpoint = url
+      } else if (evt.event === 'message') {
+        // JSON-RPC payload
+        try {
+          const msg = JSONRPCMessageSchema.parse(JSON.parse(evt.data))
+          this.onmessage?.(msg)
+        } catch (err) {
+          console.error(err)
+          this.onerror?.(err as Error)
+        }
+      } else {
+        console.log('Unknown MCP event:', evt)
+      }
+    }
+    this.close?.()
+  }
+  catch(err) {
+    this.onerror?.(err as Error)
   }
 
+  /**
+   * Sends a JSON-RPC message by POSTing to the negotiated endpoint.
+   * Must call start() first so that endpoint is set.
+   */
   async send(message: JSONRPCMessage): Promise<void> {
-    try {
-      const basePath = this.app.topLevelApp!.basePath
-      const [mcpConfig] = await Promise.all([
-        this.app
-          .topLevelApp!.handle(
-            new Request(`http://localhost${basePath}/_mcp_config`),
-          )
-          .then((r) => r.json()),
-      ])
-      const mcpPath = mcpConfig?.path
-      const req = new Request(new URL(mcpPath, 'http://localhost/'), {
+    if (!this._endpoint) {
+      throw new Error('Not connected')
+    }
+    console.log(`sending`, message)
+
+    const res = await this.fetch(
+      new Request(this._endpoint.toString(), {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(message),
-      })
-
-      const res = await this.app.handle(req)
-
-      if (!res.ok) {
-        const text = await res.text().catch(() => null)
-        throw new Error(
-          `AppClientTransport error (HTTP ${res.status}): ${text}`,
-        )
-      }
-
-      // Parse response body as JSON and validate with schema
-      const responseText = await res.text()
-      let parsedMsg: JSONRPCMessage
-      try {
-        parsedMsg = JSONRPCMessageSchema.parse(JSON.parse(responseText))
-      } catch (e) {
-        throw new Error('Invalid JSON-RPC message in response')
-      }
-
-      this.onmessage?.(parsedMsg)
-    } catch (err) {
-      this.onerror?.(err as Error)
+        signal: this._abortController?.signal,
+      }),
+    )
+    if (!res.ok) {
+      const text = await res.text().catch(() => '')
+      const err = new Error(
+        `Error POSTing to endpoint ${this._endpoint || '.'} (HTTP ${res.status}): ${text}`,
+      )
+      this.onerror?.(err)
       throw err
     }
   }
 
-  setProtocolVersion(_version: string): void {
-    // noop; not used for local app instance
+  /**
+   * Aborts the SSE stream and notifies onclose.
+   */
+  async close(): Promise<void> {
+    this._abortController?.abort()
+    this.onclose?.()
   }
+
+  /**
+   * No-op for local transport but required by interface.
+   */
+  setProtocolVersion(_version: string): void {
+    // no-op
+  }
+}
+
+/**
+ * Polyfill for Promise.withResolvers
+ * Returns an object { promise, resolve, reject }
+ * If native Promise.withResolvers exists, uses it.
+ */
+function withResolvers<T = unknown>(): {
+  promise: Promise<T>
+  resolve: (value: T | PromiseLike<T>) => void
+  reject: (reason?: any) => void
+} {
+  if (typeof Promise.withResolvers === 'function') {
+    return Promise.withResolvers()
+  }
+  let resolve: (value: T | PromiseLike<T>) => void
+  let reject: (reason?: any) => void
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res!
+    reject = rej!
+  })
+  // @ts-ignore checked by closure above
+  return { promise, resolve, reject }
 }

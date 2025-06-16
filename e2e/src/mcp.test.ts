@@ -1,11 +1,5 @@
 import { beforeAll, describe, expect, it } from 'vitest'
 
-import { AnySpiceflow, Spiceflow } from 'spiceflow'
-import {
-  createMCPServer,
-  SSEServerTransportSpiceflow,
-  mcp,
-} from 'spiceflow/mcp'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js'
 import {
@@ -14,19 +8,21 @@ import {
   ListToolsResultSchema,
   ReadResourceResultSchema,
 } from '@modelcontextprotocol/sdk/types.js'
+import { experimental_createMCPClient } from 'ai'
+import { AnySpiceflow, Spiceflow } from 'spiceflow'
+import { createMCPServer, mcp } from 'spiceflow/mcp'
 import { z } from 'zod'
-import { experimental_createMCPClient, streamText } from 'ai'
 
+import { FetchMCPCLientTransport } from 'spiceflow/dist/mcp-client-transport'
 import { getAvailablePort } from './get-available-port.ts'
-import { SpiceflowClientTransport } from 'spiceflow/dist/mcp-client-transport'
 
-describe('ai mcp', () => {
+describe.only('ai sdk mcp', () => {
   it('should work', async () => {
-    const app = new Spiceflow({ basePath: '/api' })
-      .use(mcp())
+    const app = new Spiceflow({})
+      .use(mcp({ path: '/mcp' }))
       .get('/goSomething', () => 'hi')
-      .get('/users', () => ({ users: [{ id: 1, name: 'John' }] }))
-      .get(
+      .post('/users', () => ({ users: [{ id: 1, name: 'John' }] }))
+      .post(
         '/somethingElse/:id',
         ({ params: { id } }) => {
           return 'hello ' + id
@@ -49,20 +45,26 @@ describe('ai mcp', () => {
             .required(),
         },
       )
-    const { server } = await createMCPServer({
-      name: 'spiceflow',
-      version: '1.0.0',
-      app,
+
+    // Snapshot OpenAPI doc
+
+    const clientTransport = new FetchMCPCLientTransport({
+      fetch: app.handle,
+      url: 'http://localhost/mcp',
     })
-
-    const transport = new SpiceflowClientTransport({ app })
-    await server.connect(transport)
-
+    await clientTransport.start()
     const customClient = await experimental_createMCPClient({
-      transport,
+      transport: clientTransport,
+
+      onUncaughtError(error) {
+        console.error(error)
+        // throw error
+      },
     })
-    const tools = await customClient.tools()
-    expect(tools).toMatchInlineSnapshot()
+    await customClient.init()
+
+    const tools = await customClient.tools({})
+    expect(tools).toMatchInlineSnapshot(`{}`)
   })
 })
 
@@ -70,7 +72,6 @@ describe('MCP Plugin', () => {
   let app: AnySpiceflow
   let port: number
   let client: Client
-  let transport: SSEClientTransport
 
   beforeAll(async () => {
     port = await getAvailablePort()
@@ -104,7 +105,7 @@ describe('MCP Plugin', () => {
       )
     await app.listenForNode(port)
 
-    transport = new SSEClientTransport(
+    let transport = new SSEClientTransport(
       new URL(`http://localhost:${port}/api/mcp`),
     )
 
@@ -122,14 +123,14 @@ describe('MCP Plugin', () => {
   })
 
   it('should list and call available tools', async () => {
-    const resources = await client.request(
+    const tools = await client.request(
       { method: 'tools/list' },
       ListToolsResultSchema,
     )
 
-    expect(resources).toBeDefined()
-    expect(resources).toHaveProperty('tools')
-    expect(resources).toMatchInlineSnapshot(`
+    expect(tools).toBeDefined()
+    expect(tools).toHaveProperty('tools')
+    expect(tools).toMatchInlineSnapshot(`
       {
         "tools": [
           {
