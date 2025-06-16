@@ -16,7 +16,7 @@ import { z } from 'zod'
 import { FetchMCPCLientTransport } from 'spiceflow/dist/mcp-client-transport'
 import { getAvailablePort } from './get-available-port.ts'
 
-describe.only('ai sdk mcp', () => {
+describe('ai sdk mcp', () => {
   it('should work', async () => {
     const app = new Spiceflow({})
       .use(mcp({ path: '/mcp' }))
@@ -52,7 +52,7 @@ describe.only('ai sdk mcp', () => {
       fetch: app.handle,
       url: 'http://localhost/mcp',
     })
-    await clientTransport.start()
+
     const customClient = await experimental_createMCPClient({
       transport: clientTransport,
 
@@ -61,9 +61,11 @@ describe.only('ai sdk mcp', () => {
         // throw error
       },
     })
+
     await customClient.init()
 
-    const tools = await customClient.tools({})
+    const tools = await customClient.tools()
+    console.log({ tools })
     expect(tools).toMatchInlineSnapshot(`{}`)
   })
 })
@@ -105,9 +107,10 @@ describe('MCP Plugin', () => {
       )
     await app.listenForNode(port)
 
-    let transport = new SSEClientTransport(
-      new URL(`http://localhost:${port}/api/mcp`),
-    )
+    let transport = new FetchMCPCLientTransport({
+      url: new URL(`http://localhost:${port}/api/mcp`).toString(),
+      fetch: app.handle,
+    })
 
     client = new Client(
       {

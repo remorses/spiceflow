@@ -1,6 +1,9 @@
 // fetch version of https://github.com/modelcontextprotocol/typescript-sdk/blob/main/src/client/sse.ts
 import { Transport } from '@modelcontextprotocol/sdk/shared/transport.js'
-import { JSONRPCMessage, JSONRPCMessageSchema } from '@modelcontextprotocol/sdk/types.js'
+import {
+  JSONRPCMessage,
+  JSONRPCMessageSchema,
+} from '@modelcontextprotocol/sdk/types.js'
 import { streamSSEResponse } from './client/index.ts'
 
 export type SpiceflowClientTransportOptions = {
@@ -41,14 +44,21 @@ export class FetchMCPCLientTransport implements Transport {
     }
 
     await promise
-    console.log(`finished start`)
+    this.log(`finished start`)
   }
 
+  log(...x: any[]) {
+    //
+  }
   async consumeEvents() {
     const sseRes = await this.fetch(
       new Request(this.sseUrl!.toString(), {
         method: 'GET',
         signal: this._abortController.signal,
+        headers: {
+          ...(await this._commonHeaders()),
+          accept: 'text/event-stream',
+        },
       }),
     )
     if (!sseRes.ok || !sseRes.body) {
@@ -63,7 +73,7 @@ export class FetchMCPCLientTransport implements Transport {
       event: string
       data: any
     }>) {
-      console.log(evt)
+      this.log(evt)
       if (evt.event === 'endpoint') {
         const url = new URL(evt.data, this.sseUrl)
         if (url.origin !== this.sseUrl.origin) {
@@ -81,13 +91,28 @@ export class FetchMCPCLientTransport implements Transport {
           this.onerror?.(err as Error)
         }
       } else {
-        console.log('Unknown MCP event:', evt)
+        this.log('Unknown MCP event:', evt)
       }
     }
     this.close?.()
   }
   catch(err) {
     this.onerror?.(err as Error)
+  }
+
+  private async _commonHeaders() {
+    const headers = {} as Record<string, string>
+    // if (this._authProvider) {
+    //   const tokens = await this._authProvider.tokens()
+    //   if (tokens) {
+    //     headers['Authorization'] = `Bearer ${tokens.access_token}`
+    //   }
+    // }
+    if (this._protocolVersion) {
+      headers['mcp-protocol-version'] = this._protocolVersion
+    }
+
+    return headers
   }
 
   /**
@@ -98,12 +123,15 @@ export class FetchMCPCLientTransport implements Transport {
     if (!this._endpoint) {
       throw new Error('Not connected')
     }
-    console.log(`sending`, message)
+    this.log(`sending`, message)
 
     const res = await this.fetch(
       new Request(this._endpoint.toString(), {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: {
+          ...(await this._commonHeaders()),
+          'content-type': 'application/json',
+        },
         body: JSON.stringify(message),
         signal: this._abortController?.signal,
       }),
@@ -126,11 +154,9 @@ export class FetchMCPCLientTransport implements Transport {
     this.onclose?.()
   }
 
-  /**
-   * No-op for local transport but required by interface.
-   */
-  setProtocolVersion(_version: string): void {
-    // no-op
+  _protocolVersion?: any
+  setProtocolVersion(version: string): void {
+    this._protocolVersion = version
   }
 }
 
