@@ -121,8 +121,10 @@ const registerSchemaPath = ({
   schema,
   route,
   models,
+  basePath,
 }: {
   schema: Partial<OpenAPIV3.PathsObject>
+  basePath: string
   route: InternalRoute
   models: Record<string, TypeSchema>
 }) => {
@@ -136,7 +138,7 @@ const registerSchemaPath = ({
     contentTypes = Array.isArray(hooks.type) ? hooks.type : [hooks.type]
   }
 
-  const path = toOpenAPIPath(route.path)
+  const path = basePath + toOpenAPIPath(route.path)
 
   const bodySchema = getJsonSchema(hooks?.request || hooks?.body)
   let paramsSchema = hooks?.params
@@ -377,6 +379,7 @@ export const openapi = <Path extends string = '/openapi'>({
   const relativePath = path.startsWith('/') ? path.slice(1) : path
 
   const app = new Spiceflow({ name: 'openapi' }).get(path, ({}) => {
+    const basePath = app.topLevelApp!.basePath // TODO this does not work
     let routes = app.getAllRoutes()
     if (routes.length !== totalRoutes) {
       const ALLOWED_METHODS = [
@@ -405,9 +408,10 @@ export const openapi = <Path extends string = '/openapi'>({
         if (route.method === 'ALL') {
           ALLOWED_METHODS.forEach((method) => {
             registerSchemaPath({
+              basePath,
               schema,
               route: { ...route, method },
-              // @ts-ignore
+
               models: app.definitions?.type,
             })
           })
@@ -415,6 +419,7 @@ export const openapi = <Path extends string = '/openapi'>({
         }
 
         registerSchemaPath({
+          basePath,
           schema,
           route,
           // @ts-ignore

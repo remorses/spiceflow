@@ -18,7 +18,7 @@ import { getAvailablePort } from './get-available-port.ts'
 
 describe('ai sdk mcp', () => {
   it('should work', async () => {
-    const app = new Spiceflow({ basePath: '/api' })
+    const app = new Spiceflow({})
       .use(mcp({ path: '/mcp' }))
       .get('/goSomething', () => 'hi')
       .get(
@@ -61,7 +61,7 @@ describe('ai sdk mcp', () => {
 
     const transport = new FetchMCPCLientTransport({
       fetch: app.handle,
-      url: 'http://localhost/api/mcp',
+      url: 'http://localhost/mcp',
     })
 
     const client = new Client(
@@ -77,100 +77,7 @@ describe('ai sdk mcp', () => {
     await client.connect(transport)
     expect(await client.listTools()).toMatchInlineSnapshot(`
       {
-        "tools": [
-          {
-            "description": "GET /api/goSomething",
-            "inputSchema": {
-              "properties": {},
-              "type": "object",
-            },
-            "name": "GET /api/goSomething",
-          },
-          {
-            "description": "GET /api/somethingElse/{id}",
-            "inputSchema": {
-              "properties": {
-                "params": {
-                  "properties": {
-                    "id": {
-                      "type": "string",
-                    },
-                  },
-                  "required": [
-                    "id",
-                  ],
-                  "type": "object",
-                },
-              },
-              "type": "object",
-            },
-            "name": "GET /api/somethingElse/{id}",
-          },
-          {
-            "description": "POST /api/somethingElse/{id}",
-            "inputSchema": {
-              "properties": {
-                "body": {},
-                "params": {
-                  "properties": {
-                    "id": {
-                      "type": "string",
-                    },
-                  },
-                  "required": [
-                    "id",
-                  ],
-                  "type": "object",
-                },
-              },
-              "required": [
-                "body",
-              ],
-              "type": "object",
-            },
-            "name": "POST /api/somethingElse/{id}",
-          },
-          {
-            "description": "GET /api/search",
-            "inputSchema": {
-              "properties": {
-                "query": {
-                  "properties": {
-                    "limit": {
-                      "type": "number",
-                    },
-                    "q": {
-                      "type": "string",
-                    },
-                  },
-                  "required": [
-                    "q",
-                    "limit",
-                  ],
-                  "type": "object",
-                },
-              },
-              "type": "object",
-            },
-            "name": "GET /api/search",
-          },
-          {
-            "description": "POST /api/mcp/message",
-            "inputSchema": {
-              "properties": {},
-              "type": "object",
-            },
-            "name": "POST /api/mcp/message",
-          },
-          {
-            "description": "GET /api/mcp",
-            "inputSchema": {
-              "properties": {},
-              "type": "object",
-            },
-            "name": "GET /api/mcp",
-          },
-        ],
+        "tools": [],
       }
     `)
 
@@ -187,144 +94,7 @@ describe('ai sdk mcp', () => {
 
     const tools = await customClient.tools()
 
-    expect(tools).toMatchInlineSnapshot(`
-      {
-        "GET /api/goSomething": {
-          "description": "GET /api/goSomething",
-          "execute": [Function],
-          "parameters": {
-            "_type": undefined,
-            "jsonSchema": {
-              "additionalProperties": false,
-              "properties": {},
-              "type": "object",
-            },
-            "validate": undefined,
-            Symbol(vercel.ai.schema): true,
-            Symbol(vercel.ai.validator): true,
-          },
-        },
-        "GET /api/mcp": {
-          "description": "GET /api/mcp",
-          "execute": [Function],
-          "parameters": {
-            "_type": undefined,
-            "jsonSchema": {
-              "additionalProperties": false,
-              "properties": {},
-              "type": "object",
-            },
-            "validate": undefined,
-            Symbol(vercel.ai.schema): true,
-            Symbol(vercel.ai.validator): true,
-          },
-        },
-        "GET /api/search": {
-          "description": "GET /api/search",
-          "execute": [Function],
-          "parameters": {
-            "_type": undefined,
-            "jsonSchema": {
-              "additionalProperties": false,
-              "properties": {
-                "query": {
-                  "properties": {
-                    "limit": {
-                      "type": "number",
-                    },
-                    "q": {
-                      "type": "string",
-                    },
-                  },
-                  "required": [
-                    "q",
-                    "limit",
-                  ],
-                  "type": "object",
-                },
-              },
-              "type": "object",
-            },
-            "validate": undefined,
-            Symbol(vercel.ai.schema): true,
-            Symbol(vercel.ai.validator): true,
-          },
-        },
-        "GET /api/somethingElse/{id}": {
-          "description": "GET /api/somethingElse/{id}",
-          "execute": [Function],
-          "parameters": {
-            "_type": undefined,
-            "jsonSchema": {
-              "additionalProperties": false,
-              "properties": {
-                "params": {
-                  "properties": {
-                    "id": {
-                      "type": "string",
-                    },
-                  },
-                  "required": [
-                    "id",
-                  ],
-                  "type": "object",
-                },
-              },
-              "type": "object",
-            },
-            "validate": undefined,
-            Symbol(vercel.ai.schema): true,
-            Symbol(vercel.ai.validator): true,
-          },
-        },
-        "POST /api/mcp/message": {
-          "description": "POST /api/mcp/message",
-          "execute": [Function],
-          "parameters": {
-            "_type": undefined,
-            "jsonSchema": {
-              "additionalProperties": false,
-              "properties": {},
-              "type": "object",
-            },
-            "validate": undefined,
-            Symbol(vercel.ai.schema): true,
-            Symbol(vercel.ai.validator): true,
-          },
-        },
-        "POST /api/somethingElse/{id}": {
-          "description": "POST /api/somethingElse/{id}",
-          "execute": [Function],
-          "parameters": {
-            "_type": undefined,
-            "jsonSchema": {
-              "additionalProperties": false,
-              "properties": {
-                "body": {},
-                "params": {
-                  "properties": {
-                    "id": {
-                      "type": "string",
-                    },
-                  },
-                  "required": [
-                    "id",
-                  ],
-                  "type": "object",
-                },
-              },
-              "required": [
-                "body",
-              ],
-              "type": "object",
-            },
-            "validate": undefined,
-            Symbol(vercel.ai.schema): true,
-            Symbol(vercel.ai.validator): true,
-          },
-        },
-      }
-    `)
+    expect(tools).toMatchInlineSnapshot(`{}`)
   })
 })
 

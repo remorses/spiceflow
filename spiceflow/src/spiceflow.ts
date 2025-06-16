@@ -117,7 +117,7 @@ export class Spiceflow<
   }
 
   /** @internal */
-  basePath?: string
+  basePath?: string = ''
 
   /** @internal */
   childrenApps: AnySpiceflow[] = []
@@ -289,7 +289,10 @@ export class Spiceflow<
   ) {
     this.scoped = options.scoped
 
-    this.basePath = options.basePath
+    this.basePath = options.basePath || ''
+    if (this.basePath === '/') {
+      this.basePath = ''
+    }
   }
 
   post<
@@ -778,6 +781,7 @@ export class Spiceflow<
 
   use(appOrHandler) {
     if (appOrHandler instanceof Spiceflow) {
+      appOrHandler.topLevelApp = this
       this.childrenApps.push(appOrHandler)
     } else if (typeof appOrHandler === 'function') {
       this.middlewares ??= []
