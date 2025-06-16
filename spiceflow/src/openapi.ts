@@ -138,7 +138,7 @@ const registerSchemaPath = ({
     contentTypes = Array.isArray(hooks.type) ? hooks.type : [hooks.type]
   }
 
-  const path = basePath + toOpenAPIPath(route.path)
+  const path = toOpenAPIPath(route.path)
 
   const bodySchema = getJsonSchema(hooks?.request || hooks?.body)
   let paramsSchema = hooks?.params

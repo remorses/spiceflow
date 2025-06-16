@@ -6,7 +6,6 @@ import {
 } from 'node:http'
 import { AddressInfo } from 'node:net'
 import { AnySpiceflow, type Spiceflow, SpiceflowRequest } from './spiceflow.ts'
-import { superjsonSerialize } from './serialize.ts'
 
 export async function listenForNode(
   app: AnySpiceflow,
@@ -110,6 +109,6 @@ export async function handleForNode(
   } catch (error) {
     console.error('Error handling request:', error)
     res.statusCode = 500
-    res.end(superjsonSerialize({ message: 'Internal Server Error' }))
+    res.end(JSON.stringify({ message: 'Internal Server Error' }))
   }
 }

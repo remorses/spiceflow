@@ -1,4 +1,5 @@
 import { copy } from 'copy-anything'
+import superjson from 'superjson'
 
 import { SpiceflowFetchError } from './client/errors.ts'
 import { ValidationError } from './error.ts'
@@ -34,7 +35,7 @@ import { StandardSchemaV1 } from '@standard-schema/spec'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { handleForNode, listenForNode } from 'spiceflow/_node-server'
 import { MiddlewareContext } from './context.ts'
-import { superjsonSerialize } from './serialize.ts'
+
 import { isAsyncIterable, isResponse, redirect } from './utils.ts'
 
 let globalIndex = 0
@@ -948,6 +949,7 @@ export class Spiceflow<
     }
   }
 
+
   private getAppAndParents(currentApp?: AnySpiceflow) {
     let root = this.topLevelApp || this
 
@@ -1425,4 +1427,14 @@ function parseQuery(queryString: string) {
 
 export function cloneDeep(x) {
   return copy(x)
+}
+
+
+function superjsonSerialize(value: any, indent = false) {
+  // return JSON.stringify(value)
+  const { json, meta } = superjson.serialize(value)
+  if (json && meta) {
+    json['__superjsonMeta'] = meta
+  }
+  return JSON.stringify(json ?? null, null, indent ? 2 : undefined)
 }

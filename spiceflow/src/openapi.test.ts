@@ -5,7 +5,7 @@ import { openapi } from './openapi.ts'
 import { Spiceflow } from './spiceflow.ts'
 
 test('openapi response', async () => {
-  const app = new Spiceflow()
+  const app = new Spiceflow({ basePath: '/base' })
     .use(
       openapi({
         info: {
@@ -156,73 +156,73 @@ test('openapi response', async () => {
       ),
     )
   const openapiSchema = await app
-    .handle(new Request('http://localhost/openapi'))
+    .handle(new Request('http://localhost/base/openapi'))
     .then((x) => x.json())
   expect(openapiSchema).toMatchInlineSnapshot(`
     {
       "__superjsonMeta": {
         "values": {
-          "paths./addBody.patch.responses.200.content.application/json.schema.items": [
+          "paths./base/addBody.patch.responses.200.content.application/json.schema.items": [
             "undefined",
           ],
-          "paths./addBody.patch.responses.200.content.application/json.schema.patternProperties": [
+          "paths./base/addBody.patch.responses.200.content.application/json.schema.patternProperties": [
             "undefined",
           ],
-          "paths./addBody.patch.responses.200.content.application/json.schema.required": [
+          "paths./base/addBody.patch.responses.200.content.application/json.schema.required": [
             "undefined",
           ],
-          "paths./formWithSchemaForm.post.responses.200.content.multipart/form-data.schema.items": [
+          "paths./base/formWithSchemaForm.post.responses.200.content.multipart/form-data.schema.items": [
             "undefined",
           ],
-          "paths./formWithSchemaForm.post.responses.200.content.multipart/form-data.schema.patternProperties": [
+          "paths./base/formWithSchemaForm.post.responses.200.content.multipart/form-data.schema.patternProperties": [
             "undefined",
           ],
-          "paths./one/ids/{id}.get.parameters.0.description": [
+          "paths./base/one/ids/{id}.get.parameters.0.description": [
             "undefined",
           ],
-          "paths./one/ids/{id}.get.parameters.0.examples": [
+          "paths./base/one/ids/{id}.get.parameters.0.examples": [
             "undefined",
           ],
-          "paths./one/ids/{id}.get.responses.404.content.application/json.schema.items": [
+          "paths./base/one/ids/{id}.get.responses.404.content.application/json.schema.items": [
             "undefined",
           ],
-          "paths./one/ids/{id}.get.responses.404.content.application/json.schema.patternProperties": [
+          "paths./base/one/ids/{id}.get.responses.404.content.application/json.schema.patternProperties": [
             "undefined",
           ],
-          "paths./queryParams.get.parameters.0.description": [
+          "paths./base/queryParams.get.parameters.0.description": [
             "undefined",
           ],
-          "paths./queryParams.get.parameters.0.examples": [
+          "paths./base/queryParams.get.parameters.0.examples": [
             "undefined",
           ],
-          "paths./queryParams.get.responses.200.content.application/json.schema.items": [
+          "paths./base/queryParams.get.responses.200.content.application/json.schema.items": [
             "undefined",
           ],
-          "paths./queryParams.get.responses.200.content.application/json.schema.patternProperties": [
+          "paths./base/queryParams.get.responses.200.content.application/json.schema.patternProperties": [
             "undefined",
           ],
-          "paths./queryParams.get.responses.200.content.application/json.schema.required": [
+          "paths./base/queryParams.get.responses.200.content.application/json.schema.required": [
             "undefined",
           ],
-          "paths./queryParams.post.responses.200.content.application/json.schema.items": [
+          "paths./base/queryParams.post.responses.200.content.application/json.schema.items": [
             "undefined",
           ],
-          "paths./queryParams.post.responses.200.content.application/json.schema.patternProperties": [
+          "paths./base/queryParams.post.responses.200.content.application/json.schema.patternProperties": [
             "undefined",
           ],
-          "paths./queryParams.post.responses.200.content.application/json.schema.required": [
+          "paths./base/queryParams.post.responses.200.content.application/json.schema.required": [
             "undefined",
           ],
-          "paths./streamWithSchema.get.responses.200.content.application/json.schema.items": [
+          "paths./base/streamWithSchema.get.responses.200.content.application/json.schema.items": [
             "undefined",
           ],
-          "paths./streamWithSchema.get.responses.200.content.application/json.schema.patternProperties": [
+          "paths./base/streamWithSchema.get.responses.200.content.application/json.schema.patternProperties": [
             "undefined",
           ],
-          "paths./two/ids/{id}.get.parameters.0.description": [
+          "paths./base/two/ids/{id}.get.parameters.0.description": [
             "undefined",
           ],
-          "paths./two/ids/{id}.get.parameters.0.examples": [
+          "paths./base/two/ids/{id}.get.parameters.0.examples": [
             "undefined",
           ],
         },
@@ -237,7 +237,7 @@ test('openapi response', async () => {
       },
       "openapi": "3.1.3",
       "paths": {
-        "/addBody": {
+        "/base/addBody": {
           "patch": {
             "parameters": [],
             "requestBody": {
@@ -288,7 +288,7 @@ test('openapi response', async () => {
             },
           },
         },
-        "/formWithSchemaForm": {
+        "/base/formWithSchemaForm": {
           "post": {
             "description": "This returns form data with schema",
             "responses": {
@@ -327,7 +327,7 @@ test('openapi response', async () => {
             },
           },
         },
-        "/one/ids/{id}": {
+        "/base/one/ids/{id}": {
           "get": {
             "parameters": [
               {
@@ -383,7 +383,7 @@ test('openapi response', async () => {
             },
           },
         },
-        "/openapi": {
+        "/base/openapi": {
           "get": {
             "responses": {
               "200": {
@@ -405,7 +405,7 @@ test('openapi response', async () => {
             },
           },
         },
-        "/queryParams": {
+        "/base/queryParams": {
           "get": {
             "parameters": [
               {
@@ -501,7 +501,7 @@ test('openapi response', async () => {
             },
           },
         },
-        "/stream": {
+        "/base/stream": {
           "get": {
             "description": "This is a stream",
             "responses": {
@@ -527,7 +527,7 @@ test('openapi response', async () => {
             },
           },
         },
-        "/streamWithSchema": {
+        "/base/streamWithSchema": {
           "get": {
             "description": "This is a stream with schema",
             "responses": {
@@ -565,7 +565,7 @@ test('openapi response', async () => {
             },
           },
         },
-        "/two/ids/{id}": {
+        "/base/two/ids/{id}": {
           "get": {
             "parameters": [
               {
