@@ -48,7 +48,7 @@ export class FetchMCPCLientTransport implements Transport {
   }
 
   log(...x: any[]) {
-    console.log(...x)
+    // console.log(...x)
     //
   }
   async consumeEvents() {

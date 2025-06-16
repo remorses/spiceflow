@@ -64,23 +64,6 @@ describe('ai sdk mcp', () => {
       url: 'http://localhost/mcp',
     })
 
-    const client = new Client(
-      {
-        name: 'example-client',
-        version: '1.0.0',
-      },
-      {
-        capabilities: {},
-      },
-    )
-
-    await client.connect(transport)
-    expect(await client.listTools()).toMatchInlineSnapshot(`
-      {
-        "tools": [],
-      }
-    `)
-
     const customClient = await experimental_createMCPClient({
       transport: transport,
 
@@ -94,7 +77,114 @@ describe('ai sdk mcp', () => {
 
     const tools = await customClient.tools()
 
-    expect(tools).toMatchInlineSnapshot(`{}`)
+    expect(tools).toMatchInlineSnapshot(`
+      {
+        "GET /goSomething": {
+          "description": "GET /goSomething",
+          "execute": [Function],
+          "parameters": {
+            "_type": undefined,
+            "jsonSchema": {
+              "additionalProperties": false,
+              "properties": {},
+              "type": "object",
+            },
+            "validate": undefined,
+            Symbol(vercel.ai.schema): true,
+            Symbol(vercel.ai.validator): true,
+          },
+        },
+        "GET /search": {
+          "description": "GET /search",
+          "execute": [Function],
+          "parameters": {
+            "_type": undefined,
+            "jsonSchema": {
+              "additionalProperties": false,
+              "properties": {
+                "query": {
+                  "properties": {
+                    "limit": {
+                      "type": "number",
+                    },
+                    "q": {
+                      "type": "string",
+                    },
+                  },
+                  "required": [
+                    "q",
+                    "limit",
+                  ],
+                  "type": "object",
+                },
+              },
+              "type": "object",
+            },
+            "validate": undefined,
+            Symbol(vercel.ai.schema): true,
+            Symbol(vercel.ai.validator): true,
+          },
+        },
+        "GET /somethingElse/{id}": {
+          "description": "GET /somethingElse/{id}",
+          "execute": [Function],
+          "parameters": {
+            "_type": undefined,
+            "jsonSchema": {
+              "additionalProperties": false,
+              "properties": {
+                "params": {
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                    },
+                  },
+                  "required": [
+                    "id",
+                  ],
+                  "type": "object",
+                },
+              },
+              "type": "object",
+            },
+            "validate": undefined,
+            Symbol(vercel.ai.schema): true,
+            Symbol(vercel.ai.validator): true,
+          },
+        },
+        "POST /somethingElse/{id}": {
+          "description": "POST /somethingElse/{id}",
+          "execute": [Function],
+          "parameters": {
+            "_type": undefined,
+            "jsonSchema": {
+              "additionalProperties": false,
+              "properties": {
+                "body": {},
+                "params": {
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                    },
+                  },
+                  "required": [
+                    "id",
+                  ],
+                  "type": "object",
+                },
+              },
+              "required": [
+                "body",
+              ],
+              "type": "object",
+            },
+            "validate": undefined,
+            Symbol(vercel.ai.schema): true,
+            Symbol(vercel.ai.validator): true,
+          },
+        },
+      }
+    `)
   })
 })
 

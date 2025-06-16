@@ -110,7 +110,7 @@ export async function createMCPServer({
   server.setRequestHandler(ListToolsRequestSchema, async () => {
     const paths = Object.entries(openapi.paths).filter(
       ([path]) =>
-        !['/_mcp_openapi', '/_mcp_config', path, path + '/message'].includes(
+        !['/_mcp_openapi', '/_mcp_config', mcpPath, mcpPath + '/message'].includes(
           path.replace(basePath, ''),
         ),
     )
