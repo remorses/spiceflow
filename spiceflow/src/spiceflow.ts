@@ -458,13 +458,16 @@ export class Spiceflow<
       path: Path
       method: Method
       handler: Handle
-    } & LocalHook<
-      LocalSchema,
-      Schema,
-      Singleton,
-      Definitions['error'],
-      Metadata['macro'],
-      JoinPath<BasePath, Path>
+    } & Omit<
+      LocalHook<
+        LocalSchema,
+        Schema,
+        Singleton,
+        Definitions['error'],
+        Metadata['macro'],
+        JoinPath<BasePath, Path>
+      >,
+      Method extends 'GET' | 'HEAD' ? 'request' : never
     >,
   ): Spiceflow<
     BasePath,
@@ -949,7 +952,6 @@ export class Spiceflow<
     }
   }
 
-
   private getAppAndParents(currentApp?: AnySpiceflow) {
     let root = this.topLevelApp || this
 
@@ -1428,7 +1430,6 @@ function parseQuery(queryString: string) {
 export function cloneDeep(x) {
   return copy(x)
 }
-
 
 function superjsonSerialize(value: any, indent = false) {
   // return JSON.stringify(value)

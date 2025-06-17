@@ -1,5 +1,11 @@
 # spiceflow
 
+## 1.12.3
+
+### Patch Changes
+
+- .request is not allowed for GET routes
+
 ## 1.12.2
 
 ### Patch Changes
