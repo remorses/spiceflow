@@ -479,9 +479,9 @@ function getJsonSchema(schema: TypeSchema) {
     return rest as any
   }
   if (isZodSchema(schema)) {
-    let jsonSchema = zodToJsonSchema(schema, {
+    let jsonSchema = zodToJsonSchema(schema as any, {
       removeAdditionalStrategy: 'strict',
-    })
+    }) as any
     const { $schema, ...rest } = jsonSchema
     return rest as any
   }
