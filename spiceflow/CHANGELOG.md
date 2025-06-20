@@ -1,5 +1,11 @@
 # spiceflow
 
+## 1.13.0
+
+### Minor Changes
+
+- Add waitUntil
+
 ## 1.12.3
 
 ### Patch Changes

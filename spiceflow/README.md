@@ -284,7 +284,7 @@ const app = new Spiceflow()
     handler({ params, query }) {
       const { provider, userId } = params
       const { code, state } = query
-      
+
       // Handle OAuth callback logic here
       return {
         provider,
@@ -300,7 +300,7 @@ const app = new Spiceflow()
     handler({ request }) {
       const userId = '12345'
       const provider = 'google'
-      
+
       // Build the OAuth callback URL safely
       const callbackUrl = new URL(
         app.safePath('/auth/callback/:provider/:userId', {
@@ -309,14 +309,14 @@ const app = new Spiceflow()
         }),
         'https://myapp.com'
       ).toString()
-      
+
       // Redirect to OAuth provider with callback URL
       const oauthUrl = `https://accounts.google.com/oauth/authorize?` +
         `client_id=your-client-id&` +
         `redirect_uri=${encodeURIComponent(callbackUrl)}&` +
         `response_type=code&` +
         `scope=openid%20profile%20email`
-      
+
       return { redirectUrl: oauthUrl }
     },
   })
@@ -988,3 +988,106 @@ for await (const data of stream) {
 const response = await sdk.getUsers()
 console.log('Users:', response)
 ```
+
+## Background tasks with waitUntil
+
+Spiceflow provides a `waitUntil` function in the handler context that allows you to schedule tasks in the background in a cross platform way. It will use the Cloudflare workers waitUntil if present. It's currently a no op in Node.js.
+
+### Basic Usage
+
+```ts
+import { Spiceflow } from 'spiceflow'
+
+const app = new Spiceflow()
+  .route({
+    method: 'POST',
+    path: '/process',
+    async handler({ request, waitUntil }) {
+      const data = await request.json()
+
+      // Schedule background task
+      waitUntil(
+        fetch('https://analytics.example.com/track', {
+          method: 'POST',
+          body: JSON.stringify({ event: 'data_processed', data }),
+        })
+      )
+
+      // Return response immediately
+      return { success: true, id: Math.random().toString(36) }
+    },
+  })
+```
+
+### Cloudflare Workers Integration
+
+In Cloudflare Workers, `waitUntil` is automatically detected from the global context:
+
+```ts
+import { Spiceflow } from 'spiceflow'
+
+const app = new Spiceflow()
+  .route({
+    method: 'POST',
+    path: '/webhook',
+    async handler({ request, waitUntil }) {
+      const payload = await request.json()
+
+      // Process webhook data in background
+      waitUntil(
+        processWebhookData(payload)
+          .then(() => console.log('Webhook processed'))
+          .catch(err => console.error('Webhook processing failed:', err))
+      )
+
+      // Respond immediately to webhook sender
+      return new Response('OK', { status: 200 })
+    },
+  })
+
+async function processWebhookData(payload: any) {
+  // Simulate time-consuming processing
+  await new Promise(resolve => setTimeout(resolve, 1000))
+  // Save to database, send notifications, etc.
+}
+
+export default {
+  fetch(request: Request, env: any, ctx: ExecutionContext) {
+    return app.handle(request)
+  },
+}
+```
+
+### Custom waitUntil Function
+
+You can also provide your own `waitUntil` implementation:
+
+```ts
+import { Spiceflow } from 'spiceflow'
+
+const app = new Spiceflow({
+  waitUntil: (promise) => {
+    // Custom implementation for non-Cloudflare environments
+    promise.catch(err => console.error('Background task failed:', err))
+  }
+})
+  .route({
+    method: 'GET',
+    path: '/analytics',
+    async handler({ waitUntil }) {
+      // Schedule analytics tracking
+      waitUntil(
+        trackPageView('/analytics')
+      )
+
+      return { message: 'Analytics page loaded' }
+    },
+  })
+
+async function trackPageView(path: string) {
+  // Track page view in analytics system
+  console.log(`Page view tracked: ${path}`)
+}
+```
+
+**Note:** In non-Cloudflare environments, if no custom `waitUntil` function is provided, the default implementation is a no-op function that doesn't wait for the promises to complete.
