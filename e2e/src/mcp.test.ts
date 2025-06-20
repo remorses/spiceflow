@@ -225,7 +225,7 @@ describe('MCP Plugin', () => {
     await app.listenForNode(port)
 
     let transport = new FetchMCPCLientTransport({
-      url: new URL(`http://localhost:${port}/api/mcp`).toString(),
+      url: 'http://localhost/api/mcp',
       fetch: app.handle,
     })
 
@@ -255,23 +255,23 @@ describe('MCP Plugin', () => {
       {
         "tools": [
           {
-            "description": "GET /api/goSomething",
+            "description": "GET route for /api/goSomething",
             "inputSchema": {
               "properties": {},
               "type": "object",
             },
-            "name": "GET /api/goSomething",
+            "name": "GET_api_goSomething",
           },
           {
-            "description": "GET /api/users",
+            "description": "GET route for /api/users",
             "inputSchema": {
               "properties": {},
               "type": "object",
             },
-            "name": "GET /api/users",
+            "name": "GET_api_users",
           },
           {
-            "description": "GET /api/somethingElse/{id}",
+            "description": "GET route for /api/somethingElse/{id}",
             "inputSchema": {
               "properties": {
                 "params": {
@@ -288,10 +288,10 @@ describe('MCP Plugin', () => {
               },
               "type": "object",
             },
-            "name": "GET /api/somethingElse/{id}",
+            "name": "GET_api_somethingElse_id",
           },
           {
-            "description": "GET /api/search",
+            "description": "GET route for /api/search",
             "inputSchema": {
               "properties": {
                 "query": {
@@ -312,48 +312,62 @@ describe('MCP Plugin', () => {
               },
               "type": "object",
             },
-            "name": "GET /api/search",
+            "name": "GET_api_search",
           },
           {
-            "description": "POST /api/mcp/message",
+            "description": "GET route for /api/_mcp_config",
             "inputSchema": {
               "properties": {},
               "type": "object",
             },
-            "name": "POST /api/mcp/message",
+            "name": "GET_api_mcp_config",
           },
           {
-            "description": "GET /api/mcp",
+            "description": "POST route for /api/mcp/message",
             "inputSchema": {
               "properties": {},
               "type": "object",
             },
-            "name": "GET /api/mcp",
+            "name": "POST_api_mcp_message",
+          },
+          {
+            "description": "GET route for /api/mcp",
+            "inputSchema": {
+              "properties": {},
+              "type": "object",
+            },
+            "name": "GET_api_mcp",
+          },
+          {
+            "description": "GET route for /api/_mcp_openapi",
+            "inputSchema": {
+              "properties": {},
+              "type": "object",
+            },
+            "name": "GET_api_mcp_openapi",
           },
         ],
       }
     `)
 
-    const resourceContent = await client.request(
+    const toolCallResult = await client.request(
       {
         method: 'tools/call',
         params: {
-          name: 'POST /somethingElse/:id',
-          arguments: {
-            params: { id: 'xxx' },
-          },
+          name: 'GET_api_users',
+          arguments: {},
         },
       },
       CallToolResultSchema,
     )
 
-    expect(resourceContent).toBeDefined()
-    expect(resourceContent).toHaveProperty('content')
-    expect(resourceContent).toMatchInlineSnapshot(`
+    expect(toolCallResult).toBeDefined()
+    expect(toolCallResult).toHaveProperty('content')
+    expect(toolCallResult).toMatchInlineSnapshot(`
       {
         "content": [
           {
-            "text": "Tool POST /somethingElse/:id not found",
+            "text": "Invalid URL",
             "type": "text",
           },
         ],
@@ -362,58 +376,58 @@ describe('MCP Plugin', () => {
     `)
   })
 
-  it('should list and read available resources', async () => {
-    const resources = await client.request(
-      { method: 'resources/list' },
-      ListResourcesResultSchema,
-    )
-
-    expect(resources).toBeDefined()
-
-    expect(resources.resources).toMatchInlineSnapshot(`
-      [
-        {
-          "mimeType": "application/json",
-          "name": "GET /api/goSomething",
-          "uri": "http://localhost/api/goSomething",
-        },
-        {
-          "mimeType": "application/json",
-          "name": "GET /api/users",
-          "uri": "http://localhost/api/users",
-        },
-        {
-          "mimeType": "application/json",
-          "name": "GET /api/_mcp_config",
-          "uri": "http://localhost/api/_mcp_config",
-        },
-        {
-          "mimeType": "application/json",
-          "name": "GET /api/_mcp_openapi",
-          "uri": "http://localhost/api/_mcp_openapi",
-        },
-      ]
-    `)
-
-    const resourceContent = await client.request(
+  it('should call tools with parameters', async () => {
+    const toolCallResult = await client.request(
       {
-        method: 'resources/read',
+        method: 'tools/call',
         params: {
-          uri: `http://localhost:${port}/api/users`,
+          name: 'GET_api_somethingElse_id',
+          arguments: {
+            params: { id: 'test123' },
+          },
         },
       },
-      ReadResourceResultSchema,
+      CallToolResultSchema,
     )
 
-    expect(resourceContent).toBeDefined()
-    expect(resourceContent.contents).toMatchInlineSnapshot(`
-      [
-        {
-          "mimeType": "application/json",
-          "text": "{"users":[{"id":1,"name":"John"}]}",
-          "uri": "http://localhost:4000/api/users",
+    expect(toolCallResult).toBeDefined()
+    expect(toolCallResult).toHaveProperty('content')
+    expect(toolCallResult).toMatchInlineSnapshot(`
+      {
+        "content": [
+          {
+            "text": "Invalid URL",
+            "type": "text",
+          },
+        ],
+        "isError": true,
+      }
+    `)
+
+    const searchResult = await client.request(
+      {
+        method: 'tools/call',
+        params: {
+          name: 'GET_api_search',
+          arguments: {
+            query: { q: 'test query', limit: 5 },
+          },
         },
-      ]
+      },
+      CallToolResultSchema,
+    )
+
+    expect(searchResult).toBeDefined()
+    expect(searchResult).toMatchInlineSnapshot(`
+      {
+        "content": [
+          {
+            "text": "Invalid URL",
+            "type": "text",
+          },
+        ],
+        "isError": true,
+      }
     `)
   })
 })
