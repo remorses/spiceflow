@@ -47,6 +47,8 @@ export type SpiceflowServerError =
   | SpiceflowFetchError<number, any>
   | Error
 
+export type WaitUntil = (promise: Promise<any>) => void
+
 type OnError = (x: {
   error: SpiceflowServerError
   request: Request
@@ -106,6 +108,7 @@ export class Spiceflow<
   private routes: InternalRoute[] = []
   private defaultState: Record<any, any> = {}
   topLevelApp?: AnySpiceflow = this
+  private waitUntilFn: WaitUntil
 
   _types = {
     Prefix: '' as BasePath,
@@ -284,11 +287,17 @@ export class Spiceflow<
     options: {
       name?: string
       scoped?: Scoped
-
+      waitUntil?: WaitUntil
       basePath?: BasePath
     } = {},
   ) {
     this.scoped = options.scoped
+    
+    // Set up waitUntil function - use provided one, global one, or noop
+    this.waitUntilFn = options.waitUntil || 
+      (typeof globalThis !== 'undefined' && 'waitUntil' in globalThis 
+        ? (globalThis as any).waitUntil 
+        : () => {})
 
     this.basePath = options.basePath || ''
     if (this.basePath === '/') {
@@ -851,6 +860,7 @@ export class Spiceflow<
       query: parseQuery((u.search || '').slice(1)),
       params: _params,
       redirect,
+      waitUntil: this.waitUntilFn,
     } satisfies MiddlewareContext<any>
     let handlerResponse: Response | undefined
     async function getResForError(err: any) {

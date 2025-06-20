@@ -13,7 +13,7 @@ import type {
   GetRequestSchema,
 } from './types.ts'
 
-import { SpiceflowRequest } from './spiceflow.ts'
+import { SpiceflowRequest, WaitUntil } from './spiceflow.ts'
 
 export type ErrorContext<
   in out Route extends RouteSchema = {},
@@ -55,6 +55,7 @@ export type ErrorContext<
   // route: string
   request: SpiceflowRequest<GetRequestSchema<Route>>
   state: Singleton['state']
+  waitUntil: WaitUntil
   // response: Route['response']
 }>
 
@@ -83,6 +84,7 @@ export type Context<
 
   request: SpiceflowRequest<GetRequestSchema<Route>>
   state: Singleton['state']
+  waitUntil: WaitUntil
   // response?: Route['response']
 }>
 
@@ -97,6 +99,7 @@ export type MiddlewareContext<
   path: string
   query?: Record<string, string | undefined>
   params?: Record<string, string | undefined>
+  waitUntil: WaitUntil
 
   redirect: Redirect
   // server: Server | null
