@@ -867,6 +867,20 @@ export class Spiceflow<
     }
 
     let index = 0
+    // Wrap waitUntil with error handling
+    const wrappedWaitUntil: WaitUntil = (promise: Promise<any>) => {
+      const wrappedPromise = promise.catch(async (error) => {
+        const spiceflowError: SpiceflowServerError =
+          error instanceof Error ? error : new Error(String(error))
+        await this.runErrorHandlers({
+          onErrorHandlers: onErrorHandlers,
+          error: spiceflowError,
+          request,
+        })
+      })
+      return this.waitUntilFn(wrappedPromise)
+    }
+
     let context = {
       ...defaultContext,
       request,
@@ -875,7 +889,7 @@ export class Spiceflow<
       query: parseQuery((u.search || '').slice(1)),
       params: _params,
       redirect,
-      waitUntil: this.waitUntilFn,
+      waitUntil: wrappedWaitUntil,
     } satisfies MiddlewareContext<any>
     let handlerResponse: Response | undefined
     async function getResForError(err: any) {
