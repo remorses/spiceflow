@@ -1,5 +1,17 @@
 # spiceflow
 
+## 1.13.2
+
+### Patch Changes
+
+- move the request check at runtime instead of type
+
+## 1.13.1
+
+### Patch Changes
+
+- Fix types because of an issue with array method params
+
 ## 1.13.0
 
 ### Minor Changes

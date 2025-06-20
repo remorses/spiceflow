@@ -36,17 +36,17 @@ test('* param is a path without front slash', async () => {
   }
 })
 
-test('should error if passing .request option to .route with method GET', () => {
-  new Spiceflow().route({
-    method: 'GET',
-    path: '/abc',
-    handler: () => 'ok',
-    // @ts-expect-error .request is not allowed for GET routes
-    request: z.object({
-      abc: z.string(),
-    }),
-  })
-})
+// test('should error if passing .request option to .route with method GET', () => {
+//   new Spiceflow().route({
+//     method: 'GET',
+//     path: '/abc',
+//     handler: () => 'ok',
+//     // @ts-expect-error .request is not allowed for GET routes
+//     request: z.object({
+//       abc: z.string(),
+//     }),
+//   })
+// })
 
 test('this works to reference app in handler', async () => {
   const res = await new Spiceflow()

@@ -292,11 +292,12 @@ export class Spiceflow<
     } = {},
   ) {
     this.scoped = options.scoped
-    
+
     // Set up waitUntil function - use provided one, global one, or noop
-    this.waitUntilFn = options.waitUntil || 
-      (typeof globalThis !== 'undefined' && 'waitUntil' in globalThis 
-        ? (globalThis as any).waitUntil 
+    this.waitUntilFn =
+      options.waitUntil ||
+      (typeof globalThis !== 'undefined' && 'waitUntil' in globalThis
+        ? (globalThis as any).waitUntil
         : () => {})
 
     this.basePath = options.basePath || ''
@@ -467,16 +468,13 @@ export class Spiceflow<
       path: Path
       method: Method
       handler: Handle
-    } & Omit<
-      LocalHook<
-        LocalSchema,
-        Schema,
-        Singleton,
-        Definitions['error'],
-        Metadata['macro'],
-        JoinPath<BasePath, Path>
-      >,
-      Method extends 'GET' | 'HEAD' ? 'request' : never
+    } & LocalHook<
+      LocalSchema,
+      Schema,
+      Singleton,
+      Definitions['error'],
+      Metadata['macro'],
+      JoinPath<BasePath, Path>
     >,
   ): Spiceflow<
     BasePath,
@@ -502,6 +500,23 @@ export class Spiceflow<
       >,
     RoutePaths | JoinPath<BasePath, Path>
   > {
+    // If options.request is defined, disallow for GET and HEAD (methods that don't support a body)
+    const methodsWithNoBody = ['GET', 'HEAD']
+    const normalizedMethods: string[] = Array.isArray(options.method)
+      ? options.method.map((m) => (typeof m === 'string' ? m.toUpperCase() : m))
+      : [
+          typeof options.method === 'string'
+            ? options.method.toUpperCase()
+            : options.method,
+        ]
+    if (
+      options.request &&
+      normalizedMethods.some((m) => methodsWithNoBody.includes(m))
+    ) {
+      throw new Error(
+        `Request schema ('request') is not allowed on routes with method GET or HEAD`,
+      )
+    }
     if (Array.isArray(options.method)) {
       options.method.map((method) =>
         this.add({
