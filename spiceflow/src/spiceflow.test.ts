@@ -980,3 +980,53 @@ describe('safePath', () => {
     expect(app.safePath('/static')).toBe('/static')
   })
 })
+
+test('composition with .use() works with state and onError - child app gets same state, errors caught by root', async () => {
+  let rootErrorCalled = false
+  let childErrorCalled = false
+  let errorMessage = ''
+
+  const childApp = new Spiceflow()
+    .state('counter', 0)
+    .onError(({ error }) => {
+      childErrorCalled = true
+      return new Response('Child error<', { status: 500 })
+    })
+    .use(({ state }) => {
+      state.counter += 10
+    })
+    .get('/success', ({ state }) => ({ counter: state.counter }))
+    .get('/error', ({ state }) => {
+      state.counter += 5
+      throw new Error('Child error occurred')
+    })
+
+  const rootApp = new Spiceflow()
+    .state('counter', 100)
+    .onError(({ error }) => {
+      rootErrorCalled = true
+      errorMessage = error.message
+      return new Response('Root error handler', { status: 400 })
+    })
+    .use(({ state }) => {
+      state.counter += 1
+    })
+    .use(childApp)
+
+  // Test successful request - state starts from child app (0), then root middleware (+1), then child middleware (+10)
+  const successRes = await rootApp.handle(
+    new Request('http://localhost/success', { method: 'GET' })
+  )
+  expect(successRes.status).toBe(200)
+  expect(await successRes.json()).toEqual({ counter: 11 }) // 0 + 1 + 10
+
+  // Test error case - root onError should catch child errors
+  const errorRes = await rootApp.handle(
+    new Request('http://localhost/error', { method: 'GET' })
+  )
+  expect(errorRes.status).toBe(400)
+  expect(await errorRes.text()).toBe('Root error handler')
+  expect(rootErrorCalled).toBe(true)
+  expect(childErrorCalled).toBe(false) // Child error handler should not be called
+  expect(errorMessage).toBe('Child error occurred')
+})
