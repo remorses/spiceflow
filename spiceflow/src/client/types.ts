@@ -155,6 +155,7 @@ export namespace SpiceflowClient {
         response: Response
         status: number
         headers: RequestInit['headers']
+        url: string
       }
     | {
         data: null
@@ -166,6 +167,7 @@ export namespace SpiceflowClient {
         response: Response
         status: number
         headers: RequestInit['headers']
+        url: string
       }
 
   export interface OnMessage<Data = unknown> extends MessageEvent {

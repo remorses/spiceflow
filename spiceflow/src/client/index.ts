@@ -401,6 +401,7 @@ const createProxy = (
               response,
               status: response.status,
               headers: response.headers,
+              url,
             }
           }
 
@@ -450,6 +451,7 @@ const createProxy = (
             response,
             status: response.status,
             headers: response.headers,
+            url,
           }
         })
       }
