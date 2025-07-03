@@ -45,8 +45,9 @@
     }
   },
   "scripts": {
-    "build": "cp ../README.md ./README.md && rm -rf dist && pnpm tsc",
+    "build": "echo '# DO NOT EDIT: This file is auto-generated from root README.md' > ./README.md && echo '' >> ./README.md && cat ../README.md >> ./README.md && rm -rf dist && pnpm tsc",
     "prepublishOnly": "pnpm build",
+    "typecheck": "pnpm build",
     "gen-openapi": "pnpm tsx scripts/openapi-fern.ts",
     "docs:dev": "pnpm run gen-openapi && fern docs dev",
     "docs:prod": "pnpm run gen-openapi && fern generate --docs --force",

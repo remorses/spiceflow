@@ -33,6 +33,8 @@ npm install spiceflow zod
 
 Objects returned from route handlers are automatically serialized to JSON
 
+> Notice that Spiceflow also has legacy methods for `.port`, `.get` etc. that use a different API with positional arguments. Using `.route` is preferred
+
 ```ts
 import { Spiceflow } from 'spiceflow'
 

@@ -979,6 +979,110 @@ describe('safePath', () => {
 
     expect(app.safePath('/static')).toBe('/static')
   })
+
+  test('all HTTP methods are available in safePath', async () => {
+    // Create app with all routes first so TypeScript knows about all paths
+    const app = new Spiceflow()
+      .get('/api/users', () => 'get users')
+      .post('/api/users', () => 'create user')
+      .put('/api/users/:id', () => 'update user')
+      .patch('/api/users/:id', () => 'patch user')
+      .delete('/api/users/:id', () => 'delete user')
+      .head('/api/status', () => 'status')
+      .options('/api/cors', () => 'cors')
+      .route({
+        method: 'GET',
+        path: '/api/custom',
+        handler: () => 'custom route',
+      })
+
+    // All routes should be accessible via safePath outside handlers
+    expect(app.safePath('/api/users')).toBe('/api/users')
+    expect(app.safePath('/api/users/:id', { id: '123' })).toBe('/api/users/123')
+    expect(app.safePath('/api/status')).toBe('/api/status')
+    expect(app.safePath('/api/cors')).toBe('/api/cors')
+    expect(app.safePath('/api/custom')).toBe('/api/custom')
+
+    // Test that safePath works inside a route handler by creating a separate test
+    const testApp = new Spiceflow()
+      .get('/target', () => 'target')
+      .get('/source', function() {
+        // Should be able to call safePath from inside handler
+        return this.safePath('/target')
+      })
+
+    const res = await testApp.handle(
+      new Request('http://localhost/source', { method: 'GET' })
+    )
+    expect(res.status).toBe(200)
+    expect(await res.json()).toBe('/target')
+  })
+
+  test('paths not in app cause TypeScript errors', () => {
+    const app = new Spiceflow()
+      .get('/api/users', () => 'users')
+      .post('/api/posts', () => 'posts')
+      .put('/api/settings/:id', () => 'settings')
+
+    // Valid paths work
+    expect(app.safePath('/api/users')).toBe('/api/users')
+    expect(app.safePath('/api/posts')).toBe('/api/posts')
+    expect(app.safePath('/api/settings/:id', { id: '1' })).toBe('/api/settings/1')
+
+    // Invalid paths should cause TypeScript errors
+    // @ts-expect-error - Path not defined in app
+    app.safePath('/api/nonexistent')
+    
+    // @ts-expect-error - Path not defined in app
+    app.safePath('/completely/different/path')
+    
+    // @ts-expect-error - Path not defined in app
+    app.safePath('/api/users/invalid')
+    
+    // @ts-expect-error - Wrong parameter name
+    app.safePath('/api/settings/:wrongParam', { wrongParam: '1' })
+  })
+
+  test('safePath works with all method shorthand functions', () => {
+    const app = new Spiceflow()
+      .get('/get-route', () => 'get')
+      .post('/post-route', () => 'post') 
+      .put('/put-route', () => 'put')
+      .patch('/patch-route', () => 'patch')
+      .delete('/delete-route', () => 'delete')
+      .head('/head-route', () => 'head')
+      .options('/options-route', () => 'options')
+      .all('/all-route', () => 'all')
+
+    // All method shortcuts should make paths available in safePath
+    expect(app.safePath('/get-route')).toBe('/get-route')
+    expect(app.safePath('/post-route')).toBe('/post-route')
+    expect(app.safePath('/put-route')).toBe('/put-route')
+    expect(app.safePath('/patch-route')).toBe('/patch-route')
+    expect(app.safePath('/delete-route')).toBe('/delete-route')
+    expect(app.safePath('/head-route')).toBe('/head-route')
+    expect(app.safePath('/options-route')).toBe('/options-route')
+    expect(app.safePath('/all-route')).toBe('/all-route')
+
+    // Invalid routes should fail
+    // @ts-expect-error - Path not defined
+    app.safePath('/invalid-route')
+  })
+
+  test('safePath works inside route handlers', async () => {
+    const app = new Spiceflow()
+      .get('/target', () => 'target reached')
+      .post('/redirect-test', function() {
+        // Should be able to reference other routes in the same app
+        return this.safePath('/target')
+      })
+
+    const res = await app.handle(
+      new Request('http://localhost/redirect-test', { method: 'POST' })
+    )
+    expect(res.status).toBe(200)
+    expect(await res.json()).toBe('/target')
+  })
 })
 
 test('composition with .use() works with state and onError - child app gets same state, errors caught by root', async () => {

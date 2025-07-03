@@ -1,3 +1,4 @@
+<!-- DO NOT EDIT: This file is auto-generated from root README.md -->
 <div align='center' className='w-full'>
     <br/>
     <br/>
@@ -32,6 +33,8 @@ npm install spiceflow zod
 ## Basic Usage
 
 Objects returned from route handlers are automatically serialized to JSON
+
+> Notice that Spiceflow also has legacy methods for `.port`, `.get` etc. that use a different API with positional arguments. Using `.route` is preferred
 
 ```ts
 import { Spiceflow } from 'spiceflow'
@@ -234,6 +237,98 @@ async function exampleUsage() {
   }
 }
 ```
+
+## Safe Path Building
+
+The `safePath` method provides a type-safe way to build URLs with parameters. It helps prevent runtime errors by ensuring all required parameters are provided and properly substituted into the path.
+
+```ts
+import { Spiceflow } from 'spiceflow'
+
+const app = new Spiceflow()
+  .route({
+    method: 'GET',
+    path: '/users/:id',
+    handler({ params }) {
+      return { id: params.id }
+    },
+  })
+  .route({
+    method: 'GET',
+    path: '/users/:id/posts/:postId',
+    handler({ params }) {
+      return { userId: params.id, postId: params.postId }
+    },
+  })
+
+// Building URLs with required parameters
+const userPath = app.safePath('/users/:id', { id: '123' })
+// Result: '/users/123'
+
+// Building URLs with required parameters
+const userPostPath = app.safePath('/users/:id/posts/:postId', {
+  id: '456',
+  postId: 'abc'
+})
+// Result: '/users/456/posts/abc'
+```
+
+### OAuth Callback Example
+
+The `safePath` method is particularly useful when building callback URLs for OAuth flows, where you need to construct URLs dynamically based on user data or session information:
+
+```ts
+import { Spiceflow } from 'spiceflow'
+
+const app = new Spiceflow()
+  .route({
+    method: 'GET',
+    path: '/auth/callback/:provider/:userId',
+    handler({ params, query }) {
+      const { provider, userId } = params
+      const { code, state } = query
+
+      // Handle OAuth callback logic here
+      return {
+        provider,
+        userId,
+        authCode: code,
+        state
+      }
+    },
+  })
+  .route({
+    method: 'POST',
+    path: '/auth/login',
+    handler({ request }) {
+      const userId = '12345'
+      const provider = 'google'
+
+      // Build the OAuth callback URL safely
+      const callbackUrl = new URL(
+        app.safePath('/auth/callback/:provider/:userId', {
+          provider,
+          userId
+        }),
+        'https://myapp.com'
+      ).toString()
+
+      // Redirect to OAuth provider with callback URL
+      const oauthUrl = `https://accounts.google.com/oauth/authorize?` +
+        `client_id=your-client-id&` +
+        `redirect_uri=${encodeURIComponent(callbackUrl)}&` +
+        `response_type=code&` +
+        `scope=openid%20profile%20email`
+
+      return { redirectUrl: oauthUrl }
+    },
+  })
+```
+
+In this example:
+- The callback URL is built safely using `safePath` with type checking
+- Required parameters like `provider` and `userId` must be provided
+- The resulting URL is guaranteed to be properly formatted
 
 ## Mounting Sub-Apps
 
@@ -896,3 +991,106 @@ for await (const data of stream) {
 const response = await sdk.getUsers()
 console.log('Users:', response)
 ```
+
+## Background tasks with waitUntil
+
+Spiceflow provides a `waitUntil` function in the handler context that allows you to schedule tasks in the background in a cross platform way. It will use the Cloudflare workers waitUntil if present. It's currently a no op in Node.js.
+
+### Basic Usage
+
+```ts
+import { Spiceflow } from 'spiceflow'
+
+const app = new Spiceflow()
+  .route({
+    method: 'POST',
+    path: '/process',
+    async handler({ request, waitUntil }) {
+      const data = await request.json()
+
+      // Schedule background task
+      waitUntil(
+        fetch('https://analytics.example.com/track', {
+          method: 'POST',
+          body: JSON.stringify({ event: 'data_processed', data }),
+        })
+      )
+
+      // Return response immediately
+      return { success: true, id: Math.random().toString(36) }
+    },
+  })
+```
+
+### Cloudflare Workers Integration
+
+In Cloudflare Workers, `waitUntil` is automatically detected from the global context:
+
+```ts
+import { Spiceflow } from 'spiceflow'
+
+const app = new Spiceflow()
+  .route({
+    method: 'POST',
+    path: '/webhook',
+    async handler({ request, waitUntil }) {
+      const payload = await request.json()
+
+      // Process webhook data in background
+      waitUntil(
+        processWebhookData(payload)
+          .then(() => console.log('Webhook processed'))
+          .catch(err => console.error('Webhook processing failed:', err))
+      )
+
+      // Respond immediately to webhook sender
+      return new Response('OK', { status: 200 })
+    },
+  })
+
+async function processWebhookData(payload: any) {
+  // Simulate time-consuming processing
+  await new Promise(resolve => setTimeout(resolve, 1000))
+  // Save to database, send notifications, etc.
+}
+
+export default {
+  fetch(request: Request, env: any, ctx: ExecutionContext) {
+    return app.handle(request)
+  },
+}
+```
+
+### Custom waitUntil Function
+
+You can also provide your own `waitUntil` implementation:
+
+```ts
+import { Spiceflow } from 'spiceflow'
+
+const app = new Spiceflow({
+  waitUntil: (promise) => {
+    // Custom implementation for non-Cloudflare environments
+    promise.catch(err => console.error('Background task failed:', err))
+  }
+})
+  .route({
+    method: 'GET',
+    path: '/analytics',
+    async handler({ waitUntil }) {
+      // Schedule analytics tracking
+      waitUntil(
+        trackPageView('/analytics')
+      )
+
+      return { message: 'Analytics page loaded' }
+    },
+  })
+
+async function trackPageView(path: string) {
+  // Track page view in analytics system
+  console.log(`Page view tracked: ${path}`)
+}
+```
+
+**Note:** In non-Cloudflare environments, if no custom `waitUntil` function is provided, the default implementation is a no-op function that doesn't wait for the promises to complete.
