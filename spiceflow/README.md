@@ -1,3 +1,5 @@
+# DO NOT EDIT: This file is auto-generated from root README.md
+
 <div align='center' className='w-full'>
     <br/>
     <br/>
