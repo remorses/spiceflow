@@ -1134,3 +1134,61 @@ test('composition with .use() works with state and onError - child app gets same
   expect(childErrorCalled).toBe(false) // Child error handler should not be called
   expect(errorMessage).toBe('Child error occurred')
 })
+
+test('onError receives path parameter', async () => {
+  let capturedPath = ''
+  let capturedError: any = null
+  
+  const app = new Spiceflow()
+    .get('/test/path/:id', ({ params }) => {
+      throw new Error('Test error')
+    })
+    .post('/another/route', () => {
+      throw new Error('Another error')
+    })
+    .onError(({ error, path }) => {
+      capturedPath = path
+      capturedError = error
+      return new Response('Error handled', { status: 500 })
+    })
+
+  // Test GET request
+  const getRes = await app.handle(
+    new Request('http://localhost/test/path/123?foo=bar', { method: 'GET' })
+  )
+  expect(getRes.status).toBe(500)
+  expect(capturedPath).toBe('/test/path/123?foo=bar')
+  expect(capturedError.message).toBe('Test error')
+
+  // Test POST request
+  const postRes = await app.handle(
+    new Request('http://localhost/another/route', { method: 'POST' })
+  )
+  expect(postRes.status).toBe(500)
+  expect(capturedPath).toBe('/another/route')
+  expect(capturedError.message).toBe('Another error')
+})
+
+test('error status validation', async () => {
+  // Test invalid status codes are normalized to 500
+  const testCases = [
+    { status: 'invalid', expected: 500 }, // non-number status
+    { status: 99, expected: 500 }, // too low
+    { status: 600, expected: 500 }, // too high
+    { status: 404, expected: 404 }, // valid status
+    { status: undefined, expected: 500 }, // undefined defaults to 500
+  ]
+
+  for (const { status, expected } of testCases) {
+    const app = new Spiceflow().get('/test', () => {
+      const error: any = new Error('Test error')
+      error.status = status
+      throw error
+    })
+
+    const res = await app.handle(
+      new Request('http://localhost/test', { method: 'GET' })
+    )
+    expect(res.status).toBe(expected)
+  }
+})

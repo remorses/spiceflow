@@ -34,7 +34,7 @@ import { ZodType } from 'zod'
 import { StandardSchemaV1 } from '@standard-schema/spec'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { handleForNode, listenForNode } from 'spiceflow/_node-server'
-import { MiddlewareContext } from './context.ts'
+import { Context, MiddlewareContext } from './context.ts'
 
 import { isAsyncIterable, isResponse, redirect } from './utils.ts'
 
@@ -52,6 +52,7 @@ export type WaitUntil = (promise: Promise<any>) => void
 type OnError = (x: {
   error: SpiceflowServerError
   request: Request
+  path: string
 }) => AsyncResponse
 
 type ValidationFunction = (
@@ -873,6 +874,7 @@ export class Spiceflow<
         const spiceflowError: SpiceflowServerError =
           error instanceof Error ? error : new Error(String(error))
         await this.runErrorHandlers({
+          context: { ...defaultContext, state, request, path, redirect },
           onErrorHandlers: onErrorHandlers,
           error: spiceflowError,
           request,
@@ -895,6 +897,7 @@ export class Spiceflow<
     async function getResForError(err: any) {
       if (isResponse(err)) return err
       let res = await self.runErrorHandlers({
+        context,
         onErrorHandlers,
         error: err,
         request,
@@ -902,6 +905,10 @@ export class Spiceflow<
       if (isResponse(res)) return res
 
       let status = err?.status ?? 500
+      // Ensure status is a valid HTTP status code (100-599)
+      if (typeof status !== 'number' || status < 100 || status > 599) {
+        status = 500
+      }
       res ||= new Response(
         superjsonSerialize({
           ...err,
@@ -975,15 +982,22 @@ export class Spiceflow<
   }
 
   private async runErrorHandlers({
+    context,
     onErrorHandlers = [] as OnError[],
     error: err,
     request,
+  }: {
+    context: Partial<MiddlewareContext>
+    onErrorHandlers?: OnError[]
+    error: SpiceflowServerError
+    request: Request
   }) {
     if (onErrorHandlers.length === 0) {
       console.error(`Spiceflow unhandled error:`, err)
     } else {
       for (const errHandler of onErrorHandlers) {
-        const res = errHandler({ error: err, request })
+        const path = new URL(request.url).pathname
+        const res = errHandler({ path, ...context, error: err, request })
         if (isResponse(res)) {
           return res
         }
@@ -1195,6 +1209,7 @@ export class Spiceflow<
             }
           } catch (error: any) {
             let res = await self.runErrorHandlers({
+              context: {},
               onErrorHandlers: onErrorHandlers,
               error,
               request,
