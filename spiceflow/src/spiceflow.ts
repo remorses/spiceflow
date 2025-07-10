@@ -132,9 +132,7 @@ export class Spiceflow<
     let root = this.topLevelApp || this
     const allApps = bfs(root) || []
     const allRoutes = allApps.flatMap((x) => {
-      const prefix = this.getAppAndParents(x)
-        .map((x) => x.basePath)
-        .join('')
+      const prefix = this.joinBasePaths(this.getAppAndParents(x).map((x) => x.basePath))
 
       return x.routes.map((x) => ({ ...x, path: prefix + x.path }))
     })
@@ -185,9 +183,7 @@ export class Spiceflow<
     path = path.replace(/\/$/, '') || '/'
     const result = bfsFind(this, (app) => {
       app.topLevelApp = root
-      let prefix = this.getAppAndParents(app)
-        .map((x) => x.basePath)
-        .join('')
+      let prefix = this.joinBasePaths(this.getAppAndParents(app).map((x) => x.basePath))
         .replace(/\/$/, '')
       if (prefix && !path.startsWith(prefix)) {
         return
@@ -1003,6 +999,15 @@ export class Spiceflow<
         }
       }
     }
+  }
+
+  private joinBasePaths(basePaths: (string | undefined)[]): string {
+    // Filter out empty/undefined paths and remove consecutive duplicates
+    const filteredPaths = basePaths
+      .filter((path) => path && path !== '')
+      .filter((path, index, arr) => index === 0 || path !== arr[index - 1])
+    
+    return filteredPaths.join('')
   }
 
   private getAppAndParents(currentApp?: AnySpiceflow) {

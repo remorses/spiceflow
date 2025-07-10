@@ -751,6 +751,45 @@ test('use with nested basPath works', async () => {
   }
 })
 
+test('does not append subapp basePath if it is the same as parent app', async () => {
+  const app = new Spiceflow({ basePath: '/api' })
+    .use(
+      new Spiceflow({ basePath: '/api' }).get('/users', () => 'users'),
+    )
+    .use(
+      new Spiceflow({ basePath: '/api' }).use(
+        new Spiceflow({ basePath: '/v1' }).get('/posts', () => 'posts'),
+      ),
+    )
+  
+  // Test that /api/users works (not /api/api/users)
+  {
+    const res = await app.handle(
+      new Request('http://localhost/api/users', { method: 'GET' }),
+    )
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual('users')
+  }
+
+  // Test that /api/v1/posts works (not /api/api/v1/posts)
+  {
+    const res = await app.handle(
+      new Request('http://localhost/api/v1/posts', { method: 'GET' }),
+    )
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual('posts')
+  }
+
+  // Test that getAllRoutes() doesn't contain duplicate basePaths
+  const allRoutes = app.getAllRoutes()
+  expect(allRoutes.map(route => route.path)).toMatchInlineSnapshot(`
+    [
+      "/api/users",
+      "/api/v1/posts",
+    ]
+  `)
+})
+
 test('errors inside basPath works', async () => {
   let onErrorTriggered = [] as string[]
   let onReqTriggered = [] as string[]
