@@ -1192,3 +1192,26 @@ test('error status validation', async () => {
     expect(res.status).toBe(expected)
   }
 })
+
+test('error statusCode fallback', async () => {
+  // Test that statusCode is used when status is not present
+  const testCases = [
+    { statusCode: 422, expected: 422 }, // valid statusCode
+    { statusCode: 'invalid', expected: 500 }, // invalid statusCode
+    { status: 400, statusCode: 422, expected: 400 }, // status takes precedence
+  ]
+
+  for (const { statusCode, expected, status } of testCases) {
+    const app = new Spiceflow().get('/test', () => {
+      const error: any = new Error('Test error')
+      if (status !== undefined) error.status = status
+      if (statusCode !== undefined) error.statusCode = statusCode
+      throw error
+    })
+
+    const res = await app.handle(
+      new Request('http://localhost/test', { method: 'GET' })
+    )
+    expect(res.status).toBe(expected)
+  }
+})

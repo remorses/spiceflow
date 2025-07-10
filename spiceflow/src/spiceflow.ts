@@ -904,7 +904,7 @@ export class Spiceflow<
       })
       if (isResponse(res)) return res
 
-      let status = err?.status ?? 500
+      let status = err?.status ?? err?.statusCode ?? 500
       // Ensure status is a valid HTTP status code (100-599)
       if (typeof status !== 'number' || status < 100 || status > 599) {
         status = 500
