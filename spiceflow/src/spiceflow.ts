@@ -1004,10 +1004,25 @@ export class Spiceflow<
   private joinBasePaths(basePaths: (string | undefined)[]): string {
     // Filter out empty/undefined paths and remove consecutive duplicates
     const filteredPaths = basePaths
-      .filter((path) => path && path !== '')
+      .filter((path): path is string => path !== undefined && path !== '')
       .filter((path, index, arr) => index === 0 || path !== arr[index - 1])
     
-    return filteredPaths.join('')
+    // Skip paths that are prefixes of the previous path (parent is prefix of child)
+    const result: string[] = []
+    for (let i = 0; i < filteredPaths.length; i++) {
+      const currentPath = filteredPaths[i]
+      const previousPath = result[result.length - 1]
+      
+      // Skip if the previous path is a prefix of the current path
+      if (previousPath && currentPath.startsWith(previousPath)) {
+        // Replace the previous path with the current path (which is longer)
+        result[result.length - 1] = currentPath
+      } else {
+        result.push(currentPath)
+      }
+    }
+    
+    return result.join('')
   }
 
   private getAppAndParents(currentApp?: AnySpiceflow) {
