@@ -1006,13 +1006,13 @@ export class Spiceflow<
     const filteredPaths = basePaths
       .filter((path): path is string => path !== undefined && path !== '')
       .filter((path, index, arr) => index === 0 || path !== arr[index - 1])
-    
+
     // Skip paths that are prefixes of the previous path (parent is prefix of child)
     const result: string[] = []
     for (let i = 0; i < filteredPaths.length; i++) {
       const currentPath = filteredPaths[i]
       const previousPath = result[result.length - 1]
-      
+
       // Skip if the previous path is a prefix of the current path
       if (previousPath && currentPath.startsWith(previousPath)) {
         // Replace the previous path with the current path (which is longer)
@@ -1021,7 +1021,7 @@ export class Spiceflow<
         result.push(currentPath)
       }
     }
-    
+
     return result.join('')
   }
 
@@ -1104,7 +1104,7 @@ export class Spiceflow<
         server.hostname === '0.0.0.0' ? 'localhost' : server.hostname
       console.log(`Listening on http://${displayedHost}:${server.port}`)
 
-      return server
+      return {port: server.port, server}
     }
 
     return this.listenForNode(port, hostname)

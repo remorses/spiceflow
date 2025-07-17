@@ -11,7 +11,7 @@ export async function listenForNode(
   app: AnySpiceflow,
   port: number,
   hostname: string = '0.0.0.0',
-): Promise<Server<typeof IncomingMessage, typeof ServerResponse>> {
+): Promise<{port: number, server: Server<typeof IncomingMessage, typeof ServerResponse>}> {
   const server = createServer((req, res) => {
     return app.handleForNode(req, res)
   })
@@ -28,7 +28,8 @@ export async function listenForNode(
     })
   })
 
-  return server
+  const actualPort = (server.address() as AddressInfo).port
+  return {port: actualPort, server}
 }
 
 export async function handleForNode(
