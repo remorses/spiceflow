@@ -991,6 +991,135 @@ const response = await sdk.getUsers()
 console.log('Users:', response)
 ```
 
+## Working with Cookies
+
+Spiceflow works with standard Request and Response objects, so you can use any cookie library like the `cookie` npm package to handle cookies:
+
+```ts
+import { Spiceflow } from 'spiceflow'
+import { parse, serialize } from 'cookie'
+
+const app = new Spiceflow()
+  .route({
+    method: 'GET',
+    path: '/set-cookie',
+    handler({ request }) {
+      // Read existing cookies from the request
+      const cookies = parse(request.headers.get('Cookie') || '')
+      
+      // Create response with a new cookie
+      const response = new Response(
+        JSON.stringify({ 
+          message: 'Cookie set!', 
+          existingCookies: cookies 
+        }),
+        {
+          headers: {
+            'Content-Type': 'application/json',
+          }
+        }
+      )
+      
+      // Set a new cookie
+      response.headers.set('Set-Cookie', serialize('session', 'abc123', {
+        httpOnly: true,
+        secure: true,
+        sameSite: 'strict',
+        maxAge: 60 * 60 * 24 * 7, // 7 days
+        path: '/'
+      }))
+      
+      return response
+    },
+  })
+  .route({
+    method: 'GET',
+    path: '/get-cookie',
+    handler({ request }) {
+      // Parse cookies from the request
+      const cookies = parse(request.headers.get('Cookie') || '')
+      
+      return {
+        sessionId: cookies.session || null,
+        allCookies: cookies
+      }
+    },
+  })
+  .route({
+    method: 'POST',
+    path: '/clear-cookie',
+    handler({ request }) {
+      const response = new Response(
+        JSON.stringify({ message: 'Cookie cleared!' }),
+        {
+          headers: {
+            'Content-Type': 'application/json',
+          }
+        }
+      )
+      
+      // Clear a cookie by setting it with an expired date
+      response.headers.set('Set-Cookie', serialize('session', '', {
+        httpOnly: true,
+        secure: true,
+        sameSite: 'strict',
+        expires: new Date(0),
+        path: '/'
+      }))
+      
+      return response
+    },
+  })
+
+app.listen(3000)
+```
+
+You can also use cookies in middleware for authentication or session handling:
+
+```ts
+import { Spiceflow } from 'spiceflow'
+import { parse, serialize } from 'cookie'
+
+const app = new Spiceflow()
+  .state('userId', null as string | null)
+  .use(async ({ request, state }, next) => {
+    // Parse cookies from incoming request
+    const cookies = parse(request.headers.get('Cookie') || '')
+    
+    // Extract user ID from session cookie
+    if (cookies.session) {
+      // In a real app, you'd verify the session token
+      state.userId = cookies.session
+    }
+    
+    const response = await next()
+    
+    // Optionally refresh the session cookie
+    if (state.userId && response) {
+      response.headers.set('Set-Cookie', serialize('session', state.userId, {
+        httpOnly: true,
+        secure: true,
+        sameSite: 'strict',
+        maxAge: 60 * 60 * 24, // 24 hours
+        path: '/'
+      }))
+    }
+    
+    return response
+  })
+  .route({
+    method: 'GET',
+    path: '/profile',
+    handler({ state }) {
+      if (!state.userId) {
+        return new Response('Unauthorized', { status: 401 })
+      }
+      
+      return { userId: state.userId, message: 'Welcome back!' }
+    },
+  })
+```
+
 ## Background tasks with waitUntil
 
 Spiceflow provides a `waitUntil` function in the handler context that allows you to schedule tasks in the background in a cross platform way. It will use the Cloudflare workers waitUntil if present. It's currently a no op in Node.js.
