@@ -1,5 +1,44 @@
 # spiceflow
 
+## 1.14.0
+
+### Minor Changes
+
+- The `listen` and `listenForNode` methods now return an object with `{port, server}` instead of just the server instance. The port field contains the actual listening port, which is especially useful when using port 0 for random port assignment.
+
+  ```ts
+  // Before
+  const server = await app.listen(3000)
+
+  // After
+  const { port, server } = await app.listen(3000)
+  console.log(`Server listening on port ${port}`)
+
+  // Useful with port 0 for random port
+  const { port, server } = await app.listen(0)
+  console.log(`Server assigned random port ${port}`)
+  ```
+
+### Patch Changes
+
+- 37c3f7b: Add path parameter to onError handler and validate error status codes. The onError handler now receives the request path where the error occurred, making it easier to debug and log errors with context. Additionally, error status codes are now validated to ensure they are valid HTTP status codes (100-599), defaulting to 500 for invalid values. The error status resolution now also supports `statusCode` as a fallback when `status` is not present.
+
+  ```typescript
+  // Before
+  app.onError(({ error, request }) => {
+    console.log('Error occurred', error)
+    return new Response('Error', { status: 500 })
+  })
+
+  // After
+  app.onError(({ error, request, path }) => {
+    console.log(`Error occurred at ${path}`, error)
+    return new Response('Error', { status: 500 })
+  })
+  ```
+
+- d4f555c: Fix duplicate base path handling in nested Spiceflow apps. The `joinBasePaths` method now properly handles cases where parent paths are prefixes of child paths, preventing duplicate path segments from being concatenated. This ensures that nested Spiceflow instances with overlapping base paths generate correct URLs.
+
 ## 1.13.3
 
 ### Patch Changes
