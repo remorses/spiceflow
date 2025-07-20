@@ -89,6 +89,128 @@ app.route({
 })
 ```
 
+## Returning JSON
+
+Spiceflow automatically serializes objects returned from handlers to JSON, so you don't need to wrap them in a `Response` object:
+
+```ts
+import { Spiceflow } from 'spiceflow'
+
+const app = new Spiceflow()
+  .route({
+    method: 'GET',
+    path: '/user',
+    handler() {
+      // Return object directly - no need for new Response()
+      return { id: 1, name: 'John', email: 'john@example.com' }
+    },
+  })
+  .route({
+    method: 'POST', 
+    path: '/data',
+    async handler({ request }) {
+      const body = await request.json()
+      // Objects are automatically serialized to JSON
+      return { 
+        received: body,
+        timestamp: new Date().toISOString(),
+        processed: true 
+      }
+    },
+  })
+```
+
+## Type Safety for RPC
+
+To maintain type safety when using the RPC client, it's recommended to **throw Response objects for errors** and **return objects directly for success cases**. This pattern ensures that the returned value types are properly inferred:
+
+```ts
+import { Spiceflow } from 'spiceflow'
+import { z } from 'zod'
+
+const app = new Spiceflow()
+  .route({
+    method: 'GET',
+    path: '/users/:id',
+    params: z.object({
+      id: z.string(),
+    }),
+    response: z.object({
+      id: z.string(),
+      name: z.string(),
+      email: z.string(),
+    }),
+    handler({ params }) {
+      const user = getUserById(params.id)
+      
+      if (!user) {
+        // Throw Response for errors to maintain type safety
+        throw new Response('User not found', { status: 404 })
+      }
+      
+      // Return object directly for success - type will be properly inferred
+      return {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+      }
+    },
+  })
+  .route({
+    method: 'POST',
+    path: '/users',
+    request: z.object({
+      name: z.string(),
+      email: z.string().email(),
+    }),
+    response: z.object({
+      id: z.string(),
+      name: z.string(),
+      email: z.string(),
+    }),
+    async handler({ request }) {
+      const body = await request.json()
+      
+      if (await userExists(body.email)) {
+        // Throw Response for errors
+        throw new Response('User already exists', { status: 409 })
+      }
+      
+      const newUser = await createUser(body)
+      
+      // Return object directly - RPC client will have proper typing
+      return {
+        id: newUser.id,
+        name: newUser.name,
+        email: newUser.email,
+      }
+    },
+  })
+
+// RPC client usage with proper type inference
+import { createSpiceflowClient } from 'spiceflow/client'
+
+const client = createSpiceflowClient<typeof app>('http://localhost:3000')
+
+async function example() {
+  // TypeScript knows data is { id: string, name: string, email: string } | undefined
+  const { data, error } = await client.users({ id: '123' }).get()
+  
+  if (error) {
+    console.error('Error:', error) // Error handling
+    return
+  }
+  
+  // data is properly typed here
+  console.log('User:', data.name, data.email)
+}
+```
+
+With this pattern:
+- **Success responses**: Return objects directly for automatic JSON serialization and proper type inference
+- **Error responses**: Throw `Response` objects to maintain the error/success distinction in the RPC client
+- **Type safety**: The RPC client will correctly infer the return type as the success object type
+
 ## Comparisons
 
 #### Elysia
