@@ -239,6 +239,20 @@ async function exampleUsage() {
 }
 ```
 
+
+### Path Matching - Supported Features
+
+- **Named parameters**: `:param` - Captures dynamic segments like `/users/:id` or `/api/:version/users/:userId`
+- **Wildcards**: `*` - Matches any remaining path segments like `/files/*` or `/proxy/*`
+
+### Path Matching - Unsupported Features
+
+- **Optional parameters**: `/:param?` - Use separate routes instead - IS NOT SUPPORTED
+- **Named wildcards**: `/files/*name` - Use unnamed `*` only - IS NOT SUPPORTED
+- **Partial parameters**: `/:param-suffix` or `/prefix-:param` - Use full segment parameters only - IS NOT SUPPORTED
+- **Regex patterns**: `/users/(\\d+)` - Use string parameters with validation in handlers - IS NOT SUPPORTED
+- **Multiple wildcards**: `/*/files/*` - Use single wildcard only - IS NOT SUPPORTED
+
 ## Safe Path Building
 
 The `safePath` method provides a type-safe way to build URLs with parameters. It helps prevent runtime errors by ensuring all required parameters are provided and properly substituted into the path.
@@ -269,7 +283,7 @@ const userPath = app.safePath('/users/:id', { id: '123' })
 // Building URLs with required parameters
 const userPostPath = app.safePath('/users/:id/posts/:postId', {
   id: '456',
-  postId: 'abc'
+  postId: 'abc',
 })
 // Result: '/users/456/posts/abc'
 ```
@@ -294,7 +308,7 @@ const app = new Spiceflow()
         provider,
         userId,
         authCode: code,
-        state
+        state,
       }
     },
   })
@@ -309,13 +323,14 @@ const app = new Spiceflow()
       const callbackUrl = new URL(
         app.safePath('/auth/callback/:provider/:userId', {
           provider,
-          userId
+          userId,
         }),
-        'https://myapp.com'
+        'https://myapp.com',
       ).toString()
 
       // Redirect to OAuth provider with callback URL
-      const oauthUrl = `https://accounts.google.com/oauth/authorize?` +
+      const oauthUrl =
+        `https://accounts.google.com/oauth/authorize?` +
         `client_id=your-client-id&` +
         `redirect_uri=${encodeURIComponent(callbackUrl)}&` +
         `response_type=code&` +
@@ -327,6 +342,7 @@ const app = new Spiceflow()
 ```
 
 In this example:
+
 - The callback URL is built safely using `safePath` with type checking
 - Required parameters like `provider` and `userId` must be provided
 - The resulting URL is guaranteed to be properly formatted
@@ -942,7 +958,7 @@ interface Env {
 }
 
 const app = new Spiceflow()
-  .state('env', null as Env | null)
+  .state('env', {} as Env)
   .route({
     method: 'GET',
     path: '/kv/:key',
@@ -964,7 +980,7 @@ const app = new Spiceflow()
 export default {
   fetch(request: Request, env: Env, ctx: ExecutionContext) {
     // Pass the env bindings to the app
-    return app.handle(request, { env })
+    return app.handle(request, { state: { env } })
   },
 }
 ```
@@ -1008,29 +1024,32 @@ const app = new Spiceflow()
     handler({ request }) {
       // Read existing cookies from the request
       const cookies = parse(request.headers.get('Cookie') || '')
-      
+
       // Create response with a new cookie
       const response = new Response(
-        JSON.stringify({ 
-          message: 'Cookie set!', 
-          existingCookies: cookies 
+        JSON.stringify({
+          message: 'Cookie set!',
+          existingCookies: cookies,
         }),
         {
           headers: {
             'Content-Type': 'application/json',
-          }
-        }
+          },
+        },
       )
-      
+
       // Set a new cookie
-      response.headers.set('Set-Cookie', serialize('session', 'abc123', {
-        httpOnly: true,
-        secure: true,
-        sameSite: 'strict',
-        maxAge: 60 * 60 * 24 * 7, // 7 days
-        path: '/'
-      }))
-      
+      response.headers.set(
+        'Set-Cookie',
+        serialize('session', 'abc123', {
+          httpOnly: true,
+          secure: true,
+          sameSite: 'strict',
+          maxAge: 60 * 60 * 24 * 7, // 7 days
+          path: '/',
+        }),
+      )
+
       return response
     },
   })
@@ -1040,10 +1059,10 @@ const app = new Spiceflow()
     handler({ request }) {
       // Parse cookies from the request
       const cookies = parse(request.headers.get('Cookie') || '')
-      
+
       return {
         sessionId: cookies.session || null,
-        allCookies: cookies
+        allCookies: cookies,
       }
     },
   })
@@ -1056,19 +1075,22 @@ const app = new Spiceflow()
         {
           headers: {
             'Content-Type': 'application/json',
-          }
-        }
+          },
+        },
       )
-      
+
       // Clear a cookie by setting it with an expired date
-      response.headers.set('Set-Cookie', serialize('session', '', {
-        httpOnly: true,
-        secure: true,
-        sameSite: 'strict',
-        expires: new Date(0),
-        path: '/'
-      }))
-      
+      response.headers.set(
+        'Set-Cookie',
+        serialize('session', '', {
+          httpOnly: true,
+          secure: true,
+          sameSite: 'strict',
+          expires: new Date(0),
+          path: '/',
+        }),
+      )
+
       return response
     },
   })
@@ -1087,26 +1109,29 @@ const app = new Spiceflow()
   .use(async ({ request, state }, next) => {
     // Parse cookies from incoming request
     const cookies = parse(request.headers.get('Cookie') || '')
-    
+
     // Extract user ID from session cookie
     if (cookies.session) {
       // In a real app, you'd verify the session token
       state.userId = cookies.session
     }
-    
+
     const response = await next()
-    
+
     // Optionally refresh the session cookie
     if (state.userId && response) {
-      response.headers.set('Set-Cookie', serialize('session', state.userId, {
-        httpOnly: true,
-        secure: true,
-        sameSite: 'strict',
-        maxAge: 60 * 60 * 24, // 24 hours
-        path: '/'
-      }))
+      response.headers.set(
+        'Set-Cookie',
+        serialize('session', state.userId, {
+          httpOnly: true,
+          secure: true,
+          sameSite: 'strict',
+          maxAge: 60 * 60 * 24, // 24 hours
+          path: '/',
+        }),
+      )
     }
-    
+
     return response
   })
   .route({
@@ -1116,7 +1141,7 @@ const app = new Spiceflow()
       if (!state.userId) {
         return new Response('Unauthorized', { status: 401 })
       }
-      
+
       return { userId: state.userId, message: 'Welcome back!' }
     },
   })
@@ -1131,25 +1156,24 @@ Spiceflow provides a `waitUntil` function in the handler context that allows you
 ```ts
 import { Spiceflow } from 'spiceflow'
 
-const app = new Spiceflow()
-  .route({
-    method: 'POST',
-    path: '/process',
-    async handler({ request, waitUntil }) {
-      const data = await request.json()
+const app = new Spiceflow().route({
+  method: 'POST',
+  path: '/process',
+  async handler({ request, waitUntil }) {
+    const data = await request.json()
 
-      // Schedule background task
-      waitUntil(
-        fetch('https://analytics.example.com/track', {
-          method: 'POST',
-          body: JSON.stringify({ event: 'data_processed', data }),
-        })
-      )
+    // Schedule background task
+    waitUntil(
+      fetch('https://analytics.example.com/track', {
+        method: 'POST',
+        body: JSON.stringify({ event: 'data_processed', data }),
+      }),
+    )
 
-      // Return response immediately
-      return { success: true, id: Math.random().toString(36) }
-    },
-  })
+    // Return response immediately
+    return { success: true, id: Math.random().toString(36) }
+  },
+})
 ```
 
 ### Cloudflare Workers Integration
@@ -1159,34 +1183,33 @@ In Cloudflare Workers, `waitUntil` is automatically detected from the global con
 ```ts
 import { Spiceflow } from 'spiceflow'
 
-const app = new Spiceflow()
-  .route({
-    method: 'POST',
-    path: '/webhook',
-    async handler({ request, waitUntil }) {
-      const payload = await request.json()
+const app = new Spiceflow().route({
+  method: 'POST',
+  path: '/webhook',
+  async handler({ request, waitUntil }) {
+    const payload = await request.json()
 
-      // Process webhook data in background
-      waitUntil(
-        processWebhookData(payload)
-          .then(() => console.log('Webhook processed'))
-          .catch(err => console.error('Webhook processing failed:', err))
-      )
+    // Process webhook data in background
+    waitUntil(
+      processWebhookData(payload)
+        .then(() => console.log('Webhook processed'))
+        .catch((err) => console.error('Webhook processing failed:', err)),
+    )
 
-      // Respond immediately to webhook sender
-      return new Response('OK', { status: 200 })
-    },
-  })
+    // Respond immediately to webhook sender
+    return new Response('OK', { status: 200 })
+  },
+})
 
 async function processWebhookData(payload: any) {
   // Simulate time-consuming processing
-  await new Promise(resolve => setTimeout(resolve, 1000))
+  await new Promise((resolve) => setTimeout(resolve, 1000))
   // Save to database, send notifications, etc.
 }
 
 export default {
   fetch(request: Request, env: any, ctx: ExecutionContext) {
-    return app.handle(request)
+    return app.handle(request, { state: { env } })
   },
 }
 ```
@@ -1201,21 +1224,18 @@ import { Spiceflow } from 'spiceflow'
 const app = new Spiceflow({
   waitUntil: (promise) => {
     // Custom implementation for non-Cloudflare environments
-    promise.catch(err => console.error('Background task failed:', err))
-  }
-})
-  .route({
-    method: 'GET',
-    path: '/analytics',
-    async handler({ waitUntil }) {
-      // Schedule analytics tracking
-      waitUntil(
-        trackPageView('/analytics')
-      )
+    promise.catch((err) => console.error('Background task failed:', err))
+  },
+}).route({
+  method: 'GET',
+  path: '/analytics',
+  async handler({ waitUntil }) {
+    // Schedule analytics tracking
+    waitUntil(trackPageView('/analytics'))
 
-      return { message: 'Analytics page loaded' }
-    },
-  })
+    return { message: 'Analytics page loaded' }
+  },
+})
 
 async function trackPageView(path: string) {
   // Track page view in analytics system
