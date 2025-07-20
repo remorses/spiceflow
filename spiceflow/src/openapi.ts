@@ -428,7 +428,7 @@ export const openapi = <Path extends string = '/openapi'>({
       })
     }
 
-    return {
+    const doc = {
       openapi: '3.1.3',
       ...{
         ...additional,
@@ -455,6 +455,12 @@ export const openapi = <Path extends string = '/openapi'>({
         },
       },
     } satisfies OpenAPIV3.Document
+
+    return new Response(JSON.stringify(doc, null, 2), {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
   })
 
   return app

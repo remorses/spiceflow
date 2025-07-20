@@ -160,73 +160,6 @@ test('openapi response', async () => {
     .then((x) => x.json())
   expect(openapiSchema).toMatchInlineSnapshot(`
     {
-      "__superjsonMeta": {
-        "values": {
-          "paths./base/addBody.patch.responses.200.content.application/json.schema.items": [
-            "undefined",
-          ],
-          "paths./base/addBody.patch.responses.200.content.application/json.schema.patternProperties": [
-            "undefined",
-          ],
-          "paths./base/addBody.patch.responses.200.content.application/json.schema.required": [
-            "undefined",
-          ],
-          "paths./base/formWithSchemaForm.post.responses.200.content.multipart/form-data.schema.items": [
-            "undefined",
-          ],
-          "paths./base/formWithSchemaForm.post.responses.200.content.multipart/form-data.schema.patternProperties": [
-            "undefined",
-          ],
-          "paths./base/one/ids/{id}.get.parameters.0.description": [
-            "undefined",
-          ],
-          "paths./base/one/ids/{id}.get.parameters.0.examples": [
-            "undefined",
-          ],
-          "paths./base/one/ids/{id}.get.responses.404.content.application/json.schema.items": [
-            "undefined",
-          ],
-          "paths./base/one/ids/{id}.get.responses.404.content.application/json.schema.patternProperties": [
-            "undefined",
-          ],
-          "paths./base/queryParams.get.parameters.0.description": [
-            "undefined",
-          ],
-          "paths./base/queryParams.get.parameters.0.examples": [
-            "undefined",
-          ],
-          "paths./base/queryParams.get.responses.200.content.application/json.schema.items": [
-            "undefined",
-          ],
-          "paths./base/queryParams.get.responses.200.content.application/json.schema.patternProperties": [
-            "undefined",
-          ],
-          "paths./base/queryParams.get.responses.200.content.application/json.schema.required": [
-            "undefined",
-          ],
-          "paths./base/queryParams.post.responses.200.content.application/json.schema.items": [
-            "undefined",
-          ],
-          "paths./base/queryParams.post.responses.200.content.application/json.schema.patternProperties": [
-            "undefined",
-          ],
-          "paths./base/queryParams.post.responses.200.content.application/json.schema.required": [
-            "undefined",
-          ],
-          "paths./base/streamWithSchema.get.responses.200.content.application/json.schema.items": [
-            "undefined",
-          ],
-          "paths./base/streamWithSchema.get.responses.200.content.application/json.schema.patternProperties": [
-            "undefined",
-          ],
-          "paths./base/two/ids/{id}.get.parameters.0.description": [
-            "undefined",
-          ],
-          "paths./base/two/ids/{id}.get.parameters.0.examples": [
-            "undefined",
-          ],
-        },
-      },
       "components": {
         "schemas": {},
       },
@@ -263,14 +196,11 @@ test('openapi response', async () => {
                 "content": {
                   "application/json": {
                     "schema": {
-                      "items": null,
-                      "patternProperties": null,
                       "properties": {
                         "name": {
                           "type": "string",
                         },
                       },
-                      "required": null,
                       "type": "object",
                     },
                   },
@@ -296,8 +226,6 @@ test('openapi response', async () => {
                 "content": {
                   "multipart/form-data": {
                     "schema": {
-                      "items": null,
-                      "patternProperties": null,
                       "properties": {
                         "age": {
                           "type": "string",
@@ -331,8 +259,6 @@ test('openapi response', async () => {
           "get": {
             "parameters": [
               {
-                "description": null,
-                "examples": null,
                 "in": "path",
                 "name": "id",
                 "required": true,
@@ -356,8 +282,6 @@ test('openapi response', async () => {
                 "content": {
                   "application/json": {
                     "schema": {
-                      "items": null,
-                      "patternProperties": null,
                       "properties": {
                         "message": {
                           "type": "string",
@@ -409,8 +333,6 @@ test('openapi response', async () => {
           "get": {
             "parameters": [
               {
-                "description": null,
-                "examples": null,
                 "in": "query",
                 "name": "name",
                 "required": true,
@@ -424,14 +346,11 @@ test('openapi response', async () => {
                 "content": {
                   "application/json": {
                     "schema": {
-                      "items": null,
-                      "patternProperties": null,
                       "properties": {
                         "name": {
                           "type": "string",
                         },
                       },
-                      "required": null,
                       "type": "object",
                     },
                   },
@@ -476,14 +395,11 @@ test('openapi response', async () => {
                 "content": {
                   "application/json": {
                     "schema": {
-                      "items": null,
-                      "patternProperties": null,
                       "properties": {
                         "name": {
                           "type": "string",
                         },
                       },
-                      "required": null,
                       "type": "object",
                     },
                   },
@@ -535,8 +451,6 @@ test('openapi response', async () => {
                 "content": {
                   "application/json": {
                     "schema": {
-                      "items": null,
-                      "patternProperties": null,
                       "properties": {
                         "count": {
                           "type": "number",
@@ -569,8 +483,6 @@ test('openapi response', async () => {
           "get": {
             "parameters": [
               {
-                "description": null,
-                "examples": null,
                 "in": "path",
                 "name": "id",
                 "required": true,
