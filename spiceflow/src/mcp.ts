@@ -2,9 +2,46 @@ import { OpenAPIV3 } from 'openapi-types'
 import { SSEServerTransportSpiceflow } from './mcp-transport.ts'
 import { createMCPServer } from './openapi-to-mcp.ts'
 import { openapi } from './openapi.ts'
-import { Spiceflow } from './spiceflow.ts'
+import { AnySpiceflow, Spiceflow } from './spiceflow.ts'
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 
 const defaultTransports = new Map<string, SSEServerTransportSpiceflow>()
+
+export async function addMcpTools({
+  mcpServer,
+  app,
+
+  path,
+}: {
+  mcpServer: McpServer
+  app: AnySpiceflow
+
+  path: string
+}): Promise<McpServer> {
+  // Always add the OpenAPI route
+  app.use(openapi({ path: '/_mcp_openapi' }))
+
+  const basePath = app.topLevelApp?.basePath || ''
+
+  // Fetch the OpenAPI data
+  const openapiDoc = (await app
+    .topLevelApp!.handle(
+      new Request(`http://localhost${basePath}/_mcp_openapi`),
+    )
+    .then((r) => r.json())) as OpenAPIV3.Document
+
+  const { server: configuredServer } = createMCPServer({
+    server: mcpServer,
+    ignorePaths: ['/_mcp_openapi', path, path + '/message'],
+    fetch: (url, init) => {
+      const req = new Request(url, init)
+      return app.handle(req)
+    },
+    openapi: openapiDoc,
+  })
+
+  return configuredServer
+}
 
 export const mcp = <Path extends string = '/mcp'>({
   path = '/mcp' as Path,
@@ -70,9 +107,8 @@ export const mcp = <Path extends string = '/mcp'>({
           '/_mcp_openapi',
           '/_mcp_config',
           mcpPath,
-          mcpPath + '/message', //
+          mcpPath + '/message',
         ],
-
         fetch: (url, init) => {
           const req = new Request(url, init)
           return app.handle(req)
@@ -80,9 +116,6 @@ export const mcp = <Path extends string = '/mcp'>({
         openapi,
       })
 
-      server.onclose = () => {
-        // transports.delete(transport.sessionId)
-      }
       await server.connect(transport)
 
       request.signal.addEventListener('abort', () => {

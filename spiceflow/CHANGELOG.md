@@ -1,5 +1,30 @@
 # spiceflow
 
+## 1.15.0
+
+### Minor Changes
+
+- Simplify addMcpTools API and make path parameter required. The addMcpTools function now always adds the OpenAPI route without checking if it exists, uses parameters directly instead of fetching from \_mcp_config route, and requires the path parameter to be explicitly provided. This makes the API more predictable and straightforward to use.
+
+- Enable addMcpTools to work without mcp() plugin. The addMcpTools function now automatically adds the required OpenAPI and config routes (`/_mcp_openapi` and `/_mcp_config`) if they don't already exist, allowing it to work with any Spiceflow app even without the mcp() plugin. This makes it easier to integrate MCP tools into existing applications.
+
+## 1.14.2
+
+### Patch Changes
+
+- Fix McpServer API usage by accessing setRequestHandler through the server property. The McpServer class changed its API and no longer exposes setRequestHandler directly - it must be accessed via mcpServer.server.setRequestHandler().
+- Add test for addMcpTools function and update types. The addMcpTools function now properly types its parameters with McpServer from @modelcontextprotocol/sdk, ensuring better type safety when integrating external MCP servers with Spiceflow applications.
+
+## 1.14.1
+
+### Patch Changes
+
+- Add `addMcpTools` helper function that configures MCP tools for an existing server and Spiceflow app. This provides a convenient way to add Spiceflow route tools to an existing MCP server instance.
+
+  ```ts
+  const mcpServer = await addMcpTools({ mcpServer, app })
+  ```
+
 ## 1.14.0
 
 ### Minor Changes

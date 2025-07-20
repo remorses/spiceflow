@@ -9,7 +9,8 @@ import {
 } from '@modelcontextprotocol/sdk/types.js'
 import { experimental_createMCPClient } from 'ai'
 import { AnySpiceflow, Spiceflow } from 'spiceflow'
-import { mcp } from 'spiceflow/mcp'
+import { mcp, addMcpTools } from 'spiceflow/mcp'
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
 
 import { FetchMCPCLientTransport } from 'spiceflow/dist/mcp-client-transport'
@@ -429,5 +430,165 @@ describe('MCP Plugin', () => {
         "isError": true,
       }
     `)
+  })
+})
+
+describe('addMcpTools', () => {
+  it('should add MCP tools to an existing McpServer', async () => {
+    const app = new Spiceflow({ basePath: '/api' })
+      .use(mcp({ path: '/mcp' }))
+      .get('/test', () => ({ message: 'test response' }))
+      .post(
+        '/create/:id',
+        async ({ params: { id }, request }) => {
+          return { created: id, data: await request.json() }
+        },
+        {
+          params: z.object({ id: z.string() }),
+          body: z.object({ name: z.string() }),
+        },
+      )
+
+    const mcpServer = new McpServer(
+      { name: 'test-server', version: '1.0.0' },
+      {
+        capabilities: {
+          tools: {},
+          resources: {},
+        },
+      },
+    )
+
+    const configuredServer = await addMcpTools({
+      mcpServer,
+      app,
+      path: '/mcp',
+    })
+
+    expect(configuredServer).toBe(mcpServer)
+
+    const transport = new FetchMCPCLientTransport({
+      url: 'http://localhost/api/mcp',
+      fetch: app.handle,
+    })
+
+    const client = new Client(
+      {
+        name: 'test-client',
+        version: '1.0.0',
+      },
+      {
+        capabilities: {},
+        enforceStrictCapabilities: true,
+      },
+    )
+
+    await client.connect(transport)
+
+    const tools = await client.request(
+      { method: 'tools/list' },
+      ListToolsResultSchema,
+    )
+
+    expect(tools.tools).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: 'GET_api_test',
+          description: 'GET route for /api/test',
+        }),
+        expect.objectContaining({
+          name: 'POST_api_create_id',
+          description: 'POST route for /api/create/{id}',
+        }),
+      ]),
+    )
+
+    const testCall = await client.request(
+      {
+        method: 'tools/call',
+        params: {
+          name: 'GET_api_test',
+          arguments: {},
+        },
+      },
+      CallToolResultSchema,
+    )
+
+    expect(testCall).toMatchInlineSnapshot(`
+      {
+        "content": [
+          {
+            "text": "Invalid URL",
+            "type": "text",
+          },
+        ],
+        "isError": true,
+      }
+    `)
+  })
+
+  it('should work without mcp() plugin and test actual tool calls', async () => {
+    const app = new Spiceflow({ basePath: '/api' })
+      .get('/standalone', () => ({ message: 'standalone response' }))
+      .post(
+        '/standalone/:id',
+        async ({ params: { id }, request }) => {
+          return { updated: id, data: await request.json() }
+        },
+        {
+          params: z.object({ id: z.string() }),
+          body: z.object({ value: z.string() }),
+        },
+      )
+
+    const mcpServer = new McpServer(
+      { name: 'standalone-server', version: '2.0.0' },
+      {
+        capabilities: {
+          tools: {},
+          resources: {},
+        },
+      },
+    )
+
+    const configuredServer = await addMcpTools({
+      mcpServer,
+      app,
+      path: '/mcp-custom',
+    })
+
+    expect(configuredServer).toBe(mcpServer)
+
+    // Create a mock transport to test the server
+    const mockTransport = {
+      async start() {},
+      async close() {},
+      onclose: undefined,
+      onerror: undefined,
+      onmessage: undefined,
+      send: (message: any) => {},
+    }
+
+    await configuredServer.connect(mockTransport as any)
+
+    // Test the OpenAPI route was added
+    const basePath = app.topLevelApp?.basePath || ''
+    const openapiResponse = await app
+      .topLevelApp!.handle(new Request(`http://localhost${basePath}/_mcp_openapi`))
+
+    expect(openapiResponse.status).toBe(200)
+    const openapiDoc = await openapiResponse.json()
+    expect(openapiDoc).toHaveProperty('paths')
+    expect(openapiDoc.paths).toHaveProperty('/api/standalone')
+    expect(openapiDoc.paths).toHaveProperty('/api/standalone/{id}')
+
+    // Test that the configured server is properly set up (it should be the same instance)
+    expect(configuredServer).toBe(mcpServer)
+
+    // Test tools registration by calling the request handlers directly via the server
+    const requestHandlers = (configuredServer.server as any)._requestHandlers
+    expect(requestHandlers).toBeDefined()
+    expect(requestHandlers.has('tools/list')).toBe(true)
+    expect(requestHandlers.has('tools/call')).toBe(true)
   })
 })

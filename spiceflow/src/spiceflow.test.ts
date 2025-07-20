@@ -1321,3 +1321,145 @@ test('error statusCode fallback', async () => {
     expect(res.status).toBe(expected)
   }
 })
+
+test('route override - same method and path, second route wins', async () => {
+  const app = new Spiceflow()
+    .get('/test', () => 'first handler')
+    .get('/test', () => 'second handler')
+
+  const res = await app.handle(
+    new Request('http://localhost/test', { method: 'GET' })
+  )
+  expect(res.status).toBe(200)
+  expect(await res.json()).toMatchInlineSnapshot(`"second handler"`)
+})
+
+test('route override - different methods on same path work independently', async () => {
+  const app = new Spiceflow()
+    .get('/test', () => 'get handler')
+    .post('/test', () => 'post handler')
+    .get('/test', () => 'get override')
+
+  const getRes = await app.handle(
+    new Request('http://localhost/test', { method: 'GET' })
+  )
+  expect(getRes.status).toBe(200)
+  expect(await getRes.json()).toMatchInlineSnapshot(`"get override"`)
+
+  const postRes = await app.handle(
+    new Request('http://localhost/test', { method: 'POST' })
+  )
+  expect(postRes.status).toBe(200)
+  expect(await postRes.json()).toMatchInlineSnapshot(`"post handler"`)
+})
+
+test('route override with .use() - parent app routes take precedence over child app routes', async () => {
+  const childApp = new Spiceflow()
+    .get('/shared', () => 'child handler')
+    .get('/child-only', () => 'child only')
+
+  const parentApp = new Spiceflow()
+    .get('/shared', () => 'parent handler')
+    .get('/parent-only', () => 'parent only')
+    .use(childApp)
+
+  // Parent app route takes precedence over child app route
+  const sharedRes = await parentApp.handle(
+    new Request('http://localhost/shared', { method: 'GET' })
+  )
+  expect(sharedRes.status).toBe(200)
+  expect(await sharedRes.json()).toMatchInlineSnapshot(`"parent handler"`)
+
+  // Parent-only route works as expected
+  const parentOnlyRes = await parentApp.handle(
+    new Request('http://localhost/parent-only', { method: 'GET' })
+  )
+  expect(parentOnlyRes.status).toBe(200)
+  expect(await parentOnlyRes.json()).toMatchInlineSnapshot(`"parent only"`)
+
+  // Child-only route works as expected
+  const childOnlyRes = await parentApp.handle(
+    new Request('http://localhost/child-only', { method: 'GET' })
+  )
+  expect(childOnlyRes.status).toBe(200)
+  expect(await childOnlyRes.json()).toMatchInlineSnapshot(`"child only"`)
+})
+
+test('route override with .use() - parent app routes always win, regardless of order', async () => {
+  const firstChildApp = new Spiceflow()
+    .get('/shared', () => 'first child')
+
+  const secondChildApp = new Spiceflow()
+    .get('/shared', () => 'second child')
+
+  const parentApp = new Spiceflow()
+    .get('/shared', () => 'parent')
+    .use(firstChildApp)
+    .use(secondChildApp)
+
+  // Parent route always wins, regardless of child apps
+  const res = await parentApp.handle(
+    new Request('http://localhost/shared', { method: 'GET' })
+  )
+  expect(res.status).toBe(200)
+  expect(await res.json()).toMatchInlineSnapshot(`"parent"`)
+})
+
+test('route override with nested .use() - first matching parent route wins', async () => {
+  const deepestApp = new Spiceflow()
+    .get('/test', () => 'deepest')
+
+  const middleApp = new Spiceflow()
+    .get('/test', () => 'middle')
+    .use(deepestApp)
+
+  const rootApp = new Spiceflow()
+    .get('/test', () => 'root')
+    .use(middleApp)
+
+  // Root app route wins over all nested routes
+  const res = await rootApp.handle(
+    new Request('http://localhost/test', { method: 'GET' })
+  )
+  expect(res.status).toBe(200)
+  expect(await res.json()).toMatchInlineSnapshot(`"root"`)
+})
+
+test('route override with .use() - child routes are accessible when no parent route exists', async () => {
+  const firstChildApp = new Spiceflow()
+    .get('/child1-route', () => 'first child')
+
+  const secondChildApp = new Spiceflow()
+    .get('/child2-route', () => 'second child')
+    .get('/shared-child', () => 'second child shared')
+
+  const thirdChildApp = new Spiceflow()
+    .get('/shared-child', () => 'third child shared')
+
+  const parentApp = new Spiceflow()
+    .get('/parent-only', () => 'parent')
+    .use(firstChildApp)
+    .use(secondChildApp) 
+    .use(thirdChildApp)
+
+  // First child route works
+  const child1Res = await parentApp.handle(
+    new Request('http://localhost/child1-route', { method: 'GET' })
+  )
+  expect(child1Res.status).toBe(200)
+  expect(await child1Res.json()).toMatchInlineSnapshot(`"first child"`)
+
+  // Second child route works
+  const child2Res = await parentApp.handle(
+    new Request('http://localhost/child2-route', { method: 'GET' })
+  )
+  expect(child2Res.status).toBe(200)
+  expect(await child2Res.json()).toMatchInlineSnapshot(`"second child"`)
+
+  // For conflicting child routes, first one wins (since no parent route exists)
+  const sharedChildRes = await parentApp.handle(
+    new Request('http://localhost/shared-child', { method: 'GET' })
+  )
+  expect(sharedChildRes.status).toBe(200)
+  expect(await sharedChildRes.json()).toMatchInlineSnapshot(`"second child shared"`)
+})

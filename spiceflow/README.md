@@ -854,7 +854,11 @@ When you mount the MCP plugin (default path is `/mcp`), it automatically:
 - Provides an SSE-based transport for real-time communication
 - Handles serialization of requests and responses
 
-This makes it simple to let AI models like Claude discover and call your API endpoints programmatically. Here's an example:
+This makes it simple to let AI models like Claude discover and call your API endpoints programmatically.
+
+### Basic MCP Usage
+
+Here's an example:
 
 ```tsx
 // Import the MCP plugin and client
@@ -932,6 +936,39 @@ const resources = await client.request(
   { method: 'resources/list' },
   ListResourcesResultSchema,
 )
+```
+
+### Adding MCP Tools to Existing Server
+
+If you already have an existing MCP server and want to add Spiceflow route tools to it, you can use the `addMcpTools` helper function:
+
+```ts
+import { addMcpTools } from 'spiceflow/mcp'
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+
+import { Spiceflow } from 'spiceflow'
+
+// Your existing MCP server
+const existingServer = new Server(
+  { name: 'my-server', version: '1.0.0' },
+  { capabilities: { tools: {}, resources: {} } }
+)
+
+// Your Spiceflow app
+const app = new Spiceflow()
+  .use(mcp()) // Required for MCP configuration
+  .route({
+    method: 'GET',
+    path: '/hello',
+    handler() {
+      return 'Hello from Spiceflow!'
+    },
+  })
+
+// Add Spiceflow tools to your existing server
+const mcpServer = await addMcpTools({ mcpServer: existingServer, app })
+
+// Now your existing server has access to all Spiceflow routes as tools
 ```
 
 ## Generating Fern docs and SDK

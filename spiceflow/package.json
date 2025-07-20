@@ -1,6 +1,6 @@
 {
   "name": "spiceflow",
-  "version": "1.14.0",
+  "version": "1.15.0",
   "description": "Simple API framework with RPC and type safety",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -84,7 +84,7 @@
     }
   },
   "devDependencies": {
-    "@modelcontextprotocol/sdk": "^1.12.3",
+    "@modelcontextprotocol/sdk": "^1.16.0",
     "ai": "^4.3.16",
     "eventsource": "^3.0.5",
     "formdata-node": "^6.0.3",

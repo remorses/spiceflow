@@ -1,4 +1,5 @@
-import { Server } from '@modelcontextprotocol/sdk/server/index.js'
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+
 // import deref from 'dereference-json-schema'
 
 import {
@@ -172,7 +173,7 @@ export function createMCPServer({
   name = 'spiceflow',
   version = '1.0.0',
   openapi,
-
+  server,
   fetch = defaultFetch,
   paths,
   ignorePaths,
@@ -180,14 +181,14 @@ export function createMCPServer({
 }: {
   name?: string
   version?: string
-
-  fetch?: Fetch
   openapi: OpenAPIV3.Document
+  server?: McpServer
+  fetch?: Fetch
   paths?: string[]
   ignorePaths?: string[]
   baseUrl?: string
 }) {
-  const server = new Server(
+  const mcpServer = server || new McpServer(
     { name, version },
     {
       capabilities: {
@@ -249,7 +250,7 @@ export function createMCPServer({
     })
   }
 
-  server.setRequestHandler(ListToolsRequestSchema, async () => {
+  mcpServer.server.setRequestHandler(ListToolsRequestSchema, async () => {
     const filteredPaths = Object.entries(openapi.paths).filter(([path]) => {
       if (ignorePaths?.includes(path)) return false
       if (paths && paths.length > 0) {
@@ -311,7 +312,7 @@ export function createMCPServer({
     return { tools }
   })
 
-  server.setRequestHandler(CallToolRequestSchema, async (request) => {
+  mcpServer.server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const toolName = request.params.name
     let { path, method } = getPathFromToolName(toolName)
 
@@ -388,7 +389,7 @@ export function createMCPServer({
     }
   })
 
-  server.setRequestHandler(ListResourcesRequestSchema, async () => {
+  mcpServer.server.setRequestHandler(ListResourcesRequestSchema, async () => {
     const resources: { uri: string; mimeType: string; name: string }[] = []
     for (const [path, pathObj] of Object.entries(openapi.paths)) {
       if (path.startsWith('/mcp')) {
@@ -417,11 +418,11 @@ export function createMCPServer({
     return { resources: [] }
   })
 
-  server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
+  mcpServer.server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
     throw new Error('Resources are not supported - use tools instead')
   })
 
-  return { server }
+  return { server: mcpServer }
 }
 
 function getRouteName({
