@@ -96,6 +96,25 @@ test('* method listens on all HTTP methods', async () => {
   }
 })
 
+test('route without method defaults to * (all methods)', async () => {
+  const app = new Spiceflow().route({
+    path: '/default',
+    handler: ({ request }) => ({ method: request.method }),
+  })
+
+  // Test different HTTP methods
+  const methods = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH']
+  
+  for (const method of methods) {
+    const res = await app.handle(
+      new Request('http://localhost/default', { method }),
+    )
+    expect(res.status).toBe(200)
+    const result = await res.json()
+    expect(result).toEqual({ method })
+  }
+})
+
 test('this works to reference app in handler', async () => {
   const res = await new Spiceflow()
     .route({

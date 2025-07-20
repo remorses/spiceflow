@@ -459,11 +459,11 @@ export class Spiceflow<
       Singleton,
       JoinPath<BasePath, Path>
     >,
-    Method extends HTTPMethod | HTTPMethod[],
+    Method extends HTTPMethod | HTTPMethod[] = '*',
   >(
     options: {
       path: Path
-      method: Method
+      method?: Method
       handler: Handle
     } & LocalHook<
       LocalSchema,
@@ -499,13 +499,14 @@ export class Spiceflow<
   > {
     // If options.request is defined, disallow for GET and HEAD (methods that don't support a body)
     const methodsWithNoBody = ['GET', 'HEAD']
-    const normalizedMethods: string[] = Array.isArray(options.method)
-      ? options.method.flatMap((m) => {
+    const actualMethod = options.method ?? '*'
+    const normalizedMethods: string[] = Array.isArray(actualMethod)
+      ? actualMethod.flatMap((m) => {
           const method = typeof m === 'string' ? m.toUpperCase() : m
           return method === '*' ? [...METHODS] : [method as string]
         })
       : (() => {
-          const method = typeof options.method === 'string' ? options.method.toUpperCase() : options.method
+          const method = typeof actualMethod === 'string' ? actualMethod.toUpperCase() : actualMethod
           return method === '*' ? [...METHODS] : [method as string]
         })()
     if (
@@ -516,8 +517,8 @@ export class Spiceflow<
         `Request schema ('request') is not allowed on routes with method GET or HEAD`,
       )
     }
-    if (Array.isArray(options.method)) {
-      options.method.map((method) => {
+    if (Array.isArray(actualMethod)) {
+      actualMethod.map((method) => {
         if (method === '*') {
           for (const m of METHODS) {
             this.add({
@@ -537,7 +538,7 @@ export class Spiceflow<
         }
       })
     } else {
-      if (options.method === '*') {
+      if (actualMethod === '*') {
         for (const method of METHODS) {
           this.add({
             method,
@@ -548,7 +549,7 @@ export class Spiceflow<
         }
       } else {
         this.add({
-          method: options.method,
+          method: actualMethod,
           path: options.path,
           handler: options.handler,
           hooks: options,
