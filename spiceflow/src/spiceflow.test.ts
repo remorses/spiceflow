@@ -36,6 +36,32 @@ test('* param is a path without front slash', async () => {
   }
 })
 
+test('* param in .route() does not contain leading slash', async () => {
+  const app = new Spiceflow().route({
+    method: "GET",
+    path: "/repos/:owner/:repo/:branch/file/*",
+    handler: async ({ params }) => {
+      const { owner, repo, branch, "*": filePath } = params
+      return { owner, repo, branch, filePath }
+    },
+  })
+
+  const res = await app.handle(
+    new Request('http://localhost/repos/user/myrepo/main/file/src/components/Button.tsx', {
+      method: 'GET',
+    }),
+  )
+  expect(res.status).toBe(200)
+  const result = await res.json()
+  expect(result).toEqual({
+    owner: 'user',
+    repo: 'myrepo', 
+    branch: 'main',
+    filePath: 'src/components/Button.tsx'
+  })
+  expect(result.filePath).not.toMatch(/^\//)
+})
+
 // test('should error if passing .request option to .route with method GET', () => {
 //   new Spiceflow().route({
 //     method: 'GET',

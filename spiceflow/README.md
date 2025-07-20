@@ -253,6 +253,54 @@ async function exampleUsage() {
 - **Regex patterns**: `/users/(\\d+)` - Use string parameters with validation in handlers - IS NOT SUPPORTED
 - **Multiple wildcards**: `/*/files/*` - Use single wildcard only - IS NOT SUPPORTED
 
+## Storing Spiceflow in Class Instances
+
+If you need to store a Spiceflow router as a property in a class instance, use the `AnySpiceflow` type:
+
+**Important**: Do not use `this` inside route handlers to reference the parent class. The `this` context inside handlers always refers to the Spiceflow instance, not your class instance. Instead, capture the parent class reference in a variable outside the handlers:
+
+```ts
+import { Spiceflow, AnySpiceflow } from 'spiceflow'
+
+export class ChatDurableObject {
+  private router: AnySpiceflow
+  private state: DurableObjectState
+
+  constructor(state: DurableObjectState, env: Env) {
+    this.state = state
+    const self = this // Capture parent class reference - IMPORTANT!
+
+    this.router = new Spiceflow()
+      .route({
+        method: 'GET',
+        path: '/messages',
+        async handler() {
+          // Use 'self' instead of 'this' to access parent class
+          // this.state would NOT work here - 'this' refers to Spiceflow instance
+          const messages = await self.state.storage.get('messages') || []
+          return { messages }
+        },
+      })
+      .route({
+        method: 'POST',
+        path: '/messages',
+        async handler({ request }) {
+          const { message } = await request.json()
+          // Use 'self' to access parent class properties
+          const messages = await self.state.storage.get('messages') || []
+          messages.push({ id: Date.now(), text: message })
+          await self.state.storage.put('messages', messages)
+          return { success: true }
+        },
+      })
+  }
+
+  fetch(request: Request) {
+    return this.router.handle(request)
+  }
+}
+```
+
 ## Safe Path Building
 
 The `safePath` method provides a type-safe way to build URLs with parameters. It helps prevent runtime errors by ensuring all required parameters are provided and properly substituted into the path.
