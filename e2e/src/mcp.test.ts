@@ -459,10 +459,11 @@ describe('addMcpTools', () => {
       },
     )
 
+
     const configuredServer = await addMcpTools({
       mcpServer,
       app,
-      path: '/mcp',
+      ignorePaths: ['/mcp', '/mcp/message', ''],
     })
 
     expect(configuredServer).toBe(mcpServer)
@@ -554,7 +555,7 @@ describe('addMcpTools', () => {
     const configuredServer = await addMcpTools({
       mcpServer,
       app,
-      path: '/mcp-custom',
+      ignorePaths: ['/mcp-custom', '/mcp-custom/message'],
     })
 
     expect(configuredServer).toBe(mcpServer)

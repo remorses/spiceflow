@@ -1,5 +1,37 @@
 # spiceflow
 
+## 1.17.2
+
+### Patch Changes
+
+- Add resources to the server
+
+## 1.17.1
+
+### Patch Changes
+
+- Fix safePath not working for .route
+
+## 1.17.0
+
+### Minor Changes
+
+- Remove `path` parameter from `addMcpTools()` function and make `ignorePaths` required. Users should now pass an array of paths to ignore directly instead of a single path. Example usage:
+
+  ```ts
+  await addMcpTools({
+    mcpServer,
+    app,
+    ignorePaths: ['/sse', '/mcp'],
+  })
+  ```
+
+## 1.16.1
+
+### Patch Changes
+
+- Improve MCP server initialization by adding explicit capabilities registration and cleaning up code formatting. The `mcpServer.server.registerCapabilities()` call ensures proper MCP server setup with tools and resources capabilities.
+
 ## 1.16.0
 
 ### Minor Changes

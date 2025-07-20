@@ -132,7 +132,9 @@ export class Spiceflow<
     let root = this.topLevelApp || this
     const allApps = bfs(root) || []
     const allRoutes = allApps.flatMap((x) => {
-      const prefix = this.joinBasePaths(this.getAppAndParents(x).map((x) => x.basePath))
+      const prefix = this.joinBasePaths(
+        this.getAppAndParents(x).map((x) => x.basePath),
+      )
 
       return x.routes.map((x) => ({ ...x, path: prefix + x.path }))
     })
@@ -183,8 +185,9 @@ export class Spiceflow<
     path = path.replace(/\/$/, '') || '/'
     const result = bfsFind(this, (app) => {
       app.topLevelApp = root
-      let prefix = this.joinBasePaths(this.getAppAndParents(app).map((x) => x.basePath))
-        .replace(/\/$/, '')
+      let prefix = this.joinBasePaths(
+        this.getAppAndParents(app).map((x) => x.basePath),
+      ).replace(/\/$/, '')
       if (prefix && !path.startsWith(prefix)) {
         return
       }
@@ -461,18 +464,18 @@ export class Spiceflow<
     >,
     Method extends HTTPMethod | HTTPMethod[] = '*',
   >(
-    options: {
-      path: Path
-      method?: Method
-      handler: Handle
-    } & LocalHook<
+    options: LocalHook<
       LocalSchema,
       Schema,
       Singleton,
       Definitions['error'],
       Metadata['macro'],
       JoinPath<BasePath, Path>
-    >,
+    > & {
+      path: Path
+      method?: Method
+      handler: Handle
+    },
   ): Spiceflow<
     BasePath,
     Scoped,
@@ -506,7 +509,10 @@ export class Spiceflow<
           return method === '*' ? [...METHODS] : [method as string]
         })
       : (() => {
-          const method = typeof actualMethod === 'string' ? actualMethod.toUpperCase() : actualMethod
+          const method =
+            typeof actualMethod === 'string'
+              ? actualMethod.toUpperCase()
+              : actualMethod
           return method === '*' ? [...METHODS] : [method as string]
         })()
     if (
@@ -1129,7 +1135,7 @@ export class Spiceflow<
         server.hostname === '0.0.0.0' ? 'localhost' : server.hostname
       console.log(`Listening on http://${displayedHost}:${server.port}`)
 
-      return {port: server.port, server}
+      return { port: server.port, server }
     }
 
     return this.listenForNode(port, hostname)

@@ -1,4 +1,4 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 
 // import deref from 'dereference-json-schema'
 
@@ -188,15 +188,22 @@ export function createMCPServer({
   ignorePaths?: string[]
   baseUrl?: string
 }) {
-  const mcpServer = server || new McpServer(
-    { name, version },
-    {
-      capabilities: {
-        tools: {},
-        resources: {},
+  const mcpServer =
+    server ||
+    new McpServer(
+      { name, version },
+      {
+        capabilities: {
+          tools: {},
+          resources: {},
+        },
       },
-    },
-  )
+    )
+  mcpServer.server.registerCapabilities({
+    tools: {},
+    resources: {},
+    ...mcpServer.server.getClientCapabilities(),
+  })
   // openapi = deref.dereferenceSync(openapi)
   if (!baseUrl) {
     baseUrl = extractApiFromBaseUrl(openapi)
@@ -261,7 +268,7 @@ export function createMCPServer({
 
     const tools = filteredPaths.flatMap(([path, pathObj]) =>
       Object.entries(pathObj || {})
-        .filter(([method]) => method !== 'parameters')
+        // .filter(([method]) => method !== 'parameters')
         .map(([method, operation]) => {
           const properties: Record<string, any> = {}
           const required: string[] = []
@@ -418,9 +425,13 @@ export function createMCPServer({
     return { resources: [] }
   })
 
-  mcpServer.server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
-    throw new Error('Resources are not supported - use tools instead')
-  })
+  mcpServer.server.setRequestHandler(
+    ReadResourceRequestSchema,
+    async (request) => {
+      // TODO add resources handler
+      throw new Error('Resources are not supported - use tools instead')
+    },
+  )
 
   return { server: mcpServer }
 }

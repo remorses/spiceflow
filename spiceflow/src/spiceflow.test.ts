@@ -38,18 +38,21 @@ test('* param is a path without front slash', async () => {
 
 test('* param in .route() does not contain leading slash', async () => {
   const app = new Spiceflow().route({
-    method: "GET",
-    path: "/repos/:owner/:repo/:branch/file/*",
+    method: 'GET',
+    path: '/repos/:owner/:repo/:branch/file/*',
     handler: async ({ params }) => {
-      const { owner, repo, branch, "*": filePath } = params
+      const { owner, repo, branch, '*': filePath } = params
       return { owner, repo, branch, filePath }
     },
   })
 
   const res = await app.handle(
-    new Request('http://localhost/repos/user/myrepo/main/file/src/components/Button.tsx', {
-      method: 'GET',
-    }),
+    new Request(
+      'http://localhost/repos/user/myrepo/main/file/src/components/Button.tsx',
+      {
+        method: 'GET',
+      },
+    ),
   )
   expect(res.status).toBe(200)
   const result = await res.json()
@@ -85,7 +88,7 @@ test('* method listens on all HTTP methods', async () => {
 
   // Test different HTTP methods
   const methods = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS']
-  
+
   for (const method of methods) {
     const res = await app.handle(
       new Request('http://localhost/wildcard', { method }),
@@ -104,7 +107,7 @@ test('route without method defaults to * (all methods)', async () => {
 
   // Test different HTTP methods
   const methods = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH']
-  
+
   for (const method of methods) {
     const res = await app.handle(
       new Request('http://localhost/default', { method }),
@@ -820,15 +823,13 @@ test('use with nested basPath works', async () => {
 
 test('does not append subapp basePath if it is the same as parent app', async () => {
   const app = new Spiceflow({ basePath: '/api' })
-    .use(
-      new Spiceflow({ basePath: '/api' }).get('/users', () => 'users'),
-    )
+    .use(new Spiceflow({ basePath: '/api' }).get('/users', () => 'users'))
     .use(
       new Spiceflow({ basePath: '/api' }).use(
         new Spiceflow({ basePath: '/v1' }).get('/posts', () => 'posts'),
       ),
     )
-  
+
   // Test that /api/users works (not /api/api/users)
   {
     const res = await app.handle(
@@ -849,7 +850,7 @@ test('does not append subapp basePath if it is the same as parent app', async ()
 
   // Test that getAllRoutes() doesn't contain duplicate basePaths
   const allRoutes = app.getAllRoutes()
-  expect(allRoutes.map(route => route.path)).toMatchInlineSnapshot(`
+  expect(allRoutes.map((route) => route.path)).toMatchInlineSnapshot(`
     [
       "/api/users",
       "/api/v1/posts",
@@ -859,15 +860,13 @@ test('does not append subapp basePath if it is the same as parent app', async ()
 
 test('does not append subapp basePath if parent is prefix of subapp path', async () => {
   const app = new Spiceflow({ basePath: '/api' })
-    .use(
-      new Spiceflow({ basePath: '/api/sub' }).get('/users', () => 'users'),
-    )
+    .use(new Spiceflow({ basePath: '/api/sub' }).get('/users', () => 'users'))
     .use(
       new Spiceflow({ basePath: '/api' }).use(
         new Spiceflow({ basePath: '/api/v2' }).get('/posts', () => 'posts'),
       ),
     )
-  
+
   // Test that /api/sub/users works (not /api/api/sub/users)
   {
     const res = await app.handle(
@@ -888,7 +887,7 @@ test('does not append subapp basePath if parent is prefix of subapp path', async
 
   // Test that getAllRoutes() contains the correct paths
   const allRoutes = app.getAllRoutes()
-  expect(allRoutes.map(route => route.path)).toMatchInlineSnapshot(`
+  expect(allRoutes.map((route) => route.path)).toMatchInlineSnapshot(`
     [
       "/api/sub/users",
       "/api/v2/posts",
@@ -1094,6 +1093,31 @@ describe('safePath', () => {
     )
   })
 
+  test('safePath with .route works for static and wildcard paths', () => {
+    const app = new Spiceflow()
+      .route({
+        method: 'GET',
+        path: '/users',
+        handler: () => 'users',
+      })
+      .route({
+        method: 'POST',
+        path: '/posts',
+        handler: () => 'posts',
+      })
+      .route({
+        method: 'GET',
+        path: '/files/*',
+        handler: () => 'files',
+      })
+
+    expect(app.safePath('/users')).toBe('/users')
+    expect(app.safePath('/posts')).toBe('/posts')
+    // @ts-expect-error
+    app.safePath('/files/*')
+    expect(app.safePath('/files/*', { '*': 'a/b.txt' })).toBe('/files/a/b.txt')
+  })
+
   test('handles paths with required parameters', () => {
     const app = new Spiceflow()
       .get('/users/:id', ({ params }) => params.id)
@@ -1151,13 +1175,13 @@ describe('safePath', () => {
     // Test that safePath works inside a route handler by creating a separate test
     const testApp = new Spiceflow()
       .get('/target', () => 'target')
-      .get('/source', function() {
+      .get('/source', function () {
         // Should be able to call safePath from inside handler
         return this.safePath('/target')
       })
 
     const res = await testApp.handle(
-      new Request('http://localhost/source', { method: 'GET' })
+      new Request('http://localhost/source', { method: 'GET' }),
     )
     expect(res.status).toBe(200)
     expect(await res.json()).toBe('/target')
@@ -1172,18 +1196,20 @@ describe('safePath', () => {
     // Valid paths work
     expect(app.safePath('/api/users')).toBe('/api/users')
     expect(app.safePath('/api/posts')).toBe('/api/posts')
-    expect(app.safePath('/api/settings/:id', { id: '1' })).toBe('/api/settings/1')
+    expect(app.safePath('/api/settings/:id', { id: '1' })).toBe(
+      '/api/settings/1',
+    )
 
     // Invalid paths should cause TypeScript errors
     // @ts-expect-error - Path not defined in app
     app.safePath('/api/nonexistent')
-    
+
     // @ts-expect-error - Path not defined in app
     app.safePath('/completely/different/path')
-    
+
     // @ts-expect-error - Path not defined in app
     app.safePath('/api/users/invalid')
-    
+
     // @ts-expect-error - Wrong parameter name
     app.safePath('/api/settings/:wrongParam', { wrongParam: '1' })
   })
@@ -1191,7 +1217,7 @@ describe('safePath', () => {
   test('safePath works with all method shorthand functions', () => {
     const app = new Spiceflow()
       .get('/get-route', () => 'get')
-      .post('/post-route', () => 'post') 
+      .post('/post-route', () => 'post')
       .put('/put-route', () => 'put')
       .patch('/patch-route', () => 'patch')
       .delete('/delete-route', () => 'delete')
@@ -1217,13 +1243,13 @@ describe('safePath', () => {
   test('safePath works inside route handlers', async () => {
     const app = new Spiceflow()
       .get('/target', () => 'target reached')
-      .post('/redirect-test', function() {
+      .post('/redirect-test', function () {
         // Should be able to reference other routes in the same app
         return this.safePath('/target')
       })
 
     const res = await app.handle(
-      new Request('http://localhost/redirect-test', { method: 'POST' })
+      new Request('http://localhost/redirect-test', { method: 'POST' }),
     )
     expect(res.status).toBe(200)
     expect(await res.json()).toBe('/target')
@@ -1264,14 +1290,14 @@ test('composition with .use() works with state and onError - child app gets same
 
   // Test successful request - state starts from child app (0), then root middleware (+1), then child middleware (+10)
   const successRes = await rootApp.handle(
-    new Request('http://localhost/success', { method: 'GET' })
+    new Request('http://localhost/success', { method: 'GET' }),
   )
   expect(successRes.status).toBe(200)
   expect(await successRes.json()).toEqual({ counter: 11 }) // 0 + 1 + 10
 
   // Test error case - root onError should catch child errors
   const errorRes = await rootApp.handle(
-    new Request('http://localhost/error', { method: 'GET' })
+    new Request('http://localhost/error', { method: 'GET' }),
   )
   expect(errorRes.status).toBe(400)
   expect(await errorRes.text()).toBe('Root error handler')
@@ -1283,7 +1309,7 @@ test('composition with .use() works with state and onError - child app gets same
 test('onError receives path parameter', async () => {
   let capturedPath = ''
   let capturedError: any = null
-  
+
   const app = new Spiceflow()
     .get('/test/path/:id', ({ params }) => {
       throw new Error('Test error')
@@ -1299,7 +1325,7 @@ test('onError receives path parameter', async () => {
 
   // Test GET request
   const getRes = await app.handle(
-    new Request('http://localhost/test/path/123?foo=bar', { method: 'GET' })
+    new Request('http://localhost/test/path/123?foo=bar', { method: 'GET' }),
   )
   expect(getRes.status).toBe(500)
   expect(capturedPath).toBe('/test/path/123?foo=bar')
@@ -1307,7 +1333,7 @@ test('onError receives path parameter', async () => {
 
   // Test POST request
   const postRes = await app.handle(
-    new Request('http://localhost/another/route', { method: 'POST' })
+    new Request('http://localhost/another/route', { method: 'POST' }),
   )
   expect(postRes.status).toBe(500)
   expect(capturedPath).toBe('/another/route')
@@ -1332,7 +1358,7 @@ test('error status validation', async () => {
     })
 
     const res = await app.handle(
-      new Request('http://localhost/test', { method: 'GET' })
+      new Request('http://localhost/test', { method: 'GET' }),
     )
     expect(res.status).toBe(expected)
   }
@@ -1355,7 +1381,7 @@ test('error statusCode fallback', async () => {
     })
 
     const res = await app.handle(
-      new Request('http://localhost/test', { method: 'GET' })
+      new Request('http://localhost/test', { method: 'GET' }),
     )
     expect(res.status).toBe(expected)
   }
@@ -1367,7 +1393,7 @@ test('route override - same method and path, second route wins', async () => {
     .get('/test', () => 'second handler')
 
   const res = await app.handle(
-    new Request('http://localhost/test', { method: 'GET' })
+    new Request('http://localhost/test', { method: 'GET' }),
   )
   expect(res.status).toBe(200)
   expect(await res.json()).toMatchInlineSnapshot(`"second handler"`)
@@ -1380,13 +1406,13 @@ test('route override - different methods on same path work independently', async
     .get('/test', () => 'get override')
 
   const getRes = await app.handle(
-    new Request('http://localhost/test', { method: 'GET' })
+    new Request('http://localhost/test', { method: 'GET' }),
   )
   expect(getRes.status).toBe(200)
   expect(await getRes.json()).toMatchInlineSnapshot(`"get override"`)
 
   const postRes = await app.handle(
-    new Request('http://localhost/test', { method: 'POST' })
+    new Request('http://localhost/test', { method: 'POST' }),
   )
   expect(postRes.status).toBe(200)
   expect(await postRes.json()).toMatchInlineSnapshot(`"post handler"`)
@@ -1404,32 +1430,30 @@ test('route override with .use() - parent app routes take precedence over child 
 
   // Parent app route takes precedence over child app route
   const sharedRes = await parentApp.handle(
-    new Request('http://localhost/shared', { method: 'GET' })
+    new Request('http://localhost/shared', { method: 'GET' }),
   )
   expect(sharedRes.status).toBe(200)
   expect(await sharedRes.json()).toMatchInlineSnapshot(`"parent handler"`)
 
   // Parent-only route works as expected
   const parentOnlyRes = await parentApp.handle(
-    new Request('http://localhost/parent-only', { method: 'GET' })
+    new Request('http://localhost/parent-only', { method: 'GET' }),
   )
   expect(parentOnlyRes.status).toBe(200)
   expect(await parentOnlyRes.json()).toMatchInlineSnapshot(`"parent only"`)
 
   // Child-only route works as expected
   const childOnlyRes = await parentApp.handle(
-    new Request('http://localhost/child-only', { method: 'GET' })
+    new Request('http://localhost/child-only', { method: 'GET' }),
   )
   expect(childOnlyRes.status).toBe(200)
   expect(await childOnlyRes.json()).toMatchInlineSnapshot(`"child only"`)
 })
 
 test('route override with .use() - parent app routes always win, regardless of order', async () => {
-  const firstChildApp = new Spiceflow()
-    .get('/shared', () => 'first child')
+  const firstChildApp = new Spiceflow().get('/shared', () => 'first child')
 
-  const secondChildApp = new Spiceflow()
-    .get('/shared', () => 'second child')
+  const secondChildApp = new Spiceflow().get('/shared', () => 'second child')
 
   const parentApp = new Spiceflow()
     .get('/shared', () => 'parent')
@@ -1438,67 +1462,68 @@ test('route override with .use() - parent app routes always win, regardless of o
 
   // Parent route always wins, regardless of child apps
   const res = await parentApp.handle(
-    new Request('http://localhost/shared', { method: 'GET' })
+    new Request('http://localhost/shared', { method: 'GET' }),
   )
   expect(res.status).toBe(200)
   expect(await res.json()).toMatchInlineSnapshot(`"parent"`)
 })
 
 test('route override with nested .use() - first matching parent route wins', async () => {
-  const deepestApp = new Spiceflow()
-    .get('/test', () => 'deepest')
+  const deepestApp = new Spiceflow().get('/test', () => 'deepest')
 
-  const middleApp = new Spiceflow()
-    .get('/test', () => 'middle')
-    .use(deepestApp)
+  const middleApp = new Spiceflow().get('/test', () => 'middle').use(deepestApp)
 
-  const rootApp = new Spiceflow()
-    .get('/test', () => 'root')
-    .use(middleApp)
+  const rootApp = new Spiceflow().get('/test', () => 'root').use(middleApp)
 
   // Root app route wins over all nested routes
   const res = await rootApp.handle(
-    new Request('http://localhost/test', { method: 'GET' })
+    new Request('http://localhost/test', { method: 'GET' }),
   )
   expect(res.status).toBe(200)
   expect(await res.json()).toMatchInlineSnapshot(`"root"`)
 })
 
 test('route override with .use() - child routes are accessible when no parent route exists', async () => {
-  const firstChildApp = new Spiceflow()
-    .get('/child1-route', () => 'first child')
+  const firstChildApp = new Spiceflow().get(
+    '/child1-route',
+    () => 'first child',
+  )
 
   const secondChildApp = new Spiceflow()
     .get('/child2-route', () => 'second child')
     .get('/shared-child', () => 'second child shared')
 
-  const thirdChildApp = new Spiceflow()
-    .get('/shared-child', () => 'third child shared')
+  const thirdChildApp = new Spiceflow().get(
+    '/shared-child',
+    () => 'third child shared',
+  )
 
   const parentApp = new Spiceflow()
     .get('/parent-only', () => 'parent')
     .use(firstChildApp)
-    .use(secondChildApp) 
+    .use(secondChildApp)
     .use(thirdChildApp)
 
   // First child route works
   const child1Res = await parentApp.handle(
-    new Request('http://localhost/child1-route', { method: 'GET' })
+    new Request('http://localhost/child1-route', { method: 'GET' }),
   )
   expect(child1Res.status).toBe(200)
   expect(await child1Res.json()).toMatchInlineSnapshot(`"first child"`)
 
   // Second child route works
   const child2Res = await parentApp.handle(
-    new Request('http://localhost/child2-route', { method: 'GET' })
+    new Request('http://localhost/child2-route', { method: 'GET' }),
   )
   expect(child2Res.status).toBe(200)
   expect(await child2Res.json()).toMatchInlineSnapshot(`"second child"`)
 
   // For conflicting child routes, first one wins (since no parent route exists)
   const sharedChildRes = await parentApp.handle(
-    new Request('http://localhost/shared-child', { method: 'GET' })
+    new Request('http://localhost/shared-child', { method: 'GET' }),
   )
   expect(sharedChildRes.status).toBe(200)
-  expect(await sharedChildRes.json()).toMatchInlineSnapshot(`"second child shared"`)
+  expect(await sharedChildRes.json()).toMatchInlineSnapshot(
+    `"second child shared"`,
+  )
 })

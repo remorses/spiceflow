@@ -7,16 +7,40 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 
 const defaultTransports = new Map<string, SSEServerTransportSpiceflow>()
 
-export async function addMcpTools({
+/**
+ * Add MCP tools to an existing MCP server from a Spiceflow app
+ * @example
+ * ```ts
+ * await addMcpTools({
+ *   mcpServer,
+ *   app,
+ *   ignorePaths: ['/sse', '/mcp']
+ * })
+ * ```
+ */
+export async function addMcpTools<
+  const App extends AnySpiceflow,
+  Paths extends string = App extends Spiceflow<
+    any,
+    any,
+    any,
+    any,
+    any,
+    any,
+    infer RoutePaths
+  >
+    ? RoutePaths
+    : string,
+>({
   mcpServer,
   app,
-
-  path,
+  ignorePaths,
+  onlyPaths,
 }: {
   mcpServer: McpServer
-  app: AnySpiceflow
-
-  path: string
+  app: App
+  ignorePaths: Paths[]
+  onlyPaths?: Paths[]
 }): Promise<McpServer> {
   // Always add the OpenAPI route
   app.use(openapi({ path: '/_mcp_openapi' }))
@@ -32,7 +56,8 @@ export async function addMcpTools({
 
   const { server: configuredServer } = createMCPServer({
     server: mcpServer,
-    ignorePaths: ['/_mcp_openapi', path, path + '/message'],
+    ignorePaths: ['/_mcp_openapi', ...ignorePaths],
+    paths: onlyPaths,
     fetch: (url, init) => {
       const req = new Request(url, init)
       return app.handle(req)

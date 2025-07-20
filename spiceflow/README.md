@@ -1088,7 +1088,11 @@ const app = new Spiceflow()
   })
 
 // Add Spiceflow tools to your existing server
-const mcpServer = await addMcpTools({ mcpServer: existingServer, app })
+const mcpServer = await addMcpTools({ 
+  mcpServer: existingServer, 
+  app,
+  ignorePaths: ['/mcp', '/sse']
+})
 
 // Now your existing server has access to all Spiceflow routes as tools
 ```
