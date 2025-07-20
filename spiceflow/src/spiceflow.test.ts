@@ -53,12 +53,14 @@ test('* param in .route() does not contain leading slash', async () => {
   )
   expect(res.status).toBe(200)
   const result = await res.json()
-  expect(result).toEqual({
-    owner: 'user',
-    repo: 'myrepo', 
-    branch: 'main',
-    filePath: 'src/components/Button.tsx'
-  })
+  expect(result).toMatchInlineSnapshot(`
+    {
+      "branch": "main",
+      "filePath": "src/components/Button.tsx",
+      "owner": "user",
+      "repo": "myrepo",
+    }
+  `)
   expect(result.filePath).not.toMatch(/^\//)
 })
 
