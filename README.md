@@ -237,6 +237,20 @@ async function exampleUsage() {
 }
 ```
 
+
+### Path Matching - Supported Features
+
+- **Named parameters**: `:param` - Captures dynamic segments like `/users/:id` or `/api/:version/users/:userId`
+- **Wildcards**: `*` - Matches any remaining path segments like `/files/*` or `/proxy/*`
+
+### Path Matching - Unsupported Features
+
+- **Optional parameters**: `/:param?` - Use separate routes instead - IS NOT SUPPORTED
+- **Named wildcards**: `/files/*name` - Use unnamed `*` only - IS NOT SUPPORTED
+- **Partial parameters**: `/:param-suffix` or `/prefix-:param` - Use full segment parameters only - IS NOT SUPPORTED
+- **Regex patterns**: `/users/(\\d+)` - Use string parameters with validation in handlers - IS NOT SUPPORTED
+- **Multiple wildcards**: `/*/files/*` - Use single wildcard only - IS NOT SUPPORTED
+
 ## Safe Path Building
 
 The `safePath` method provides a type-safe way to build URLs with parameters. It helps prevent runtime errors by ensuring all required parameters are provided and properly substituted into the path.
