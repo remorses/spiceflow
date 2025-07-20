@@ -500,12 +500,14 @@ export class Spiceflow<
     // If options.request is defined, disallow for GET and HEAD (methods that don't support a body)
     const methodsWithNoBody = ['GET', 'HEAD']
     const normalizedMethods: string[] = Array.isArray(options.method)
-      ? options.method.map((m) => (typeof m === 'string' ? m.toUpperCase() : m))
-      : [
-          typeof options.method === 'string'
-            ? options.method.toUpperCase()
-            : options.method,
-        ]
+      ? options.method.flatMap((m) => {
+          const method = typeof m === 'string' ? m.toUpperCase() : m
+          return method === '*' ? [...METHODS] : [method as string]
+        })
+      : (() => {
+          const method = typeof options.method === 'string' ? options.method.toUpperCase() : options.method
+          return method === '*' ? [...METHODS] : [method as string]
+        })()
     if (
       options.request &&
       normalizedMethods.some((m) => methodsWithNoBody.includes(m))
@@ -515,21 +517,43 @@ export class Spiceflow<
       )
     }
     if (Array.isArray(options.method)) {
-      options.method.map((method) =>
+      options.method.map((method) => {
+        if (method === '*') {
+          for (const m of METHODS) {
+            this.add({
+              method: m,
+              path: options.path,
+              handler: options.handler,
+              hooks: options,
+            })
+          }
+        } else {
+          this.add({
+            method,
+            path: options.path,
+            handler: options.handler,
+            hooks: options,
+          })
+        }
+      })
+    } else {
+      if (options.method === '*') {
+        for (const method of METHODS) {
+          this.add({
+            method,
+            path: options.path,
+            handler: options.handler,
+            hooks: options,
+          })
+        }
+      } else {
         this.add({
-          method,
+          method: options.method,
           path: options.path,
           handler: options.handler,
           hooks: options,
-        }),
-      )
-    } else {
-      this.add({
-        method: options.method,
-        path: options.path,
-        handler: options.handler,
-        hooks: options,
-      })
+        })
+      }
     }
 
     return this as any

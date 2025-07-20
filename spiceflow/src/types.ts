@@ -264,6 +264,7 @@ export type HTTPMethod =
   | 'UNLOCK'
   | 'UNSUBSCRIBE'
   | 'ALL'
+  | '*'
 
 export interface InputSchema<Name extends string = string> {
   /**

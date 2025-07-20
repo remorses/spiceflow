@@ -1,5 +1,19 @@
 # spiceflow
 
+## 1.15.1
+
+### Patch Changes
+
+- Add support for `*` wildcard in route method field to listen on all HTTP methods. When using `method: '*'` in the route configuration, the route will respond to all HTTP methods (GET, POST, PUT, DELETE, etc.). This provides a convenient way to create catch-all routes without having to specify each method individually.
+
+  ```typescript
+  app.route({
+    method: '*',
+    path: '/api/*',
+    handler: ({ request }) => ({ method: request.method }),
+  })
+  ```
+
 ## 1.15.0
 
 ### Minor Changes

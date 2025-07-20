@@ -65,6 +65,8 @@ always use kebab case for new filenames. never use uppercase letters in filename
 
 after you make a change that is noteworthy, add a changeset. these will be used later on to create a changelog for the package. use `pnpm changeset add --empty` to create a changeset file in `.changeset` folder, then write there the changes you made in a single concise paragraph. never run other changeset commands, like `pnpm changeset version` or `pnpm changeset publish`. Notice that sometimes the cwd is missing `.changeset` folder, in that case check the parents directories.
 
+NEVER make breaking changes changesets.
+
 Only add changesets for packages that are not marked as `private` in their `package.json` and have a `version` in the package.json.
 
 Changeset files are structured like this:
