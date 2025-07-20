@@ -1096,7 +1096,6 @@ describe('safePath', () => {
   test('safePath with .route works for static and wildcard paths', () => {
     const app = new Spiceflow()
       .route({
-        method: 'GET',
         path: '/users',
         handler: () => 'users',
       })
@@ -1115,6 +1114,10 @@ describe('safePath', () => {
     expect(app.safePath('/posts')).toBe('/posts')
     // @ts-expect-error
     app.safePath('/files/*')
+    // @ts-expect-error
+    app.safePath('/nonexistent', {})
+    // @ts-expect-error
+    app.safePath('/nonexistent')
     expect(app.safePath('/files/*', { '*': 'a/b.txt' })).toBe('/files/a/b.txt')
   })
 
