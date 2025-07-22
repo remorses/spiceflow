@@ -339,6 +339,13 @@ export type CoExist<Original, Target, With> =
         ? Original | With
         : Original
 
+
+type ResponseLike = {
+  status: number
+  headers?: any
+  body?: any
+}
+
 export type InlineHandler<
   This,
   Route extends RouteSchema = {},
@@ -353,7 +360,7 @@ export type InlineHandler<
     ? Prettify<MacroContext & Context<Route, Singleton, Path>>
     : Context<Route, Singleton, Path>,
 ) =>
-  | Response
+  | ResponseLike
   | MaybePromiseIterable<
       {} extends Route['response']
         ? unknown
