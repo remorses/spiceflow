@@ -1,5 +1,11 @@
 # spiceflow
 
+## 1.17.4
+
+### Patch Changes
+
+- Softer type for handler return type, allow Cloudflare Response
+
 ## 1.17.3
 
 ### Patch Changes
