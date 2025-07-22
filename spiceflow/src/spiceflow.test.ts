@@ -1530,3 +1530,52 @@ test('route override with .use() - child routes are accessible when no parent ro
     `"second child shared"`,
   )
 })
+
+test('disableSuperJsonUnlessRpc is inherited by child apps', async () => {
+  // Test that child apps inherit the flag from parent
+  const childApp = new Spiceflow()
+    .get('/date', () => ({ date: new Date('2024-01-01') }))
+  
+  const parentApp = new Spiceflow({ disableSuperJsonUnlessRpc: true })
+    .use(childApp)
+  
+  // Regular request should not use superjson
+  const regularRes = await parentApp.handle(
+    new Request('http://localhost/date', { method: 'GET' })
+  )
+  expect(regularRes.status).toBe(200)
+  const regularData = await regularRes.text()
+  expect(regularData).not.toContain('__superjsonMeta')
+  expect(regularData).toMatchInlineSnapshot(`"{"date":"2024-01-01T00:00:00.000Z"}"`)
+  
+  // RPC request should use superjson
+  const rpcRes = await parentApp.handle(
+    new Request('http://localhost/date', { 
+      method: 'GET',
+      headers: { 'x-spiceflow-agent': 'spiceflow-client' }
+    })
+  )
+  expect(rpcRes.status).toBe(200)
+  const rpcData = await rpcRes.text()
+  expect(rpcData).toContain('__superjsonMeta')
+  expect(rpcData).toMatchInlineSnapshot(`"{"date":"2024-01-01T00:00:00.000Z","__superjsonMeta":{"values":{"date":["Date"]}}}"`)
+})
+
+test('child app with explicit disableSuperJsonUnlessRpc=true is not overridden', async () => {
+  // Child explicitly sets the flag to true
+  const childApp = new Spiceflow({ disableSuperJsonUnlessRpc: true })
+    .get('/date', () => ({ date: new Date('2024-01-01') }))
+  
+  // Parent doesn't have the flag set (defaults to false)
+  const parentApp = new Spiceflow()
+    .use(childApp)
+  
+  // Regular request should not use superjson because child has flag set
+  const regularRes = await parentApp.handle(
+    new Request('http://localhost/date', { method: 'GET' })
+  )
+  expect(regularRes.status).toBe(200)
+  const regularData = await regularRes.text()
+  expect(regularData).not.toContain('__superjsonMeta')
+  expect(regularData).toMatchInlineSnapshot(`"{"date":"2024-01-01T00:00:00.000Z"}"`)
+})

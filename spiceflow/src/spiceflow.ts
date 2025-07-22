@@ -841,6 +841,10 @@ export class Spiceflow<
   use(appOrHandler) {
     if (appOrHandler instanceof Spiceflow) {
       appOrHandler.topLevelApp = this
+      // Inherit disableSuperJsonUnlessRpc from parent if child doesn't have it set
+      if (this.disableSuperJsonUnlessRpc === true) {
+        appOrHandler.disableSuperJsonUnlessRpc = true
+      }
       this.childrenApps.push(appOrHandler)
     } else if (typeof appOrHandler === 'function') {
       this.middlewares ??= []
