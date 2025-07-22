@@ -110,6 +110,7 @@ export class Spiceflow<
   private defaultState: Record<any, any> = {}
   topLevelApp?: AnySpiceflow = this
   private waitUntilFn: WaitUntil
+  private disableSuperJsonUnlessRpc: boolean = false
 
   _types = {
     Prefix: '' as BasePath,
@@ -289,9 +290,11 @@ export class Spiceflow<
       scoped?: Scoped
       waitUntil?: WaitUntil
       basePath?: BasePath
+      disableSuperJsonUnlessRpc?: boolean
     } = {},
   ) {
     this.scoped = options.scoped
+    this.disableSuperJsonUnlessRpc = options.disableSuperJsonUnlessRpc || false
 
     // Set up waitUntil function - use provided one, global one, or noop
     this.waitUntilFn =
@@ -937,10 +940,10 @@ export class Spiceflow<
         status = 500
       }
       res ||= new Response(
-        superjsonSerialize({
+        self.superjsonSerialize({
           ...err,
           message: err?.message || 'Internal Server Error',
-        }),
+        }, false, request),
         {
           status,
           headers: {
@@ -964,9 +967,10 @@ export class Spiceflow<
           if (!result && index < middlewares.length) {
             return await next()
           } else if (result) {
-            return await turnHandlerResultIntoResponse(
+            return await self.turnHandlerResultIntoResponse(
               result,
               route.internalRoute,
+              request,
             )
           }
         }
@@ -993,9 +997,10 @@ export class Spiceflow<
           })
           return handlerResponse
         }
-        handlerResponse = await turnHandlerResultIntoResponse(
+        handlerResponse = await self.turnHandlerResultIntoResponse(
           res,
           route.internalRoute,
+          request,
         )
         return handlerResponse
       } catch (err) {
@@ -1006,6 +1011,90 @@ export class Spiceflow<
     const response = await next()
 
     return response
+  }
+
+  protected superjsonSerialize(value: any, indent = false, request?: Request): string {
+    const isRpcRequest = request?.headers.get('x-spiceflow-agent') === 'spiceflow-client'
+
+    // If flag is set and this is not an RPC request, use regular JSON
+    if (this.disableSuperJsonUnlessRpc && !isRpcRequest) {
+      return JSON.stringify(value, null, indent ? 2 : undefined)
+    }
+
+    // Otherwise use superjson
+    const { json, meta } = superjson.serialize(value)
+    if (json && meta) {
+      json['__superjsonMeta'] = meta
+    }
+    return JSON.stringify(json ?? null, null, indent ? 2 : undefined)
+  }
+
+  private async turnHandlerResultIntoResponse(
+    result: any,
+    route: InternalRoute,
+    request?: Request,
+  ): Promise<Response> {
+    // if user returns a promise, await it
+    if (result instanceof Promise) {
+      result = await result
+    }
+
+    if (isResponse(result)) {
+      return result
+    }
+
+    if (route.type) {
+      if (route.type?.includes('multipart/form-data')) {
+        if (!(result instanceof Response)) {
+          throw new Error(
+            `Invalid form data returned from route handler ${
+              route.path
+            } - expected Response but got ${
+              result?.constructor?.name || typeof result
+            }. FormData cannot be returned directly - it must be wrapped in a Response object with the appropriate content-type header.`,
+          )
+        }
+      }
+      if (route.type?.includes('application/x-www-form-urlencoded')) {
+        if (!(result instanceof URLSearchParams)) {
+          throw new Error(
+            `Invalid URL encoded data returned from route handler ${
+              route.path
+            } - expected URLSearchParams but got ${
+              result?.constructor?.name || typeof result
+            }`,
+          )
+        }
+        return new Response(result, {
+          headers: {
+            'content-type': 'application/x-www-form-urlencoded',
+          },
+        })
+      }
+
+      if (route.type?.includes('text/plain')) {
+        if (typeof result !== 'string') {
+          throw new Error(
+            `Invalid text returned from route handler ${
+              route.path
+            } - expected string but got ${
+              result?.constructor?.name || typeof result
+            }`,
+          )
+        }
+        return new Response(result, {
+          headers: {
+            'content-type': 'text/plain',
+          },
+        })
+      }
+    }
+
+    return new Response(this.superjsonSerialize(result, false, request), {
+      headers: {
+        'content-type': 'application/json',
+      },
+    })
   }
 
   private async runErrorHandlers({
@@ -1115,7 +1204,7 @@ export class Spiceflow<
         error(error) {
           console.error(error)
           return new Response(
-            superjsonSerialize({ message: 'Internal Server Error' }),
+            app.superjsonSerialize({ message: 'Internal Server Error' }),
             {
               status: 500,
             },
@@ -1187,7 +1276,7 @@ export class Spiceflow<
     if (init?.done) {
       return new Response(
         'event: message\ndata: ' +
-          superjsonSerialize(init.value, false) +
+          this.superjsonSerialize(init.value, false, request) +
           '\n\n' +
           'event: done\n\n',
         {
@@ -1240,7 +1329,7 @@ export class Spiceflow<
             controller.enqueue(
               Buffer.from(
                 'event: message\ndata: ' +
-                  superjsonSerialize(init.value, false) +
+                  self.superjsonSerialize(init.value, false, request) +
                   '\n\n',
               ),
             )
@@ -1253,7 +1342,7 @@ export class Spiceflow<
               controller.enqueue(
                 Buffer.from(
                   'event: message\ndata: ' +
-                    superjsonSerialize(chunk, false) +
+                    self.superjsonSerialize(chunk, false, request) +
                     '\n\n',
                 ),
               )
@@ -1268,12 +1357,13 @@ export class Spiceflow<
             controller.enqueue(
               Buffer.from(
                 'event: error\ndata: ' +
-                  superjsonSerialize(
+                  self.superjsonSerialize(
                     {
                       ...error,
                       message: error.message || error.name || 'Error',
                     },
                     false,
+                    request
                   ) +
                   '\n\n',
               ),
@@ -1385,72 +1475,6 @@ export function bfs(tree: AnySpiceflow) {
   return nodes
 }
 
-export async function turnHandlerResultIntoResponse(
-  result: any,
-  route: InternalRoute,
-) {
-  // if user returns a promise, await it
-  if (result instanceof Promise) {
-    result = await result
-  }
-
-  if (isResponse(result)) {
-    return result
-  }
-
-  if (route.type) {
-    if (route.type?.includes('multipart/form-data')) {
-      if (!(result instanceof Response)) {
-        throw new Error(
-          `Invalid form data returned from route handler ${
-            route.path
-          } - expected Response but got ${
-            result?.constructor?.name || typeof result
-          }. FormData cannot be returned directly - it must be wrapped in a Response object with the appropriate content-type header.`,
-        )
-      }
-    }
-    if (route.type?.includes('application/x-www-form-urlencoded')) {
-      if (!(result instanceof URLSearchParams)) {
-        throw new Error(
-          `Invalid URL encoded data returned from route handler ${
-            route.path
-          } - expected URLSearchParams but got ${
-            result?.constructor?.name || typeof result
-          }`,
-        )
-      }
-      return new Response(result, {
-        headers: {
-          'content-type': 'application/x-www-form-urlencoded',
-        },
-      })
-    }
-
-    if (route.type?.includes('text/plain')) {
-      if (typeof result !== 'string') {
-        throw new Error(
-          `Invalid text returned from route handler ${
-            route.path
-          } - expected string but got ${
-            result?.constructor?.name || typeof result
-          }`,
-        )
-      }
-      return new Response(result, {
-        headers: {
-          'content-type': 'text/plain',
-        },
-      })
-    }
-  }
-
-  return new Response(superjsonSerialize(result), {
-    headers: {
-      'content-type': 'application/json',
-    },
-  })
-}
 
 export type AnySpiceflow = Spiceflow<any, any, any, any, any, any, any>
 
@@ -1534,13 +1558,4 @@ function parseQuery(queryString: string) {
 
 export function cloneDeep(x) {
   return copy(x)
-}
-
-function superjsonSerialize(value: any, indent = false) {
-  // return JSON.stringify(value)
-  const { json, meta } = superjson.serialize(value)
-  if (json && meta) {
-    json['__superjsonMeta'] = meta
-  }
-  return JSON.stringify(json ?? null, null, indent ? 2 : undefined)
 }

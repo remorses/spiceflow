@@ -353,6 +353,10 @@ const createProxy = (
 
           if (isGetOrHead) delete fetchInit.body
 
+          // Add x-spiceflow-agent header
+          ;(fetchInit.headers as Record<string, string>)['x-spiceflow-agent'] =
+            'spiceflow-client'
+
           if (onRequest) {
             if (!Array.isArray(onRequest)) onRequest = [onRequest]
 
