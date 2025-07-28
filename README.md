@@ -104,15 +104,15 @@ const app = new Spiceflow()
     },
   })
   .route({
-    method: 'POST', 
+    method: 'POST',
     path: '/data',
     async handler({ request }) {
       const body = await request.json()
       // Objects are automatically serialized to JSON
-      return { 
+      return {
         received: body,
         timestamp: new Date().toISOString(),
-        processed: true 
+        processed: true,
       }
     },
   })
@@ -140,12 +140,12 @@ const app = new Spiceflow()
     }),
     handler({ params }) {
       const user = getUserById(params.id)
-      
+
       if (!user) {
         // Throw Response for errors to maintain type safety
         throw new Response('User not found', { status: 404 })
       }
-      
+
       // Return object directly for success - type will be properly inferred
       return {
         id: user.id,
@@ -168,14 +168,14 @@ const app = new Spiceflow()
     }),
     async handler({ request }) {
       const body = await request.json()
-      
+
       if (await userExists(body.email)) {
         // Throw Response for errors
         throw new Response('User already exists', { status: 409 })
       }
-      
+
       const newUser = await createUser(body)
-      
+
       // Return object directly - RPC client will have proper typing
       return {
         id: newUser.id,
@@ -193,18 +193,19 @@ const client = createSpiceflowClient<typeof app>('http://localhost:3000')
 async function example() {
   // TypeScript knows data is { id: string, name: string, email: string } | undefined
   const { data, error } = await client.users({ id: '123' }).get()
-  
+
   if (error) {
     console.error('Error:', error) // Error handling
     return
   }
-  
+
   // data is properly typed here
   console.log('User:', data.name, data.email)
 }
 ```
 
 With this pattern:
+
 - **Success responses**: Return objects directly for automatic JSON serialization and proper type inference
 - **Error responses**: Throw `Response` objects to maintain the error/success distinction in the RPC client
 - **Type safety**: The RPC client will correctly infer the return type as the success object type
@@ -359,7 +360,6 @@ async function exampleUsage() {
 }
 ```
 
-
 ### Path Matching - Supported Features
 
 - **Named parameters**: `:param` - Captures dynamic segments like `/users/:id` or `/api/:version/users/:userId`
@@ -397,7 +397,7 @@ export class ChatDurableObject {
         async handler() {
           // Use 'self' instead of 'this' to access parent class
           // this.state would NOT work here - 'this' refers to Spiceflow instance
-          const messages = await self.state.storage.get('messages') || []
+          const messages = (await self.state.storage.get('messages')) || []
           return { messages }
         },
       })
@@ -407,7 +407,7 @@ export class ChatDurableObject {
         async handler({ request }) {
           const { message } = await request.json()
           // Use 'self' to access parent class properties
-          const messages = await self.state.storage.get('messages') || []
+          const messages = (await self.state.storage.get('messages')) || []
           messages.push({ id: Date.now(), text: message })
           await self.state.storage.put('messages', messages)
           return { success: true }
@@ -1064,14 +1064,14 @@ If you already have an existing MCP server and want to add Spiceflow route tools
 
 ```ts
 import { addMcpTools } from 'spiceflow/mcp'
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 
 import { Spiceflow } from 'spiceflow'
 
 // Your existing MCP server
 const existingServer = new Server(
   { name: 'my-server', version: '1.0.0' },
-  { capabilities: { tools: {}, resources: {} } }
+  { capabilities: { tools: {}, resources: {} } },
 )
 
 // Your Spiceflow app
@@ -1086,10 +1086,10 @@ const app = new Spiceflow()
   })
 
 // Add Spiceflow tools to your existing server
-const mcpServer = await addMcpTools({ 
-  mcpServer: existingServer, 
+const mcpServer = await addMcpTools({
+  mcpServer: existingServer,
   app,
-  ignorePaths: ['/mcp', '/sse']
+  ignorePaths: ['/mcp', '/sse'],
 })
 
 // Now your existing server has access to all Spiceflow routes as tools
@@ -1453,3 +1453,11 @@ async function trackPageView(path: string) {
 ```
 
 **Note:** In non-Cloudflare environments, if no custom `waitUntil` function is provided, the default implementation is a no-op function that doesn't wait for the promises to complete.
+
+### When using `createSpiceflowClient` and getting typescript error `The inferred type of 'pluginApiClient' cannot be named without a reference to '...'. This is likely not portable. A type annotation is necessary. (ts 2742)`
+
+You can resolve this issue by adding an explicing type for the client:
+
+```ts
+export const client: SpiceflowClient.Create<App> = createSpiceflowClient<App>(PUBLIC_URL, {})
+````
