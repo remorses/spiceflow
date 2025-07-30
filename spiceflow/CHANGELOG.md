@@ -2,6 +2,12 @@
 
 <!-- When updating the changelog, also update the version in spiceflow/package.json -->
 
+## 1.17.7
+
+### Patch Changes
+
+- Fix types for `preventProcessExitIfBusy` middleware
+
 ## 1.17.6
 
 ### Patch Changes
