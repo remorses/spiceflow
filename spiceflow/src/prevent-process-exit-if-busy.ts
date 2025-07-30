@@ -1,15 +1,21 @@
-import { Spiceflow } from 'spiceflow'
+import { Spiceflow } from './spiceflow.js'
+import type { AnySpiceflow } from './spiceflow.js'
+
+interface GracefulShutdownOptions {
+    maxWaitSeconds?: number
+    checkIntervalMs?: number
+}
 
 /**
  * Creates a Spiceflow middleware that tracks in-flight requests and prevents
  * the process from exiting while requests are being processed.
  * 
- * @param {Object} options - Configuration options
- * @param {number} [options.maxWaitSeconds=300] - Maximum time to wait for requests to complete
- * @param {number} [options.checkIntervalMs=250] - Interval to check if requests are complete
- * @returns {Spiceflow} Spiceflow app that can be mounted with .use()
+ * @param options - Configuration options
+ * @param options.maxWaitSeconds - Maximum time to wait for requests to complete (default: 300)
+ * @param options.checkIntervalMs - Interval to check if requests are complete (default: 250)
+ * @returns Spiceflow app that can be mounted with .use()
  */
-export function preventProcessExitIfBusy(options = {}) {
+export function preventProcessExitIfBusy(options: GracefulShutdownOptions = {}): AnySpiceflow {
     const { maxWaitSeconds = 300, checkIntervalMs = 250 } = options
     
     // Track in-flight requests in closure
@@ -17,10 +23,10 @@ export function preventProcessExitIfBusy(options = {}) {
     let isShuttingDown = false
     
     // Sleep utility
-    const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms))
+    const sleep = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms))
     
     // Graceful shutdown handler
-    async function handleShutdown(signal) {
+    async function handleShutdown(signal: NodeJS.Signals) {
         if (isShuttingDown) return // Prevent multiple shutdown attempts
         isShuttingDown = true
         
@@ -44,12 +50,12 @@ export function preventProcessExitIfBusy(options = {}) {
     // Register shutdown handlers only in Node.js environments
     if (typeof process !== 'undefined' && process.prependListener) {
         ;['SIGINT', 'SIGTERM'].forEach(sig => {
-            process.prependListener(sig, handleShutdown)
+            process.prependListener(sig as NodeJS.Signals, handleShutdown)
         })
     }
     
-    // Return Spiceflow middleware
-    return new Spiceflow().use(async (_, next) => {
+    // Return Spiceflow middleware with scoped: false
+    return new Spiceflow({ scoped: false }).use(async (_, next) => {
         inFlightRequests++
         try {
             await next()
