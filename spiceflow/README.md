@@ -1456,6 +1456,34 @@ async function trackPageView(path: string) {
 
 **Note:** In non-Cloudflare environments, if no custom `waitUntil` function is provided, the default implementation is a no-op function that doesn't wait for the promises to complete.
 
+## Graceful Shutdown
+
+The `preventProcessExitIfBusy` middleware prevents platforms like Fly.io from killing your app while processing long requests (e.g., AI payloads). Fly.io can wait up to 5 minutes for graceful shutdown.
+
+```ts
+import { Spiceflow, preventProcessExitIfBusy } from 'spiceflow'
+
+const app = new Spiceflow()
+  .use(preventProcessExitIfBusy({
+    maxWaitSeconds: 300,    // 5 minutes max wait (default: 300)
+    checkIntervalMs: 250    // Check interval (default: 250ms)
+  }))
+  .route({
+    method: 'POST',
+    path: '/ai/generate',
+    async handler({ request }) {
+      const prompt = await request.json()
+      // Long-running AI generation
+      const result = await generateAIResponse(prompt)
+      return result
+    },
+  })
+
+app.listen(3000)
+```
+
+When receiving SIGTERM during deployment, the middleware waits for all active requests to complete before exiting. Perfect for AI workloads that may take minutes to process.
+
 ### When using `createSpiceflowClient` and getting typescript error `The inferred type of 'pluginApiClient' cannot be named without a reference to '...'. This is likely not portable. A type annotation is necessary. (ts 2742)`
 
 You can resolve this issue by adding an explicing type for the client:

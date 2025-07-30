@@ -2,11 +2,11 @@
 
 <!-- When updating the changelog, also update the version in spiceflow/package.json -->
 
-## 1.17.5
+## 1.17.6
 
 ### Patch Changes
 
-- Add `preventProcessExitIfBusy` middleware for graceful shutdown handling. This middleware tracks in-flight requests and prevents the process from exiting while requests are being processed. It handles SIGINT and SIGTERM signals, waiting for active requests to complete before allowing process exit.
+- Add `preventProcessExitIfBusy` middleware for graceful shutdown handling. This middleware tracks in-flight requests and prevents the process from exiting while requests are being processed. It handles SIGINT and SIGTERM signals, waiting for active requests to complete before allowing process exit. The middleware is created with `scoped: false` to ensure it applies globally across all mounted apps.
 
   ```ts
   import { preventProcessExitIfBusy } from 'spiceflow'
@@ -18,6 +18,14 @@
     }))
     .get('/', () => ({ hello: 'world' }))
   ```
+
+  Particularly useful for platforms like Fly.io that support graceful shutdown periods (up to 5 minutes) during deployments, ensuring long-running requests like AI workloads complete successfully.
+
+## 1.17.5
+
+### Patch Changes
+
+- Internal improvements
 
 ## 1.17.4
 
