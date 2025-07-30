@@ -376,7 +376,7 @@ test('onError fires on validation errors', async () => {
 
   expect(res.status).toBe(400)
   expect(errorMessage).toMatchInlineSnapshot(
-    `"name: Expected string, received number"`,
+    `"name: Invalid input: expected string, received number"`,
   )
   expect(await res.text()).toMatchInlineSnapshot(`"Error"`)
 })
@@ -603,7 +603,7 @@ test('validate body works, request fails', async () => {
     )
   expect(res.status).toBe(422)
   expect(await res.text()).toMatchInlineSnapshot(
-    `"{"code":"VALIDATION","status":422,"message":"requiredField: Required"}"`,
+    `"{"code":"VALIDATION","status":422,"message":"requiredField: Invalid input: expected string, received undefined"}"`,
   )
 })
 

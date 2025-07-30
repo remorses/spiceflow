@@ -1,5 +1,24 @@
 # spiceflow
 
+<!-- When updating the changelog, also update the version in spiceflow/package.json -->
+
+## 1.17.5
+
+### Patch Changes
+
+- Add `preventProcessExitIfBusy` middleware for graceful shutdown handling. This middleware tracks in-flight requests and prevents the process from exiting while requests are being processed. It handles SIGINT and SIGTERM signals, waiting for active requests to complete before allowing process exit.
+
+  ```ts
+  import { preventProcessExitIfBusy } from 'spiceflow'
+
+  const app = new Spiceflow()
+    .use(preventProcessExitIfBusy({
+      maxWaitSeconds: 300,    // Max time to wait for requests (default: 300)
+      checkIntervalMs: 250    // Check interval in ms (default: 250)
+    }))
+    .get('/', () => ({ hello: 'world' }))
+  ```
+
 ## 1.17.4
 
 ### Patch Changes

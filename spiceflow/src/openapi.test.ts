@@ -375,7 +375,6 @@ test('openapi response', async () => {
               "content": {
                 "application/json": {
                   "schema": {
-                    "additionalProperties": true,
                     "properties": {
                       "name": {
                         "type": "string",
