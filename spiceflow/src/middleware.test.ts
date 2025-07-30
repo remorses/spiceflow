@@ -385,9 +385,8 @@ test('each middleware and route is called exactly once if an error is thrown', a
 test('middleware with try/finally correctly tracks operations even when errors are thrown', async () => {
   let operationCount = 0
   let finallyExecuted = false
-
   const createTrackingMiddleware = () => {
-    return async (_: any, next: any) => {
+    return new Spiceflow({ scoped: false }).use(async (_: any, next: any) => {
       operationCount++
       try {
         await next()
@@ -395,7 +394,7 @@ test('middleware with try/finally correctly tracks operations even when errors a
         operationCount--
         finallyExecuted = true
       }
-    }
+    })
   }
 
   // Test 1: Normal successful request
@@ -443,7 +442,7 @@ test('middleware with try/finally correctly tracks operations even when errors a
   const app4 = new Spiceflow()
     .use(createTrackingMiddleware())
     .get('/concurrent', async () => {
-      await new Promise(resolve => setTimeout(resolve, 50))
+      await new Promise((resolve) => setTimeout(resolve, 50))
       return { ok: true }
     })
 
@@ -451,19 +450,19 @@ test('middleware with try/finally correctly tracks operations even when errors a
   const concurrentRequests = Promise.all([
     app4.handle(new Request('http://localhost/concurrent')),
     app4.handle(new Request('http://localhost/concurrent')),
-    app4.handle(new Request('http://localhost/concurrent'))
+    app4.handle(new Request('http://localhost/concurrent')),
   ])
 
   // Wait a bit to ensure requests are in flight
-  await new Promise(resolve => setTimeout(resolve, 10))
-  
+  await new Promise((resolve) => setTimeout(resolve, 10))
+
   // Operation count should be 3 while requests are in flight
   expect(operationCount).toBe(3)
 
   // Wait for all requests to complete
   const results = await concurrentRequests
-  results.forEach(res => expect(res.status).toBe(200))
-  
+  results.forEach((res) => expect(res.status).toBe(200))
+
   // Operation count should be back to 0
   expect(operationCount).toBe(0)
 })
@@ -487,14 +486,17 @@ test('middleware with try/finally tracks operations correctly with child apps', 
   // Test 1: Middleware on parent, route in child app
   operationCount = 0
   finallyExecuted = false
-  const childApp1 = new Spiceflow()
-    .get('/child/route', () => ({ message: 'from child' }))
-  
+  const childApp1 = new Spiceflow().get('/child/route', () => ({
+    message: 'from child',
+  }))
+
   const parentApp1 = new Spiceflow()
     .use(createTrackingMiddleware())
     .use(childApp1)
 
-  const res1 = await parentApp1.handle(new Request('http://localhost/child/route'))
+  const res1 = await parentApp1.handle(
+    new Request('http://localhost/child/route'),
+  )
   expect(res1.status).toBe(200)
   expect(operationCount).toBe(0)
   expect(finallyExecuted).toBe(true)
@@ -502,16 +504,17 @@ test('middleware with try/finally tracks operations correctly with child apps', 
   // Test 2: Middleware on parent, error thrown in child route
   operationCount = 0
   finallyExecuted = false
-  const childApp2 = new Spiceflow()
-    .get('/child/error', () => {
-      throw new Error('Child route error')
-    })
-  
+  const childApp2 = new Spiceflow().get('/child/error', () => {
+    throw new Error('Child route error')
+  })
+
   const parentApp2 = new Spiceflow()
     .use(createTrackingMiddleware())
     .use(childApp2)
 
-  const res2 = await parentApp2.handle(new Request('http://localhost/child/error'))
+  const res2 = await parentApp2.handle(
+    new Request('http://localhost/child/error'),
+  )
   expect(res2.status).toBe(500)
   expect(operationCount).toBe(0)
   expect(finallyExecuted).toBe(true)
@@ -519,17 +522,19 @@ test('middleware with try/finally tracks operations correctly with child apps', 
   // Test 3: Multiple nested child apps with middleware
   operationCount = 0
   finallyExecuted = false
-  const grandchildApp = new Spiceflow()
-    .get('/level3/route', () => ({ level: 3 }))
-  
-  const childApp3 = new Spiceflow({ basePath: '/level2' })
-    .use(grandchildApp)
-  
+  const grandchildApp = new Spiceflow().get('/level3/route', () => ({
+    level: 3,
+  }))
+
+  const childApp3 = new Spiceflow({ basePath: '/level2' }).use(grandchildApp)
+
   const parentApp3 = new Spiceflow()
     .use(createTrackingMiddleware())
     .use(childApp3)
 
-  const res3 = await parentApp3.handle(new Request('http://localhost/level2/level3/route'))
+  const res3 = await parentApp3.handle(
+    new Request('http://localhost/level2/level3/route'),
+  )
   expect(res3.status).toBe(200)
   expect(operationCount).toBe(0)
   expect(finallyExecuted).toBe(true)
@@ -539,38 +544,43 @@ test('middleware with try/finally tracks operations correctly with child apps', 
   const childApp4 = new Spiceflow()
     .use(createTrackingMiddleware())
     .get('/child/both', () => ({ from: 'both' }))
-  
+
   const parentApp4 = new Spiceflow()
     .use(createTrackingMiddleware())
     .use(childApp4)
 
-  const res4 = await parentApp4.handle(new Request('http://localhost/child/both'))
+  const res4 = await parentApp4.handle(
+    new Request('http://localhost/child/both'),
+  )
   expect(res4.status).toBe(200)
   expect(operationCount).toBe(0) // Both middlewares increment and decrement
 
   // Test 5: Child app with basePath
   operationCount = 0
   finallyExecuted = false
-  const childApp5 = new Spiceflow({ basePath: '/api/v1' })
-    .get('/users', () => ({ users: [] }))
-  
+  const childApp5 = new Spiceflow({ basePath: '/api/v1' }).get(
+    '/users',
+    () => ({ users: [] }),
+  )
+
   const parentApp5 = new Spiceflow()
     .use(createTrackingMiddleware())
     .use(childApp5)
 
-  const res5 = await parentApp5.handle(new Request('http://localhost/api/v1/users'))
+  const res5 = await parentApp5.handle(
+    new Request('http://localhost/api/v1/users'),
+  )
   expect(res5.status).toBe(200)
   expect(operationCount).toBe(0)
   expect(finallyExecuted).toBe(true)
 
   // Test 6: Concurrent requests to child app routes
   operationCount = 0
-  const childApp6 = new Spiceflow()
-    .get('/child/slow', async () => {
-      await new Promise(resolve => setTimeout(resolve, 50))
-      return { ok: true }
-    })
-  
+  const childApp6 = new Spiceflow().get('/child/slow', async () => {
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    return { ok: true }
+  })
+
   const parentApp6 = new Spiceflow()
     .use(createTrackingMiddleware())
     .use(childApp6)
@@ -579,35 +589,36 @@ test('middleware with try/finally tracks operations correctly with child apps', 
   const concurrentRequests = Promise.all([
     parentApp6.handle(new Request('http://localhost/child/slow')),
     parentApp6.handle(new Request('http://localhost/child/slow')),
-    parentApp6.handle(new Request('http://localhost/child/slow'))
+    parentApp6.handle(new Request('http://localhost/child/slow')),
   ])
 
   // Wait a bit to ensure requests are in flight
-  await new Promise(resolve => setTimeout(resolve, 10))
-  
+  await new Promise((resolve) => setTimeout(resolve, 10))
+
   // Operation count should be 3 while requests are in flight
   expect(operationCount).toBe(3)
 
   // Wait for all requests to complete
   const results = await concurrentRequests
-  results.forEach(res => expect(res.status).toBe(200))
-  
+  results.forEach((res) => expect(res.status).toBe(200))
+
   // Operation count should be back to 0
   expect(operationCount).toBe(0)
 
   // Test 7: Child app throws Response
   operationCount = 0
   finallyExecuted = false
-  const childApp7 = new Spiceflow()
-    .get('/child/response', () => {
-      throw new Response('Custom child response', { status: 403 })
-    })
-  
+  const childApp7 = new Spiceflow().get('/child/response', () => {
+    throw new Response('Custom child response', { status: 403 })
+  })
+
   const parentApp7 = new Spiceflow()
     .use(createTrackingMiddleware())
     .use(childApp7)
 
-  const res7 = await parentApp7.handle(new Request('http://localhost/child/response'))
+  const res7 = await parentApp7.handle(
+    new Request('http://localhost/child/response'),
+  )
   expect(res7.status).toBe(403)
   expect(operationCount).toBe(0)
   expect(finallyExecuted).toBe(true)
