@@ -235,6 +235,77 @@ describe('Stream', () => {
     )
   })
 
+  it('rpc client throws errors from async generator routes', async () => {
+    const app = new Spiceflow().get('/stream', async function* () {
+      yield 'first'
+      await sleep(10)
+      yield 'second'
+      await sleep(10)
+      throw new Error('Stream error after yielding')
+    })
+
+    // Import the client functions
+    const { createSpiceflowClient, streamSSEResponse } = await import('./client/index.ts')
+    
+    // Create a client using the app instance
+    const client = createSpiceflowClient(app)
+
+    // Call the streaming endpoint
+    const { data: stream, error } = await client.stream.get()
+    
+    expect(error).toBeNull()
+    expect(stream).toBeDefined()
+
+    // Collect streamed values
+    const values: any[] = []
+    let streamError: Error | undefined
+
+    try {
+      // TypeScript guard - we already checked stream is defined above
+      if (stream) {
+        for await (const value of stream) {
+          values.push(value)
+        }
+      }
+    } catch (err) {
+      streamError = err as Error
+    }
+
+    // Verify we received the values before the error
+    expect(values).toEqual(['first', 'second'])
+    
+    // Verify the error was caught
+    expect(streamError).toBeDefined()
+    expect(streamError?.message).toContain('Stream error after yielding')
+  })
+
+  it('rpc client throws errors from async generator routes before any yield', async () => {
+    const app = new Spiceflow()
+      .onError(({ error }) => {
+        return new Response(JSON.stringify({ message: error.message }), {
+          status: 500,
+          headers: { 'content-type': 'application/json' }
+        })
+      })
+      .get('/stream', async function* () {
+        throw new Error('Immediate stream error')
+      })
+
+    // Import the client functions
+    const { createSpiceflowClient } = await import('./client/index.ts')
+    
+    // Create a client using the app instance
+    const client = createSpiceflowClient(app)
+
+    // Call the streaming endpoint
+    const { data, error } = await client.stream.get()
+    
+    // When error happens before yield, it should be caught by error handler
+    expect(data).toBeNull()
+    expect(error).toBeDefined()
+    expect(error?.message).toContain('Immediate stream error')
+  })
+
   // it('mutate set before yield is called', async () => {
   // 	const expected = ['a', 'b', 'c']
 
