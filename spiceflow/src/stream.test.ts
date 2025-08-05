@@ -432,4 +432,55 @@ describe('Stream', () => {
         return promise
       })
   })
+
+  it('client handles abort errors gracefully without throwing', async () => {
+    const app = new Spiceflow().get('/stream', async function* () {
+      yield 'first'
+      await sleep(100)
+      yield 'second'
+      await sleep(100)
+      yield 'third'
+    })
+
+    // Import the client functions
+    const { createSpiceflowClient } = await import('./client/index.ts')
+    
+    // Create a client using the app instance
+    const client = createSpiceflowClient(app)
+
+    // Create an AbortController to simulate abort
+    const controller = new AbortController()
+
+    // Call the streaming endpoint with abort signal
+    const response = await app.handle(
+      new Request('http://e.ly/stream', {
+        signal: controller.signal,
+      })
+    )
+
+    // Simulate client-side SSE parsing
+    const { streamSSEResponse } = await import('./client/index.ts')
+    
+    // Abort after first value
+    setTimeout(() => controller.abort(), 50)
+
+    const values: any[] = []
+    let streamError: Error | undefined
+
+    try {
+      const stream = streamSSEResponse(response, (x) => x.data)
+      for await (const value of stream) {
+        values.push(value)
+      }
+    } catch (err) {
+      streamError = err as Error
+    }
+
+    // Should have received at least the first value
+    expect(values.length).toBeGreaterThanOrEqual(1)
+    expect(values[0]).toBe('"first"')
+    
+    // Should not throw an error for abort
+    expect(streamError).toBeUndefined()
+  })
 })

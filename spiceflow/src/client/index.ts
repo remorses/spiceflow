@@ -144,6 +144,15 @@ export class TextDecoderStream extends TransformStream<Uint8Array, string> {
   }
 }
 
+function isAbortError(error: unknown): error is Error {
+  return (
+    (error instanceof Error || error instanceof DOMException) &&
+    (error.name === 'AbortError' ||
+      error.name === 'ResponseAborted' || // Next.js
+      error.name === 'TimeoutError')
+  )
+}
+
 export async function* streamSSEResponse(
   response: Response,
   map: (x: SSEEvent) => any,
@@ -156,15 +165,23 @@ export async function* streamSSEResponse(
     .pipeThrough(new EventSourceParserStream())
 
   let reader = eventStream.getReader()
-  while (true) {
-    const { done, value: event } = await reader.read()
-    if (done) break
-    if (event?.event === 'error') {
-      throw new SpiceflowFetchError(500, superjsonDeserialize(event.data))
+  try {
+    while (true) {
+      const { done, value: event } = await reader.read()
+      if (done) break
+      if (event?.event === 'error') {
+        throw new SpiceflowFetchError(500, superjsonDeserialize(event.data))
+      }
+      if (event) {
+        yield map({ ...event, data: event.data })
+      }
     }
-    if (event) {
-      yield map({ ...event, data: event.data })
+  } catch (error) {
+    if (isAbortError(error)) {
+      return
     }
+
+    throw error
   }
 }
 
@@ -351,9 +368,10 @@ const createProxy = (
               'text/plain'
           }
 
-          if (isGetOrHead) delete fetchInit.body
+          if (isGetOrHead)
+            delete fetchInit.body
 
-          // Add x-spiceflow-agent header
+            // Add x-spiceflow-agent header
           ;(fetchInit.headers as Record<string, string>)['x-spiceflow-agent'] =
             'spiceflow-client'
 
