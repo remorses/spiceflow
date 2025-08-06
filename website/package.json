@@ -39,7 +39,7 @@
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20240502.0",
-    "@react-router/dev": "^7.6.3",
+    "@react-router/dev": "^7.6.2",
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.2",
     "autoprefixer": "^10.4.19",
