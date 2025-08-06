@@ -19,8 +19,8 @@
     "spiceflow": "workspace:*",
     "tsx": "^4.20.3",
     "typescript": "^5.8.3",
-    "vite": "^6.3.5",
-    "vitest": "^3.1.4"
+    "vite": "^7.0.6",
+    "vitest": "^3.2.4"
   },
   "repository": "https://github.com/remorses/",
   "author": "remorses <beats.by.morse@gmail.com>",
