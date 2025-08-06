@@ -73,7 +73,7 @@ describe('ai sdk mcp', () => {
       },
     })
 
-    await customClient.init()
+    // await customClient.init()
 
     const tools = await customClient.tools()
 
@@ -82,7 +82,7 @@ describe('ai sdk mcp', () => {
         "GET_goSomething": {
           "description": "GET route for /goSomething",
           "execute": [Function],
-          "parameters": {
+          "inputSchema": {
             "_type": undefined,
             "jsonSchema": {
               "additionalProperties": false,
@@ -93,11 +93,12 @@ describe('ai sdk mcp', () => {
             Symbol(vercel.ai.schema): true,
             Symbol(vercel.ai.validator): true,
           },
+          "type": "dynamic",
         },
         "GET_search": {
           "description": "GET route for /search",
           "execute": [Function],
-          "parameters": {
+          "inputSchema": {
             "_type": undefined,
             "jsonSchema": {
               "additionalProperties": false,
@@ -124,11 +125,12 @@ describe('ai sdk mcp', () => {
             Symbol(vercel.ai.schema): true,
             Symbol(vercel.ai.validator): true,
           },
+          "type": "dynamic",
         },
         "GET_somethingElse_id": {
           "description": "GET route for /somethingElse/{id}",
           "execute": [Function],
-          "parameters": {
+          "inputSchema": {
             "_type": undefined,
             "jsonSchema": {
               "additionalProperties": false,
@@ -151,11 +153,12 @@ describe('ai sdk mcp', () => {
             Symbol(vercel.ai.schema): true,
             Symbol(vercel.ai.validator): true,
           },
+          "type": "dynamic",
         },
         "POST_somethingElse_id": {
           "description": "POST route for /somethingElse/{id}",
           "execute": [Function],
-          "parameters": {
+          "inputSchema": {
             "_type": undefined,
             "jsonSchema": {
               "additionalProperties": false,
@@ -182,6 +185,7 @@ describe('ai sdk mcp', () => {
             Symbol(vercel.ai.schema): true,
             Symbol(vercel.ai.validator): true,
           },
+          "type": "dynamic",
         },
       }
     `)
