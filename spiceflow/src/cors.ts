@@ -47,18 +47,12 @@ export const cors = (options?: CORSOptions): MiddlewareHandler => {
 
   return async function cors(c, next) {
     let response = await next()
+    
+    // Clone headers to make them mutable
+    const responseHeaders = new Headers(response.headers)
 
     function set(key: string, value: string) {
-      try {
-        response.headers.set(key, value)
-      } catch (error) {
-        if (error instanceof TypeError && error.message.includes('immutable')) {
-          response = new Response(response.body, response)
-          set(key, value)
-        } else {
-          throw error
-        }
-      }
+      responseHeaders.set(key, value)
     }
 
     const allowOrigin = findAllowOrigin(c.request.headers.get('origin') || '')
@@ -122,15 +116,21 @@ export const cors = (options?: CORSOptions): MiddlewareHandler => {
         c.request.headers.append('Vary', 'Access-Control-Request-Headers')
       }
 
-      response.headers.delete('Content-Length')
-      response.headers.delete('Content-Type')
+      responseHeaders.delete('Content-Length')
+      responseHeaders.delete('Content-Type')
 
       return new Response(null, {
-        headers: response.headers,
+        headers: responseHeaders,
         status: 204,
         statusText: response.statusText,
       })
     }
-    return response
+    
+    // Return new response with modified headers
+    return new Response(response.body, {
+      status: response.status,
+      statusText: response.statusText,
+      headers: responseHeaders,
+    })
   }
 }

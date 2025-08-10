@@ -1,5 +1,11 @@
 # spiceflow
 
+## 1.17.9
+
+### Patch Changes
+
+- Fix CORS middleware for Cloudflare Workers by properly handling immutable headers. The middleware now always creates a new Response with cloned headers instead of trying to mutate the original response headers, which prevents the "cannot mutate immutable headers" error in Cloudflare Workers environments.
+
 ## 1.17.8
 
 ### Patch Changes
