@@ -1,5 +1,11 @@
 # spiceflow
 
+## 1.17.10
+
+### Patch Changes
+
+- Fix CORS middleware immutable headers error in Cloudflare Workers by properly handling Vary header updates on response headers instead of attempting to modify request headers
+
 ## 1.17.9
 
 ### Patch Changes
