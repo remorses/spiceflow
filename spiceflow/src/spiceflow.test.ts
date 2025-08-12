@@ -1581,3 +1581,185 @@ test('child app inherits disableSuperJsonUnlessRpc from parent even if set to fa
   expect(regularData).not.toContain('__superjsonMeta')
   expect(regularData).toMatchInlineSnapshot(`"{"date":"2024-01-01T00:00:00.000Z"}"`)
 })
+
+test('/* as not-found handler - registered first', async () => {
+  const app = new Spiceflow()
+    // Register catch-all first
+    .get('/*', () => ({ message: 'Not found', path: 'catch-all' }))
+    // Then register specific routes
+    .get('/', () => ({ message: 'Home' }))
+    .get('/users', () => ({ message: 'Users list' }))
+    .get('/users/:id', ({ params }) => ({ message: 'User', id: params.id }))
+    .post('/api/data', () => ({ message: 'Data posted' }))
+
+  // Specific routes should still work (not be caught by /*)
+  const homeRes = await app.handle(
+    new Request('http://localhost/', { method: 'GET' })
+  )
+  expect(homeRes.status).toBe(200)
+  expect(await homeRes.json()).toEqual({ message: 'Home' })
+
+  const usersRes = await app.handle(
+    new Request('http://localhost/users', { method: 'GET' })
+  )
+  expect(usersRes.status).toBe(200)
+  expect(await usersRes.json()).toEqual({ message: 'Users list' })
+
+  const userRes = await app.handle(
+    new Request('http://localhost/users/123', { method: 'GET' })
+  )
+  expect(userRes.status).toBe(200)
+  expect(await userRes.json()).toEqual({ message: 'User', id: '123' })
+
+  const apiRes = await app.handle(
+    new Request('http://localhost/api/data', { method: 'POST' })
+  )
+  expect(apiRes.status).toBe(200)
+  expect(await apiRes.json()).toEqual({ message: 'Data posted' })
+
+  // Non-existent routes should be caught by /*
+  const notFoundRes = await app.handle(
+    new Request('http://localhost/non-existent', { method: 'GET' })
+  )
+  expect(notFoundRes.status).toBe(200)
+  expect(await notFoundRes.json()).toEqual({ message: 'Not found', path: 'catch-all' })
+
+  const deepNotFoundRes = await app.handle(
+    new Request('http://localhost/some/deep/path', { method: 'GET' })
+  )
+  expect(deepNotFoundRes.status).toBe(200)
+  expect(await deepNotFoundRes.json()).toEqual({ message: 'Not found', path: 'catch-all' })
+
+  // Wrong method should still return 404 (not caught by GET /*)
+  const wrongMethodRes = await app.handle(
+    new Request('http://localhost/users', { method: 'DELETE' })
+  )
+  expect(wrongMethodRes.status).toBe(404)
+})
+
+test('/* as not-found handler - registered last', async () => {
+  const app = new Spiceflow()
+    // Register specific routes first
+    .get('/', () => ({ message: 'Home' }))
+    .get('/users', () => ({ message: 'Users list' }))
+    .get('/users/:id', ({ params }) => ({ message: 'User', id: params.id }))
+    .post('/api/data', () => ({ message: 'Data posted' }))
+    // Register catch-all last
+    .get('/*', () => ({ message: 'Not found', path: 'catch-all' }))
+
+  // Specific routes should still work
+  const homeRes = await app.handle(
+    new Request('http://localhost/', { method: 'GET' })
+  )
+  expect(homeRes.status).toBe(200)
+  expect(await homeRes.json()).toEqual({ message: 'Home' })
+
+  const usersRes = await app.handle(
+    new Request('http://localhost/users', { method: 'GET' })
+  )
+  expect(usersRes.status).toBe(200)
+  expect(await usersRes.json()).toEqual({ message: 'Users list' })
+
+  const userRes = await app.handle(
+    new Request('http://localhost/users/123', { method: 'GET' })
+  )
+  expect(userRes.status).toBe(200)
+  expect(await userRes.json()).toEqual({ message: 'User', id: '123' })
+
+  // Non-existent routes should be caught by /*
+  const notFoundRes = await app.handle(
+    new Request('http://localhost/non-existent', { method: 'GET' })
+  )
+  expect(notFoundRes.status).toBe(200)
+  expect(await notFoundRes.json()).toEqual({ message: 'Not found', path: 'catch-all' })
+
+  const deepNotFoundRes = await app.handle(
+    new Request('http://localhost/some/deep/path', { method: 'GET' })
+  )
+  expect(deepNotFoundRes.status).toBe(200)
+  expect(await deepNotFoundRes.json()).toEqual({ message: 'Not found', path: 'catch-all' })
+})
+
+test('/* with all methods as not-found handler', async () => {
+  const app = new Spiceflow()
+    .get('/api/users', () => ({ message: 'GET users' }))
+    .post('/api/users', () => ({ message: 'POST users' }))
+    // Catch-all for any method and any path
+    .all('/*', () => ({ message: 'Custom 404', method: 'any' }))
+
+  // Specific routes work
+  const getUsersRes = await app.handle(
+    new Request('http://localhost/api/users', { method: 'GET' })
+  )
+  expect(getUsersRes.status).toBe(200)
+  expect(await getUsersRes.json()).toEqual({ message: 'GET users' })
+
+  const postUsersRes = await app.handle(
+    new Request('http://localhost/api/users', { method: 'POST' })
+  )
+  expect(postUsersRes.status).toBe(200)
+  expect(await postUsersRes.json()).toEqual({ message: 'POST users' })
+
+  // Non-existent paths are caught
+  const notFoundGetRes = await app.handle(
+    new Request('http://localhost/not-found', { method: 'GET' })
+  )
+  expect(notFoundGetRes.status).toBe(200)
+  expect(await notFoundGetRes.json()).toEqual({ message: 'Custom 404', method: 'any' })
+
+  // Different methods on non-existent paths are also caught
+  const notFoundPostRes = await app.handle(
+    new Request('http://localhost/not-found', { method: 'POST' })
+  )
+  expect(notFoundPostRes.status).toBe(200)
+  expect(await notFoundPostRes.json()).toEqual({ message: 'Custom 404', method: 'any' })
+
+  const notFoundDeleteRes = await app.handle(
+    new Request('http://localhost/not-found', { method: 'DELETE' })
+  )
+  expect(notFoundDeleteRes.status).toBe(200)
+  expect(await notFoundDeleteRes.json()).toEqual({ message: 'Custom 404', method: 'any' })
+
+  // Wrong method on existing path still returns 404 (not caught by all('/*'))
+  // This is because the router finds a matching path but no matching method
+  const wrongMethodRes = await app.handle(
+    new Request('http://localhost/api/users', { method: 'DELETE' })
+  )
+  expect(wrongMethodRes.status).toBe(404)
+})
+
+test('/* priority - more specific routes always win', async () => {
+  const app = new Spiceflow()
+    .get('/*', () => 'catch-all')
+    .get('/users/*', () => 'users-catch-all')
+    .get('/users/special/*', () => 'special-users-catch-all')
+    .get('/users/special/exact', () => 'exact-match')
+
+  // Most specific route wins
+  const exactRes = await app.handle(
+    new Request('http://localhost/users/special/exact', { method: 'GET' })
+  )
+  expect(exactRes.status).toBe(200)
+  expect(await exactRes.json()).toBe('exact-match')
+
+  // Next most specific catch-all wins
+  const specialCatchRes = await app.handle(
+    new Request('http://localhost/users/special/something', { method: 'GET' })
+  )
+  expect(specialCatchRes.status).toBe(200)
+  expect(await specialCatchRes.json()).toBe('special-users-catch-all')
+
+  // Users catch-all for other users paths
+  const usersCatchRes = await app.handle(
+    new Request('http://localhost/users/other', { method: 'GET' })
+  )
+  expect(usersCatchRes.status).toBe(200)
+  expect(await usersCatchRes.json()).toBe('users-catch-all')
+
+  // General catch-all for everything else
+  const generalCatchRes = await app.handle(
+    new Request('http://localhost/something-else', { method: 'GET' })
+  )
+  expect(generalCatchRes.status).toBe(200)
+  expect(await generalCatchRes.json()).toBe('catch-all')
+})

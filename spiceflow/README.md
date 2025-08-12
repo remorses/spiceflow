@@ -366,6 +366,7 @@ async function exampleUsage() {
 
 - **Named parameters**: `:param` - Captures dynamic segments like `/users/:id` or `/api/:version/users/:userId`
 - **Wildcards**: `*` - Matches any remaining path segments like `/files/*` or `/proxy/*`
+- **Catch-all routes**: `/*` - Use as a not-found handler that catches any unmatched paths
 
 ### Path Matching - Unsupported Features
 
@@ -374,6 +375,53 @@ async function exampleUsage() {
 - **Partial parameters**: `/:param-suffix` or `/prefix-:param` - Use full segment parameters only - IS NOT SUPPORTED
 - **Regex patterns**: `/users/(\\d+)` - Use string parameters with validation in handlers - IS NOT SUPPORTED
 - **Multiple wildcards**: `/*/files/*` - Use single wildcard only - IS NOT SUPPORTED
+
+## Not Found Handler
+
+Use `/*` as a catch-all route to handle 404 errors. More specific routes always take precedence regardless of registration order:
+
+```ts
+import { Spiceflow } from 'spiceflow'
+
+const app = new Spiceflow()
+  .route({
+    method: 'GET',
+    path: '/users',
+    handler() {
+      return { users: [] }
+    },
+  })
+  .route({
+    method: 'GET',
+    path: '/users/:id',
+    handler({ params }) {
+      return { id: params.id }
+    },
+  })
+  // Catch-all for unmatched GET requests
+  .route({
+    method: 'GET',
+    path: '/*',
+    handler() {
+      return new Response('Page not found', { status: 404 })
+    },
+  })
+  // Or use .all() to catch any method
+  .route({
+    method: '*',
+    path: '/*',
+    handler({ request }) {
+      return new Response(`Cannot ${request.method} ${request.url}`, { 
+        status: 404 
+      })
+    },
+  })
+
+// Specific routes work as expected
+// GET /users returns { users: [] }
+// GET /users/123 returns { id: '123' }
+// GET /unknown returns 'Page not found' with 404 status
+```
 
 ## Storing Spiceflow in Class Instances
 
