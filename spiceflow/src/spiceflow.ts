@@ -1453,10 +1453,12 @@ function bfsFind<T>(
   }
   return
 }
+
+
 export class SpiceflowRequest<T = any> extends Request {
   validateBody?: ValidationFunction
 
-  async json(): Promise<T> {
+  async json(): Promise<T extends unknown ? any : T> {
     const body = (await super.json()) as Promise<T>
     return runValidation(body, this.validateBody)
   }
