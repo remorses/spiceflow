@@ -1,3 +1,5 @@
+import { SpiceflowRequest, WaitUntil, Method } from './spiceflow.ts'
+
 export { Spiceflow } from './spiceflow.ts'
 export type { AnySpiceflow, WaitUntil } from './spiceflow.ts'
 export { ValidationError } from './error.ts'
@@ -7,3 +9,4 @@ export { preventProcessExitIfBusy } from './prevent-process-exit-if-busy.ts'
 class Response extends globalThis.Response {}
 
 export { Response }
+export { SpiceflowRequest }
