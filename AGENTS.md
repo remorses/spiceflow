@@ -5,6 +5,7 @@ This project uses pnpm workspaces to manage dependencies. Important scripts are 
 
 try to run commands inside the package folder that you are working on. for example you should never run `pnpm test` from the root
 
+
 # typescript
 
 Try to use object arguments for new typescript functions if the function would accept more than one argument, this way you can use the object as a sort of named argument feature, where order of arguments does not matter and it's easier to discover parameters.
