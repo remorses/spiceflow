@@ -1,3 +1,5 @@
+[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/remorses-spiceflow-badge.png)](https://mseep.ai/app/remorses-spiceflow)
+
 <div align='center' className='w-full'>
     <br/>
     <br/>
