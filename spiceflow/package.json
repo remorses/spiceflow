@@ -84,7 +84,7 @@
     }
   },
   "devDependencies": {
-    "@modelcontextprotocol/sdk": "^1.17.2",
+    "@modelcontextprotocol/sdk": "^1.17.5",
     "ai": "^5.0.14",
     "eventsource": "^3.0.5",
     "formdata-node": "^6.0.3",
