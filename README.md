@@ -409,8 +409,8 @@ const app = new Spiceflow()
     method: '*',
     path: '/*',
     handler({ request }) {
-      return new Response(`Cannot ${request.method} ${request.url}`, { 
-        status: 404 
+      return new Response(`Cannot ${request.method} ${request.url}`, {
+        status: 404,
       })
     },
   })
@@ -1470,6 +1470,30 @@ export default {
 }
 ```
 
+## Next.js pages router integration
+
+```ts
+// pages/api/[...path].ts
+import { getJwt } from '@app/utils/ssr' // exasmple session function
+import type { NextApiRequest, NextApiResponse } from 'next'
+
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse,
+) {
+  const jwt = await getJwt({ req })
+  const userId = jwt.userId
+
+  await mcpAuthApp.handleNode(req, res, { state: { userId } })
+}
+
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+}
+```
+
 ### Custom waitUntil Function
 
 You can also provide your own `waitUntil` implementation:
@@ -1509,10 +1533,12 @@ The `preventProcessExitIfBusy` middleware prevents platforms like Fly.io from ki
 import { Spiceflow, preventProcessExitIfBusy } from 'spiceflow'
 
 const app = new Spiceflow()
-  .use(preventProcessExitIfBusy({
-    maxWaitSeconds: 300,    // 5 minutes max wait (default: 300)
-    checkIntervalMs: 250    // Check interval (default: 250ms)
-  }))
+  .use(
+    preventProcessExitIfBusy({
+      maxWaitSeconds: 300, // 5 minutes max wait (default: 300)
+      checkIntervalMs: 250, // Check interval (default: 250ms)
+    }),
+  )
   .route({
     method: 'POST',
     path: '/ai/generate',
@@ -1534,5 +1560,8 @@ When receiving SIGTERM during deployment, the middleware waits for all active re
 You can resolve this issue by adding an explicing type for the client:
 
 ```ts
-export const client: SpiceflowClient.Create<App> = createSpiceflowClient<App>(PUBLIC_URL, {})
-````
+export const client: SpiceflowClient.Create<App> = createSpiceflowClient<App>(
+  PUBLIC_URL,
+  {},
+)
+```
