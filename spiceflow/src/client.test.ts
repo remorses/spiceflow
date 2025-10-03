@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { createSpiceflowClient } from './client/index.ts'
 import { Spiceflow } from './spiceflow.ts'
+import { SpiceflowFetchError } from './client/errors.ts'
 
 import { describe, expect, it, vi } from 'vitest'
 const app = new Spiceflow()
@@ -60,6 +61,12 @@ const app = new Spiceflow()
   .get('/throws-200', () => {
     throw new Response('this string will not be parsed as json', {
       status: 200,
+    })
+  })
+  .get('/throws-402-json', () => {
+    throw new Response(JSON.stringify({ reason: 'Payment required', code: 4021 }), {
+      status: 402,
+      headers: { 'content-type': 'application/json' },
     })
   })
   .use(
@@ -237,6 +244,16 @@ describe('client', () => {
       `"this string will not be parsed as json"`,
     )
     expect(error).toMatchInlineSnapshot(`null`)
+  })
+
+  it('surfaces json payload in error value for 402 responses', async () => {
+    const { data, error } = await client['throws-402-json'].get()
+
+    expect(data).toBeNull()
+    expect(error).toBeDefined()
+    expect(error?.status).toBe(402)
+    expect(error).toBeInstanceOf(SpiceflowFetchError)
+    expect(error?.value).toEqual({ reason: 'Payment required', code: 4021 })
   })
 
   it('stream ', async () => {

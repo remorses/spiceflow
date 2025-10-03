@@ -13,11 +13,18 @@
     },
     "./_node-server": {
       "types": "./dist/_node-server.d.ts",
-      "workerd": "./dist/_node-server-unsupported.js",
-      "browser": "./dist/_node-server-unsupported.js",
-      "deno": "./dist/_node-server-unsupported.js",
-      "node": "./dist/_node-server.js",
       "bun": "./dist/_node-server.js",
+      "workerd": "./dist/_node-server-unsupported.js",
+      "edge-light": "./dist/_node-server-unsupported.js",
+      "netlify": "./dist/_node-server-unsupported.js",
+      "fastly": "./dist/_node-server-unsupported.js",
+      "edge-routine": "./dist/_node-server-unsupported.js",
+      "azion": "./dist/_node-server-unsupported.js",
+      "lagon": "./dist/_node-server-unsupported.js",
+      "wasmer": "./dist/_node-server-unsupported.js",
+      "arvancloud": "./dist/_node-server-unsupported.js",
+      "node": "./dist/_node-server.js",
+      "deno": "./dist/_node-server-unsupported.js",
       "default": "./dist/_node-server-unsupported.js"
     },
     "./cors": {
