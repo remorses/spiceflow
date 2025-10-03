@@ -1,4 +1,3 @@
-{/* DO NOT EDIT: This file is auto-generated from root README.md */}
 <div align='center' className='w-full'>
     <br/>
     <br/>
@@ -365,6 +364,7 @@ async function exampleUsage() {
 
 - **Named parameters**: `:param` - Captures dynamic segments like `/users/:id` or `/api/:version/users/:userId`
 - **Wildcards**: `*` - Matches any remaining path segments like `/files/*` or `/proxy/*`
+- **Catch-all routes**: `/*` - Use as a not-found handler that catches any unmatched paths
 
 ### Path Matching - Unsupported Features
 
@@ -373,6 +373,53 @@ async function exampleUsage() {
 - **Partial parameters**: `/:param-suffix` or `/prefix-:param` - Use full segment parameters only - IS NOT SUPPORTED
 - **Regex patterns**: `/users/(\\d+)` - Use string parameters with validation in handlers - IS NOT SUPPORTED
 - **Multiple wildcards**: `/*/files/*` - Use single wildcard only - IS NOT SUPPORTED
+
+## Not Found Handler
+
+Use `/*` as a catch-all route to handle 404 errors. More specific routes always take precedence regardless of registration order:
+
+```ts
+import { Spiceflow } from 'spiceflow'
+
+const app = new Spiceflow()
+  .route({
+    method: 'GET',
+    path: '/users',
+    handler() {
+      return { users: [] }
+    },
+  })
+  .route({
+    method: 'GET',
+    path: '/users/:id',
+    handler({ params }) {
+      return { id: params.id }
+    },
+  })
+  // Catch-all for unmatched GET requests
+  .route({
+    method: 'GET',
+    path: '/*',
+    handler() {
+      return new Response('Page not found', { status: 404 })
+    },
+  })
+  // Or use .all() to catch any method
+  .route({
+    method: '*',
+    path: '/*',
+    handler({ request }) {
+      return new Response(`Cannot ${request.method} ${request.url}`, {
+        status: 404,
+      })
+    },
+  })
+
+// Specific routes work as expected
+// GET /users returns { users: [] }
+// GET /users/123 returns { id: '123' }
+// GET /unknown returns 'Page not found' with 404 status
+```
 
 ## Storing Spiceflow in Class Instances
 
@@ -1167,7 +1214,7 @@ interface Env {
 }
 
 const app = new Spiceflow()
-  .state('env', null as Env | null)
+  .state('env', {} as Env)
   .route({
     method: 'GET',
     path: '/kv/:key',
@@ -1423,6 +1470,30 @@ export default {
 }
 ```
 
+## Next.js pages router integration
+
+```ts
+// pages/api/[...path].ts
+import { getJwt } from '@app/utils/ssr' // exasmple session function
+import type { NextApiRequest, NextApiResponse } from 'next'
+
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse,
+) {
+  const jwt = await getJwt({ req })
+  const userId = jwt.userId
+
+  await mcpAuthApp.handleNode(req, res, { state: { userId } })
+}
+
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+}
+```
+
 ### Custom waitUntil Function
 
 You can also provide your own `waitUntil` implementation:
@@ -1462,10 +1533,12 @@ The `preventProcessExitIfBusy` middleware prevents platforms like Fly.io from ki
 import { Spiceflow, preventProcessExitIfBusy } from 'spiceflow'
 
 const app = new Spiceflow()
-  .use(preventProcessExitIfBusy({
-    maxWaitSeconds: 300,    // 5 minutes max wait (default: 300)
-    checkIntervalMs: 250    // Check interval (default: 250ms)
-  }))
+  .use(
+    preventProcessExitIfBusy({
+      maxWaitSeconds: 300, // 5 minutes max wait (default: 300)
+      checkIntervalMs: 250, // Check interval (default: 250ms)
+    }),
+  )
   .route({
     method: 'POST',
     path: '/ai/generate',
@@ -1487,5 +1560,8 @@ When receiving SIGTERM during deployment, the middleware waits for all active re
 You can resolve this issue by adding an explicing type for the client:
 
 ```ts
-export const client: SpiceflowClient.Create<App> = createSpiceflowClient<App>(PUBLIC_URL, {})
-````
+export const client: SpiceflowClient.Create<App> = createSpiceflowClient<App>(
+  PUBLIC_URL,
+  {},
+)
+```

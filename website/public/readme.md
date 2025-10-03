@@ -33,6 +33,8 @@ npm install spiceflow zod
 
 Objects returned from route handlers are automatically serialized to JSON
 
+> Notice that Spiceflow also has legacy methods for `.port`, `.get` etc. that use a different API with positional arguments. Using `.route` is preferred
+
 ```ts
 import { Spiceflow } from 'spiceflow'
 
@@ -84,6 +86,129 @@ app.route({
   },
 })
 ```
+
+## Returning JSON
+
+Spiceflow automatically serializes objects returned from handlers to JSON, so you don't need to wrap them in a `Response` object:
+
+```ts
+import { Spiceflow } from 'spiceflow'
+
+const app = new Spiceflow()
+  .route({
+    method: 'GET',
+    path: '/user',
+    handler() {
+      // Return object directly - no need for new Response()
+      return { id: 1, name: 'John', email: 'john@example.com' }
+    },
+  })
+  .route({
+    method: 'POST',
+    path: '/data',
+    async handler({ request }) {
+      const body = await request.json()
+      // Objects are automatically serialized to JSON
+      return {
+        received: body,
+        timestamp: new Date().toISOString(),
+        processed: true,
+      }
+    },
+  })
+```
+
+## Type Safety for RPC
+
+To maintain type safety when using the RPC client, it's recommended to **throw Response objects for errors** and **return objects directly for success cases**. This pattern ensures that the returned value types are properly inferred:
+
+```ts
+import { Spiceflow } from 'spiceflow'
+import { z } from 'zod'
+
+const app = new Spiceflow()
+  .route({
+    method: 'GET',
+    path: '/users/:id',
+    params: z.object({
+      id: z.string(),
+    }),
+    response: z.object({
+      id: z.string(),
+      name: z.string(),
+      email: z.string(),
+    }),
+    handler({ params }) {
+      const user = getUserById(params.id)
+
+      if (!user) {
+        // Throw Response for errors to maintain type safety
+        throw new Response('User not found', { status: 404 })
+      }
+
+      // Return object directly for success - type will be properly inferred
+      return {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+      }
+    },
+  })
+  .route({
+    method: 'POST',
+    path: '/users',
+    request: z.object({
+      name: z.string(),
+      email: z.string().email(),
+    }),
+    response: z.object({
+      id: z.string(),
+      name: z.string(),
+      email: z.string(),
+    }),
+    async handler({ request }) {
+      const body = await request.json()
+
+      if (await userExists(body.email)) {
+        // Throw Response for errors
+        throw new Response('User already exists', { status: 409 })
+      }
+
+      const newUser = await createUser(body)
+
+      // Return object directly - RPC client will have proper typing
+      return {
+        id: newUser.id,
+        name: newUser.name,
+        email: newUser.email,
+      }
+    },
+  })
+
+// RPC client usage with proper type inference
+import { createSpiceflowClient } from 'spiceflow/client'
+
+const client = createSpiceflowClient<typeof app>('http://localhost:3000')
+
+async function example() {
+  // TypeScript knows data is { id: string, name: string, email: string } | undefined
+  const { data, error } = await client.users({ id: '123' }).get()
+
+  if (error) {
+    console.error('Error:', error) // Error handling
+    return
+  }
+
+  // data is properly typed here
+  console.log('User:', data.name, data.email)
+}
+```
+
+With this pattern:
+
+- **Success responses**: Return objects directly for automatic JSON serialization and proper type inference
+- **Error responses**: Throw `Response` objects to maintain the error/success distinction in the RPC client
+- **Type safety**: The RPC client will correctly infer the return type as the success object type
 
 ## Comparisons
 
@@ -234,6 +359,209 @@ async function exampleUsage() {
   }
 }
 ```
+
+### Path Matching - Supported Features
+
+- **Named parameters**: `:param` - Captures dynamic segments like `/users/:id` or `/api/:version/users/:userId`
+- **Wildcards**: `*` - Matches any remaining path segments like `/files/*` or `/proxy/*`
+- **Catch-all routes**: `/*` - Use as a not-found handler that catches any unmatched paths
+
+### Path Matching - Unsupported Features
+
+- **Optional parameters**: `/:param?` - Use separate routes instead - IS NOT SUPPORTED
+- **Named wildcards**: `/files/*name` - Use unnamed `*` only - IS NOT SUPPORTED
+- **Partial parameters**: `/:param-suffix` or `/prefix-:param` - Use full segment parameters only - IS NOT SUPPORTED
+- **Regex patterns**: `/users/(\\d+)` - Use string parameters with validation in handlers - IS NOT SUPPORTED
+- **Multiple wildcards**: `/*/files/*` - Use single wildcard only - IS NOT SUPPORTED
+
+## Not Found Handler
+
+Use `/*` as a catch-all route to handle 404 errors. More specific routes always take precedence regardless of registration order:
+
+```ts
+import { Spiceflow } from 'spiceflow'
+
+const app = new Spiceflow()
+  .route({
+    method: 'GET',
+    path: '/users',
+    handler() {
+      return { users: [] }
+    },
+  })
+  .route({
+    method: 'GET',
+    path: '/users/:id',
+    handler({ params }) {
+      return { id: params.id }
+    },
+  })
+  // Catch-all for unmatched GET requests
+  .route({
+    method: 'GET',
+    path: '/*',
+    handler() {
+      return new Response('Page not found', { status: 404 })
+    },
+  })
+  // Or use .all() to catch any method
+  .route({
+    method: '*',
+    path: '/*',
+    handler({ request }) {
+      return new Response(`Cannot ${request.method} ${request.url}`, {
+        status: 404,
+      })
+    },
+  })
+
+// Specific routes work as expected
+// GET /users returns { users: [] }
+// GET /users/123 returns { id: '123' }
+// GET /unknown returns 'Page not found' with 404 status
+```
+
+## Storing Spiceflow in Class Instances
+
+If you need to store a Spiceflow router as a property in a class instance, use the `AnySpiceflow` type:
+
+**Important**: Do not use `this` inside route handlers to reference the parent class. The `this` context inside handlers always refers to the Spiceflow instance, not your class instance. Instead, capture the parent class reference in a variable outside the handlers:
+
+```ts
+import { Spiceflow, AnySpiceflow } from 'spiceflow'
+
+export class ChatDurableObject {
+  private router: AnySpiceflow
+  private state: DurableObjectState
+
+  constructor(state: DurableObjectState, env: Env) {
+    this.state = state
+    const self = this // Capture parent class reference - IMPORTANT!
+
+    this.router = new Spiceflow()
+      .route({
+        method: 'GET',
+        path: '/messages',
+        async handler() {
+          // Use 'self' instead of 'this' to access parent class
+          // this.state would NOT work here - 'this' refers to Spiceflow instance
+          const messages = (await self.state.storage.get('messages')) || []
+          return { messages }
+        },
+      })
+      .route({
+        method: 'POST',
+        path: '/messages',
+        async handler({ request }) {
+          const { message } = await request.json()
+          // Use 'self' to access parent class properties
+          const messages = (await self.state.storage.get('messages')) || []
+          messages.push({ id: Date.now(), text: message })
+          await self.state.storage.put('messages', messages)
+          return { success: true }
+        },
+      })
+  }
+
+  fetch(request: Request) {
+    return this.router.handle(request)
+  }
+}
+```
+
+## Safe Path Building
+
+The `safePath` method provides a type-safe way to build URLs with parameters. It helps prevent runtime errors by ensuring all required parameters are provided and properly substituted into the path.
+
+```ts
+import { Spiceflow } from 'spiceflow'
+
+const app = new Spiceflow()
+  .route({
+    method: 'GET',
+    path: '/users/:id',
+    handler({ params }) {
+      return { id: params.id }
+    },
+  })
+  .route({
+    method: 'GET',
+    path: '/users/:id/posts/:postId',
+    handler({ params }) {
+      return { userId: params.id, postId: params.postId }
+    },
+  })
+
+// Building URLs with required parameters
+const userPath = app.safePath('/users/:id', { id: '123' })
+// Result: '/users/123'
+
+// Building URLs with required parameters
+const userPostPath = app.safePath('/users/:id/posts/:postId', {
+  id: '456',
+  postId: 'abc',
+})
+// Result: '/users/456/posts/abc'
+```
+
+### OAuth Callback Example
+
+The `safePath` method is particularly useful when building callback URLs for OAuth flows, where you need to construct URLs dynamically based on user data or session information:
+
+```ts
+import { Spiceflow } from 'spiceflow'
+
+const app = new Spiceflow()
+  .route({
+    method: 'GET',
+    path: '/auth/callback/:provider/:userId',
+    handler({ params, query }) {
+      const { provider, userId } = params
+      const { code, state } = query
+
+      // Handle OAuth callback logic here
+      return {
+        provider,
+        userId,
+        authCode: code,
+        state,
+      }
+    },
+  })
+  .route({
+    method: 'POST',
+    path: '/auth/login',
+    handler({ request }) {
+      const userId = '12345'
+      const provider = 'google'
+
+      // Build the OAuth callback URL safely
+      const callbackUrl = new URL(
+        app.safePath('/auth/callback/:provider/:userId', {
+          provider,
+          userId,
+        }),
+        'https://myapp.com',
+      ).toString()
+
+      // Redirect to OAuth provider with callback URL
+      const oauthUrl =
+        `https://accounts.google.com/oauth/authorize?` +
+        `client_id=your-client-id&` +
+        `redirect_uri=${encodeURIComponent(callbackUrl)}&` +
+        `response_type=code&` +
+        `scope=openid%20profile%20email`
+
+      return { redirectUrl: oauthUrl }
+    },
+  })
+```
+
+In this example:
+
+- The callback URL is built safely using `safePath` with type checking
+- Required parameters like `provider` and `userId` must be provided
+- The resulting URL is guaranteed to be properly formatted
 
 ## Mounting Sub-Apps
 
@@ -693,7 +1021,11 @@ When you mount the MCP plugin (default path is `/mcp`), it automatically:
 - Provides an SSE-based transport for real-time communication
 - Handles serialization of requests and responses
 
-This makes it simple to let AI models like Claude discover and call your API endpoints programmatically. Here's an example:
+This makes it simple to let AI models like Claude discover and call your API endpoints programmatically.
+
+### Basic MCP Usage
+
+Here's an example:
 
 ```tsx
 // Import the MCP plugin and client
@@ -773,6 +1105,43 @@ const resources = await client.request(
 )
 ```
 
+### Adding MCP Tools to Existing Server
+
+If you already have an existing MCP server and want to add Spiceflow route tools to it, you can use the `addMcpTools` helper function:
+
+```ts
+import { addMcpTools } from 'spiceflow/mcp'
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
+
+import { Spiceflow } from 'spiceflow'
+
+// Your existing MCP server
+const existingServer = new Server(
+  { name: 'my-server', version: '1.0.0' },
+  { capabilities: { tools: {}, resources: {} } },
+)
+
+// Your Spiceflow app
+const app = new Spiceflow()
+  .use(mcp()) // Required for MCP configuration
+  .route({
+    method: 'GET',
+    path: '/hello',
+    handler() {
+      return 'Hello from Spiceflow!'
+    },
+  })
+
+// Add Spiceflow tools to your existing server
+const mcpServer = await addMcpTools({
+  mcpServer: existingServer,
+  app,
+  ignorePaths: ['/mcp', '/sse'],
+})
+
+// Now your existing server has access to all Spiceflow routes as tools
+```
+
 ## Generating Fern docs and SDK
 
 Spiceflow has native support for Fern docs and SDK generation using openapi plugin.
@@ -845,7 +1214,7 @@ interface Env {
 }
 
 const app = new Spiceflow()
-  .state('env', null as Env | null)
+  .state('env', {} as Env)
   .route({
     method: 'GET',
     path: '/kv/:key',
@@ -867,7 +1236,7 @@ const app = new Spiceflow()
 export default {
   fetch(request: Request, env: Env, ctx: ExecutionContext) {
     // Pass the env bindings to the app
-    return app.handle(request, { env })
+    return app.handle(request, { state: { env } })
   },
 }
 ```
@@ -894,4 +1263,305 @@ for await (const data of stream) {
 // Simple GET request
 const response = await sdk.getUsers()
 console.log('Users:', response)
+```
+
+## Working with Cookies
+
+Spiceflow works with standard Request and Response objects, so you can use any cookie library like the `cookie` npm package to handle cookies:
+
+```ts
+import { Spiceflow } from 'spiceflow'
+import { parse, serialize } from 'cookie'
+
+const app = new Spiceflow()
+  .route({
+    method: 'GET',
+    path: '/set-cookie',
+    handler({ request }) {
+      // Read existing cookies from the request
+      const cookies = parse(request.headers.get('Cookie') || '')
+
+      // Create response with a new cookie
+      const response = new Response(
+        JSON.stringify({
+          message: 'Cookie set!',
+          existingCookies: cookies,
+        }),
+        {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        },
+      )
+
+      // Set a new cookie
+      response.headers.set(
+        'Set-Cookie',
+        serialize('session', 'abc123', {
+          httpOnly: true,
+          secure: true,
+          sameSite: 'strict',
+          maxAge: 60 * 60 * 24 * 7, // 7 days
+          path: '/',
+        }),
+      )
+
+      return response
+    },
+  })
+  .route({
+    method: 'GET',
+    path: '/get-cookie',
+    handler({ request }) {
+      // Parse cookies from the request
+      const cookies = parse(request.headers.get('Cookie') || '')
+
+      return {
+        sessionId: cookies.session || null,
+        allCookies: cookies,
+      }
+    },
+  })
+  .route({
+    method: 'POST',
+    path: '/clear-cookie',
+    handler({ request }) {
+      const response = new Response(
+        JSON.stringify({ message: 'Cookie cleared!' }),
+        {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        },
+      )
+
+      // Clear a cookie by setting it with an expired date
+      response.headers.set(
+        'Set-Cookie',
+        serialize('session', '', {
+          httpOnly: true,
+          secure: true,
+          sameSite: 'strict',
+          expires: new Date(0),
+          path: '/',
+        }),
+      )
+
+      return response
+    },
+  })
+
+app.listen(3000)
+```
+
+You can also use cookies in middleware for authentication or session handling:
+
+```ts
+import { Spiceflow } from 'spiceflow'
+import { parse, serialize } from 'cookie'
+
+const app = new Spiceflow()
+  .state('userId', null as string | null)
+  .use(async ({ request, state }, next) => {
+    // Parse cookies from incoming request
+    const cookies = parse(request.headers.get('Cookie') || '')
+
+    // Extract user ID from session cookie
+    if (cookies.session) {
+      // In a real app, you'd verify the session token
+      state.userId = cookies.session
+    }
+
+    const response = await next()
+
+    // Optionally refresh the session cookie
+    if (state.userId && response) {
+      response.headers.set(
+        'Set-Cookie',
+        serialize('session', state.userId, {
+          httpOnly: true,
+          secure: true,
+          sameSite: 'strict',
+          maxAge: 60 * 60 * 24, // 24 hours
+          path: '/',
+        }),
+      )
+    }
+
+    return response
+  })
+  .route({
+    method: 'GET',
+    path: '/profile',
+    handler({ state }) {
+      if (!state.userId) {
+        return new Response('Unauthorized', { status: 401 })
+      }
+
+      return { userId: state.userId, message: 'Welcome back!' }
+    },
+  })
+```
+
+## Background tasks with waitUntil
+
+Spiceflow provides a `waitUntil` function in the handler context that allows you to schedule tasks in the background in a cross platform way. It will use the Cloudflare workers waitUntil if present. It's currently a no op in Node.js.
+
+### Basic Usage
+
+```ts
+import { Spiceflow } from 'spiceflow'
+
+const app = new Spiceflow().route({
+  method: 'POST',
+  path: '/process',
+  async handler({ request, waitUntil }) {
+    const data = await request.json()
+
+    // Schedule background task
+    waitUntil(
+      fetch('https://analytics.example.com/track', {
+        method: 'POST',
+        body: JSON.stringify({ event: 'data_processed', data }),
+      }),
+    )
+
+    // Return response immediately
+    return { success: true, id: Math.random().toString(36) }
+  },
+})
+```
+
+### Cloudflare Workers Integration
+
+In Cloudflare Workers, `waitUntil` is automatically detected from the global context:
+
+```ts
+import { Spiceflow } from 'spiceflow'
+
+const app = new Spiceflow().route({
+  method: 'POST',
+  path: '/webhook',
+  async handler({ request, waitUntil }) {
+    const payload = await request.json()
+
+    // Process webhook data in background
+    waitUntil(
+      processWebhookData(payload)
+        .then(() => console.log('Webhook processed'))
+        .catch((err) => console.error('Webhook processing failed:', err)),
+    )
+
+    // Respond immediately to webhook sender
+    return new Response('OK', { status: 200 })
+  },
+})
+
+async function processWebhookData(payload: any) {
+  // Simulate time-consuming processing
+  await new Promise((resolve) => setTimeout(resolve, 1000))
+  // Save to database, send notifications, etc.
+}
+
+export default {
+  fetch(request: Request, env: any, ctx: ExecutionContext) {
+    return app.handle(request, { state: { env } })
+  },
+}
+```
+
+## Next.js pages router integration
+
+```ts
+// pages/api/[...path].ts
+import { getJwt } from '@app/utils/ssr' // exasmple session function
+import type { NextApiRequest, NextApiResponse } from 'next'
+
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse,
+) {
+  const jwt = await getJwt({ req })
+  const userId = jwt.userId
+
+  await mcpAuthApp.handleNode(req, res, { state: { userId } })
+}
+
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+}
+```
+
+### Custom waitUntil Function
+
+You can also provide your own `waitUntil` implementation:
+
+```ts
+import { Spiceflow } from 'spiceflow'
+
+const app = new Spiceflow({
+  waitUntil: (promise) => {
+    // Custom implementation for non-Cloudflare environments
+    promise.catch((err) => console.error('Background task failed:', err))
+  },
+}).route({
+  method: 'GET',
+  path: '/analytics',
+  async handler({ waitUntil }) {
+    // Schedule analytics tracking
+    waitUntil(trackPageView('/analytics'))
+
+    return { message: 'Analytics page loaded' }
+  },
+})
+
+async function trackPageView(path: string) {
+  // Track page view in analytics system
+  console.log(`Page view tracked: ${path}`)
+}
+```
+
+**Note:** In non-Cloudflare environments, if no custom `waitUntil` function is provided, the default implementation is a no-op function that doesn't wait for the promises to complete.
+
+## Graceful Shutdown
+
+The `preventProcessExitIfBusy` middleware prevents platforms like Fly.io from killing your app while processing long requests (e.g., AI payloads). Fly.io can wait up to 5 minutes for graceful shutdown.
+
+```ts
+import { Spiceflow, preventProcessExitIfBusy } from 'spiceflow'
+
+const app = new Spiceflow()
+  .use(
+    preventProcessExitIfBusy({
+      maxWaitSeconds: 300, // 5 minutes max wait (default: 300)
+      checkIntervalMs: 250, // Check interval (default: 250ms)
+    }),
+  )
+  .route({
+    method: 'POST',
+    path: '/ai/generate',
+    async handler({ request }) {
+      const prompt = await request.json()
+      // Long-running AI generation
+      const result = await generateAIResponse(prompt)
+      return result
+    },
+  })
+
+app.listen(3000)
+```
+
+When receiving SIGTERM during deployment, the middleware waits for all active requests to complete before exiting. Perfect for AI workloads that may take minutes to process.
+
+### When using `createSpiceflowClient` and getting typescript error `The inferred type of 'pluginApiClient' cannot be named without a reference to '...'. This is likely not portable. A type annotation is necessary. (ts 2742)`
+
+You can resolve this issue by adding an explicing type for the client:
+
+```ts
+export const client: SpiceflowClient.Create<App> = createSpiceflowClient<App>(
+  PUBLIC_URL,
+  {},
+)
 ```
