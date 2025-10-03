@@ -253,8 +253,8 @@ importers:
         specifier: 19.0.0
         version: 19.0.0(react@19.0.0)
       react-router:
-        specifier: ^7.6.0
-        version: 7.6.2(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
+        specifier: ^7.9.3
+        version: 7.9.3(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
       rehype-slug:
         specifier: ^6.0.0
         version: 6.0.0
@@ -3801,6 +3801,16 @@ packages:
 
   react-router@7.6.2:
     resolution: {integrity: sha512-U7Nv3y+bMimgWjhlT5CRdzHPu2/KVmqPwKUCChW8en5P3znxUqwlYFlbmyj8Rgp1SF6zs5X4+77kBVknkg6a0w==}
+    engines: {node: '>=20.0.0'}
+    peerDependencies:
+      react: '>=18'
+      react-dom: '>=18'
+    peerDependenciesMeta:
+      react-dom:
+        optional: true
+
+  react-router@7.9.3:
+    resolution: {integrity: sha512-4o2iWCFIwhI/eYAIL43+cjORXYn/aRQPgtFRRZb3VzoyQ5Uej0Bmqj7437L97N9NJW4wnicSwLOLS+yCXfAPgg==}
     engines: {node: '>=20.0.0'}
     peerDependencies:
       react: '>=18'
@@ -8729,6 +8739,14 @@ snapshots:
   react-refresh@0.14.2: {}
 
   react-router@7.6.2(react-dom@19.0.0(react@19.0.0))(react@19.0.0):
+    dependencies:
+      cookie: 1.0.2
+      react: 19.0.0
+      set-cookie-parser: 2.7.1
+    optionalDependencies:
+      react-dom: 19.0.0(react@19.0.0)
+
+  react-router@7.9.3(react-dom@19.0.0(react@19.0.0))(react@19.0.0):
     dependencies:
       cookie: 1.0.2
       react: 19.0.0

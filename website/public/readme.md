@@ -546,8 +546,7 @@ function createProxyMiddleware({
   target,
   changeOrigin = false,
 }): MiddlewareHandler {
-  return async (context) => {
-    const { request } = context
+  return async ({ request }) => {
     const url = new URL(request.url)
 
     const proxyReq = new Request(
