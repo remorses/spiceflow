@@ -1481,9 +1481,7 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse,
 ) {
-  const jwt = await getJwt({ req })
-  const userId = jwt.userId
-
+  // IMPORTANT! nothing should be run before calling handleNode that could read the request body!
   await mcpAuthApp.handleNode(req, res, { state: { userId } })
 }
 
