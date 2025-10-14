@@ -41,6 +41,19 @@ export async function* generateNumbers() {
   }
 }
 
+export async function* generateNumbersWithError() {
+  let count = 0;
+  while (count < 10) {
+    await sleep(500);
+    yield { count };
+    count++;
+    
+    if (count === 3) {
+      throw new Error('Error after yielding 3 times');
+    }
+  }
+}
+
 export async function failingFunction({}) {
   throw new Error('This function fails');
 }

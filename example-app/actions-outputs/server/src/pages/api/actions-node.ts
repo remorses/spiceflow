@@ -50,6 +50,22 @@ export const generateNumbers = _createRpcMethod(async function* generateNumbers(
   name: "generateNumbers",
   pathname: "/api/actions-node"
 }, typeof wrapMethod === 'function' ? wrapMethod : undefined);
+export const generateNumbersWithError = _createRpcMethod(async function* generateNumbersWithError() {
+  let count = 0;
+  while (count < 10) {
+    await sleep(500);
+    yield {
+      count
+    };
+    count++;
+    if (count === 3) {
+      throw new Error('Error after yielding 3 times');
+    }
+  }
+}, {
+  name: "generateNumbersWithError",
+  pathname: "/api/actions-node"
+}, typeof wrapMethod === 'function' ? wrapMethod : undefined);
 export const failingFunction = _createRpcMethod(async function failingFunction({}) {
   throw new Error('This function fails');
 }, {
@@ -59,4 +75,4 @@ export const failingFunction = _createRpcMethod(async function failingFunction({
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
-export default /*#__PURE__*/_wrapApiHandler( /*#__PURE__*/_createRpcHandler([["createUser", createUser], ["generateNumbers", generateNumbers], ["failingFunction", failingFunction]], false), false);
+export default /*#__PURE__*/_wrapApiHandler( /*#__PURE__*/_createRpcHandler([["createUser", createUser], ["generateNumbers", generateNumbers], ["generateNumbersWithError", generateNumbersWithError], ["failingFunction", failingFunction]], false), false);
