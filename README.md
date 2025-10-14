@@ -1482,7 +1482,7 @@ export default async function handler(
   res: NextApiResponse,
 ) {
   // IMPORTANT! nothing should be run before calling handleNode that could read the request body!
-  await mcpAuthApp.handleNode(req, res, { state: { userId } })
+  await mcpAuthApp.handleNode(req, res)
 }
 
 export const config = {
