@@ -1,5 +1,11 @@
 # spiceflow
 
+## 1.17.11
+
+### Patch Changes
+
+- Add `content-encoding: none` header to async generator streaming responses to fix streaming issues on fly.io and similar platforms that may apply automatic compression
+
 ## 1.17.10
 
 ### Patch Changes

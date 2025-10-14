@@ -1287,6 +1287,9 @@ export class Spiceflow<
           headers: {
             'Content-Type': 'text/event-stream',
             'Cache-Control': 'no-cache',
+            // fix for fly.io streaming
+            // https://github.com/vercel/next.js/issues/9965#issuecomment-584319868
+            'content-encoding': 'none',
           },
         },
       )
@@ -1386,6 +1389,10 @@ export class Spiceflow<
         headers: {
           'transfer-encoding': 'chunked',
           'content-type': 'text/event-stream; charset=utf-8',
+          // fix for fly.io streaming
+          // https://github.com/vercel/next.js/issues/9965#issuecomment-584319868
+          'content-encoding': 'none',
+          'cache-control': 'no-cache',
         },
       },
     )
