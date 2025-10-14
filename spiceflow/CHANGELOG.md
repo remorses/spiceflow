@@ -1,5 +1,11 @@
 # spiceflow
 
+## 1.17.12
+
+### Patch Changes
+
+- Add `retries` option to client config to automatically retry requests on server errors (status >= 500) with exponential backoff. For async generator streaming responses, the client will retry the request and continue from the same generator after a connection failure.
+
 ## 1.17.11
 
 ### Patch Changes

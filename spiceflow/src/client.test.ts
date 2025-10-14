@@ -327,3 +327,55 @@ describe('client as promise', () => {
     expect(data).toEqual({ test: 'value' })
   }, 200)
 })
+
+describe('client retries', () => {
+  it('should retry on 500 errors and succeed on third attempt', async () => {
+    let attemptCount = 0
+    const retryApp = new Spiceflow().get('/retry-success', () => {
+      attemptCount++
+      if (attemptCount < 3) {
+        throw new Response('Server error', { status: 500 })
+      }
+      return { success: true, attempts: attemptCount }
+    })
+
+    const retryClient = createSpiceflowClient(retryApp, { retries: 2 })
+    const { data, error } = await retryClient['retry-success'].get()
+
+    expect(error).toBeNull()
+    expect(data).toEqual({ success: true, attempts: 3 })
+    expect(attemptCount).toBe(3)
+  })
+
+  it('should fail after all retries are exhausted', async () => {
+    let attemptCount = 0
+    const retryApp = new Spiceflow().get('/retry-fail', () => {
+      attemptCount++
+      throw new Response('Server error', { status: 500 })
+    })
+
+    const retryClient = createSpiceflowClient(retryApp, { retries: 2 })
+    const { data, error } = await retryClient['retry-fail'].get()
+
+    expect(data).toBeNull()
+    expect(error).toBeDefined()
+    expect(error?.status).toBe(500)
+    expect(attemptCount).toBe(3)
+  })
+
+  it('should not retry on non-500 errors', async () => {
+    let attemptCount = 0
+    const retryApp = new Spiceflow().get('/retry-400', () => {
+      attemptCount++
+      throw new Response('Bad request', { status: 400 })
+    })
+
+    const retryClient = createSpiceflowClient(retryApp, { retries: 2 })
+    const { data, error } = await retryClient['retry-400'].get()
+
+    expect(data).toBeNull()
+    expect(error).toBeDefined()
+    expect(error?.status).toBe(400)
+    expect(attemptCount).toBe(1)
+  })
+})

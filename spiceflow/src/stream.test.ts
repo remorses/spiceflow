@@ -468,7 +468,7 @@ describe('Stream', () => {
     let streamError: Error | undefined
 
     try {
-      const stream = streamSSEResponse(response, (x) => x.data)
+      const stream = streamSSEResponse({ response, map: (x) => x.data })
       for await (const value of stream) {
         values.push(value)
       }

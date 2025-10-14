@@ -153,35 +153,80 @@ function isAbortError(error: unknown): error is Error {
   )
 }
 
-export async function* streamSSEResponse(
-  response: Response,
-  map: (x: SSEEvent) => any,
-): AsyncGenerator<SSEEvent> {
-  const body = response.body
-  if (!body) return
+export async function* streamSSEResponse({
+  response,
+  map,
+  executeRequest,
+  maxRetries = 0,
+}: {
+  response: Response
+  map: (x: SSEEvent) => any
+  executeRequest?: () => Promise<Response>
+  maxRetries?: number
+}): AsyncGenerator<SSEEvent> {
+  let currentResponse = response
+  let retriesLeft = maxRetries
 
-  const eventStream = response.body
-    .pipeThrough(new TextDecoderStream())
-    .pipeThrough(new EventSourceParserStream())
+  while (true) {
+    const body = currentResponse.body
+    if (!body) return
 
-  let reader = eventStream.getReader()
-  try {
-    while (true) {
-      const { done, value: event } = await reader.read()
-      if (done) break
-      if (event?.event === 'error') {
-        throw new SpiceflowFetchError(500, superjsonDeserialize(event.data))
+    const eventStream = body
+      .pipeThrough(new TextDecoderStream())
+      .pipeThrough(new EventSourceParserStream())
+
+    let reader = eventStream.getReader()
+
+    try {
+      while (true) {
+        const { done, value: event } = await reader.read()
+        if (done) return
+
+        if (event?.event === 'error') {
+          const error = superjsonDeserialize(event.data)
+          throw new SpiceflowFetchError(500, error)
+        }
+
+        if (event) {
+          yield map({ ...event, data: event.data })
+        }
       }
-      if (event) {
-        yield map({ ...event, data: event.data })
+    } catch (error) {
+      if (isAbortError(error)) {
+        return
+      }
+
+      if (
+        executeRequest &&
+        error instanceof SpiceflowFetchError &&
+        error.status >= 500 &&
+        retriesLeft > 0
+      ) {
+        retriesLeft--
+        const backoffMs = Math.min(
+          1000 * 2 ** (maxRetries - retriesLeft - 1),
+          10000,
+        )
+        await new Promise((resolve) => setTimeout(resolve, backoffMs))
+
+        try {
+          currentResponse = await executeRequest()
+          if (currentResponse.status >= 500) {
+            if (retriesLeft === 0) {
+              throw error
+            }
+            continue
+          }
+        } catch (retryError) {
+          if (retriesLeft === 0) {
+            throw retryError
+          }
+          continue
+        }
+      } else {
+        throw error
       }
     }
-  } catch (error) {
-    if (isAbortError(error)) {
-      return
-    }
-
-    throw error
   }
 }
 
@@ -226,7 +271,13 @@ const createProxy = (
         const method = methodPaths.pop()
         const path = '/' + methodPaths.join('/')
 
-        let { fetch: fetcher = fetch, headers, onRequest, onResponse } = config
+        let {
+          fetch: fetcher = fetch,
+          headers,
+          onRequest,
+          onResponse,
+          retries = 0,
+        } = config
 
         const isGetOrHead =
           method === 'get' || method === 'head' || method === 'subscribe'
@@ -394,11 +445,46 @@ const createProxy = (
           }
 
           const url = domain + path + q
-          // console.log({ url, fetchInit })
-          const response = await (instance?.handle(
-            new Request(url, fetchInit),
-            { state: config.state },
-          ) ?? fetcher!(url, fetchInit))
+
+          const executeRequest = async (): Promise<Response> => {
+            let attempt = 0
+            let response: Response
+            let lastError: Error | null = null
+
+            while (attempt <= retries) {
+              try {
+                response = await (instance?.handle(
+                  new Request(url, fetchInit),
+                  { state: config.state },
+                ) ?? fetcher!(url, fetchInit))
+
+                if (response.status < 500 || attempt === retries) {
+                  break
+                }
+
+                lastError = new Error(
+                  `Server error: ${response.status} ${response.statusText}`,
+                )
+              } catch (err) {
+                lastError = err as Error
+                if (attempt === retries) {
+                  throw err
+                }
+              }
+
+              attempt++
+              const backoffMs = Math.min(1000 * 2 ** (attempt - 1), 10000)
+              await new Promise((resolve) => setTimeout(resolve, backoffMs))
+            }
+
+            if (!response!) {
+              throw lastError || new Error('Failed to fetch after retries')
+            }
+
+            return response
+          }
+
+          const response = await executeRequest()
 
           let data = null as any
           let error = null as any
@@ -429,8 +515,13 @@ const createProxy = (
 
           switch (response.headers.get('Content-Type')?.split(';')[0]) {
             case 'text/event-stream':
-              data = streamSSEResponse(response, (x) => {
-                return tryParsingSSEJson(x.data)
+              data = streamSSEResponse({
+                response,
+                map: (x) => {
+                  return tryParsingSSEJson(x.data)
+                },
+                executeRequest,
+                maxRetries: retries,
               })
 
               break

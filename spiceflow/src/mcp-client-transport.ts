@@ -68,8 +68,11 @@ export class FetchMCPCLientTransport implements Transport {
         `SSE connection failed (HTTP ${sseRes.status})\nURL: ${this.sseUrl}\nText: ${text}`,
       )
     }
-    for await (const evt of streamSSEResponse(sseRes, (x) => {
-      return x
+    for await (const evt of streamSSEResponse({
+      response: sseRes,
+      map: (x) => {
+        return x
+      },
     }) as AsyncGenerator<{
       event: string
       data: any

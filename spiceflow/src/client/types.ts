@@ -140,6 +140,7 @@ export namespace SpiceflowClient {
       (path: string, options: RequestInit) => MaybePromise<RequestInit | void>
     >
     onResponse?: MaybeArray<(response: Response) => MaybePromise<unknown>>
+    retries?: number
 
     // keepDomain?: boolean
   }
