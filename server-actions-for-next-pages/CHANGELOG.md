@@ -1,5 +1,12 @@
 # server-actions-for-next-pages
 
+## 1.5.1
+
+### Patch Changes
+
+- Fix async generators to return AsyncGenerator directly instead of Promise<AsyncGenerator>
+- Async generators now work without await: `const gen = generateNumbers()` instead of `const gen = await generateNumbers()`
+
 ## 1.5.0
 
 ### Minor Changes

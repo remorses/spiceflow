@@ -233,6 +233,8 @@ export default function (
           return node.async || node.generator;
         }
 
+        const rpcMethodMeta = new Map<string, { isGenerator: boolean }>();
+
         for (const statement of program.get('body')) {
           if (statement.isExportNamedDeclaration()) {
             const declaration = statement.get('declaration');
@@ -252,6 +254,9 @@ export default function (
 
               if (methodName) {
                 rpcMethodNames.push(methodName);
+                rpcMethodMeta.set(methodName, {
+                  isGenerator: !!declaration.node.generator,
+                });
                 if (isServer) {
                   // replace with wrapped
                   statement.replaceWith(
@@ -311,6 +316,9 @@ export default function (
                       continue;
                     }
                     rpcMethodNames.push(methodName);
+                    rpcMethodMeta.set(methodName, {
+                      isGenerator: !!init.node.generator,
+                    });
                     if (isServer) {
                       init.replaceWith(
                         createRpcMethod(init.node, {
@@ -441,22 +449,25 @@ export default function (
               ],
               t.stringLiteral(IMPORT_PATH_BROWSER),
             ),
-            ...rpcMethodNames.map((name) =>
-              t.exportNamedDeclaration(
+            ...rpcMethodNames.map((name) => {
+              const meta = rpcMethodMeta.get(name);
+              const callArgs = [
+                t.stringLiteral(rpcPath),
+                t.stringLiteral(name),
+                ...(meta?.isGenerator ? [t.booleanLiteral(true)] : []),
+              ];
+              return t.exportNamedDeclaration(
                 t.variableDeclaration('const', [
                   t.variableDeclarator(
                     t.identifier(name),
                     annotateAsPure(
                       t,
-                      t.callExpression(createRpcFetcherIdentifier, [
-                        t.stringLiteral(rpcPath),
-                        t.stringLiteral(name),
-                      ]),
+                      t.callExpression(createRpcFetcherIdentifier, callArgs),
                     ),
                   ),
                 ]),
-              ),
-            ),
+              );
+            }),
           ]);
         }
         if (process.env.DEBUG_ACTIONS) {
