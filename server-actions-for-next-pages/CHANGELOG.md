@@ -1,5 +1,16 @@
 # server-actions-for-next-pages
 
+## 1.5.2
+
+### Patch Changes
+
+- Add AbortController support for cancelling ongoing RPC requests
+- Client-side abort signals are automatically detected in arguments and used for fetch
+- Server-side replaces client signals with request abort signals
+- Server functions can respond to request cancellations via signal.aborted
+- Support for both regular async functions and async generators
+- Add test page demonstrating abort controller functionality
+
 ## 1.5.1
 
 ### Patch Changes
