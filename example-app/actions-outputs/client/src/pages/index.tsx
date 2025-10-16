@@ -43,7 +43,7 @@ export default function Page({
     setTimeout(() => {
       console.log('Aborting stream...');
       controller.abort('User cancelled stream');
-    }, 3000);
+    }, 2000);
     try {
       const generator = streamWithAbort({
         signal: controller.signal
@@ -56,7 +56,7 @@ export default function Page({
       }
       setAbortTestResult('Stream completed');
     } catch (error) {
-      setAbortTestResult('Stream aborted: ' + error.message);
+      setAbortTestResult('Stream aborted (' + error.constructor.name + '): ' + error.message);
     }
   };
   return <div className='p-4'>

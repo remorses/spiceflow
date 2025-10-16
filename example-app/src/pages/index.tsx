@@ -24,7 +24,7 @@ export default function Page({ x }) {
 
   const testAbortController = async () => {
     const controller = new AbortController();
-    
+
     setTimeout(() => {
       console.log('Aborting request...');
       controller.abort('User cancelled');
@@ -40,11 +40,11 @@ export default function Page({ x }) {
 
   const testAbortStream = async () => {
     const controller = new AbortController();
-    
+
     setTimeout(() => {
       console.log('Aborting stream...');
       controller.abort('User cancelled stream');
-    }, 3000);
+    }, 2000);
 
     try {
       const generator = streamWithAbort({ signal: controller.signal });
@@ -54,7 +54,12 @@ export default function Page({ x }) {
       }
       setAbortTestResult('Stream completed');
     } catch (error) {
-      setAbortTestResult('Stream aborted: ' + (error as Error).message);
+      setAbortTestResult(
+        'Stream aborted (' +
+        (error as Error).constructor.name +
+        '): ' +
+        (error as Error).message
+      );
     }
   };
 
@@ -62,13 +67,13 @@ export default function Page({ x }) {
     <div className='p-4'>
       <div>this is a pages page {JSON.stringify(x)} {count}</div>
       <div className='mt-4 space-y-2'>
-        <button 
+        <button
           onClick={testAbortController}
           className='px-4 py-2 bg-blue-500 text-white rounded'
         >
           Test Abort Controller
         </button>
-        <button 
+        <button
           onClick={testAbortStream}
           className='px-4 py-2 bg-green-500 text-white rounded ml-2'
         >
