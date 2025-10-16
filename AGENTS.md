@@ -53,6 +53,67 @@ The Babel plugin processes files with `"poor man's use server"` directive:
 - Regular async functions: `return await fetchAndStreamResults()` immediately
 - Async generators: `yield* fetchAndStreamResults()` - defers fetch until first `next()` call
 
+## Serialization: AbortController & AbortSignal
+
+`AbortController` and `AbortSignal` don't serialize by default with superjson. Use `superjson.registerCustom()` to preserve abort state:
+
+```typescript
+superjson.registerCustom<AbortController, { aborted: boolean; reason?: any }>(
+  {
+    isApplicable: (v): v is AbortController => v instanceof AbortController,
+    serialize: (controller) => ({
+      aborted: controller.signal.aborted,
+      reason: controller.signal.reason,
+    }),
+    deserialize: (data) => {
+      const controller = new AbortController();
+      if (data.aborted) controller.abort(data.reason);
+      return controller;
+    },
+  },
+  "AbortController"
+);
+
+superjson.registerCustom<AbortSignal, { aborted: boolean; reason?: any }>(
+  {
+    isApplicable: (v): v is AbortSignal => v instanceof AbortSignal,
+    serialize: (signal) => ({
+      aborted: signal.aborted,
+      reason: signal.reason,
+    }),
+    deserialize: (data) => {
+      const controller = new AbortController();
+      if (data.aborted) controller.abort(data.reason);
+      return controller.signal;
+    },
+  },
+  "AbortSignal"
+);
+```
+
+### Result
+```typescript
+const controller = new AbortController();
+controller.abort("Timeout");
+const serialized = superjson.stringify(controller);
+// {"json":{"aborted":true,"reason":"Timeout"},"meta":{"values":[["custom","AbortController"]]}}
+
+const deserialized = superjson.parse<AbortController>(serialized);
+deserialized.signal.aborted // true ✅
+deserialized.signal.reason  // "Timeout" ✅
+
+// instanceof checks work correctly
+deserialized instanceof AbortController // true ✅
+deserialized.signal instanceof AbortSignal // true ✅
+```
+
+**Note**: Deserialized objects are real `AbortController` and `AbortSignal` instances created with `new AbortController()`, so `instanceof` checks work correctly.
+
+### Important Limitations
+- **New instances**: Deserialized controllers are new objects, not linked to originals
+- **Event listeners not preserved**: Only state (`aborted` + `reason`) is serialized
+- **Use case**: Suitable for transmitting abort *state*, not live cancellation mechanisms
+
 ## Recent Changes: Lazy Async Generators
 
 ### Problem
