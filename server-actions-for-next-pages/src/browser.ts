@@ -1,5 +1,6 @@
 import { JsonRpcRequest } from './jsonRpc';
 import { EventSourceParserStream } from 'eventsource-parser/stream';
+import { registerAbortControllerSerializers, findAbortSignalInArgs } from './superjson-setup';
 
 type NextRpcCall = (...params: any[]) => any;
 
@@ -43,6 +44,8 @@ export function createRpcFetcher(
   if (isGenerator) {
     return async function* rpcGeneratorFetch(...args) {
       const superjson = await import('superjson');
+      registerAbortControllerSerializers(superjson.default);
+      const abortSignal = findAbortSignalInArgs(args);
       const { json, meta } = superjson.serialize(args);
       const res = await fetch(url, {
         method: 'POST',
@@ -60,6 +63,7 @@ export function createRpcFetcher(
         headers: {
           'content-type': 'application/json',
         },
+        signal: abortSignal,
       });
 
       if (res.status === 502) {
@@ -84,6 +88,8 @@ export function createRpcFetcher(
 
   return async function rpcFetch(...args) {
     const superjson = await import('superjson');
+    registerAbortControllerSerializers(superjson.default);
+    const abortSignal = findAbortSignalInArgs(args);
     const { json, meta } = superjson.serialize(args);
     const res = await fetch(url, {
       method: 'POST',
@@ -101,6 +107,7 @@ export function createRpcFetcher(
       headers: {
         'content-type': 'application/json',
       },
+      signal: abortSignal,
     });
 
     if (res.status === 502) {

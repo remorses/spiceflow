@@ -67,6 +67,11 @@ export function getEdgeContext(): EdgeContext {
 export function getContext(): CommonContext {
   return asyncLocalStorage.getStore() || DEFAULT_CONTEXT;
 }
+
+export function getRequestAbortSignal(): AbortSignal | undefined {
+  const context = asyncLocalStorage.getStore();
+  return context?.request?.signal;
+}
 function createHeaders(req: http.IncomingMessage): Headers {
   let headers = new Headers();
 

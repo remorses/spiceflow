@@ -53,9 +53,78 @@ The Babel plugin processes files with `"poor man's use server"` directive:
 - Regular async functions: `return await fetchAndStreamResults()` immediately
 - Async generators: `yield* fetchAndStreamResults()` - defers fetch until first `next()` call
 
+## Abort Controller Support
+
+The library supports aborting ongoing RPC requests using `AbortController` and `AbortSignal`. When an `AbortSignal` is passed in the arguments (either directly or as a field in an object), it is used to:
+- **Client-side**: Abort the fetch request
+- **Server-side**: Replace the client signal with the request's abort signal, allowing server functions to respond to request cancellations
+
+### Implementation Details
+
+**Files**:
+- `server-actions-for-next-pages/src/superjson-setup.ts`: Serialization helpers and abort signal utilities
+- `server-actions-for-next-pages/src/browser.ts`: Detects abort signals and passes them to fetch
+- `server-actions-for-next-pages/src/server.ts`: Replaces client signals with request signals
+- `server-actions-for-next-pages/src/context-internal.ts`: Exposes request abort signal via `getRequestAbortSignal()`
+
+### How it Works
+
+1. **Client-side**: `findAbortSignalInArgs()` searches for `AbortSignal` or `AbortController` in arguments
+2. If found, the signal is passed to `fetch()` options
+3. **Server-side**: Arguments are deserialized, then `replaceAbortSignalsInArgs()` replaces any client signals with the request's abort signal
+4. Server functions can check `signal.aborted` to stop execution
+5. When the client aborts (e.g., user navigates away), the server's request is also aborted
+
+### Usage Example
+
+```typescript
+// Server function
+export async function longRunningTask(signal: AbortSignal) {
+  for (let i = 0; i < 10; i++) {
+    if (signal.aborted) {
+      throw new Error('Task aborted: ' + signal.reason);
+    }
+    await sleep(1000);
+  }
+  return { completed: true };
+}
+
+// Async generator with abort
+export async function* streamWithAbort({ signal }: { signal: AbortSignal }) {
+  for (let i = 0; i < 20; i++) {
+    if (signal.aborted) {
+      throw new Error('Stream aborted: ' + signal.reason);
+    }
+    await sleep(500);
+    yield { count: i };
+  }
+}
+
+// Client usage
+const controller = new AbortController();
+setTimeout(() => controller.abort('Timeout'), 2000);
+
+try {
+  await longRunningTask(controller.signal);
+} catch (error) {
+  console.log(error); // "Task aborted: Timeout"
+}
+
+// Stream usage
+const streamController = new AbortController();
+const generator = streamWithAbort({ signal: streamController.signal });
+for await (const { count } of generator) {
+  console.log(count);
+}
+```
+
+### Test Page
+
+See `example-app/src/pages/abort-test.tsx` for a complete demonstration of abort controller functionality with both regular functions and streaming.
+
 ## Serialization: AbortController & AbortSignal
 
-`AbortController` and `AbortSignal` don't serialize by default with superjson. Use `superjson.registerCustom()` to preserve abort state:
+`AbortController` and `AbortSignal` are registered with superjson via `registerAbortControllerSerializers()` to preserve abort state:
 
 ```typescript
 superjson.registerCustom<AbortController, { aborted: boolean; reason?: any }>(
@@ -167,9 +236,12 @@ server-actions-for-next-pages/
 │   ├── context.ts              # AsyncLocalStorage context for req/res
 │   ├── context-internal.ts     # Internal context helpers
 │   ├── headers.ts              # Headers/cookies access
+│   ├── superjson-setup.ts      # AbortController serialization & utilities
 │   └── utils.ts                # Babel AST utilities
 ├── example-app/                # Test application
-│   ├── src/pages/api/          # Server actions location
+│   ├── src/pages/
+│   │   ├── api/                # Server actions location
+│   │   └── abort-test.tsx      # AbortController test page
 │   └── plugin-outputs/         # Debug outputs (DEBUG_ACTIONS=1)
 ```
 
@@ -180,9 +252,11 @@ Set `DEBUG_ACTIONS=1` to output transformed files to `plugin-outputs/`:
 - `client-*.ts`: Client-side transformed code (fetch calls)
 - `server-*.ts`: Server-side transformed code (RPC handlers)
 
-### Example Test Case
+### Example Test Cases
 
-**Server**: `example-app/src/pages/api/actions-node.ts`
+**Async Generator**:
+
+Server (`example-app/src/pages/api/actions-node.ts`):
 ```typescript
 export async function* generateNumbers() {
   let count = 0;
@@ -194,12 +268,37 @@ export async function* generateNumbers() {
 }
 ```
 
-**Client**: `example-app/src/pages/index.tsx`
+Client (`example-app/src/pages/index.tsx`):
 ```typescript
 const generator = generateNumbers(); // No await!
 for await (const { count } of generator) {
   setCount(count);
 }
+```
+
+**AbortController**:
+
+Server (`example-app/src/pages/api/actions-node.ts`):
+```typescript
+export async function longRunningTask(signal: AbortSignal) {
+  for (let i = 0; i < 10; i++) {
+    if (signal.aborted) {
+      throw new Error('Task aborted: ' + signal.reason);
+    }
+    await sleep(1000);
+  }
+  return { completed: true };
+}
+```
+
+Client (`example-app/src/pages/abort-test.tsx`):
+```typescript
+const controller = new AbortController();
+// Abort after 2 seconds
+setTimeout(() => controller.abort('Timeout'), 2000);
+
+await longRunningTask(controller.signal);
+// Throws error after 2 seconds: "Task aborted: Timeout"
 ```
 
 ## Common Commands
@@ -222,8 +321,9 @@ cd server-actions-for-next-pages && npm run watch
 3. **Two build targets**: Code is transformed differently for client vs server
 4. **Generator detection**: `node.generator` flag distinguishes generators from async functions
 5. **Streaming protocol**: Uses Server-Sent Events (SSE) with `text/event-stream` content-type
-6. **Serialization**: All args/results go through superjson (supports Date, Map, Set, etc.)
+6. **Serialization**: All args/results go through superjson (supports Date, Map, Set, AbortController, etc.)
 7. **Error handling**: Status 502 indicates server function threw an error
+8. **Abort support**: Client abort signals are detected and used for fetch; server replaces them with request signals
 
 ## Related Documentation
 

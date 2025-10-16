@@ -1,7 +1,8 @@
 import { NextApiHandler } from 'next';
 import { JsonRpcResponse } from './jsonRpc';
 import { NextRequest, NextResponse } from 'next/server';
-import { getEdgeContext } from './context-internal';
+import { getEdgeContext, getRequestAbortSignal } from './context-internal';
+import { registerAbortControllerSerializers, replaceAbortSignalsInArgs } from './superjson-setup';
 // @ts-ignore
 import type SuperJSON from 'superjson';
 
@@ -59,6 +60,7 @@ export function createRpcHandler(
       superjson = (await import('superjson').then(
         (x) => x.default || x,
       )) as SuperJSON;
+      registerAbortControllerSerializers(superjson);
     }
     if (method !== 'POST') {
       return {
@@ -98,10 +100,16 @@ export function createRpcHandler(
     }
 
     try {
-      const args = superjson.deserialize({
+      let args = superjson.deserialize({
         json: params,
         meta: argsMeta,
       }) as any[];
+      
+      const requestAbortSignal = getRequestAbortSignal();
+      if (requestAbortSignal) {
+        args = replaceAbortSignalsInArgs(args, requestAbortSignal);
+      }
+      
       const result = await requestedFn(...args);
 
       // Check if result is an async iterable
