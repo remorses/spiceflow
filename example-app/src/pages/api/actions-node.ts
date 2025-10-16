@@ -58,6 +58,31 @@ export async function failingFunction({}) {
   throw new Error('This function fails');
 }
 
+export async function longRunningTask(signal: AbortSignal) {
+  console.log('Starting long running task');
+  for (let i = 0; i < 10; i++) {
+    if (signal.aborted) {
+      console.log('Task was aborted at iteration', i);
+      throw new Error('Task aborted: ' + signal.reason);
+    }
+    await sleep(1000);
+    console.log('Iteration', i);
+  }
+  return { completed: true };
+}
+
+export async function* streamWithAbort({ signal }: { signal: AbortSignal }) {
+  console.log('Starting stream with abort support');
+  for (let i = 0; i < 20; i++) {
+    if (signal.aborted) {
+      console.log('Stream was aborted at iteration', i);
+      throw new Error('Stream aborted: ' + signal.reason);
+    }
+    await sleep(500);
+    yield { count: i };
+  }
+}
+
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }

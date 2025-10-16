@@ -1,4 +1,4 @@
-import { createUser, generateNumbers } from '@/pages/api/actions-node';
+import { createUser, generateNumbers, longRunningTask, streamWithAbort } from '@/pages/api/actions-node';
 import { useEffect, useState } from 'react';
 
 export default function Page({ x }) {
@@ -7,22 +7,75 @@ export default function Page({ x }) {
     createUser({ name: 'test' });
   }, []);
   const [count, setCount] = useState(0);
+  const [abortTestResult, setAbortTestResult] = useState<string>('');
 
   useEffect(() => {
     async function startCounting() {
-      const generator = await generateNumbers();
+      const generator = generateNumbers();
       console.log('generator', generator);
       for await (const { count } of generator) {
         setCount(count);
         console.log('count', count);
-        if (count > 10) break; // Optional: stop after 10 counts
+        if (count > 10) break;
       }
     }
     startCounting();
   }, []);
+
+  const testAbortController = async () => {
+    const controller = new AbortController();
+    
+    setTimeout(() => {
+      console.log('Aborting request...');
+      controller.abort('User cancelled');
+    }, 2000);
+
+    try {
+      const result = await longRunningTask(controller.signal);
+      setAbortTestResult('Task completed: ' + JSON.stringify(result));
+    } catch (error) {
+      setAbortTestResult('Task failed: ' + (error as Error).message);
+    }
+  };
+
+  const testAbortStream = async () => {
+    const controller = new AbortController();
+    
+    setTimeout(() => {
+      console.log('Aborting stream...');
+      controller.abort('User cancelled stream');
+    }, 3000);
+
+    try {
+      const generator = streamWithAbort({ signal: controller.signal });
+      for await (const { count } of generator) {
+        setCount(count);
+        console.log('stream count', count);
+      }
+      setAbortTestResult('Stream completed');
+    } catch (error) {
+      setAbortTestResult('Stream aborted: ' + (error as Error).message);
+    }
+  };
+
   return (
-    <div className=''>
-      this is a pages page {JSON.stringify(x)} {count}
+    <div className='p-4'>
+      <div>this is a pages page {JSON.stringify(x)} {count}</div>
+      <div className='mt-4 space-y-2'>
+        <button 
+          onClick={testAbortController}
+          className='px-4 py-2 bg-blue-500 text-white rounded'
+        >
+          Test Abort Controller
+        </button>
+        <button 
+          onClick={testAbortStream}
+          className='px-4 py-2 bg-green-500 text-white rounded ml-2'
+        >
+          Test Abort Stream
+        </button>
+        <div className='mt-2'>Result: {abortTestResult}</div>
+      </div>
     </div>
   );
 }

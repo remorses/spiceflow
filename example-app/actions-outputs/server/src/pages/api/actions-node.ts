@@ -72,7 +72,42 @@ export const failingFunction = _createRpcMethod(async function failingFunction({
   name: "failingFunction",
   pathname: "/api/actions-node"
 }, typeof wrapMethod === 'function' ? wrapMethod : undefined);
+export const longRunningTask = _createRpcMethod(async function longRunningTask(signal) {
+  console.log('Starting long running task');
+  for (let i = 0; i < 10; i++) {
+    if (signal.aborted) {
+      console.log('Task was aborted at iteration', i);
+      throw new Error('Task aborted: ' + signal.reason);
+    }
+    await sleep(1000);
+    console.log('Iteration', i);
+  }
+  return {
+    completed: true
+  };
+}, {
+  name: "longRunningTask",
+  pathname: "/api/actions-node"
+}, typeof wrapMethod === 'function' ? wrapMethod : undefined);
+export const streamWithAbort = _createRpcMethod(async function* streamWithAbort({
+  signal
+}) {
+  console.log('Starting stream with abort support');
+  for (let i = 0; i < 20; i++) {
+    if (signal.aborted) {
+      console.log('Stream was aborted at iteration', i);
+      throw new Error('Stream aborted: ' + signal.reason);
+    }
+    await sleep(500);
+    yield {
+      count: i
+    };
+  }
+}, {
+  name: "streamWithAbort",
+  pathname: "/api/actions-node"
+}, typeof wrapMethod === 'function' ? wrapMethod : undefined);
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
-export default /*#__PURE__*/_wrapApiHandler( /*#__PURE__*/_createRpcHandler([["createUser", createUser], ["generateNumbers", generateNumbers], ["generateNumbersWithError", generateNumbersWithError], ["failingFunction", failingFunction]], false), false);
+export default /*#__PURE__*/_wrapApiHandler( /*#__PURE__*/_createRpcHandler([["createUser", createUser], ["generateNumbers", generateNumbers], ["generateNumbersWithError", generateNumbersWithError], ["failingFunction", failingFunction], ["longRunningTask", longRunningTask], ["streamWithAbort", streamWithAbort]], false), false);
