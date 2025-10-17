@@ -3,6 +3,8 @@
 import { wrapApiHandler as _wrapApiHandler } from "server-actions-for-next-pages/dist/context-internal";
 import { createRpcMethod as _createRpcMethod, createRpcHandler as _createRpcHandler } from "server-actions-for-next-pages/dist/server";
 import { getContext, getNodejsContext } from 'server-actions-for-next-pages/context';
+import * as fs from 'fs';
+import * as path from 'path';
 export const createUser = _createRpcMethod(async function createUser({
   name = ''
 }) {
@@ -13,10 +15,22 @@ export const createUser = _createRpcMethod(async function createUser({
   await sleep(1000);
   // console.log('node cookies & headers', headers());
   const url = req?.url;
+
+  // Node.js-only code to test loader transformation
+  const cwd = process.cwd();
+  const packageJsonPath = path.join(cwd, 'package.json');
+  const packageExists = fs.existsSync(packageJsonPath);
+
   // revalidatePath('/');
   return {
     functionName: 'nodejs createUser',
-    url
+    url,
+    nodeOnlyData: {
+      cwd,
+      packageExists,
+      pid: process.pid,
+      platform: process.platform
+    }
   };
 }, {
   name: "createUser",
@@ -107,7 +121,22 @@ export const streamWithAbort = _createRpcMethod(async function* streamWithAbort(
   name: "streamWithAbort",
   pathname: "/api/actions-node"
 }, typeof wrapMethod === 'function' ? wrapMethod : undefined);
+export const readServerFiles = _createRpcMethod(async function readServerFiles() {
+  // This function uses Node.js-only APIs and should fail if bundled for client
+  const packagePath = path.join(process.cwd(), 'package.json');
+  const content = fs.readFileSync(packagePath, 'utf-8');
+  const pkg = JSON.parse(content);
+  return {
+    name: pkg.name,
+    version: pkg.version,
+    env: process.env.NODE_ENV,
+    nodeVersion: process.version
+  };
+}, {
+  name: "readServerFiles",
+  pathname: "/api/actions-node"
+}, typeof wrapMethod === 'function' ? wrapMethod : undefined);
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
-export default /*#__PURE__*/_wrapApiHandler( /*#__PURE__*/_createRpcHandler([["createUser", createUser], ["generateNumbers", generateNumbers], ["generateNumbersWithError", generateNumbersWithError], ["failingFunction", failingFunction], ["longRunningTask", longRunningTask], ["streamWithAbort", streamWithAbort]], false), false);
+export default /*#__PURE__*/_wrapApiHandler( /*#__PURE__*/_createRpcHandler([["createUser", createUser], ["generateNumbers", generateNumbers], ["generateNumbersWithError", generateNumbersWithError], ["failingFunction", failingFunction], ["longRunningTask", longRunningTask], ["streamWithAbort", streamWithAbort], ["readServerFiles", readServerFiles]], false), false);

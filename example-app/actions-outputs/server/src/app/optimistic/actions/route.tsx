@@ -22,4 +22,4 @@ export const sendMessage = _createRpcMethod(async function sendMessage({
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
-export const POST = /*#__PURE__*/_createRpcHandler([["sendMessage", sendMessage]], true);
+export default /*#__PURE__*/_createRpcHandler([["sendMessage", sendMessage]], false);

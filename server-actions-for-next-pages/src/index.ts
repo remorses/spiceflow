@@ -105,16 +105,11 @@ function applyTurbopackOptions(nextConfig: NextConfig): void {
   // For production use, run with --webpack flag until turbopack loaders are stabilized
   // See: https://nextjs.org/docs/app/api-reference/next-config-js/turbopack
   
-  (nextConfig as any).turbopack ??= {};
-  (nextConfig as any).turbopack.rules ??= {};
-
-  const rules = (nextConfig as any).turbopack.rules;
   const pagesDir = findPagesDir(process.cwd());
   const basePath = (nextConfig.basePath as string) || '/';
   const loaderPath = require.resolve('../dist/turbopackLoader');
   
-  // Configure loaders for different file patterns
-  rules['**/*.{ts,tsx,js,jsx}'] = {
+  const loaderConfig = {
     loaders: [
       {
         loader: loaderPath,
@@ -128,6 +123,18 @@ function applyTurbopackOptions(nextConfig: NextConfig): void {
     ],
     as: '*.js',
   };
+  
+  // Support both Next.js 15 (experimental.turbo.rules) and Next.js 16 (turbopack.rules)
+  // Next.js 15 uses experimental.turbo.rules
+  nextConfig.experimental ??= {};
+  (nextConfig.experimental as any).turbo ??= {};
+  (nextConfig.experimental as any).turbo.rules ??= {};
+  (nextConfig.experimental as any).turbo.rules['**/*.{ts,tsx,js,jsx}'] = loaderConfig;
+  
+  // Next.js 16 uses turbopack.rules
+  (nextConfig as any).turbopack ??= {};
+  (nextConfig as any).turbopack.rules ??= {};
+  (nextConfig as any).turbopack.rules['**/*.{ts,tsx,js,jsx}'] = loaderConfig;
 }
 
 // taken from https://github.com/vercel/next.js/blob/v12.1.5/packages/next/lib/find-pages-dir.ts

@@ -1,5 +1,12 @@
 # server-actions-for-next-pages
 
+## 1.5.7
+
+### Patch Changes
+
+- Add backward compatibility with Next.js 15 by supporting both `experimental.turbo.rules` and `turbopack.rules`
+- Ensure turbopack configuration works across Next.js 15 and 16
+
 ## 1.5.6
 
 ### Patch Changes

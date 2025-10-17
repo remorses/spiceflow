@@ -1,6 +1,5 @@
 "poor man's use server";
 
-import { wrapGetServerSideProps as _wrapGetServerSideProps } from "server-actions-for-next-pages/dist/context-internal";
 import { createRpcMethod as _createRpcMethod, createRpcHandler as _createRpcHandler } from "server-actions-for-next-pages/dist/server";
 import { cookies, headers } from 'server-actions-for-next-pages/headers';
 export function wrapMethod(fn) {

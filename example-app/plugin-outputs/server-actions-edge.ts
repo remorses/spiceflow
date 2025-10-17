@@ -1,8 +1,11 @@
 "poor man's use server";
 
-import { wrapGetServerSideProps as _wrapGetServerSideProps } from "server-actions-for-next-pages/dist/context-internal";
 import { createRpcMethod as _createRpcMethod, createRpcHandler as _createRpcHandler } from "server-actions-for-next-pages/dist/server";
+import { getEdgeContext } from 'server-actions-for-next-pages/context';
 import { cookies, headers } from 'server-actions-for-next-pages/headers';
+export const runtime = 'edge';
+// export const config = { runtime: 'edge' };
+
 export function wrapMethod(fn) {
   return async (...args) => {
     try {
@@ -14,16 +17,23 @@ export function wrapMethod(fn) {
     }
   };
 }
-export const appServerAction = _createRpcMethod(async function appServerAction({}) {
-  // console.log('edge cookies & headers', cookies(), headers());
+export const edgeServerAction = _createRpcMethod(async function edgeServerAction({}) {
+  const {
+    req,
+    res
+  } = await getEdgeContext();
 
+  // console.log('edge cookies & headers', cookies(), headers());
+  res?.headers.set('x-server-action', 'true');
+  const url = req?.url;
   return {
+    url,
     cookies: cookies().toString().slice(0, 20),
     headers: Array.from(headers().keys()).slice(0, 2),
-    functionName: 'appRouteAction'
+    functionName: 'edgeServerAction'
   };
 }, {
-  name: "appServerAction",
-  pathname: "/app-actions"
+  name: "edgeServerAction",
+  pathname: "/api/actions-edge"
 }, typeof wrapMethod === 'function' ? wrapMethod : undefined);
-export default /*#__PURE__*/_createRpcHandler([["appServerAction", appServerAction]], false);
+export default /*#__PURE__*/_createRpcHandler([["edgeServerAction", edgeServerAction]], true);

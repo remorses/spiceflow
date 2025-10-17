@@ -7,3 +7,4 @@ export const generateNumbersWithError = /*#__PURE__*/_createRpcFetcher("/api/act
 export const failingFunction = /*#__PURE__*/_createRpcFetcher("/api/actions-node", "failingFunction");
 export const longRunningTask = /*#__PURE__*/_createRpcFetcher("/api/actions-node", "longRunningTask");
 export const streamWithAbort = /*#__PURE__*/_createRpcFetcher("/api/actions-node", "streamWithAbort", true);
+export const readServerFiles = /*#__PURE__*/_createRpcFetcher("/api/actions-node", "readServerFiles");
