@@ -105,11 +105,11 @@ function applyTurbopackOptions(nextConfig: NextConfig): void {
   nextConfig.experimental.turbo ??= {};
   nextConfig.experimental.turbo.rules ??= {};
 
-  (nextConfig as any).turbo ??= {};
-  (nextConfig as any).turbo.rules ??= {};
+  (nextConfig as any).turbopack ??= {};
+  (nextConfig as any).turbopack.rules ??= {};
 
   const experimentalRules = nextConfig.experimental.turbo.rules;
-  const rootRules = (nextConfig as any).turbo.rules;
+  const rootRules = (nextConfig as any).turbopack.rules;
 
   const pagesDir = findPagesDir(process.cwd());
 

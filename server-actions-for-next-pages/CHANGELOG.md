@@ -1,5 +1,11 @@
 # server-actions-for-next-pages
 
+## 1.5.4
+
+### Patch Changes
+
+- Fix root turbopack configuration key from `turbo.rules` to `turbopack.rules`
+
 ## 1.5.3
 
 ### Patch Changes
