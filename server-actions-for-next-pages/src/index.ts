@@ -120,30 +120,40 @@ function applyTurbopackOptions(nextConfig: NextConfig): void {
     '{./src/app,./app/}/**/route.{ts,tsx,js,jsx}', //
   ];
   for (let glob of globs) {
-    for (let rules of [experimentalRules, rootRules]) {
-      rules[glob] ??= {};
-      const options: RpcPluginOptions = {
-        isServer: false,
-        pagesDir,
-        isAppDir: glob.includes('/app'),
-        basePath,
-      };
-      const globbed: any = rules[glob];
-      globbed.browser ??= {};
-      globbed.browser.as = '*.tsx';
-      globbed.browser.loaders ??= [];
-      globbed.browser.loaders.push({
-        loader: require.resolve('../dist/turbopackLoader'),
-        options: { ...options, isServer: false },
-      });
-      globbed.default ??= {};
-      globbed.default.as = '*.tsx';
-      globbed.default.loaders ??= [];
-      globbed.default.loaders.push({
-        loader: require.resolve('../dist/turbopackLoader'),
-        options: { ...options, isServer: true },
-      });
-    }
+    const options: RpcPluginOptions = {
+      isServer: false,
+      pagesDir,
+      isAppDir: glob.includes('/app'),
+      basePath,
+    };
+    
+    // Apply experimental.turbo.rules (old webpack-style structure with browser/default)
+    experimentalRules[glob] ??= {};
+    const expGlobbed: any = experimentalRules[glob];
+    expGlobbed.browser ??= {};
+    expGlobbed.browser.as = '*.tsx';
+    expGlobbed.browser.loaders ??= [];
+    expGlobbed.browser.loaders.push({
+      loader: require.resolve('../dist/turbopackLoader'),
+      options: { ...options, isServer: false },
+    });
+    expGlobbed.default ??= {};
+    expGlobbed.default.as = '*.tsx';
+    expGlobbed.default.loaders ??= [];
+    expGlobbed.default.loaders.push({
+      loader: require.resolve('../dist/turbopackLoader'),
+      options: { ...options, isServer: true },
+    });
+    
+    // Apply turbopack.rules (new flat structure)
+    rootRules[glob] ??= {};
+    const rootGlobbed: any = rootRules[glob];
+    rootGlobbed.as = '*.tsx';
+    rootGlobbed.loaders ??= [];
+    rootGlobbed.loaders.push({
+      loader: require.resolve('../dist/turbopackLoader'),
+      options: { ...options, isServer: true },
+    });
   }
 }
 

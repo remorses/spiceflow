@@ -1,5 +1,12 @@
 # server-actions-for-next-pages
 
+## 1.5.5
+
+### Patch Changes
+
+- Fix turbopack.rules to use correct flat structure (loaders array at top level)
+- Keep experimental.turbo.rules with webpack-style browser/default structure for compatibility
+
 ## 1.5.4
 
 ### Patch Changes
