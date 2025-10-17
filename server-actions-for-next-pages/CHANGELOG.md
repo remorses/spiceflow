@@ -1,5 +1,15 @@
 # server-actions-for-next-pages
 
+## 1.5.6
+
+### Patch Changes
+
+- Update turbopack loader implementation for Next.js 16 compatibility
+- Change loader export from `export default` to `module.exports` for better turbopack compatibility
+- Add directive checking to skip processing files without `"poor man's use server"`
+- Simplify turbopack.rules configuration structure
+- **Note**: Turbopack custom loaders are experimental in Next.js 16 beta. For production use, run builds with `--webpack` flag until turbopack loader support stabilizes
+
 ## 1.5.5
 
 ### Patch Changes

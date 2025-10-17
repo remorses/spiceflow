@@ -4,6 +4,8 @@ import {
   getContext,
   getNodejsContext,
 } from 'server-actions-for-next-pages/context';
+import * as fs from 'fs';
+import * as path from 'path';
 
 export async function createUser({ name = '' }) {
   const { req, res } = await getNodejsContext();
@@ -11,10 +13,22 @@ export async function createUser({ name = '' }) {
   await sleep(1000);
   // console.log('node cookies & headers', headers());
   const url = req?.url;
+  
+  // Node.js-only code to test loader transformation
+  const cwd = process.cwd();
+  const packageJsonPath = path.join(cwd, 'package.json');
+  const packageExists = fs.existsSync(packageJsonPath);
+  
   // revalidatePath('/');
   return {
     functionName: 'nodejs createUser',
     url,
+    nodeOnlyData: {
+      cwd,
+      packageExists,
+      pid: process.pid,
+      platform: process.platform,
+    },
   };
 }
 
@@ -81,6 +95,20 @@ export async function* streamWithAbort({ signal }: { signal: AbortSignal }) {
     await sleep(500);
     yield { count: i };
   }
+}
+
+export async function readServerFiles() {
+  // This function uses Node.js-only APIs and should fail if bundled for client
+  const packagePath = path.join(process.cwd(), 'package.json');
+  const content = fs.readFileSync(packagePath, 'utf-8');
+  const pkg = JSON.parse(content);
+  
+  return {
+    name: pkg.name,
+    version: pkg.version,
+    env: process.env.NODE_ENV,
+    nodeVersion: process.version,
+  };
 }
 
 function sleep(ms: number) {

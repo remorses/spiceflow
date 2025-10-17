@@ -101,60 +101,33 @@ export function plugins({
 }
 
 function applyTurbopackOptions(nextConfig: NextConfig): void {
-  nextConfig.experimental ??= {};
-  nextConfig.experimental.turbo ??= {};
-  nextConfig.experimental.turbo.rules ??= {};
-
+  // Note: Turbopack custom loader support is still experimental in Next.js 16 beta
+  // For production use, run with --webpack flag until turbopack loaders are stabilized
+  // See: https://nextjs.org/docs/app/api-reference/next-config-js/turbopack
+  
   (nextConfig as any).turbopack ??= {};
   (nextConfig as any).turbopack.rules ??= {};
 
-  const experimentalRules = nextConfig.experimental.turbo.rules;
-  const rootRules = (nextConfig as any).turbopack.rules;
-
+  const rules = (nextConfig as any).turbopack.rules;
   const pagesDir = findPagesDir(process.cwd());
-
   const basePath = (nextConfig.basePath as string) || '/';
-
-  const globs = [
-    '{./src/pages,./pages/}/**/*.{ts,tsx,js,jsx}', //
-    '{./src/app,./app/}/**/route.{ts,tsx,js,jsx}', //
-  ];
-  for (let glob of globs) {
-    const options: RpcPluginOptions = {
-      isServer: false,
-      pagesDir,
-      isAppDir: glob.includes('/app'),
-      basePath,
-    };
-    
-    // Apply experimental.turbo.rules (old webpack-style structure with browser/default)
-    experimentalRules[glob] ??= {};
-    const expGlobbed: any = experimentalRules[glob];
-    expGlobbed.browser ??= {};
-    expGlobbed.browser.as = '*.tsx';
-    expGlobbed.browser.loaders ??= [];
-    expGlobbed.browser.loaders.push({
-      loader: require.resolve('../dist/turbopackLoader'),
-      options: { ...options, isServer: false },
-    });
-    expGlobbed.default ??= {};
-    expGlobbed.default.as = '*.tsx';
-    expGlobbed.default.loaders ??= [];
-    expGlobbed.default.loaders.push({
-      loader: require.resolve('../dist/turbopackLoader'),
-      options: { ...options, isServer: true },
-    });
-    
-    // Apply turbopack.rules (new flat structure)
-    rootRules[glob] ??= {};
-    const rootGlobbed: any = rootRules[glob];
-    rootGlobbed.as = '*.tsx';
-    rootGlobbed.loaders ??= [];
-    rootGlobbed.loaders.push({
-      loader: require.resolve('../dist/turbopackLoader'),
-      options: { ...options, isServer: true },
-    });
-  }
+  const loaderPath = require.resolve('../dist/turbopackLoader');
+  
+  // Configure loaders for different file patterns
+  rules['**/*.{ts,tsx,js,jsx}'] = {
+    loaders: [
+      {
+        loader: loaderPath,
+        options: {
+          isServer: true,
+          pagesDir,
+          isAppDir: false,
+          basePath,
+        },
+      },
+    ],
+    as: '*.js',
+  };
 }
 
 // taken from https://github.com/vercel/next.js/blob/v12.1.5/packages/next/lib/find-pages-dir.ts
