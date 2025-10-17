@@ -1,5 +1,12 @@
 # server-actions-for-next-pages
 
+## 1.5.3
+
+### Patch Changes
+
+- Add support for both `experimental.turbo.rules` and `turbo.rules` configurations for Turbopack
+- Apply turbopack loader to both locations for better Next.js compatibility
+
 ## 1.5.2
 
 ### Patch Changes

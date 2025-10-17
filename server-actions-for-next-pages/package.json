@@ -1,6 +1,6 @@
 {
   "name": "server-actions-for-next-pages",
-  "version": "1.5.2",
+  "version": "1.5.3",
   "description": "Use Next.js server actions in your pages directory",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

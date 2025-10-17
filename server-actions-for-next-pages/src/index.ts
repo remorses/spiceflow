@@ -105,7 +105,11 @@ function applyTurbopackOptions(nextConfig: NextConfig): void {
   nextConfig.experimental.turbo ??= {};
   nextConfig.experimental.turbo.rules ??= {};
 
-  const rules = nextConfig.experimental.turbo.rules;
+  (nextConfig as any).turbo ??= {};
+  (nextConfig as any).turbo.rules ??= {};
+
+  const experimentalRules = nextConfig.experimental.turbo.rules;
+  const rootRules = (nextConfig as any).turbo.rules;
 
   const pagesDir = findPagesDir(process.cwd());
 
@@ -116,28 +120,30 @@ function applyTurbopackOptions(nextConfig: NextConfig): void {
     '{./src/app,./app/}/**/route.{ts,tsx,js,jsx}', //
   ];
   for (let glob of globs) {
-    rules[glob] ??= {};
-    const options: RpcPluginOptions = {
-      isServer: false,
-      pagesDir,
-      isAppDir: glob.includes('/app'),
-      basePath,
-    };
-    const globbed: any = rules[glob];
-    globbed.browser ??= {};
-    globbed.browser.as = '*.tsx';
-    globbed.browser.loaders ??= [];
-    globbed.browser.loaders.push({
-      loader: require.resolve('../dist/turbopackLoader'),
-      options: { ...options, isServer: false },
-    });
-    globbed.default ??= {};
-    globbed.default.as = '*.tsx';
-    globbed.default.loaders ??= [];
-    globbed.default.loaders.push({
-      loader: require.resolve('../dist/turbopackLoader'),
-      options: { ...options, isServer: true },
-    });
+    for (let rules of [experimentalRules, rootRules]) {
+      rules[glob] ??= {};
+      const options: RpcPluginOptions = {
+        isServer: false,
+        pagesDir,
+        isAppDir: glob.includes('/app'),
+        basePath,
+      };
+      const globbed: any = rules[glob];
+      globbed.browser ??= {};
+      globbed.browser.as = '*.tsx';
+      globbed.browser.loaders ??= [];
+      globbed.browser.loaders.push({
+        loader: require.resolve('../dist/turbopackLoader'),
+        options: { ...options, isServer: false },
+      });
+      globbed.default ??= {};
+      globbed.default.as = '*.tsx';
+      globbed.default.loaders ??= [];
+      globbed.default.loaders.push({
+        loader: require.resolve('../dist/turbopackLoader'),
+        options: { ...options, isServer: true },
+      });
+    }
   }
 }
 
