@@ -101,47 +101,38 @@ export function plugins({
 }
 
 function applyTurbopackOptions(nextConfig: NextConfig): void {
-  // Configure Turbopack to apply Babel transformation to TypeScript/JavaScript files
-  // Docs: https://nextjs.org/docs/app/api-reference/next-config-js/turbopack
-  
-  const pagesDir = findPagesDir(process.cwd());
-  const basePath = (nextConfig.basePath as string) || '/';
-  const loaderPath = require.resolve('../dist/turbopackLoader');
-  
-  const loaderConfig = {
-    browser: {
-      as: '*.tsx',
-      loaders: [
-        {
-          loader: loaderPath,
-          options: {
-            isServer: false,
-            pagesDir,
-            isAppDir: false,
-            basePath,
-          },
-        },
-      ],
-    },
-    default: {
-      as: '*.tsx',
-      loaders: [
-        {
-          loader: loaderPath,
-          options: {
-            isServer: true,
-            pagesDir,
-            isAppDir: false,
-            basePath,
-          },
-        },
-      ],
-    },
-  };
-  
   (nextConfig as any).turbopack ??= {};
   (nextConfig as any).turbopack.rules ??= {};
-  (nextConfig as any).turbopack.rules['**/*.{ts,tsx,js,jsx}'] = loaderConfig;
+
+  const rules = (nextConfig as any).turbopack.rules;
+
+  const pagesDir = findPagesDir(process.cwd());
+
+  const basePath = (nextConfig.basePath as string) || '/';
+
+  const glob = '{./src/pages,./pages/}/**/*.{ts,tsx,js,jsx}';
+  rules[glob] ??= {};
+  const options: RpcPluginOptions = {
+    isServer: false,
+    pagesDir,
+    isAppDir: false,
+    basePath,
+  };
+  const globbed: any = rules[glob];
+  globbed.browser ??= {};
+  globbed.browser.as = '*.tsx';
+  globbed.browser.loaders ??= [];
+  globbed.browser.loaders.push({
+    loader: require.resolve('../dist/turbopackLoader'),
+    options: { ...options, isServer: false },
+  });
+  globbed.default ??= {};
+  globbed.default.as = '*.tsx';
+  globbed.default.loaders ??= [];
+  globbed.default.loaders.push({
+    loader: require.resolve('../dist/turbopackLoader'),
+    options: { ...options, isServer: true },
+  });
 }
 
 // taken from https://github.com/vercel/next.js/blob/v12.1.5/packages/next/lib/find-pages-dir.ts

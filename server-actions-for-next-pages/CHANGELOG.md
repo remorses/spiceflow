@@ -1,5 +1,13 @@
 # server-actions-for-next-pages
 
+## 1.5.11
+
+### Patch Changes
+
+- Fix "exports is not defined" error by using specific glob pattern instead of broad `**/*.{ts,tsx,js,jsx}`
+- Use glob pattern `{./src/pages,./pages/}/**/*.{ts,tsx,js,jsx}` to target only pages directory
+- Avoid transforming node_modules files which was causing CommonJS errors
+
 ## 1.5.10
 
 ### Patch Changes
