@@ -1,12 +1,20 @@
 # server-actions-for-next-pages
 
-## 1.5.12
+## 2.0.0
 
-### Patch Changes
+### Major Changes
 
-- Fix turbopack configuration to use proper browser/default structure for client/server detection
-- Cannot detect build context inside Turbopack loaders (this.target is undefined), must use config-level conditions
-- Restore browser/default loaders with correct isServer: false/true options
+- **BREAKING**: Requires Next.js 16+ for Turbopack support
+- **BREAKING**: Migrated from deprecated `experimental.turbo` to `turbopack` config
+- Use official Next.js 16 turbopack configuration syntax with condition-based rules
+- Replace deprecated browser/default structure with array of rules using `condition` property
+- Add `{not: 'foreign'}` condition to exclude node_modules from transformation
+- Use documented boolean operators: `{all: [...]}` for combining conditions
+- Fix glob patterns to only target pages directory: `{./src/pages,./pages/}/**/*.{ts,tsx,js,jsx}`
+
+### Migration Guide
+
+If you're upgrading from 1.x, ensure you're using Next.js 16+ and the new turbopack configuration format is automatically applied. No manual config changes needed.
 
 ## 1.5.11
 

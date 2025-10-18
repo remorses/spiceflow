@@ -111,29 +111,44 @@ function applyTurbopackOptions(nextConfig: NextConfig): void {
   const loaderPath = require.resolve('../dist/turbopackLoader');
 
   const glob = '{./src/pages,./pages/}/**/*.{ts,tsx,js,jsx}';
-  const options: RpcPluginOptions = {
-    isServer: false,
-    pagesDir,
-    isAppDir: false,
-    basePath,
-  };
 
-  rules[glob] ??= {};
-  const globbed: any = rules[glob];
-  globbed.browser ??= {};
-  globbed.browser.as = '*.tsx';
-  globbed.browser.loaders ??= [];
-  globbed.browser.loaders.push({
-    loader: loaderPath,
-    options: { ...options, isServer: false },
-  });
-  globbed.default ??= {};
-  globbed.default.as = '*.tsx';
-  globbed.default.loaders ??= [];
-  globbed.default.loaders.push({
-    loader: loaderPath,
-    options: { ...options, isServer: true },
-  });
+  // Use Next.js 16 condition syntax with array of rules
+  rules[glob] = [
+    {
+      condition: {
+        all: ['browser', { not: 'foreign' }],
+      },
+      loaders: [
+        {
+          loader: loaderPath,
+          options: {
+            isServer: false,
+            pagesDir,
+            isAppDir: false,
+            basePath,
+          },
+        },
+      ],
+      as: '*.tsx',
+    },
+    {
+      condition: {
+        all: [{ not: 'browser' }, { not: 'foreign' }],
+      },
+      loaders: [
+        {
+          loader: loaderPath,
+          options: {
+            isServer: true,
+            pagesDir,
+            isAppDir: false,
+            basePath,
+          },
+        },
+      ],
+      as: '*.tsx',
+    },
+  ];
 }
 
 // taken from https://github.com/vercel/next.js/blob/v12.1.5/packages/next/lib/find-pages-dir.ts
