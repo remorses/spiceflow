@@ -1,5 +1,13 @@
 # server-actions-for-next-pages
 
+## 1.5.12
+
+### Patch Changes
+
+- Fix turbopack configuration to use proper browser/default structure for client/server detection
+- Cannot detect build context inside Turbopack loaders (this.target is undefined), must use config-level conditions
+- Restore browser/default loaders with correct isServer: false/true options
+
 ## 1.5.11
 
 ### Patch Changes

@@ -107,30 +107,31 @@ function applyTurbopackOptions(nextConfig: NextConfig): void {
   const rules = (nextConfig as any).turbopack.rules;
 
   const pagesDir = findPagesDir(process.cwd());
-
   const basePath = (nextConfig.basePath as string) || '/';
+  const loaderPath = require.resolve('../dist/turbopackLoader');
 
   const glob = '{./src/pages,./pages/}/**/*.{ts,tsx,js,jsx}';
-  rules[glob] ??= {};
   const options: RpcPluginOptions = {
     isServer: false,
     pagesDir,
     isAppDir: false,
     basePath,
   };
+
+  rules[glob] ??= {};
   const globbed: any = rules[glob];
   globbed.browser ??= {};
   globbed.browser.as = '*.tsx';
   globbed.browser.loaders ??= [];
   globbed.browser.loaders.push({
-    loader: require.resolve('../dist/turbopackLoader'),
+    loader: loaderPath,
     options: { ...options, isServer: false },
   });
   globbed.default ??= {};
   globbed.default.as = '*.tsx';
   globbed.default.loaders ??= [];
   globbed.default.loaders.push({
-    loader: require.resolve('../dist/turbopackLoader'),
+    loader: loaderPath,
     options: { ...options, isServer: true },
   });
 }
