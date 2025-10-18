@@ -101,45 +101,69 @@ export function plugins({
 }
 
 function applyTurbopackOptions(nextConfig: NextConfig): void {
-  // IMPORTANT: Turbopack custom loaders are NOT working in Next.js 16 beta
-  // Users should run builds with --webpack flag: `next build --webpack`
-  // Only Next.js 15 with experimental.turbo is supported
+  // ⚠️ IMPORTANT: Turbopack custom loaders are NOT working in Next.js 16.0.0-beta.0
+  // Users MUST run builds with --webpack flag: `next build --webpack`
+  // Only Next.js 15 with experimental.turbo is currently supported
   //
-  // Turbopack rules documentation:
+  // Official Turbopack documentation:
   // https://nextjs.org/docs/app/api-reference/next-config-js/turbopack
+  // https://github.com/vercel/next.js/blob/canary/docs/01-app/03-api-reference/05-config/01-next-config-js/turbopack.mdx
   // 
-  // Condition syntax supports:
-  // - { all: [...] } - all conditions must be true
-  // - { any: [...] } - at least one condition must be true  
-  // - { not: ... } - negation
-  // - { path: RegExp | string } - matches file path
-  // - { content: RegExp } - matches file content
-  // - Built-in conditions: 'browser', 'foreign', 'development', 'production', 'node'
+  // Advanced condition syntax (added in Next.js 16.0.0):
+  // https://nextjs.org/docs/app/api-reference/next-config-js/turbopack#advanced-webpack-loader-conditions
   //
-  // Example working syntax for Next.js 16 (when loaders are fixed):
-  // rules: {
-  //   '**/*.{ts,tsx,js,jsx}': [
-  //     {
-  //       condition: {
-  //         all: [
-  //           'browser',
-  //           { not: 'foreign' },
-  //           { content: /"poor man's use server"|'poor man's use server'/ }
-  //         ]
+  // Boolean operators:
+  // - { all: [...] } - all conditions must be true (AND)
+  // - { any: [...] } - at least one condition must be true (OR)
+  // - { not: ... } - negation (NOT)
+  //
+  // Customizable operators:
+  // - { path: string | RegExp } - matches file path (glob or regex)
+  // - { content: RegExp } - matches file content
+  // - If path and content are in same object, acts as implicit AND
+  //
+  // Built-in conditions (strings):
+  // - 'browser' - matches client-side code
+  // - 'foreign' - matches node_modules and Next.js internals
+  // - 'development' - matches next dev
+  // - 'production' - matches next build  
+  // - 'node' - matches Node.js runtime
+  // - 'edge-light' - matches Edge runtime
+  //
+  // Rules can be object or array of objects for different conditions
+  //
+  // Real-world examples from GitHub:
+  // - https://github.com/EC-WIN-24-NET/Khala/blob/main/next.config.ts
+  // - https://github.com/ShizNick84/Scalping_Alchemist_Bolt/blob/main/next.config.js
+  //
+  // Example syntax for Next.js 16 (when loaders are fixed):
+  // turbopack: {
+  //   rules: {
+  //     '**/*.{ts,tsx,js,jsx}': [
+  //       {
+  //         condition: {
+  //           all: [
+  //             'browser',
+  //             { not: 'foreign' },
+  //             { content: /"poor man's use server"|'poor man's use server'/ }
+  //           ]
+  //         },
+  //         loaders: [{ loader: loaderPath, options: { isServer: false, ... } }],
+  //         as: '*.js' // optional: output file extension
   //       },
-  //       loaders: [{ loader: loaderPath, options: { isServer: false, ... } }]
-  //     },
-  //     {
-  //       condition: {
-  //         all: [
-  //           { not: 'browser' },
-  //           { not: 'foreign' },
-  //           { content: /"poor man's use server"|'poor man's use server'/ }
-  //         ]
-  //       },
-  //       loaders: [{ loader: loaderPath, options: { isServer: true, ... } }]
-  //     }
-  //   ]
+  //       {
+  //         condition: {
+  //           all: [
+  //             { not: 'browser' },
+  //             { not: 'foreign' },
+  //             { content: /"poor man's use server"|'poor man's use server'/ }
+  //           ]
+  //         },
+  //         loaders: [{ loader: loaderPath, options: { isServer: true, ... } }],
+  //         as: '*.js'
+  //       }
+  //     ]
+  //   }
   // }
   
   const pagesDir = findPagesDir(process.cwd());
@@ -168,7 +192,7 @@ function applyTurbopackOptions(nextConfig: NextConfig): void {
   (nextConfig.experimental as any).turbo.rules ??= {};
   (nextConfig.experimental as any).turbo.rules['**/*.{ts,tsx,js,jsx}'] = loaderConfig;
   
-  // Do NOT configure turbopack.rules for Next.js 16 - it doesn't work
+  // Do NOT configure turbopack.rules for Next.js 16 - it doesn't work in beta.0
   // Users must use --webpack flag with Next.js 16
 }
 

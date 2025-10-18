@@ -1,5 +1,14 @@
 # server-actions-for-next-pages
 
+## 1.5.9
+
+### Patch Changes
+
+- Add comprehensive documentation for turbopack configuration with links to official Next.js docs
+- Document advanced condition syntax (`all`, `any`, `not`, `path`, `content`)
+- Add real-world examples from GitHub repositories showing turbopack usage
+- Clarify that condition syntax was added in Next.js 16.0.0 but loaders are not yet functional in beta
+
 ## 1.5.8
 
 ### Patch Changes
