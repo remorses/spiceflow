@@ -101,14 +101,52 @@ export function plugins({
 }
 
 function applyTurbopackOptions(nextConfig: NextConfig): void {
-  // Note: Turbopack custom loader support is still experimental in Next.js 16 beta
-  // For production use, run with --webpack flag until turbopack loaders are stabilized
-  // See: https://nextjs.org/docs/app/api-reference/next-config-js/turbopack
+  // IMPORTANT: Turbopack custom loaders are NOT working in Next.js 16 beta
+  // Users should run builds with --webpack flag: `next build --webpack`
+  // Only Next.js 15 with experimental.turbo is supported
+  //
+  // Turbopack rules documentation:
+  // https://nextjs.org/docs/app/api-reference/next-config-js/turbopack
+  // 
+  // Condition syntax supports:
+  // - { all: [...] } - all conditions must be true
+  // - { any: [...] } - at least one condition must be true  
+  // - { not: ... } - negation
+  // - { path: RegExp | string } - matches file path
+  // - { content: RegExp } - matches file content
+  // - Built-in conditions: 'browser', 'foreign', 'development', 'production', 'node'
+  //
+  // Example working syntax for Next.js 16 (when loaders are fixed):
+  // rules: {
+  //   '**/*.{ts,tsx,js,jsx}': [
+  //     {
+  //       condition: {
+  //         all: [
+  //           'browser',
+  //           { not: 'foreign' },
+  //           { content: /"poor man's use server"|'poor man's use server'/ }
+  //         ]
+  //       },
+  //       loaders: [{ loader: loaderPath, options: { isServer: false, ... } }]
+  //     },
+  //     {
+  //       condition: {
+  //         all: [
+  //           { not: 'browser' },
+  //           { not: 'foreign' },
+  //           { content: /"poor man's use server"|'poor man's use server'/ }
+  //         ]
+  //       },
+  //       loaders: [{ loader: loaderPath, options: { isServer: true, ... } }]
+  //     }
+  //   ]
+  // }
   
   const pagesDir = findPagesDir(process.cwd());
   const basePath = (nextConfig.basePath as string) || '/';
   const loaderPath = require.resolve('../dist/turbopackLoader');
   
+  // Next.js 15 experimental.turbo.rules configuration
   const loaderConfig = {
     loaders: [
       {
@@ -121,20 +159,17 @@ function applyTurbopackOptions(nextConfig: NextConfig): void {
         },
       },
     ],
-    as: '*.js',
   };
   
-  // Support both Next.js 15 (experimental.turbo.rules) and Next.js 16 (turbopack.rules)
-  // Next.js 15 uses experimental.turbo.rules
+  // Only configure experimental.turbo for Next.js 15
+  // Next.js 16 turbopack does not properly support custom loaders yet
   nextConfig.experimental ??= {};
   (nextConfig.experimental as any).turbo ??= {};
   (nextConfig.experimental as any).turbo.rules ??= {};
   (nextConfig.experimental as any).turbo.rules['**/*.{ts,tsx,js,jsx}'] = loaderConfig;
   
-  // Next.js 16 uses turbopack.rules
-  (nextConfig as any).turbopack ??= {};
-  (nextConfig as any).turbopack.rules ??= {};
-  (nextConfig as any).turbopack.rules['**/*.{ts,tsx,js,jsx}'] = loaderConfig;
+  // Do NOT configure turbopack.rules for Next.js 16 - it doesn't work
+  // Users must use --webpack flag with Next.js 16
 }
 
 // taken from https://github.com/vercel/next.js/blob/v12.1.5/packages/next/lib/find-pages-dir.ts

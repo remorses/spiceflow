@@ -1,5 +1,16 @@
 # server-actions-for-next-pages
 
+## 1.5.8
+
+### Patch Changes
+
+- Remove Next.js 16 turbopack.rules configuration as custom loaders are not functional in Next.js 16 beta
+- **BREAKING for Next.js 16 users**: You MUST use `--webpack` flag to build with Next.js 16
+  - Dev: `next dev --webpack`
+  - Build: `next build --webpack`
+- Next.js 15 with `experimental.turbo` continues to work
+- This will be resolved when Next.js 16 stabilizes turbopack custom loader support
+
 ## 1.5.7
 
 ### Patch Changes
