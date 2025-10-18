@@ -3,7 +3,7 @@ import { transform } from '@babel/core';
 import { plugins } from '.';
 import { logger } from './utils';
 
-module.exports = async function (
+export default async function (
   this: LoaderThis<any>,
   source: string,
   map: any,
@@ -13,11 +13,6 @@ module.exports = async function (
     map = JSON.parse(map);
   }
   try {
-    // Skip transformation if file doesn't have the directive
-    if (!source.includes('"poor man\'s use server"') && !source.includes("'poor man's use server'")) {
-      return callback(null, source, map);
-    }
-    
     const options = this.getOptions();
 
     const res = transform(source || '', {
@@ -45,8 +40,6 @@ module.exports = async function (
     callback(e);
   }
 }
-
-module.exports.default = module.exports;
 
 export type LoaderThis<Options> = {
   /**

@@ -1,5 +1,16 @@
 # server-actions-for-next-pages
 
+## 1.5.10
+
+### Patch Changes
+
+- Fix turbopack configuration bug where files were interpreted as JS instead of TSX
+- Restore `as: '*.tsx'` in turbopack loader config to ensure proper TypeScript/JSX interpretation
+- Restore browser/default structure in turbopack.rules for correct client/server detection
+- Revert turbopackLoader to use `export default` instead of `module.exports`
+- Remove experimental.turbo config, use only turbopack.rules
+- Remove incorrect Next.js 16 documentation comments
+
 ## 1.5.9
 
 ### Patch Changes
