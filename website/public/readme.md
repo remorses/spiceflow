@@ -8,7 +8,7 @@
     <br/>
 </div>
 
-Spiceflow is a lightweight, type-safe API framework for building web services using modern web standards.
+Spiceflow is a lightweight, type-safe API framework for building web services using modern web standards. Read the source code on [GitHub](https://github.com/remorses/spiceflow).
 
 ## Features
 
@@ -1481,10 +1481,8 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse,
 ) {
-  const jwt = await getJwt({ req })
-  const userId = jwt.userId
-
-  await mcpAuthApp.handleNode(req, res, { state: { userId } })
+  // IMPORTANT! nothing should be run before calling handleNode that could read the request body!
+  await mcpAuthApp.handleNode(req, res)
 }
 
 export const config = {

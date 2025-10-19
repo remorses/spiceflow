@@ -8,7 +8,7 @@
     <br/>
 </div>
 
-Spiceflow is a lightweight, type-safe API framework for building web services using modern web standards.
+Spiceflow is a lightweight, type-safe API framework for building web services using modern web standards. Read the source code on [GitHub](https://github.com/remorses/spiceflow).
 
 ## Features
 
