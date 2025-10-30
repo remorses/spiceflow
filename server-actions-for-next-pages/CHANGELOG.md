@@ -1,5 +1,15 @@
 # server-actions-for-next-pages
 
+## 2.1.0
+
+### Minor Changes
+
+- Add custom fetch function support - you can now pass a `fetch` field in object parameters to customize fetch behavior (e.g., add authentication headers)
+- Client-side: Custom fetch functions can be provided and will be used for RPC calls instead of global fetch
+- Server-side: Global fetch is automatically injected into object parameters unless already provided by the user
+- Add comprehensive documentation for AbortController/AbortSignal support in README
+- Add documentation for custom fetch functionality with usage examples
+
 ## 2.0.0
 
 ### Major Changes

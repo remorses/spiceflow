@@ -154,6 +154,131 @@ export async function failingFunction({}) {
 }
 ```
 
+## Aborting requests with AbortSignal
+
+You can abort ongoing server actions using `AbortController` and `AbortSignal`. Pass an abort signal in your arguments (either directly or as a field in an object parameter), and it will be used to:
+
+- **Client-side**: Abort the fetch request
+- **Server-side**: Allow server functions to respond to request cancellations
+
+```ts
+// pages/api/server-actions.js
+"poor man's use server";
+
+export async function longRunningTask(signal: AbortSignal) {
+  for (let i = 0; i < 10; i++) {
+    // Check if the request was aborted
+    if (signal.aborted) {
+      throw new Error('Task aborted: ' + signal.reason);
+    }
+    await sleep(1000);
+  }
+  return { completed: true };
+}
+
+// Also works with async generators
+export async function* streamData({ signal }: { signal: AbortSignal }) {
+  for (let i = 0; i < 20; i++) {
+    if (signal.aborted) {
+      throw new Error('Stream aborted: ' + signal.reason);
+    }
+    await sleep(500);
+    yield { count: i };
+  }
+}
+```
+
+Client usage:
+
+```tsx
+// pages/index.tsx
+import { longRunningTask, streamData } from './api/server-actions';
+
+export default function Page() {
+  const handleAbortableTask = async () => {
+    const controller = new AbortController();
+    
+    // Abort after 2 seconds
+    setTimeout(() => controller.abort('Timeout'), 2000);
+
+    try {
+      await longRunningTask(controller.signal);
+    } catch (error) {
+      console.log(error); // "Task aborted: Timeout"
+    }
+  };
+
+  const handleAbortableStream = async () => {
+    const controller = new AbortController();
+    const generator = streamData({ signal: controller.signal });
+    
+    for await (const { count } of generator) {
+      console.log(count);
+      if (count > 5) {
+        controller.abort('User stopped stream');
+        break;
+      }
+    }
+  };
+
+  return <div>...</div>;
+}
+```
+
+**Note**: You can pass `AbortSignal` or `AbortController` directly as arguments, or as fields within object parameters. The server function will receive the request's abort signal, allowing it to detect when the client cancels the request (e.g., when navigating away).
+
+## Custom fetch function
+
+You can provide a custom `fetch` function to your server actions by including it as a `fetch` field in an object parameter. This is useful for adding custom headers, authentication, or using a custom fetch implementation.
+
+```ts
+// pages/api/server-actions.js
+"poor man's use server";
+
+export async function fetchExternalData({ url, fetch }) {
+  // The fetch parameter will be either:
+  // - The custom fetch function passed from the client
+  // - The global fetch function (injected automatically on the server)
+  const response = await fetch(url);
+  return response.json();
+}
+```
+
+Client usage with custom fetch:
+
+```tsx
+// pages/index.tsx
+import { fetchExternalData } from './api/server-actions';
+
+export default function Page() {
+  const handleFetch = async () => {
+    // Define a custom fetch with authentication
+    const customFetch = (url, options) => {
+      return fetch(url, {
+        ...options,
+        headers: {
+          ...options?.headers,
+          'Authorization': 'Bearer my-token',
+        },
+      });
+    };
+
+    const data = await fetchExternalData({ 
+      url: 'https://api.example.com/data',
+      fetch: customFetch 
+    });
+    console.log(data);
+  };
+
+  return <div>...</div>;
+}
+```
+
+**How it works**:
+- **Client-side**: If you provide a `fetch` field in an object parameter, it will be used for the RPC call instead of the global `fetch`
+- **Server-side**: The global `fetch` function is automatically injected into object parameters (unless you already provided your own)
+- User-provided fetch functions always take precedence over the injected one
+
 ## How it works
 
 The plugin will replace the content of files inside `pages/api` with `"poor man's use server"` at the top to make the exported functions callable from the browser.

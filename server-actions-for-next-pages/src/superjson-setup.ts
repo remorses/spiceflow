@@ -78,3 +78,26 @@ export function replaceAbortSignalsInArgs(args: any[], newSignal: AbortSignal): 
     return arg;
   });
 }
+
+export function findFetchInArgs(args: any[]): typeof fetch | undefined {
+  for (const arg of args) {
+    if (arg && typeof arg === 'object' && !Array.isArray(arg)) {
+      if (typeof arg.fetch === 'function') {
+        return arg.fetch;
+      }
+    }
+  }
+  return undefined;
+}
+
+export function injectFetchInArgs(args: any[], fetchFn: typeof fetch): any[] {
+  return args.map((arg) => {
+    if (arg && typeof arg === 'object' && !Array.isArray(arg)) {
+      // Only inject if fetch is not already present
+      if (!('fetch' in arg)) {
+        return { ...arg, fetch: fetchFn };
+      }
+    }
+    return arg;
+  });
+}

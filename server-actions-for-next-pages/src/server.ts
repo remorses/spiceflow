@@ -2,7 +2,7 @@ import { NextApiHandler } from 'next';
 import { JsonRpcResponse } from './jsonRpc';
 import { NextRequest, NextResponse } from 'next/server';
 import { getEdgeContext, getRequestAbortSignal } from './context-internal';
-import { registerAbortControllerSerializers, replaceAbortSignalsInArgs } from './superjson-setup';
+import { registerAbortControllerSerializers, replaceAbortSignalsInArgs, injectFetchInArgs } from './superjson-setup';
 // @ts-ignore
 import type SuperJSON from 'superjson';
 
@@ -104,6 +104,9 @@ export function createRpcHandler(
         json: params,
         meta: argsMeta,
       }) as any[];
+      
+      // Inject global fetch into args (won't override if user provided their own)
+      args = injectFetchInArgs(args, fetch);
       
       const requestAbortSignal = getRequestAbortSignal();
       if (requestAbortSignal) {

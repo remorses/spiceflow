@@ -1,6 +1,6 @@
 import { JsonRpcRequest } from './jsonRpc';
 import { EventSourceParserStream } from 'eventsource-parser/stream';
-import { registerAbortControllerSerializers, findAbortSignalInArgs } from './superjson-setup';
+import { registerAbortControllerSerializers, findAbortSignalInArgs, findFetchInArgs } from './superjson-setup';
 
 type NextRpcCall = (...params: any[]) => any;
 
@@ -46,8 +46,9 @@ export function createRpcFetcher(
       const superjson = await import('superjson');
       registerAbortControllerSerializers(superjson.default);
       const abortSignal = findAbortSignalInArgs(args);
+      const customFetch = findFetchInArgs(args) || fetch;
       const { json, meta } = superjson.serialize(args);
-      const res = await fetch(url, {
+      const res = await customFetch(url, {
         method: 'POST',
         body: JSON.stringify(
           {
@@ -90,8 +91,9 @@ export function createRpcFetcher(
     const superjson = await import('superjson');
     registerAbortControllerSerializers(superjson.default);
     const abortSignal = findAbortSignalInArgs(args);
+    const customFetch = findFetchInArgs(args) || fetch;
     const { json, meta } = superjson.serialize(args);
-    const res = await fetch(url, {
+    const res = await customFetch(url, {
       method: 'POST',
       body: JSON.stringify(
         {
