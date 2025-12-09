@@ -22,7 +22,20 @@ async function* yieldServerSentEvents(response: Response, superjson: any) {
     if (done) break;
 
     if (event?.event === 'error') {
-      throw new Error(event.data);
+      let errorData: { name?: string; message?: string; stack?: string; thrownValue?: unknown };
+      try {
+        errorData = JSON.parse(event.data);
+      } catch {
+        // Fallback for plain text errors (backwards compatibility)
+        errorData = { message: event.data || 'Unknown server error' };
+      }
+      const error = new Error(errorData.message || 'Unknown server error');
+      if (errorData.name) error.name = errorData.name;
+      if (errorData.stack) error.stack = errorData.stack;
+      if (errorData.thrownValue !== undefined) {
+        (error as any).thrownValue = errorData.thrownValue;
+      }
+      throw error;
     }
 
     if (event) {
@@ -67,23 +80,28 @@ export function createRpcFetcher(
         signal: abortSignal,
       });
 
-      if (res.status === 502) {
-        const statusError = new Error('Unexpected HTTP status ' + res.status);
-        const json = await res.json();
-
-        if (json?.error && typeof json.error.message === 'string') {
-          let err = new Error(json.error.message);
-          Object.assign(err, json.error.data || {});
+      const contentType = res.headers.get('content-type');
+      
+      // Handle error responses (non-2xx status codes or JSON error responses)
+      if (!res.ok || !contentType?.includes('text/event-stream')) {
+        // Try to parse JSON error response
+        let jsonBody: any;
+        try {
+          jsonBody = await res.json();
+        } catch {
+          // JSON parsing failed, fall through to status error
+        }
+        
+        if (jsonBody?.error && typeof jsonBody.error.message === 'string') {
+          const err = new Error(jsonBody.error.message);
+          Object.assign(err, jsonBody.error.data || {});
           throw err;
         }
-
-        throw statusError;
+        
+        throw new Error('Unexpected HTTP status ' + res.status);
       }
 
-      const contentType = res.headers.get('content-type');
-      if (contentType?.includes('text/event-stream')) {
-        yield* yieldServerSentEvents(res, superjson.default);
-      }
+      yield* yieldServerSentEvents(res, superjson.default);
     };
   }
 
@@ -112,27 +130,32 @@ export function createRpcFetcher(
       signal: abortSignal,
     });
 
-    if (res.status === 502) {
-      const statusError = new Error('Unexpected HTTP status ' + res.status);
-      const json = await res.json();
-
-      if (json?.error && typeof json.error.message === 'string') {
-        let err = new Error(json.error.message);
-        Object.assign(err, json.error.data || {});
+    // Handle error responses (non-2xx status codes)
+    if (!res.ok) {
+      let jsonBody: any;
+      try {
+        jsonBody = await res.json();
+      } catch {
+        // JSON parsing failed, fall through to status error
+      }
+      
+      if (jsonBody?.error && typeof jsonBody.error.message === 'string') {
+        const err = new Error(jsonBody.error.message);
+        Object.assign(err, jsonBody.error.data || {});
         throw err;
       }
-
-      throw statusError;
+      
+      throw new Error('Unexpected HTTP status ' + res.status);
     }
 
     const contentType = res.headers.get('content-type');
     if (contentType?.includes('text/event-stream')) {
       return await yieldServerSentEvents(res, superjson.default);
     } else {
-      const json = await res.json();
+      const jsonBody = await res.json();
       const deserialized = superjson.deserialize({
-        json: json.result,
-        meta: json.meta,
+        json: jsonBody.result,
+        meta: jsonBody.meta,
       });
       return deserialized as any;
     }

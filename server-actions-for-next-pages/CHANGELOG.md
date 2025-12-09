@@ -1,5 +1,17 @@
 # server-actions-for-next-pages
 
+## 2.1.1
+
+### Patch Changes
+
+- Fix streaming error serialization to properly pass error messages to client
+- Errors in SSE streams are now JSON-serialized with `name`, `message`, `stack` (dev only), and `thrownValue` for non-Error values
+- Handle non-Error thrown values with descriptive message: "A non-Error value was thrown: ..."
+- Fix client-side error handling to properly parse JSON error data from SSE streams
+- Fix generator error handling to handle all non-2xx status codes (not just 502)
+- Fix buggy error handling logic in RPC fetchers that could silently swallow errors
+- Add backwards compatibility for plain text error messages
+
 ## 2.1.0
 
 ### Minor Changes

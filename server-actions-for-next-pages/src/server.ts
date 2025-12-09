@@ -50,6 +50,36 @@ function serializeStreamMessage(json: any, meta: any) {
   return `data: ${JSON.stringify({ result: json, meta })}\n\n`;
 }
 
+function serializeStreamError(error: unknown) {
+  let errorData: { name: string; message: string; stack?: string; thrownValue?: unknown };
+  
+  if (error instanceof Error) {
+    errorData = {
+      name: error.name || 'Error',
+      message: error.message || 'Unknown error',
+      ...(process.env.NODE_ENV === 'production' ? {} : { stack: error.stack }),
+    };
+  } else {
+    // Handle non-Error thrown values
+    let serializedValue: unknown;
+    try {
+      // Try to serialize the thrown value for debugging
+      serializedValue = JSON.parse(JSON.stringify(error));
+    } catch {
+      serializedValue = String(error);
+    }
+    
+    errorData = {
+      name: 'NonErrorThrown',
+      message: `A non-Error value was thrown: ${String(error)}`,
+      thrownValue: serializedValue,
+    };
+  }
+  
+  // JSON.stringify ensures proper escaping of special characters (newlines, quotes, etc.)
+  return `event: error\ndata: ${JSON.stringify(errorData)}\n\n`;
+}
+
 export function createRpcHandler(
   methodsInit: [string, (...params: any[]) => Promise<any>][],
   isEdge?: boolean,
@@ -184,10 +214,8 @@ export function createRpcHandler(
                 }
                 controller.close();
               } catch (error) {
-                const errorMessage =
-                  error instanceof Error ? error.message : String(error);
                 controller.enqueue(
-                  encoder.encode(`event: error\ndata: ${errorMessage}\n\n`),
+                  encoder.encode(serializeStreamError(error)),
                 );
                 controller.close();
               }
@@ -242,9 +270,7 @@ export function createRpcHandler(
             res.write(serializeStreamMessage(json, meta));
           }
         } catch (error) {
-          const errorMessage =
-            error instanceof Error ? error.message : String(error);
-          res.write(`event: error\ndata: ${errorMessage}\n\n`);
+          res.write(serializeStreamError(error));
         }
         generatorFinished = true;
         res.end();
