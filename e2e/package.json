@@ -7,10 +7,10 @@
   },
   "dependencies": {
     "spiceflow": "workspace:*",
-    "zod": "^4.1.11"
+    "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@modelcontextprotocol/sdk": "^1.19.1",
+    "@modelcontextprotocol/sdk": "^1.25.3",
     "@types/ps-tree": "^1.1.6",
     "ai": "5.0.14",
     "bun": "~1.2.13",
