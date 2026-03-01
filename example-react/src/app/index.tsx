@@ -1,11 +1,11 @@
 import { Button } from "./button";
-import { changeCounter, getCounter } from "./action";
+import { changeCounter } from "./action";
 import { Calculator, Counter, Hydrated } from "./client";
 
-export async function IndexPage() {
+export function IndexPage({ counter, serverRandom }: { counter: number; serverRandom: string }) {
 	return (
 		<div className=" bg-gray-50 gap-2">
-			<div>server random: {Math.random().toString(36).slice(2)}</div>
+			<div>server random: {serverRandom}</div>
 			<Hydrated />
 			<Counter />
 			<form
@@ -13,7 +13,7 @@ export async function IndexPage() {
 				data-testid="server-counter"
 				style={{ padding: "0.5rem" }}
 			>
-				<div>Server counter: {getCounter()}</div>
+				<div>Server counter: {counter}</div>
 				<div>Unicode test: 🌟 你好 こんにちは ⚡️ 안녕하세요</div>
 				<div>
 					<Button className="p-4 border" name="change" value="-1">

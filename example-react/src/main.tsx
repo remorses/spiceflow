@@ -2,6 +2,7 @@ import { Suspense, useActionState } from "react";
 
 import { Spiceflow } from "spiceflow";
 import { IndexPage } from "./app/index";
+import { getCounter } from "./app/action";
 import { Layout } from "./app/layout";
 import "./styles.css";
 
@@ -46,11 +47,12 @@ const app = new Spiceflow()
 		);
 	})
 	.page("/", async ({ request }) => {
-		const url = new URL(request.url);
+		const counter = await getCounter();
+		const serverRandom = Math.random().toString(36).slice(2);
 		return (
 			<>
 				<title>title from page</title>
-				<IndexPage />
+				<IndexPage counter={counter} serverRandom={serverRandom} />
 			</>
 		);
 	})
@@ -162,29 +164,32 @@ const app = new Spiceflow()
 		);
 	})
 	.page("/page", async ({ request }) => {
-		const url = new URL(request.url);
+		const counter = await getCounter();
+		const serverRandom = Math.random().toString(36).slice(2);
 		return (
 			<div>
 				<a href="/page/1">/page/1</a>
-				<IndexPage />
+				<IndexPage counter={counter} serverRandom={serverRandom} />
 			</div>
 		);
 	})
 	.page("/page/1", async ({ request }) => {
-		const url = new URL(request.url);
+		const counter = await getCounter();
+		const serverRandom = Math.random().toString(36).slice(2);
 		return (
 			<div>
 				<a href="/page">/page</a>
-				<IndexPage />
+				<IndexPage counter={counter} serverRandom={serverRandom} />
 			</div>
 		);
 	})
 	.page("/:id", async ({ request, params }) => {
-		const url = new URL(request.url);
+		const counter = await getCounter();
+		const serverRandom = Math.random().toString(36).slice(2);
 		return (
 			<div className="">
 				<h1>:id page</h1>
-				<IndexPage />
+				<IndexPage counter={counter} serverRandom={serverRandom} />
 			</div>
 		);
 	})

@@ -1,12 +1,16 @@
-import React, { Suspense } from 'react'
-import type { ErrorPayload } from 'vite'
-import { router } from './router.js'
+// Browser entry point. Hydrates the React tree from the RSC payload
+// embedded in the HTML, sets up client-side navigation and server action calls.
+import React from 'react'
 import ReactDomClient from 'react-dom/client'
-import ReactClient from 'spiceflow/dist/react/references.ssr'
-
-import type { CallServerFn } from './types/index.js'
-import { clientReferenceManifest } from './utils/client-reference.js'
+import {
+  createFromReadableStream,
+  createFromFetch,
+  encodeReply,
+  setServerCallback,
+} from '@vitejs/plugin-rsc/browser'
 import { rscStream } from 'rsc-html-stream/client'
+
+import { router } from './router.js'
 import {
   DefaultGlobalErrorPage,
   DefaultNotFoundPage,
@@ -16,19 +20,17 @@ import {
 } from './components.js'
 import { ServerPayload } from '../spiceflow.js'
 import { FlightDataContext } from './context.js'
-import { createError, getErrorContext } from './errors.js'
+import { getErrorContext } from './errors.js'
 
 async function main() {
-  const callServer: CallServerFn = async (id, args) => {
+  const callServer = async (id: string, args: unknown[]) => {
     const url = new URL(window.location.href)
     url.searchParams.set('__rsc', id)
-    const payloadPromise = ReactClient.createFromFetch<ServerPayload>(
+    const payloadPromise = createFromFetch<ServerPayload>(
       fetch(url, {
         method: 'POST',
-        body: await ReactClient.encodeReply(args),
+        body: await encodeReply(args),
       }),
-      clientReferenceManifest,
-      { callServer },
     )
 
     let payload = await payloadPromise
@@ -40,14 +42,9 @@ async function main() {
     setPayload(payloadPromise)
     return payload.returnValue
   }
-  Object.assign(globalThis, { __callServer: callServer })
+  setServerCallback(callServer)
 
-  const initialPayload = ReactClient.createFromReadableStream<ServerPayload>(
-    rscStream,
-    clientReferenceManifest,
-
-    { callServer },
-  )
+  const initialPayload = createFromReadableStream<ServerPayload>(rscStream)
 
   let setPayload: (v: Promise<ServerPayload>) => void
 
@@ -65,12 +62,7 @@ async function main() {
         const url = new URL(window.location.href)
         url.pathname += '.rsc'
         url.searchParams.set('__rsc', '')
-        const payload = ReactClient.createFromFetch<ServerPayload>(
-          fetch(url),
-          clientReferenceManifest,
-
-          { callServer },
-        )
+        const payload = createFromFetch<ServerPayload>(fetch(url))
         setPayload(payload)
       })
     }, [])
@@ -91,8 +83,8 @@ async function main() {
   })
 
   if (import.meta.hot) {
-    import.meta.hot.on('react-server:update', (e) => {
-      console.log('[react-server:update]', e.file)
+    import.meta.hot.on('rsc:update', (e) => {
+      console.log('[rsc:update]', e.file)
       router.replace(router.location)
     })
   }
@@ -100,12 +92,8 @@ async function main() {
 
 if (import.meta.env.DEV) {
   window.onerror = (event, source, lineno, colno, err) => {
-    // must be within function call because that's when the element is defined for sure.
     const ErrorOverlay = customElements.get('vite-error-overlay')
-    // don't open outside vite environment
-    if (!ErrorOverlay) {
-      return
-    }
+    if (!ErrorOverlay) return
     const overlay = new ErrorOverlay(err)
     document.body.appendChild(overlay)
   }

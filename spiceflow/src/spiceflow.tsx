@@ -36,22 +36,14 @@ import { createElement } from 'react'
 import { ZodType } from 'zod'
 import { isAsyncIterable, isResponse, isTruthy, redirect } from './utils.js'
 
-import { PassThrough, Readable } from 'stream'
 import {
-  DefaultNotFoundPage,
   FlightData,
   LayoutContent,
 } from './react/components.js'
 import {
-  createError,
-  getErrorContext,
   isNotFoundError,
   isRedirectError,
 } from './react/errors.js'
-import {
-  ClientReferenceMetadataManifest,
-  ServerReferenceManifest,
-} from './react/types/index.js'
 import { TrieRouter } from './trie-router/router.js'
 import { decodeURIComponent_ } from './trie-router/url.js'
 import { Result } from './trie-router/utils.js'
@@ -998,9 +990,14 @@ export class Spiceflow<
       params: Record<string, string>
     }>
   }) {
-    const ReactServer = await import(
-      'spiceflow/dist/react/references.rsc'
-    ).then((m) => m.default)
+    const {
+      renderToReadableStream,
+      decodeReply,
+      decodeAction,
+      decodeFormState,
+      loadServerAction,
+    } = await import('@vitejs/plugin-rsc/rsc')
+
     const [pageRoutes, layoutRoutes] = partition(
       reactRoutes,
       (x) => x.route.kind === 'page' || x.route.kind === 'staticPage',
@@ -1009,10 +1006,8 @@ export class Spiceflow<
       return routeSorter(a.route, b.route)
     })[0]
     if (!pageRoute) {
-      // TODO customize not found route
       return new Response('Not Found', { status: 404 })
     }
-    const kind = pageRoute?.route?.kind
 
     let Page = pageRoute?.route?.handler as any
     let page = (
@@ -1044,7 +1039,6 @@ export class Spiceflow<
       .filter(isTruthy)
 
     let root: FlightData = {
-      // url: request.url,
       page,
       layouts,
     }
@@ -1056,29 +1050,20 @@ export class Spiceflow<
         const url = new URL(request.url)
         const actionId = url.searchParams.get('__rsc')
         if (actionId) {
-          // client stream request
           const contentType = request.headers.get('content-type')
           const body = contentType?.startsWith('multipart/form-data')
             ? await request.formData()
             : await request.text()
-          const args = await ReactServer.decodeReply(body)
-          const reference =
-            serverReferenceManifest.resolveServerReference(actionId)
-          await reference.preload()
-          const action = await reference.get()
-          // TODO handle action errors, redirects, etc
+          const args = await decodeReply(body)
+          const action = await loadServerAction(actionId)
           returnValue = await (action as any).apply(null, args)
         } else {
-          // progressive enhancement
+          // progressive enhancement (form POST without JS)
           const formData = await request.formData()
-          const decodedAction = await ReactServer.decodeAction(
-            formData,
-            serverReferenceManifest,
-          )
-          formState = await ReactServer.decodeFormState(
+          const decodedAction = await decodeAction(formData)
+          formState = await decodeFormState(
             await decodedAction(),
             formData,
-            serverReferenceManifest,
           )
         }
       } catch (e) {
@@ -1091,92 +1076,24 @@ export class Spiceflow<
       return root
     }
 
-    let thrownError
-    let abortable = ReactServer.renderToPipeableStream<ServerPayload>(
+    const stream = renderToReadableStream<ServerPayload>(
       {
         root,
         returnValue,
         formState,
         actionError,
       } satisfies ServerPayload,
-      clientReferenceMetadataManifest,
       {
         onPostpone(reason) {
           console.log(`POSTPONE`, reason)
         },
         onError(error) {
-          console.error('[spiceflow:renderToPipeableStream]', error)
-          thrownError = error
+          console.error('[spiceflow:renderToReadableStream]', error)
           return error?.digest || error?.message
         },
+        signal: request.signal,
       },
     )
-    request.signal.addEventListener('abort', () => {
-      abortable.abort()
-    })
-    const passthrough = new PassThrough({
-      writableHighWaterMark: 1024 * 1024,
-    })
-    const nodeStream = abortable.pipe(passthrough)
-    const stream = Readable.toWeb(nodeStream) as ReadableStream
-    const start = performance.now()
-    await new Promise<void>((resolve, reject) => {
-      passthrough.once('data', () => {
-        resolve()
-      })
-      passthrough.once('error', (err) => {
-        reject(err)
-      })
-      passthrough.once('end', () => {
-        resolve() // Resolve if stream ends before data
-      })
-      passthrough.once('close', () => {
-        resolve() // Resolve if stream closes
-      })
-    })
-    const end = performance.now()
-    // console.log(`First chunk took ${Math.round(end - start)}ms`)
-
-    if (thrownError instanceof Response) {
-      return thrownError
-    }
-    let errCtx = getErrorContext(thrownError)
-    if (errCtx && isRedirectError(errCtx)) {
-      console.log(`redirecting to ${errCtx.headers?.location}`)
-      return new Response(errCtx.headers?.location, {
-        status: errCtx.status,
-        headers: errCtx.headers,
-      })
-    }
-    if (errCtx && isNotFoundError(errCtx)) {
-      console.log(`not found error for ${request.url}`)
-      let el = <DefaultNotFoundPage />
-      let htmlAbortable = await ReactServer.renderToPipeableStream(
-        {
-          root: {
-            page: el,
-            layouts: [],
-          },
-          returnValue,
-          formState,
-          actionError,
-        } satisfies ServerPayload,
-        clientReferenceMetadataManifest,
-      )
-      const htmlStream = Readable.toWeb(
-        htmlAbortable.pipe(new PassThrough()),
-      ) as ReadableStream
-      request.signal.addEventListener('abort', () => {
-        htmlAbortable.abort()
-      })
-
-      return new Response(htmlStream, {
-        status: 404,
-        headers: {
-          'content-type': 'text/x-component;charset=utf-8',
-        },
-      })
-    }
 
     return new Response(stream, {
       headers: {
@@ -2078,42 +1995,6 @@ function partition<T>(arr: T[], predicate: (item: T) => boolean): [T[], T[]] {
     },
     [[], []] as [T[], T[]],
   )
-}
-
-const serverReferenceManifest: ServerReferenceManifest = {
-  resolveServerReference(reference: string) {
-    const [id, name] = reference.split('#')
-    let resolved: unknown
-    return {
-      async preload() {
-        let mod: Record<string, unknown>
-        if (import.meta.env.DEV) {
-          mod = await import(/* @vite-ignore */ id)
-        } else {
-          const references = await import('virtual:build-server-references')
-          const ref = references.default[id]
-          if (!ref) {
-            const availableKeys = Object.keys(references.default)
-            throw new Error(
-              `Could not find server reference for id: ${id}. This likely means the server reference was not properly registered. Available reference keys are: ${availableKeys.join(', ')}`,
-            )
-          }
-          mod = await ref()
-        }
-        resolved = mod[name]
-      },
-      get() {
-        return resolved
-      },
-    }
-  },
-}
-
-const clientReferenceMetadataManifest: ClientReferenceMetadataManifest = {
-  resolveClientReferenceMetadata(metadata) {
-    // console.log("[debug:resolveClientReferenceMetadata]", { metadata }, Object.getOwnPropertyDescriptors(metadata));
-    return metadata.$$id
-  },
 }
 
 export interface ServerPayload {

@@ -1,9 +1,10 @@
+// SSR entry point. Receives RSC flight stream from the RSC environment,
+// SSR-renders it to HTML, and injects the RSC payload inline for client hydration.
 import { isbot } from 'isbot'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 
 import ReactDOMServer from 'react-dom/server.edge'
-import ReactClient from 'spiceflow/dist/react/references.ssr'
-import type { ModuleRunner } from 'vite/module-runner'
+import { createFromReadableStream } from '@vitejs/plugin-rsc/ssr'
 
 import cssUrls from 'virtual:app-styles'
 import { ServerPayload } from '../spiceflow.js'
@@ -13,10 +14,8 @@ import { getErrorContext, isNotFoundError, isRedirectError } from './errors.js'
 import { MetaProvider } from './head.js'
 import { MetaState } from './metastate.js'
 import { injectRSCPayload } from './transform.js'
-import { clientReferenceManifest } from './utils/client-reference.js'
 import {
   createRequest,
-  fromWebToNodeReadable,
   sendResponse,
 } from './utils/fetch.js'
 
@@ -35,7 +34,9 @@ export async function fetchHandler(request: Request) {
     const rscEntry = await importRscEntry()
     const response = await rscEntry.handler(request)
 
-    if (!response.headers.get('content-type')?.startsWith('text/x-component')) {
+    if (
+      !response.headers.get('content-type')?.startsWith('text/x-component')
+    ) {
       return response
     }
 
@@ -63,23 +64,22 @@ async function renderHtml({
 }) {
   const [flightStream1, flightStream2] = response.body!.tee()
 
-  const payloadPromise = ReactClient.createFromNodeStream<ServerPayload>(
-    fromWebToNodeReadable(flightStream1),
-    clientReferenceManifest,
-  )
+  const payloadPromise = createFromReadableStream<ServerPayload>(flightStream1)
+
   let baseUrl = new URL('/', request.url).href
   if (baseUrl.endsWith('/')) {
     baseUrl = baseUrl.slice(0, -1)
   }
   const metaState = new MetaState({ baseUrl })
 
-  const ssrAssets = await import('virtual:ssr-assets')
+  const bootstrapScriptContent = await import.meta.viteRsc.loadBootstrapScriptContent(
+    'index',
+  )
+
   const el = (
     <MetaProvider metaState={metaState}>
       <FlightDataContext.Provider value={payloadPromise}>
         {cssUrls.map((url) => (
-          // precedence to force head rendering
-          // https://react.dev/reference/react-dom/components/link#special-rendering-behavior
           <link key={url} rel="stylesheet" href={url} precedence="high" />
         ))}
         <LayoutContent />
@@ -87,19 +87,17 @@ async function renderHtml({
     </MetaProvider>
   )
 
-  // https://react.dev/reference/react-dom/server/renderToReadableStream
   let htmlStream: ReadableStream & { allReady: Promise<void> }
   let status = 200
 
   try {
     let payload = await payloadPromise
     htmlStream = await ReactDOMServer.renderToReadableStream(el, {
-      bootstrapModules: ssrAssets.bootstrapModules,
+      bootstrapScriptContent,
       signal: request.signal,
       formState: payload.formState,
       onError(e) {
-        // This also throws outside, no need to do anything here
-        console.error('[entry.srr.tsx:renderToPipeableStream]', e)
+        console.error('[entry.ssr.tsx:renderToReadableStream]', e)
         return e?.digest || e?.message
       },
     })
@@ -131,8 +129,6 @@ async function renderHtml({
         <head>
           <meta charSet="utf-8" />
           {cssUrls.map((url) => (
-            // precedence to force head rendering
-            // https://react.dev/reference/react-dom/components/link#special-rendering-behavior
             <link key={url} rel="stylesheet" href={url} precedence="high" />
           ))}
         </head>
@@ -143,7 +139,7 @@ async function renderHtml({
     )
 
     htmlStream = await ReactDOMServer.renderToReadableStream(errorRoot, {
-      bootstrapModules: ssrAssets.bootstrapModules,
+      bootstrapScriptContent,
       signal: request.signal,
     })
   }
@@ -159,7 +155,6 @@ async function renderHtml({
     {
       status,
       headers: {
-        // copy rsc headers, so spiceflow can add its own headers via .use()
         ...Object.fromEntries(response.headers),
         'content-type': 'text/html;charset=utf-8',
       },
@@ -167,24 +162,17 @@ async function renderHtml({
   )
 }
 
-declare let __rscRunner: ModuleRunner
-
 async function importRscEntry(): Promise<typeof import('./entry.rsc.js')> {
-  if (import.meta.env.DEV) {
-    return await __rscRunner.import('spiceflow/dist/react/entry.rsc')
-  } else {
-    return await import('virtual:build-rsc-entry' as any)
-  }
+  return await import.meta.viteRsc.loadModule<typeof import('./entry.rsc.js')>(
+    'rsc',
+    'index',
+  )
 }
 
-// return stream and ssr at once for prerender
 export async function prerender(request: Request) {
   const reactServer = await importRscEntry()
-
   const response = await reactServer.handler(request)
-
   const responseClone = response.clone()
-
   const htmlRes = await renderHtml({ response, request, prerender: true })
   const html = await htmlRes.text()
   return { rscResponse: responseClone, response, html }

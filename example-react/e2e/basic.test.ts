@@ -55,14 +55,12 @@ test.describe("redirect", () => {
 test("client reference", async ({ page }) => {
 	await page.goto("/");
 	await page.getByText("[hydrated: 1]").click();
-	await page.getByText("Client counter: 0").click();
-	await page
-		.getByTestId("client-counter")
-		.getByRole("button", { name: "+" })
-		.click();
-	await page.getByText("Client counter: 1").click();
+	const clientCounter = page.getByTestId("client-counter").filter({ hasText: "Client counter" });
+	await clientCounter.getByText("Client counter: 0").click();
+	await clientCounter.getByRole("button", { name: "+" }).click();
+	await clientCounter.getByText("Client counter: 1").click();
 	await page.reload();
-	await page.getByText("Client counter: 0").click();
+	await clientCounter.getByText("Client counter: 0").click();
 });
 
 test("server reference in server @js", async ({ page }) => {
@@ -139,9 +137,13 @@ test("client hmr @dev", async ({ page }) => {
 		.click();
 	await page.getByText("Client counter: 1").click();
 	// edit client
-	using file = createEditor("src/app/client.tsx");
-	file.edit((s) => s.replace("Client counter", "Client [EDIT] counter"));
-	await page.getByText("Client [EDIT] counter: 1").click();
+	const file = createEditor("src/app/client.tsx");
+	try {
+		file.edit((s) => s.replace("Client counter", "Client [EDIT] counter"));
+		await page.getByText("Client [EDIT] counter: 1").click();
+	} finally {
+		file[Symbol.dispose]();
+	}
 });
 
 test("server hmr @dev", async ({ page }) => {
@@ -165,7 +167,7 @@ test("server hmr @dev", async ({ page }) => {
 	await page.getByText("Client counter: 1").click();
 
 	// edit server
-	using file = createEditor("src/app/index.tsx");
+	const file = createEditor("src/app/index.tsx");
 	await file.edit((s) => s.replace("Server counter", "Server [EDIT] counter"));
 	await page.getByText("Server [EDIT] counter: 1").click();
 	await page.getByText("Client counter: 1").click();
@@ -176,4 +178,5 @@ test("server hmr @dev", async ({ page }) => {
 		.getByRole("button", { name: "-" })
 		.click();
 	await page.getByText("Server [EDIT] counter: 0").click();
+	file[Symbol.dispose]();
 });

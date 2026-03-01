@@ -4,7 +4,7 @@ if (!("counter" in globalThis)) {
   globalThis.counter = 0;
 }
 
-export function getCounter() {
+export async function getCounter() {
   return globalThis.counter;
 }
 
