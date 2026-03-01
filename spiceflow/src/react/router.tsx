@@ -8,7 +8,9 @@ const history =
 
 export const router = {
   // createHref: history.createHref,
-  location: history.location,
+  get location() {
+    return history.location
+  },
   push: history.push,
   replace: history.replace,
   go: history.go,
