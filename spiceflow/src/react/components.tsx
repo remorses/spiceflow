@@ -7,6 +7,10 @@ import { ServerPayload } from '../spiceflow.js'
 import { isRedirectError, isNotFoundError, getErrorContext } from './errors.js'
 import { useFlightData } from './context.js'
 import { ProgressBar } from './progress.js'
+import {
+  getLinkNavigationInfo,
+  shouldProcessLinkClick,
+} from './navigation.js'
 
 export function LayoutContent(props: { id?: string }) {
   const data = useFlightData()
@@ -157,29 +161,70 @@ export function DefaultGlobalErrorPage(props: ErrorPageProps) {
   )
 }
 
-export function Link(props: React.ComponentPropsWithRef<'a'>) {
+export interface LinkProps extends React.ComponentPropsWithRef<'a'> {
+  replace?: boolean
+  state?: unknown
+  reloadDocument?: boolean
+  preventScrollReset?: boolean
+}
+
+export function Link(props: LinkProps) {
+  const {
+    onClick,
+    replace,
+    state,
+    reloadDocument,
+    preventScrollReset,
+    target,
+    ...rest
+  } = props
+
   return (
     <a
-      {...props}
+      {...rest}
+      target={target}
       onClick={(e) => {
-        if (
-          e.metaKey ||
-          e.ctrlKey ||
-          e.shiftKey ||
-          e.altKey ||
-          (props.target && props.target === '_blank')
-        ) {
-          props.onClick?.(e)
-          return
-        }
-        e.preventDefault()
+        onClick?.(e)
 
-        props.onClick?.(e)
-        router.push(e.currentTarget.href)
+        const shouldProcess = shouldProcessLinkClick({
+          click: {
+            button: e.button,
+            metaKey: e.metaKey,
+            ctrlKey: e.ctrlKey,
+            shiftKey: e.shiftKey,
+            altKey: e.altKey,
+          },
+          target,
+          defaultPrevented: e.defaultPrevented,
+        })
+        if (!shouldProcess) return
+
+        const currentUrl = new URL(window.location.href)
+        const navigationInfo = getLinkNavigationInfo({
+          link: {
+            href: e.currentTarget.href,
+            replace,
+            reloadDocument,
+          },
+          currentUrl,
+        })
+        if (!navigationInfo) return
+
+        if (e.currentTarget.download) return
+
+        e.preventDefault()
+        router.navigate({
+          to: navigationInfo.nextUrl.href,
+          replace: navigationInfo.replace,
+          state,
+          preventScrollReset,
+        })
       }}
     />
   )
 }
+
+export { ScrollRestoration } from './scroll-restoration.js'
 
 // https://github.com/vercel/next.js/blob/c74f3f54b23b3fc47dc7e214a8949844257a734a/packages/next/src/build/webpack/loaders/next-app-loader.ts#L72
 // https://github.com/vercel/next.js/blob/8f5f0ef141a907d083eedb7c7aca52b04f9d258b/packages/next/src/client/components/not-found-error.tsx#L34-L39

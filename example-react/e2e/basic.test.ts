@@ -1,4 +1,4 @@
-import { type Page, expect, test } from "@playwright/test";
+import { type Page, type Request, expect, test } from "@playwright/test";
 import { createEditor } from "./helper.js";
 
 test.describe("not found", () => {
@@ -49,6 +49,92 @@ test.describe("redirect", () => {
 		await page.goto("/redirect-in-rsc-suspense");
 		await expect(page).toHaveURL("/");
 		await page.getByText("[hydrated: 1]").click();
+	});
+});
+
+test.describe("link behavior", () => {
+	test("hash link keeps browser-native behavior", async ({ page }) => {
+		await page.goto("/");
+		await page.getByTestId("hash-link").click();
+		await expect(page).toHaveURL(/#layout-anchor$/);
+	});
+
+	test("default navigation resets scroll on push", async ({ page }) => {
+		await page.goto("/");
+		await page.getByText("[hydrated: 1]").click();
+		await page.evaluate(() => window.scrollTo(0, 900));
+		await page.evaluate(() => {
+			const link = document.querySelector<HTMLAnchorElement>(
+				'[data-testid="other-link"]',
+			);
+			link?.click();
+		});
+		await expect(page.getByText(":id page")).toBeVisible();
+
+		const scrollY = await page.evaluate(() => window.scrollY);
+		expect(scrollY).toBeLessThan(10);
+	});
+
+	test("preventScrollReset keeps scroll position", async ({ page }) => {
+		await page.goto("/");
+		await page.getByText("[hydrated: 1]").click();
+		await page.evaluate(() => window.scrollTo(0, 950));
+		await page.evaluate(() => {
+			const link = document.querySelector<HTMLAnchorElement>(
+				'[data-testid="prevent-scroll-link"]',
+			);
+			link?.click();
+		});
+		await expect(page.getByText(":id page")).toBeVisible();
+
+		const scrollY = await page.evaluate(() => window.scrollY);
+		expect(scrollY).toBeGreaterThan(700);
+	});
+
+	test("back navigation restores prior scroll position", async ({ page }) => {
+		await page.goto("/");
+		await page.getByText("[hydrated: 1]").click();
+		await page.evaluate(() => window.scrollTo(0, 980));
+		await page.evaluate(() => {
+			const link = document.querySelector<HTMLAnchorElement>(
+				'[data-testid="other-link"]',
+			);
+			link?.click();
+		});
+		await expect(page.getByText(":id page")).toBeVisible();
+
+		await page.goBack();
+		await expect(page).toHaveURL("/");
+
+		const scrollY = await page.evaluate(() => window.scrollY);
+		expect(scrollY).toBeGreaterThan(700);
+	});
+
+	test("target=_blank link does not trigger client router push", async ({
+		page,
+	}) => {
+		await page.goto("/");
+		const popupPromise = page.waitForEvent("popup");
+		await page.getByTestId("blank-link").click();
+		const popup = await popupPromise;
+		await expect(popup).toHaveURL(/\/other$/);
+		await expect(page).toHaveURL("/");
+	});
+
+	test("reloadDocument forces full document navigation", async ({ page }) => {
+		const documentRequests: string[] = [];
+		const onRequest = (request: Request) => {
+			if (request.resourceType() !== "document") return;
+			documentRequests.push(request.url());
+		};
+
+		page.on("request", onRequest);
+		await page.goto("/");
+		await page.getByTestId("reload-document-link").click();
+		await expect(page).toHaveURL("/other");
+		page.off("request", onRequest);
+
+		expect(documentRequests.some((url) => url.endsWith("/other"))).toBe(true);
 	});
 });
 
