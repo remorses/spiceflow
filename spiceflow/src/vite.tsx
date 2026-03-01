@@ -56,6 +56,7 @@ export function spiceflowPlugin({
 
     // Auto "use client" injection: makes all user source files client components by default.
     // Only framework internals, the app entry, node_modules, and *.server.* files are excluded.
+    // TODO remove this
     {
       name: 'spiceflow:auto-use-client',
       enforce: 'pre',
