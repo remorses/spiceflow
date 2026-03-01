@@ -6,9 +6,10 @@ import type {
   ResolvePath,
   SingletonBase,
   HTTPHeaders,
+  GetRequestSchema,
 } from './types.js'
 
-import { SpiceflowRequest } from './spiceflow.js'
+import { SpiceflowRequest, WaitUntil } from './spiceflow.js'
 
 export type ErrorContext<
   Path extends string = '',
@@ -21,7 +22,7 @@ export type ErrorContext<
 > = Prettify<{
   // body: Route['body']
   query: undefined extends Route['query']
-    ? Record<string, string | undefined>
+    ? Record<string, string>
     : Route['query']
   params: undefined extends Route['params']
     ? Path extends `${string}/${':' | '*'}${string}`
@@ -48,8 +49,9 @@ export type ErrorContext<
    * @example '/id/:id'
    */
   // route: string
-  request: SpiceflowRequest<Route['body']>
+  request: SpiceflowRequest<GetRequestSchema<Route>>
   state: Singleton['state']
+  waitUntil: WaitUntil
   // response: Route['response']
 }>
 
@@ -63,7 +65,7 @@ export type SpiceflowContext<
   },
 > = Prettify<{
   query: undefined extends Route['query']
-    ? Record<string, string | undefined>
+    ? Record<string, string>
     : Route['query']
   params: undefined extends Route['params']
     ? Path extends `${string}/${':' | '*'}${string}`
@@ -76,8 +78,9 @@ export type SpiceflowContext<
 
   path: string
 
-  request: SpiceflowRequest<Route['body']>
+  request: SpiceflowRequest<GetRequestSchema<Route>>
   state: Singleton['state']
+  waitUntil: WaitUntil
   // TODO remove this for api routes
   children?: any
   // response?: Route['response']
@@ -94,6 +97,7 @@ export type MiddlewareContext<
   path: string
   query?: Record<string, string | undefined>
   params?: Record<string, string | undefined>
+  waitUntil: WaitUntil
 
   redirect: Redirect
   // server: Server | null

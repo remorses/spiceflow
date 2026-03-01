@@ -1,5 +1,0 @@
-#:schema node_modules/wrangler/config-schema.json
-name = "spiceflow-website"
-compatibility_date = "2024-05-02"
-pages_build_output_dir = "./build/client"
-

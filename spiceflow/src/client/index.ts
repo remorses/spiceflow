@@ -1,7 +1,4 @@
-/* eslint-disable no-extra-semi */
-/* eslint-disable no-case-declarations */
-/* eslint-disable prefer-const */
-import type { Spiceflow } from '../spiceflow.js'
+import type { AnySpiceflow, Spiceflow } from '../spiceflow.js'
 import superjson from 'superjson'
 import { EventSourceParserStream } from 'eventsource-parser/stream'
 
@@ -116,7 +113,7 @@ const processHeaders = (
 }
 
 interface SSEEvent {
-  event: string
+  event?: string
   data: any
   id?: string
 }
@@ -147,25 +144,88 @@ export class TextDecoderStream extends TransformStream<Uint8Array, string> {
   }
 }
 
-export async function* streamSSEResponse(
-  response: Response,
-): AsyncGenerator<SSEEvent> {
-  const body = response.body
-  if (!body) return
+function isAbortError(error: unknown): error is Error {
+  return (
+    (error instanceof Error || error instanceof DOMException) &&
+    (error.name === 'AbortError' ||
+      error.name === 'ResponseAborted' || // Next.js
+      error.name === 'TimeoutError')
+  )
+}
 
-  const eventStream = response.body
-    .pipeThrough(new TextDecoderStream())
-    .pipeThrough(new EventSourceParserStream())
+export async function* streamSSEResponse({
+  response,
+  map,
+  executeRequest,
+  maxRetries = 0,
+}: {
+  response: Response
+  map: (x: SSEEvent) => any
+  executeRequest?: () => Promise<Response>
+  maxRetries?: number
+}): AsyncGenerator<SSEEvent> {
+  let currentResponse = response
+  let retriesLeft = maxRetries
 
-  let reader = eventStream.getReader()
   while (true) {
-    const { done, value: event } = await reader.read()
-    if (done) break
-    if (event?.event === 'error') {
-      throw new SpiceflowFetchError(500, superjsonDeserialize(event.data))
-    }
-    if (event) {
-      yield tryParsingSSEJson(event.data)
+    const body = currentResponse.body
+    if (!body) return
+
+    const eventStream = body
+      .pipeThrough(new TextDecoderStream())
+      .pipeThrough(new EventSourceParserStream())
+
+    let reader = eventStream.getReader()
+
+    try {
+      while (true) {
+        const { done, value: event } = await reader.read()
+        if (done) return
+
+        if (event?.event === 'error') {
+          const error = superjsonDeserialize(event.data)
+          throw new SpiceflowFetchError(500, error)
+        }
+
+        if (event) {
+          yield map({ ...event, data: event.data })
+        }
+      }
+    } catch (error) {
+      if (isAbortError(error)) {
+        return
+      }
+
+      if (
+        executeRequest &&
+        error instanceof SpiceflowFetchError &&
+        error.status >= 500 &&
+        retriesLeft > 0
+      ) {
+        retriesLeft--
+        const backoffMs = Math.min(
+          1000 * 2 ** (maxRetries - retriesLeft - 1),
+          10000,
+        )
+        await new Promise((resolve) => setTimeout(resolve, backoffMs))
+
+        try {
+          currentResponse = await executeRequest()
+          if (currentResponse.status >= 500) {
+            if (retriesLeft === 0) {
+              throw error
+            }
+            continue
+          }
+        } catch (retryError) {
+          if (retriesLeft === 0) {
+            throw retryError
+          }
+          continue
+        }
+      } else {
+        throw error
+      }
     }
   }
 }
@@ -174,17 +234,20 @@ function tryParsingSSEJson(data: string): any {
   try {
     return superjsonDeserialize(JSON.parse(data))
   } catch (error) {
-    return null
+    return data
   }
 }
 
 const createProxy = (
   domain: string,
-  config: SpiceflowClient.Config,
+  config: SpiceflowClient.Config & { state?: any },
   paths: string[] = [],
-  instance?: Spiceflow<any, any, any, any, any, any>,
-): any =>
-  new Proxy(() => {}, {
+  instance?: AnySpiceflow,
+): any => {
+  if (config.state && !instance) {
+    throw new Error(`State is only available when using a Spiceflow instance`)
+  }
+  return new Proxy(() => {}, {
     get(_, param: string): any {
       // handle case where createClient returns a promise and await calls .then on it
       if ((!paths.length && param === 'then') || param === 'catch') {
@@ -208,7 +271,13 @@ const createProxy = (
         const method = methodPaths.pop()
         const path = '/' + methodPaths.join('/')
 
-        let { fetch: fetcher = fetch, headers, onRequest, onResponse } = config
+        let {
+          fetch: fetcher = fetch,
+          headers,
+          onRequest,
+          onResponse,
+          retries = 0,
+        } = config
 
         const isGetOrHead =
           method === 'get' || method === 'head' || method === 'subscribe'
@@ -350,7 +419,12 @@ const createProxy = (
               'text/plain'
           }
 
-          if (isGetOrHead) delete fetchInit.body
+          if (isGetOrHead)
+            delete fetchInit.body
+
+            // Add x-spiceflow-agent header
+          ;(fetchInit.headers as Record<string, string>)['x-spiceflow-agent'] =
+            'spiceflow-client'
 
           if (onRequest) {
             if (!Array.isArray(onRequest)) onRequest = [onRequest]
@@ -371,10 +445,46 @@ const createProxy = (
           }
 
           const url = domain + path + q
-          // console.log({ url, fetchInit })
-          const response = await (instance?.handle(
-            new Request(url, fetchInit),
-          ) ?? fetcher!(url, fetchInit))
+
+          const executeRequest = async (): Promise<Response> => {
+            let attempt = 0
+            let response: Response
+            let lastError: Error | null = null
+
+            while (attempt <= retries) {
+              try {
+                response = await (instance?.handle(
+                  new Request(url, fetchInit),
+                  { state: config.state },
+                ) ?? fetcher!(url, fetchInit))
+
+                if (response.status < 500 || attempt === retries) {
+                  break
+                }
+
+                lastError = new Error(
+                  `Server error: ${response.status} ${response.statusText}`,
+                )
+              } catch (err) {
+                lastError = err as Error
+                if (attempt === retries) {
+                  throw err
+                }
+              }
+
+              attempt++
+              const backoffMs = Math.min(1000 * 2 ** (attempt - 1), 10000)
+              await new Promise((resolve) => setTimeout(resolve, backoffMs))
+            }
+
+            if (!response!) {
+              throw lastError || new Error('Failed to fetch after retries')
+            }
+
+            return response
+          }
+
+          const response = await executeRequest()
 
           let data = null as any
           let error = null as any
@@ -399,12 +509,21 @@ const createProxy = (
               response,
               status: response.status,
               headers: response.headers,
+              url,
             }
           }
 
           switch (response.headers.get('Content-Type')?.split(';')[0]) {
             case 'text/event-stream':
-              data = streamSSEResponse(response)
+              data = streamSSEResponse({
+                response,
+                map: (x) => {
+                  return tryParsingSSEJson(x.data)
+                },
+                executeRequest,
+                maxRetries: retries,
+              })
+
               break
 
             case 'application/json':
@@ -445,6 +564,7 @@ const createProxy = (
             response,
             status: response.status,
             headers: response.headers,
+            url,
           }
         })
       }
@@ -460,17 +580,20 @@ const createProxy = (
       return createProxy(domain, config, paths)
     },
   }) as any
+}
 
-export const createSpiceflowClient = <
-  const App extends Spiceflow<any, any, any, any, any, any>,
->(
-  domain: string | App,
-  config: SpiceflowClient.Config = {},
+export const createSpiceflowClient = <const App extends AnySpiceflow>(
+  domain: App | string,
+  config?: SpiceflowClient.Config &
+    (App extends Spiceflow<any, any, infer Singleton, any, any, any, any>
+      ? { state?: Singleton['state'] }
+      : {}),
 ): SpiceflowClient.Create<App> => {
   if (typeof domain === 'string') {
-    if (domain.endsWith('/')) domain = domain.slice(0, -1)
+    let domainStr = String(domain)
+    if (domain.endsWith('/')) domainStr = domain.slice(0, -1)
 
-    return createProxy(domain, config)
+    return createProxy(domainStr, config || {})
   }
 
   if (typeof window !== 'undefined')
@@ -478,7 +601,7 @@ export const createSpiceflowClient = <
       'Spiceflow instance server found on client side, this is not recommended for security reason. Use generic type instead.',
     )
 
-  return createProxy('http://e.ly', config, [], domain)
+  return createProxy('http://e.ly', config || {}, [], domain)
 }
 
 function superjsonDeserialize(data: any) {

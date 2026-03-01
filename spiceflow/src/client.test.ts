@@ -1,30 +1,49 @@
 import { z } from 'zod'
 import { createSpiceflowClient } from './client/index.js'
 import { Spiceflow } from './spiceflow.js'
-import { Type as t } from '@sinclair/typebox'
+import { SpiceflowFetchError } from './client/errors.js'
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 const app = new Spiceflow()
+  .state('someState', 1 as number | undefined)
   .get('/', () => 'a')
   .post('/', () => 'a')
   .get('/number', () => 1)
+  .get('/someState', ({ state }) => state.someState)
   .get('/true', () => true)
   .get('/false', () => false)
   .post('/array', async ({ request }) => await request.json(), {
     body: z.array(z.string()),
   })
-  .post('/mirror', async ({ request }) => await request.json())
-  .post('/body', async ({ request }) => await request.text(), {
+  .route({
+    method: 'POST',
+    path: '/mirror',
+    handler: async ({ request }) => await request.json(),
+  })
+  .route({
+    method: 'POST',
+    path: '/body',
+    handler: async ({ request }) => await request.text(),
     body: z.string(),
   })
-  .post('/zodAny', async ({ request }) => await request.json(), {
+  .route({
+    method: 'POST',
+    path: '/zodAny',
+    handler: async ({ request }) => await request.json(),
     body: z.object({ body: z.array(z.any()) }),
   })
-  .delete('/empty', async ({ request }) => {
-    const body = await request.text()
-    return { body: body || null }
+  .route({
+    method: 'DELETE',
+    path: '/empty',
+    handler: async ({ request }) => {
+      const body = await request.text()
+      return { body: body || null }
+    },
   })
-  .post('/deep/nested/mirror', async ({ request }) => await request.json(), {
+  .route({
+    method: 'POST',
+    path: '/deep/nested/mirror',
+    handler: async ({ request }) => await request.json(),
     body: z.object({
       username: z.string(),
       password: z.string(),
@@ -42,6 +61,12 @@ const app = new Spiceflow()
   .get('/throws-200', () => {
     throw new Response('this string will not be parsed as json', {
       status: 200,
+    })
+  })
+  .get('/throws-402-json', () => {
+    throw new Response(JSON.stringify({ reason: 'Payment required', code: 4021 }), {
+      status: 402,
+      headers: { 'content-type': 'application/json' },
     })
   })
   .use(
@@ -102,9 +127,17 @@ const app = new Spiceflow()
   .get('/stream-return-async', function* stream() {
     return 'a'
   })
-  .get('/id/:id?', ({ params: { id = 'unknown' } }) => id)
+  .get('/id/:id', ({ params: { id } }) => id)
 
 const client = createSpiceflowClient(app)
+
+describe('client can pass state to app', () => {
+  const client = createSpiceflowClient(app, { state: { someState: 3 } })
+  it('should return state value 3', async () => {
+    const { data } = await client.someState.get({})
+    expect(data).toBe(3)
+  })
+})
 
 describe('client', () => {
   it('get index', async () => {
@@ -213,6 +246,16 @@ describe('client', () => {
     expect(error).toMatchInlineSnapshot(`null`)
   })
 
+  it('surfaces json payload in error value for 402 responses', async () => {
+    const { data, error } = await client['throws-402-json'].get()
+
+    expect(data).toBeNull()
+    expect(error).toBeDefined()
+    expect(error?.status).toBe(402)
+    expect(error).toBeInstanceOf(SpiceflowFetchError)
+    expect(error?.value).toEqual({ reason: 'Payment required', code: 4021 })
+  })
+
   it('stream ', async () => {
     const { data } = await client.stream.get()
     let all = ''
@@ -234,12 +277,19 @@ describe('client', () => {
 
   it('stream return', async () => {
     const { data } = await client['stream-return'].get()
-    expect(data).toEqual('a')
+    let all = ''
+    for await (const chunk of data!) {
+      all += chunk
+    }
+    expect(all).toEqual('a')
   })
   it('stream return async', async () => {
-    const { data } = await client['stream-return-async'].get({})
-    // console.log(data)
-    expect(data).toEqual('a')
+    const { data } = await client['stream-return-async'].get()
+    let all = ''
+    for await (const chunk of data!) {
+      all += chunk
+    }
+    expect(all).toEqual('a')
   })
   it('post zodAny', async () => {
     const body = [{ key: 'value' }, 123, 'string', true, null]
@@ -276,4 +326,56 @@ describe('client as promise', () => {
     const { data } = await (await asyncClient).mirror.post({ test: 'value' })
     expect(data).toEqual({ test: 'value' })
   }, 200)
+})
+
+describe('client retries', () => {
+  it('should retry on 500 errors and succeed on third attempt', async () => {
+    let attemptCount = 0
+    const retryApp = new Spiceflow().get('/retry-success', () => {
+      attemptCount++
+      if (attemptCount < 3) {
+        throw new Response('Server error', { status: 500 })
+      }
+      return { success: true, attempts: attemptCount }
+    })
+
+    const retryClient = createSpiceflowClient(retryApp, { retries: 2 })
+    const { data, error } = await retryClient['retry-success'].get()
+
+    expect(error).toBeNull()
+    expect(data).toEqual({ success: true, attempts: 3 })
+    expect(attemptCount).toBe(3)
+  })
+
+  it('should fail after all retries are exhausted', async () => {
+    let attemptCount = 0
+    const retryApp = new Spiceflow().get('/retry-fail', () => {
+      attemptCount++
+      throw new Response('Server error', { status: 500 })
+    })
+
+    const retryClient = createSpiceflowClient(retryApp, { retries: 2 })
+    const { data, error } = await retryClient['retry-fail'].get()
+
+    expect(data).toBeNull()
+    expect(error).toBeDefined()
+    expect(error?.status).toBe(500)
+    expect(attemptCount).toBe(3)
+  })
+
+  it('should not retry on non-500 errors', async () => {
+    let attemptCount = 0
+    const retryApp = new Spiceflow().get('/retry-400', () => {
+      attemptCount++
+      throw new Response('Bad request', { status: 400 })
+    })
+
+    const retryClient = createSpiceflowClient(retryApp, { retries: 2 })
+    const { data, error } = await retryClient['retry-400'].get()
+
+    expect(data).toBeNull()
+    expect(error).toBeDefined()
+    expect(error?.status).toBe(400)
+    expect(attemptCount).toBe(1)
+  })
 })

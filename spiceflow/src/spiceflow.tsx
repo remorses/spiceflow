@@ -1,21 +1,25 @@
 import type { ReactFormState } from 'react-dom/client'
 
-import addFormats from 'ajv-formats'
-import lodashCloneDeep from 'lodash.clonedeep'
-
+import { copy } from 'copy-anything'
 import superjson from 'superjson'
+
+import { SpiceflowFetchError } from './client/errors.js'
+import { ValidationError } from './error.js'
 import {
   ComposeSpiceflowResponse,
   CreateClient,
   DefinitionBase,
   ErrorHandler,
+  ExtractParamsFromPath,
+  GetRequestSchema,
+  HTTPMethod,
+  ValidationFunction,
   InlineHandler,
   InputSchema,
   InternalRoute,
   IsAny,
   JoinPath,
   LocalHook,
-  MaybeArray,
   MetadataBase,
   MiddlewareHandler,
   NodeKind,
@@ -27,13 +31,9 @@ import {
   TypeSchema,
   UnwrapRoute,
 } from './types.js'
-let globalIndex = 0
 
-import Ajv, { ValidateFunction } from 'ajv'
 import { createElement } from 'react'
-import { z, ZodType } from 'zod'
-import { zodToJsonSchema } from 'zod-to-json-schema'
-import { isProduction, ValidationError } from './error.js'
+import { ZodType } from 'zod'
 import { isAsyncIterable, isResponse, isTruthy, redirect } from './utils.js'
 
 import { PassThrough, Readable } from 'stream'
@@ -56,31 +56,28 @@ import { TrieRouter } from './trie-router/router.js'
 import { decodeURIComponent_ } from './trie-router/url.js'
 import { Result } from './trie-router/utils.js'
 
-const ajv = (addFormats.default || addFormats)(
-  new (Ajv.default || Ajv)({ useDefaults: true }),
-  [
-    'date-time',
-    'time',
-    'date',
-    'email',
-    'hostname',
-    'ipv4',
-    'ipv6',
-    'uri',
-    'uri-reference',
-    'uuid',
-    'uri-template',
-    'json-pointer',
-    'relative-json-pointer',
-    'regex',
-  ],
-)
+import { StandardSchemaV1 } from '@standard-schema/spec'
+import type { IncomingMessage, ServerResponse } from 'node:http'
+import { handleForNode, listenForNode } from './_node-server.js'
+import { SpiceflowContext, MiddlewareContext } from './context.js'
 
-// Should be exported from `hono/router`
+let globalIndex = 0
 
 type AsyncResponse = Response | Promise<Response>
 
-type OnError = (x: { error: any; request: Request }) => AsyncResponse
+export type SpiceflowServerError =
+  | ValidationError
+  | SpiceflowFetchError<number, any>
+  | Error
+
+export type WaitUntil = (promise: Promise<any>) => void
+
+type OnError = (x: {
+  error: SpiceflowServerError
+  request: Request
+  path: string
+}) => AsyncResponse
+
 
 const notFoundHandler = (c) => {
   return new Response('Not Found', { status: 404 })
@@ -101,7 +98,8 @@ export class Spiceflow<
     macro: {}
     macroFn: {}
   },
-  const out Routes extends RouteBase = {},
+  const out ClientRoutes extends RouteBase = {},
+  const out RoutePaths extends string = '',
 > {
   private id: number = globalIndex++
   router: TrieRouter<InternalRoute> = new TrieRouter()
@@ -109,10 +107,22 @@ export class Spiceflow<
   private onErrorHandlers: OnError[] = []
   private routes: InternalRoute[] = []
   private defaultState: Record<any, any> = {}
-  topLevelApp?: AnySpiceflow
+  topLevelApp?: AnySpiceflow = this
+  private waitUntilFn: WaitUntil
+  private disableSuperJsonUnlessRpc: boolean = false
+
+  _types = {
+    Prefix: '' as BasePath,
+    ClientRoutes: {} as ClientRoutes,
+    RoutePaths: '' as RoutePaths,
+    Scoped: false as Scoped,
+    Singleton: {} as Singleton,
+    Definitions: {} as Definitions,
+    Metadata: {} as Metadata,
+  }
 
   /** @internal */
-  prefix?: string
+  basePath?: string = ''
 
   /** @internal */
   childrenApps: AnySpiceflow[] = []
@@ -122,9 +132,9 @@ export class Spiceflow<
     let root = this.topLevelApp || this
     const allApps = bfs(root) || []
     const allRoutes = allApps.flatMap((x) => {
-      const prefix = this.getAppAndParents(x)
-        .map((x) => x.prefix)
-        .join('')
+      const prefix = this.joinBasePaths(
+        this.getAppAndParents(x).map((x) => x.basePath),
+      )
 
       return x.routes.map((x) => ({ ...x, path: prefix + x.path }))
     })
@@ -159,7 +169,7 @@ export class Spiceflow<
     ...rest
   }: Partial<InternalRoute>) {
     const kind = rest.kind
-    let bodySchema: TypeSchema = hooks?.body
+    let bodySchema: TypeSchema = hooks?.request || hooks?.body
     let validateBody = getValidateFunction(bodySchema)
     let validateQuery = getValidateFunction(hooks?.query)
     let validateParams = getValidateFunction(hooks?.params)
@@ -230,10 +240,9 @@ export class Spiceflow<
 
     const result = bfsFind(this, (app) => {
       app.topLevelApp = root
-      let prefix = this.getAppAndParents(app)
-        .map((x) => x.prefix)
-        .join('')
-        .replace(/\/$/, '')
+      let prefix = this.joinBasePaths(
+        this.getAppAndParents(app).map((x) => x.basePath),
+      ).replace(/\/$/, '')
       if (prefix && !path.startsWith(prefix)) {
         return
       }
@@ -313,7 +322,8 @@ export class Spiceflow<
     },
     Definitions,
     Metadata,
-    Routes
+    ClientRoutes,
+    RoutePaths
   > {
     this.defaultState[name] = value
     return this as any
@@ -327,23 +337,25 @@ export class Spiceflow<
     options: {
       name?: string
       scoped?: Scoped
-
+      waitUntil?: WaitUntil
       basePath?: BasePath
+      disableSuperJsonUnlessRpc?: boolean
     } = {},
   ) {
     this.scoped = options.scoped
+    this.disableSuperJsonUnlessRpc = options.disableSuperJsonUnlessRpc || false
 
-    this.prefix = options.basePath
-  }
+    // Set up waitUntil function - use provided one, global one, or noop
+    this.waitUntilFn =
+      options.waitUntil ||
+      (typeof globalThis !== 'undefined' && 'waitUntil' in globalThis
+        ? (globalThis as any).waitUntil
+        : () => {})
 
-  _routes: Routes = {} as any
-
-  _types = {
-    Prefix: '' as BasePath,
-    Scoped: false as Scoped,
-    Singleton: {} as Singleton,
-    Definitions: {} as Definitions,
-    Metadata: {} as Metadata,
+    this.basePath = options.basePath || ''
+    if (this.basePath === '/') {
+      this.basePath = ''
+    }
   }
 
   post<
@@ -351,6 +363,7 @@ export class Spiceflow<
     const LocalSchema extends InputSchema<keyof Definitions['type'] & string>,
     const Schema extends UnwrapRoute<LocalSchema, Definitions['type']>,
     const Handle extends InlineHandler<
+      this,
       Schema,
       Singleton,
       JoinPath<BasePath, Path>
@@ -372,12 +385,12 @@ export class Spiceflow<
     Singleton,
     Definitions,
     Metadata,
-    Routes &
+    ClientRoutes &
       CreateClient<
         JoinPath<BasePath, Path>,
         {
           post: {
-            body: Schema['body']
+            request: GetRequestSchema<Schema>
             params: undefined extends Schema['params']
               ? ResolvePath<Path>
               : Schema['params']
@@ -385,7 +398,8 @@ export class Spiceflow<
             response: ComposeSpiceflowResponse<Schema['response'], Handle>
           }
         }
-      >
+      >,
+    RoutePaths | JoinPath<BasePath, Path>
   > {
     this.add({ method: 'POST', path, handler: handler, hooks: hook })
 
@@ -398,6 +412,7 @@ export class Spiceflow<
     const Schema extends UnwrapRoute<LocalSchema, Definitions['type']>,
     const Macro extends Metadata['macro'],
     const Handle extends InlineHandler<
+      this,
       Schema,
       Singleton,
       JoinPath<BasePath, Path>
@@ -419,12 +434,12 @@ export class Spiceflow<
     Singleton,
     Definitions,
     Metadata,
-    Routes &
+    ClientRoutes &
       CreateClient<
         JoinPath<BasePath, Path>,
         {
           get: {
-            body: Schema['body']
+            request: GetRequestSchema<Schema>
             params: undefined extends Schema['params']
               ? ResolvePath<Path>
               : Schema['params']
@@ -433,7 +448,8 @@ export class Spiceflow<
             response: ComposeSpiceflowResponse<Schema['response'], Handle>
           }
         }
-      >
+      >,
+    RoutePaths | JoinPath<BasePath, Path>
   > {
     this.add({ method: 'GET', path, handler: handler, hooks: hook })
     return this as any
@@ -444,6 +460,7 @@ export class Spiceflow<
     const LocalSchema extends InputSchema<keyof Definitions['type'] & string>,
     const Schema extends UnwrapRoute<LocalSchema, Definitions['type']>,
     const Handle extends InlineHandler<
+      this,
       Schema,
       Singleton,
       JoinPath<BasePath, Path>
@@ -465,12 +482,12 @@ export class Spiceflow<
     Singleton,
     Definitions,
     Metadata,
-    Routes &
+    ClientRoutes &
       CreateClient<
         JoinPath<BasePath, Path>,
         {
           put: {
-            body: Schema['body']
+            request: GetRequestSchema<Schema>
             params: undefined extends Schema['params']
               ? ResolvePath<Path>
               : Schema['params']
@@ -479,9 +496,124 @@ export class Spiceflow<
             response: ComposeSpiceflowResponse<Schema['response'], Handle>
           }
         }
-      >
+      >,
+    RoutePaths | JoinPath<BasePath, Path>
   > {
     this.add({ method: 'PUT', path, handler: handler, hooks: hook })
+
+    return this as any
+  }
+
+  route<
+    const Path extends string,
+    const LocalSchema extends InputSchema<keyof Definitions['type'] & string>,
+    const Schema extends UnwrapRoute<LocalSchema, Definitions['type']>,
+    const Handle extends InlineHandler<
+      this,
+      Schema,
+      Singleton,
+      JoinPath<BasePath, Path>
+    >,
+    Method extends HTTPMethod | HTTPMethod[] = '*',
+  >(
+    options: LocalHook<
+      LocalSchema,
+      Schema,
+      Singleton,
+      Definitions['error'],
+      Metadata['macro'],
+      JoinPath<BasePath, Path>
+    > & {
+      path: Path
+      method?: Method
+      handler: Handle
+    },
+  ): Spiceflow<
+    BasePath,
+    Scoped,
+    Singleton,
+    Definitions,
+    Metadata,
+    ClientRoutes &
+      CreateClient<
+        JoinPath<BasePath, Path>,
+        {
+          [M in Method extends readonly (infer E)[]
+            ? Lowercase<E & string>
+            : Lowercase<Method & string>]: {
+            request: GetRequestSchema<Schema>
+            params: undefined extends Schema['params']
+              ? ResolvePath<Path>
+              : Schema['params']
+            query: Schema['query']
+            response: ComposeSpiceflowResponse<Schema['response'], Handle>
+          }
+        }
+      >,
+    RoutePaths | JoinPath<BasePath, Path>
+  > {
+    // If options.request is defined, disallow for GET and HEAD (methods that don't support a body)
+    const methodsWithNoBody = ['GET', 'HEAD']
+    const actualMethod = options.method ?? '*'
+    const normalizedMethods: string[] = Array.isArray(actualMethod)
+      ? actualMethod.flatMap((m) => {
+          const method = typeof m === 'string' ? m.toUpperCase() : m
+          return method === '*' ? [...METHODS] : [method as string]
+        })
+      : (() => {
+          const method =
+            typeof actualMethod === 'string'
+              ? actualMethod.toUpperCase()
+              : actualMethod
+          return method === '*' ? [...METHODS] : [method as string]
+        })()
+    if (
+      options.request &&
+      normalizedMethods.some((m) => methodsWithNoBody.includes(m))
+    ) {
+      throw new Error(
+        `Request schema ('request') is not allowed on routes with method GET or HEAD`,
+      )
+    }
+    if (Array.isArray(actualMethod)) {
+      actualMethod.map((method) => {
+        if (method === '*') {
+          for (const m of METHODS) {
+            this.add({
+              method: m,
+              path: options.path,
+              handler: options.handler,
+              hooks: options,
+            })
+          }
+        } else {
+          this.add({
+            method,
+            path: options.path,
+            handler: options.handler,
+            hooks: options,
+          })
+        }
+      })
+    } else {
+      if (actualMethod === '*') {
+        for (const method of METHODS) {
+          this.add({
+            method,
+            path: options.path,
+            handler: options.handler,
+            hooks: options,
+          })
+        }
+      } else {
+        this.add({
+          method: actualMethod,
+          path: options.path,
+          handler: options.handler,
+          hooks: options,
+        })
+      }
+    }
 
     return this as any
   }
@@ -491,6 +623,7 @@ export class Spiceflow<
     const LocalSchema extends InputSchema<keyof Definitions['type'] & string>,
     const Schema extends UnwrapRoute<LocalSchema, Definitions['type']>,
     const Handle extends InlineHandler<
+      this,
       Schema,
       Singleton,
       JoinPath<BasePath, Path>
@@ -512,12 +645,12 @@ export class Spiceflow<
     Singleton,
     Definitions,
     Metadata,
-    Routes &
+    ClientRoutes &
       CreateClient<
         JoinPath<BasePath, Path>,
         {
           patch: {
-            body: Schema['body']
+            request: GetRequestSchema<Schema>
             params: undefined extends Schema['params']
               ? ResolvePath<Path>
               : Schema['params']
@@ -526,7 +659,8 @@ export class Spiceflow<
             response: ComposeSpiceflowResponse<Schema['response'], Handle>
           }
         }
-      >
+      >,
+    RoutePaths | JoinPath<BasePath, Path>
   > {
     this.add({ method: 'PATCH', path, handler: handler, hooks: hook })
 
@@ -538,6 +672,7 @@ export class Spiceflow<
     const LocalSchema extends InputSchema<keyof Definitions['type'] & string>,
     const Schema extends UnwrapRoute<LocalSchema, Definitions['type']>,
     const Handle extends InlineHandler<
+      this,
       Schema,
       Singleton,
       JoinPath<BasePath, Path>
@@ -559,12 +694,12 @@ export class Spiceflow<
     Singleton,
     Definitions,
     Metadata,
-    Routes &
+    ClientRoutes &
       CreateClient<
         JoinPath<BasePath, Path>,
         {
           delete: {
-            body: Schema['body']
+            request: GetRequestSchema<Schema>
             params: undefined extends Schema['params']
               ? ResolvePath<Path>
               : Schema['params']
@@ -573,7 +708,8 @@ export class Spiceflow<
             response: ComposeSpiceflowResponse<Schema['response'], Handle>
           }
         }
-      >
+      >,
+    RoutePaths | JoinPath<BasePath, Path>
   > {
     this.add({ method: 'DELETE', path, handler: handler, hooks: hook })
 
@@ -585,6 +721,7 @@ export class Spiceflow<
     const LocalSchema extends InputSchema<keyof Definitions['type'] & string>,
     const Schema extends UnwrapRoute<LocalSchema, Definitions['type']>,
     const Handle extends InlineHandler<
+      this,
       Schema,
       Singleton,
       JoinPath<BasePath, Path>
@@ -606,12 +743,12 @@ export class Spiceflow<
     Singleton,
     Definitions,
     Metadata,
-    Routes &
+    ClientRoutes &
       CreateClient<
         JoinPath<BasePath, Path>,
         {
           options: {
-            body: Schema['body']
+            request: GetRequestSchema<Schema>
             params: undefined extends Schema['params']
               ? ResolvePath<Path>
               : Schema['params']
@@ -620,7 +757,8 @@ export class Spiceflow<
             response: ComposeSpiceflowResponse<Schema['response'], Handle>
           }
         }
-      >
+      >,
+    RoutePaths | JoinPath<BasePath, Path>
   > {
     this.add({ method: 'OPTIONS', path, handler: handler, hooks: hook })
 
@@ -632,6 +770,7 @@ export class Spiceflow<
     const LocalSchema extends InputSchema<keyof Definitions['type'] & string>,
     const Schema extends UnwrapRoute<LocalSchema, Definitions['type']>,
     const Handle extends InlineHandler<
+      this,
       Schema,
       Singleton,
       JoinPath<BasePath, Path>
@@ -653,12 +792,12 @@ export class Spiceflow<
     Singleton,
     Definitions,
     Metadata,
-    Routes &
+    ClientRoutes &
       CreateClient<
         JoinPath<BasePath, Path>,
         {
           [method in string]: {
-            body: Schema['body']
+            request: GetRequestSchema<Schema>
             params: undefined extends Schema['params']
               ? ResolvePath<Path>
               : Schema['params']
@@ -667,7 +806,8 @@ export class Spiceflow<
             response: ComposeSpiceflowResponse<Schema['response'], Handle>
           }
         }
-      >
+      >,
+    RoutePaths | JoinPath<BasePath, Path>
   > {
     for (const method of METHODS) {
       this.add({ method, path, handler: handler, hooks: hook })
@@ -681,6 +821,7 @@ export class Spiceflow<
     const LocalSchema extends InputSchema<keyof Definitions['type'] & string>,
     const Schema extends UnwrapRoute<LocalSchema, Definitions['type']>,
     const Handle extends InlineHandler<
+      this,
       Schema,
       Singleton,
       JoinPath<BasePath, Path>
@@ -702,12 +843,12 @@ export class Spiceflow<
     Singleton,
     Definitions,
     Metadata,
-    Routes &
+    ClientRoutes &
       CreateClient<
         JoinPath<BasePath, Path>,
         {
           head: {
-            body: Schema['body']
+            request: GetRequestSchema<Schema>
             params: undefined extends Schema['params']
               ? ResolvePath<Path>
               : Schema['params']
@@ -716,7 +857,8 @@ export class Spiceflow<
             response: ComposeSpiceflowResponse<Schema['response'], Handle>
           }
         }
-      >
+      >,
+    RoutePaths | JoinPath<BasePath, Path>
   > {
     this.add({ method: 'HEAD', path, handler: handler, hooks: hook })
 
@@ -810,20 +952,22 @@ export class Spiceflow<
         Definitions,
         Metadata,
         BasePath extends ``
-          ? Routes & NewSpiceflow['_routes']
-          : Routes & CreateClient<BasePath, NewSpiceflow['_routes']>
+          ? ClientRoutes & NewSpiceflow['_types']['ClientRoutes']
+          : ClientRoutes &
+              CreateClient<BasePath, NewSpiceflow['_types']['ClientRoutes']>,
+        RoutePaths | NewSpiceflow['_types']['RoutePaths']
       >
   use<const Schema extends RouteSchema>(
-    handler: MiddlewareHandler<
-      Schema,
-      {
-        state: Singleton['state']
-      }
-    >,
+    handler: MiddlewareHandler<Schema, Singleton>,
   ): this
 
   use(appOrHandler) {
     if (appOrHandler instanceof Spiceflow) {
+      appOrHandler.topLevelApp = this
+      // Inherit disableSuperJsonUnlessRpc from parent if child doesn't have it set
+      if (this.disableSuperJsonUnlessRpc === true) {
+        appOrHandler.disableSuperJsonUnlessRpc = true
+      }
       this.childrenApps.push(appOrHandler)
     } else if (typeof appOrHandler === 'function') {
       this.middlewares ??= []
@@ -833,7 +977,7 @@ export class Spiceflow<
   }
 
   onError<const Schema extends RouteSchema>(
-    handler: MaybeArray<ErrorHandler<Definitions['error'], Schema, Singleton>>,
+    handler: ErrorHandler<Definitions['error'], Schema, Singleton>,
   ): this {
     this.onErrorHandlers ??= []
     this.onErrorHandlers.push(handler as any)
@@ -1041,20 +1185,40 @@ export class Spiceflow<
     })
   }
 
-  async handle(request: Request) {
+  handle = async (
+    request: Request,
+    { state: customState }: { state?: Singleton['state'] } = {},
+  ): Promise<Response> => {
     let u = new URL(request.url, 'http://localhost')
     const self = this
     let path = u.pathname
+    let onErrorHandlers: OnError[] = []
+
+    // Wrap waitUntil with error handling
+    const wrappedWaitUntil: WaitUntil = (promise: Promise<any>) => {
+      const wrappedPromise = promise.catch(async (error) => {
+        const spiceflowError: SpiceflowServerError =
+          error instanceof Error ? error : new Error(String(error))
+        await this.runErrorHandlers({
+          context,
+          onErrorHandlers,
+          error: spiceflowError,
+          request,
+        })
+      })
+      return this.waitUntilFn(wrappedPromise)
+    }
+
     const context = {
       redirect,
-      state: cloneDeep(this.defaultState),
+      state: customState || cloneDeep(this.defaultState),
       query: parseQuery((u.search || '').slice(1)),
       request,
       path,
       params: {},
+      waitUntil: wrappedWaitUntil,
     }
     const root = this.topLevelApp || this
-    let onErrorHandlers: OnError[] = []
 
     const routes = this.match(request.method, path)
 
@@ -1145,6 +1309,7 @@ export class Spiceflow<
       }
       if (isResponse(err)) return err
       let res = await self.runErrorHandlers({
+        context,
         onErrorHandlers,
         error: err,
         request,
@@ -1152,12 +1317,16 @@ export class Spiceflow<
 
       if (isResponse(res)) return res
 
-      let status = err?.status ?? 500
+      let status = err?.status ?? err?.statusCode ?? 500
+      // Ensure status is a valid HTTP status code (100-599)
+      if (typeof status !== 'number' || status < 100 || status > 599) {
+        status = 500
+      }
       res ||= new Response(
-        superjsonSerialize({
+        self.superjsonSerialize({
           ...err,
           message: err?.message || 'Internal Server Error',
-        }),
+        }, false, request),
         {
           status,
           headers: {
@@ -1181,23 +1350,23 @@ export class Spiceflow<
           if (!result && index < middlewares.length) {
             return await next()
           } else if (result) {
-            return await turnHandlerResultIntoResponse(result, route?.route)
+            return await self.turnHandlerResultIntoResponse(result, route?.route, request)
           }
         }
         if (handlerResponse) {
           return handlerResponse
         }
 
-        context.query = runValidation(
+        context.query = await runValidation(
           context.query,
           route?.route?.validateQuery,
         )
-        context.params = runValidation(
+        context.params = await runValidation(
           context.params,
           route?.route?.validateParams,
         )
 
-        const res = await route?.route?.handler(context)
+        const res = await route?.route?.handler.call(self, context)
         if (isAsyncIterable(res)) {
           handlerResponse = await this.handleStream({
             generator: res,
@@ -1207,7 +1376,7 @@ export class Spiceflow<
           })
           return handlerResponse
         }
-        handlerResponse = await turnHandlerResultIntoResponse(res, route?.route)
+        handlerResponse = await self.turnHandlerResultIntoResponse(res, route?.route, request)
         return handlerResponse
       } catch (err) {
         handlerResponse = await getResForError(err)
@@ -1219,16 +1388,108 @@ export class Spiceflow<
     return response
   }
 
+  protected superjsonSerialize(value: any, indent = false, request?: Request): string {
+    const isRpcRequest = request?.headers.get('x-spiceflow-agent') === 'spiceflow-client'
+
+    // If flag is set and this is not an RPC request, use regular JSON
+    if (this.disableSuperJsonUnlessRpc && !isRpcRequest) {
+      return JSON.stringify(value, null, indent ? 2 : undefined)
+    }
+
+    // Otherwise use superjson
+    const { json, meta } = superjson.serialize(value)
+    if (json && meta) {
+      json['__superjsonMeta'] = meta
+    }
+    return JSON.stringify(json ?? null, null, indent ? 2 : undefined)
+  }
+
+  private async turnHandlerResultIntoResponse(
+    result: any,
+    route?: InternalRoute,
+    request?: Request,
+  ): Promise<Response> {
+    // if user returns a promise, await it
+    if (result instanceof Promise) {
+      result = await result
+    }
+
+    if (isResponse(result)) {
+      return result
+    }
+
+    if (route.type) {
+      if (route.type?.includes('multipart/form-data')) {
+        if (!(result instanceof Response)) {
+          throw new Error(
+            `Invalid form data returned from route handler ${
+              route.path
+            } - expected Response but got ${
+              result?.constructor?.name || typeof result
+            }. FormData cannot be returned directly - it must be wrapped in a Response object with the appropriate content-type header.`,
+          )
+        }
+      }
+      if (route.type?.includes('application/x-www-form-urlencoded')) {
+        if (!(result instanceof URLSearchParams)) {
+          throw new Error(
+            `Invalid URL encoded data returned from route handler ${
+              route.path
+            } - expected URLSearchParams but got ${
+              result?.constructor?.name || typeof result
+            }`,
+          )
+        }
+        return new Response(result, {
+          headers: {
+            'content-type': 'application/x-www-form-urlencoded',
+          },
+        })
+      }
+
+      if (route.type?.includes('text/plain')) {
+        if (typeof result !== 'string') {
+          throw new Error(
+            `Invalid text returned from route handler ${
+              route.path
+            } - expected string but got ${
+              result?.constructor?.name || typeof result
+            }`,
+          )
+        }
+        return new Response(result, {
+          headers: {
+            'content-type': 'text/plain',
+          },
+        })
+      }
+    }
+
+    return new Response(this.superjsonSerialize(result, false, request), {
+      headers: {
+        'content-type': 'application/json',
+      },
+    })
+  }
+
   private async runErrorHandlers({
+    context,
     onErrorHandlers = [] as OnError[],
     error: err,
     request,
+  }: {
+    context: Partial<MiddlewareContext>
+    onErrorHandlers?: OnError[]
+    error: SpiceflowServerError
+    request: Request
   }) {
     if (onErrorHandlers.length === 0) {
       console.error(`Spiceflow unhandled error:`, err)
     } else {
       for (const errHandler of onErrorHandlers) {
-        const res = errHandler({ error: err, request })
+        const reqUrl = new URL(request.url)
+        const path = reqUrl.pathname + reqUrl.search
+        const res = errHandler({ ...context, path, error: err, request })
         if (isResponse(res)) {
           return res
         }
@@ -1240,6 +1501,30 @@ export class Spiceflow<
         }
       }
     }
+  }
+
+  private joinBasePaths(basePaths: (string | undefined)[]): string {
+    // Filter out empty/undefined paths and remove consecutive duplicates
+    const filteredPaths = basePaths
+      .filter((path): path is string => path !== undefined && path !== '')
+      .filter((path, index, arr) => index === 0 || path !== arr[index - 1])
+
+    // Skip paths that are prefixes of the previous path (parent is prefix of child)
+    const result: string[] = []
+    for (let i = 0; i < filteredPaths.length; i++) {
+      const currentPath = filteredPaths[i]
+      const previousPath = result[result.length - 1]
+
+      // Skip if the previous path is a prefix of the current path
+      if (previousPath && currentPath.startsWith(previousPath)) {
+        // Replace the previous path with the current path (which is longer)
+        result[result.length - 1] = currentPath
+      } else {
+        result.push(currentPath)
+      }
+    }
+
+    return result.join('')
   }
 
   private getAppAndParents(currentApp?: AnySpiceflow) {
@@ -1291,110 +1576,71 @@ export class Spiceflow<
   }
 
   async listen(port: number, hostname: string = '0.0.0.0') {
-    // @ts-ignore
+    const app = this
     if (typeof Bun !== 'undefined') {
-      // @ts-ignore
       const server = Bun.serve({
         port,
-        development: !isProduction,
+        development: (Bun.env.NODE_ENV ?? Bun.env.ENV) !== 'production',
         hostname,
         reusePort: true,
         error(error) {
           console.error(error)
           return new Response(
-            superjsonSerialize({ message: 'Internal Server Error' }),
+            app.superjsonSerialize({ message: 'Internal Server Error' }),
             {
               status: 500,
             },
           )
         },
-
-        fetch: async (request) => {
-          const res = await this.handle(request)
+        async fetch(request) {
+          const res = await app.handle(request)
           return res
         },
       })
+
       process.on('beforeExit', () => {
         server.stop()
       })
-      console.log(`Listening on http://localhost:${port}`)
-      return server
+
+      const displayedHost =
+        server.hostname === '0.0.0.0' ? 'localhost' : server.hostname
+      console.log(`Listening on http://${displayedHost}:${server.port}`)
+
+      return { port: server.port, server }
     }
-    return this.listenNode(port, hostname)
+
+    return this.listenForNode(port, hostname)
   }
 
-  async listenNode(port: number, hostname: string = '0.0.0.0') {
-    const { Readable } = await import('stream')
-    const { createServer } = await import('http')
+  /**
+   * @deprecated Use `handleForNode` instead.
+   */
+  async handleNode(
+    req: IncomingMessage,
+    res: ServerResponse,
+    context: { state?: Singleton['state'] } = {},
+  ) {
+    return this.handleForNode(req, res, context)
+  }
 
-    const server = createServer(async (req, res) => {
-      const abortController = new AbortController()
-      const { signal } = abortController
+  handleForNode = (
+    req: IncomingMessage,
+    res: ServerResponse,
+    context: { state?: Singleton['state'] } = {},
+  ) => {
+    return handleForNode(this, req, res, context)
+  }
 
-      req.on('error', (err) => {
-        abortController.abort()
-      })
-      req.on('aborted', (err) => {
-        abortController.abort()
-      })
-      // this is how you see when a request is aborted in Node.js, laughable
-      res.on('close', function () {
-        let aborted = !res.writableFinished
-        if (aborted) {
-          abortController.abort()
-        }
-      })
-
-      const url = new URL(
-        req.url || '',
-        `http://${req.headers.host || hostname || 'localhost'}`,
+  /* @deprecated */
+  async listenForNode(port: number, hostname: string = '0.0.0.0') {
+    if (typeof Bun !== 'undefined') {
+      console.warn(
+        "Server is being started with node:http but the current runtime is Bun, not Node. Consider using the method 'handle' with 'Bun.serve' instead.",
       )
-      const typedRequest = new SpiceflowRequest(url.toString(), {
-        method: req.method,
-        headers: req.headers as HeadersInit,
-        body:
-          req.method !== 'GET' && req.method !== 'HEAD'
-            ? (Readable.toWeb(req) as any)
-            : null,
-        signal,
-        // @ts-ignore
-        duplex: 'half',
-        // keepalive: true,
-      })
-
-      try {
-        const response = (await this.handle(typedRequest)) as Response
-
-        res.statusCode = response.status
-        for (const [key, value] of response.headers) {
-          res.setHeader(key, value)
-        }
-
-        if (response.body) {
-          const reader = response.body.getReader()
-          while (true) {
-            const { done, value } = await reader.read()
-            if (done) break
-            res.write(value)
-          }
-        }
-        res.end()
-      } catch (error) {
-        console.error('Error handling request:', error)
-        res.statusCode = 500
-        res.end(superjsonSerialize({ message: 'Internal Server Error' }))
-      }
-    })
-
-    await new Promise((resolve, reject) => {
-      server.listen(port, hostname, () => {
-        console.log(`Listening on http://localhost:${port}`)
-        resolve(null)
-      })
-    })
-
-    return server
+    }
+    return listenForNode(this, port, hostname)
   }
+
   private async handleStream({
     onErrorHandlers,
     generator,
@@ -1410,7 +1656,21 @@ export class Spiceflow<
     if (init instanceof Promise) init = await init
 
     if (init?.done) {
-      return await turnHandlerResultIntoResponse(init.value, route)
+      return new Response(
+        'event: message\ndata: ' +
+          this.superjsonSerialize(init.value, false, request) +
+          '\n\n' +
+          'event: done\n\n',
+        {
+          headers: {
+            'Content-Type': 'text/event-stream',
+            'Cache-Control': 'no-cache',
+            // fix for fly.io streaming
+            // https://github.com/vercel/next.js/issues/9965#issuecomment-584319868
+            'content-encoding': 'none',
+          },
+        },
+      )
     }
 
     let self = this
@@ -1454,7 +1714,7 @@ export class Spiceflow<
             controller.enqueue(
               Buffer.from(
                 'event: message\ndata: ' +
-                  superjsonSerialize(init.value, false) +
+                  self.superjsonSerialize(init.value, false, request) +
                   '\n\n',
               ),
             )
@@ -1467,13 +1727,14 @@ export class Spiceflow<
               controller.enqueue(
                 Buffer.from(
                   'event: message\ndata: ' +
-                    superjsonSerialize(chunk, false) +
+                    self.superjsonSerialize(chunk, false, request) +
                     '\n\n',
                 ),
               )
             }
           } catch (error: any) {
             let res = await self.runErrorHandlers({
+              context: {},
               onErrorHandlers: onErrorHandlers,
               error,
               request,
@@ -1481,12 +1742,13 @@ export class Spiceflow<
             controller.enqueue(
               Buffer.from(
                 'event: error\ndata: ' +
-                  superjsonSerialize(
+                  self.superjsonSerialize(
                     {
                       ...error,
                       message: error.message || error.name || 'Error',
                     },
                     false,
+                    request
                   ) +
                   '\n\n',
               ),
@@ -1505,65 +1767,43 @@ export class Spiceflow<
         headers: {
           'transfer-encoding': 'chunked',
           'content-type': 'text/event-stream; charset=utf-8',
+          // fix for fly.io streaming
+          // https://github.com/vercel/next.js/issues/9965#issuecomment-584319868
+          'content-encoding': 'none',
+          'cache-control': 'no-cache',
         },
       },
     )
   }
+  safePath<
+    const Path extends RoutePaths,
+    const Params extends ExtractParamsFromPath<Path>,
+  >(
+    path: Path,
+    ...rest: [Params] extends [undefined]
+      ? [] | [params?: Params]
+      : [params: Params]
+  ): string {
+    let params = (rest.length > 0 ? rest[0] : undefined) as Params | undefined
+    let result = path as string
+
+    // Handle all provided parameters
+    if (params && typeof params === 'object') {
+      Object.entries(params).forEach(([key, value]) => {
+        if (key === '*') {
+          // Replace wildcard
+          result = result.replace(/\*/, String(value))
+        } else {
+          // Replace named parameters as before
+          const regex = new RegExp(`:${key}`, 'g')
+          result = result.replace(regex, String(value))
+        }
+      })
+    }
+
+    return result
+  }
 }
-
-// async function getRequestBody({
-// 	request,
-// 	content,
-// }: {
-// 	content
-// 	request: Request
-// }) {
-// 	let body: string | Record<string, any> | undefined
-// 	if (request.method === 'GET' || request.method === 'HEAD') {
-// 		return
-// 	}
-
-// 	const contentType =
-// 		content || request.headers.get('content-type')?.split(';')?.[0]
-
-// 	if (!contentType) {
-// 		return
-// 	}
-
-// 	switch (contentType) {
-// 		case 'application/json':
-// 			body = (await request.json()) as any
-// 			break
-
-// 		case 'text/plain':
-// 			body = await request.text()
-// 			break
-
-// 		case 'application/x-www-form-urlencoded':
-// 			body = parseQuery.parse(await request.text()) as any
-// 			break
-
-// 		case 'application/octet-stream':
-// 			body = await request.arrayBuffer()
-// 			break
-
-// 		case 'multipart/form-data':
-// 			body = {}
-
-// 			const form = await request.formData()
-// 			for (const key of form.keys()) {
-// 				if (body[key]) continue
-
-// 				const value = form.getAll(key)
-// 				if (value.length === 1) body[key] = value[0]
-// 				else body[key] = value
-// 			}
-
-// 			break
-// 	}
-
-// 	return body
-// }
 
 const METHODS = [
   'ALL',
@@ -1598,8 +1838,10 @@ function bfsFind<T>(
   }
   return
 }
+
+
 export class SpiceflowRequest<T = any> extends Request {
-  validateBody?: ValidateFunction
+  validateBody?: ValidationFunction
 
   async json(): Promise<T> {
     const body = (await super.json()) as Promise<T>
@@ -1692,7 +1934,6 @@ export async function turnHandlerResultIntoResponse(
 }
 
 function superjsonSerialize(value: any, indent = false) {
-  // return JSON.stringify(value)
   const { json, meta } = superjson.serialize(value)
   if (json && meta) {
     json['__superjsonMeta'] = meta
@@ -1700,11 +1941,13 @@ function superjsonSerialize(value: any, indent = false) {
   return JSON.stringify(json ?? null, null, indent ? 2 : undefined)
 }
 
-export type AnySpiceflow = Spiceflow<any, any, any, any, any, any>
+export type { InternalRoute }
+
+export type AnySpiceflow = Spiceflow<any, any, any, any, any, any, any>
 
 export function isZodSchema(value: unknown): value is ZodType {
   return (
-    value instanceof z.ZodType ||
+    value instanceof ZodType ||
     (typeof value === 'object' &&
       value !== null &&
       'parse' in value &&
@@ -1714,27 +1957,49 @@ export function isZodSchema(value: unknown): value is ZodType {
   )
 }
 
-function getValidateFunction(schema: TypeSchema) {
-  if (isZodSchema(schema)) {
-    let jsonSchema = zodToJsonSchema(schema, {
-      removeAdditionalStrategy: 'strict',
-    })
-    return ajv.compile(jsonSchema)
-  }
+import type * as z4 from 'zod/v4/core'
 
-  if (schema) {
-    return ajv.compile(schema)
+/** `true` ⇒ the value was created by Zod 4, `false` ⇒ Zod 3 */
+export function isZod4(schema: any): schema is z4.$ZodObject {
+  return '_zod' in schema // ⇦ only v4 adds this marker
+}
+
+function getValidateFunction(
+  schema: TypeSchema,
+): ValidationFunction | undefined {
+  if (!schema) {
+    return
+  }
+  try {
+    return schema['~standard'].validate
+  } catch (error) {
+    console.log(`not a standard schema: ${schema}`)
+    return undefined
   }
 }
 
-function runValidation(value: any, validate?: ValidateFunction) {
+async function runValidation(value: any, validate?: ValidationFunction) {
   if (!validate) return value
-  const valid = validate(value)
-  if (!valid) {
-    const error = ajv.errorsText(validate.errors, {
-      separator: '\n',
-    })
-    throw new ValidationError(error)
+
+  let result = validate(value)
+  if (result instanceof Promise) {
+    result = await result
+  }
+
+  if (result.issues && result.issues.length > 0) {
+    const errorMessages = result.issues
+      .map((issue) => {
+        let pathString = ''
+        if (issue.path && issue.path.length > 0) {
+          pathString = issue.path.join('.') + ': '
+        }
+        return pathString + issue.message
+      })
+      .join('\\n')
+    throw new ValidationError(errorMessages || 'Validation failed')
+  }
+  if ('value' in result) {
+    return result.value
   }
   return value
 }
@@ -1791,7 +2056,7 @@ export function extractWildcardParam(
 }
 
 export function cloneDeep(x) {
-  return lodashCloneDeep(x)
+  return copy(x)
 }
 
 function routeSorter(a: InternalRoute, b: InternalRoute) {

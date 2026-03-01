@@ -1,14 +1,13 @@
-import { JSONSchemaType } from 'ajv'
-import { isZodSchema, Spiceflow } from './spiceflow.js'
+import { InternalRoute, isZod4, isZodSchema, Spiceflow } from './spiceflow.js'
 
 import type { OpenAPIV3 } from 'openapi-types'
 
 let excludeMethods = ['OPTIONS']
 
-import type { InternalRoute, TypeSchema } from './types.js'
+import type { TypeSchema } from './types.js'
 
-import { z } from 'zod'
 import { zodToJsonSchema } from 'zod-to-json-schema'
+import { z } from 'zod/v4'
 
 const extractParamNames = (path: string): string[] => {
   return path.split('/').reduce((params: string[], segment) => {
@@ -122,8 +121,10 @@ const registerSchemaPath = ({
   schema,
   route,
   models,
+  basePath,
 }: {
   schema: Partial<OpenAPIV3.PathsObject>
+  basePath: string
   route: InternalRoute
   models: Record<string, TypeSchema>
 }) => {
@@ -139,7 +140,7 @@ const registerSchemaPath = ({
 
   const path = toOpenAPIPath(route.path)
 
-  const bodySchema = getJsonSchema(hooks?.body)
+  const bodySchema = getJsonSchema(hooks?.request || hooks?.body)
   let paramsSchema = hooks?.params
   if (route.path.includes(':') && !paramsSchema) {
     const paramNames = extractParamNames(route.path)
@@ -221,56 +222,54 @@ const registerSchemaPath = ({
         },
       }
     } else {
-      Object.entries(responseSchema as Record<string, TypeSchema>).forEach(
-        ([key, value]) => {
-          if (typeof value === 'string') {
-            if (!models[value]) return
+      Object.entries(responseSchema).forEach(([key, value]) => {
+        if (typeof value === 'string') {
+          if (!models[value]) return
 
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            const {
-              type,
-              properties,
-              required,
-              additionalProperties: _1,
-              patternProperties: _2,
-              ...rest
-            } = getJsonSchema(models[value])
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          const {
+            type,
+            properties,
+            required,
+            additionalProperties: _1,
+            patternProperties: _2,
+            ...rest
+          } = getJsonSchema(models[value])
 
-            openapiResponse[key] = {
-              ...rest,
-              description: rest.description as any,
-              content: mapTypesResponse(contentTypes, value),
-            }
-          } else {
-            const schema = getJsonSchema(value)
-            const {
-              type,
-              properties,
-              required,
-              additionalProperties,
-              patternProperties,
-              ...rest
-            } = schema
-
-            openapiResponse[key] = {
-              ...rest,
-              description: (rest.description as any) || '',
-              content: mapTypesResponse(
-                contentTypes,
-                type === 'object' || type === 'array'
-                  ? ({
-                      type,
-                      properties,
-                      patternProperties,
-                      items: rest.items,
-                      required,
-                    } as any)
-                  : schema,
-              ),
-            }
+          openapiResponse[key] = {
+            ...rest,
+            description: rest.description as any,
+            content: mapTypesResponse(contentTypes, value),
           }
-        },
-      )
+        } else {
+          const schema = getJsonSchema(value)
+          const {
+            type,
+            properties,
+            required,
+            additionalProperties,
+            patternProperties,
+            ...rest
+          } = schema
+
+          openapiResponse[key] = {
+            ...rest,
+            description: (rest.description as any) || '',
+            content: mapTypesResponse(
+              contentTypes,
+              type === 'object' || type === 'array'
+                ? ({
+                    type,
+                    properties,
+                    patternProperties,
+                    items: rest.items,
+                    required,
+                  } as any)
+                : schema,
+            ),
+          }
+        }
+      })
     }
   } else if (typeof responseSchema === 'string') {
     if (!(responseSchema in models)) return
@@ -380,6 +379,7 @@ export const openapi = <Path extends string = '/openapi'>({
   const relativePath = path.startsWith('/') ? path.slice(1) : path
 
   const app = new Spiceflow({ name: 'openapi' }).get(path, ({}) => {
+    const basePath = app.topLevelApp!.basePath // TODO this does not work
     let routes = app.getAllRoutes()
     if (routes.length !== totalRoutes) {
       const ALLOWED_METHODS = [
@@ -395,6 +395,7 @@ export const openapi = <Path extends string = '/openapi'>({
       totalRoutes = routes.length
 
       routes.forEach((route: InternalRoute) => {
+        if (route.path.startsWith('_mcp_')) return
         if (route.hooks?.detail?.hide === true) return
         // TODO: route.hooks?.detail?.hide !== false  add ability to hide: false to prevent excluding
         if (excludeMethods.includes(route.method)) return
@@ -407,9 +408,10 @@ export const openapi = <Path extends string = '/openapi'>({
         if (route.method === 'ALL') {
           ALLOWED_METHODS.forEach((method) => {
             registerSchemaPath({
+              basePath,
               schema,
               route: { ...route, method },
-              // @ts-ignore
+
               models: app.definitions?.type,
             })
           })
@@ -417,6 +419,7 @@ export const openapi = <Path extends string = '/openapi'>({
         }
 
         registerSchemaPath({
+          basePath,
           schema,
           route,
           // @ts-ignore
@@ -425,7 +428,7 @@ export const openapi = <Path extends string = '/openapi'>({
       })
     }
 
-    return {
+    const doc = {
       openapi: '3.1.3',
       ...{
         ...additional,
@@ -452,17 +455,39 @@ export const openapi = <Path extends string = '/openapi'>({
         },
       },
     } satisfies OpenAPIV3.Document
+
+    return new Response(JSON.stringify(doc, null, 2), {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
   })
 
   return app
 }
 
-function getJsonSchema(schema: TypeSchema): JSONSchemaType<any> {
+function getJsonSchema(schema: TypeSchema) {
   if (!schema) return undefined as any
-  if (isZodSchema(schema)) {
-    let jsonSchema = zodToJsonSchema(schema, {
-      removeAdditionalStrategy: 'strict',
+
+  if (isZod4(schema)) {
+    let jsonSchema = z.toJSONSchema(schema, {
+      override(ctx) {
+        const schema = ctx.zodSchema
+        if (
+          schema instanceof z.core.$ZodObject &&
+          schema._zod.def.catchall === undefined
+        ) {
+          delete ctx.jsonSchema.additionalProperties
+        }
+      },
     })
+    const { $schema, ...rest } = jsonSchema
+    return rest as any
+  }
+  if (isZodSchema(schema)) {
+    let jsonSchema = zodToJsonSchema(schema as any, {
+      removeAdditionalStrategy: 'strict',
+    }) as any
     const { $schema, ...rest } = jsonSchema
     return rest as any
   }

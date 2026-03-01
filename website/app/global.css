@@ -1,3 +1,4 @@
+@import '@code-hike/mdx/styles';
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

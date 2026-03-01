@@ -1,7 +1,15 @@
-import { Spiceflow } from '../src/spiceflow.js'
+import { Spiceflow } from '../src/spiceflow.ts'
 
 const app = new Spiceflow()
-  .get('/', () => 'Hi')
+  .get('/', () => {
+    console.log('running')
+    return new Response('Hello World')
+  })
+  .post('/', async (c) => {
+    console.log('running')
+    const body = await c.request.text()
+    return new Response(body)
+  })
   .get('/id/:id', (c) => {
     const responseBody = `${c.params.id} ${c.query.name}`
     const headers = new Headers({
@@ -14,4 +22,4 @@ const app = new Spiceflow()
     type: 'json',
   })
 
-app.listen(3000)
+app.listen(3020)

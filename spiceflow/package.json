@@ -1,6 +1,6 @@
 {
   "name": "spiceflow",
-  "version": "1.6.2-rsc.2",
+  "version": "1.17.12",
   "description": "Simple API framework with RPC and type safety",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -10,6 +10,22 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./_node-server": {
+      "types": "./dist/_node-server.d.ts",
+      "bun": "./dist/_node-server.js",
+      "workerd": "./dist/_node-server-unsupported.js",
+      "edge-light": "./dist/_node-server-unsupported.js",
+      "netlify": "./dist/_node-server-unsupported.js",
+      "fastly": "./dist/_node-server-unsupported.js",
+      "edge-routine": "./dist/_node-server-unsupported.js",
+      "azion": "./dist/_node-server-unsupported.js",
+      "lagon": "./dist/_node-server-unsupported.js",
+      "wasmer": "./dist/_node-server-unsupported.js",
+      "arvancloud": "./dist/_node-server-unsupported.js",
+      "node": "./dist/_node-server.js",
+      "deno": "./dist/_node-server-unsupported.js",
+      "default": "./dist/_node-server-unsupported.js"
     },
     "./cors": {
       "types": "./dist/cors.d.ts",
@@ -28,7 +44,7 @@
       "default": "./dist/openapi.js"
     },
     "./src/*": {
-      "default": "./src/*"
+      "default": "./src/*.ts"
     },
     "./dist/*": {
       "types": "./dist/*.d.ts",
@@ -36,8 +52,9 @@
     }
   },
   "scripts": {
-    "build": "cp ../README.md ./README.md && rm -rf dist && tsc",
+    "build": "echo '<!-- DO NOT EDIT: This file is auto-generated from root README.md -->' > ./README.md && echo '' >> ./README.md && cat ../README.md >> ./README.md && rm -rf dist && pnpm tsc",
     "prepublishOnly": "pnpm build",
+    "typecheck": "pnpm build",
     "gen-openapi": "pnpm tsx scripts/openapi-fern.ts",
     "docs:dev": "pnpm run gen-openapi && fern docs dev",
     "docs:prod": "pnpm run gen-openapi && fern generate --docs --force",
@@ -54,20 +71,18 @@
   ],
   "keywords": [],
   "author": "Tommaso De Rossi, morse <beats.by.morse@gmail.com>",
-  "license": "",
+  "license": "MIT",
   "dependencies": {
     "@hiogawa/transforms": "^0.0.0",
     "@hiogawa/utils": "^1.7.0",
     "@jacob-ebey/react-server-dom-vite": "19.0.0-experimental.14",
-    "@sinclair/typebox": "^0.34.14",
+    "@standard-schema/spec": "^1.0.0",
     "@vitejs/plugin-react": "^4.3.4",
-    "ajv": "^8.17.1",
-    "ajv-formats": "^3.0.1",
+    "copy-anything": "^3.0.5",
     "es-module-lexer": "^1.6.0",
-    "eventsource-parser": "^3.0.0",
+    "eventsource-parser": "^3.0.2",
     "history": "^5.3.0",
     "isbot": "^4.1.0",
-    "lodash.clonedeep": "^4.5.0",
     "object-treeify": "^5.0.1",
     "openapi-types": "^12.1.3",
     "polka": "^0.5.2",
@@ -75,15 +90,14 @@
     "react-dom": "19.0.0",
     "rsc-html-stream": "^0.0.4",
     "sirv": "^3.0.0",
-    "spiceflow": "1.6.2-rsc.2",
     "superjson": "^2.2.2",
     "unplugin-rsc": "^0.0.11",
     "vite": "^6.1.0",
-    "zod": "^3.24.1",
-    "zod-to-json-schema": "^3.24.1"
+    "zod": "^4.3.6",
+    "zod-to-json-schema": "^3.24.5"
   },
   "peerDependencies": {
-    "@modelcontextprotocol/sdk": "^1.0.4"
+    "@modelcontextprotocol/sdk": "*"
   },
   "peerDependenciesMeta": {
     "@modelcontextprotocol/sdk": {
@@ -91,10 +105,11 @@
     }
   },
   "devDependencies": {
-    "@types/lodash.clonedeep": "^4.5.9",
-    "@types/node": "22.13.1",
+    "@modelcontextprotocol/sdk": "^1.25.3",
+    "@types/node": "~24.0.1",
     "@types/react": "^19.0.8",
     "@types/react-dom": "^19.0.3",
+    "ai": "^5.0.14",
     "eventsource": "^3.0.5",
     "formdata-node": "^6.0.3",
     "js-base64": "^3.7.7",

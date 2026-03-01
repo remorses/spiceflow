@@ -1,19 +1,10 @@
 // https://github.com/remorses/elysia/blob/main/src/types.ts#L6
-import Ajv, { ValidateFunction } from 'ajv'
-
+import { StandardSchemaV1 } from '@standard-schema/spec'
 import z from 'zod'
-
-import type {
-  OptionalKind,
-  Static,
-  StaticDecode,
-  TObject,
-  TSchema,
-} from '@sinclair/typebox'
 
 import type { OpenAPIV3 } from 'openapi-types'
 
-import { ZodObject, ZodTypeAny } from 'zod'
+import { ZodTypeAny } from 'zod'
 import type {
   SpiceflowContext,
   ErrorContext,
@@ -21,11 +12,9 @@ import type {
 } from './context.js'
 import {
   SPICEFLOW_RESPONSE,
-  InternalServerError,
-  ParseError,
   ValidationError,
 } from './error.js'
-import { Spiceflow } from './spiceflow.js'
+import { AnySpiceflow, Spiceflow } from './spiceflow.js'
 
 export type MaybeArray<T> = T | T[]
 export type MaybePromise<T> = T | Promise<T>
@@ -164,43 +153,45 @@ export interface MetadataBase {
   macroFn: BaseMacroFn
 }
 
-export interface RouteSchema {
+export type RouteSchema = {
   body?: unknown
+  request?: unknown
   query?: unknown
   params?: unknown
   response?: unknown
 }
 
-type OptionalField = {
-  [OptionalKind]: 'Optional'
-}
+export type TypeSchema = StandardSchemaV1
 
-export type TypeSchema = TSchema | ZodTypeAny
-
-export type TypeObject = TObject | ZodObject<any, any, any>
+export type TypeObject = StandardSchemaV1
 
 export type UnwrapSchema<
   Schema extends TypeSchema | string | undefined,
   Definitions extends Record<string, unknown> = {},
-> = undefined extends Schema
+> = Schema extends undefined
   ? unknown
-  : Schema extends ZodTypeAny
-    ? z.infer<Schema>
-    : Schema extends TSchema
-      ? Schema extends OptionalField
-        ? Prettify<Partial<Static<Schema>>>
-        : StaticDecode<Schema>
+  : Schema extends StandardSchemaV1
+    ? StandardSchemaV1.InferOutput<Schema>
+    : Schema extends ZodTypeAny
+      ? z.infer<Schema>
       : Schema extends string
         ? Definitions extends Record<Schema, infer NamedSchema>
           ? NamedSchema
           : Definitions
         : unknown
 
+export type GetRequestSchema<Schema extends InputSchema<any>> =
+  'request' extends keyof Schema
+    ? Schema['request']
+    : 'body' extends keyof Schema
+      ? Schema['body']
+      : undefined
+
 export interface UnwrapRoute<
   in out Schema extends InputSchema<any>,
   in out Definitions extends DefinitionBase['type'] = {},
 > {
-  body: UnwrapSchema<Schema['body'], Definitions>
+  request: UnwrapSchema<GetRequestSchema<Schema>, Definitions>
   query: UnwrapSchema<Schema['query'], Definitions>
   params: UnwrapSchema<Schema['params'], Definitions>
   response: Schema['response'] extends TypeSchema | string
@@ -279,9 +270,14 @@ export type HTTPMethod =
   | 'UNLOCK'
   | 'UNSUBSCRIBE'
   | 'ALL'
+  | '*'
 
 export interface InputSchema<Name extends string = string> {
+  /**
+   * @deprecated The 'body' property is deprecated, use request instead.
+   */
   body?: TypeSchema | Name
+  request?: TypeSchema | Name
   query?: TypeObject | Name
   params?: TypeObject | Name
   response?:
@@ -295,7 +291,9 @@ export interface MergeSchema<
   in out A extends RouteSchema,
   in out B extends RouteSchema,
 > {
-  body: undefined extends A['body'] ? B['body'] : A['body']
+  request: undefined extends GetRequestSchema<A>
+    ? GetRequestSchema<B>
+    : GetRequestSchema<A>
   query: undefined extends A['query'] ? B['query'] : A['query']
   params: undefined extends A['params'] ? B['params'] : A['params']
   response: {} extends A['response']
@@ -347,7 +345,15 @@ export type CoExist<Original, Target, With> =
         ? Original | With
         : Original
 
+
+type ResponseLike = {
+  status: number
+  headers?: any
+  body?: any
+}
+
 export type InlineHandler<
+  This,
   Route extends RouteSchema = {},
   Singleton extends SingletonBase = {
     state: {}
@@ -355,11 +361,12 @@ export type InlineHandler<
   Path extends string = '',
   MacroContext = {},
 > = (
+  this: This,
   context: MacroContext extends Record<string | number | symbol, unknown>
     ? Prettify<MacroContext & SpiceflowContext<Path, Route, Singleton>>
     : SpiceflowContext<Path, Route, Singleton>,
 ) =>
-  | Response
+  | ResponseLike
   | MaybePromiseIterable<
       {} extends Route['response']
         ? unknown
@@ -530,20 +537,7 @@ export type ErrorHandler<
       // 			error: Readonly<NotFoundError>
       // 		} & NeverKey<Singleton['state']>
       //   >
-      | Prettify<
-          {
-            request: Request
-            code: 'PARSE'
-            error: Readonly<ParseError>
-          } & Singleton['state']
-        >
-      | Prettify<
-          {
-            request: Request
-            code: 'INTERNAL_SERVER_ERROR'
-            error: Readonly<InternalServerError>
-          } & Partial<Singleton['state']>
-        >
+      // Removed ParseError and InternalServerError from here
       | Prettify<
           {
             [K in keyof T]: {
@@ -599,15 +593,17 @@ export type ComposedHandler = (
   context: SpiceflowContext,
 ) => MaybePromise<Response>
 
+export type ValidationFunction = (value: unknown) => StandardSchemaV1.Result<any> | Promise<StandardSchemaV1.Result<any>>
+
 export type InternalRoute = {
   method: HTTPMethod
   path: string
   type: ContentType
   handler: InlineHandler<any, any, any>
   hooks: LocalHook<any, any, any, any, any, any, any>
-  validateBody?: ValidateFunction
-  validateQuery?: ValidateFunction
-  validateParams?: ValidateFunction
+  validateBody?: ValidationFunction
+  validateQuery?: ValidationFunction
+  validateParams?: ValidationFunction
   kind?: NodeKind
   id: string
   // prefix: string
@@ -681,7 +677,7 @@ type _ComposeSpiceflowResponse<Response, Handle> = Prettify<
 >
 
 export type MergeSpiceflowInstances<
-  Instances extends Spiceflow<any, any, any, any, any, any>[] = [],
+  Instances extends AnySpiceflow[] = [],
   Prefix extends string = '',
   Scoped extends boolean = false,
   Singleton extends SingletonBase = {
@@ -698,8 +694,8 @@ export type MergeSpiceflowInstances<
   },
   Routes extends RouteBase = {},
 > = Instances extends [
-  infer Current extends Spiceflow<any, any, any, any, any, any>,
-  ...infer Rest extends Spiceflow<any, any, any, any, any, any>[],
+  infer Current extends AnySpiceflow,
+  ...infer Rest extends AnySpiceflow[],
 ]
   ? Current['_types']['Scoped'] extends true
     ? MergeSpiceflowInstances<
@@ -720,8 +716,8 @@ export type MergeSpiceflowInstances<
         Metadata & Current['_types']['Metadata'],
         Routes &
           (Prefix extends ``
-            ? Current['_routes']
-            : AddPrefix<Prefix, Current['_routes']>)
+            ? Current['_types']['ClientRoutes']
+            : AddPrefix<Prefix, Current['_types']['ClientRoutes']>)
       >
   : Spiceflow<
       Prefix,
@@ -898,3 +894,14 @@ export type JoinPath<A extends string, B extends string> = `${A}${B extends '/'
 
 export type PartialWithRequired<T, K extends keyof T> = Partial<Omit<T, K>> &
   Pick<T, K>
+
+export type GetPathsFromRoutes<Routes extends Record<string, unknown>> =
+  Routes extends Record<infer K, any> ? (K extends string ? K : never) : never
+  export type ExtractParamsFromPath<Path extends string> =
+    Path extends `${string}:${infer Param}/${infer Rest}`
+      ? { [K in Param]: string } & ExtractParamsFromPath<`/${Rest}`>
+      : Path extends `${string}:${infer Param}`
+        ? { [K in Param]: string }
+        : Path extends `${string}*${infer StarRest}`
+          ? { ['*']: string }
+          : undefined

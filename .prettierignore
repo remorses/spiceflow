@@ -1,0 +1,6 @@
+/experiments/sdk/logs/
+build/
+extracted.json5
+website/app/routes/*.mdx
+.wrangler
+pnpm-lock.yaml

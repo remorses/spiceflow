@@ -1,3 +1,0 @@
-[submodule "openapi-schema-diff"]
-	path = openapi-schema-diff
-	url = https://github.com/remorses/openapi-schema-diff.git

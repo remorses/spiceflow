@@ -1,10 +1,11 @@
 import { expect, test } from 'vitest'
-import { Spiceflow } from './spiceflow.js'
-import { openapi } from './openapi.js'
 import { z } from 'zod'
+import { z as z4 } from 'zod/v4'
+import { openapi } from './openapi.js'
+import { Spiceflow } from './spiceflow.js'
 
 test('openapi response', async () => {
-  const app = await new Spiceflow()
+  const app = new Spiceflow({ basePath: '/base' })
     .use(
       openapi({
         info: {
@@ -43,8 +44,8 @@ test('openapi response', async () => {
         return body
       },
       {
-        body: z.object({
-          name: z.string(),
+        body: z4.object({
+          name: z4.string(),
         }),
         response: z.object({
           name: z.string().optional(),
@@ -148,84 +149,17 @@ test('openapi response', async () => {
         '/ids/:id',
         ({ params }) => params.id,
         {
-          params: z.object({
-            id: z.string(),
+          params: z4.object({
+            id: z4.string(),
           }),
         },
       ),
     )
   const openapiSchema = await app
-    .handle(new Request('http://localhost/openapi'))
+    .handle(new Request('http://localhost/base/openapi'))
     .then((x) => x.json())
   expect(openapiSchema).toMatchInlineSnapshot(`
     {
-      "__superjsonMeta": {
-        "values": {
-          "paths./addBody.patch.responses.200.content.application/json.schema.items": [
-            "undefined",
-          ],
-          "paths./addBody.patch.responses.200.content.application/json.schema.patternProperties": [
-            "undefined",
-          ],
-          "paths./addBody.patch.responses.200.content.application/json.schema.required": [
-            "undefined",
-          ],
-          "paths./formWithSchemaForm.post.responses.200.content.multipart/form-data.schema.items": [
-            "undefined",
-          ],
-          "paths./formWithSchemaForm.post.responses.200.content.multipart/form-data.schema.patternProperties": [
-            "undefined",
-          ],
-          "paths./one/ids/{id}.get.parameters.0.description": [
-            "undefined",
-          ],
-          "paths./one/ids/{id}.get.parameters.0.examples": [
-            "undefined",
-          ],
-          "paths./one/ids/{id}.get.responses.404.content.application/json.schema.items": [
-            "undefined",
-          ],
-          "paths./one/ids/{id}.get.responses.404.content.application/json.schema.patternProperties": [
-            "undefined",
-          ],
-          "paths./queryParams.get.parameters.0.description": [
-            "undefined",
-          ],
-          "paths./queryParams.get.parameters.0.examples": [
-            "undefined",
-          ],
-          "paths./queryParams.get.responses.200.content.application/json.schema.items": [
-            "undefined",
-          ],
-          "paths./queryParams.get.responses.200.content.application/json.schema.patternProperties": [
-            "undefined",
-          ],
-          "paths./queryParams.get.responses.200.content.application/json.schema.required": [
-            "undefined",
-          ],
-          "paths./queryParams.post.responses.200.content.application/json.schema.items": [
-            "undefined",
-          ],
-          "paths./queryParams.post.responses.200.content.application/json.schema.patternProperties": [
-            "undefined",
-          ],
-          "paths./queryParams.post.responses.200.content.application/json.schema.required": [
-            "undefined",
-          ],
-          "paths./streamWithSchema.get.responses.200.content.application/json.schema.items": [
-            "undefined",
-          ],
-          "paths./streamWithSchema.get.responses.200.content.application/json.schema.patternProperties": [
-            "undefined",
-          ],
-          "paths./two/ids/{id}.get.parameters.0.description": [
-            "undefined",
-          ],
-          "paths./two/ids/{id}.get.parameters.0.examples": [
-            "undefined",
-          ],
-        },
-      },
       "components": {
         "schemas": {},
       },
@@ -236,14 +170,13 @@ test('openapi response', async () => {
       },
       "openapi": "3.1.3",
       "paths": {
-        "/addBody": {
+        "/base/addBody": {
           "patch": {
             "parameters": [],
             "requestBody": {
               "content": {
                 "application/json": {
                   "schema": {
-                    "additionalProperties": true,
                     "properties": {
                       "name": {
                         "type": "string",
@@ -263,14 +196,11 @@ test('openapi response', async () => {
                 "content": {
                   "application/json": {
                     "schema": {
-                      "items": null,
-                      "patternProperties": null,
                       "properties": {
                         "name": {
                           "type": "string",
                         },
                       },
-                      "required": null,
                       "type": "object",
                     },
                   },
@@ -288,7 +218,7 @@ test('openapi response', async () => {
             },
           },
         },
-        "/formWithSchemaForm": {
+        "/base/formWithSchemaForm": {
           "post": {
             "description": "This returns form data with schema",
             "responses": {
@@ -296,8 +226,6 @@ test('openapi response', async () => {
                 "content": {
                   "multipart/form-data": {
                     "schema": {
-                      "items": null,
-                      "patternProperties": null,
                       "properties": {
                         "age": {
                           "type": "string",
@@ -327,12 +255,10 @@ test('openapi response', async () => {
             },
           },
         },
-        "/one/ids/{id}": {
+        "/base/one/ids/{id}": {
           "get": {
             "parameters": [
               {
-                "description": null,
-                "examples": null,
                 "in": "path",
                 "name": "id",
                 "required": true,
@@ -356,8 +282,6 @@ test('openapi response', async () => {
                 "content": {
                   "application/json": {
                     "schema": {
-                      "items": null,
-                      "patternProperties": null,
                       "properties": {
                         "message": {
                           "type": "string",
@@ -383,7 +307,7 @@ test('openapi response', async () => {
             },
           },
         },
-        "/openapi": {
+        "/base/openapi": {
           "get": {
             "responses": {
               "200": {
@@ -405,12 +329,10 @@ test('openapi response', async () => {
             },
           },
         },
-        "/queryParams": {
+        "/base/queryParams": {
           "get": {
             "parameters": [
               {
-                "description": null,
-                "examples": null,
                 "in": "query",
                 "name": "name",
                 "required": true,
@@ -424,14 +346,11 @@ test('openapi response', async () => {
                 "content": {
                   "application/json": {
                     "schema": {
-                      "items": null,
-                      "patternProperties": null,
                       "properties": {
                         "name": {
                           "type": "string",
                         },
                       },
-                      "required": null,
                       "type": "object",
                     },
                   },
@@ -456,7 +375,6 @@ test('openapi response', async () => {
               "content": {
                 "application/json": {
                   "schema": {
-                    "additionalProperties": true,
                     "properties": {
                       "name": {
                         "type": "string",
@@ -476,14 +394,11 @@ test('openapi response', async () => {
                 "content": {
                   "application/json": {
                     "schema": {
-                      "items": null,
-                      "patternProperties": null,
                       "properties": {
                         "name": {
                           "type": "string",
                         },
                       },
-                      "required": null,
                       "type": "object",
                     },
                   },
@@ -501,7 +416,7 @@ test('openapi response', async () => {
             },
           },
         },
-        "/stream": {
+        "/base/stream": {
           "get": {
             "description": "This is a stream",
             "responses": {
@@ -527,7 +442,7 @@ test('openapi response', async () => {
             },
           },
         },
-        "/streamWithSchema": {
+        "/base/streamWithSchema": {
           "get": {
             "description": "This is a stream with schema",
             "responses": {
@@ -535,8 +450,6 @@ test('openapi response', async () => {
                 "content": {
                   "application/json": {
                     "schema": {
-                      "items": null,
-                      "patternProperties": null,
                       "properties": {
                         "count": {
                           "type": "number",
@@ -565,12 +478,10 @@ test('openapi response', async () => {
             },
           },
         },
-        "/two/ids/{id}": {
+        "/base/two/ids/{id}": {
           "get": {
             "parameters": [
               {
-                "description": null,
-                "examples": null,
                 "in": "path",
                 "name": "id",
                 "required": true,

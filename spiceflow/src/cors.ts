@@ -15,7 +15,7 @@ type CORSOptions = {
   /** Configures the Access-Control-Allow-Credentials CORS header */
   credentials?: boolean
   /** Configures the Access-Control-Expose-Headers CORS header */
-  exposeHeaders?: string[]
+  exposeHeaders?: string[] | boolean
   /** Configures browser and CDN caching duration for CORS preflight requests in seconds. Set to 0 to disable. */
   cacheAge?: number
 }
@@ -25,8 +25,8 @@ export const cors = (options?: CORSOptions): MiddlewareHandler => {
     origin: '*',
     allowMethods: ['GET', 'HEAD', 'PUT', 'POST', 'DELETE', 'PATCH'],
     allowHeaders: [],
+    credentials: false,
     exposeHeaders: [],
-    credentials: true,
     cacheAge: 21600, // 6 hours default
   }
   const opts = {
@@ -47,18 +47,12 @@ export const cors = (options?: CORSOptions): MiddlewareHandler => {
 
   return async function cors(c, next) {
     let response = await next()
+    
+    // Clone headers to make them mutable
+    const responseHeaders = new Headers(response.headers)
 
     function set(key: string, value: string) {
-      try {
-        response.headers.set(key, value)
-      } catch (error) {
-        if (error instanceof TypeError && error.message.includes('immutable')) {
-          response = new Response(response.body, response)
-          set(key, value)
-        } else {
-          throw error
-        }
-      }
+      responseHeaders.set(key, value)
     }
 
     const allowOrigin = findAllowOrigin(c.request.headers.get('origin') || '')
@@ -69,10 +63,10 @@ export const cors = (options?: CORSOptions): MiddlewareHandler => {
     // Suppose the server sends a response with an Access-Control-Allow-Origin value with an explicit origin (rather than the "*" wildcard).
     // https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Access-Control-Allow-Origin
     if (opts.origin !== '*') {
-      const existingVary = c.request.headers.get('Vary')
+      const existingVary = responseHeaders.get('Vary')
 
       if (existingVary) {
-        set('Vary', existingVary)
+        set('Vary', `${existingVary}, Origin`)
       } else {
         set('Vary', 'Origin')
       }
@@ -81,8 +75,9 @@ export const cors = (options?: CORSOptions): MiddlewareHandler => {
     if (opts.credentials) {
       set('Access-Control-Allow-Credentials', 'true')
     }
-
-    if (opts.exposeHeaders?.length) {
+    if (opts.exposeHeaders === true) {
+      set('Access-Control-Expose-Headers', '*')
+    } else if (opts.exposeHeaders && opts.exposeHeaders?.length) {
       set('Access-Control-Expose-Headers', opts.exposeHeaders.join(','))
     }
 
@@ -118,18 +113,29 @@ export const cors = (options?: CORSOptions): MiddlewareHandler => {
       }
       if (headers?.length) {
         set('Access-Control-Allow-Headers', headers.join(','))
-        c.request.headers.append('Vary', 'Access-Control-Request-Headers')
+        const existingVary = responseHeaders.get('Vary')
+        if (existingVary) {
+          set('Vary', `${existingVary}, Access-Control-Request-Headers`)
+        } else {
+          set('Vary', 'Access-Control-Request-Headers')
+        }
       }
 
-      response.headers.delete('Content-Length')
-      response.headers.delete('Content-Type')
+      responseHeaders.delete('Content-Length')
+      responseHeaders.delete('Content-Type')
 
       return new Response(null, {
-        headers: response.headers,
+        headers: responseHeaders,
         status: 204,
         statusText: response.statusText,
       })
     }
-    return response
+    
+    // Return new response with modified headers
+    return new Response(response.body, {
+      status: response.status,
+      statusText: response.statusText,
+      headers: responseHeaders,
+    })
   }
 }

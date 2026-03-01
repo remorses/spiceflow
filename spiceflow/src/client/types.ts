@@ -1,5 +1,5 @@
 /// <reference lib="dom" />
-import type { Spiceflow } from '../spiceflow.js'
+import type { AnySpiceflow, Spiceflow } from '../spiceflow.js'
 
 import { SpiceflowFetchError } from './errors.js'
 
@@ -56,16 +56,15 @@ export namespace SpiceflowClient {
     fetch?: RequestInit
   }
 
-  export type Create<App extends Spiceflow<any, any, any, any, any, any>> =
-    App extends {
-      _routes: infer Schema extends Record<string, any>
-    }
-      ? Prettify<Sign<Schema>>
-      : 'Please install Spiceflow before using the client'
+  export type Create<App extends AnySpiceflow> = App extends {
+    _types: { ClientRoutes: infer Schema extends Record<string, any> }
+  }
+    ? Prettify<Sign<Schema>>
+    : 'Install latest Spiceflow before using the client, make sure both client and server use the same version. Make sure you passed the App type generic if using createSpiceflowClient'
 
   export type Sign<in out Route extends Record<string, any>> = {
     [K in keyof Route as K extends `:${string}` ? never : K]: Route[K] extends {
-      body: infer Body
+      request: infer Body
       // headers: infer Headers
       params: any
       query: infer Query
@@ -83,13 +82,13 @@ export namespace SpiceflowClient {
                   ClientResponse<ReplaceGeneratorWithAsyncGenerator<Response>>
                 >
               : (
-                  body?: Body,
+                  request?: Body,
                   options?: Prettify<Param & ClientParam>,
                 ) => Promise<
                   ClientResponse<ReplaceGeneratorWithAsyncGenerator<Response>>
                 >
             : (
-                body: Body extends Record<string, unknown>
+                request: Body extends Record<string, unknown>
                   ? ReplaceBlobWithFiles<Body>
                   : Body,
                 options?: Prettify<Param & ClientParam>,
@@ -103,7 +102,7 @@ export namespace SpiceflowClient {
                 ClientResponse<ReplaceGeneratorWithAsyncGenerator<Response>>
               >
             : (
-                body: Body extends Record<string, unknown>
+                request: Body extends Record<string, unknown>
                   ? ReplaceBlobWithFiles<Body>
                   : Body,
                 options: Prettify<Param & ClientParam>,
@@ -141,6 +140,8 @@ export namespace SpiceflowClient {
       (path: string, options: RequestInit) => MaybePromise<RequestInit | void>
     >
     onResponse?: MaybeArray<(response: Response) => MaybePromise<unknown>>
+    retries?: number
+
     // keepDomain?: boolean
   }
 
@@ -155,6 +156,7 @@ export namespace SpiceflowClient {
         response: Response
         status: number
         headers: RequestInit['headers']
+        url: string
       }
     | {
         data: null
@@ -166,6 +168,7 @@ export namespace SpiceflowClient {
         response: Response
         status: number
         headers: RequestInit['headers']
+        url: string
       }
 
   export interface OnMessage<Data = unknown> extends MessageEvent {
