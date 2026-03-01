@@ -23,6 +23,8 @@ import { FlightDataContext } from './context.js'
 import { getErrorContext } from './errors.js'
 
 async function main() {
+  let setPayload: (v: Promise<ServerPayload>) => void = () => undefined
+
   const callServer = async (id: string, args: unknown[]) => {
     const url = new URL(window.location.href)
     url.searchParams.set('__rsc', id)
@@ -33,20 +35,19 @@ async function main() {
       }),
     )
 
-    let payload = await payloadPromise
+    setPayload(payloadPromise)
+    const payload = await payloadPromise
 
     if (payload.actionError) {
       console.log(getErrorContext(payload.actionError))
       throw payload.actionError
     }
-    setPayload(payloadPromise)
+
     return payload.returnValue
   }
   setServerCallback(callServer)
 
   const initialPayload = createFromReadableStream<ServerPayload>(rscStream)
-
-  let setPayload: (v: Promise<ServerPayload>) => void
 
   function BrowserRoot() {
     const [payload, setPayload_] = React.useState(initialPayload)

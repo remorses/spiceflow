@@ -213,16 +213,3 @@ function createVirtualPlugin(name: string, load: Plugin['load']): Plugin {
     },
   }
 }
-
-export function debugTransformResult({ transformedCode, envName, id }) {
-  if (!process.env.DEBUG_SPICEFLOW) return
-  const relativePath = path.relative(process.cwd(), id.replace(/\0/g, ''))
-  const safePath = relativePath
-    .split(path.sep)
-    .map((segment) => (segment === '..' ? '_' : segment))
-    .join(path.sep)
-  const debugPath = path.join(process.cwd(), 'debug', envName, safePath)
-  fs.mkdirSync(path.dirname(debugPath), { recursive: true })
-  fs.writeFileSync(debugPath, transformedCode)
-  return null
-}

@@ -2,10 +2,6 @@
 // Imports the user's app via virtual:app-entry and exposes a fetch handler.
 import app from 'virtual:app-entry'
 
-export interface RscHandlerResult {
-  stream: ReadableStream<Uint8Array>
-}
-
 export async function handler(request: Request) {
   const response = await app.handle(request)
   return response

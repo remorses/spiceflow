@@ -115,7 +115,7 @@ async function renderHtml({
         headers: {
           ...Object.fromEntries(response.headers),
           ...errCtx.headers,
-          contentType: 'text/html',
+          'content-type': 'text/html;charset=utf-8',
         },
       })
     }
