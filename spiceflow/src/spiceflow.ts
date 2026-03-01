@@ -33,7 +33,7 @@ import { ZodType } from 'zod'
 
 import { StandardSchemaV1 } from '@standard-schema/spec'
 import type { IncomingMessage, ServerResponse } from 'node:http'
-import { handleForNode, listenForNode } from 'spiceflow/_node-server'
+import { handleForNode, listenForNode } from './_node-server.ts'
 import { Context, MiddlewareContext } from './context.ts'
 
 import { isAsyncIterable, isResponse, redirect } from './utils.ts'
@@ -41,6 +41,24 @@ import { isAsyncIterable, isResponse, redirect } from './utils.ts'
 let globalIndex = 0
 
 type AsyncResponse = Response | Promise<Response>
+
+type PageHandler<Singleton extends SingletonBase = any, Path extends string = string> = (
+  context: Context<{}, Singleton, Path>,
+) => any | Promise<any>
+
+type LayoutHandler<Singleton extends SingletonBase = any> = (
+  context: { children: any; request: Request; state: Singleton['state'] },
+) => any | Promise<any>
+
+interface PageRoute {
+  path: string
+  handler: PageHandler
+}
+
+interface LayoutRoute {
+  path: string
+  handler: LayoutHandler
+}
 
 export type SpiceflowServerError =
   | ValidationError
@@ -111,6 +129,13 @@ export class Spiceflow<
   topLevelApp?: AnySpiceflow = this
   private waitUntilFn: WaitUntil
   private disableSuperJsonUnlessRpc: boolean = false
+
+  /** @internal */
+  _pageRoutes: PageRoute[] = []
+  /** @internal */
+  _layoutRoutes: LayoutRoute[] = []
+  /** Script URLs to include in rendered HTML pages (set by dev server) */
+  _bootstrapModules: string[] = []
 
   _types = {
     Prefix: '' as BasePath,
@@ -816,6 +841,90 @@ export class Spiceflow<
     return this as any
   }
 
+  page<const Path extends string>(
+    path: Path,
+    handler: PageHandler<Singleton, JoinPath<BasePath, Path>>,
+  ): Spiceflow<
+    BasePath,
+    Scoped,
+    Singleton,
+    Definitions,
+    Metadata,
+    ClientRoutes,
+    RoutePaths | JoinPath<BasePath, Path>
+  > {
+    const self = this
+    const pageRoute: PageRoute = { path, handler }
+    this._pageRoutes.push(pageRoute)
+
+    this.add({
+      method: 'GET',
+      path,
+      handler: async function (context) {
+        return self._handlePageRequest(context, pageRoute)
+      },
+      hooks: {},
+    })
+
+    return this as any
+  }
+
+  layout(
+    path: string,
+    handler: LayoutHandler<Singleton>,
+  ): this {
+    this._layoutRoutes.push({ path, handler })
+    return this
+  }
+
+  private _findMatchingLayouts(pagePath: string): LayoutRoute[] {
+    const root = this.topLevelApp || this
+    const allApps = bfs(root)
+    const allLayouts = allApps.flatMap((app) => app._layoutRoutes)
+
+    return allLayouts
+      .filter((layout) => {
+        if (layout.path.endsWith('/*')) {
+          const prefix = layout.path.slice(0, -2)
+          if (prefix === '') return true
+          return pagePath === prefix || pagePath.startsWith(prefix + '/')
+        }
+        return pagePath === layout.path
+      })
+      .sort((a, b) => {
+        const aLen = a.path.replace('/*', '').split('/').length
+        const bLen = b.path.replace('/*', '').split('/').length
+        return aLen - bLen
+      })
+  }
+
+  private async _handlePageRequest(
+    context: any,
+    pageRoute: PageRoute,
+  ): Promise<Response> {
+    const pageElement = await pageRoute.handler(context)
+
+    const matchingLayouts = this._findMatchingLayouts(pageRoute.path)
+
+    let element = pageElement
+    for (let i = matchingLayouts.length - 1; i >= 0; i--) {
+      element = await matchingLayouts[i].handler({
+        children: element,
+        request: context.request,
+        state: context.state,
+      })
+    }
+
+    const ReactDOMServer = await import('react-dom/server')
+    const stream = await (ReactDOMServer as any).renderToReadableStream(element, {
+      bootstrapModules: this._bootstrapModules,
+    })
+
+    return new Response(stream, {
+      headers: { 'content-type': 'text/html; charset=utf-8' },
+    })
+  }
+
   private scoped?: Scoped = true as Scoped
 
   use<const NewSpiceflow extends AnySpiceflow>(
@@ -1198,6 +1307,14 @@ export class Spiceflow<
   }
 
   async listen(port: number, hostname: string = '0.0.0.0') {
+    // if the app has page routes and we're not in production, start Vite
+    // in middleware mode so /@vite/client is served for CSS HMR and the
+    // browser auto-reloads when the process restarts (via tsx --watch etc.)
+    const isDev = process.env.NODE_ENV !== 'production'
+    if (this._pageRoutes.length > 0 && isDev) {
+      return this._listenWithVite(port, hostname)
+    }
+
     const app = this
     if (typeof Bun !== 'undefined') {
       const server = Bun.serve({
@@ -1232,6 +1349,39 @@ export class Spiceflow<
     }
 
     return this.listenForNode(port, hostname)
+  }
+
+  private async _listenWithVite(port: number, hostname: string) {
+    const { createServer: createViteServer } = await import('vite')
+
+    // Vite automatically picks up vite.config.ts from cwd. The user should
+    // have @vitejs/plugin-react in their config for JSX transforms.
+    const vite = await createViteServer({
+      server: { middlewareMode: true },
+      appType: 'custom',
+    })
+
+    this._bootstrapModules = ['/@vite/client']
+
+    const { createServer } = await import('node:http')
+    const server = createServer((req, res) => {
+      // let Vite handle /@vite/client, HMR websocket, CSS, and static files.
+      // everything else falls through to the Spiceflow request handler.
+      vite.middlewares.handle(req, res, () => {
+        this.handleForNode(req, res)
+      })
+    })
+
+    const { AddressInfo } = await import('node:net') as any
+    await new Promise<void>((resolve) => {
+      server.listen(port, hostname, () => resolve())
+    })
+
+    const addr = server.address() as import('node:net').AddressInfo
+    const displayedHost = addr.address === '0.0.0.0' ? 'localhost' : addr.address
+    console.log(`Listening on http://${displayedHost}:${addr.port}`)
+
+    return { port: addr.port, server, vite }
   }
 
   /**
