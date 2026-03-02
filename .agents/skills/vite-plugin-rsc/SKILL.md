@@ -899,6 +899,8 @@ const htmlStream = await renderToReadableStream(reactNode, {
 
 ## HMR
 
+### Overview
+
 The plugin fires `rsc:update` on the client HMR channel when server code changes.
 Frameworks listen for this and trigger an RSC re-fetch:
 
@@ -917,6 +919,213 @@ if (import.meta.hot) {
   import.meta.hot.accept()
 }
 ```
+
+### How Vite caches server modules (ModuleRunner internals)
+
+> Sources:
+> - [vite/src/module-runner/runner.ts](https://github.com/vitejs/vite/blob/main/packages/vite/src/module-runner/runner.ts) — `cachedRequest()`, `directRequest()`
+> - [vite/src/module-runner/evaluatedModules.ts](https://github.com/vitejs/vite/blob/main/packages/vite/src/module-runner/evaluatedModules.ts) — `EvaluatedModules`, `invalidateModule()`
+> - [vite/src/module-runner/esmEvaluator.ts](https://github.com/vitejs/vite/blob/main/packages/vite/src/module-runner/esmEvaluator.ts) — `new AsyncFunction()` evaluation
+> - [vite/src/module-runner/hmrHandler.ts](https://github.com/vitejs/vite/blob/main/packages/vite/src/module-runner/hmrHandler.ts) — `full-reload` handler
+
+Each Vite environment (rsc, ssr, client) has its own `ModuleRunner` with an
+`EvaluatedModules` cache. This cache is a `Map<string, EvaluatedModuleNode>` where each
+node stores:
+
+```ts
+class EvaluatedModuleNode {
+  promise: Promise<any> | undefined  // the cached evaluation result
+  exports: any | undefined           // the module's export object
+  evaluated: boolean
+  meta: ResolvedResult | undefined   // transformed code + metadata
+  importers: Set<string>             // modules that import this one
+  imports: Set<string>               // modules this one imports
+}
+```
+
+**The cache check is one line** in `runner.ts cachedRequest()`:
+
+```ts
+if (mod.promise)
+  return this.processImport(await mod.promise, meta, metadata)
+```
+
+If `mod.promise` exists, the module is served from memory — no re-transformation, no
+re-evaluation, no disk read. It returns the same exports object produced the first time.
+
+**Module evaluation uses `new AsyncFunction()`** — Vite wraps each module's transformed
+code in an async function with injected `__vite_ssr_import__`, `__vite_ssr_exports__`, etc.
+When the module does `import X from './foo'`, it calls `cachedRequest('./foo')` which
+hits the cache check above.
+
+### What happens when a file changes
+
+**Invalidation goes UP (importers), not DOWN (dependencies).**
+
+When you edit `app.ts`:
+
+```
+entry.rsc.tsx          ← invalidated (importer of app.ts)
+  └── virtual:app-entry
+        └── app.ts     ← invalidated (the edited file)
+              ├── ./routes/users.ts     ← CACHED, not re-evaluated
+              ├── ./routes/products.ts  ← CACHED, not re-evaluated
+              ├── ./lib/database.ts     ← CACHED, not re-evaluated
+              └── ./lib/auth.ts         ← CACHED, not re-evaluated
+```
+
+`invalidateModule()` in `evaluatedModules.ts` only clears the specific node:
+
+```ts
+invalidateModule(node: EvaluatedModuleNode): void {
+  node.evaluated = false
+  node.meta = undefined
+  node.promise = undefined    // cache cleared for THIS module only
+  node.exports = undefined
+  node.imports.clear()
+}
+```
+
+All other modules in the map keep their `promise` intact. When the entry re-imports
+`app.ts`, and `app.ts` re-imports its dependencies, each dependency hits the cache
+check and returns instantly.
+
+### HMR boundaries and `import.meta.hot.accept()`
+
+A module that calls `import.meta.hot.accept()` creates an **HMR boundary**. When any
+module below it changes, the update propagation stops at the boundary — it doesn't
+bubble further up. Without a boundary, updates propagate all the way to the entry and
+trigger a `full-reload` which calls `evaluatedModules.clear()` (clearing ALL cached
+modules).
+
+The RSC entry's `import.meta.hot.accept()` is critical — it prevents full-reload and
+ensures only the changed module + its importers up to the boundary are re-evaluated.
+
+### The RSC plugin's hotUpdate hook
+
+> Source: [@vitejs/plugin-rsc/src/plugin.ts](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-rsc/src/plugin.ts) — `hotUpdate()` hook
+
+The plugin's `hotUpdate` hook runs in each environment and decides how to handle changes:
+
+1. **Check if the changed module is inside a `"use client"` boundary** by walking importers
+   recursively. If yes, it's a client-side change — normal Vite client HMR handles it
+   (React Fast Refresh).
+
+2. **If NOT inside a client boundary** (server component or server-only code):
+   - The plugin calls `transformRequest(mod.url)` to eagerly re-transform the changed file
+   - Then sends a custom `rsc:update` event to the client environment
+   - The browser receives `rsc:update` and re-fetches the RSC stream for the current URL
+   - The server re-evaluates the invalidated modules (cache miss) and serves cached
+     dependencies (cache hit), producing a fresh RSC payload
+
+3. **Cross-environment invalidation**: when a client module update is sent to the browser,
+   the plugin also checks if that module exists in the RSC module graph. If so, it
+   invalidates the RSC copy too (plugin.js `configureServer` hook), keeping environments
+   in sync.
+
+The full flow:
+
+```
+File saved
+  │
+  ▼
+Vite file watcher fires
+  │
+  ▼
+hotUpdate hook: is module inside "use client" boundary?
+  │                              │
+  YES                            NO (server-only)
+  │                              │
+  ▼                              ▼
+Normal client HMR            transformRequest(changed file)
+(React Fast Refresh)            │
+                                 ▼
+                           Send "rsc:update" to browser
+                                 │
+                                 ▼
+                           Browser re-fetches RSC stream
+                                 │
+                                 ▼
+                           Server re-evaluates:
+                           - entry.rsc (invalidated) → cache miss
+                           - app.ts (invalidated) → cache miss, re-executed
+                           - routes/*.ts → cache HIT (instant)
+                           - lib/*.ts → cache HIT (instant)
+                                 │
+                                 ▼
+                           Fresh RSC payload → browser re-renders
+```
+
+### Performance implications for large apps
+
+For a big single-file app entry with many routes:
+
+- **Only the edited file + its importers up to the HMR boundary are re-evaluated.**
+  Dependencies (route handlers, libraries) are served from the `EvaluatedModules` cache.
+- **Re-evaluation = re-executing the module code.** For a file with many `.route({...})`
+  calls, this means re-running those registrations. This is pure JS execution —
+  milliseconds even for thousands of routes.
+- **Vite transforms the changed file once** (plugin pipeline, esbuild TSX → JS). Single-
+  file transforms are typically <50ms.
+- **No bundling step.** Vite serves native ESM in dev; no chunk graph recalculation.
+
+What could be slow:
+- Top-level side effects in the changed file (DB connections, heavy computations)
+- Many **new** imports not previously cached (first-time transform + evaluation)
+- A `full-reload` event (e.g., missing HMR boundary) clears ALL cached modules
+
+### Handling persistent resources across HMR (database pools, etc.)
+
+When a module is re-evaluated, all its top-level code runs again. This means
+`new Pool()`, `createClient()`, or any resource initialization creates a **new instance**
+while the old one leaks.
+
+**Solution 1: `globalThis` (simplest, survives even full-reload)**
+
+```ts
+// db.ts
+import { Pool } from 'pg'
+
+const g = globalThis as unknown as { __dbPool?: Pool }
+export const pool = (g.__dbPool ??= new Pool({
+  connectionString: process.env.DATABASE_URL,
+}))
+```
+
+`globalThis` is per-process and survives all module re-evaluations, including
+`evaluatedModules.clear()`.
+
+**Solution 2: `import.meta.hot.data` (cleaner, HMR-aware)**
+
+```ts
+// db.ts
+import { Pool } from 'pg'
+
+let pool: Pool
+
+if (import.meta.hot) {
+  // Reuse from previous module version
+  pool = import.meta.hot.data.pool ??= new Pool({
+    connectionString: process.env.DATABASE_URL,
+  })
+  // Stash on dispose (before re-evaluation)
+  import.meta.hot.dispose((data) => {
+    data.pool = pool  // don't call pool.end() — reuse it
+  })
+} else {
+  pool = new Pool({ connectionString: process.env.DATABASE_URL })
+}
+
+export { pool }
+```
+
+`import.meta.hot.data` persists across HMR updates of the same module but is cleared
+on full-reload. Use `globalThis` if the resource must survive full reloads too.
+
+**Solution 3: separate file that never changes.** If `db.ts` is never edited, its
+`EvaluatedModuleNode.promise` stays cached and the pool constructor never re-runs.
+This is the default behavior for stable infrastructure files — but `globalThis` is
+more defensive against accidental full-reloads.
 
 
 ## SSR Error Recovery
