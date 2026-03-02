@@ -16,6 +16,7 @@ Spiceflow is a lightweight, type-safe API framework for building web services us
 - Can easily generate OpenAPI spec based on your routes
 - Native support for [Fern](https://github.com/fern-api/fern) to generate docs and SDKs (see example docs [here](https://remorses.docs.buildwithfern.com))
 - Support for [Model Context Protocol](https://modelcontextprotocol.io/) to easily wire your app with LLMs
+- Full-stack React framework with React Server Components (RSC), server actions, layouts, and automatic client code splitting
 - Type safe RPC client generation
 - Simple and intuitive API
 - Uses web standards for requests and responses
@@ -1562,4 +1563,136 @@ export const client: SpiceflowClient.Create<App> = createSpiceflowClient<App>(
   PUBLIC_URL,
   {},
 )
+```
+
+## React Framework (RSC)
+
+Spiceflow includes a full-stack React framework built on React Server Components (RSC). It uses Vite with `@vitejs/plugin-rsc` under the hood. Server components run on the server by default, and you use `"use client"` to mark interactive components that need to run in the browser.
+
+### Setup
+
+Install the dependencies and create a Vite config:
+
+```bash
+npm install spiceflow react react-dom
+```
+
+```ts
+// vite.config.ts
+import { defineConfig } from 'vite'
+import { spiceflowPlugin } from 'spiceflow/dist/vite'
+
+export default defineConfig({
+  plugins: [
+    spiceflowPlugin({
+      entry: './src/main.tsx',
+    }),
+  ],
+})
+```
+
+### App Entry (Server Component)
+
+The entry file defines your routes using `.page()` for pages and `.layout()` for layouts. This file runs in the RSC environment on the server.
+
+```tsx
+// src/main.tsx
+import { Spiceflow } from 'spiceflow'
+import { Counter } from './app/counter'
+
+const app = new Spiceflow()
+  .layout('/*', async ({ children }) => {
+    return (
+      <html>
+        <head>
+          <meta charSet="UTF-8" />
+        </head>
+        <body>{children}</body>
+      </html>
+    )
+  })
+  .page('/', async () => {
+    // This runs on the server — you can fetch data, access databases, etc.
+    const data = await fetchSomeData()
+    return (
+      <div>
+        <h1>Welcome</h1>
+        <p>Server-rendered data: {data.message}</p>
+        <Counter />
+      </div>
+    )
+  })
+  .page('/about', async () => {
+    return <div><h1>About</h1></div>
+  })
+
+export default app
+```
+
+### Client Components
+
+Mark interactive components with `"use client"` at the top of the file. These are hydrated in the browser and can use hooks like `useState`.
+
+```tsx
+// src/app/counter.tsx
+'use client'
+
+import { useState } from 'react'
+
+export function Counter() {
+  const [count, setCount] = useState(0)
+  return (
+    <div>
+      <p>Count: {count}</p>
+      <button onClick={() => setCount(count + 1)}>+</button>
+    </div>
+  )
+}
+```
+
+### Server Actions
+
+Use `"use server"` to define functions that run on the server but can be called from client components (e.g. form actions).
+
+```tsx
+// src/app/actions.tsx
+'use server'
+
+export async function submitForm(formData: FormData) {
+  const name = formData.get('name')
+  await saveToDatabase(name)
+}
+```
+
+### Client Code Splitting
+
+Code splitting of client components is **automatic** — you don't need `React.lazy()` or dynamic `import()`. Each `"use client"` file becomes a separate chunk, and the browser only loads the chunks needed for the current page.
+
+**How it works:** when the RSC flight stream is sent to the browser, it contains references to client component chunks rather than the actual code. The browser resolves and loads only the chunks referenced on the current page. If route `/about` uses `<Map />` and route `/dashboard` uses `<Chart />`, visiting `/about` will never download the Chart component's JavaScript.
+
+**Avoid barrel files with `"use client"`.** If you have a single file with `"use client"` that re-exports many components, all of them end up in one chunk — defeating code splitting. Instead, put `"use client"` in each individual component file:
+
+```tsx
+// BAD — one big chunk for everything
+// src/components/index.tsx
+'use client'
+export { Chart } from './chart'
+export { Map } from './map'
+export { Table } from './table'
+```
+
+```tsx
+// GOOD — each component is its own chunk
+// src/components/chart.tsx
+'use client'
+export function Chart() { /* ... */ }
+
+// src/components/map.tsx
+'use client'
+export function Map() { /* ... */ }
+
+// Re-export barrel has no directive, just passes through
+// src/components/index.tsx
+export { Chart } from './chart'
+export { Map } from './map'
 ```

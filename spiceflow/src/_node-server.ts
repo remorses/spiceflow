@@ -5,7 +5,7 @@ import {
   createServer,
 } from 'node:http'
 import { AddressInfo } from 'node:net'
-import { AnySpiceflow, type Spiceflow, SpiceflowRequest } from './spiceflow.ts'
+import { AnySpiceflow, type Spiceflow, SpiceflowRequest } from './spiceflow.js'
 
 export async function listenForNode(
   app: AnySpiceflow,

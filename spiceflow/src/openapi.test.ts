@@ -1,8 +1,8 @@
 import { expect, test } from 'vitest'
 import { z } from 'zod'
 import { z as z4 } from 'zod/v4'
-import { openapi } from './openapi.ts'
-import { Spiceflow } from './spiceflow.ts'
+import { openapi } from './openapi.js'
+import { Spiceflow } from './spiceflow.js'
 
 test('openapi response', async () => {
   const app = new Spiceflow({ basePath: '/base' })

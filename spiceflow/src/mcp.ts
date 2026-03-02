@@ -1,8 +1,8 @@
 import { OpenAPIV3 } from 'openapi-types'
-import { SSEServerTransportSpiceflow } from './mcp-transport.ts'
-import { createMCPServer } from './openapi-to-mcp.ts'
-import { openapi } from './openapi.ts'
-import { AnySpiceflow, Spiceflow } from './spiceflow.ts'
+import { SSEServerTransportSpiceflow } from './mcp-transport.js'
+import { createMCPServer } from './openapi-to-mcp.js'
+import { openapi } from './openapi.js'
+import { AnySpiceflow, Spiceflow } from './spiceflow.js'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 
 const defaultTransports = new Map<string, SSEServerTransportSpiceflow>()

@@ -1,14 +1,20 @@
 // https://github.com/remorses/elysia/blob/main/src/types.ts#L6
-
 import { StandardSchemaV1 } from '@standard-schema/spec'
 import z from 'zod'
 
 import type { OpenAPIV3 } from 'openapi-types'
 
 import { ZodTypeAny } from 'zod'
-import type { Context, ErrorContext, MiddlewareContext } from './context.ts'
-import { SPICEFLOW_RESPONSE, ValidationError } from './error.ts'
-import { AnySpiceflow, Spiceflow } from './spiceflow.ts'
+import type {
+  SpiceflowContext,
+  ErrorContext,
+  MiddlewareContext,
+} from './context.js'
+import {
+  SPICEFLOW_RESPONSE,
+  ValidationError,
+} from './error.js'
+import { AnySpiceflow, Spiceflow } from './spiceflow.js'
 
 export type MaybeArray<T> = T | T[]
 export type MaybePromise<T> = T | Promise<T>
@@ -306,7 +312,7 @@ export type Handler<
   },
   Path extends string = '',
 > = (
-  context: Context<Route, Singleton, Path>,
+  context: SpiceflowContext<Path, Route, Singleton>,
 ) => MaybePromise<
   {} extends Route['response']
     ? unknown
@@ -357,8 +363,8 @@ export type InlineHandler<
 > = (
   this: This,
   context: MacroContext extends Record<string | number | symbol, unknown>
-    ? Prettify<MacroContext & Context<Route, Singleton, Path>>
-    : Context<Route, Singleton, Path>,
+    ? Prettify<MacroContext & SpiceflowContext<Path, Route, Singleton>>
+    : SpiceflowContext<Path, Route, Singleton>,
 ) =>
   | ResponseLike
   | MaybePromiseIterable<
@@ -432,7 +438,7 @@ export type VoidHandler<
   in out Singleton extends SingletonBase = {
     state: {}
   },
-> = (context: Context<Route, Singleton>) => MaybePromise<void>
+> = (context: SpiceflowContext<'', Route, Singleton>) => MaybePromise<void>
 
 export type TransformHandler<
   in out Route extends RouteSchema = {},
@@ -443,12 +449,12 @@ export type TransformHandler<
 > = {
   (
     context: Prettify<
-      Context<
+      SpiceflowContext<
+        BasePath,
         Route,
         Omit<Singleton, 'resolve'> & {
           resolve: {}
-        },
-        BasePath
+        }
       >
     >,
   ): MaybePromise<void>
@@ -464,7 +470,7 @@ export type BodyHandler<
   context: Prettify<
     {
       contentType: string
-    } & Context<Route, Singleton, Path>
+    } & SpiceflowContext<Path, Route, Singleton>
   >,
 
   contentType: string,
@@ -485,7 +491,7 @@ export type AfterResponseHandler<
   },
 > = (
   context: Prettify<
-    Context<Route, Singleton> & {
+    SpiceflowContext<'', Route, Singleton> & {
       response: Route['response']
     }
   >,
@@ -503,6 +509,7 @@ export type ErrorHandler<
   },
 > = (
   context: ErrorContext<
+    '',
     Route,
     {
       state: Singleton['state']
@@ -582,15 +589,27 @@ export type LocalHook<
     type?: ContentType
   }
 
-export type ComposedHandler = (context: Context) => MaybePromise<Response>
+export type ComposedHandler = (
+  context: SpiceflowContext,
+) => MaybePromise<Response>
 
-export interface InternalRoute {
+export type ValidationFunction = (value: unknown) => StandardSchemaV1.Result<any> | Promise<StandardSchemaV1.Result<any>>
+
+export type InternalRoute = {
   method: HTTPMethod
   path: string
-  composed: ComposedHandler | Response | null
-  handler: Handler
+  type: ContentType
+  handler: InlineHandler<any, any, any>
   hooks: LocalHook<any, any, any, any, any, any, any>
+  validateBody?: ValidationFunction
+  validateQuery?: ValidationFunction
+  validateParams?: ValidationFunction
+  kind?: NodeKind
+  id: string
+  // prefix: string
 }
+
+export type NodeKind = 'page' | 'layout' | 'staticPage' | 'staticPageWithoutHandler'
 
 export type AddPrefix<Prefix extends string, T> = {
   [K in keyof T as Prefix extends string ? `${Prefix}${K & string}` : K]: T[K]

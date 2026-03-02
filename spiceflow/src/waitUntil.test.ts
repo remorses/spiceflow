@@ -1,5 +1,5 @@
 import { describe, test, expect, vi } from 'vitest'
-import { Spiceflow } from './spiceflow.ts'
+import { Spiceflow } from './spiceflow.js'
 
 describe('waitUntil', () => {
   test('waitUntil is available in handler context', async () => {

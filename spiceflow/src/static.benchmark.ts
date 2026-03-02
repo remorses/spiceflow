@@ -1,7 +1,7 @@
 import { bench } from 'vitest'
 
-import { Spiceflow } from './spiceflow.ts'
-import { serveStatic } from './static-node.ts'
+import { Spiceflow } from './spiceflow.js'
+import { serveStatic } from './static-node.js'
 
 bench('Spiceflow static', async () => {
   const app = new Spiceflow()

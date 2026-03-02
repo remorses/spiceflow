@@ -1,0 +1,12 @@
+{
+  "mode": "pre",
+  "tag": "rsc",
+  "initialVersions": {
+    "openapi-schema-diff": "0.0.1",
+    "spiceflow": "1.6.1",
+    "how-is-this-not-illegal": "0.1.0"
+  },
+  "changesets": [
+    "five-toes-learn"
+  ]
+}

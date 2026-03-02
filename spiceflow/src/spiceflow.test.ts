@@ -1,8 +1,8 @@
 import { test, describe, expect } from 'vitest'
 
-import { bfs, cloneDeep, Spiceflow } from './spiceflow.ts'
+import { bfs, cloneDeep, extractWildcardParam, Spiceflow } from './spiceflow.js'
 import { z } from 'zod'
-import { createSpiceflowClient } from './client/index.ts'
+import { createSpiceflowClient } from './client/index.js'
 
 test('works', async () => {
   const res = await new Spiceflow()
@@ -18,12 +18,15 @@ test('* param is a path without front slash', async () => {
   })
 
   {
+    // /upload/ with trailing slash matches /upload/* (trie router matches /* for parent path too)
+    // wildcard param is undefined since there's nothing after /upload
     const res = await app.handle(
       new Request('http://localhost/upload/', {
         method: 'POST',
       }),
     )
-    expect(res.status).toBe(404)
+    expect(res.status).toBe(200)
+    expect(await res.json()).toBeNull()
   }
   {
     const res = await app.handle(
@@ -501,6 +504,93 @@ test('GET dynamic route, params are typed with schema', async () => {
     .handle(new Request('http://localhost/ids/hi', { method: 'GET' }))
   expect(res.status).toBe(200)
   expect(await res.json()).toEqual('hi')
+})
+test('GET route with param and wildcard, both are captured', async () => {
+  const res = await new Spiceflow()
+    .state('id', '')
+    .use(({ state }) => {
+      state.id = '123'
+    })
+    .onError(({ error }) => {
+      expect(error).toBe(undefined)
+      throw error
+      // return new Response('root', { status: 500 })
+    })
+    .get('/files/:id/*', ({ params, state }) => {
+      expect(params.id).toBe('123')
+      expect(state.id).toBe('123')
+      // expect(params['*']).toBe('path/to/file.txt')
+      expect(params).toMatchInlineSnapshot(`
+        {
+          "*": "path/to/file.txt",
+          "id": "123",
+        }
+      `)
+      return params
+    })
+    .handle(
+      new Request('http://localhost/files/123/path/to/file.txt', {
+        method: 'GET',
+      }),
+    )
+  expect(res.status).toBe(200)
+  expect(await res.json()).toMatchInlineSnapshot(
+    {
+      id: '123',
+      '*': 'path/to/file.txt',
+    },
+    `
+    {
+      "*": "path/to/file.txt",
+      "id": "123",
+    }
+  `,
+  )
+})
+
+test('extractWildcardParam correctly extracts wildcard segments', () => {
+  expect(extractWildcardParam('/files/123/path/to/file.txt', '/files/:id/*'))
+    .toMatchInlineSnapshot(`
+    {
+      "*": "path/to/file.txt",
+    }
+  `)
+
+  expect(extractWildcardParam('/files/path/to/file.txt', '/files/*'))
+    .toMatchInlineSnapshot(`
+    {
+      "*": "path/to/file.txt",
+    }
+  `)
+
+  expect(
+    extractWildcardParam('/files/123', '/files/:id'),
+  ).toMatchInlineSnapshot('null')
+
+  expect(
+    extractWildcardParam('/files/123/', '/files/:id/*'),
+  ).toMatchInlineSnapshot(`null`)
+
+  expect(extractWildcardParam('/files/123/deep/path/', '/files/:id/*/'))
+    .toMatchInlineSnapshot(`
+    {
+      "*": "deep/path",
+    }
+  `)
+
+  expect(extractWildcardParam('/files/123/path/to/file.txt', '/files/:id/*'))
+    .toMatchInlineSnapshot(`
+    {
+      "*": "path/to/file.txt",
+    }
+  `)
+
+  expect(extractWildcardParam('/files/123/path/to/file.txt', '/files/:id/*'))
+    .toMatchInlineSnapshot(`
+    {
+      "*": "path/to/file.txt",
+    }
+  `)
 })
 
 test('missing route is not found', async () => {
@@ -1291,12 +1381,12 @@ test('composition with .use() works with state and onError - child app gets same
     })
     .use(childApp)
 
-  // Test successful request - state starts from child app (0), then root middleware (+1), then child middleware (+10)
+  // State starts from root app (100), then root middleware (+1), then child middleware (+10)
   const successRes = await rootApp.handle(
     new Request('http://localhost/success', { method: 'GET' }),
   )
   expect(successRes.status).toBe(200)
-  expect(await successRes.json()).toEqual({ counter: 11 }) // 0 + 1 + 10
+  expect(await successRes.json()).toEqual({ counter: 111 }) // 100 + 1 + 10
 
   // Test error case - root onError should catch child errors
   const errorRes = await rootApp.handle(
@@ -1720,12 +1810,12 @@ test('/* with all methods as not-found handler', async () => {
   expect(notFoundDeleteRes.status).toBe(200)
   expect(await notFoundDeleteRes.json()).toEqual({ message: 'Custom 404', method: 'any' })
 
-  // Wrong method on existing path still returns 404 (not caught by all('/*'))
-  // This is because the router finds a matching path but no matching method
+  // With trie router, ALL /* catches any method on any path, including DELETE on /api/users
   const wrongMethodRes = await app.handle(
     new Request('http://localhost/api/users', { method: 'DELETE' })
   )
-  expect(wrongMethodRes.status).toBe(404)
+  expect(wrongMethodRes.status).toBe(200)
+  expect(await wrongMethodRes.json()).toEqual({ message: 'Custom 404', method: 'any' })
 })
 
 test('/* priority - more specific routes always win', async () => {
@@ -1762,4 +1852,28 @@ test('/* priority - more specific routes always win', async () => {
   )
   expect(generalCatchRes.status).toBe(200)
   expect(await generalCatchRes.json()).toBe('catch-all')
+})
+
+test(':param beats wildcard regardless of registration order', async () => {
+  // wildcard registered first
+  const app1 = new Spiceflow()
+    .get('/users/*', () => 'wildcard')
+    .get('/users/:id', () => 'param')
+
+  const res1 = await app1.handle(
+    new Request('http://localhost/users/123', { method: 'GET' })
+  )
+  expect(res1.status).toBe(200)
+  expect(await res1.json()).toBe('param')
+
+  // :param registered first
+  const app2 = new Spiceflow()
+    .get('/users/:id', () => 'param')
+    .get('/users/*', () => 'wildcard')
+
+  const res2 = await app2.handle(
+    new Request('http://localhost/users/456', { method: 'GET' })
+  )
+  expect(res2.status).toBe(200)
+  expect(await res2.json()).toBe('param')
 })
