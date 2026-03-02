@@ -129,24 +129,29 @@ async function testServerAction2(page: Page, options: { js: boolean }) {
 	}
 }
 
-// RSC architecture causes SSR page reload on client component changes, which
-// races with client-side HMR and prevents the edited text from appearing reliably.
-test.skip("client hmr @dev", async ({ page }) => {
+test("client hmr @dev", async ({ page }) => {
 	await page.goto("/");
 	await page.getByText("[hydrated: 1]").click();
 	const clientCounter = page.getByTestId("client-counter").filter({ hasText: "Client counter" });
 	// client +1
-	await clientCounter.getByText("Client counter: 0").click();
-	await clientCounter
-		.getByRole("button", { name: "+" })
-		.click();
+	await clientCounter.getByRole("button", { name: "+" }).click();
 	await clientCounter.getByText("Client counter: 1").click();
-	// edit client — RSC architecture causes a full page reload (SSR re-renders client components),
-	// so client state resets to 0. We verify the edited text appears, not that state is preserved.
+	// Record the server render count before the client edit
+	const renderCountBefore = await page.getByTestId("server-render-count").textContent();
+	// edit client — replace the default prop value in client.tsx.
+	// Client HMR should NOT trigger a server re-render. Only the client module
+	// should hot-update, preserving client state and avoiding an SSR page reload.
 	const file = createEditor("src/app/client.tsx");
 	try {
-		file.edit((s) => s.replace("Client counter", "Client [EDIT] counter"));
-		await page.getByText("Client [EDIT] counter: 0").click();
+		await file.edit((s) => s.replace('name = "Client"', 'name = "Client [EDIT]"'));
+		// Verify edited text appears with preserved state (counter stays at 1).
+		// If a full page reload happened, state would reset to 0.
+		await expect(page.getByText("Client [EDIT] counter: 1")).toBeVisible();
+		// Wait to ensure any delayed server re-render would have completed
+		await page.waitForTimeout(2000);
+		// Server render count must not have changed — no server re-render happened
+		const renderCountAfter = await page.getByTestId("server-render-count").textContent();
+		expect(renderCountAfter).toBe(renderCountBefore);
 	} finally {
 		file[Symbol.dispose]();
 	}

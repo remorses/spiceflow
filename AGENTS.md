@@ -30,6 +30,78 @@ Sometimes tests work directly on database data, using prisma. To run these tests
 Never write tests yourself that call prisma or interact with database or emails. For these asks the user to write them for you.
 
 
+# e2e testing (example-react)
+
+E2e tests live in `example-react/e2e/` and use Playwright (chromium only). The dev server starts automatically via the `webServer` config in `playwright.config.ts`.
+
+## running e2e tests
+
+```bash
+# run from example-react directory, never from root
+cd example-react
+
+# run all e2e tests
+pnpm test-e2e
+
+# filter by test name
+pnpm test-e2e --grep "SSR error"
+
+# run against production build
+pnpm test-e2e-preview
+```
+
+Tests tagged `@dev` are skipped during preview runs; tests tagged `@build` are skipped during dev runs (controlled by `grepInvert` in playwright.config.ts).
+
+## rebuild dist before testing
+
+The Vite SSR middleware imports from `spiceflow/dist/` (the compiled package), NOT from source. If you modify files in `spiceflow/src/`, you must rebuild before e2e tests will pick up the changes:
+
+```bash
+cd spiceflow
+pnpm tsc --noCheck   # --noCheck skips pre-existing type errors
+```
+
+This is the most common reason e2e tests fail after code changes — stale dist files.
+
+## writing e2e tests
+
+- The base URL and port are defined at the top of `basic.test.ts`:
+  ```ts
+  const port = Number(process.env.E2E_PORT || 6174);
+  const baseURL = `http://localhost:${port}`;
+  ```
+- Use `page.goto("/path")` for browser-based tests that need rendering, JS execution, or DOM interaction.
+- Use Node.js `fetch(baseURL + "/path")` directly (not `page.evaluate`) when you need to control HTTP headers like `Origin` — browsers restrict forbidden headers.
+- Use `page.getByTestId()`, `page.getByText()`, `page.getByRole()` for locators. Prefer test-ids for stability.
+- When a `data-testid` matches multiple elements (e.g. multiple counter components on a page), use `.filter({ hasText: "..." })` to disambiguate:
+  ```ts
+  const clientCounter = page.getByTestId("client-counter").filter({ hasText: "Client counter" });
+  await clientCounter.getByRole("button", { name: "+" }).click();
+  ```
+- If a locator's text changes during the test (e.g. HMR edits), do NOT use it through a pre-filtered variable — query the page directly for the new text.
+
+## adding test routes
+
+To add a route for e2e testing, add it in `example-react/src/main.tsx` using the spiceflow API:
+
+```ts
+.page("/my-test-route", async () => {
+    return <MyComponent />;
+})
+```
+
+Client components used in tests should be created in `example-react/src/app/` with a `"use client"` directive.
+
+## HMR tests
+
+- `createEditor("src/app/file.tsx")` from `e2e/helper.ts` edits a file and auto-reverts on dispose.
+- Always call `file[Symbol.dispose]()` or use `try/finally` to restore files after edits.
+- When editing files, make sure the `replace()` string actually exists in the source. For example, `client.tsx` has `name = "Client"` as a default prop — the literal string "Client counter" does NOT exist in the file, so `replace("Client counter", ...)` would be a no-op and the HMR test would silently fail.
+- **Client HMR preserves state**: editing a client component triggers React Fast Refresh without a server re-render. Client state is preserved. Vite's SSR environment logs `page reload` internally but the browser does not actually reload — Fast Refresh handles it.
+- **Server HMR preserves server state**: editing a server component triggers RSC HMR. Server-side state (e.g. counters stored in module scope) is preserved. Client state is also preserved because no full page reload occurs.
+- The home page has a `serverRenderCount` counter (`data-testid="server-render-count"`) that increments on each RSC render. Use it in tests to verify whether a server re-render happened.
+
+
 # website
 
 the website uses react-router v7.

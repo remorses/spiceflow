@@ -22,6 +22,10 @@ import { ThrowsDuringSSR } from "./app/ssr-error";
 import { Head } from "spiceflow/dist/react/head";
 import { SpiceflowContext } from "spiceflow/dist/context";
 
+// Increments on every RSC render of the home page. Used by e2e tests to detect
+// unwanted server re-renders (e.g. client HMR should not trigger a server render).
+let serverRenderCount = 0;
+
 const app = new Spiceflow()
 	.state("middleware1", "")
 	.use(async ({ request, state }, next) => {
@@ -48,11 +52,13 @@ const app = new Spiceflow()
 		);
 	})
 	.page("/", async ({ request }) => {
+		serverRenderCount++;
 		const counter = await getCounter();
 		const serverRandom = Math.random().toString(36).slice(2);
 		return (
 			<>
 				<title>title from page</title>
+				<span data-testid="server-render-count">{serverRenderCount}</span>
 				<IndexPage counter={counter} serverRandom={serverRandom} />
 			</>
 		);
