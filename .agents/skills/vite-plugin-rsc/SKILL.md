@@ -589,28 +589,156 @@ The `<form action={serverFn}>` submits a standard POST with form data. The RSC e
 | `createTemporaryReferenceSet()` | Track non-serializable args             |
 | `createFromFetch(fetchPromise)` | Deserialize RSC stream from fetch response|
 
+### CSRF protection
 
-## RSC Payload Design
-
-The payload is the data structure serialized into the RSC flight stream. It's arbitrary —
-frameworks define their own shape:
+Server actions accept POST requests from the browser. A malicious site can forge
+cross-origin form submissions targeting your action endpoints. Frameworks should
+validate the `Origin` header on action requests:
 
 ```ts
-type RscPayload = {
-  root: React.ReactNode           // the rendered component tree
-  returnValue?: {                  // server action result (post-hydration path)
-    ok: boolean
-    data: unknown
-  }
-  formState?: ReactFormState       // useActionState result (progressive enhancement)
+function throwIfCSRFAttack(request: Request, allowedOrigins?: string[]) {
+  const origin = request.headers.get('Origin')
+  if (!origin) return // same-origin requests may omit Origin
+
+  const requestUrl = new URL(request.url)
+  if (origin === requestUrl.origin) return
+
+  if (allowedOrigins?.some((pattern) => origin.match(pattern))) return
+
+  throw new Response('Forbidden: origin mismatch', { status: 403 })
 }
 ```
 
-The payload is serialized with `renderToReadableStream(payload)` on the server and
-deserialized with `createFromReadableStream(stream)` on the client/SSR.
+React Router does this automatically via `throwIfPotentialCSRFAttack` with an
+`allowedActionOrigins` option for whitelisting trusted origins.
 
-You can put anything serializable in the payload. For example, a framework could add
-metadata, headers, or redirect instructions alongside the root component.
+### Action + rerender streaming
+
+In the basic starter example, actions are sequential: execute the action, then re-render
+the entire tree, then send the response. The client waits for everything.
+
+A more sophisticated approach (used by React Router) **streams the action result
+immediately** while the revalidation renders in parallel:
+
+```ts
+// RSC entry — after executing the action
+if (actionResult) {
+  const payload: RSCActionPayload = {
+    type: 'action',
+    actionResult,                     // available to client immediately
+    rerender: renderPayloadPromise(), // streams as it completes
+  }
+  return new Response(renderToReadableStream(payload), {
+    headers: { 'content-type': 'text/x-component' },
+  })
+}
+```
+
+On the browser side:
+
+```ts
+const payload = await createFromFetch(fetch(actionRequest))
+if (payload.type === 'action') {
+  // Action result is available immediately for optimistic UI
+  const result = await payload.actionResult
+
+  // Rerender streams in the background — when it arrives,
+  // update the UI with fresh server-rendered data
+  const rerender = await payload.rerender
+  if (rerender) {
+    startTransition(() => updateRouteState(rerender))
+  }
+}
+```
+
+This means the user sees the action result (success/failure) before the full
+re-render completes. For mutations with slow downstream effects (database writes,
+cache invalidation), this significantly improves perceived performance.
+
+The key insight: `renderToReadableStream` can serialize **promises** in the payload.
+The `actionResult` promise resolves first (it's already settled), then the `rerender`
+promise resolves later as the server finishes re-running loaders and rendering
+components. The RSC stream sends data incrementally as promises settle.
+
+
+## RSC Payload Design
+
+The payload is the data structure serialized into the RSC flight stream. It's the
+framework's main extensibility point — any serializable data can be included alongside
+the rendered component tree. The RSC server serializes it with
+`renderToReadableStream(payload)` and the client/SSR deserializes it with
+`createFromReadableStream(stream)`.
+
+### Minimal payload (starter example)
+
+```ts
+type RscPayload = {
+  root: React.ReactNode
+  returnValue?: { ok: boolean; data: unknown }
+  formState?: ReactFormState
+}
+```
+
+### Rich payload with typed variants (React Router pattern)
+
+A production framework typically needs more than just `root`. React Router uses a
+**discriminated union** with four payload types, which lets the client branch on
+`payload.type` to handle each case differently:
+
+```ts
+// Discriminated union — the client switches on `type`
+type RSCPayload =
+  | RSCRenderPayload
+  | RSCActionPayload
+  | RSCRedirectPayload
+  | RSCManifestPayload
+
+type RSCRenderPayload = {
+  type: 'render'
+  basename: string | undefined
+  location: Location
+  matches: RSCRouteMatch[]       // per-route rendered elements + metadata
+  loaderData: Record<string, any>
+  actionData: Record<string, any> | null
+  errors: Record<string, any> | null
+  formState?: unknown             // for useActionState progressive enhancement
+  patches?: RSCRouteManifest[]    // additional routes for lazy discovery
+  nonce?: string
+}
+
+type RSCActionPayload = {
+  type: 'action'
+  actionResult: Promise<unknown>            // streams immediately
+  rerender?: Promise<RSCRenderPayload>      // streams after revalidation
+}
+
+type RSCRedirectPayload = {
+  type: 'redirect'
+  status: number
+  location: string
+  replace: boolean              // should the browser replace history entry
+  reload: boolean               // should the browser do a full page reload
+  actionResult?: Promise<unknown>
+}
+
+type RSCManifestPayload = {
+  type: 'manifest'
+  patches: RSCRouteManifest[]   // route metadata for lazy discovery
+}
+```
+
+The key idea: the payload is where the framework communicates **control flow** to the
+client — not just rendered UI. Redirects, action results, error states, and route
+metadata all travel through the same RSC stream. The client deserializes the payload,
+checks `type`, and handles each case:
+
+- `render` → update route state, render elements
+- `action` → consume action result, wait for rerender
+- `redirect` → navigate or reload
+- `manifest` → patch route tree for lazy discovery
+
+This avoids needing separate HTTP response mechanisms for different scenarios. Everything
+goes through one RSC stream.
 
 
 ## CSS Handling
@@ -638,6 +766,65 @@ Disable auto-injection if the framework handles CSS itself:
 ```ts
 rsc({ rscCssTransform: false })
 ```
+
+
+## Server vs Client Component Data Passing
+
+When a framework passes route data (loader results, params, etc.) to components, **server
+components and client components receive data differently**.
+
+**Server components** execute during RSC rendering on the server. The framework can pass
+data as direct props:
+
+```tsx
+// RSC server can call this function, so props work directly
+createElement(ServerPage, { loaderData, actionData, params })
+```
+
+**Client components** are `"use client"` modules. During RSC rendering they are **not
+executed** — React emits a client reference marker instead. The framework can still pass
+serializable props through the RSC stream, but for data that lives in framework-level
+context (like a router's data store), client components must read it via hooks on the
+client side.
+
+React Router's approach (for reference):
+
+```tsx
+function renderRouteMatch(match, Component) {
+  if (isClientReference(Component)) {
+    // Client component: wrap with a client-side provider that
+    // reads loaderData/params from router context via hooks,
+    // then injects them as props via cloneElement
+    return createElement(WithComponentProps, {
+      children: createElement(Component),
+    })
+  }
+
+  // Server component: pass data as props directly
+  return createElement(Component, {
+    loaderData: match.loaderData,
+    actionData: match.actionData,
+    params: match.params,
+  })
+}
+```
+
+You can detect client references at render time:
+
+```ts
+function isClientReference(component: any): boolean {
+  try {
+    return component.$$typeof === Symbol.for('react.client.reference')
+  } catch {
+    return false
+  }
+}
+```
+
+For simpler frameworks without a data router, this distinction matters less. If a server
+component renders `<ClientButton label={data.label} />`, React automatically serializes
+the `label` prop into the flight stream. The split only matters when data lives in
+framework-owned context rather than the component tree.
 
 
 ## Cross-Environment Module Loading
