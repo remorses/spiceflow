@@ -1,3 +1,4 @@
+// Trie router ported from Hono (https://github.com/honojs/hono) — MIT license
 import { Pattern, splitRoutingPath, getPattern, splitPath } from './url.js'
 import { Params } from './utils.js'
 

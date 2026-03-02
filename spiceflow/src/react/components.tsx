@@ -39,15 +39,11 @@ export type FlightData = {
   // url: string
 }
 
+import type { ReactServerErrorContext } from './errors.js'
+
 export type ActionResult = {
   error?: ReactServerErrorContext
   data?: ReactFormState | null
-}
-
-interface ReactServerErrorContext {
-  status: number
-  location?: string
-  headers?: Record<string, string>
 }
 
 export interface ErrorPageProps {

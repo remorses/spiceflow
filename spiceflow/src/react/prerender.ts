@@ -80,7 +80,6 @@ async function processPrerender(outDir: string) {
       throw new Error(
         `Failed to prerender ${route.path}: ${rscResponse.status} ${rscResponse.statusText}`,
       )
-      continue
     }
 
     const htmlFile = urlPathToHtmlPath(route.path)

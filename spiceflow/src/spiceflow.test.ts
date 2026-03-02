@@ -12,18 +12,21 @@ test('works', async () => {
   expect(await res.json()).toEqual('hi')
 })
 
-test.skip('* param is a path without front slash', async () => {
+test('* param is a path without front slash', async () => {
   const app = new Spiceflow().post('/upload/*', ({ params }) => {
     return params['*']
   })
 
   {
+    // /upload/ with trailing slash matches /upload/* (trie router matches /* for parent path too)
+    // wildcard param is undefined since there's nothing after /upload
     const res = await app.handle(
       new Request('http://localhost/upload/', {
         method: 'POST',
       }),
     )
-    expect(res.status).toBe(404)
+    expect(res.status).toBe(200)
+    expect(await res.json()).toBeNull()
   }
   {
     const res = await app.handle(
@@ -1346,7 +1349,7 @@ describe('safePath', () => {
   })
 })
 
-test.skip('composition with .use() works with state and onError - child app gets same state, errors caught by root', async () => {
+test('composition with .use() works with state and onError - child app gets same state, errors caught by root', async () => {
   let rootErrorCalled = false
   let childErrorCalled = false
   let errorMessage = ''
@@ -1378,12 +1381,12 @@ test.skip('composition with .use() works with state and onError - child app gets
     })
     .use(childApp)
 
-  // Test successful request - state starts from child app (0), then root middleware (+1), then child middleware (+10)
+  // State starts from root app (100), then root middleware (+1), then child middleware (+10)
   const successRes = await rootApp.handle(
     new Request('http://localhost/success', { method: 'GET' }),
   )
   expect(successRes.status).toBe(200)
-  expect(await successRes.json()).toEqual({ counter: 11 }) // 0 + 1 + 10
+  expect(await successRes.json()).toEqual({ counter: 111 }) // 100 + 1 + 10
 
   // Test error case - root onError should catch child errors
   const errorRes = await rootApp.handle(
@@ -1477,7 +1480,7 @@ test('error statusCode fallback', async () => {
   }
 })
 
-test.skip('route override - same method and path, second route wins', async () => {
+test('route override - same method and path, second route wins', async () => {
   const app = new Spiceflow()
     .get('/test', () => 'first handler')
     .get('/test', () => 'second handler')
@@ -1489,7 +1492,7 @@ test.skip('route override - same method and path, second route wins', async () =
   expect(await res.json()).toMatchInlineSnapshot(`"second handler"`)
 })
 
-test.skip('route override - different methods on same path work independently', async () => {
+test('route override - different methods on same path work independently', async () => {
   const app = new Spiceflow()
     .get('/test', () => 'get handler')
     .post('/test', () => 'post handler')
@@ -1669,7 +1672,7 @@ test('child app inherits disableSuperJsonUnlessRpc from parent even if set to fa
   expect(regularData).toMatchInlineSnapshot(`"{"date":"2024-01-01T00:00:00.000Z"}"`)
 })
 
-test.skip('/* as not-found handler - registered first', async () => {
+test('/* as not-found handler - registered first', async () => {
   const app = new Spiceflow()
     // Register catch-all first
     .get('/*', () => ({ message: 'Not found', path: 'catch-all' }))
@@ -1767,7 +1770,7 @@ test('/* as not-found handler - registered last', async () => {
   expect(await deepNotFoundRes.json()).toEqual({ message: 'Not found', path: 'catch-all' })
 })
 
-test.skip('/* with all methods as not-found handler', async () => {
+test('/* with all methods as not-found handler', async () => {
   const app = new Spiceflow()
     .get('/api/users', () => ({ message: 'GET users' }))
     .post('/api/users', () => ({ message: 'POST users' }))
@@ -1807,15 +1810,15 @@ test.skip('/* with all methods as not-found handler', async () => {
   expect(notFoundDeleteRes.status).toBe(200)
   expect(await notFoundDeleteRes.json()).toEqual({ message: 'Custom 404', method: 'any' })
 
-  // Wrong method on existing path still returns 404 (not caught by all('/*'))
-  // This is because the router finds a matching path but no matching method
+  // With trie router, ALL /* catches any method on any path, including DELETE on /api/users
   const wrongMethodRes = await app.handle(
     new Request('http://localhost/api/users', { method: 'DELETE' })
   )
-  expect(wrongMethodRes.status).toBe(404)
+  expect(wrongMethodRes.status).toBe(200)
+  expect(await wrongMethodRes.json()).toEqual({ message: 'Custom 404', method: 'any' })
 })
 
-test.skip('/* priority - more specific routes always win', async () => {
+test('/* priority - more specific routes always win', async () => {
   const app = new Spiceflow()
     .get('/*', () => 'catch-all')
     .get('/users/*', () => 'users-catch-all')
@@ -1849,4 +1852,28 @@ test.skip('/* priority - more specific routes always win', async () => {
   )
   expect(generalCatchRes.status).toBe(200)
   expect(await generalCatchRes.json()).toBe('catch-all')
+})
+
+test(':param beats wildcard regardless of registration order', async () => {
+  // wildcard registered first
+  const app1 = new Spiceflow()
+    .get('/users/*', () => 'wildcard')
+    .get('/users/:id', () => 'param')
+
+  const res1 = await app1.handle(
+    new Request('http://localhost/users/123', { method: 'GET' })
+  )
+  expect(res1.status).toBe(200)
+  expect(await res1.json()).toBe('param')
+
+  // :param registered first
+  const app2 = new Spiceflow()
+    .get('/users/:id', () => 'param')
+    .get('/users/*', () => 'wildcard')
+
+  const res2 = await app2.handle(
+    new Request('http://localhost/users/456', { method: 'GET' })
+  )
+  expect(res2.status).toBe(200)
+  expect(await res2.json()).toBe('param')
 })

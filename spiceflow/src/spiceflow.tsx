@@ -41,6 +41,7 @@ import {
   LayoutContent,
 } from './react/components.js'
 import {
+  getErrorContext,
   isNotFoundError,
   isRedirectError,
 } from './react/errors.js'
@@ -94,7 +95,7 @@ export class Spiceflow<
   const out RoutePaths extends string = '',
 > {
   private id: number = globalIndex++
-  router: TrieRouter<InternalRoute> = new TrieRouter()
+  private router: TrieRouter<InternalRoute> = new TrieRouter()
   private middlewares: Function[] = []
   private onErrorHandlers: OnError[] = []
   private routes: InternalRoute[] = []
@@ -132,7 +133,7 @@ export class Spiceflow<
     })
     return allRoutes
   }
-  usedIds = new Set<string>()
+  private usedIds = new Set<string>()
 
   private generateRouteId(
     kind: NodeKind | undefined,
@@ -1002,9 +1003,7 @@ export class Spiceflow<
       reactRoutes,
       (x) => x.route.kind === 'page' || x.route.kind === 'staticPage',
     )
-    const pageRoute = pageRoutes.sort((a, b) => {
-      return routeSorter(a.route, b.route)
-    })[0]
+    const pageRoute = pickBestRoute(pageRoutes)
     if (!pageRoute) {
       return new Response('Not Found', { status: 404 })
     }
@@ -1163,7 +1162,7 @@ export class Spiceflow<
             if (!result && index < middlewares.length) {
               return await next()
             } else if (result) {
-              return await turnHandlerResultIntoResponse(result)
+              return await this.turnHandlerResultIntoResponse(result, undefined, request)
             }
           }
           if (handlerResponse) {
@@ -1186,9 +1185,7 @@ export class Spiceflow<
 
       return response
     }
-    const route = nonReactRoutes.sort((a, b) => {
-      return routeSorter(a.route, b.route)
-    })[0]
+    const route = pickBestRoute(nonReactRoutes)
 
     // TODO get all apps in scope? layouts can match between apps when using .use?
     const appsInScope = this.getAppsInScope(route.app)
@@ -1213,13 +1210,15 @@ export class Spiceflow<
 
     let handlerResponse: Response | undefined
     async function getResForError(err: any) {
-      if (isRedirectError(err)) {
-        return new Response(err.location, {
-          status: err.status,
-          headers: err.headers,
+      const errCtx = getErrorContext(err)
+      const redirectInfo = isRedirectError(errCtx)
+      if (redirectInfo) {
+        return new Response(redirectInfo.location, {
+          status: errCtx!.status,
+          headers: errCtx!.headers,
         })
       }
-      if (isNotFoundError(err)) {
+      if (isNotFoundError(errCtx)) {
         return new Response(JSON.stringify('not found'), {
           status: 404,
         })
@@ -1335,7 +1334,7 @@ export class Spiceflow<
       return result
     }
 
-    if (route.type) {
+    if (route?.type) {
       if (route.type?.includes('multipart/form-data')) {
         if (!(result instanceof Response)) {
           throw new Error(
@@ -1410,10 +1409,12 @@ export class Spiceflow<
         if (isResponse(res)) {
           return res
         }
-        if (isRedirectError(err)) {
-          return new Response(err.location, {
-            status: err.status,
-            headers: err.headers,
+        const errCtx = getErrorContext(err)
+        const redirectInfo = isRedirectError(errCtx)
+        if (redirectInfo) {
+          return new Response(redirectInfo.location, {
+            status: errCtx!.status,
+            headers: errCtx!.headers,
           })
         }
       }
@@ -1783,83 +1784,6 @@ export function bfs(tree: AnySpiceflow) {
   return nodes
 }
 
-export async function turnHandlerResultIntoResponse(
-  result: any,
-  route?: InternalRoute,
-) {
-  // if user returns a promise, await it
-  if (result instanceof Promise) {
-    result = await result
-  }
-
-  if (isResponse(result)) {
-    return result
-  }
-
-  if (route?.type) {
-    if (route.type?.includes('multipart/form-data')) {
-      if (!(result instanceof Response)) {
-        throw new Error(
-          `Invalid form data returned from route handler ${
-            route.path
-          } - expected Response but got ${
-            result?.constructor?.name || typeof result
-          }. FormData cannot be returned directly - it must be wrapped in a Response object with the appropriate content-type header.`,
-        )
-      }
-    }
-    if (route.type?.includes('application/x-www-form-urlencoded')) {
-      if (!(result instanceof URLSearchParams)) {
-        throw new Error(
-          `Invalid URL encoded data returned from route handler ${
-            route.path
-          } - expected URLSearchParams but got ${
-            result?.constructor?.name || typeof result
-          }`,
-        )
-      }
-      return new Response(result, {
-        headers: {
-          'content-type': 'application/x-www-form-urlencoded',
-        },
-      })
-    }
-
-    if (route.type?.includes('text/plain')) {
-      if (typeof result !== 'string') {
-        throw new Error(
-          `Invalid text returned from route handler ${
-            route.path
-          } - expected string but got ${
-            result?.constructor?.name || typeof result
-          }`,
-        )
-      }
-      return new Response(result, {
-        headers: {
-          'content-type': 'text/plain',
-        },
-      })
-    }
-  }
-
-  return new Response(superjsonSerialize(result), {
-    headers: {
-      'content-type': 'application/json',
-    },
-  })
-}
-
-function superjsonSerialize(value: any, indent = false) {
-  const { json, meta } = superjson.serialize(value)
-  if (json && meta) {
-    json['__superjsonMeta'] = meta
-  }
-  return JSON.stringify(json ?? null, null, indent ? 2 : undefined)
-}
-
-export type { InternalRoute }
-
 export type AnySpiceflow = Spiceflow<any, any, any, any, any, any, any>
 
 export function isZodSchema(value: unknown): value is ZodType {
@@ -1976,15 +1900,46 @@ export function cloneDeep(x) {
   return copy(x)
 }
 
-function routeSorter(a: InternalRoute, b: InternalRoute) {
-  // Count dynamic parameters (:param and *) in each route
-  const aCount = a.path
-    .split('/')
-    .filter((p) => p.startsWith(':') || p === '*').length
-  const bCount = b.path
-    .split('/')
-    .filter((p) => p.startsWith(':') || p === '*').length
-  return aCount - bCount
+function getRouteSpecificity(route: InternalRoute) {
+  const parts = route.path.split('/').filter(Boolean)
+  const wildcardCount = parts.filter((p) => p === '*').length
+  const namedParamCount = parts.filter((p) => p.startsWith(':')).length
+  const segmentCount = parts.length
+  return { wildcardCount, namedParamCount, segmentCount }
+}
+
+function pickBestRoute<T extends { route: InternalRoute }>(routes: T[]): T {
+  if (routes.length <= 1) return routes[0]
+  let best = routes[0]
+  let bestSpec = getRouteSpecificity(best.route)
+  for (let i = 1; i < routes.length; i++) {
+    const spec = getRouteSpecificity(routes[i].route)
+    // 1. Fewer wildcards wins (static/named > wildcard)
+    if (spec.wildcardCount < bestSpec.wildcardCount) {
+      best = routes[i]
+      bestSpec = spec
+      continue
+    }
+    if (spec.wildcardCount > bestSpec.wildcardCount) continue
+    // 2. Fewer named params wins (static > :param)
+    if (spec.namedParamCount < bestSpec.namedParamCount) {
+      best = routes[i]
+      bestSpec = spec
+      continue
+    }
+    if (spec.namedParamCount > bestSpec.namedParamCount) continue
+    // 3. More segments wins (longer match)
+    if (spec.segmentCount > bestSpec.segmentCount) {
+      best = routes[i]
+      bestSpec = spec
+      continue
+    }
+    if (spec.segmentCount < bestSpec.segmentCount) continue
+    // 4. Same pattern shape: last registered wins (override)
+    best = routes[i]
+    bestSpec = spec
+  }
+  return best
 }
 
 function partition<T>(arr: T[], predicate: (item: T) => boolean): [T[], T[]] {
