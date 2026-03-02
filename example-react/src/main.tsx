@@ -19,6 +19,7 @@ import {
 import { DialogDemo } from "./app/dialog";
 import { WithSelect } from "./app/select";
 import { ThrowsDuringSSR } from "./app/ssr-error";
+import { StreamingConsumer } from "./app/streaming-consumer";
 import { Head } from "spiceflow/dist/react/head";
 import { SpiceflowContext } from "spiceflow/dist/context";
 
@@ -216,6 +217,16 @@ const app = new Spiceflow()
 	})
 	.page("/client-error", async () => {
 		return <ClientComponentThrows />;
+	})
+	.page("/streaming", async () => {
+		async function* generateMessages() {
+			yield "message-1";
+			await sleep(1500);
+			yield "message-2";
+			await sleep(1500);
+			yield "message-3";
+		}
+		return <StreamingConsumer stream={generateMessages()} />;
 	})
 	.page("/ssr-error-fallback", async () => {
 		return <ThrowsDuringSSR />;
