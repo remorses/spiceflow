@@ -188,6 +188,11 @@ rsc(scan) → ssr(scan) → rsc(real) → client → ssr(real)
 
 ### Why scan is required
 
+> Sources:
+> - [plugin-rsc/src/plugins/scan.ts](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-rsc/src/plugins/scan.ts) — `transformScanBuildStrip()` that strips code to imports
+> - [plugin-rsc/src/plugin.ts](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-rsc/src/plugin.ts) — `buildApp()` orchestrates the 5-step build
+> - [plugin-rsc/docs/bundler-comparison.md](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-rsc/docs/bundler-comparison.md)
+
 The scan exists because of a circular information dependency. The RSC build needs to
 know which modules have `"use client"` to generate proxy stubs. The client/SSR build
 needs to know which modules have `"use server"` to generate proxy stubs. But `"use server"`
@@ -216,6 +221,8 @@ rsc(scan) → client(scan) → rsc(real) → client(real)
 ## Entry Points — What Each Does
 
 ### entry.rsc.tsx (RSC environment)
+
+> Source: [starter/src/framework/entry.rsc.tsx](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-rsc/examples/starter/src/framework/entry.rsc.tsx)
 
 The main request handler. Runs under `react-server` condition. Default export must be
 `{ fetch: handler }` or `export default handler`.
@@ -303,6 +310,8 @@ if (import.meta.hot) {
 
 ### entry.ssr.tsx (SSR environment)
 
+> Source: [starter/src/framework/entry.ssr.tsx](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-rsc/examples/starter/src/framework/entry.ssr.tsx)
+
 Receives the RSC flight stream and renders it to an HTML stream. Uses standard
 `react-dom/server`.
 
@@ -349,6 +358,8 @@ export async function renderHTML(
 ```
 
 ### entry.browser.tsx (client environment)
+
+> Source: [starter/src/framework/entry.browser.tsx](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-rsc/examples/starter/src/framework/entry.browser.tsx)
 
 Hydrates the page and handles all post-hydration behavior: navigation, server action
 calls, HMR.
@@ -430,6 +441,8 @@ The plugin provides no built-in router. Frameworks implement navigation by:
 
 ### Request convention
 
+> Source: [starter/src/framework/request.tsx](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-rsc/examples/starter/src/framework/request.tsx)
+
 Frameworks define a convention to distinguish RSC requests from HTML requests.
 The starter example appends `_.rsc` to the URL:
 
@@ -471,6 +484,8 @@ export function parseRenderRequest(request: Request): RenderRequest {
 ```
 
 ### Navigation listener
+
+> Source: [starter/src/framework/entry.browser.tsx](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-rsc/examples/starter/src/framework/entry.browser.tsx) (listenNavigation function)
 
 The `listenNavigation` function intercepts all navigation events and triggers an
 RSC re-fetch. This is the standard pattern used in all non-React-Router examples:
@@ -543,6 +558,12 @@ click <a href="/about">
 
 ### React Router integration (alternative)
 
+> Sources:
+> - [react-router/lib/rsc/server.rsc.ts](https://github.com/remix-run/react-router/blob/dev/packages/react-router/lib/rsc/server.rsc.ts) — `matchRSCServerRequest()`
+> - [react-router/lib/rsc/server.ssr.tsx](https://github.com/remix-run/react-router/blob/dev/packages/react-router/lib/rsc/server.ssr.tsx) — `routeRSCServerRequest()`, `RSCStaticRouter`
+> - [react-router/lib/rsc/browser.tsx](https://github.com/remix-run/react-router/blob/dev/packages/react-router/lib/rsc/browser.tsx) — `RSCHydratedRouter`, `createCallServer`
+> - [plugin-rsc react-router example](https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-rsc/examples/react-router)
+
 When using React Router, navigation is fully delegated to React Router's experimental
 RSC APIs. The `listenNavigation` pattern is unnecessary. Instead:
 
@@ -591,6 +612,8 @@ The `<form action={serverFn}>` submits a standard POST with form data. The RSC e
 
 ### CSRF protection
 
+> Source: [react-router/lib/actions.ts](https://github.com/remix-run/react-router/blob/dev/packages/react-router/lib/actions.ts) — `throwIfPotentialCSRFAttack()`
+
 Server actions accept POST requests from the browser. A malicious site can forge
 cross-origin form submissions targeting your action endpoints. Frameworks should
 validate the `Origin` header on action requests:
@@ -613,6 +636,10 @@ React Router does this automatically via `throwIfPotentialCSRFAttack` with an
 `allowedActionOrigins` option for whitelisting trusted origins.
 
 ### Action + rerender streaming
+
+> Sources:
+> - [react-router/lib/rsc/server.rsc.ts#L1073-L1093](https://github.com/remix-run/react-router/blob/dev/packages/react-router/lib/rsc/server.rsc.ts) — server-side action+rerender payload construction
+> - [react-router/lib/rsc/browser.tsx#L140-L213](https://github.com/remix-run/react-router/blob/dev/packages/react-router/lib/rsc/browser.tsx) — client-side action+rerender consumption in `createCallServer`
 
 In the basic starter example, actions are sequential: execute the action, then re-render
 the entire tree, then send the response. The client waits for everything.
@@ -680,6 +707,8 @@ type RscPayload = {
 ```
 
 ### Rich payload with typed variants (React Router pattern)
+
+> Source: [react-router/lib/rsc/server.rsc.ts#L239-L281](https://github.com/remix-run/react-router/blob/dev/packages/react-router/lib/rsc/server.rsc.ts) — `RSCPayload` type definitions
 
 A production framework typically needs more than just `root`. React Router uses a
 **discriminated union** with four payload types, which lets the client branch on
@@ -769,6 +798,10 @@ rsc({ rscCssTransform: false })
 
 
 ## Server vs Client Component Data Passing
+
+> Sources:
+> - [react-router/lib/rsc/server.rsc.ts#L1193-L1211](https://github.com/remix-run/react-router/blob/dev/packages/react-router/lib/rsc/server.rsc.ts) — `isClientReference` check and `WithComponentProps` usage in `getRSCRouteMatch`
+> - [react-router/lib/components.tsx#L1941-L1948](https://github.com/remix-run/react-router/blob/dev/packages/react-router/lib/components.tsx) — `WithComponentProps` implementation
 
 When a framework passes route data (loader results, params, etc.) to components, **server
 components and client components receive data differently**.
@@ -888,6 +921,8 @@ if (import.meta.hot) {
 
 ## SSR Error Recovery
 
+> Source: [starter/src/framework/entry.ssr.tsx](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-rsc/examples/starter/src/framework/entry.ssr.tsx) and [entry.browser.tsx](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-rsc/examples/starter/src/framework/entry.browser.tsx) (`__NO_HYDRATE` flag)
+
 The starter example demonstrates CSR fallback on SSR failure:
 
 ```tsx
@@ -915,6 +950,8 @@ if ('__NO_HYDRATE' in globalThis) {
 
 ## No-SSR Mode
 
+> Source: [plugin-rsc/examples/no-ssr](https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-rsc/examples/no-ssr)
+
 For SPA-style apps, skip the SSR environment entirely. The RSC entry returns raw flight
 streams for all requests. The browser uses `createRoot` instead of `hydrateRoot`.
 
@@ -931,6 +968,8 @@ rsc(scan) → client(scan) → rsc(real) → client(real)
 
 
 ## Browser-Only RSC (No Server at Runtime)
+
+> Source: [plugin-rsc/examples/browser](https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-rsc/examples/browser)
 
 The `browser` example runs the RSC environment inside the browser itself using Vite's
 browser module runner. No server at runtime — the "RSC fetch" is a local function call:
@@ -1028,11 +1067,40 @@ Add to `tsconfig.json` for `import.meta.viteRsc` types:
 
 ## Reference Links
 
+### @vitejs/plugin-rsc
+
 - [Plugin source](https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-rsc)
-- [Starter example](https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-rsc/examples/starter)
-- [React Router RSC example](https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-rsc/examples/react-router)
+- [plugin.ts](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-rsc/src/plugin.ts) — main plugin, `buildApp()`, reference maps
+- [plugins/scan.ts](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-rsc/src/plugins/scan.ts) — scan build strip transform
 - [Architecture docs](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-rsc/docs/architecture.md)
 - [Bundler comparison](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-rsc/docs/bundler-comparison.md)
-- [rsc-html-stream](https://github.com/devongovett/rsc-html-stream)
+- [README](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-rsc/README.md)
+
+### Examples
+
+- [Starter example](https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-rsc/examples/starter) — canonical framework skeleton with SSR, navigation, actions
+  - [entry.rsc.tsx](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-rsc/examples/starter/src/framework/entry.rsc.tsx)
+  - [entry.ssr.tsx](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-rsc/examples/starter/src/framework/entry.ssr.tsx)
+  - [entry.browser.tsx](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-rsc/examples/starter/src/framework/entry.browser.tsx)
+  - [request.tsx](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-rsc/examples/starter/src/framework/request.tsx) — `_.rsc` request convention, `listenNavigation`
+- [Basic example](https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-rsc/examples/basic) — file-based routing with `use cache`
+- [React Router example](https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-rsc/examples/react-router) — React Router RSC integration
+- [No-SSR example](https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-rsc/examples/no-ssr)
+- [Browser-only example](https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-rsc/examples/browser) — RSC in the browser, no server at runtime
+
+### React Router RSC implementation
+
+- [lib/rsc/server.rsc.ts](https://github.com/remix-run/react-router/blob/dev/packages/react-router/lib/rsc/server.rsc.ts) — `matchRSCServerRequest()`, payload types, `AsyncLocalStorage` context, action processing, `isClientReference` check
+- [lib/rsc/server.ssr.tsx](https://github.com/remix-run/react-router/blob/dev/packages/react-router/lib/rsc/server.ssr.tsx) — `routeRSCServerRequest()`, `RSCStaticRouter`, redirect detection, `injectRSCPayload`
+- [lib/rsc/browser.tsx](https://github.com/remix-run/react-router/blob/dev/packages/react-router/lib/rsc/browser.tsx) — `RSCHydratedRouter`, `createCallServer`, action+rerender streaming, lazy route discovery via `.manifest`
+- [lib/components.tsx](https://github.com/remix-run/react-router/blob/dev/packages/react-router/lib/components.tsx) — `WithComponentProps`, `WithErrorBoundaryProps` (client-side data injection wrappers)
+- [lib/actions.ts](https://github.com/remix-run/react-router/blob/dev/packages/react-router/lib/actions.ts) — `throwIfPotentialCSRFAttack()`
+- [react-router-dev/vite/rsc/plugin.ts](https://github.com/remix-run/react-router/blob/dev/packages/react-router-dev/vite/rsc/plugin.ts) — Vite plugin for React Router RSC
+- [react-router-dev/vite/rsc/virtual-route-modules.ts](https://github.com/remix-run/react-router/blob/dev/packages/react-router-dev/vite/rsc/virtual-route-modules.ts) — route module splitting into server/client virtual modules
+
+### Other references
+
+- [rsc-html-stream](https://github.com/devongovett/rsc-html-stream) — inject RSC flight data into HTML stream
+- [hono-rsc-template](https://github.com/yoshikouki/hono-rsc-template) — Hono + RSC with `/__rsc/` prefix pattern
 - [Dan Abramov: Why Does RSC Integrate with a Bundler?](https://overreacted.io/why-does-rsc-integrate-with-a-bundler/)
 - [Devon Govett: How Parcel bundles RSC](https://devongovett.me/blog/parcel-rsc.html)

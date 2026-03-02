@@ -14,7 +14,6 @@ const app = new Spiceflow()
   })
   .page('/', async function Home() {
     const { rows } = await sql`SELECT * FROM pokemon ORDER BY RANDOM() LIMIT 12`
-
     return (
       <PokemonList>
         {rows.map((p) => (
