@@ -3,6 +3,7 @@
 import { isbot } from 'isbot'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 
+import React from 'react'
 import ReactDOMServer from 'react-dom/server.edge'
 import { createFromReadableStream } from '@vitejs/plugin-rsc/ssr'
 
@@ -62,9 +63,12 @@ async function renderHtml({
   request: Request
   response: Response
 }) {
-  const [flightStream1, flightStream2] = response.body!.tee()
-
-  const payloadPromise = createFromReadableStream<ServerPayload>(flightStream1)
+  // Three-way split of the RSC flight stream:
+  // - flightForFormState: decoded eagerly to extract formState for renderToReadableStream options
+  // - flightForSsr: decoded lazily inside SsrRoot so React's preinit/preloading context is active
+  // - flightStream2: injected raw into HTML as <script> tags for client hydration
+  const [flightForSsrAndForm, flightStream2] = response.body!.tee()
+  const [flightForFormState, flightForSsr] = flightForSsrAndForm.tee()
 
   let baseUrl = new URL('/', request.url).href
   if (baseUrl.endsWith('/')) {
@@ -76,26 +80,34 @@ async function renderHtml({
     'index',
   )
 
-  const el = (
-    <MetaProvider metaState={metaState}>
-      <FlightDataContext.Provider value={payloadPromise}>
-        {cssUrls.map((url) => (
-          <link key={url} rel="stylesheet" href={url} precedence="high" />
-        ))}
-        <LayoutContent />
-      </FlightDataContext.Provider>
-    </MetaProvider>
-  )
+  // Lazy init inside component so React's preinit/preloading context is active.
+  // Must be called inside ReactDOMServer context for preinit/preloading behavior.
+  let payloadPromise: Promise<ServerPayload> | undefined
+  function SsrRoot() {
+    payloadPromise ??= createFromReadableStream<ServerPayload>(flightForSsr)
+    const payload = React.use(payloadPromise)
+    return (
+      <MetaProvider metaState={metaState}>
+        <FlightDataContext.Provider value={payloadPromise!}>
+          {cssUrls.map((url) => (
+            <link key={url} rel="stylesheet" href={url} precedence="high" />
+          ))}
+          <LayoutContent />
+        </FlightDataContext.Provider>
+      </MetaProvider>
+    )
+  }
 
   let htmlStream: ReadableStream & { allReady: Promise<void> }
   let status = 200
 
   try {
-    let payload = await payloadPromise
-    htmlStream = await ReactDOMServer.renderToReadableStream(el, {
+    // Extract formState from a separate stream copy so SsrRoot's lazy init is the actual first call
+    const formStatePayload = await createFromReadableStream<ServerPayload>(flightForFormState)
+    htmlStream = await ReactDOMServer.renderToReadableStream(<SsrRoot />, {
       bootstrapScriptContent,
       signal: request.signal,
-      formState: payload.formState,
+      formState: formStatePayload.formState,
       onError(e) {
         console.error('[entry.ssr.tsx:renderToReadableStream]', e)
         return e?.digest || e?.message
@@ -125,7 +137,7 @@ async function renderHtml({
     }
 
     const errorRoot = (
-      <html data-no-hydrate>
+      <html>
         <head>
           <meta charSet="utf-8" />
           {cssUrls.map((url) => (
@@ -138,8 +150,10 @@ async function renderHtml({
       </html>
     )
 
+    // Prepend self.__NO_HYDRATE=1 so the browser entry uses createRoot instead of hydrateRoot,
+    // avoiding hydration mismatch errors against this error shell HTML.
     htmlStream = await ReactDOMServer.renderToReadableStream(errorRoot, {
-      bootstrapScriptContent,
+      bootstrapScriptContent: `self.__NO_HYDRATE=1;${bootstrapScriptContent}`,
       signal: request.signal,
     })
   }

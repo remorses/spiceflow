@@ -18,6 +18,7 @@ import {
 } from "./app/client";
 import { DialogDemo } from "./app/dialog";
 import { WithSelect } from "./app/select";
+import { ThrowsDuringSSR } from "./app/ssr-error";
 import { Head } from "spiceflow/dist/react/head";
 import { SpiceflowContext } from "spiceflow/dist/context";
 
@@ -209,6 +210,9 @@ const app = new Spiceflow()
 	})
 	.page("/client-error", async () => {
 		return <ClientComponentThrows />;
+	})
+	.page("/ssr-error-fallback", async () => {
+		return <ThrowsDuringSSR />;
 	})
 	.page("/dialog", async () => {
 		return <DialogDemo />;

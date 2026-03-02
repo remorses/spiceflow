@@ -5,6 +5,7 @@ import ReactDomClient from 'react-dom/client'
 import {
   createFromReadableStream,
   createFromFetch,
+  createTemporaryReferenceSet,
   encodeReply,
   setServerCallback,
 } from '@vitejs/plugin-rsc/browser'
@@ -26,13 +27,17 @@ async function main() {
   let setPayload: (v: Promise<ServerPayload>) => void = () => undefined
 
   const callServer = async (id: string, args: unknown[]) => {
+    // Temporary references track non-serializable values (DOM nodes, React elements) passed
+    // as action args. Same set is shared with createFromFetch so they round-trip correctly.
+    const temporaryReferences = createTemporaryReferenceSet()
     const url = new URL(window.location.href)
     url.searchParams.set('__rsc', id)
     const payloadPromise = createFromFetch<ServerPayload>(
       fetch(url, {
         method: 'POST',
-        body: await encodeReply(args),
+        body: await encodeReply(args, { temporaryReferences }),
       }),
+      { temporaryReferences },
     )
 
     setPayload(payloadPromise)
@@ -79,9 +84,16 @@ async function main() {
     )
   }
 
-  ReactDomClient.hydrateRoot(document, <BrowserRoot />, {
-    formState: (await initialPayload).formState,
-  })
+  // When SSR fails, the server injects self.__NO_HYDRATE=1 in the bootstrap script.
+  // In that case use createRoot (CSR from scratch) instead of hydrateRoot which would
+  // throw hydration mismatch errors against the error shell HTML.
+  if ('__NO_HYDRATE' in globalThis) {
+    ReactDomClient.createRoot(document).render(<BrowserRoot />)
+  } else {
+    ReactDomClient.hydrateRoot(document, <BrowserRoot />, {
+      formState: (await initialPayload).formState,
+    })
+  }
 
   if (import.meta.hot) {
     import.meta.hot.on('rsc:update', (e) => {

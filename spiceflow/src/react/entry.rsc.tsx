@@ -8,3 +8,9 @@ export async function handler(request: Request) {
 }
 
 export { app }
+
+// Self-accept HMR so server code changes trigger an efficient RSC stream
+// re-render instead of a full page reload.
+if (import.meta.hot) {
+  import.meta.hot.accept()
+}

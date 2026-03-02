@@ -326,6 +326,10 @@ export class Spiceflow<
    * Create a new Router
    * @param options {@link RouterOptions} {@link Platform}
    */
+  // Trusted origins for server action POST requests. Strings are compared with exact match,
+  // RegExp patterns are tested against the Origin header. Used by the CSRF check in renderReact.
+  allowedActionOrigins?: (string | RegExp)[]
+
   constructor(
     options: {
       name?: string
@@ -333,10 +337,12 @@ export class Spiceflow<
       waitUntil?: WaitUntil
       basePath?: BasePath
       disableSuperJsonUnlessRpc?: boolean
+      allowedActionOrigins?: (string | RegExp)[]
     } = {},
   ) {
     this.scoped = options.scoped
     this.disableSuperJsonUnlessRpc = options.disableSuperJsonUnlessRpc || false
+    this.allowedActionOrigins = options.allowedActionOrigins
 
     // Set up waitUntil function - use provided one, global one, or noop
     this.waitUntilFn =
@@ -993,6 +999,7 @@ export class Spiceflow<
   }) {
     const {
       renderToReadableStream,
+      createTemporaryReferenceSet,
       decodeReply,
       decodeAction,
       decodeFormState,
@@ -1044,16 +1051,36 @@ export class Spiceflow<
     let actionError: Error | undefined
     let returnValue: unknown | undefined
     let formState: ReactFormState | undefined
+    // Tracks non-serializable values (DOM nodes, React elements) across action encode/decode.
+    // One set per request, shared between decodeReply and renderToReadableStream.
+    let temporaryReferences: ReturnType<typeof createTemporaryReferenceSet> | undefined
     if (request.method === 'POST') {
+      // CSRF protection: validate that the Origin header matches the request URL origin.
+      // Must run before the try/catch so a 403 is returned directly, not swallowed into actionError.
+      const origin = request.headers.get('Origin')
+      if (origin) {
+        const requestUrl = new URL(request.url)
+        const root = this.topLevelApp || this
+        const allowed = root.allowedActionOrigins
+        const isAllowed =
+          origin === requestUrl.origin ||
+          allowed?.some((rule) =>
+            rule instanceof RegExp ? rule.test(origin) : origin === rule,
+          )
+        if (!isAllowed) {
+          return new Response('Forbidden: origin mismatch', { status: 403 })
+        }
+      }
       try {
         const url = new URL(request.url)
         const actionId = url.searchParams.get('__rsc')
         if (actionId) {
+          temporaryReferences = createTemporaryReferenceSet()
           const contentType = request.headers.get('content-type')
           const body = contentType?.startsWith('multipart/form-data')
             ? await request.formData()
             : await request.text()
-          const args = await decodeReply(body)
+          const args = await decodeReply(body, { temporaryReferences })
           const action = await loadServerAction(actionId)
           returnValue = await (action as any).apply(null, args)
         } else {
@@ -1083,6 +1110,9 @@ export class Spiceflow<
         actionError,
       } satisfies ServerPayload,
       {
+        // Pass the same temporaryReferences used in decodeReply so non-serializable
+        // values round-trip correctly through the action response stream.
+        temporaryReferences,
         onPostpone(reason) {
           console.log(`POSTPONE`, reason)
         },

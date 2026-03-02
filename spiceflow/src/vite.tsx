@@ -50,6 +50,12 @@ export function spiceflowPlugin({
       },
       serverHandler: false,
       rscCssTransform: false,
+      // Stable encryption key for server action closure args. Without this the key changes on
+      // every build/restart, breaking action calls from stale client bundles after a deploy.
+      defineEncryptionKey: 'process.env.RSC_ENCRYPTION_KEY',
+      // Catch invalid cross-environment imports at build time (e.g. importing a server-only
+      // module from a client component) instead of failing at runtime.
+      validateImports: true,
     }),
     react(),
     prerenderPlugin(),
