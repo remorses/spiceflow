@@ -245,6 +245,21 @@ test.describe("CSRF protection", () => {
 	});
 });
 
+test.describe("status codes", () => {
+	test("sync redirect returns correct status and Location header", async () => {
+		const response = await fetch(`${baseURL}/top-level-redirect`, {
+			redirect: "manual",
+		});
+		expect(response.status).toBe(307);
+		expect(response.headers.get("location")).toBe("/");
+	});
+
+	test("sync not-found returns 404 status", async () => {
+		const response = await fetch(`${baseURL}/not-found`);
+		expect(response.status).toBe(404);
+	});
+});
+
 test.describe("streaming async generator", () => {
 	test("client renders items incrementally before generator completes", async ({ page }) => {
 		// Use waitUntil:'commit' so Playwright doesn't wait for the full streaming response
