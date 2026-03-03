@@ -177,9 +177,9 @@ async function renderHtml({
 }
 
 async function importRscEntry(): Promise<typeof import('./entry.rsc.js')> {
-  return await import.meta.viteRsc.loadModule<typeof import('./entry.rsc.js')>(
-    'rsc',
-    'index',
+  return await import.meta.viteRsc.import<typeof import('./entry.rsc.js')>(
+    './entry.rsc',
+    { environment: 'rsc' },
   )
 }
 
