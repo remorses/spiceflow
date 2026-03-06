@@ -1,5 +1,11 @@
 
-
 div.xxx {
     color: red;
+}
+
+/* e2e test: verifies client component CSS is loaded */
+[data-testid="css-test-client"] {
+    color: rgb(220, 38, 38);
+    border: 2px solid rgb(220, 38, 38);
+    padding: 8px;
 }

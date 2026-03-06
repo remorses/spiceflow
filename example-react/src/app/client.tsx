@@ -82,6 +82,14 @@ export function ErrorRender({ error }) {
 	console.log("caught error", error);
 	return <div>Error from rsc</div>;
 }
+export function CssTestClient() {
+	return (
+		<div data-testid="css-test-client">
+			Client component with CSS
+		</div>
+	);
+}
+
 export function ClientFormWithError({
 	shouldRedirect = false,
 	shouldError = false,

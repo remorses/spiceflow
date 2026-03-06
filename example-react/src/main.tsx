@@ -5,6 +5,7 @@ import { IndexPage } from "./app/index";
 import { getCounter } from "./app/action";
 import { Layout } from "./app/layout";
 import "./styles.css";
+import "./app/server-styles.css";
 
 import { ErrorBoundary } from "spiceflow/dist/react/components";
 import { notFound } from "spiceflow/dist/react/errors";
@@ -22,6 +23,8 @@ import { ThrowsDuringSSR } from "./app/ssr-error";
 import { StreamingConsumer } from "./app/streaming-consumer";
 import { Head } from "spiceflow/dist/react/head";
 import { SpiceflowContext } from "spiceflow/dist/context";
+import { CssTestClient } from "./app/client";
+import { CssTestServer } from "./app/css-test-server";
 
 // Increments on every RSC render of the home page. Used by e2e tests to detect
 // unwanted server re-renders (e.g. client HMR should not trigger a server render).
@@ -239,6 +242,18 @@ const app = new Spiceflow()
 	})
 	.page("/select", async () => {
 		return <WithSelect />;
+	})
+	.page("/css-test", async () => {
+		return (
+			<div data-testid="css-test-page">
+				<h1>CSS Test Page</h1>
+				<CssTestServer />
+				<CssTestClient />
+				<div data-testid="css-test-tailwind" className="text-green-600 border-2 border-green-600 p-2">
+					Tailwind styled element
+				</div>
+			</div>
+		);
 	})
 	.page(
 		"/static/:id",

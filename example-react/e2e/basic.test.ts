@@ -260,6 +260,69 @@ test.describe("status codes", () => {
 	});
 });
 
+test.describe("CSS loading", () => {
+	test("global tailwind CSS is applied", async ({ page }) => {
+		await page.goto("/css-test");
+		const twEl = page.getByTestId("css-test-tailwind");
+		await expect(twEl).toBeVisible();
+		// Tailwind v4 uses oklch color space. Verify the computed color is not the default black.
+		const color = await twEl.evaluate((el) => getComputedStyle(el).color);
+		expect(color).not.toBe("rgb(0, 0, 0)");
+		// Verify it contains green-ish oklch value from tailwind's text-green-600
+		expect(color).toContain("oklch");
+	});
+
+	test("server component CSS is applied", async ({ page }) => {
+		await page.goto("/css-test");
+		const serverEl = page.getByTestId("css-test-server");
+		await expect(serverEl).toBeVisible();
+		const color = await serverEl.evaluate((el) => getComputedStyle(el).color);
+		expect(color).toBe("rgb(37, 99, 235)");
+		const border = await serverEl.evaluate((el) => getComputedStyle(el).borderColor);
+		expect(border).toBe("rgb(37, 99, 235)");
+	});
+
+	test("client component CSS is applied", async ({ page }) => {
+		await page.goto("/css-test");
+		const clientEl = page.getByTestId("css-test-client");
+		await expect(clientEl).toBeVisible();
+		const color = await clientEl.evaluate((el) => getComputedStyle(el).color);
+		expect(color).toBe("rgb(220, 38, 38)");
+		const border = await clientEl.evaluate((el) => getComputedStyle(el).borderColor);
+		expect(border).toBe("rgb(220, 38, 38)");
+	});
+
+	test("CSS is present in SSR HTML (no FOUC)", async () => {
+		const response = await fetch(`${baseURL}/css-test`);
+		const html = await response.text();
+		// The HTML should contain stylesheet link tags
+		expect(html).toContain('rel="stylesheet"');
+	});
+
+	test("CSS HMR updates styles without page reload @dev", async ({ page }) => {
+		await page.goto("/css-test");
+		const serverEl = page.getByTestId("css-test-server");
+		await expect(serverEl).toBeVisible();
+
+		// Verify initial color
+		const initialColor = await serverEl.evaluate((el) => getComputedStyle(el).color);
+		expect(initialColor).toBe("rgb(37, 99, 235)");
+
+		// Edit the server-styles.css to change color
+		const file = createEditor("src/app/server-styles.css");
+		try {
+			await file.edit((s) => s.replace("rgb(37, 99, 235)", "rgb(234, 88, 12)"));
+			// Wait for HMR to apply the new styles
+			await expect(async () => {
+				const color = await serverEl.evaluate((el) => getComputedStyle(el).color);
+				expect(color).toBe("rgb(234, 88, 12)");
+			}).toPass({ timeout: 10000 });
+		} finally {
+			file[Symbol.dispose]();
+		}
+	});
+});
+
 test.describe("streaming async generator", () => {
 	test("client renders items incrementally before generator completes", async ({ page }) => {
 		// Use waitUntil:'commit' so Playwright doesn't wait for the full streaming response
