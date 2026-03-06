@@ -5,7 +5,6 @@ import { IndexPage } from "./app/index";
 import { getCounter } from "./app/action";
 import { Layout } from "./app/layout";
 import "./styles.css";
-import "./app/server-styles.css";
 
 import { ErrorBoundary } from "spiceflow/dist/react/components";
 import { notFound } from "spiceflow/dist/react/errors";

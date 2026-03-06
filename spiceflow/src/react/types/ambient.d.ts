@@ -1,11 +1,6 @@
 /// <reference types="vite/client" />
 /// <reference types="@vitejs/plugin-rsc/types" />
 
-declare module 'virtual:app-styles' {
-  const cssUrls: string[]
-  export default cssUrls
-}
-
 declare module 'virtual:app-entry' {
   import type { Spiceflow } from 'spiceflow'
   const app: Spiceflow
@@ -20,6 +15,7 @@ declare module 'virtual:bundler-adapter/server' {
   export const decodeAction: RscServerAdapter['decodeAction']
   export const decodeFormState: RscServerAdapter['decodeFormState']
   export const loadServerAction: RscServerAdapter['loadServerAction']
+  export const getAppEntryCssElement: RscServerAdapter['getAppEntryCssElement']
 }
 
 declare module 'virtual:bundler-adapter/ssr' {

@@ -1004,6 +1004,7 @@ export class Spiceflow<
       decodeAction,
       decodeFormState,
       loadServerAction,
+      getAppEntryCssElement,
     } = await import('virtual:bundler-adapter/server')
 
     const [pageRoutes, layoutRoutes] = partition(
@@ -1047,6 +1048,7 @@ export class Spiceflow<
     let root: FlightData = {
       page,
       layouts,
+      globalCss: getAppEntryCssElement(),
     }
     let actionError: Error | undefined
     let returnValue: unknown | undefined

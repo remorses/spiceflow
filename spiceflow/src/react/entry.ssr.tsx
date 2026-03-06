@@ -11,7 +11,6 @@ import {
   importRscEnvironment,
 } from 'virtual:bundler-adapter/ssr'
 
-import cssUrls from 'virtual:app-styles'
 import { ServerPayload } from '../spiceflow.js'
 import { LayoutContent } from './components.js'
 import { FlightDataContext } from './context.js'
@@ -91,9 +90,6 @@ async function renderHtml({
     return (
       <MetaProvider metaState={metaState}>
         <FlightDataContext.Provider value={payloadPromise!}>
-          {cssUrls.map((url) => (
-            <link key={url} rel="stylesheet" href={url} precedence="high" />
-          ))}
           <LayoutContent />
         </FlightDataContext.Provider>
       </MetaProvider>
@@ -142,9 +138,6 @@ async function renderHtml({
       <html>
         <head>
           <meta charSet="utf-8" />
-          {cssUrls.map((url) => (
-            <link key={url} rel="stylesheet" href={url} precedence="high" />
-          ))}
         </head>
         <body>
           <noscript>{status} Internal Server Error</noscript>

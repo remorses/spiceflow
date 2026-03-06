@@ -25,18 +25,19 @@ export function LayoutContent(props: { id?: string }) {
 
     return data.page
   })()
+  // Render global CSS from the app entry alongside the root element.
+  // rscCssTransform auto-wraps exported component functions, but the app entry
+  // exports a Spiceflow instance, so its CSS needs this manual injection.
+  if (!props.id && data.globalCss) {
+    return React.createElement(React.Fragment, null, data.globalCss, elem)
+  }
   return elem
 }
 
 export type FlightData = {
-  //   action?: Pick<ActionResult, 'error' | 'data'>
-  //   metadata?: React.ReactNode
-  //   nodeMap: Record<string, React.ReactNode>
-  //   layoutContentMap: Record<string, string>
-  //   segments: MatchSegment[]
   page: any
   layouts: { id: string; element: React.ReactNode }[]
-  // url: string
+  globalCss?: React.ReactNode
 }
 
 import type { ReactServerErrorContext } from './errors.js'
