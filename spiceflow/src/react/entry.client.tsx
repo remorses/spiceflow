@@ -8,7 +8,9 @@ import {
   createTemporaryReferenceSet,
   encodeReply,
   setServerCallback,
-} from '@vitejs/plugin-rsc/browser'
+  onHmrUpdate,
+  onHmrError,
+} from 'virtual:bundler-adapter/client'
 import { rscStream } from 'rsc-html-stream/client'
 
 import { router } from './router.js'
@@ -95,21 +97,9 @@ async function main() {
     })
   }
 
-  if (import.meta.hot) {
-    import.meta.hot.on('rsc:update', (e) => {
-      console.log('[rsc:update]', e.file)
-      router.replace(router.location)
-    })
-  }
+  onHmrUpdate(() => router.replace(router.location))
 }
 
-if (import.meta.env.DEV) {
-  window.onerror = (event, source, lineno, colno, err) => {
-    const ErrorOverlay = customElements.get('vite-error-overlay')
-    if (!ErrorOverlay) return
-    const overlay = new ErrorOverlay(err)
-    document.body.appendChild(overlay)
-  }
-}
+onHmrError()
 
 main()

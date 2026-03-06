@@ -1004,7 +1004,7 @@ export class Spiceflow<
       decodeAction,
       decodeFormState,
       loadServerAction,
-    } = await import('@vitejs/plugin-rsc/rsc')
+    } = await import('virtual:bundler-adapter/server')
 
     const [pageRoutes, layoutRoutes] = partition(
       reactRoutes,

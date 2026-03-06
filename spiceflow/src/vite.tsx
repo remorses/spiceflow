@@ -1,5 +1,4 @@
 // Spiceflow Vite plugin: integrates @vitejs/plugin-rsc for RSC support,
-// adds auto "use client" injection for client-by-default behavior,
 // provides SSR middleware, virtual modules, and prerender support.
 import assert from 'node:assert'
 import fs from 'node:fs'
@@ -7,7 +6,6 @@ import path from 'node:path'
 import url from 'node:url'
 
 import rsc from '@vitejs/plugin-rsc'
-import react from '@vitejs/plugin-react'
 import {
   type Manifest,
   type Plugin,
@@ -18,19 +16,6 @@ import {
 import { collectStyleUrls } from './react/css.js'
 import { prerenderPlugin } from './react/prerender.js'
 
-const EXTENSIONS_TO_INJECT = new Set([
-  '.js',
-  '.jsx',
-  '.ts',
-  '.tsx',
-  '.mjs',
-  '.mts',
-  '.cjs',
-  '.cts',
-])
-
-const DIRECTIVE_RE = /^['"]use (client|server)['"]/m
-
 export function spiceflowPlugin({
   entry,
 }: {
@@ -39,7 +24,6 @@ export function spiceflowPlugin({
   let server: ViteDevServer
   let browserManifest: Manifest
   let rscManifest: Manifest
-  const resolvedEntry = path.resolve(entry)
 
   return [
     rsc({
@@ -57,27 +41,7 @@ export function spiceflowPlugin({
       // module from a client component) instead of failing at runtime.
       validateImports: true,
     }),
-    react(),
     prerenderPlugin(),
-
-    // Auto "use client" injection: makes all user source files client components by default.
-    // Only framework internals, the app entry, node_modules, and *.server.* files are excluded.
-    // TODO remove this
-    {
-      name: 'spiceflow:auto-use-client',
-      enforce: 'pre',
-      transform(code, id) {
-        if (DIRECTIVE_RE.test(code)) return
-        const cleanId = id.split('?')[0]
-        const ext = path.extname(cleanId)
-        if (!EXTENSIONS_TO_INJECT.has(ext)) return
-        if (id.includes('node_modules')) return
-        if (id.includes('/spiceflow/')) return
-        if (cleanId === resolvedEntry) return
-        if (path.basename(cleanId).includes('.server.')) return
-        return { code: `"use client";\n${code}`, map: null }
-      },
-    },
 
     // Rewrite optimizeDeps entries so @vitejs/plugin-rsc vendor CJS files
     // resolve through the spiceflow framework package (where the plugin is installed)
@@ -164,6 +128,18 @@ export function spiceflowPlugin({
         }
       },
     },
+
+    // virtual:bundler-adapter/* — resolves to Vite-specific adapter implementations
+    // so entry points can import from these instead of directly from @vitejs/plugin-rsc
+    createVirtualPlugin('bundler-adapter/server', () => {
+      return `export * from 'spiceflow/dist/react/adapters/vite-server'`
+    }),
+    createVirtualPlugin('bundler-adapter/ssr', () => {
+      return `export * from 'spiceflow/dist/react/adapters/vite-ssr'`
+    }),
+    createVirtualPlugin('bundler-adapter/client', () => {
+      return `export * from 'spiceflow/dist/react/adapters/vite-client'`
+    }),
 
     // virtual:app-entry — resolves to user's app entry module
     createVirtualPlugin('app-entry', () => {

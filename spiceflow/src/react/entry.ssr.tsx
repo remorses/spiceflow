@@ -5,7 +5,11 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 
 import React from 'react'
 import ReactDOMServer from 'react-dom/server.edge'
-import { createFromReadableStream } from '@vitejs/plugin-rsc/ssr'
+import {
+  createFromReadableStream,
+  loadBootstrapScriptContent,
+  importRscEnvironment,
+} from 'virtual:bundler-adapter/ssr'
 
 import cssUrls from 'virtual:app-styles'
 import { ServerPayload } from '../spiceflow.js'
@@ -32,7 +36,7 @@ export default async function handler(
 export async function fetchHandler(request: Request) {
   try {
     const url = new URL(request.url)
-    const rscEntry = await importRscEntry()
+    const rscEntry = await importRscEnvironment()
     const response = await rscEntry.handler(request)
 
     if (
@@ -76,9 +80,7 @@ async function renderHtml({
   }
   const metaState = new MetaState({ baseUrl })
 
-  const bootstrapScriptContent = await import.meta.viteRsc.loadBootstrapScriptContent(
-    'index',
-  )
+  const bootstrapScriptContent = await loadBootstrapScriptContent()
 
   // Lazy init inside component so React's preinit/preloading context is active.
   // Must be called inside ReactDOMServer context for preinit/preloading behavior.
@@ -176,15 +178,8 @@ async function renderHtml({
   )
 }
 
-async function importRscEntry(): Promise<typeof import('./entry.rsc.js')> {
-  return await import.meta.viteRsc.import<typeof import('./entry.rsc.js')>(
-    './entry.rsc',
-    { environment: 'rsc' },
-  )
-}
-
 export async function prerender(request: Request) {
-  const reactServer = await importRscEntry()
+  const reactServer = await importRscEnvironment()
   const response = await reactServer.handler(request)
   const responseClone = response.clone()
   const htmlRes = await renderHtml({ response, request, prerender: true })
@@ -193,7 +188,7 @@ export async function prerender(request: Request) {
 }
 
 export async function getPrerenderRoutes() {
-  let rsc = await importRscEntry()
+  let rsc = await importRscEnvironment()
   const app = rsc.app
   return app
     .getAllRoutes()
