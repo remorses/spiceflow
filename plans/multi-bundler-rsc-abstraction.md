@@ -139,87 +139,332 @@ New directory: `example-react-parcel/` mirroring `example-react/` structure with
 
 ## Phase 3: Add Bun Support
 
-### Background: What Bun Already Has
+> **Source files referenced in this section** (all paths relative to [`oven-sh/bun`](https://github.com/oven-sh/bun) repo):
+>
+> - `src/bake/bun-framework-react/client.tsx` — browser entry (hydration, navigation, CSS, HMR)
+> - `src/bake/bun-framework-react/server.tsx` — RSC server entry (rendering, actions, SSG)
+> - `src/bake/bun-framework-react/ssr.tsx` — SSR entry (HTML generation, RSC payload injection)
+> - `src/bake/bun-framework-react/index.ts` — `Bake.Framework` config definition
+> - `src/bake/bake.d.ts` — full TypeScript types for `Bake.Framework`, `Bake.RouteMetadata`, `bun:bake/server`, `bun:bake/client`
+> - `src/bake/bake.private.d.ts` — internal types including `react-server-dom-bun` module declarations
+> - `src/bake/DevServer.zig` — Zig-native RSC dev server
+> - `src/bake/production.zig` — production build
+> - `src/bake/hmr-runtime-client.ts` — client HMR runtime (websocket, module replacement, CSS reload)
+> - `src/bake/hmr-runtime-server.ts` — server HMR runtime (request handling, module loading, manifests)
+> - `src/bake/client/overlay.ts` — error overlay UI
+> - `src/bake/client/css-reloader.ts` — CSS hot reload logic
+> - `test/bake/` — test fixtures and harness (`bake-harness.ts`, `dev/react-spa.test.ts`, etc.)
+> - `src/bundler/bundle_v2.zig` — bundler RSC graph splitting, boundary detection, manifest generation
+> - `src/js_ast.zig:7823` — `UseDirective` enum and parser
+> - `src/bun.js/api/JSBundler.zig:489` — `ServerComponents` config struct
 
-Bun's bundler (`src/bundler/bundle_v2.zig`) has **production RSC support** at the Zig level:
+### Background: What Bun Actually Has
 
-- **`"use client"` / `"use server"` parsing** — `UseDirective` enum in `src/js_ast.zig:7823` parses directives from file contents
-- **Graph splitting** — `react_server_component_boundary` bitset in `bundle_v2.zig` tracks component boundaries and splits the module graph
-- **Client component manifest** — `bundle_v2.zig:9155` generates a manifest mapping source files to their bundled chunk paths + named exports
-- **CLI flag** — `bun build --server-components` enables RSC mode
-- **JS API** — `Bun.build()` accepts `serverComponents` config via `bun-plugin-server-components` (published as `0.0.1-alpha.0`)
-- **Feature flag** — `react_server_components = true` in `feature_flags.zig`
+Bun has a **full RSC framework system called "Bake"** (formerly "Kit"), located in `src/bake/`. This is far more complete than the old `bun-plugin-server-components` npm package — it includes a multi-environment dev server with HMR, production builds, SSG, and a built-in React framework (`bun-framework-react`).
 
-The bundler uses `react-server-dom-webpack` (same as Vite's `@vitejs/plugin-rsc`), so the Flight protocol is identical.
+The reference implementation at `src/bake/bun-framework-react/` consists of 4 files:
 
-### What Bun is Missing
-
-| Capability | Status | Impact |
+| File | Role | React package used |
 |---|---|---|
-| **Dev server RSC** | Not implemented | **Blocker for dev mode.** No multi-environment dev, no RSC HMR, no flight stream handling in dev. |
-| **Cross-environment imports (dev)** | Not implemented | Tied to dev server gap. Prod works via direct `import()`. |
-| **Bootstrap script injection** | Not implemented | Must read from `Bun.build()` output manifest and construct `<script>` tag. Solvable in adapter. |
-| **RSC HMR** | Not implemented | `HotReloader` in `javascript.zig` handles React Fast Refresh but has no RSC invalidation. |
-| **Virtual module support** | Partial — `onResolve` + `onLoad` exist | Works but less ergonomic than Vite's `createVirtualPlugin`. |
-| **CSS module graph API** | Not exposed to JS | No dev-time CSS collection. Prod CSS comes from build output. |
-| **Test coverage** | None | `expectBundled.ts` has `serverComponents` option but zero test cases use it. |
+| `client.tsx` (470 lines) | Browser entry, hydration, client-side navigation, CSS management | `react-server-dom-bun/client.browser` |
+| `server.tsx` (240 lines) | RSC rendering, server actions, prerendering/SSG | `react-server-dom-bun/server.node.unbundled.js` |
+| `ssr.tsx` (416 lines) | SSR-to-HTML with RSC payload injection via custom `RscInjectionStream` | `react-server-dom-bun/client.node.unbundled.js` + `react-dom/server.node` |
+| `index.ts` (42 lines) | Framework config — registers routes, entries, server components options | `Bake.Framework` type |
 
-### Approach: Production-Only Initially, Vite for Dev
+**Key finding: Bun uses `react-server-dom-bun`** — its own React Flight package, not `react-server-dom-webpack`. This is different from what the old `bun-plugin-server-components` suggested.
 
-Since Bun's dev server has no RSC support, the pragmatic approach is:
+### Bun-Specific APIs Used by `bun-framework-react`
 
-1. **Dev mode:** Use Vite (existing adapter) for the dev experience — HMR, error overlay, multi-environment
-2. **Production build:** Use `Bun.build()` with `bun-plugin-server-components` — faster builds, native RSC splitting
-3. **Production runtime:** Use `Bun.serve()` or standard Node server to serve the built output
+#### `bun:bake/server` — Server-side manifests
 
-This mirrors how many frameworks use one tool for dev and another for prod (e.g., Next.js uses Turbopack for dev, webpack for prod).
+```ts
+import { serverManifest } from 'bun:bake/server'
+import { ssrManifest } from 'bun:bake/server'
+```
 
-### Bun adapter files
+- **`serverManifest: ServerManifest`** — Maps combined component IDs (`"components/Navbar.tsx#default"`) to `{ id, name, chunks }`. Passed to `renderToPipeableStream()` as the webpack map argument. This is what React uses to resolve `"use client"` references.
+- **`ssrManifest: SSRManifest`** — Maps client-side file IDs to `{ specifier, name }` for SSR imports. Passed to `createFromNodeStream()` so React can resolve client components during SSR.
+- **`actionManifest`** — Declared but not yet implemented (`never` type). Reserved for server actions.
+
+```ts
+// ServerManifest shape:
+interface ServerManifest {
+  [combinedComponentId: string]: {
+    id: string      // correlates to filename
+    name: string    // correlates to export name
+    chunks: []      // always empty currently
+  }
+}
+
+// SSRManifest shape:
+interface SSRManifest {
+  [id: string]: {
+    [name: string]: {
+      specifier: string  // valid import specifier
+      name: string       // export name
+    }
+  }
+}
+```
+
+#### `bun:bake/client` — Client-side HMR hook
+
+```ts
+import { onServerSideReload } from 'bun:bake/client'
+```
+
+- **`onServerSideReload(cb: () => void | Promise<void>): Promise<void>`** — Registers a callback invoked when server-side code changes. The framework uses this to refetch the RSC payload without a full page reload. Only one callback can be active. This is Bun's equivalent of Vite's `import.meta.hot.on('rsc:update', ...)`.
+
+#### `react-server-dom-bun` — Bun-specific React Flight
+
+Three subpackages used:
+
+```ts
+// Server (RSC environment, react-server conditions):
+import { renderToPipeableStream } from 'react-server-dom-bun/server.node.unbundled.js'
+// Returns { pipe, abort }. Uses Node.js streams (PassThrough), not web ReadableStream.
+
+// SSR environment:
+import { createFromNodeStream } from 'react-server-dom-bun/client.node.unbundled.js'
+// Takes a Node.js Readable + manifest options { moduleMap, moduleLoading }
+
+// Browser:
+import { createFromReadableStream } from 'react-server-dom-bun/client.browser'
+// Takes a web ReadableStream, returns Promise<T>
+```
+
+**Critical difference from Vite/Parcel:** Bun's server-side RSC uses **Node.js streams** (`renderToPipeableStream` + `PassThrough`), not web `ReadableStream`. Vite uses `renderToReadableStream` (web streams). This affects the adapter signatures.
+
+#### `Bun.serve({ app })` — Bake integration point
+
+```ts
+Bun.serve({
+  app: {
+    framework: 'react',  // or a Bake.Framework config object
+    bundlerOptions: { ... },
+    plugins: [ ... ],
+  }
+})
+```
+
+This is the user-facing API. Bake is configured via `Bun.serve()` options, not a separate build command. The dev server, production build, and SSG are all driven from this single entry point.
+
+#### `Bake.Framework` — Framework registration
+
+```ts
+const framework: Bake.Framework = {
+  fileSystemRouterTypes: [{
+    root: 'pages',
+    clientEntryPoint: 'bun-framework-react/client.tsx',
+    serverEntryPoint: 'bun-framework-react/server.tsx',
+    extensions: ['jsx', 'tsx'],
+    style: 'nextjs-pages',
+    layouts: true,
+    ignoreUnderscores: true,
+  }],
+  staticRouters: ['public'],
+  reactFastRefresh: {
+    importSource: 'react-refresh/runtime',
+  },
+  serverComponents: {
+    separateSSRGraph: true,
+    serverRegisterClientReferenceExport: 'registerClientReference',
+    serverRuntimeImportSource: 'react-server-dom-webpack/server',
+  },
+  builtInModules: [
+    { import: 'bun-framework-react/client.tsx', path: require.resolve('./client.tsx') },
+    { import: 'bun-framework-react/server.tsx', path: require.resolve('./server.tsx') },
+    { import: 'bun-framework-react/ssr.tsx', path: require.resolve('./ssr.tsx') },
+  ],
+  bundlerOptions: {
+    ssr: { conditions: ['react-server'] },
+  },
+}
+```
+
+Key fields:
+- **`serverComponents.separateSSRGraph: boolean`** — When `true`, client components get a separate SSR bundling graph without `react-server` condition. This is what enables server components and client components to use different React runtimes in the same process.
+- **`serverComponents.serverRuntimeImportSource`** — Package that exports `registerClientReference`. Bun generates stub modules at `"use client"` boundaries that call this function.
+- **`serverComponents.serverRegisterClientReferenceExport`** — Export name to use from the runtime source (default `"registerClientReference"`).
+- **`fileSystemRouterTypes[].style`** — `"nextjs-pages"` | `"nextjs-app-ui"` | `"nextjs-app-routes"` | custom function.
+
+#### `Bake.RouteMetadata` — Route info passed to server entry
+
+```ts
+interface RouteMetadata {
+  readonly pageModule: any         // the loaded route module
+  readonly layouts: ReadonlyArray<any>  // layout chain, inner-first
+  readonly params: Record<string, string | string[]> | null
+  readonly modules: ReadonlyArray<string>      // JS files needed for interactivity
+  readonly modulepreload: ReadonlyArray<string> // JS files to preload
+  readonly styles: ReadonlyArray<string>        // CSS files for the route
+}
+```
+
+The framework's `server.tsx` receives this and builds the React tree:
+```ts
+export async function render(request: Request, meta: Bake.RouteMetadata): Promise<Response>
+```
+
+#### `import ... with { bunBakeGraph: 'ssr' }` — Cross-graph imports
+
+```ts
+import { renderToHtml } from 'bun-framework-react/ssr.tsx' with { bunBakeGraph: 'ssr' }
+```
+
+This is how `server.tsx` (running in the RSC/react-server graph) imports code from the SSR graph. It's Bun's equivalent of Vite's `import.meta.viteRsc.import('./entry.rsc', { environment: 'rsc' })` but going the other direction (server -> SSR rather than SSR -> server).
+
+#### RSC payload streaming via `__bun_f`
+
+The client reads the initial RSC payload from inline `<script>` tags:
+
+```ts
+// Server injects: <script>(self.__bun_f ??= []).push(chunk)</script>
+// Client converts to ReadableStream:
+const rscPayload = createFromReadableStream(
+  new ReadableStream({
+    start(controller) {
+      (self.__bun_f ||= []).forEach((__bun_f.push = handleChunk))
+      document.addEventListener('DOMContentLoaded', () => controller.close())
+    },
+  }),
+)
+```
+
+This is similar to spiceflow's `rsc-html-stream` approach but with a different encoding — Bun uses `__bun_f` array with single-quoted string escaping, while spiceflow uses `rsc-html-stream/client` with `<script>` tag injection via `injectRSCPayload()`.
+
+#### CSS metadata in RSC response
+
+For client-side navigation, Bun prepends a 4-byte length header + CSS file list to the RSC response:
+
+```ts
+// Server side (server.tsx):
+const int = Buffer.allocUnsafe(4)
+const str = meta.styles.join('\n')
+int.writeUInt32LE(str.length, 0)
+rscPayload.write(int)
+rscPayload.write(str)
+
+// Client side (client.tsx):
+const header = (await reader.read(new Uint32Array(1))).value
+const cssRaw = (await reader.read(new Uint8Array(header[0]))).value
+currentCssList = td.decode(cssRaw).split('\n')
+```
+
+This is a binary framing protocol specific to Bun's implementation. Spiceflow doesn't need this — it handles CSS via `virtual:app-styles`.
+
+### Approach: Two integration paths
+
+Unlike the earlier assumption that Bun had no dev server, Bake provides both dev and production. There are two ways to integrate:
+
+**Path A: Bake adapter (deep integration)**
+Write a spiceflow adapter that maps to Bake's `Bake.Framework` API. Spiceflow becomes a Bake framework, similar to how `bun-framework-react` works. This gives us both dev and prod via `Bun.serve({ app: { framework: spiceflowFramework } })`.
+
+**Challenges:**
+- Bake uses `react-server-dom-bun` (Node.js streams: `renderToPipeableStream`), while spiceflow's entry points use web `ReadableStream` APIs (`renderToReadableStream`). The adapter would need to bridge between stream types.
+- Bake's routing is filesystem-based (`Bake.FrameworkFileSystemRouterType`), while spiceflow uses programmatic `.page()` / `.route()` definitions. Would need a custom `style` function or a virtual filesystem.
+- Bake provides `RouteMetadata` with `pageModule`, `layouts`, `styles`, `modules` — spiceflow would need to map its own route/layout system to this shape.
+- The `bun:bake/server` manifests (`serverManifest`, `ssrManifest`) are generated by Bake's bundler. The adapter would use these instead of building its own.
+
+**Path B: Standalone build (shallow integration)**
+Use `Bun.build()` with the lower-level bundler APIs (`--server-components` flag, `UseDirective` parsing, graph splitting) for production builds only. Dev stays on Vite. This is simpler but doesn't leverage Bake's dev server.
+
+**Recommendation: Path A** — Bake already solves the hard problems (multi-environment dev, RSC HMR, manifest generation, CSS tracking). Fighting against it would be duplicating work.
+
+### Bun adapter files (Path A)
 
 **`spiceflow/src/react/adapters/bun-server.ts`** (RSC environment)
 
 ```ts
-// Bun uses react-server-dom-webpack directly (same as Vite does under the hood,
-// but without the @vitejs/plugin-rsc wrapper).
-export {
-  renderToReadableStream,
-  createTemporaryReferenceSet,
-  decodeReply,
-  decodeAction,
-  decodeFormState,
-} from 'react-server-dom-webpack/server.edge'
+// Bun uses react-server-dom-bun with Node.js streams, not web ReadableStream.
+// The adapter bridges between Bake's pipeable streams and spiceflow's
+// RscServerAdapter interface which expects web ReadableStream.
+import {
+  renderToPipeableStream as _renderToPipeableStream,
+} from 'react-server-dom-bun/server.node.unbundled.js'
+import { serverManifest } from 'bun:bake/server'
+import { PassThrough } from 'node:stream'
 
-// loadServerAction is bundler-specific — Bun's bundler generates a manifest
-// that maps action IDs to module paths + export names.
+export function renderToReadableStream(
+  model: any,
+  options?: { temporaryReferences?: any; onError?: (error: any) => string | void; signal?: AbortSignal },
+): ReadableStream {
+  const passThrough = new PassThrough()
+  const { pipe, abort } = _renderToPipeableStream(model, serverManifest, {
+    onError: options?.onError,
+    temporaryReferences: options?.temporaryReferences,
+  })
+  pipe(passThrough)
+  if (options?.signal) {
+    options.signal.addEventListener('abort', () => abort())
+  }
+  // Convert Node.js Readable to web ReadableStream
+  return Readable.toWeb(passThrough) as ReadableStream
+}
+
+export { createTemporaryReferenceSet } from 'react-server-dom-bun/server.node.unbundled.js'
+
+// Server actions: action manifest is not yet implemented in Bake (declared as `never`).
+// For now, use the same pattern as bun-framework-react: action IDs encode
+// the module path and export name.
 export async function loadServerAction(id: string): Promise<Function> {
-  // The action ID format from react-server-dom-webpack is "filepath#exportName".
-  // Bun's build manifest maps these to the bundled chunk paths.
   const [modulePath, exportName] = id.split('#')
   const mod = await import(modulePath)
   return mod[exportName || 'default']
+}
+
+// These may need custom implementations or stubs depending on
+// whether react-server-dom-bun exposes them:
+export async function decodeReply(body: string | FormData, options?: any): Promise<any[]> {
+  const { decodeReply } = await import('react-server-dom-bun/server.node.unbundled.js')
+  return decodeReply(body, serverManifest, options)
+}
+
+export async function decodeAction(formData: FormData): Promise<() => Promise<any>> {
+  const { decodeAction } = await import('react-server-dom-bun/server.node.unbundled.js')
+  return decodeAction(formData, serverManifest)
+}
+
+export async function decodeFormState(result: any, formData: FormData): Promise<any> {
+  const { decodeFormState } = await import('react-server-dom-bun/server.node.unbundled.js')
+  return decodeFormState(result, formData)
 }
 ```
 
 **`spiceflow/src/react/adapters/bun-ssr.ts`** (SSR environment)
 
 ```ts
-export { createFromReadableStream } from 'react-server-dom-webpack/client.edge'
+import { createFromNodeStream } from 'react-server-dom-bun/client.node.unbundled.js'
+import { ssrManifest } from 'bun:bake/server'
+import { Readable } from 'node:stream'
 
-// In production, read the client entry chunk path from the build manifest
-// and construct the bootstrap script that loads it.
-let _cachedBootstrapScript: string | undefined
-export async function loadBootstrapScriptContent(): Promise<string> {
-  if (_cachedBootstrapScript) return _cachedBootstrapScript
-  // The Bun build plugin writes a manifest.json mapping entry names to output paths.
-  // Read it at startup and cache the bootstrap script.
-  const manifest = await import('./bun-manifest.json', { with: { type: 'json' } })
-  const clientEntry = manifest.default?.client?.entryPoint
-  if (!clientEntry) throw new Error('Bun build manifest missing client entry')
-  _cachedBootstrapScript = `import(${JSON.stringify(clientEntry)})`
-  return _cachedBootstrapScript
+// Bridge: spiceflow passes web ReadableStream, but Bun's createFromNodeStream
+// expects a Node.js Readable.
+export async function createFromReadableStream<T>(stream: ReadableStream): Promise<T> {
+  const nodeStream = Readable.fromWeb(stream)
+  return createFromNodeStream<T>(nodeStream, {
+    moduleMap: ssrManifest,
+    moduleLoading: { prefix: '/' },
+  })
 }
 
-// In production, single process — direct import works.
+// Bake injects bootstrap modules via RouteMetadata.modules, which are passed
+// to react-dom's renderToPipeableStream as `bootstrapModules`.
+// The adapter reads these from the route context.
+export async function loadBootstrapScriptContent(): Promise<string> {
+  // In Bake, bootstrap scripts are handled differently — they're passed as
+  // `bootstrapModules` to react-dom's renderToPipeableStream, not as inline
+  // script content. This function returns a minimal bootstrap that loads
+  // the client entry.
+  // The actual client entry URL comes from Bake's build system.
+  throw new Error(
+    'loadBootstrapScriptContent is not used with Bake — ' +
+    'use bootstrapModules from RouteMetadata.modules instead'
+  )
+}
+
+// In Bake, cross-graph imports use `with { bunBakeGraph: 'ssr' }` attribute.
+// The SSR -> RSC direction uses direct import since both run in the same process.
 export async function importRscEnvironment(): Promise<typeof import('../entry.rsc.js')> {
   return import('../entry.rsc.js')
 }
@@ -228,146 +473,106 @@ export async function importRscEnvironment(): Promise<typeof import('../entry.rs
 **`spiceflow/src/react/adapters/bun-client.ts`** (browser)
 
 ```ts
-export {
-  createFromReadableStream,
-  createFromFetch,
-  createTemporaryReferenceSet,
-  encodeReply,
-  setServerCallback,
-} from 'react-server-dom-webpack/client.browser'
+export { createFromReadableStream } from 'react-server-dom-bun/client.browser'
 
-export function onHmrUpdate(_callback: () => void) {
-  // Bun has no RSC HMR — noop in production.
-  // In dev, Vite adapter is used instead.
+// createFromFetch may not exist in react-server-dom-bun — implement via createFromReadableStream
+import { createFromReadableStream as _createFromReadableStream } from 'react-server-dom-bun/client.browser'
+
+export async function createFromFetch<T>(
+  responsePromise: Promise<Response>,
+  opts?: { temporaryReferences?: any },
+): Promise<T> {
+  const response = await responsePromise
+  return _createFromReadableStream<T>(response.body!)
+}
+
+// These may or may not be exported by react-server-dom-bun/client.browser.
+// Need to verify — if not, provide stubs or import from the right subpath.
+export function createTemporaryReferenceSet(): any {
+  // TODO: check if react-server-dom-bun exports this
+  return new Set()
+}
+
+export async function encodeReply(args: any[], opts?: { temporaryReferences?: any }): Promise<any> {
+  // TODO: check if react-server-dom-bun exports this
+  const { encodeReply } = await import('react-server-dom-bun/client.browser')
+  return encodeReply(args, opts)
+}
+
+export function setServerCallback(cb: (id: string, args: any[]) => Promise<any>): void {
+  // TODO: check if react-server-dom-bun exports this or if it's handled differently
+}
+
+export function onHmrUpdate(callback: () => void) {
+  // Use Bake's HMR hook
+  import('bun:bake/client').then(({ onServerSideReload }) => {
+    onServerSideReload(() => {
+      console.log('[bun:bake] server-side reload')
+      callback()
+    })
+  })
 }
 
 export function onHmrError() {
-  // Bun has no error overlay — noop in production.
+  // Bake has its own error overlay (src/bake/client/overlay.ts)
+  // No additional setup needed — it's injected by the HMR runtime automatically.
 }
 ```
 
-### Bun build plugin (`spiceflow/src/bun-build.ts`)
+### Stream bridging challenge
 
-Unlike `vite.tsx` which handles both dev and prod, the Bun plugin is **production-build-only**:
+The biggest technical challenge is the **stream type mismatch**:
 
-```ts
-import ServerComponentsPlugin from 'bun-plugin-server-components'
-
-export async function buildWithBun(options: {
-  entry: string          // path to user's app entry (main.tsx)
-  outdir: string         // output directory
-  minify?: boolean
-}) {
-  // Step 1: Build server components (RSC environment)
-  // This discovers "use client" files and generates the client manifest.
-  const serverResult = await Bun.build({
-    entrypoints: [options.entry],
-    outdir: `${options.outdir}/server`,
-    target: 'bun',
-    splitting: true,
-    plugins: [
-      ServerComponentsPlugin({
-        client: {
-          outdir: `${options.outdir}/client`,
-          target: 'browser',
-        },
-        ssr: {
-          outdir: `${options.outdir}/ssr`,
-          target: 'bun',
-        },
-      }),
-      // Resolve virtual:bundler-adapter/* to Bun adapter files
-      {
-        name: 'spiceflow-bun-adapters',
-        setup(build) {
-          build.onResolve({ filter: /^virtual:bundler-adapter\// }, (args) => {
-            const adapter = args.path.replace('virtual:bundler-adapter/', '')
-            return {
-              path: require.resolve(`spiceflow/dist/react/adapters/bun-${adapter}`),
-            }
-          })
-          build.onResolve({ filter: /^virtual:app-entry$/ }, () => ({
-            path: require.resolve(options.entry),
-          }))
-          build.onResolve({ filter: /^virtual:app-styles$/ }, () => ({
-            path: 'virtual:app-styles',
-            namespace: 'spiceflow-virtual',
-          }))
-          build.onLoad({ filter: /^virtual:app-styles$/, namespace: 'spiceflow-virtual' }, () => ({
-            contents: `export default []`, // CSS extracted by bundler
-            loader: 'js',
-          }))
-        },
-      },
-    ],
-    minify: options.minify,
-  })
-
-  // Step 2: Write manifest for the SSR adapter to read at runtime
-  const clientEntry = serverResult.outputs.find(
-    (o) => o.kind === 'entry-point' && o.loader !== 'css',
-  )
-  await Bun.write(
-    `${options.outdir}/bun-manifest.json`,
-    JSON.stringify({
-      client: { entryPoint: `/client/${clientEntry?.path}` },
-    }),
-  )
-
-  return serverResult
-}
-```
-
-### Key differences from Parcel approach
-
-| Aspect | Parcel | Bun |
+| Layer | Spiceflow (Vite) | Bun Bake |
 |---|---|---|
-| React Flight package | `react-server-dom-parcel` (Parcel-specific) | `react-server-dom-webpack` (same as Vite) |
-| `loadServerAction` | Parcel wires this automatically via `@parcel/rsc` | Must implement manually — parse action ID, resolve from manifest |
-| Bootstrap script | Parcel injects via runtime proxy, adapter throws | Must read from build manifest, construct `<script>` tag |
-| `importRscEnvironment` | Direct `import()` (single target) | Direct `import()` in prod (single process) |
-| Dev server | Parcel has its own dev server + HMR | **None** — fall back to Vite for dev |
-| Plugin complexity | High — Parcel's transformer/runtime/resolver system | Medium — `Bun.build()` API is simpler, but less framework integration |
-| CSS | Parcel handles automatically | Extracted by bundler, `virtual:app-styles` returns `[]` |
-| Virtual modules | Parcel resolvers | `onResolve` + `onLoad` hooks |
+| RSC render | `renderToReadableStream()` → web `ReadableStream` | `renderToPipeableStream()` → Node.js `{ pipe, abort }` |
+| SSR consume | `createFromReadableStream()` ← web `ReadableStream` | `createFromNodeStream()` ← Node.js `Readable` |
+| SSR render | `ReactDOMServer.renderToReadableStream()` → web `ReadableStream` | `react-dom/server.node` `renderToPipeableStream()` → Node.js `{ pipe }` |
+| Client consume | `createFromReadableStream()` ← web `ReadableStream` | `createFromReadableStream()` ← web `ReadableStream` |
 
-### `loadServerAction` deep dive
+The server-side adapters need to convert between Node.js streams and web streams. Bun has built-in `Readable.toWeb()` and `Readable.fromWeb()` which makes this feasible but adds overhead.
 
-This is the trickiest part of the Bun adapter. In Vite, `@vitejs/plugin-rsc/rsc` handles this by maintaining a mapping from action IDs to modules. In Bun, we need to:
+**Alternative approach:** Modify spiceflow's entry points to detect the stream type and branch accordingly. Or accept that the Bun adapter will have slightly different performance characteristics due to stream conversion.
 
-1. During `Bun.build()`, generate a server action manifest that maps action IDs to output chunk paths + export names
-2. At runtime, `loadServerAction` reads this manifest and dynamically imports the correct chunk
+### What Bake handles that spiceflow currently does itself
 
-Bun's bundler already generates a `react_client_components_manifest` (in `bundle_v2.zig:9155`). A similar manifest for server actions may need to be extracted or generated via a plugin.
+| Concern | Spiceflow does it in | Bake handles it in |
+|---|---|---|
+| RSC payload injection into HTML | `transform.ts` (`injectRSCPayload`) | `ssr.tsx` (`RscInjectionStream`) — custom class that intercepts `</script>` and `</body>` boundaries |
+| Client-side RSC hydration | `entry.client.tsx` via `rsc-html-stream/client` | `client.tsx` via `self.__bun_f` array pattern |
+| Client-side navigation | `entry.client.tsx` + `router.ts` | `client.tsx` — global click listener + `goto()` + history API |
+| CSS injection during SSR | `virtual:app-styles` module | `RouteMetadata.styles` + `<link data-bake-ssr>` tags |
+| CSS management during navigation | Not implemented (full page) | `client.tsx` — binary CSS metadata header + `link.disabled` toggle |
+| Error handling | `ssr-error-fallback` + `__NO_HYDRATE` | `client/overlay.ts` — dedicated error overlay UI |
+| Bootstrap script | `loadBootstrapScriptContent()` → inline `<script>` | `RouteMetadata.modules` → `<script type="module">` via `bootstrapModules` |
 
-If the existing `clientManifest` / `ssrManifest` from `bun-plugin-server-components` doesn't expose action IDs, we may need to:
-- Parse the RSC output chunks for `$$ACTION_` references
-- Or extend `bun-plugin-server-components` to emit a server action manifest
+### Integration strategy
 
-### CSS handling
+Rather than fighting Bake's architecture, the integration should **let Bake be the framework layer** and map spiceflow's API surface onto it:
 
-- **Bun build:** CSS is extracted as separate `BuildArtifact` entries with `loader: 'css'`. The build plugin collects their output paths and includes them in `bun-manifest.json`.
-- **`virtual:app-styles`** returns `[]` in the Bun adapter because CSS paths are resolved from the manifest at runtime, not at build time via virtual modules.
-- Alternative: the Bun build plugin could generate `virtual:app-styles` with the actual CSS paths baked in.
+1. **Spiceflow as a Bake framework** — Create a `Bake.Framework` config that points Bake at spiceflow's entry points
+2. **Route mapping** — Implement a custom `style` function for `fileSystemRouterTypes` that reads spiceflow's programmatic routes instead of filesystem
+3. **Server entry** — Write a `bake-server.tsx` that wraps spiceflow's `app.handle()` and maps `Bake.RouteMetadata` to spiceflow's route system
+4. **SSR entry** — Can reuse most of spiceflow's `entry.ssr.tsx` logic but adapted for Node.js streams
+5. **Client entry** — Can reuse most of spiceflow's `entry.client.tsx` but use `bun:bake/client` for HMR
+
+### Open questions
+
+1. **Does `react-server-dom-bun` export `createFromFetch`, `encodeReply`, `createTemporaryReferenceSet`, `setServerCallback`?** These are used by spiceflow's client entry. Need to check the actual package exports. If not, server actions may need a different approach.
+
+2. **Can Bake work with programmatic routes?** The `fileSystemRouterTypes[].style` field accepts a custom function, but all examples use filesystem routing. Spiceflow's `.page()` API builds routes in code. May need to generate a virtual filesystem or use a different Bake API.
+
+3. **Is `actionManifest` coming soon?** Currently `never` type. Server actions in spiceflow rely on `loadServerAction` which needs a manifest. If Bake doesn't provide one, we need to build our own action resolution.
+
+4. **How does Bake handle `Bun.serve()` in production?** The dev server is Zig-native (`DevServer.zig`). Production uses `production.zig`. Need to understand if there's a JS-level production API or if it's all handled by `Bun.serve({ app })`.
 
 ### Testing strategy
 
-1. **Unit tests** for the Bun adapter — verify `loadServerAction` correctly parses IDs and resolves modules
-2. **Build integration test** — run `buildWithBun()` on `example-react/` and verify output structure matches expectations
-3. **E2e tests** — serve the Bun-built output with `Bun.serve()` and run the existing Playwright tests against it (same tests, different port/build)
-4. **Regression** — all existing Vite e2e tests must still pass
-
-### Future: Bun dev server with RSC
-
-If Bun adds multi-environment dev support (tracked as a potential feature), the Bun adapter can be updated to support dev mode:
-
-- `onHmrUpdate` would listen on a Bun-specific HMR channel
-- `loadBootstrapScriptContent` would return a dev-mode script pointing to the Bun dev server
-- `importRscEnvironment` would use Bun's module runner (analogous to `import.meta.viteRsc.import()`)
-
-Until then, the recommended workflow is:
-- `vite dev` for development (full HMR, error overlay, multi-environment)
-- `bun-build` for production (faster builds, native RSC splitting)
+1. **Unit tests** — Verify stream bridging (web ↔ Node.js) works correctly in both directions
+2. **Build integration** — Create a `bake-example/` that uses spiceflow as a Bake framework, verify dev server starts and serves pages
+3. **E2e tests** — Run the existing Playwright test suite against the Bake-served app (same tests, Bun runtime)
+4. **HMR tests** — Verify that `onServerSideReload` triggers RSC re-render on file changes
+5. **Regression** — All existing Vite e2e tests must still pass
 
 ---
 
@@ -397,15 +602,16 @@ Until then, the recommended workflow is:
 | `spiceflow/src/parcel.ts` | Parcel plugin (transformers, resolvers, runtimes) |
 | `example-react-parcel/` | Parcel example app |
 
-### Phase 3: Bun
+### Phase 3: Bun (via Bake)
 
 | File | Purpose |
 |---|---|
-| `spiceflow/src/react/adapters/bun-server.ts` | Bun RSC environment adapter (re-exports `react-server-dom-webpack` + custom `loadServerAction`) |
-| `spiceflow/src/react/adapters/bun-ssr.ts` | Bun SSR environment adapter (manifest-based bootstrap script, direct `import()`) |
-| `spiceflow/src/react/adapters/bun-client.ts` | Bun browser adapter (re-exports `react-server-dom-webpack/client.browser`, noop HMR) |
-| `spiceflow/src/bun-build.ts` | Bun build orchestration using `Bun.build()` + `bun-plugin-server-components` |
-| `example-react/` (updated) | Add `bun-build` script to existing example for testing |
+| `spiceflow/src/react/adapters/bun-server.ts` | Bun RSC environment adapter — bridges `react-server-dom-bun` (Node.js streams) to spiceflow's web `ReadableStream` interface. Uses `bun:bake/server` manifests. |
+| `spiceflow/src/react/adapters/bun-ssr.ts` | Bun SSR environment adapter — wraps `createFromNodeStream` with web-to-Node stream conversion. Uses `ssrManifest` from `bun:bake/server`. |
+| `spiceflow/src/react/adapters/bun-client.ts` | Bun browser adapter — uses `react-server-dom-bun/client.browser` + `bun:bake/client` for HMR via `onServerSideReload`. |
+| `spiceflow/src/bake-framework.ts` | `Bake.Framework` config — registers spiceflow as a Bake framework with custom route style, entry points, and server components options. |
+| `spiceflow/src/react/bake-server.tsx` | Bake server entry — wraps spiceflow's `app.handle()` and maps `Bake.RouteMetadata` to spiceflow's route system. |
+| `bake-example/` | Example app using `Bun.serve({ app: { framework: spiceflowBakeFramework } })` |
 
 ---
 
@@ -423,14 +629,15 @@ Until then, the recommended workflow is:
 | Parcel plugin (`parcel.ts`) | **High** | Fundamentally different plugin system (transformers, runtimes, namers, resolvers) |
 | CSS handling | Medium | Different mental model (automatic vs explicit) |
 | Parcel example app | Medium | Wiring up the plugin end-to-end |
-| **Phase 3: Bun** | | |
-| Bun adapters (3 files) | Low-Medium | `bun-server.ts` needs custom `loadServerAction`. Others are simple re-exports. |
-| Bun build plugin (`bun-build.ts`) | Medium | `Bun.build()` API is simpler than Parcel's, but manifest generation and virtual module resolution via `onResolve`/`onLoad` need careful wiring. |
-| `loadServerAction` implementation | **Medium-High** | Depends on what `bun-plugin-server-components` manifest contains. May need to extend the plugin or parse output chunks. |
-| Bootstrap script from manifest | Medium | Read `Bun.build()` output, write manifest JSON, adapter reads it at runtime. |
-| Dev server | **Not feasible** | Bun has no multi-environment dev or RSC HMR. Use Vite for dev. |
-| CSS handling | Low | Same as Parcel — `virtual:app-styles` returns `[]`, CSS extracted by bundler. |
-| Testing | Medium | Need build integration test + serve built output for e2e. |
+| **Phase 3: Bun (via Bake)** | | |
+| Bun adapters (3 files) | **Medium-High** | Stream type bridging (Node.js ↔ web) is the main challenge. `bun-server.ts` must wrap `renderToPipeableStream` to return web `ReadableStream`. Need to verify which APIs `react-server-dom-bun` actually exports. |
+| Bake framework config (`bake-framework.ts`) | Medium | Map spiceflow's programmatic routes to Bake's `FrameworkFileSystemRouterType`. May need custom `style` function. |
+| Bake server entry (`bake-server.tsx`) | Medium | Bridge between `Bake.RouteMetadata` and spiceflow's `app.handle()`. Need to map layouts, params, modules, styles. |
+| `loadServerAction` | Medium | `actionManifest` is not yet implemented in Bake. Must parse action IDs manually (`path#export` format). |
+| Stream bridging | **High** | Core challenge. Spiceflow uses web `ReadableStream` everywhere. Bake uses Node.js streams for RSC/SSR. Adapters must convert in both directions without losing streaming benefits. |
+| Dev server | **Available** | Bake provides RSC dev server with HMR via `bun:bake/client`. Major improvement over earlier assessment. |
+| HMR integration | Low | `onServerSideReload` from `bun:bake/client` maps directly to `onHmrUpdate` in the adapter. |
+| Testing | Medium | Need Bake-specific example + e2e tests against `Bun.serve({ app })`. |
 
 ---
 
@@ -444,17 +651,19 @@ Until then, the recommended workflow is:
 - Handle CSS differences
 - Add `example-react-parcel/` + e2e tests
 
-**Phase 3: Add Bun support** (follow-up PR)
-- Create Bun adapters (3 files)
-- Create Bun build plugin (`bun-build.ts`)
-- Solve `loadServerAction` manifest mapping
-- Generate bootstrap script manifest
-- Add `bun-build` script to `example-react/` + e2e tests against built output
-- Document the hybrid workflow (Vite dev + Bun prod)
+**Phase 3: Add Bun support via Bake** (follow-up PR)
+- Create Bun adapters (3 files) with Node.js ↔ web stream bridging
+- Create `bake-framework.ts` — spiceflow as a `Bake.Framework`
+- Create `bake-server.tsx` — bridge `Bake.RouteMetadata` to spiceflow's route handling
+- Verify `react-server-dom-bun` API surface (which functions are exported from each subpath)
+- Solve `loadServerAction` without `actionManifest` (parse `path#export` IDs)
+- Add `bake-example/` + e2e tests against `Bun.serve({ app })`
 
-**Phase 2 and 3 are independent** — they can be done in either order or in parallel. Bun is arguably simpler because:
-- It uses `react-server-dom-webpack` (same as Vite), so the adapter is nearly identical
-- `Bun.build()` API is simpler than Parcel's plugin system
-- No dev server to worry about (prod-only)
+**Phase 2 and 3 are independent** — they can be done in either order or in parallel.
 
-But Parcel is more complete (has dev server support) making it a better second-bundler demo.
+Bun (via Bake) is more challenging than initially assumed because:
+- It uses `react-server-dom-bun` (its own Flight package), not `react-server-dom-webpack`
+- Server-side uses Node.js streams, not web streams — requires bridging
+- Bake has its own opinionated architecture (filesystem routing, `RouteMetadata`, `__bun_f` payload format) that differs from spiceflow's
+
+But Bake provides the most complete experience (both dev + prod, built-in RSC HMR, error overlay, CSS management). Once the stream bridging and route mapping are solved, the integration is solid.
