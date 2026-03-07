@@ -1,6 +1,6 @@
 import { test, describe, expect } from 'vitest'
 
-import { bfs, cloneDeep, Spiceflow } from './spiceflow.ts'
+import { bfs, cloneDeep, createSafePath, Spiceflow } from './spiceflow.ts'
 import { z } from 'zod'
 import { createSpiceflowClient } from './client/index.ts'
 
@@ -1256,6 +1256,320 @@ describe('safePath', () => {
     )
     expect(res.status).toBe(200)
     expect(await res.json()).toBe('/target')
+  })
+
+  test('safePath appends query params', () => {
+    const app = new Spiceflow()
+      .get('/search', () => 'results', {
+        query: z.object({ q: z.string(), page: z.coerce.number() }),
+      })
+      .get('/users/:id', ({ params }) => params.id, {
+        query: z.object({ fields: z.string() }),
+      })
+
+    expect(app.safePath('/search', undefined, { q: 'hello', page: 1 })).toBe(
+      '/search?q=hello&page=1',
+    )
+    expect(
+      app.safePath('/users/:id', { id: '42' }, { fields: 'name' }),
+    ).toBe('/users/42?fields=name')
+
+    // @ts-expect-error - invalid query key 'invalid' not in schema
+    app.safePath('/search', undefined, { invalid: 'x' })
+
+    // @ts-expect-error - invalid query key 'nonexistent' not in schema
+    app.safePath('/users/:id', { id: '1' }, { nonexistent: 'x' })
+  })
+
+  test('safePath with query params and no path params', () => {
+    const app = new Spiceflow().get('/items', () => 'items', {
+      query: z.object({ sort: z.string(), limit: z.coerce.number() }),
+    })
+
+    expect(
+      app.safePath('/items', undefined, { sort: 'date', limit: 10 }),
+    ).toBe('/items?sort=date&limit=10')
+
+    // @ts-expect-error - wrong query key
+    app.safePath('/items', undefined, { order: 'asc' })
+  })
+
+  test('safePath without query still works', () => {
+    const app = new Spiceflow()
+      .get('/simple', () => 'simple')
+      .get('/with-query', () => 'q', {
+        query: z.object({ x: z.string() }),
+      })
+
+    expect(app.safePath('/simple')).toBe('/simple')
+    expect(app.safePath('/with-query')).toBe('/with-query')
+  })
+
+  test('safePath with .route and query', () => {
+    const app = new Spiceflow().route({
+      method: 'GET',
+      path: '/api/search',
+      query: z.object({ term: z.string() }),
+      handler: () => 'search',
+    })
+
+    expect(
+      app.safePath('/api/search', undefined, { term: 'test' }),
+    ).toBe('/api/search?term=test')
+
+    // @ts-expect-error - invalid query key for .route-based route
+    app.safePath('/api/search', undefined, { wrong: 'x' })
+  })
+
+  test('safePath skips undefined/null query values', () => {
+    const app = new Spiceflow().get('/filter', () => 'filter', {
+      query: z.object({ a: z.string(), b: z.string().optional() }),
+    })
+
+    expect(
+      app.safePath('/filter', undefined, { a: 'yes', b: undefined }),
+    ).toBe('/filter?a=yes')
+  })
+
+  test('safePath query with basePath', () => {
+    const app = new Spiceflow({ basePath: '/api' }).get(
+      '/search',
+      () => 'search',
+      {
+        query: z.object({ q: z.string() }),
+      },
+    )
+
+    expect(
+      app.safePath('/api/search', undefined, { q: 'hello' }),
+    ).toBe('/api/search?q=hello')
+
+    // @ts-expect-error - invalid query key with basePath
+    app.safePath('/api/search', undefined, { wrong: 'x' })
+  })
+
+  test('safePath query with all HTTP method shorthands', () => {
+    const app = new Spiceflow()
+      .put('/put-q', () => 'put', {
+        query: z.object({ x: z.string() }),
+      })
+      .patch('/patch-q', () => 'patch', {
+        query: z.object({ y: z.coerce.number() }),
+      })
+      .delete('/del-q', () => 'del', {
+        query: z.object({ confirm: z.boolean() }),
+      })
+
+    expect(app.safePath('/put-q', undefined, { x: 'val' })).toBe(
+      '/put-q?x=val',
+    )
+    expect(app.safePath('/patch-q', undefined, { y: 5 })).toBe(
+      '/patch-q?y=5',
+    )
+    expect(app.safePath('/del-q', undefined, { confirm: true })).toBe(
+      '/del-q?confirm=true',
+    )
+
+    // @ts-expect-error - wrong query key on put
+    app.safePath('/put-q', undefined, { wrong: 'x' })
+
+    // @ts-expect-error - wrong query key on patch
+    app.safePath('/patch-q', undefined, { wrong: 1 })
+
+    // @ts-expect-error - wrong query key on delete
+    app.safePath('/del-q', undefined, { wrong: true })
+  })
+
+  test('safePath routes without query schema accept arbitrary query at runtime', () => {
+    const app = new Spiceflow().get('/no-schema', () => 'ok')
+
+    expect(
+      app.safePath('/no-schema', undefined, { anything: 'works' }),
+    ).toBe('/no-schema?anything=works')
+  })
+})
+
+describe('createSafePath', () => {
+  test('works with simple paths', () => {
+    const app = new Spiceflow()
+      .get('/users', () => 'users')
+      .get('/posts', () => 'posts')
+
+    const safePath = createSafePath(app)
+    expect(safePath('/users')).toBe('/users')
+    expect(safePath('/posts')).toBe('/posts')
+    // @ts-expect-error - invalid path
+    safePath('/nonexistent')
+  })
+
+  test('works with path params', () => {
+    const app = new Spiceflow()
+      .get('/users/:id', ({ params }) => params.id)
+      .get('/posts/:postId/comments/:commentId', ({ params }) => params)
+
+    const safePath = createSafePath(app)
+    expect(safePath('/users/:id', { id: '123' })).toBe('/users/123')
+    expect(
+      safePath('/posts/:postId/comments/:commentId', {
+        postId: 'abc',
+        commentId: '456',
+      }),
+    ).toBe('/posts/abc/comments/456')
+    // @ts-expect-error - wrong path
+    safePath('/wrong/:id', { id: '1' })
+  })
+
+  test('works with query params and rejects invalid keys', () => {
+    const app = new Spiceflow()
+      .get('/search', () => 'results', {
+        query: z.object({ q: z.string(), page: z.coerce.number() }),
+      })
+
+    const safePath = createSafePath(app)
+    expect(safePath('/search', undefined, { q: 'hello', page: 1 })).toBe(
+      '/search?q=hello&page=1',
+    )
+
+    // @ts-expect-error - invalid query key
+    safePath('/search', undefined, { invalid: 'x' })
+  })
+
+  test('works with both path and query params', () => {
+    const app = new Spiceflow()
+      .get('/users/:id', ({ params }) => params.id, {
+        query: z.object({ fields: z.string() }),
+      })
+
+    const safePath = createSafePath(app)
+    expect(
+      safePath('/users/:id', { id: '42' }, { fields: 'name' }),
+    ).toBe('/users/42?fields=name')
+
+    // @ts-expect-error - invalid query key with path params
+    safePath('/users/:id', { id: '1' }, { wrong: 'x' })
+  })
+
+  test('works with wildcard paths', () => {
+    const app = new Spiceflow().get('/files/*', () => 'files')
+
+    const safePath = createSafePath(app)
+    expect(safePath('/files/*', { '*': 'a/b.txt' })).toBe('/files/a/b.txt')
+  })
+
+  test('rejects invalid query keys across multiple routes', () => {
+    const app = new Spiceflow()
+      .get('/items', () => 'items', {
+        query: z.object({ sort: z.string(), limit: z.coerce.number() }),
+      })
+      .post('/create', () => 'created', {
+        query: z.object({ dryRun: z.boolean() }),
+      })
+
+    const safePath = createSafePath(app)
+
+    expect(safePath('/items', undefined, { sort: 'name', limit: 10 })).toBe(
+      '/items?sort=name&limit=10',
+    )
+    expect(safePath('/create', undefined, { dryRun: true })).toBe(
+      '/create?dryRun=true',
+    )
+
+    // @ts-expect-error - 'order' not in /items query schema
+    safePath('/items', undefined, { order: 'asc' })
+
+    // @ts-expect-error - 'verbose' not in /create query schema
+    safePath('/create', undefined, { verbose: true })
+  })
+
+  test('works with .route and rejects invalid query keys', () => {
+    const app = new Spiceflow().route({
+      method: 'GET',
+      path: '/api/data',
+      query: z.object({ format: z.string() }),
+      handler: () => 'data',
+    })
+
+    const safePath = createSafePath(app)
+    expect(safePath('/api/data', undefined, { format: 'json' })).toBe(
+      '/api/data?format=json',
+    )
+
+    // @ts-expect-error - invalid query key on .route
+    safePath('/api/data', undefined, { type: 'csv' })
+
+    // @ts-expect-error - invalid path
+    safePath('/api/other')
+  })
+
+  test('works with basePath and rejects invalid query keys', () => {
+    const app = new Spiceflow({ basePath: '/v2' }).get(
+      '/users',
+      () => 'users',
+      {
+        query: z.object({ active: z.boolean() }),
+      },
+    )
+
+    const safePath = createSafePath(app)
+    expect(safePath('/v2/users', undefined, { active: true })).toBe(
+      '/v2/users?active=true',
+    )
+
+    // @ts-expect-error - invalid query key
+    safePath('/v2/users', undefined, { status: 'active' })
+
+    // @ts-expect-error - path without basePath prefix
+    safePath('/users')
+  })
+
+  test('without query schema allows arbitrary query', () => {
+    const app = new Spiceflow().get('/free', () => 'ok')
+
+    const safePath = createSafePath(app)
+    expect(
+      safePath('/free', undefined, { any: 'value', works: 'here' }),
+    ).toBe('/free?any=value&works=here')
+  })
+
+  test('partial query params are accepted', () => {
+    const app = new Spiceflow().get('/filter', () => 'filter', {
+      query: z.object({ a: z.string(), b: z.string(), c: z.string() }),
+    })
+
+    const safePath = createSafePath(app)
+    expect(safePath('/filter', undefined, { a: 'only-a' })).toBe(
+      '/filter?a=only-a',
+    )
+    expect(safePath('/filter', undefined, { a: '1', c: '3' })).toBe(
+      '/filter?a=1&c=3',
+    )
+  })
+
+  test('mixed routes with and without query schemas', () => {
+    const app = new Spiceflow()
+      .get('/typed', () => 'typed', {
+        query: z.object({ x: z.string() }),
+      })
+      .get('/untyped', () => 'untyped')
+      .get('/also-typed/:id', ({ params }) => params.id, {
+        query: z.object({ verbose: z.boolean() }),
+      })
+
+    const safePath = createSafePath(app)
+
+    expect(safePath('/typed', undefined, { x: 'val' })).toBe('/typed?x=val')
+    expect(safePath('/untyped', undefined, { anything: 'goes' })).toBe(
+      '/untyped?anything=goes',
+    )
+    expect(
+      safePath('/also-typed/:id', { id: '1' }, { verbose: true }),
+    ).toBe('/also-typed/1?verbose=true')
+
+    // @ts-expect-error - wrong key on typed route
+    safePath('/typed', undefined, { wrong: 'x' })
+
+    // @ts-expect-error - wrong key on also-typed route
+    safePath('/also-typed/:id', { id: '1' }, { wrong: true })
   })
 })
 
