@@ -1424,12 +1424,14 @@ export class Spiceflow<
       : Path extends keyof RouteQuerySchemas
         ? unknown extends RouteQuerySchemas[Path]
           ? [allParams: Params & Record<string, string | number | boolean>]
-          : [allParams: Params & Partial<RouteQuerySchemas[Path]>]
+          : [allParams: MergeParamsAndQuery<Params, RouteQuerySchemas[Path]>]
         : [allParams: Params] | [allParams: Params & Record<string, string | number | boolean>]
   ): string {
     return buildSafePath(path, rest[0] as Record<string, any> | undefined)
   }
 }
+
+type MergeParamsAndQuery<P extends Record<string, any>, Q> = P & Omit<Partial<Q>, keyof P>
 
 function buildSafePath(path: string, allParams: Record<string, any> | undefined): string {
   let result = path
@@ -1492,7 +1494,7 @@ export function createSafePath<
       : Path extends keyof QS
         ? unknown extends QS[Path]
           ? [allParams: Params & Record<string, string | number | boolean>]
-          : [allParams: Params & Partial<QS[Path]>]
+          : [allParams: MergeParamsAndQuery<Params, QS[Path]>]
         : [allParams: Params] | [allParams: Params & Record<string, string | number | boolean>]
   ): string => {
     return buildSafePath(path, rest[0] as Record<string, any> | undefined)
