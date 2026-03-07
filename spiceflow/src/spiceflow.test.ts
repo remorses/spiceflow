@@ -1267,18 +1267,18 @@ describe('safePath', () => {
         query: z.object({ fields: z.string() }),
       })
 
-    expect(app.safePath('/search', undefined, { q: 'hello', page: 1 })).toBe(
+    expect(app.safePath('/search', { q: 'hello', page: 1 })).toBe(
       '/search?q=hello&page=1',
     )
     expect(
-      app.safePath('/users/:id', { id: '42' }, { fields: 'name' }),
+      app.safePath('/users/:id', { id: '42', fields: 'name' }),
     ).toBe('/users/42?fields=name')
 
     // @ts-expect-error - invalid query key 'invalid' not in schema
-    app.safePath('/search', undefined, { invalid: 'x' })
+    app.safePath('/search', { invalid: 'x' })
 
     // @ts-expect-error - invalid query key 'nonexistent' not in schema
-    app.safePath('/users/:id', { id: '1' }, { nonexistent: 'x' })
+    app.safePath('/users/:id', { id: '1', nonexistent: 'x' })
   })
 
   test('safePath with query params and no path params', () => {
@@ -1287,11 +1287,11 @@ describe('safePath', () => {
     })
 
     expect(
-      app.safePath('/items', undefined, { sort: 'date', limit: 10 }),
+      app.safePath('/items', { sort: 'date', limit: 10 }),
     ).toBe('/items?sort=date&limit=10')
 
     // @ts-expect-error - wrong query key
-    app.safePath('/items', undefined, { order: 'asc' })
+    app.safePath('/items', { order: 'asc' })
   })
 
   test('safePath without query still works', () => {
@@ -1314,11 +1314,11 @@ describe('safePath', () => {
     })
 
     expect(
-      app.safePath('/api/search', undefined, { term: 'test' }),
+      app.safePath('/api/search', { term: 'test' }),
     ).toBe('/api/search?term=test')
 
     // @ts-expect-error - invalid query key for .route-based route
-    app.safePath('/api/search', undefined, { wrong: 'x' })
+    app.safePath('/api/search', { wrong: 'x' })
   })
 
   test('safePath skips undefined/null query values', () => {
@@ -1327,7 +1327,7 @@ describe('safePath', () => {
     })
 
     expect(
-      app.safePath('/filter', undefined, { a: 'yes', b: undefined }),
+      app.safePath('/filter', { a: 'yes', b: undefined }),
     ).toBe('/filter?a=yes')
   })
 
@@ -1341,11 +1341,11 @@ describe('safePath', () => {
     )
 
     expect(
-      app.safePath('/api/search', undefined, { q: 'hello' }),
+      app.safePath('/api/search', { q: 'hello' }),
     ).toBe('/api/search?q=hello')
 
     // @ts-expect-error - invalid query key with basePath
-    app.safePath('/api/search', undefined, { wrong: 'x' })
+    app.safePath('/api/search', { wrong: 'x' })
   })
 
   test('safePath query with all HTTP method shorthands', () => {
@@ -1360,31 +1360,31 @@ describe('safePath', () => {
         query: z.object({ confirm: z.boolean() }),
       })
 
-    expect(app.safePath('/put-q', undefined, { x: 'val' })).toBe(
+    expect(app.safePath('/put-q', { x: 'val' })).toBe(
       '/put-q?x=val',
     )
-    expect(app.safePath('/patch-q', undefined, { y: 5 })).toBe(
+    expect(app.safePath('/patch-q', { y: 5 })).toBe(
       '/patch-q?y=5',
     )
-    expect(app.safePath('/del-q', undefined, { confirm: true })).toBe(
+    expect(app.safePath('/del-q', { confirm: true })).toBe(
       '/del-q?confirm=true',
     )
 
     // @ts-expect-error - wrong query key on put
-    app.safePath('/put-q', undefined, { wrong: 'x' })
+    app.safePath('/put-q', { wrong: 'x' })
 
     // @ts-expect-error - wrong query key on patch
-    app.safePath('/patch-q', undefined, { wrong: 1 })
+    app.safePath('/patch-q', { wrong: 1 })
 
     // @ts-expect-error - wrong query key on delete
-    app.safePath('/del-q', undefined, { wrong: true })
+    app.safePath('/del-q', { wrong: true })
   })
 
   test('safePath routes without query schema accept arbitrary query at runtime', () => {
     const app = new Spiceflow().get('/no-schema', () => 'ok')
 
     expect(
-      app.safePath('/no-schema', undefined, { anything: 'works' }),
+      app.safePath('/no-schema', { anything: 'works' }),
     ).toBe('/no-schema?anything=works')
   })
 })
@@ -1426,12 +1426,12 @@ describe('createSafePath', () => {
       })
 
     const safePath = createSafePath(app)
-    expect(safePath('/search', undefined, { q: 'hello', page: 1 })).toBe(
+    expect(safePath('/search', { q: 'hello', page: 1 })).toBe(
       '/search?q=hello&page=1',
     )
 
     // @ts-expect-error - invalid query key
-    safePath('/search', undefined, { invalid: 'x' })
+    safePath('/search', { invalid: 'x' })
   })
 
   test('works with both path and query params', () => {
@@ -1442,11 +1442,11 @@ describe('createSafePath', () => {
 
     const safePath = createSafePath(app)
     expect(
-      safePath('/users/:id', { id: '42' }, { fields: 'name' }),
+      safePath('/users/:id', { id: '42', fields: 'name' }),
     ).toBe('/users/42?fields=name')
 
     // @ts-expect-error - invalid query key with path params
-    safePath('/users/:id', { id: '1' }, { wrong: 'x' })
+    safePath('/users/:id', { id: '1', wrong: 'x' })
   })
 
   test('works with wildcard paths', () => {
@@ -1467,18 +1467,18 @@ describe('createSafePath', () => {
 
     const safePath = createSafePath(app)
 
-    expect(safePath('/items', undefined, { sort: 'name', limit: 10 })).toBe(
+    expect(safePath('/items', { sort: 'name', limit: 10 })).toBe(
       '/items?sort=name&limit=10',
     )
-    expect(safePath('/create', undefined, { dryRun: true })).toBe(
+    expect(safePath('/create', { dryRun: true })).toBe(
       '/create?dryRun=true',
     )
 
     // @ts-expect-error - 'order' not in /items query schema
-    safePath('/items', undefined, { order: 'asc' })
+    safePath('/items', { order: 'asc' })
 
     // @ts-expect-error - 'verbose' not in /create query schema
-    safePath('/create', undefined, { verbose: true })
+    safePath('/create', { verbose: true })
   })
 
   test('works with .route and rejects invalid query keys', () => {
@@ -1490,12 +1490,12 @@ describe('createSafePath', () => {
     })
 
     const safePath = createSafePath(app)
-    expect(safePath('/api/data', undefined, { format: 'json' })).toBe(
+    expect(safePath('/api/data', { format: 'json' })).toBe(
       '/api/data?format=json',
     )
 
     // @ts-expect-error - invalid query key on .route
-    safePath('/api/data', undefined, { type: 'csv' })
+    safePath('/api/data', { type: 'csv' })
 
     // @ts-expect-error - invalid path
     safePath('/api/other')
@@ -1511,12 +1511,12 @@ describe('createSafePath', () => {
     )
 
     const safePath = createSafePath(app)
-    expect(safePath('/v2/users', undefined, { active: true })).toBe(
+    expect(safePath('/v2/users', { active: true })).toBe(
       '/v2/users?active=true',
     )
 
     // @ts-expect-error - invalid query key
-    safePath('/v2/users', undefined, { status: 'active' })
+    safePath('/v2/users', { status: 'active' })
 
     // @ts-expect-error - path without basePath prefix
     safePath('/users')
@@ -1527,7 +1527,7 @@ describe('createSafePath', () => {
 
     const safePath = createSafePath(app)
     expect(
-      safePath('/free', undefined, { any: 'value', works: 'here' }),
+      safePath('/free', { any: 'value', works: 'here' }),
     ).toBe('/free?any=value&works=here')
   })
 
@@ -1537,10 +1537,10 @@ describe('createSafePath', () => {
     })
 
     const safePath = createSafePath(app)
-    expect(safePath('/filter', undefined, { a: 'only-a' })).toBe(
+    expect(safePath('/filter', { a: 'only-a' })).toBe(
       '/filter?a=only-a',
     )
-    expect(safePath('/filter', undefined, { a: '1', c: '3' })).toBe(
+    expect(safePath('/filter', { a: '1', c: '3' })).toBe(
       '/filter?a=1&c=3',
     )
   })
@@ -1557,19 +1557,19 @@ describe('createSafePath', () => {
 
     const safePath = createSafePath(app)
 
-    expect(safePath('/typed', undefined, { x: 'val' })).toBe('/typed?x=val')
-    expect(safePath('/untyped', undefined, { anything: 'goes' })).toBe(
+    expect(safePath('/typed', { x: 'val' })).toBe('/typed?x=val')
+    expect(safePath('/untyped', { anything: 'goes' })).toBe(
       '/untyped?anything=goes',
     )
     expect(
-      safePath('/also-typed/:id', { id: '1' }, { verbose: true }),
+      safePath('/also-typed/:id', { id: '1', verbose: true }),
     ).toBe('/also-typed/1?verbose=true')
 
     // @ts-expect-error - wrong key on typed route
-    safePath('/typed', undefined, { wrong: 'x' })
+    safePath('/typed', { wrong: 'x' })
 
     // @ts-expect-error - wrong key on also-typed route
-    safePath('/also-typed/:id', { id: '1' }, { wrong: true })
+    safePath('/also-typed/:id', { id: '1', wrong: true })
   })
 })
 

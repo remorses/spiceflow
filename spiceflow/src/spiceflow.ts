@@ -1418,45 +1418,46 @@ export class Spiceflow<
     ...rest: [Params] extends [undefined]
       ? Path extends keyof RouteQuerySchemas
         ? unknown extends RouteQuerySchemas[Path]
-          ? [] | [params?: Params, query?: Record<string, string | number | boolean>]
-          : [] | [params?: Params, query?: Partial<RouteQuerySchemas[Path]>]
-        : [] | [params?: Params, query?: Record<string, string | number | boolean>]
+          ? [] | [allParams?: Record<string, string | number | boolean>]
+          : [] | [allParams?: Partial<RouteQuerySchemas[Path]>]
+        : [] | [allParams?: Record<string, string | number | boolean>]
       : Path extends keyof RouteQuerySchemas
         ? unknown extends RouteQuerySchemas[Path]
-          ? [params: Params] | [params: Params, query?: Record<string, string | number | boolean>]
-          : [params: Params] | [params: Params, query?: Partial<RouteQuerySchemas[Path]>]
-        : [params: Params] | [params: Params, query?: Record<string, string | number | boolean>]
+          ? [allParams: Params & Record<string, string | number | boolean>]
+          : [allParams: Params & Partial<RouteQuerySchemas[Path]>]
+        : [allParams: Params] | [allParams: Params & Record<string, string | number | boolean>]
   ): string {
-    let params = (rest.length > 0 ? rest[0] : undefined) as Params | undefined
-    let query = (rest.length > 1 ? rest[1] : undefined) as Record<string, any> | undefined
-    let result = path as string
-
-    if (params && typeof params === 'object') {
-      Object.entries(params).forEach(([key, value]) => {
-        if (key === '*') {
-          result = result.replace(/\*/, String(value))
-        } else {
-          const regex = new RegExp(`:${key}`, 'g')
-          result = result.replace(regex, String(value))
-        }
-      })
-    }
-
-    if (query && typeof query === 'object') {
-      const searchParams = new URLSearchParams()
-      Object.entries(query).forEach(([key, value]) => {
-        if (value !== undefined && value !== null) {
-          searchParams.set(key, String(value))
-        }
-      })
-      const qs = searchParams.toString()
-      if (qs) {
-        result += '?' + qs
-      }
-    }
-
-    return result
+    return buildSafePath(path, rest[0] as Record<string, any> | undefined)
   }
+}
+
+function buildSafePath(path: string, allParams: Record<string, any> | undefined): string {
+  let result = path
+  if (!allParams || typeof allParams !== 'object') return result
+
+  const pathParamNames = new Set<string>()
+  const paramMatches = path.matchAll(/:(\w+)/g)
+  for (const m of paramMatches) {
+    pathParamNames.add(m[1])
+  }
+  const hasWildcard = path.includes('*')
+  if (hasWildcard) pathParamNames.add('*')
+
+  const searchParams = new URLSearchParams()
+  for (const [key, value] of Object.entries(allParams)) {
+    if (value === undefined || value === null) continue
+    if (key === '*' && hasWildcard) {
+      result = result.replace(/\*/, String(value))
+    } else if (pathParamNames.has(key)) {
+      result = result.replace(new RegExp(`:${key}`, 'g'), String(value))
+    } else {
+      searchParams.set(key, String(value))
+    }
+  }
+
+  const qs = searchParams.toString()
+  if (qs) result += '?' + qs
+  return result
 }
 
 /**
@@ -1468,7 +1469,7 @@ export class Spiceflow<
  *   .get('/users/:id', handler, { query: z.object({ page: z.number() }) })
  *
  * const safePath = createSafePath(app)
- * safePath('/users/:id', { id: '123' }, { page: 1 })
+ * safePath('/users/:id', { id: '123', page: 1 })
  * ```
  */
 export function createSafePath<
@@ -1485,44 +1486,16 @@ export function createSafePath<
     ...rest: [Params] extends [undefined]
       ? Path extends keyof QS
         ? unknown extends QS[Path]
-          ? [] | [params?: Params, query?: Record<string, string | number | boolean>]
-          : [] | [params?: Params, query?: Partial<QS[Path]>]
-        : [] | [params?: Params, query?: Record<string, string | number | boolean>]
+          ? [] | [allParams?: Record<string, string | number | boolean>]
+          : [] | [allParams?: Partial<QS[Path]>]
+        : [] | [allParams?: Record<string, string | number | boolean>]
       : Path extends keyof QS
         ? unknown extends QS[Path]
-          ? [params: Params] | [params: Params, query?: Record<string, string | number | boolean>]
-          : [params: Params] | [params: Params, query?: Partial<QS[Path]>]
-        : [params: Params] | [params: Params, query?: Record<string, string | number | boolean>]
+          ? [allParams: Params & Record<string, string | number | boolean>]
+          : [allParams: Params & Partial<QS[Path]>]
+        : [allParams: Params] | [allParams: Params & Record<string, string | number | boolean>]
   ): string => {
-    let params = (rest.length > 0 ? rest[0] : undefined) as Params | undefined
-    let query = (rest.length > 1 ? rest[1] : undefined) as Record<string, any> | undefined
-    let result = path as string
-
-    if (params && typeof params === 'object') {
-      Object.entries(params).forEach(([key, value]) => {
-        if (key === '*') {
-          result = result.replace(/\*/, String(value))
-        } else {
-          const regex = new RegExp(`:${key}`, 'g')
-          result = result.replace(regex, String(value))
-        }
-      })
-    }
-
-    if (query && typeof query === 'object') {
-      const searchParams = new URLSearchParams()
-      Object.entries(query).forEach(([key, value]) => {
-        if (value !== undefined && value !== null) {
-          searchParams.set(key, String(value))
-        }
-      })
-      const qs = searchParams.toString()
-      if (qs) {
-        result += '?' + qs
-      }
-    }
-
-    return result
+    return buildSafePath(path, rest[0] as Record<string, any> | undefined)
   }
 }
 
