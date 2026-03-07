@@ -108,6 +108,7 @@ const app = new Spiceflow()
     return 'a'
   })
   .get('/id/:id', ({ params: { id } }) => id)
+  .get('/items/:id/:id2', ({ params }) => params)
   .get(
     '/search',
     ({ query }) => query,
@@ -288,6 +289,14 @@ describe('fetch client', () => {
     })
 
     expect(data).toEqual({ q: 'hello', page: 1 })
+  })
+
+  it('overlapping param names', async () => {
+    const { data } = await f('/items/:id/:id2', {
+      params: { id: 'A', id2: 'B' },
+    })
+
+    expect(data).toEqual({ id: 'A', id2: 'B' })
   })
 
   it('untyped URL falls back gracefully', async () => {

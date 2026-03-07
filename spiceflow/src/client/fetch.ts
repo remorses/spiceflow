@@ -91,12 +91,12 @@ type QueryOption<
     : { query: Q }
   : { query?: Record<string, unknown> }
 
-// Body option: typed from route schema, only for non-GET/HEAD methods
+// Body option: typed from route schema, only for non-GET/HEAD/SUBSCRIBE methods
 type BodyOption<
   Routes extends Record<string, any>,
   Path extends string,
   Method extends string,
-> = Lowercase<Method> extends 'get' | 'head'
+> = Lowercase<Method> extends 'get' | 'head' | 'subscribe'
   ? {}
   : RouteInfoForMethod<Routes, Path, Method> extends {
         request: infer Body
@@ -118,7 +118,7 @@ type HasRequiredFields<
       RouteInfoForMethod<Routes, Path, Method> extends { query: infer Q }
       ? undefined extends Q
         ? // body required?
-          Lowercase<Method> extends 'get' | 'head'
+          Lowercase<Method> extends 'get' | 'head' | 'subscribe'
           ? false
           : RouteInfoForMethod<Routes, Path, Method> extends {
                 request: infer Body
@@ -129,7 +129,7 @@ type HasRequiredFields<
             : false
         : true
       : // body required?
-        Lowercase<Method> extends 'get' | 'head'
+        Lowercase<Method> extends 'get' | 'head' | 'subscribe'
         ? false
         : RouteInfoForMethod<Routes, Path, Method> extends {
               request: infer Body
@@ -146,7 +146,7 @@ type FetchOptionsTyped<
   Method extends string,
 > = {
   method?: Method
-  headers?: Record<string, unknown>
+  headers?: RequestInit['headers']
   signal?: AbortSignal
 } & ParamsOption<Path> &
   QueryOption<Routes, Path, Method> &
@@ -157,7 +157,7 @@ type FetchOptionsFallback = {
   body?: BodyInit | Record<string, unknown> | null
   query?: Record<string, unknown>
   params?: Record<string, string>
-  headers?: Record<string, unknown>
+  headers?: RequestInit['headers']
   signal?: AbortSignal
   [key: string]: unknown
 }
@@ -289,22 +289,28 @@ export function createSpiceflowFetch<const App extends AnySpiceflow>(
       methodUpper === 'SUBSCRIBE'
 
     // Resolve path params (replace :param with values)
+    // Sort by key length descending to avoid :id replacing inside :id2
     let resolvedPath = path
     if (params && typeof params === 'object') {
-      for (const [key, value] of Object.entries(params)) {
+      const entries = Object.entries(params).sort(
+        ([a], [b]) => b.length - a.length,
+      )
+      for (const [key, value] of entries) {
         if (key === '*') {
-          resolvedPath = resolvedPath.replace(/\*/, String(value))
+          resolvedPath = resolvedPath.split('*').join(String(value))
         } else {
-          resolvedPath = resolvedPath.replace(
-            new RegExp(`:${key}`, 'g'),
-            String(value),
-          )
+          resolvedPath = resolvedPath.split(`:${key}`).join(String(value))
         }
       }
     }
 
     const queryString = buildQueryString(query)
-    const url = baseUrl + resolvedPath + queryString
+
+    // Support absolute URLs — skip baseUrl concatenation
+    const isAbsoluteUrl = /^https?:\/\//i.test(resolvedPath)
+    const url = isAbsoluteUrl
+      ? resolvedPath + queryString
+      : baseUrl + resolvedPath + queryString
 
     let headers = processHeaders(configHeaders, resolvedPath, {
       method: methodUpper,
