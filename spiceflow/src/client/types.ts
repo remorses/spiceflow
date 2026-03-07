@@ -28,7 +28,7 @@ type And<A extends boolean, B extends boolean> = A extends true
     : false
   : false
 
-type ReplaceGeneratorWithAsyncGenerator<
+export type ReplaceGeneratorWithAsyncGenerator<
   in out RecordType extends Record<string, unknown>,
 > = {
   [K in keyof RecordType]: RecordType[K] extends any
