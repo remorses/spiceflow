@@ -5,6 +5,7 @@ import type { ExtractParamsFromPath } from '../types.ts'
 
 import type { SpiceflowClient } from './types.ts'
 import type { ReplaceGeneratorWithAsyncGenerator } from './types.ts'
+import { SpiceflowFetchError } from './errors.ts'
 
 import {
   processHeaders,
@@ -172,17 +173,39 @@ type FetchOptions<
 
 // ─── Response type ───────────────────────────────────────────────────────────
 
-type FetchResult<
+type FetchResultData<
   Routes extends Record<string, any>,
   Path extends string,
   Method extends string,
 > = [RouteAtPath<Routes, Path>] extends [never]
-  ? SpiceflowClient.ClientResponse<{ 200: any }>
+  ? any
   : RouteInfoForMethod<Routes, Path, Method> extends {
         response: infer Res extends Record<number, unknown>
       }
-    ? SpiceflowClient.ClientResponse<ReplaceGeneratorWithAsyncGenerator<Res>>
-    : SpiceflowClient.ClientResponse<{ 200: any }>
+    ? ReplaceGeneratorWithAsyncGenerator<Res>[200]
+    : any
+
+type FetchResultError<
+  Routes extends Record<string, any>,
+  Path extends string,
+  Method extends string,
+> = [RouteAtPath<Routes, Path>] extends [never]
+  ? SpiceflowFetchError<number, any>
+  : RouteInfoForMethod<Routes, Path, Method> extends {
+        response: infer Res extends Record<number, unknown>
+      }
+    ? Exclude<keyof Res, 200> extends never
+      ? SpiceflowFetchError<number, any>
+      : {
+          [Status in keyof Res]: SpiceflowFetchError<Status, Res[Status]>
+        }[Exclude<keyof Res, 200>]
+    : SpiceflowFetchError<number, any>
+
+type FetchResult<
+  Routes extends Record<string, any>,
+  Path extends string,
+  Method extends string,
+> = FetchResultError<Routes, Path, Method> | FetchResultData<Routes, Path, Method>
 
 // ─── Public type ─────────────────────────────────────────────────────────────
 
@@ -207,7 +230,7 @@ type ResolveResult<
   _types: { ClientRoutes: infer Routes extends Record<string, any> }
 }
   ? FetchResult<Routes, Path, Method>
-  : SpiceflowClient.ClientResponse<{ 200: any }>
+  : SpiceflowFetchError<number, any> | any
 
 // Check if options are required for a given App/Path/Method
 type IsOptionsRequired<
@@ -412,14 +435,12 @@ export function createSpiceflowFetch<const App extends AnySpiceflow>(
       retries,
     })
 
-    return {
-      data,
-      error,
-      response,
-      status: response.status,
-      headers: response.headers,
-      url,
+    if (error) {
+      error.response = response
+      return error
     }
+
+    return data
   }
 
   return spiceflowFetch as any

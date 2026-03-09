@@ -119,190 +119,210 @@ const f = createSpiceflowFetch(app)
 
 describe('fetch client', () => {
   it('get index', async () => {
-    const { data, error } = await f('/')
+    const result = await f('/')
+    if (result instanceof Error) throw result
 
-    expect(data).toBe('a')
-    expect(error).toBeNull()
+    expect(result).toBe('a')
   })
 
   it('post index', async () => {
-    const { data, error } = await f('/', { method: 'POST' })
+    const result = await f('/', { method: 'POST' })
+    if (result instanceof Error) throw result
 
-    expect(data).toBe('a')
-    expect(error).toBeNull()
+    expect(result).toBe('a')
   })
 
   it('parse number', async () => {
-    const { data } = await f('/number')
+    const result = await f('/number')
+    if (result instanceof Error) throw result
 
-    expect(data).toEqual(1)
+    expect(result).toEqual(1)
   })
 
   it('parse true', async () => {
-    const { data } = await f('/true')
+    const result = await f('/true')
+    if (result instanceof Error) throw result
 
-    expect(data).toEqual(true)
+    expect(result).toEqual(true)
   })
 
   it('parse false', async () => {
-    const { data } = await f('/false')
+    const result = await f('/false')
+    if (result instanceof Error) throw result
 
-    expect(data).toEqual(false)
+    expect(result).toEqual(false)
   })
 
   it('post array', async () => {
-    const { data } = await f('/array', {
+    const result = await f('/array', {
       method: 'POST',
       body: ['a', 'b'],
     })
+    if (result instanceof Error) throw result
 
-    expect(data).toEqual(['a', 'b'])
+    expect(result).toEqual(['a', 'b'])
   })
 
   it('post body', async () => {
-    const { data } = await f('/body', {
+    const result = await f('/body', {
       method: 'POST',
       body: 'a',
     })
+    if (result instanceof Error) throw result
 
-    expect(data).toEqual('a')
+    expect(result).toEqual('a')
   })
 
   it('post mirror', async () => {
     const body = { username: 'A', password: 'B' }
 
-    const { data } = await f('/mirror', {
+    const result = await f('/mirror', {
       method: 'POST',
       body,
     })
+    if (result instanceof Error) throw result
 
-    expect(data).toEqual(body)
+    expect(result).toEqual(body)
   })
 
   it('delete empty', async () => {
-    const { data } = await f('/empty', { method: 'DELETE' })
+    const result = await f('/empty', { method: 'DELETE' })
+    if (result instanceof Error) throw result
 
-    expect(data).toEqual({ body: null })
+    expect(result).toEqual({ body: null })
   })
 
   it('post deep nested mirror', async () => {
     const body = { username: 'A', password: 'B' }
 
-    const { data } = await f('/deep/nested/mirror', {
+    const result = await f('/deep/nested/mirror', {
       method: 'POST',
       body,
     })
+    if (result instanceof Error) throw result
 
-    expect(data).toEqual(body)
+    expect(result).toEqual(body)
   })
 
   it('get nested data', async () => {
-    const { data } = await f('/nested/data')
+    const result = await f('/nested/data')
+    if (result instanceof Error) throw result
 
-    expect(data).toEqual('hi')
+    expect(result).toEqual('hi')
   })
 
   it('handles thrown response', async () => {
-    const { data, error } = await f('/throws')
+    const result = await f('/throws')
 
-    expect(data).toBeNull()
-    expect(error).toBeDefined()
-    expect(error?.status).toBe(400)
-    expect(error?.message).toBe('Custom error')
+    expect(result).toBeInstanceOf(SpiceflowFetchError)
+    if (!(result instanceof Error)) throw new Error('Expected error')
+    expect(result.status).toBe(400)
+    expect(result.message).toBe('Custom error')
   })
 
   it('handles thrown response with 307', async () => {
-    const { data, error } = await f('/throws-307')
+    const result = await f('/throws-307')
 
-    expect(data).toBeNull()
-    expect(error).toBeDefined()
-    expect(error?.status).toBe(307)
-    expect(error?.message).toBe('Redirect')
+    expect(result).toBeInstanceOf(SpiceflowFetchError)
+    if (!(result instanceof Error)) throw new Error('Expected error')
+    expect(result.status).toBe(307)
+    expect(result.message).toBe('Redirect')
   })
 
   it('handles thrown response with 200', async () => {
-    const { data, error } = await f('/throws-200')
+    const result = await f('/throws-200')
+    if (result instanceof Error) throw result
 
-    expect(data).toMatchInlineSnapshot(
+    expect(result).toMatchInlineSnapshot(
       `"this string will not be parsed as json"`,
     )
-    expect(error).toMatchInlineSnapshot(`null`)
   })
 
   it('surfaces json payload in error value for 402 responses', async () => {
-    const { data, error } = await f('/throws-402-json')
+    const result = await f('/throws-402-json')
 
-    expect(data).toBeNull()
-    expect(error).toBeDefined()
-    expect(error?.status).toBe(402)
-    expect(error).toBeInstanceOf(SpiceflowFetchError)
-    expect(error?.value).toEqual({ reason: 'Payment required', code: 4021 })
+    expect(result).toBeInstanceOf(SpiceflowFetchError)
+    if (!(result instanceof SpiceflowFetchError)) throw new Error('Expected SpiceflowFetchError')
+    expect(result.status).toBe(402)
+    expect(result.value).toEqual({ reason: 'Payment required', code: 4021 })
   })
 
   it('stream', async () => {
-    const { data } = await f('/stream')
+    const result = await f('/stream')
+    if (result instanceof Error) throw result
+
     let all = ''
-    for await (const chunk of data!) {
+    for await (const chunk of result) {
       all += chunk + '-'
     }
     expect(all).toEqual('a-b-c-')
   })
 
   it('stream async', async () => {
-    const { data } = await f('/stream-async')
+    const result = await f('/stream-async')
+    if (result instanceof Error) throw result
+
     let all = ''
-    for await (const chunk of data!) {
+    for await (const chunk of result) {
       all += chunk + '-'
     }
     expect(all).toEqual('a-b-c-')
   })
 
   it('stream return', async () => {
-    const { data } = await f('/stream-return')
+    const result = await f('/stream-return')
+    if (result instanceof Error) throw result
+
     let all = ''
-    for await (const chunk of data!) {
+    for await (const chunk of result) {
       all += chunk
     }
     expect(all).toEqual('a')
   })
 
   it('stream return async', async () => {
-    const { data } = await f('/stream-return-async')
+    const result = await f('/stream-return-async')
+    if (result instanceof Error) throw result
+
     let all = ''
-    for await (const chunk of data!) {
+    for await (const chunk of result) {
       all += chunk
     }
     expect(all).toEqual('a')
   })
 
   it('path params', async () => {
-    const { data } = await f('/id/:id', {
+    const result = await f('/id/:id', {
       params: { id: '123' },
     })
+    if (result instanceof Error) throw result
 
-    expect(data).toEqual('123')
+    expect(result).toEqual('123')
   })
 
   it('query params', async () => {
-    const { data } = await f('/search', {
+    const result = await f('/search', {
       query: { q: 'hello', page: 1 },
     })
+    if (result instanceof Error) throw result
 
-    expect(data).toEqual({ q: 'hello', page: 1 })
+    expect(result).toEqual({ q: 'hello', page: 1 })
   })
 
   it('overlapping param names', async () => {
-    const { data } = await f('/items/:id/:id2', {
+    const result = await f('/items/:id/:id2', {
       params: { id: 'A', id2: 'B' },
     })
+    if (result instanceof Error) throw result
 
-    expect(data).toEqual({ id: 'A', id2: 'B' })
+    expect(result).toEqual({ id: 'A', id2: 'B' })
   })
 
   it('untyped URL falls back gracefully', async () => {
     const untypedFetch = createSpiceflowFetch(app)
-    const { data } = await (untypedFetch as any)('/number')
-    expect(data).toEqual(1)
+    const result = await (untypedFetch as any)('/number')
+    if (result instanceof Error) throw result
+    expect(result).toEqual(1)
   })
 })
 
@@ -323,16 +343,18 @@ describe('fetch client type safety', () => {
   })
 
   it('allows GET without options on routes with no required fields', async () => {
-    const { data } = await f('/number')
-    expect(data).toEqual(1)
+    const result = await f('/number')
+    if (result instanceof Error) throw result
+    expect(result).toEqual(1)
   })
 })
 
 describe('fetch client with state', () => {
   it('should return state value', async () => {
     const f = createSpiceflowFetch(app, { state: { someState: 3 } })
-    const { data } = await f('/someState')
-    expect(data).toBe(3)
+    const result = await f('/someState')
+    if (result instanceof Error) throw result
+    expect(result).toBe(3)
   })
 })
 
@@ -348,10 +370,10 @@ describe('fetch client retries', () => {
     })
 
     const retryFetch = createSpiceflowFetch(retryApp, { retries: 2 })
-    const { data, error } = await retryFetch('/retry-success')
+    const result = await retryFetch('/retry-success')
+    if (result instanceof Error) throw result
 
-    expect(error).toBeNull()
-    expect(data).toEqual({ success: true, attempts: 3 })
+    expect(result).toEqual({ success: true, attempts: 3 })
     expect(attemptCount).toBe(3)
   })
 
@@ -363,11 +385,11 @@ describe('fetch client retries', () => {
     })
 
     const retryFetch = createSpiceflowFetch(retryApp, { retries: 2 })
-    const { data, error } = await retryFetch('/retry-fail')
+    const result = await retryFetch('/retry-fail')
 
-    expect(data).toBeNull()
-    expect(error).toBeDefined()
-    expect(error?.status).toBe(500)
+    expect(result).toBeInstanceOf(SpiceflowFetchError)
+    if (!(result instanceof Error)) throw new Error('Expected error')
+    expect(result.status).toBe(500)
     expect(attemptCount).toBe(3)
   })
 
@@ -379,11 +401,11 @@ describe('fetch client retries', () => {
     })
 
     const retryFetch = createSpiceflowFetch(retryApp, { retries: 2 })
-    const { data, error } = await retryFetch('/retry-400')
+    const result = await retryFetch('/retry-400')
 
-    expect(data).toBeNull()
-    expect(error).toBeDefined()
-    expect(error?.status).toBe(400)
+    expect(result).toBeInstanceOf(SpiceflowFetchError)
+    if (!(result instanceof Error)) throw new Error('Expected error')
+    expect(result.status).toBe(400)
     expect(attemptCount).toBe(1)
   })
 })

@@ -426,47 +426,51 @@ Then use the `App` type on the client side without importing server code:
 import { createSpiceflowFetch } from 'spiceflow/client'
 import type { App } from './server'
 
-const spiceflowFetch = createSpiceflowFetch<App>('http://localhost:3000')
+const f = createSpiceflowFetch<App>('http://localhost:3000')
 
-// Simple GET — method defaults to GET
-const { data, error } = await spiceflowFetch('/hello')
+// Returns Error | Data — check with instanceof Error
+const greeting = await f('/hello')
+if (greeting instanceof Error) return greeting // early return on error
+console.log(greeting) // 'Hello, World!' — TypeScript knows the type
 
 // POST with typed body
-const { data: user } = await spiceflowFetch('/users', {
+const user = await f('/users', {
   method: 'POST',
   body: { name: 'John', email: 'john@example.com' },
 })
+if (user instanceof Error) return user
+console.log(user.id, user.name) // fully typed
 
 // Path params — type-safe, required when path has :params
-const { data: foundUser } = await spiceflowFetch('/users/:id', {
+const foundUser = await f('/users/:id', {
   params: { id: '123' },
 })
+if (foundUser instanceof Error) return foundUser
 
 // Query params — typed from route schema
-const { data: searchResults } = await spiceflowFetch('/search', {
+const searchResults = await f('/search', {
   query: { q: 'hello', page: 1 },
 })
+if (searchResults instanceof Error) return searchResults
 
 // Streaming — returns AsyncGenerator for async generator routes
-const { data: stream } = await spiceflowFetch('/stream')
+const stream = await f('/stream')
+if (stream instanceof Error) return stream
 for await (const chunk of stream) {
   console.log(chunk) // 'Start', 'Middle', 'End'
 }
 ```
 
-The fetch client returns the same `{ data, error, response, status, headers, url }` shape as `createSpiceflowClient`. It also supports the same configuration options (headers, retries, onRequest/onResponse hooks, custom fetch).
+The fetch client returns `Error | Data` directly following the [errore](https://errore.org) convention — use `instanceof Error` to check for errors with Go-style early returns, then the happy path continues with the narrowed data type. No `{ data, error }` destructuring, no null checks. On error, the returned `SpiceflowFetchError` has `status`, `value` (the parsed error body), and `response` (the raw Response object) properties.
 
-Passing an unknown URL or using `as any` falls back to untyped behavior, so it works as a drop-in for regular fetch when type safety isn't needed:
-
-```ts
-const { data } = await spiceflowFetch('https://example.com/api/whatever' as any)
-```
+The fetch client supports configuration options like headers, retries, onRequest/onResponse hooks, and custom fetch.
 
 You can also pass a Spiceflow app instance directly for server-side usage without network requests:
 
 ```ts
-const spiceflowFetch = createSpiceflowFetch(app)
-const { data } = await spiceflowFetch('/hello')
+const f = createSpiceflowFetch(app)
+const greeting = await f('/hello')
+if (greeting instanceof Error) throw greeting
 ```
 
 ### Path Matching - Supported Features
