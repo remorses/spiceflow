@@ -330,7 +330,6 @@ describe('fetch client type safety', () => {
 
 describe('fetch client with state', () => {
   it('should return state value', async () => {
-    // @ts-expect-error state type not exposed on Config (pre-existing issue, works at runtime)
     const f = createSpiceflowFetch(app, { state: { someState: 3 } })
     const { data } = await f('/someState')
     expect(data).toBe(3)

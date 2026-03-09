@@ -1412,10 +1412,9 @@ export class Spiceflow<
   }
   safePath<
     const Path extends RoutePaths,
-    const Params extends ExtractParamsFromPath<Path>,
   >(
     path: Path,
-    ...rest: [Params] extends [undefined]
+    ...rest: [ExtractParamsFromPath<Path>] extends [undefined]
       ? Path extends keyof RouteQuerySchemas
         ? unknown extends RouteQuerySchemas[Path]
           ? [] | [allParams?: Record<string, string | number | boolean>]
@@ -1423,15 +1422,17 @@ export class Spiceflow<
         : [] | [allParams?: Record<string, string | number | boolean>]
       : Path extends keyof RouteQuerySchemas
         ? unknown extends RouteQuerySchemas[Path]
-          ? [allParams: Params & Record<string, string | number | boolean>]
-          : [allParams: MergeParamsAndQuery<Params, RouteQuerySchemas[Path]>]
-        : [allParams: Params] | [allParams: Params & Record<string, string | number | boolean>]
+          ? [allParams: ExtractParamsFromPath<Path> & Record<string, string | number | boolean>]
+          : [allParams: MergeParamsAndQuery<ExtractParamsFromPath<Path>, RouteQuerySchemas[Path]>]
+        : [allParams: ExtractParamsFromPath<Path>] | [allParams: ExtractParamsFromPath<Path> & Record<string, string | number | boolean>]
   ): string {
     return buildSafePath(path, rest[0] as Record<string, any> | undefined)
   }
 }
 
-type MergeParamsAndQuery<P extends Record<string, any>, Q> = P & Omit<Partial<Q>, keyof P>
+type MergeParamsAndQuery<P, Q> = P extends Record<string, any>
+  ? { [K in keyof (P & Omit<Partial<Q>, keyof P>)]: (P & Omit<Partial<Q>, keyof P>)[K] }
+  : Partial<Q>
 
 function buildSafePath(path: string, allParams: Record<string, any> | undefined): string {
   let result = path
@@ -1482,10 +1483,9 @@ export function createSafePath<
 ) {
   return <
     const Path extends Paths,
-    const Params extends ExtractParamsFromPath<Path> = ExtractParamsFromPath<Path>,
   >(
     path: Path,
-    ...rest: [Params] extends [undefined]
+    ...rest: [ExtractParamsFromPath<Path>] extends [undefined]
       ? Path extends keyof QS
         ? unknown extends QS[Path]
           ? [] | [allParams?: Record<string, string | number | boolean>]
@@ -1493,9 +1493,9 @@ export function createSafePath<
         : [] | [allParams?: Record<string, string | number | boolean>]
       : Path extends keyof QS
         ? unknown extends QS[Path]
-          ? [allParams: Params & Record<string, string | number | boolean>]
-          : [allParams: MergeParamsAndQuery<Params, QS[Path]>]
-        : [allParams: Params] | [allParams: Params & Record<string, string | number | boolean>]
+          ? [allParams: ExtractParamsFromPath<Path> & Record<string, string | number | boolean>]
+          : [allParams: MergeParamsAndQuery<ExtractParamsFromPath<Path>, QS[Path]>]
+        : [allParams: ExtractParamsFromPath<Path>] | [allParams: ExtractParamsFromPath<Path> & Record<string, string | number | boolean>]
   ): string => {
     return buildSafePath(path, rest[0] as Record<string, any> | undefined)
   }
