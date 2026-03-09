@@ -132,7 +132,7 @@ const app = new Spiceflow()
     path: '/users/:id',
     params: z.object({
       id: z.string(),
-    }),
+    }),w
     response: z.object({
       id: z.string(),
       name: z.string(),
@@ -637,12 +637,13 @@ app.safePath('/search', { invalid: 'x' })
 
 ### Standalone `createSafePath`
 
-If you need a path builder without access to the app instance (e.g. in a shared utils file or on the client side), use `createSafePath`:
+If you need a path builder on the client side where you can't import server app code, use `createSafePath` with the `typeof app` generic:
 
 ```ts
 import { createSafePath } from 'spiceflow'
+import type { App } from './server' // import only the type, not the runtime app
 
-const safePath = createSafePath(app)
+const safePath = createSafePath<App>()
 
 safePath('/users/:id', { id: '123' })
 // Result: '/users/123'
@@ -651,7 +652,7 @@ safePath('/search', { q: 'hello', page: 1 })
 // Result: '/search?q=hello&page=1'
 ```
 
-The returned function has the same type safety as `app.safePath` — it infers paths, params, and query schemas from the app type.
+The returned function has the same type safety as `app.safePath` — it infers paths, params, and query schemas from the app type. The app argument is optional and not used at runtime, so you can call `createSafePath<App>()` without passing any value.
 
 ### OAuth Callback Example
 
