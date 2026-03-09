@@ -364,8 +364,10 @@ async function exampleUsage() {
 
 `createSpiceflowFetch` is the recommended way to interact with a Spiceflow app. It uses a familiar `fetch(path, options)` interface instead of the proxy-based chainable API of `createSpiceflowClient`. It provides the same type safety for paths, params, query, body, and responses, but with a simpler and more predictable API.
 
+Export the app type from your server code:
+
 ```ts
-import { createSpiceflowFetch } from 'spiceflow/client'
+// server.ts
 import { Spiceflow } from 'spiceflow'
 import { z } from 'zod'
 
@@ -414,8 +416,17 @@ const app = new Spiceflow()
     },
   })
 
-// Create the fetch client
-const spiceflowFetch = createSpiceflowFetch<typeof app>('http://localhost:3000')
+export type App = typeof app
+```
+
+Then use the `App` type on the client side without importing server code:
+
+```ts
+// client.ts
+import { createSpiceflowFetch } from 'spiceflow/client'
+import type { App } from './server'
+
+const spiceflowFetch = createSpiceflowFetch<App>('http://localhost:3000')
 
 // Simple GET — method defaults to GET
 const { data, error } = await spiceflowFetch('/hello')
