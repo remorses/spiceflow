@@ -32,7 +32,7 @@ import {
   UnwrapRoute,
 } from './types.js'
 
-import { createElement } from 'react'
+import React, { createElement } from 'react'
 import { ZodType } from 'zod'
 import { isAsyncIterable, isResponse, isTruthy, redirect } from './utils.js'
 
@@ -209,9 +209,7 @@ export class Spiceflow<
     }
 
     const matches = _matchResult[0]
-    const internalRoute =
-      matches.find(([route]) => route.path.includes('*'))?.[0] ||
-      matches[routeIndex][0]
+    const internalRoute = matches[routeIndex][0]
 
     const decoded: Record<string, string> =
       extractWildcardParam(pathname, internalRoute?.path) || {}
@@ -229,7 +227,6 @@ export class Spiceflow<
   private match(method: string, path: string) {
     let root = this
     let foundApp: AnySpiceflow | undefined
-    let originalPath = path
     // remove trailing slash which can cause problems
     path = path.replace(/\/$/, '') || '/'
 
@@ -243,7 +240,7 @@ export class Spiceflow<
       }
       let pathWithoutPrefix = path
       if (prefix) {
-        pathWithoutPrefix = path.replace(prefix, '') || '/'
+        pathWithoutPrefix = path.slice(prefix.length) || '/'
       }
 
       const matchedRoutes = app.router.match(method, pathWithoutPrefix)
@@ -253,11 +250,11 @@ export class Spiceflow<
       }
 
       // Get all matched routes
-      const routes = matchedRoutes[0].map(([route, params], index) => ({
-        app,
-        route,
-        params: this.getAllDecodedParams(matchedRoutes, originalPath, index),
-      }))
+        const routes = matchedRoutes[0].map(([route, params], index) => ({
+          app,
+          route,
+          params: this.getAllDecodedParams(matchedRoutes, pathWithoutPrefix, index),
+        }))
 
       if (routes.length) {
         return routes
@@ -278,7 +275,7 @@ export class Spiceflow<
                 method,
                 path,
               } as InternalRoute,
-              params: this.getAllDecodedParams(matched, originalPath, 0),
+              params: this.getAllDecodedParams(matched, pathWithoutPrefix, 0),
             },
           ]
         }
@@ -1049,7 +1046,7 @@ export class Spiceflow<
           <Layout
             {...{
               ...context,
-              params: pageRoute.params,
+              params: layout.params,
               children,
             }}
           />
@@ -1990,8 +1987,9 @@ export function extractWildcardParam(
     return null
   }
 
-  // Get all segments after wildcard index from url
-  const wildcardSegments = urlParts.slice(wildcardIndex)
+  const suffixLength = patternParts.length - wildcardIndex - 1
+  const endIndex = suffixLength > 0 ? urlParts.length - suffixLength : urlParts.length
+  const wildcardSegments = urlParts.slice(wildcardIndex, endIndex)
   if (!wildcardSegments.length) {
     return null
   }
@@ -2009,9 +2007,19 @@ export function cloneDeep(x) {
 function getRouteSpecificity(route: InternalRoute) {
   const parts = route.path.split('/').filter(Boolean)
   const wildcardCount = parts.filter((p) => p === '*').length
-  const namedParamCount = parts.filter((p) => p.startsWith(':')).length
+  const regexParamCount = parts.filter((p) => /^:[^{}]+\{.+\}$/.test(p)).length
+  const namedParamCount = parts.filter(
+    (p) => p.startsWith(':') && !/^:[^{}]+\{.+\}$/.test(p),
+  ).length
+  const staticSegmentCount = parts.length - wildcardCount - regexParamCount - namedParamCount
   const segmentCount = parts.length
-  return { wildcardCount, namedParamCount, segmentCount }
+  return {
+    wildcardCount,
+    namedParamCount,
+    regexParamCount,
+    staticSegmentCount,
+    segmentCount,
+  }
 }
 
 function pickBestRoute<T extends { route: InternalRoute }>(routes: T[]): T {
@@ -2027,21 +2035,35 @@ function pickBestRoute<T extends { route: InternalRoute }>(routes: T[]): T {
       continue
     }
     if (spec.wildcardCount > bestSpec.wildcardCount) continue
-    // 2. Fewer named params wins (static > :param)
+    // 2. More static segments wins
+    if (spec.staticSegmentCount > bestSpec.staticSegmentCount) {
+      best = routes[i]
+      bestSpec = spec
+      continue
+    }
+    if (spec.staticSegmentCount < bestSpec.staticSegmentCount) continue
+    // 3. More regex params wins (regex > generic param)
+    if (spec.regexParamCount > bestSpec.regexParamCount) {
+      best = routes[i]
+      bestSpec = spec
+      continue
+    }
+    if (spec.regexParamCount < bestSpec.regexParamCount) continue
+    // 4. Fewer plain named params wins (static and regex > :param)
     if (spec.namedParamCount < bestSpec.namedParamCount) {
       best = routes[i]
       bestSpec = spec
       continue
     }
     if (spec.namedParamCount > bestSpec.namedParamCount) continue
-    // 3. More segments wins (longer match)
+    // 5. More segments wins (longer match)
     if (spec.segmentCount > bestSpec.segmentCount) {
       best = routes[i]
       bestSpec = spec
       continue
     }
     if (spec.segmentCount < bestSpec.segmentCount) continue
-    // 4. Same pattern shape: last registered wins (override)
+    // 6. Same pattern shape: last registered wins (override)
     best = routes[i]
     bestSpec = spec
   }

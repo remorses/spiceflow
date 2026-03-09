@@ -102,6 +102,11 @@ describe('Layout routes with wildcards', () => {
       ]
     `)
   })
+
+  it('does not create an undefined param key for bare wildcards', () => {
+    const [res] = node.search('get', '/layout/foo/page')
+    expect(res[2][1]).toEqual({})
+  })
 })
 
 test('nothing matches', () => {

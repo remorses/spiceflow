@@ -1,6 +1,6 @@
-import { test, describe, expect } from 'vitest'
+import { test, describe, expect, vi } from 'vitest'
 
-import { bfs, cloneDeep, createSafePath, extractWildcardParam, Spiceflow } from './spiceflow.ts'
+import { bfs, cloneDeep, createSafePath, extractWildcardParam, Spiceflow } from './spiceflow.tsx'
 import { z } from 'zod'
 import { createSpiceflowClient } from './client/index.js'
 
@@ -591,6 +591,111 @@ test('extractWildcardParam correctly extracts wildcard segments', () => {
       "*": "path/to/file.txt",
     }
   `)
+})
+
+test('extractWildcardParam only captures the middle wildcard segment', () => {
+  expect(extractWildcardParam('/layout/foo/page', '/layout/*/page'))
+    .toMatchInlineSnapshot(`
+    {
+      "*": "foo",
+    }
+  `)
+})
+
+test('specific wildcard route wins over root catch-all', async () => {
+  const app = new Spiceflow()
+    .get('/*', ({ params }) => ({ route: 'catch-all', params }))
+    .get('/files/:id/*', ({ params }) => ({ route: 'file', params }))
+
+  const res = await app.handle(
+    new Request('http://localhost/files/123/path/to/file.txt', {
+      method: 'GET',
+    }),
+  )
+
+  expect(res.status).toBe(200)
+  expect(await res.json()).toMatchInlineSnapshot(`
+    {
+      "params": {
+        "*": "path/to/file.txt",
+        "id": "123",
+      },
+      "route": "file",
+    }
+  `)
+})
+
+test('regex constrained route is more specific than a generic param route', async () => {
+  const app = new Spiceflow()
+    .get('/:id{[0-9]+}', () => 'digits')
+    .get('/:id', () => 'generic')
+
+  const res = await app.handle(new Request('http://localhost/123'))
+
+  expect(res.status).toBe(200)
+  expect(await res.json()).toBe('digits')
+})
+
+test('renderReact passes layout params to layouts instead of page params', async () => {
+  let payload: any
+
+  vi.doMock('virtual:bundler-adapter/server', () => ({
+    renderToReadableStream(value) {
+      payload = value
+      return new ReadableStream({
+        start(controller) {
+          controller.close()
+        },
+      })
+    },
+    createTemporaryReferenceSet: () => ({}),
+    decodeReply: async () => null,
+    decodeAction: async () => () => null,
+    decodeFormState: async () => undefined,
+    loadServerAction: async () => undefined,
+    getAppEntryCssElement: () => null,
+  }))
+
+  try {
+    const app = new Spiceflow()
+    const Page = (_props) => null
+    const Layout = (_props) => null
+
+    await (app as any).renderReact({
+      request: new Request('http://localhost/layouts/parent/pages/child', {
+        method: 'GET',
+      }),
+      context: { request: undefined, state: {}, query: {}, params: {}, path: '/' },
+      reactRoutes: [
+        {
+          app,
+          params: { pageId: 'child' },
+          route: {
+            id: 'page',
+            kind: 'page',
+            handler: Page,
+          },
+        },
+        {
+          app,
+          params: { layoutId: 'parent' },
+          route: {
+            id: 'layout',
+            kind: 'layout',
+            handler: Layout,
+          },
+        },
+      ],
+    })
+
+    expect(payload.root.page.props.params).toEqual({ pageId: 'child' })
+    expect(payload.root.layouts[0].element.props.params).toEqual({
+      layoutId: 'parent',
+    })
+  } finally {
+    vi.doUnmock('virtual:bundler-adapter/server')
+    vi.resetModules()
+  }
 })
 
 test('missing route is not found', async () => {
