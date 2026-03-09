@@ -93,6 +93,7 @@ export class Spiceflow<
   },
   const out ClientRoutes extends RouteBase = {},
   const out RoutePaths extends string = '',
+  const in out RouteQuerySchemas extends Record<string, unknown> = {},
 > {
   private id: number = globalIndex++
   private router: TrieRouter<InternalRoute> = new TrieRouter()
@@ -108,6 +109,7 @@ export class Spiceflow<
     Prefix: '' as BasePath,
     ClientRoutes: {} as ClientRoutes,
     RoutePaths: '' as RoutePaths,
+    RouteQuerySchemas: {} as RouteQuerySchemas,
     Scoped: false as Scoped,
     Singleton: {} as Singleton,
     Definitions: {} as Definitions,
@@ -316,7 +318,8 @@ export class Spiceflow<
     Definitions,
     Metadata,
     ClientRoutes,
-    RoutePaths
+    RoutePaths,
+    RouteQuerySchemas
   > {
     this.defaultState[name] = value
     return this as any
@@ -398,7 +401,8 @@ export class Spiceflow<
           }
         }
       >,
-    RoutePaths | JoinPath<BasePath, Path>
+    RoutePaths | JoinPath<BasePath, Path>,
+    RouteQuerySchemas & Record<JoinPath<BasePath, Path>, Schema['query']>
   > {
     this.add({ method: 'POST', path, handler: handler, hooks: hook })
 
@@ -448,7 +452,8 @@ export class Spiceflow<
           }
         }
       >,
-    RoutePaths | JoinPath<BasePath, Path>
+    RoutePaths | JoinPath<BasePath, Path>,
+    RouteQuerySchemas & Record<JoinPath<BasePath, Path>, Schema['query']>
   > {
     this.add({ method: 'GET', path, handler: handler, hooks: hook })
     return this as any
@@ -496,7 +501,8 @@ export class Spiceflow<
           }
         }
       >,
-    RoutePaths | JoinPath<BasePath, Path>
+    RoutePaths | JoinPath<BasePath, Path>,
+    RouteQuerySchemas & Record<JoinPath<BasePath, Path>, Schema['query']>
   > {
     this.add({ method: 'PUT', path, handler: handler, hooks: hook })
 
@@ -549,7 +555,8 @@ export class Spiceflow<
           }
         }
       >,
-    RoutePaths | JoinPath<BasePath, Path>
+    RoutePaths | JoinPath<BasePath, Path>,
+    RouteQuerySchemas & Record<JoinPath<BasePath, Path>, Schema['query']>
   > {
     // If options.request is defined, disallow for GET and HEAD (methods that don't support a body)
     const methodsWithNoBody = ['GET', 'HEAD']
@@ -659,7 +666,8 @@ export class Spiceflow<
           }
         }
       >,
-    RoutePaths | JoinPath<BasePath, Path>
+    RoutePaths | JoinPath<BasePath, Path>,
+    RouteQuerySchemas & Record<JoinPath<BasePath, Path>, Schema['query']>
   > {
     this.add({ method: 'PATCH', path, handler: handler, hooks: hook })
 
@@ -708,7 +716,8 @@ export class Spiceflow<
           }
         }
       >,
-    RoutePaths | JoinPath<BasePath, Path>
+    RoutePaths | JoinPath<BasePath, Path>,
+    RouteQuerySchemas & Record<JoinPath<BasePath, Path>, Schema['query']>
   > {
     this.add({ method: 'DELETE', path, handler: handler, hooks: hook })
 
@@ -757,7 +766,8 @@ export class Spiceflow<
           }
         }
       >,
-    RoutePaths | JoinPath<BasePath, Path>
+    RoutePaths | JoinPath<BasePath, Path>,
+    RouteQuerySchemas & Record<JoinPath<BasePath, Path>, Schema['query']>
   > {
     this.add({ method: 'OPTIONS', path, handler: handler, hooks: hook })
 
@@ -806,7 +816,8 @@ export class Spiceflow<
           }
         }
       >,
-    RoutePaths | JoinPath<BasePath, Path>
+    RoutePaths | JoinPath<BasePath, Path>,
+    RouteQuerySchemas & Record<JoinPath<BasePath, Path>, Schema['query']>
   > {
     for (const method of METHODS) {
       this.add({ method, path, handler: handler, hooks: hook })
@@ -857,7 +868,8 @@ export class Spiceflow<
           }
         }
       >,
-    RoutePaths | JoinPath<BasePath, Path>
+    RoutePaths | JoinPath<BasePath, Path>,
+    RouteQuerySchemas & Record<JoinPath<BasePath, Path>, Schema['query']>
   > {
     this.add({ method: 'HEAD', path, handler: handler, hooks: hook })
 
@@ -954,7 +966,8 @@ export class Spiceflow<
           ? ClientRoutes & NewSpiceflow['_types']['ClientRoutes']
           : ClientRoutes &
               CreateClient<BasePath, NewSpiceflow['_types']['ClientRoutes']>,
-        RoutePaths | NewSpiceflow['_types']['RoutePaths']
+        RoutePaths | NewSpiceflow['_types']['RoutePaths'],
+        RouteQuerySchemas & NewSpiceflow['_types']['RouteQuerySchemas']
       >
   use<const Schema extends RouteSchema>(
     handler: MiddlewareHandler<Schema, Singleton>,
@@ -1731,27 +1744,88 @@ export class Spiceflow<
   >(
     path: Path,
     ...rest: [Params] extends [undefined]
-      ? [] | [params?: Params]
-      : [params: Params]
+      ? Path extends keyof RouteQuerySchemas
+        ? unknown extends RouteQuerySchemas[Path]
+          ? [] | [allParams?: Record<string, string | number | boolean>]
+          : [] | [allParams?: Partial<RouteQuerySchemas[Path]>]
+        : [] | [allParams?: Record<string, string | number | boolean>]
+      : Path extends keyof RouteQuerySchemas
+        ? unknown extends RouteQuerySchemas[Path]
+          ? [allParams: Params & Record<string, string | number | boolean>]
+          : [allParams: MergeParamsAndQuery<Params, RouteQuerySchemas[Path]>]
+        : [allParams: Params] | [allParams: Params & Record<string, string | number | boolean>]
   ): string {
-    let params = (rest.length > 0 ? rest[0] : undefined) as Params | undefined
-    let result = path as string
+    return buildSafePath(path, rest[0] as Record<string, any> | undefined)
+  }
+}
 
-    // Handle all provided parameters
-    if (params && typeof params === 'object') {
-      Object.entries(params).forEach(([key, value]) => {
-        if (key === '*') {
-          // Replace wildcard
-          result = result.replace(/\*/, String(value))
-        } else {
-          // Replace named parameters as before
-          const regex = new RegExp(`:${key}`, 'g')
-          result = result.replace(regex, String(value))
-        }
-      })
+type MergeParamsAndQuery<P extends Record<string, any>, Q> = P & Omit<Partial<Q>, keyof P>
+
+function buildSafePath(path: string, allParams: Record<string, any> | undefined): string {
+  let result = path
+  if (!allParams || typeof allParams !== 'object') return result
+
+  const pathParamNames = new Set<string>()
+  const paramMatches = path.matchAll(/:(\w+)/g)
+  for (const m of paramMatches) {
+    pathParamNames.add(m[1])
+  }
+  const hasWildcard = path.includes('*')
+  if (hasWildcard) pathParamNames.add('*')
+
+  const searchParams = new URLSearchParams()
+  for (const [key, value] of Object.entries(allParams)) {
+    if (value === undefined || value === null) continue
+    if (key === '*' && hasWildcard) {
+      result = result.replace(/\*/, String(value))
+    } else if (pathParamNames.has(key)) {
+      result = result.replace(new RegExp(`:${key}`, 'g'), String(value))
+    } else {
+      searchParams.set(key, String(value))
     }
+  }
 
-    return result
+  const qs = searchParams.toString()
+  if (qs) result += '?' + qs
+  return result
+}
+
+/**
+ * Create a standalone type-safe path builder. Pass your app instance for automatic
+ * type inference, or call with explicit type params. The app value is not used at runtime.
+ *
+ * ```ts
+ * const app = new Spiceflow()
+ *   .get('/users/:id', handler, { query: z.object({ page: z.number() }) })
+ *
+ * const safePath = createSafePath(app)
+ * safePath('/users/:id', { id: '123', page: 1 })
+ * ```
+ */
+export function createSafePath<
+  const Paths extends string,
+  const QS extends Record<string, unknown>,
+>(
+  _app?: { _types: { RoutePaths: Paths; RouteQuerySchemas: QS } },
+) {
+  return <
+    const Path extends Paths,
+    const Params extends ExtractParamsFromPath<Path> = ExtractParamsFromPath<Path>,
+  >(
+    path: Path,
+    ...rest: [Params] extends [undefined]
+      ? Path extends keyof QS
+        ? unknown extends QS[Path]
+          ? [] | [allParams?: Record<string, string | number | boolean>]
+          : [] | [allParams?: Partial<QS[Path]>]
+        : [] | [allParams?: Record<string, string | number | boolean>]
+      : Path extends keyof QS
+        ? unknown extends QS[Path]
+          ? [allParams: Params & Record<string, string | number | boolean>]
+          : [allParams: MergeParamsAndQuery<Params, QS[Path]>]
+        : [allParams: Params] | [allParams: Params & Record<string, string | number | boolean>]
+  ): string => {
+    return buildSafePath(path, rest[0] as Record<string, any> | undefined)
   }
 }
 
@@ -1816,7 +1890,7 @@ export function bfs(tree: AnySpiceflow) {
   return nodes
 }
 
-export type AnySpiceflow = Spiceflow<any, any, any, any, any, any, any>
+export type AnySpiceflow = Spiceflow<any, any, any, any, any, any, any, any>
 
 export function isZodSchema(value: unknown): value is ZodType {
   return (
