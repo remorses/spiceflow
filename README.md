@@ -360,9 +360,9 @@ async function exampleUsage() {
 }
 ```
 
-## Fetch Client
+## Fetch Client (Recommended)
 
-`createSpiceflowFetch` is a simpler alternative to `createSpiceflowClient` that uses a familiar `fetch(path, options)` interface instead of the proxy-based chainable API. It provides the same type safety for paths, params, query, body, and responses.
+`createSpiceflowFetch` is the recommended way to interact with a Spiceflow app. It uses a familiar `fetch(path, options)` interface instead of the proxy-based chainable API of `createSpiceflowClient`. It provides the same type safety for paths, params, query, body, and responses, but with a simpler and more predictable API.
 
 ```ts
 import { createSpiceflowFetch } from 'spiceflow/client'
@@ -601,6 +601,57 @@ const userPostPath = app.safePath('/users/:id/posts/:postId', {
 })
 // Result: '/users/456/posts/abc'
 ```
+
+### Query Parameters
+
+When a route has a `query` schema, `safePath` accepts query parameters alongside path parameters in the same flat object. Query parameters are appended as a query string, and unknown keys are rejected at the type level:
+
+```ts
+const app = new Spiceflow()
+  .route({
+    method: 'GET',
+    path: '/search',
+    query: z.object({ q: z.string(), page: z.coerce.number() }),
+    handler({ query }) {
+      return { results: [], q: query.q }
+    },
+  })
+  .route({
+    method: 'GET',
+    path: '/users/:id',
+    query: z.object({ fields: z.string() }),
+    handler({ params, query }) {
+      return { id: params.id, fields: query.fields }
+    },
+  })
+
+app.safePath('/search', { q: 'hello', page: 1 })
+// Result: '/search?q=hello&page=1'
+
+app.safePath('/users/:id', { id: '42', fields: 'name' })
+// Result: '/users/42?fields=name'
+
+// @ts-expect-error - 'invalid' is not a known query key
+app.safePath('/search', { invalid: 'x' })
+```
+
+### Standalone `createSafePath`
+
+If you need a path builder without access to the app instance (e.g. in a shared utils file or on the client side), use `createSafePath`:
+
+```ts
+import { createSafePath } from 'spiceflow'
+
+const safePath = createSafePath(app)
+
+safePath('/users/:id', { id: '123' })
+// Result: '/users/123'
+
+safePath('/search', { q: 'hello', page: 1 })
+// Result: '/search?q=hello&page=1'
+```
+
+The returned function has the same type safety as `app.safePath` — it infers paths, params, and query schemas from the app type.
 
 ### OAuth Callback Example
 
