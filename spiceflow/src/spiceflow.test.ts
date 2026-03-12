@@ -381,9 +381,8 @@ test('onError fires on validation errors', async () => {
   expect(await res.text()).toMatchInlineSnapshot(`"Error"`)
 })
 
-test.todo('HEAD uses GET route, does not add body', async () => {
+test('HEAD uses GET route metadata but does not add body', async () => {
   const app = new Spiceflow().get('/ids/:id', () => {
-    console.trace('GET')
     return {
       message: 'hi',
       length: 10,
@@ -394,7 +393,7 @@ test.todo('HEAD uses GET route, does not add body', async () => {
     new Request('http://localhost/ids/xxx', { method: 'HEAD' }),
   )
   expect(res.status).toBe(200)
-  // expect(res.headers.get('Content-Length')).toBe('10')
+  expect(res.headers.get('content-type')).toBe('application/json')
   expect(await res.text()).toBe('')
 
   // Compare with GET to ensure HEAD is using GET route
@@ -403,6 +402,19 @@ test.todo('HEAD uses GET route, does not add body', async () => {
   )
   expect(getRes.status).toBe(200)
   expect(await getRes.json()).toEqual({ message: 'hi', length: 10 })
+})
+
+test('HEAD keeps GET error status instead of forcing 200', async () => {
+  const app = new Spiceflow().get('/boom', () => {
+    throw Object.assign(new Error('boom'), { status: 418 })
+  })
+
+  const res = await app.handle(
+    new Request('http://localhost/boom', { method: 'HEAD' }),
+  )
+
+  expect(res.status).toBe(418)
+  expect(await res.text()).toBe('')
 })
 
 test('GET with query, untyped', async () => {
@@ -450,6 +462,15 @@ test('GET with query and zod', async () => {
     .handle(new Request('http://localhost/query?id=hi', { method: 'GET' }))
   expect(res.status).toBe(200)
   expect(await res.json()).toEqual('hi')
+})
+
+test('GET with repeated empty query values preserves all values', async () => {
+  const res = await new Spiceflow()
+    .get('/query', ({ query }) => query.tag)
+    .handle(new Request('http://localhost/query?tag=&tag=two', { method: 'GET' }))
+
+  expect(res.status).toBe(200)
+  expect(await res.json()).toEqual(['', 'two'])
 })
 
 test('GET dynamic route, params are typed', async () => {
@@ -620,7 +641,7 @@ test('run use', async () => {
     .head('/ids/:id', () => 'hi')
     .handle(new Request('http://localhost/ids/zxxx', { method: 'HEAD' }))
   expect(res.status).toBe(401)
-  expect(await res.text()).toBe('ok')
+  expect(await res.text()).toBe('')
 })
 
 test('run use', async () => {
@@ -636,7 +657,7 @@ test('run use', async () => {
     .head('/ids/:id', () => 'hi')
     .handle(new Request('http://localhost/ids/zxxx', { method: 'HEAD' }))
   expect(res.status).toBe(401)
-  expect(await res.text()).toBe('ok')
+  expect(await res.text()).toBe('')
 })
 
 test('basPath works', async () => {

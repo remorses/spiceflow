@@ -98,3 +98,16 @@ test('CORS headers are set when an error is thrown in middleware', async () => {
   expect(await res.text()).toContain('middleware error')
   expect(errorRouteCallCount).toBe(0)
 })
+
+test('CORS preserves headers on HEAD responses without adding a body', async () => {
+  const app = new Spiceflow()
+    .use(cors())
+    .get('/hello', () => ({ ok: true }))
+
+  const res = await app.handle(request('hello', 'HEAD'))
+
+  expect(res.status).toBe(200)
+  expect(res.headers.get('Access-Control-Allow-Origin')).toBe('*')
+  expect(res.headers.get('content-type')).toBe('application/json')
+  expect(await res.text()).toBe('')
+})

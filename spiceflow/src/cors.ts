@@ -46,10 +46,9 @@ export const cors = (options?: CORSOptions): MiddlewareHandler => {
   })(opts.origin)
 
   return async function cors(c, next) {
-    let response = await next()
-    
-    // Clone headers to make them mutable
-    const responseHeaders = new Headers(response.headers)
+    let response = cloneIfImmutable(await next())
+
+    const responseHeaders = response.headers
 
     function set(key: string, value: string) {
       responseHeaders.set(key, value)
@@ -131,11 +130,21 @@ export const cors = (options?: CORSOptions): MiddlewareHandler => {
       })
     }
     
-    // Return new response with modified headers
+    return response
+  }
+}
+
+function cloneIfImmutable(response: Response) {
+  try {
+    const key = 'x-spiceflow-probe'
+    response.headers.set(key, '1')
+    response.headers.delete(key)
+    return response
+  } catch {
     return new Response(response.body, {
       status: response.status,
       statusText: response.statusText,
-      headers: responseHeaders,
+      headers: new Headers(response.headers),
     })
   }
 }

@@ -224,22 +224,7 @@ export class Spiceflow<
         }
         return {
           app,
-          internalRoute: {
-            hooks: {},
-            handler: async (c) => {
-              const response = await internalRouteGet.handler(c)
-              if (isResponse(response)) {
-                return new Response('', {
-                  status: response.status,
-                  statusText: response.statusText,
-                  headers: response.headers,
-                })
-              }
-              return new Response(null, { status: 200 })
-            },
-            method,
-            path,
-          } as InternalRoute,
+          internalRoute: internalRouteGet,
           params: medleyRoute.params,
         }
       }
@@ -881,6 +866,8 @@ export class Spiceflow<
   ): Promise<Response> => {
     let u = new URL(request.url, 'http://localhost')
     const self = this
+    request =
+      request instanceof SpiceflowRequest ? request : new SpiceflowRequest(u, request)
     let path = u.pathname + u.search
     const defaultContext = {
       redirect,
@@ -904,14 +891,8 @@ export class Spiceflow<
 
     let content = route?.internalRoute?.hooks?.content
 
-    if (route.internalRoute?.validateBody) {
-      // TODO don't clone the request
-      let typedRequest =
-        request instanceof SpiceflowRequest
-          ? request
-          : new SpiceflowRequest(u, request)
-      typedRequest.validateBody = route.internalRoute?.validateBody
-      request = typedRequest
+    if (route.internalRoute?.validateBody && request instanceof SpiceflowRequest) {
+      request.validateBody = route.internalRoute?.validateBody
     }
 
     let index = 0
@@ -1027,7 +1008,25 @@ export class Spiceflow<
     }
     const response = await next()
 
-    return response
+    return this.finalizeHeadResponse({ request, response })
+  }
+
+  private finalizeHeadResponse({
+    request,
+    response,
+  }: {
+    request: Request
+    response: Response
+  }) {
+    if (request.method !== 'HEAD') {
+      return response
+    }
+
+    return new Response(null, {
+      status: response.status,
+      statusText: response.statusText,
+      headers: new Headers(response.headers),
+    })
   }
 
   protected superjsonSerialize(value: any, indent = false, request?: Request): string {
@@ -1538,9 +1537,19 @@ function bfsFind<T>(
 
 export class SpiceflowRequest<T = any> extends Request {
   validateBody?: ValidationFunction
+  // TODO: This caches the full request body text/object so middleware and handlers can read it more than once.
+  // Revisit if large JSON bodies become a memory concern, since this keeps the parsed body alive for the request lifetime.
+  private cachedText?: Promise<string>
+  private cachedJson?: Promise<any>
+
+  async text(): Promise<string> {
+    this.cachedText ??= super.text()
+    return this.cachedText
+  }
 
   async json(): Promise<T> {
-    const body = (await super.json()) as Promise<T>
+    this.cachedJson ??= this.text().then((body) => JSON.parse(body))
+    const body = (await this.cachedJson) as Promise<T>
     return runValidation(body, this.validateBody)
   }
 }
@@ -1632,7 +1641,7 @@ function parseQuery(queryString: string) {
   const paramsObject = {}
   for (const [key, value] of params) {
     // If the key already exists, convert to an array or push to the existing array
-    if (paramsObject[key]) {
+    if (Object.prototype.hasOwnProperty.call(paramsObject, key)) {
       paramsObject[key] = Array.isArray(paramsObject[key])
         ? [...paramsObject[key], value]
         : [paramsObject[key], value]
