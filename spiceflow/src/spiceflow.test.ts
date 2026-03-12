@@ -2077,3 +2077,217 @@ test('/* priority - more specific routes always win', async () => {
   expect(generalCatchRes.status).toBe(200)
   expect(await generalCatchRes.json()).toBe('catch-all')
 })
+
+describe('path param edge cases with special characters', () => {
+  test('prefix before param like /v/on-:event matches correctly', async () => {
+    const app = new Spiceflow().route({
+      method: 'GET',
+      path: '/v/on-:event',
+      handler: ({ params }) => params,
+    })
+    const res = await app.handle(
+      new Request('http://localhost/v/on-click', { method: 'GET' }),
+    )
+    expect(res.status).toBe(200)
+    expect(await res.json()).toMatchInlineSnapshot(`
+      {
+        "event": "click",
+      }
+    `)
+  })
+
+  test('suffix after param like /v/:id.patch treats dot as part of param name', async () => {
+    const app = new Spiceflow().route({
+      method: 'GET',
+      path: '/v/:id.patch',
+      handler: ({ params }) => params,
+    })
+    // the param name becomes "id.patch", not "id" with suffix ".patch"
+    const res = await app.handle(
+      new Request('http://localhost/v/123', { method: 'GET' }),
+    )
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body).toMatchInlineSnapshot(`
+      {
+        "id.patch": "123",
+      }
+    `)
+  })
+
+  test('/v/:id.patch does NOT match /v/123.patch as id=123', async () => {
+    const app = new Spiceflow().route({
+      method: 'GET',
+      path: '/v/:id.patch',
+      handler: ({ params }) => params,
+    })
+    // requesting /v/123.patch — the param "id.patch" gets value "123.patch"
+    const res = await app.handle(
+      new Request('http://localhost/v/123.patch', { method: 'GET' }),
+    )
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body).toMatchInlineSnapshot(`
+      {
+        "id.patch": "123.patch",
+      }
+    `)
+  })
+
+  test('param with dash suffix like /v/:id-details treats dash as part of param name', async () => {
+    const app = new Spiceflow().route({
+      method: 'GET',
+      path: '/v/:id-details',
+      handler: ({ params }) => params,
+    })
+    const res = await app.handle(
+      new Request('http://localhost/v/abc', { method: 'GET' }),
+    )
+    expect(res.status).toBe(200)
+    expect(await res.json()).toMatchInlineSnapshot(`
+      {
+        "id-details": "abc",
+      }
+    `)
+  })
+
+  test('param with underscore suffix like /v/:id_info treats underscore as part of param name', async () => {
+    const app = new Spiceflow().route({
+      method: 'GET',
+      path: '/v/:id_info',
+      handler: ({ params }) => params,
+    })
+    const res = await app.handle(
+      new Request('http://localhost/v/xyz', { method: 'GET' }),
+    )
+    expect(res.status).toBe(200)
+    expect(await res.json()).toMatchInlineSnapshot(`
+      {
+        "id_info": "xyz",
+      }
+    `)
+  })
+
+  test('param with colon-like path /v/:id:format treats entire thing as one param', async () => {
+    const app = new Spiceflow().route({
+      method: 'GET',
+      path: '/v/:id:format',
+      handler: ({ params }) => params,
+    })
+    const res = await app.handle(
+      new Request('http://localhost/v/test', { method: 'GET' }),
+    )
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    // second colon is part of the param name since @medley/router splits on / or $
+    expect(body).toMatchInlineSnapshot(`
+      {
+        "id:format": "test",
+      }
+    `)
+  })
+
+  test('multiple prefixed params in one segment like /v/pre-:a-mid-:b', async () => {
+    const app = new Spiceflow().route({
+      method: 'GET',
+      path: '/v/pre-:a-mid-:b',
+      handler: ({ params }) => params,
+    })
+    // @medley/router only supports one param per segment with a prefix
+    const res = await app.handle(
+      new Request('http://localhost/v/pre-hello-mid-world', { method: 'GET' }),
+    )
+    const body = await res.json()
+    expect(res.status).toBe(200)
+    expect(body).toMatchInlineSnapshot(`
+      {
+        "a-mid-:b": "hello-mid-world",
+      }
+    `)
+  })
+
+  test('param with semicolon like /v/:id;type is one param name', async () => {
+    const app = new Spiceflow().route({
+      method: 'GET',
+      path: '/v/:id;type',
+      handler: ({ params }) => params,
+    })
+    const res = await app.handle(
+      new Request('http://localhost/v/foo', { method: 'GET' }),
+    )
+    expect(res.status).toBe(200)
+    expect(await res.json()).toMatchInlineSnapshot(`
+      {
+        "id;type": "foo",
+      }
+    `)
+  })
+
+  test('param with comma like /v/:a,:b is one param name', async () => {
+    const app = new Spiceflow().route({
+      method: 'GET',
+      path: '/v/:a,:b',
+      handler: ({ params }) => params,
+    })
+    const res = await app.handle(
+      new Request('http://localhost/v/hello', { method: 'GET' }),
+    )
+    expect(res.status).toBe(200)
+    expect(await res.json()).toMatchInlineSnapshot(`
+      {
+        "a,:b": "hello",
+      }
+    `)
+  })
+
+  test('version prefix like /api/v:version extracts version correctly', async () => {
+    const app = new Spiceflow().route({
+      method: 'GET',
+      path: '/api/v:version',
+      handler: ({ params }) => params,
+    })
+    const res = await app.handle(
+      new Request('http://localhost/api/v2', { method: 'GET' }),
+    )
+    expect(res.status).toBe(200)
+    expect(await res.json()).toMatchInlineSnapshot(`
+      {
+        "version": "2",
+      }
+    `)
+  })
+
+  test('dot in static path works fine', async () => {
+    const app = new Spiceflow().route({
+      method: 'GET',
+      path: '/v/:id/download.tar.gz',
+      handler: ({ params }) => params,
+    })
+    const res = await app.handle(
+      new Request('http://localhost/v/abc/download.tar.gz', { method: 'GET' }),
+    )
+    expect(res.status).toBe(200)
+    expect(await res.json()).toMatchInlineSnapshot(`
+      {
+        "id": "abc",
+      }
+    `)
+  })
+
+  test('param captures dots in value since it matches until next slash', async () => {
+    const app = new Spiceflow().route({
+      method: 'GET',
+      path: '/v/:id',
+      handler: ({ params }) => params,
+    })
+    const res = await app.handle(
+      new Request('http://localhost/v/file.tar.gz', { method: 'GET' }),
+    )
+    expect(res.status).toBe(200)
+    expect(await res.json()).toMatchInlineSnapshot(`
+      {
+        "id": "file.tar.gz",
+      }
+    `)
+  })
+})
