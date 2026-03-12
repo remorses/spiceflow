@@ -360,6 +360,104 @@ async function exampleUsage() {
 }
 ```
 
+## Fetch Client
+
+`createSpiceflowFetch` is a simpler alternative to `createSpiceflowClient` that uses a familiar `fetch(path, options)` interface instead of the proxy-based chainable API. It provides the same type safety for paths, params, query, body, and responses.
+
+```ts
+import { createSpiceflowFetch } from 'spiceflow/client'
+import { Spiceflow } from 'spiceflow'
+import { z } from 'zod'
+
+const app = new Spiceflow()
+  .route({
+    method: 'GET',
+    path: '/hello',
+    handler() {
+      return 'Hello, World!'
+    },
+  })
+  .route({
+    method: 'POST',
+    path: '/users',
+    request: z.object({
+      name: z.string(),
+      email: z.string().email(),
+    }),
+    async handler({ request }) {
+      const body = await request.json()
+      return { id: '1', name: body.name, email: body.email }
+    },
+  })
+  .route({
+    method: 'GET',
+    path: '/users/:id',
+    handler({ params }) {
+      return { id: params.id }
+    },
+  })
+  .route({
+    method: 'GET',
+    path: '/search',
+    query: z.object({ q: z.string(), page: z.coerce.number().optional() }),
+    handler({ query }) {
+      return { results: [], query: query.q, page: query.page }
+    },
+  })
+  .route({
+    method: 'GET',
+    path: '/stream',
+    async *handler() {
+      yield 'Start'
+      yield 'Middle'
+      yield 'End'
+    },
+  })
+
+// Create the fetch client
+const spiceflowFetch = createSpiceflowFetch<typeof app>('http://localhost:3000')
+
+// Simple GET — method defaults to GET
+const { data, error } = await spiceflowFetch('/hello')
+
+// POST with typed body
+const { data: user } = await spiceflowFetch('/users', {
+  method: 'POST',
+  body: { name: 'John', email: 'john@example.com' },
+})
+
+// Path params — type-safe, required when path has :params
+const { data: foundUser } = await spiceflowFetch('/users/:id', {
+  params: { id: '123' },
+})
+
+// Query params — typed from route schema
+const { data: searchResults } = await spiceflowFetch('/search', {
+  query: { q: 'hello', page: 1 },
+})
+
+// Streaming — returns AsyncGenerator for async generator routes
+const { data: stream } = await spiceflowFetch('/stream')
+for await (const chunk of stream) {
+  console.log(chunk) // 'Start', 'Middle', 'End'
+}
+```
+
+The fetch client returns the same `{ data, error, response, status, headers, url }` shape as `createSpiceflowClient`. It also supports the same configuration options (headers, retries, onRequest/onResponse hooks, custom fetch).
+
+Passing an unknown URL or using `as any` falls back to untyped behavior, so it works as a drop-in for regular fetch when type safety isn't needed:
+
+```ts
+const { data } = await spiceflowFetch('https://example.com/api/whatever' as any)
+```
+
+You can also pass a Spiceflow app instance directly for server-side usage without network requests:
+
+```ts
+const spiceflowFetch = createSpiceflowFetch(app)
+const { data } = await spiceflowFetch('/hello')
+```
+
 ### Path Matching - Supported Features
 
 - **Named parameters**: `:param` - Captures dynamic segments like `/users/:id` or `/api/:version/users/:userId`

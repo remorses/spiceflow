@@ -2,6 +2,56 @@ import { expect, test } from 'vitest'
 import { z } from 'zod'
 import { Spiceflow } from './spiceflow.js'
 
+test('middleware can read request body text before handler reads json', async () => {
+  let middlewareBody = ''
+
+  const app = new Spiceflow()
+    .use(async ({ request }, next) => {
+      middlewareBody = await request.text()
+      return next()
+    })
+    .post('/echo', ({ request }) => request.json(), {
+      body: z.object({ name: z.string() }),
+    })
+
+  const res = await app.handle(
+    new Request('http://localhost/echo', {
+      method: 'POST',
+      body: JSON.stringify({ name: 'Tommy' }),
+      headers: { 'content-type': 'application/json' },
+    }),
+  )
+
+  expect(middlewareBody).toBe('{"name":"Tommy"}')
+  expect(res.status).toBe(200)
+  expect(await res.json()).toEqual({ name: 'Tommy' })
+})
+
+test('middleware can read validated json before handler reads it again', async () => {
+  let middlewareBody: any
+
+  const app = new Spiceflow()
+    .use(async ({ request }, next) => {
+      middlewareBody = await request.json()
+      return next()
+    })
+    .post('/echo', ({ request }) => request.json(), {
+      body: z.object({ name: z.string() }),
+    })
+
+  const res = await app.handle(
+    new Request('http://localhost/echo', {
+      method: 'POST',
+      body: JSON.stringify({ name: 'Tommy' }),
+      headers: { 'content-type': 'application/json' },
+    }),
+  )
+
+  expect(middlewareBody).toEqual({ name: 'Tommy' })
+  expect(res.status).toBe(200)
+  expect(await res.json()).toEqual({ name: 'Tommy' })
+})
+
 test('middleware with next changes the response', async () => {
   const res = await new Spiceflow()
     .use(async ({ request }, next) => {

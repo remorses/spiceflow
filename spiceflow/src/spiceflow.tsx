@@ -243,7 +243,12 @@ export class Spiceflow<
         pathWithoutPrefix = path.slice(prefix.length) || '/'
       }
 
-      const matchedRoutes = app.router.match(method, pathWithoutPrefix)
+      const matchedRoutesForMethod = app.router.match(method, pathWithoutPrefix)
+      const matchedRoutes = matchedRoutesForMethod?.length
+        ? matchedRoutesForMethod
+        : method === 'HEAD'
+          ? app.router.match('GET', pathWithoutPrefix)
+          : undefined
       if (!matchedRoutes?.length) {
         foundApp = app
         return
@@ -258,27 +263,6 @@ export class Spiceflow<
 
       if (routes.length) {
         return routes
-      }
-
-      // TODO what is this shit?
-      if (method === 'HEAD') {
-        const matched = app.router.match('GET', pathWithoutPrefix)
-        if (matched) {
-          return [
-            {
-              app,
-              route: {
-                hooks: {},
-                handler: (c) => {
-                  return new Response(null, { status: 200 })
-                },
-                method,
-                path,
-              } as InternalRoute,
-              params: this.getAllDecodedParams(matched, pathWithoutPrefix, 0),
-            },
-          ]
-        }
       }
     })
 
@@ -1178,7 +1162,17 @@ export class Spiceflow<
     }
     const root = this.topLevelApp || this
 
-    const routes = this.match(request.method, path)
+    let routes = this.match(request.method, path)
+    if (
+      request.method === 'HEAD' &&
+      routes.length === 1 &&
+      routes[0]?.route?.handler === notFoundHandler
+    ) {
+      routes = this.match('GET', path)
+    }
+    const shouldStripHeadBody =
+      request.method === 'HEAD' &&
+      routes.every((matchedRoute) => matchedRoute.route.method !== 'HEAD')
 
     const [nonReactRoutes, reactRoutes] = partition(
       routes,
@@ -1343,7 +1337,25 @@ export class Spiceflow<
     }
     const response = await next()
 
-    return response
+    return this.finalizeHeadResponse({ response, stripBody: shouldStripHeadBody })
+  }
+
+  private finalizeHeadResponse({
+    response,
+    stripBody,
+  }: {
+    response: Response
+    stripBody: boolean
+  }) {
+    if (!stripBody) {
+      return response
+    }
+
+    return new Response(null, {
+      status: response.status,
+      statusText: response.statusText,
+      headers: new Headers(response.headers),
+    })
   }
 
   protected superjsonSerialize(value: any, indent = false, request?: Request): string {
@@ -1863,10 +1875,21 @@ function bfsFind<T>(
 
 export class SpiceflowRequest<T = any> extends Request {
   validateBody?: ValidationFunction
+  private textPromise?: Promise<string>
+  private jsonPromise?: Promise<T>
+
+  async text(): Promise<string> {
+    this.textPromise ??= super.text()
+    return this.textPromise
+  }
 
   async json(): Promise<T> {
-    const body = (await super.json()) as Promise<T>
-    return runValidation(body, this.validateBody)
+    this.jsonPromise ??= this.text().then(async (text) => {
+      const body = JSON.parse(text) as T
+      return runValidation(body, this.validateBody)
+    })
+
+    return this.jsonPromise
   }
 }
 
