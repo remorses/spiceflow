@@ -35,6 +35,10 @@
       "types": "./dist/mcp.d.ts",
       "default": "./dist/mcp.js"
     },
+    "./vite": {
+      "types": "./dist/vite.d.ts",
+      "default": "./dist/vite.js"
+    },
     "./client": {
       "types": "./dist/client/index.d.ts",
       "default": "./dist/client/index.js"
