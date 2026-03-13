@@ -599,7 +599,7 @@ export type InternalRoute = {
   method: HTTPMethod
   path: string
   type: ContentType
-  handler: InlineHandler<any, any, any>
+  handler: InlineHandler<any, any, any, any>
   hooks: LocalHook<any, any, any, any, any, any, any>
   validateBody?: ValidationFunction
   validateQuery?: ValidationFunction

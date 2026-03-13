@@ -28,6 +28,9 @@ export function prerenderPlugin(): Plugin[] {
       writeBundle: {
         sequential: true,
         handler() {
+          if (!process.env.SPICEFLOW_ENABLE_BUILD_PRERENDER) {
+            return
+          }
           return processPrerender('dist')
         },
       },

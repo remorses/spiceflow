@@ -9,6 +9,7 @@
     "build": "DEBUG_SPICEFLOW=1 vite build --app",
     "preview": "DEBUG_SPICEFLOW=1 vite preview",
     "test-e2e": "DEBUG_SPICEFLOW=1 playwright test",
+    "pretest-e2e-preview": "pnpm build",
     "test-e2e-preview": "DEBUG_SPICEFLOW=1 E2E_PREVIEW=1 playwright test"
   },
   "keywords": [],
@@ -20,14 +21,14 @@
     "@tailwindcss/vite": "^4.0.5",
     "@types/react": "^19.0.8",
     "@types/react-dom": "^19.0.3",
-    "@vitejs/plugin-react": "^4.3.4",
+    "@vitejs/plugin-react": "^6.0.0",
     "radix-ui": "^1.1.3",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "react-select": "^5.10.0",
     "spiceflow": "workspace:*",
     "tailwindcss": "^4.0.5",
-    "vite": "^6.1.0"
+    "vite": "^8.0.0"
   },
   "license": "ISC",
   "devDependencies": {

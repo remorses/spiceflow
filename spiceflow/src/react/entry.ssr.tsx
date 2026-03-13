@@ -86,7 +86,7 @@ async function renderHtml({
   let payloadPromise: Promise<ServerPayload> | undefined
   function SsrRoot() {
     payloadPromise ??= createFromReadableStream<ServerPayload>(flightForSsr)
-    const payload = React.use(payloadPromise)
+    const payload = React.use(payloadPromise!)
     return (
       <MetaProvider metaState={metaState}>
         <FlightDataContext.Provider value={payloadPromise!}>
@@ -108,7 +108,19 @@ async function renderHtml({
       formState: formStatePayload.formState,
       onError(e) {
         console.error('[entry.ssr.tsx:renderToReadableStream]', e)
-        return e?.digest || e?.message
+        if (e && typeof e === 'object') {
+          const digest = 'digest' in e ? e.digest : undefined
+          if (typeof digest === 'string') return digest
+
+          const message = 'message' in e ? e.message : undefined
+          if (typeof message === 'string') return message
+        }
+
+        if (e instanceof Error) {
+          return e.message
+        }
+
+        return String(e)
       },
     })
     if (prerender || isbot(request.headers.get('user-agent') || '')) {

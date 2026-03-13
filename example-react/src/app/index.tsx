@@ -28,5 +28,3 @@ export function IndexPage({ counter, serverRandom }: { counter: number; serverRa
 		</div>
 	);
 }
-
-

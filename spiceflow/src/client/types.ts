@@ -132,7 +132,6 @@ export namespace SpiceflowClient {
   export interface Config {
     // fetch?: Omit<RequestInit, 'headers' | 'method'>
     fetch?: typeof fetch
-    state?: Record<string, any>
     headers?: MaybeArray<
       | RequestInit['headers']
       | ((path: string, options: RequestInit) => RequestInit['headers'] | void)
