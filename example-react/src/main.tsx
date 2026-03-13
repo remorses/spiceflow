@@ -21,7 +21,6 @@ import { WithSelect } from "./app/select";
 import { ThrowsDuringSSR } from "./app/ssr-error";
 import { StreamingConsumer } from "./app/streaming-consumer";
 import { Head } from "spiceflow/dist/react/head";
-import { SpiceflowContext } from "spiceflow/dist/context";
 import { CssTestClient } from "./app/client";
 import { CssTestServer } from "./app/css-test-server";
 
@@ -47,10 +46,11 @@ const app = new Spiceflow()
 		);
 	})
 	.page("/state", async ({ state }) => {
+		const middlewareState = state as { middleware1: string };
 		return (
 			<>
 				<title>title from page</title>
-				state: {state.middleware1}
+				state: {middlewareState.middleware1}
 			</>
 		);
 	})
@@ -158,10 +158,13 @@ const app = new Spiceflow()
 		return <ClientFormWithError shouldRedirect />;
 	})
 	.page("/form-inline-action-server", async ({ state, children }) => {
-		async function action({}) {
+		async function action(formState) {
 			"use server";
 			console.log({ state });
-			return { state, hello: true };
+			return {
+				...formState,
+				result: JSON.stringify({ state, hello: true }),
+			};
 		}
 		return <ClientFormWithError action={action} shouldRedirect />;
 	})
@@ -256,9 +259,7 @@ const app = new Spiceflow()
 	})
 	.page(
 		"/static/:id",
-		function StaticComponent({
-			params: { id },
-		}: SpiceflowContext<"/static/:id">) {
+		function StaticComponent({ params: { id } }) {
 			return <div className="">This is a static page with id {id}</div>;
 		},
 	)

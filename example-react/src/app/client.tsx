@@ -6,6 +6,17 @@ import { add } from "./action-by-client";
 import { redirect } from "spiceflow/dist/utils";
 import { action } from "./form-action";
 
+type ClientFormState = {
+	shouldRedirect: boolean;
+	shouldError: boolean;
+	result: string;
+};
+
+type ClientFormAction = (
+	state: ClientFormState,
+	payload: FormData,
+) => Promise<ClientFormState> | ClientFormState;
+
 export function Counter({ name = "Client" }) {
 	const [count, setCount] = React.useState(0);
 	return (
@@ -93,9 +104,13 @@ export function CssTestClient() {
 export function ClientFormWithError({
 	shouldRedirect = false,
 	shouldError = false,
-	action: _action = undefined as Function,
+	action: customAction,
+}: {
+	shouldRedirect?: boolean;
+	shouldError?: boolean;
+	action?: ClientFormAction;
 }) {
-	const [state, formAction] = useActionState(_action || action, {
+	const [state, formAction] = useActionState(customAction ?? action, {
 		shouldRedirect,
 		shouldError,
 		result: "",

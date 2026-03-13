@@ -1,6 +1,7 @@
 // Spiceflow Vite plugin: integrates @vitejs/plugin-rsc for RSC support,
 // provides SSR middleware, virtual modules, and prerender support.
 import fs from 'node:fs'
+import { createRequire } from 'node:module'
 import path from 'node:path'
 import url from 'node:url'
 
@@ -12,6 +13,9 @@ import {
   type ViteDevServer,
 } from 'vite'
 import { prerenderPlugin } from './react/prerender.js'
+
+const require = createRequire(import.meta.url)
+const pluginRscRpcPath = require.resolve('@vitejs/plugin-rsc/utils/rpc')
 
 export function spiceflowPlugin({
   entry,
@@ -28,6 +32,7 @@ export function spiceflowPlugin({
         client: 'spiceflow/dist/react/entry.client',
       },
       serverHandler: false,
+      loadModuleDevProxy: true,
 
       // Stable encryption key for server action closure args. Without this the key changes on
       // every build/restart, breaking action calls from stale client bundles after a deploy.
@@ -53,6 +58,15 @@ export function spiceflowPlugin({
             return entry
           },
         )
+      },
+    },
+
+    {
+      name: 'spiceflow:plugin-rsc-rpc-alias',
+      resolveId(source) {
+        if (source === '@vitejs/plugin-rsc/utils/rpc') {
+          return pluginRscRpcPath
+        }
       },
     },
 
@@ -100,9 +114,15 @@ export function spiceflowPlugin({
           server.middlewares.use(async (req, res, next) => {
             if (req.url?.includes('__inspect')) return next()
             try {
+              const resolvedEntry = await server.environments.ssr.pluginContainer.resolveId(
+                'spiceflow/dist/react/entry.ssr',
+              )
+              if (!resolvedEntry) {
+                throw new Error('Failed to resolve spiceflow SSR entry')
+              }
               const mod: any = await (
                 server.environments.ssr as RunnableDevEnvironment
-              ).runner.import('spiceflow/dist/react/entry.ssr')
+              ).runner.import(resolvedEntry.id)
               await mod.default(req, res)
             } catch (e) {
               next(e)

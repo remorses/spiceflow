@@ -36,6 +36,12 @@ E2e tests live in `example-react/e2e/` and use Playwright (chromium only). The d
 
 ## running e2e tests
 
+These are the integration test commands for the RSC app in `example-react/`:
+
+- `pnpm test-e2e` runs the Playwright suite against the dev server, so it covers dev-only behavior like HMR and middleware behavior during development.
+- `pnpm test-e2e-preview` runs the same Playwright suite against the production preview build, so it catches build-only regressions that do not show up in dev.
+- Run both commands when validating an integration change, because they exercise different environments and one passing does not imply the other passes.
+
 ```bash
 # run from example-react directory, never from root
 cd example-react

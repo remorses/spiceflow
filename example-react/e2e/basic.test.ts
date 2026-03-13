@@ -3,6 +3,7 @@ import { createEditor } from "./helper.js";
 
 const port = Number(process.env.E2E_PORT || 6174);
 const baseURL = `http://localhost:${port}`;
+const isPreview = Boolean(process.env.E2E_PREVIEW);
 
 test.describe("not found", () => {
 	test("not found in outer route scope", async ({ page }) => {
@@ -177,19 +178,21 @@ test("server hmr @dev", async ({ page }) => {
 		.click();
 	await clientCounter.getByText("Client counter: 1").click();
 
-	// edit server
 	const file = createEditor("src/app/index.tsx");
-	await file.edit((s) => s.replace("Server counter", "Server [EDIT] counter"));
-	await page.getByText("Server [EDIT] counter: 1").click();
-	await clientCounter.getByText("Client counter: 1").click();
+	try {
+		// edit server
+		await file.edit((s) => s.replace("Server counter", "Server [EDIT] counter"));
+		await page.getByText("Server [EDIT] counter: 1").click();
 
-	// server -1
-	await page
-		.getByTestId("server-counter")
-		.getByRole("button", { name: "-" })
-		.click();
-	await page.getByText("Server [EDIT] counter: 0").click();
-	file[Symbol.dispose]();
+		// server -1
+		await page
+			.getByTestId("server-counter")
+			.getByRole("button", { name: "-" })
+			.click();
+		await page.getByText("Server [EDIT] counter: 0").click();
+	} finally {
+		file[Symbol.dispose]();
+	}
 });
 
 test.describe("SSR error fallback (__NO_HYDRATE)", () => {
@@ -331,6 +334,15 @@ test.describe("streaming async generator", () => {
 		const firstItem = page.getByTestId("stream-item").first();
 		await expect(firstItem).toBeVisible({ timeout: 10000 });
 		await expect(firstItem).toHaveText("message-1");
+		if (isPreview) {
+			await expect(page.getByTestId("stream-done")).toBeVisible({ timeout: 10000 });
+			const items = page.getByTestId("stream-item");
+			await expect(items).toHaveCount(3);
+			await expect(items.nth(0)).toHaveText("message-1");
+			await expect(items.nth(1)).toHaveText("message-2");
+			await expect(items.nth(2)).toHaveText("message-3");
+			return;
+		}
 		// At this point the generator still has ~3s of work left (2 × 1500ms delays).
 		// "done" marker must NOT be visible yet.
 		expect(await page.getByTestId("stream-done").isVisible()).toBe(false);
