@@ -43,12 +43,12 @@ const app = new Spiceflow()
     return (
       <div className="flex flex-col items-center p-4">
         <Pokemon id={pokemon.id} name={pokemon.name} />
-        <a
+        <Link
           href="/"
           className="mt-4 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
         >
           Back to list
-        </a>
+        </Link>
       </div>
     )
   })

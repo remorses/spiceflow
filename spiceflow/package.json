@@ -109,8 +109,8 @@
   "devDependencies": {
     "@modelcontextprotocol/sdk": "^1.25.3",
     "@types/node": "~24.0.1",
-    "@types/react": "^19.0.8",
-    "@types/react-dom": "^19.0.3",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
     "ai": "^5.0.14",
     "eventsource": "^3.0.5",
     "formdata-node": "^6.0.3",
