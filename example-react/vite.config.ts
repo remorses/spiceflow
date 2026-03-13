@@ -1,5 +1,5 @@
 import { defineConfig } from "vite";
-import { spiceflowPlugin } from "spiceflow/dist/vite";
+import { spiceflowPlugin } from "spiceflow/vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 

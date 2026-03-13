@@ -1,8 +1,9 @@
 import './globals.css'
 import { Spiceflow } from 'spiceflow'
-import { sql } from '@vercel/postgres'
 import { Suspense } from 'react'
 import { Link } from 'spiceflow/dist/react/components'
+
+import { sql } from './db'
 
 const app = new Spiceflow()
   .layout('/*', async ({ children }) => {
@@ -13,7 +14,7 @@ const app = new Spiceflow()
     )
   })
   .page('/', async function Home() {
-    const { rows } = await sql`SELECT * FROM pokemon ORDER BY RANDOM() LIMIT 12`
+    const rows = await sql`SELECT * FROM pokemon ORDER BY RANDOM() LIMIT 12`
     return (
       <PokemonList>
         {rows.map((p) => (
@@ -32,7 +33,7 @@ const app = new Spiceflow()
     )
   })
   .page('/pokemon/:id', async function PokemonDetails({ params: { id } }) {
-    const { rows } = await sql`SELECT * FROM pokemon WHERE id = ${id}`
+    const rows = await sql`SELECT * FROM pokemon WHERE id = ${Number(id)}`
     const pokemon = rows[0]
 
     if (!pokemon) {
