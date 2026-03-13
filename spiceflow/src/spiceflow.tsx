@@ -893,7 +893,6 @@ export class Spiceflow<
       kind: 'page' as const,
     }
     this.add({ ...routeConfig, method: 'GET' })
-    this.add({ ...routeConfig, path: path + '.rsc', method: 'GET' })
     this.add({ ...routeConfig, method: 'POST' })
     return this as any
   }
@@ -930,9 +929,9 @@ export class Spiceflow<
       kind,
     }
     this.add({ ...routeConfig, method: 'GET' })
-    this.add({ ...routeConfig, path: path + '.rsc', method: 'GET' })
     return this as any
   }
+
   layout<
     const Path extends string,
     const LocalSchema extends InputSchema<keyof Definitions['type'] & string>,
@@ -963,7 +962,6 @@ export class Spiceflow<
       kind: 'layout' as const,
     }
     this.add({ ...routeConfig, method: 'GET' })
-    this.add({ ...routeConfig, path: path + '.rsc', method: 'GET' })
     this.add({ ...routeConfig, method: 'POST' })
     return this as any
   }
@@ -1170,7 +1168,13 @@ export class Spiceflow<
   ): Promise<Response> => {
     let u = new URL(request.url, 'http://localhost')
     const self = this
+    // Strip .rsc suffix before route matching — the client appends it for RSC data fetches,
+    // but routes are registered without it. Without this, dynamic params like :id get corrupted
+    // (e.g. { 'id.rsc': '121.rsc' } instead of { id: '121' }).
     let path = u.pathname
+    if (path.endsWith('.rsc')) {
+      path = path.slice(0, -4)
+    }
     let onErrorHandlers: OnError[] = []
 
     // Wrap waitUntil with error handling
