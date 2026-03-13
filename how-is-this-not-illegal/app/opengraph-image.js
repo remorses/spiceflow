@@ -1,4 +1,4 @@
-import { sql } from "@vercel/postgres";
+import { sql } from "./db";
 import { ImageResponse } from "next/server";
 import Image from "next/image";
 
@@ -6,7 +6,7 @@ export const runtime = "edge";
 export const revalidate = 60;
 
 export default async function OGImage() {
-  const { rows } = await sql`SELECT * FROM pokemon ORDER BY RANDOM() LIMIT 12`;
+  const rows = await sql`SELECT * FROM pokemon ORDER BY RANDOM() LIMIT 12`;
 
   const inter500 = fetch(
     new URL(
