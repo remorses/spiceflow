@@ -1,7 +1,6 @@
 // SSR entry point. Receives RSC flight stream from the RSC environment,
 // SSR-renders it to HTML, and injects the RSC payload inline for client hydration.
 import { isbot } from 'isbot'
-import type { IncomingMessage, ServerResponse } from 'node:http'
 
 import React from 'react'
 import ReactDOMServer from 'react-dom/server.edge'
@@ -18,19 +17,6 @@ import { getErrorContext, isNotFoundError, isRedirectError } from './errors.js'
 import { MetaProvider } from './head.js'
 import { MetaState } from './metastate.js'
 import { injectRSCPayload } from './transform.js'
-import {
-  createRequest,
-  sendResponse,
-} from './utils/fetch.js'
-
-export default async function handler(
-  req: IncomingMessage,
-  res: ServerResponse,
-) {
-  const request = createRequest(req, res)
-  const response = await fetchHandler(request)
-  sendResponse(response, res)
-}
 
 export async function fetchHandler(request: Request) {
   try {
@@ -204,3 +190,19 @@ export async function getPrerenderRoutes() {
     )
     .filter((x) => x.method === 'GET')
 }
+
+// In production, if the user called .listen() in their entry, start the server.
+// In dev, Vite owns the server so this is a noop.
+async function maybeStartServer() {
+  try {
+    if (import.meta.env?.DEV) return
+  } catch {}
+
+  const rscEntry = await importRscEnvironment()
+  const app = rscEntry.app
+  if (!app._listenPort) return
+
+  await app._startServer(fetchHandler, app._listenPort, app._listenHostname)
+}
+
+maybeStartServer()

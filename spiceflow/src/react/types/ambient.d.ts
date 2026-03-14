@@ -3,8 +3,7 @@
 
 declare module 'virtual:app-entry' {
   import type { Spiceflow } from 'spiceflow'
-  const app: Spiceflow
-  export default app
+  export const app: Spiceflow
 }
 
 declare module 'virtual:bundler-adapter/server' {

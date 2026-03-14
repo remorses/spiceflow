@@ -29,7 +29,7 @@ import { ScrollTestPage } from "./app/scroll-test";
 // unwanted server re-renders (e.g. client HMR should not trigger a server render).
 let serverRenderCount = 0;
 
-const app = new Spiceflow()
+export const app = new Spiceflow()
 	.state("middleware1", "")
 	.use(async ({ request, state }, next) => {
 		state.middleware1 = "state set by middleware1";
@@ -310,4 +310,4 @@ async function ServerComponentThrows() {
 	return <div>Server component</div>;
 }
 
-export default app;
+app.listen(3000)

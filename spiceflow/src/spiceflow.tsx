@@ -1659,9 +1659,37 @@ export class Spiceflow<
     return appsInScope
   }
 
+  // Port/hostname set by .listen(). In React/RSC mode, the SSR entry reads
+  // these and starts the actual server. In plain API mode, .listen() starts directly.
+  _listenPort?: number
+  _listenHostname?: string
+
   async listen(port: number, hostname: string = '0.0.0.0') {
-    const app = this
+    this._listenPort = port
+    this._listenHostname = hostname
+
+    // Noop inside Vite dev/preview — Vite owns the server
+    try {
+      if (import.meta.env?.DEV) return
+    } catch {}
+
+    // In React/RSC mode, just store the config and return.
+    // The SSR entry starts the server because it has direct access to fetchHandler.
+    try {
+      if (import.meta.env?.SPICEFLOW_RSC) return
+    } catch {}
+
+    // Plain API mode (no React) — start the server directly
+    return this._startServer((request) => this.handle(request), port, hostname)
+  }
+
+  async _startServer(
+    handler: (request: Request) => Promise<Response> | Response,
+    port: number,
+    hostname: string,
+  ) {
     if (typeof Bun !== 'undefined') {
+      const app = this
       const server = Bun.serve({
         port,
         development: (Bun.env.NODE_ENV ?? Bun.env.ENV) !== 'production',
@@ -1676,10 +1704,7 @@ export class Spiceflow<
             },
           )
         },
-        async fetch(request) {
-          const res = await app.handle(request)
-          return res
-        },
+        fetch: handler,
       })
 
       process.on('beforeExit', () => {
@@ -1693,7 +1718,7 @@ export class Spiceflow<
       return { port: server.port, server }
     }
 
-    return this.listenForNode(port, hostname)
+    return listenForNode(handler, port, hostname)
   }
 
   /**
@@ -1722,7 +1747,7 @@ export class Spiceflow<
         "Server is being started with node:http but the current runtime is Bun, not Node. Consider using the method 'handle' with 'Bun.serve' instead.",
       )
     }
-    return listenForNode(this, port, hostname)
+    return listenForNode((request) => this.handle(request), port, hostname)
   }
 
   private async handleStream({

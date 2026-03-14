@@ -1765,7 +1765,7 @@ The entry file defines your routes using `.page()` for pages and `.layout()` for
 import { Spiceflow } from 'spiceflow'
 import { Counter } from './app/counter'
 
-const app = new Spiceflow()
+export const app = new Spiceflow()
   .layout('/*', async ({ children }) => {
     return (
       <html>
@@ -1790,8 +1790,7 @@ const app = new Spiceflow()
   .page('/about', async () => {
     return <div><h1>About</h1></div>
   })
-
-export default app
+  .listen(3000)
 ```
 
 ### Client Components

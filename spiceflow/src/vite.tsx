@@ -74,42 +74,21 @@ export function spiceflowPlugin({
       },
     },
 
-    // Add the Node launcher as an additional SSR build input
     {
       name: 'spiceflow:config',
-      config: () => ({
-        environments: {
-          ssr: {
-            build: {
-              rollupOptions: {
-                input: {
-                  server: 'spiceflow/dist/react/launchers/node',
-                },
-              },
-            },
-          },
-        },
-      }),
       configResolved(config) {
         resolvedOutDir = config.build.outDir
       },
     },
-
-    // Write dist/node.js production entry point after build
+    // Inject environment markers so .listen() can detect RSC vs SSR at build time
     {
-      name: 'spiceflow:write-node-entry',
-      enforce: 'post',
-      apply: 'build',
-      closeBundle: {
-        sequential: true,
-        async handler() {
-          const outDir = path.resolve(resolvedOutDir)
-          await fs.promises.mkdir(outDir, { recursive: true })
-          await fs.promises.writeFile(
-            path.join(outDir, 'node.js'),
-            `import('./ssr/node.js')`,
-          )
-        },
+      name: 'spiceflow:env-defines',
+      configEnvironment(name, config) {
+        if (name === 'rsc') {
+          config.define = { ...config.define, 'import.meta.env.SPICEFLOW_RSC': 'true' }
+        } else if (name === 'ssr') {
+          config.define = { ...config.define, 'import.meta.env.SPICEFLOW_SSR': 'true' }
+        }
       },
     },
 
@@ -131,7 +110,10 @@ export function spiceflowPlugin({
               const mod: any = await (
                 server.environments.ssr as RunnableDevEnvironment
               ).runner.import(resolvedEntry.id)
-              await mod.default(req, res)
+              const { createRequest, sendResponse } = await import('./react/utils/fetch.js')
+              const request = createRequest(req, res)
+              const response = await mod.fetchHandler(request)
+              sendResponse(response, res)
             } catch (e) {
               next(e)
             }
@@ -140,10 +122,13 @@ export function spiceflowPlugin({
       },
       async configurePreviewServer(previewServer) {
         const mod = await import(path.resolve(resolvedOutDir, 'ssr/index.js'))
+        const { createRequest, sendResponse } = await import('./react/utils/fetch.js')
         return () => {
           previewServer.middlewares.use(async (req, res, next) => {
             try {
-              await mod.default(req, res)
+              const request = createRequest(req, res)
+              const response = await mod.fetchHandler(request)
+              sendResponse(response, res)
             } catch (e) {
               next(e)
             }
@@ -169,11 +154,14 @@ export function spiceflowPlugin({
       return `export * from 'spiceflow/dist/react/adapters/vite-client'`
     }),
 
-    // virtual:app-entry — resolves to user's app entry module
+    // virtual:app-entry — resolves to user's app entry module.
     createVirtualPlugin('app-entry', () => {
-      return `export {default} from '${url.pathToFileURL(path.resolve(entry))}'`
+      return [
+        `import * as entry from '${url.pathToFileURL(path.resolve(entry))}'`,
+        `if (!entry.app) throw new Error('[spiceflow] Your entry file must export a Spiceflow instance as "app". Example:\\n\\n  export const app = new Spiceflow()\\n    .page("/", async () => <Home />)\\n    .listen(3000)\\n')`,
+        `export const app = entry.app`,
+      ].join('\n')
     }),
-
 
   ]
 }
