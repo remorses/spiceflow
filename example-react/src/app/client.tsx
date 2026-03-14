@@ -93,6 +93,16 @@ export function ErrorRender({ error }) {
 	console.log("caught error", error);
 	return <div>Error from rsc</div>;
 }
+export function LayoutMountTracker() {
+	const [mountCount, setMountCount] = React.useState(0);
+	React.useEffect(() => {
+		setMountCount((c) => c + 1);
+	}, []);
+	return (
+		<div data-testid="layout-mount-count">{mountCount}</div>
+	);
+}
+
 export function CssTestClient() {
 	return (
 		<div data-testid="css-test-client">
