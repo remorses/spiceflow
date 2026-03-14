@@ -489,6 +489,45 @@ test('GET dynamic route, params are typed', async () => {
   expect(await res.json()).toEqual('hi')
 })
 
+test('GET wildcard path param is typed as optional', async () => {
+  const res = await new Spiceflow()
+    .get('/files/*', ({ params }) => {
+      // @ts-expect-error
+      params['*'].toUpperCase()
+      return params['*'] ?? 'none'
+    })
+    .handle(new Request('http://localhost/files/path/to/file.txt', { method: 'GET' }))
+
+  expect(res.status).toBe(200)
+  expect(await res.json()).toEqual('path/to/file.txt')
+})
+
+test('GET trailing optional path param is typed as optional', async () => {
+  const res = await new Spiceflow()
+    .get('/users/:id?', ({ params }) => {
+      // @ts-expect-error
+      params.id.toUpperCase()
+      return params.id ?? 'none'
+    })
+    .handle(new Request('http://localhost/users/123', { method: 'GET' }))
+
+  expect(res.status).toBe(200)
+  expect(await res.json()).toEqual('123')
+})
+
+test('GET non-trailing ? stays in the param key type', async () => {
+  const res = await new Spiceflow()
+    .get('/users/:id?/details', ({ params }) => {
+      // @ts-expect-error
+      params.id
+      return params['id?']
+    })
+    .handle(new Request('http://localhost/users/123/details', { method: 'GET' }))
+
+  expect(res.status).toBe(200)
+  expect(await res.json()).toEqual('123')
+})
+
 test('GET dynamic route with .route(), params are typed', async () => {
   const res = await new Spiceflow()
     .route({
@@ -2367,7 +2406,8 @@ test(':param beats wildcard regardless of registration order', async () => {
 })
 
 describe('path param edge cases with special characters', () => {
-  test('prefix before param like /v/on-:event matches correctly', async () => {
+  // hono trie router does not support prefix matching — returns 404 instead
+  test('prefix before param like /v/on-:event returns 404 on trie router', async () => {
     const app = new Spiceflow().route({
       method: 'GET',
       path: '/v/on-:event',
@@ -2376,12 +2416,7 @@ describe('path param edge cases with special characters', () => {
     const res = await app.handle(
       new Request('http://localhost/v/on-click', { method: 'GET' }),
     )
-    expect(res.status).toBe(200)
-    expect(await res.json()).toMatchInlineSnapshot(`
-      {
-        "event": "click",
-      }
-    `)
+    expect(res.status).toBe(404)
   })
 
   test('suffix after param like /v/:id.patch treats dot as part of param name', async () => {
@@ -2475,23 +2510,17 @@ describe('path param edge cases with special characters', () => {
     `)
   })
 
-  test('multiple prefixed params in one segment like /v/pre-:a-mid-:b', async () => {
+  // hono trie router does not support prefix matching — returns 404 instead
+  test('multiple prefixed params in one segment like /v/pre-:a-mid-:b returns 404 on trie router', async () => {
     const app = new Spiceflow().route({
       method: 'GET',
       path: '/v/pre-:a-mid-:b',
       handler: ({ params }) => params,
     })
-    // @medley/router only supports one param per segment with a prefix
     const res = await app.handle(
       new Request('http://localhost/v/pre-hello-mid-world', { method: 'GET' }),
     )
-    const body = await res.json()
-    expect(res.status).toBe(200)
-    expect(body).toMatchInlineSnapshot(`
-      {
-        "a-mid-:b": "hello-mid-world",
-      }
-    `)
+    expect(res.status).toBe(404)
   })
 
   test('param with semicolon like /v/:id;type is one param name', async () => {
@@ -2528,7 +2557,8 @@ describe('path param edge cases with special characters', () => {
     `)
   })
 
-  test('version prefix like /api/v:version extracts version correctly', async () => {
+  // hono trie router does not support prefix matching — returns 404 instead
+  test('version prefix like /api/v:version returns 404 on trie router', async () => {
     const app = new Spiceflow().route({
       method: 'GET',
       path: '/api/v:version',
@@ -2537,12 +2567,7 @@ describe('path param edge cases with special characters', () => {
     const res = await app.handle(
       new Request('http://localhost/api/v2', { method: 'GET' }),
     )
-    expect(res.status).toBe(200)
-    expect(await res.json()).toMatchInlineSnapshot(`
-      {
-        "version": "2",
-      }
-    `)
+    expect(res.status).toBe(404)
   })
 
   test('dot in static path works fine', async () => {

@@ -22,26 +22,49 @@ export type MaybePromiseIterable<T> = T | Promise<T> | AsyncIterable<T>
 
 export type ObjectValues<T extends object> = T[keyof T]
 
-type IsPathParameter<Part extends string> = Part extends `:${infer Parameter}`
-  ? Parameter
-  : Part extends `*`
-    ? '*'
+type RequiredPathParameterForSegment<
+  Segment extends string,
+  IsLast extends boolean,
+> = Segment extends `:${infer Parameter}?`
+  ? IsLast extends true
+    ? never
+    : `${Parameter}?`
+  : Segment extends `:${infer Parameter}`
+    ? Parameter
     : never
 
+type OptionalPathParameterForSegment<
+  Segment extends string,
+  IsLast extends boolean,
+> = Segment extends '*'
+  ? '*'
+  : Segment extends `:${infer Parameter}?`
+    ? IsLast extends true
+      ? Parameter
+      : never
+    : never
+
+type RequiredPathParameter<Path extends string> =
+  Path extends `${infer Segment}/${infer Rest}`
+    ? RequiredPathParameterForSegment<Segment, false> |
+        RequiredPathParameter<Rest>
+    : RequiredPathParameterForSegment<Path, true>
+
+type OptionalPathParameter<Path extends string> =
+  Path extends `${infer Segment}/${infer Rest}`
+    ? OptionalPathParameterForSegment<Segment, false> |
+        OptionalPathParameter<Rest>
+    : OptionalPathParameterForSegment<Path, true>
+
 export type GetPathParameter<Path extends string> =
-  Path extends `${infer A}/${infer B}`
-    ? IsPathParameter<A> | GetPathParameter<B>
-    : IsPathParameter<Path>
+  | RequiredPathParameter<Path>
+  | OptionalPathParameter<Path>
 
 export type ResolvePath<Path extends string> = Prettify<
   {
-    [Param in GetPathParameter<Path> as Param extends `${string}?`
-      ? never
-      : Param]: string
+    [Param in RequiredPathParameter<Path>]: string
   } & {
-    [Param in GetPathParameter<Path> as Param extends `${infer OptionalParam}?`
-      ? OptionalParam
-      : never]?: string
+    [Param in OptionalPathParameter<Path>]?: string
   }
 >
 
