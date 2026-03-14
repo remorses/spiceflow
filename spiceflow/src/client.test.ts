@@ -172,12 +172,6 @@ describe('client', () => {
     expect(data).toEqual(false)
   })
 
-  it.todo('parse object with date', async () => {
-    const { data } = await client.dateObject.get()
-
-    expect(data?.date).toBeInstanceOf(Date)
-  })
-
   it('post array', async () => {
     const { data } = await client.array.post(['a', 'b'])
 
