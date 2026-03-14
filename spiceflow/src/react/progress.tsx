@@ -94,13 +94,9 @@ function useProgress() {
   )
 
   useEffect(() => {
-    const unlisten = router.listen(() => {
+    return router.subscribe(() => {
       start()
     })
-
-    return () => {
-      unlisten()
-    }
   }, [])
 
   useEffect(() => {

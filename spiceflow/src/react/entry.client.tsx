@@ -65,7 +65,7 @@ async function main() {
     }, [startTransition, setPayload_])
 
     React.useEffect(() => {
-      return router.listen(async function onNavigation() {
+      return router.subscribe(async function onNavigation() {
         console.log('onNavigation')
         const url = new URL(window.location.href)
         url.pathname += '.rsc'
@@ -97,7 +97,7 @@ async function main() {
     })
   }
 
-  onHmrUpdate(() => router.replace(router.location))
+  onHmrUpdate(() => router.refresh())
 }
 
 onHmrError()
