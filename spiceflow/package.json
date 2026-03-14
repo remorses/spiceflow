@@ -31,6 +31,10 @@
       "types": "./dist/cors.d.ts",
       "default": "./dist/cors.js"
     },
+    "./react": {
+      "types": "./dist/react/index.d.ts",
+      "default": "./dist/react/index.js"
+    },
     "./mcp": {
       "types": "./dist/mcp.d.ts",
       "default": "./dist/mcp.js"
