@@ -1,7 +1,7 @@
 import { z } from 'zod'
-import { createSpiceflowClient } from './client/index.ts'
-import { Spiceflow } from './spiceflow.ts'
-import { SpiceflowFetchError } from './client/errors.ts'
+import { createSpiceflowClient } from './client/index.js'
+import { Spiceflow } from './spiceflow.js'
+import { SpiceflowFetchError } from './client/errors.js'
 
 import { describe, expect, it, vi } from 'vitest'
 const app = new Spiceflow()
@@ -170,12 +170,6 @@ describe('client', () => {
     const { data } = await client.false.get()
 
     expect(data).toEqual(false)
-  })
-
-  it.todo('parse object with date', async () => {
-    const { data } = await client.dateObject.get()
-
-    expect(data?.date).toBeInstanceOf(Date)
   })
 
   it('post array', async () => {

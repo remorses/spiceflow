@@ -1,3 +1,5 @@
+import { redirect } from './react/errors.js'
+
 // deno-lint-ignore no-explicit-any
 export const deepFreeze = (value: any) => {
   for (const key of Reflect.ownKeys(value)) {
@@ -25,6 +27,10 @@ export function isAsyncIterable(obj: any): obj is AsyncGenerator<any> {
 export function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
+
+export { redirect }
+
+export type Redirect = typeof redirect
 
 export const StatusMap = {
   Continue: 100,
@@ -98,18 +104,6 @@ export const InvertedStatusMap = Object.fromEntries(
 export type StatusMap = typeof StatusMap
 export type InvertedStatusMap = typeof InvertedStatusMap
 
-/**
- *
- * @param url URL to redirect to
- * @param HTTP status code to send,
- */
-export const redirect = (
-  url: string,
-  status: 301 | 302 | 303 | 307 | 308 = 302,
-) => Response.redirect(url, status)
-
-export type redirect = typeof redirect
-
 export function isResponse(result: any): result is Response {
   if (result instanceof Response) {
     return true
@@ -130,4 +124,9 @@ export function isResponse(result: any): result is Response {
   // }
 
   return false
+}
+
+
+export function isTruthy<T>(x: T | undefined | null | false): x is T {
+  return Boolean(x)
 }

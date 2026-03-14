@@ -4,7 +4,7 @@ import {
   JSONRPCMessage,
   JSONRPCMessageSchema,
 } from '@modelcontextprotocol/sdk/types.js'
-import { streamSSEResponse } from './client/index.ts'
+import { streamSSEResponse } from './client/index.js'
 
 export type SpiceflowClientTransportOptions = {
   fetch?: FetchType

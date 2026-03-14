@@ -1,12 +1,14 @@
 import type { AnySpiceflow, Spiceflow } from '../spiceflow.ts'
+import superjson from 'superjson'
+import { EventSourceParserStream } from 'eventsource-parser/stream'
 
-import type { SpiceflowClient } from './types.ts'
+import type { SpiceflowClient } from './types.js'
 
 export { SpiceflowClient }
 
-import { SpiceflowFetchError } from './errors.ts'
+import { SpiceflowFetchError } from './errors.js'
 
-import { parseStringifiedValue } from './utils.ts'
+import { parseStringifiedValue } from './utils.js'
 
 import {
   isServer,

@@ -8,8 +8,9 @@
     "moduleResolution": "NodeNext",
     "declarationMap": true,
     "sourceMap": true,
+    "jsx": "react-jsx",
     "resolveJsonModule": true,
-
+    "useUnknownInCatchVariables": false,
     "outDir": "dist"
   },
   "include": ["src"]

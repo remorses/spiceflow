@@ -2,9 +2,9 @@ import { describe, it, expect } from 'vitest'
 
 import { createParser } from 'eventsource-parser'
 
-import { Spiceflow } from './spiceflow.ts'
+import { Spiceflow } from './spiceflow.js'
 
-import { req, sleep } from './utils.ts'
+import { req, sleep } from './utils.js'
 
 function textEventStream(items: string[]) {
   return items
@@ -94,35 +94,6 @@ describe('Stream', () => {
     const response = await app.handle(req('/')).then((x) => x.text())
 
     expect(response).toContain('an error')
-  })
-
-  it.todo('handle errors before yield when aot is true', async () => {
-    const app = new Spiceflow()
-      .onError(({ error }) => {
-        return new Response(error.message)
-      })
-      .get('/', async function* () {
-        throw new Error('an error')
-      })
-
-    const response = await app.handle(req('/')).then((x) => x.text())
-
-    expect(response).toContain('an error')
-  })
-
-  it.todo('handle errors before yield with onError', async () => {
-    const expected = 'error expected'
-    const app = new Spiceflow()
-      .onError(({}) => {
-        return new Response(expected)
-      })
-      .get('/', async function* () {
-        throw new Error('an error')
-      })
-
-    const response = await app.handle(req('/')).then((x) => x.text())
-
-    expect(response).toBe(expected)
   })
 
   it('stop stream on canceled request', async () => {

@@ -1,0 +1,43 @@
+import { Link, ProgressBar, ScrollRestoration } from "spiceflow/react";
+import { Counter, LayoutMountTracker } from "./client";
+
+export function Layout(props: React.PropsWithChildren) {
+	return (
+		<html>
+			<head>
+				<meta charSet="UTF-8" />
+				<meta
+					name="viewport"
+					content="width=device-width, height=device-height, initial-scale=1.0"
+				/>
+				<ScrollRestoration />
+			</head>
+			<body className="px-4 bg-gray-100">
+				<ProgressBar />
+				<LayoutMountTracker />
+				<Counter name="Layout" />
+				<ul>
+					<li>
+						<Link href="/">Home</Link>
+					</li>
+					<li>
+						<Link href="/other">Other</Link>
+					</li>
+					<li>
+						<Link href="/slow">slow page</Link>
+					</li>
+				<li>
+					<Link href="/slow-suspense">slow suspense page</Link>
+				</li>
+				<li>
+					<Link href="/scroll-restoration/page-a">Scroll A</Link>
+				</li>
+				<li>
+					<Link href="/scroll-restoration/page-b">Scroll B</Link>
+				</li>
+				</ul>
+				{props.children}
+			</body>
+		</html>
+	);
+}

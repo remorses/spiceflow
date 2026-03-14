@@ -16,6 +16,7 @@ Spiceflow is a lightweight, type-safe API framework for building web services us
 - Can easily generate OpenAPI spec based on your routes
 - Native support for [Fern](https://github.com/fern-api/fern) to generate docs and SDKs (see example docs [here](https://remorses.docs.buildwithfern.com))
 - Support for [Model Context Protocol](https://modelcontextprotocol.io/) to easily wire your app with LLMs
+- Full-stack React framework with React Server Components (RSC), server actions, layouts, and automatic client code splitting
 - Type safe RPC client generation
 - Simple and intuitive API
 - Uses web standards for requests and responses
@@ -132,7 +133,7 @@ const app = new Spiceflow()
     path: '/users/:id',
     params: z.object({
       id: z.string(),
-    }),
+    }),w
     response: z.object({
       id: z.string(),
       name: z.string(),
@@ -360,12 +361,14 @@ async function exampleUsage() {
 }
 ```
 
-## Fetch Client
+## Fetch Client (Recommended)
 
-`createSpiceflowFetch` is a simpler alternative to `createSpiceflowClient` that uses a familiar `fetch(path, options)` interface instead of the proxy-based chainable API. It provides the same type safety for paths, params, query, body, and responses.
+`createSpiceflowFetch` is the recommended way to interact with a Spiceflow app. It uses a familiar `fetch(path, options)` interface instead of the proxy-based chainable API of `createSpiceflowClient`. It provides the same type safety for paths, params, query, body, and responses, but with a simpler and more predictable API.
+
+Export the app type from your server code:
 
 ```ts
-import { createSpiceflowFetch } from 'spiceflow/client'
+// server.ts
 import { Spiceflow } from 'spiceflow'
 import { z } from 'zod'
 
@@ -414,48 +417,61 @@ const app = new Spiceflow()
     },
   })
 
-// Create the fetch client
-const spiceflowFetch = createSpiceflowFetch<typeof app>('http://localhost:3000')
+export type App = typeof app
+```
 
-// Simple GET — method defaults to GET
-const { data, error } = await spiceflowFetch('/hello')
+Then use the `App` type on the client side without importing server code:
+
+```ts
+// client.ts
+import { createSpiceflowFetch } from 'spiceflow/client'
+import type { App } from './server'
+
+const f = createSpiceflowFetch<App>('http://localhost:3000')
+
+// Returns Error | Data — check with instanceof Error
+const greeting = await f('/hello')
+if (greeting instanceof Error) return greeting // early return on error
+console.log(greeting) // 'Hello, World!' — TypeScript knows the type
 
 // POST with typed body
-const { data: user } = await spiceflowFetch('/users', {
+const user = await f('/users', {
   method: 'POST',
   body: { name: 'John', email: 'john@example.com' },
 })
+if (user instanceof Error) return user
+console.log(user.id, user.name) // fully typed
 
 // Path params — type-safe, required when path has :params
-const { data: foundUser } = await spiceflowFetch('/users/:id', {
+const foundUser = await f('/users/:id', {
   params: { id: '123' },
 })
+if (foundUser instanceof Error) return foundUser
 
 // Query params — typed from route schema
-const { data: searchResults } = await spiceflowFetch('/search', {
+const searchResults = await f('/search', {
   query: { q: 'hello', page: 1 },
 })
+if (searchResults instanceof Error) return searchResults
 
 // Streaming — returns AsyncGenerator for async generator routes
-const { data: stream } = await spiceflowFetch('/stream')
+const stream = await f('/stream')
+if (stream instanceof Error) return stream
 for await (const chunk of stream) {
   console.log(chunk) // 'Start', 'Middle', 'End'
 }
 ```
 
-The fetch client returns the same `{ data, error, response, status, headers, url }` shape as `createSpiceflowClient`. It also supports the same configuration options (headers, retries, onRequest/onResponse hooks, custom fetch).
+The fetch client returns `Error | Data` directly following the [errore](https://errore.org) convention — use `instanceof Error` to check for errors with Go-style early returns, then the happy path continues with the narrowed data type. No `{ data, error }` destructuring, no null checks. On error, the returned `SpiceflowFetchError` has `status`, `value` (the parsed error body), and `response` (the raw Response object) properties.
 
-Passing an unknown URL or using `as any` falls back to untyped behavior, so it works as a drop-in for regular fetch when type safety isn't needed:
-
-```ts
-const { data } = await spiceflowFetch('https://example.com/api/whatever' as any)
-```
+The fetch client supports configuration options like headers, retries, onRequest/onResponse hooks, and custom fetch.
 
 You can also pass a Spiceflow app instance directly for server-side usage without network requests:
 
 ```ts
-const spiceflowFetch = createSpiceflowFetch(app)
-const { data } = await spiceflowFetch('/hello')
+const f = createSpiceflowFetch(app)
+const greeting = await f('/hello')
+if (greeting instanceof Error) throw greeting
 ```
 
 ### Path Matching - Supported Features
@@ -601,6 +617,58 @@ const userPostPath = app.safePath('/users/:id/posts/:postId', {
 })
 // Result: '/users/456/posts/abc'
 ```
+
+### Query Parameters
+
+When a route has a `query` schema, `safePath` accepts query parameters alongside path parameters in the same flat object. Query parameters are appended as a query string, and unknown keys are rejected at the type level:
+
+```ts
+const app = new Spiceflow()
+  .route({
+    method: 'GET',
+    path: '/search',
+    query: z.object({ q: z.string(), page: z.coerce.number() }),
+    handler({ query }) {
+      return { results: [], q: query.q }
+    },
+  })
+  .route({
+    method: 'GET',
+    path: '/users/:id',
+    query: z.object({ fields: z.string() }),
+    handler({ params, query }) {
+      return { id: params.id, fields: query.fields }
+    },
+  })
+
+app.safePath('/search', { q: 'hello', page: 1 })
+// Result: '/search?q=hello&page=1'
+
+app.safePath('/users/:id', { id: '42', fields: 'name' })
+// Result: '/users/42?fields=name'
+
+// @ts-expect-error - 'invalid' is not a known query key
+app.safePath('/search', { invalid: 'x' })
+```
+
+### Standalone `createSafePath`
+
+If you need a path builder on the client side where you can't import server app code, use `createSafePath` with the `typeof app` generic:
+
+```ts
+import { createSafePath } from 'spiceflow'
+import type { App } from './server' // import only the type, not the runtime app
+
+const safePath = createSafePath<App>()
+
+safePath('/users/:id', { id: '123' })
+// Result: '/users/123'
+
+safePath('/search', { q: 'hello', page: 1 })
+// Result: '/search?q=hello&page=1'
+```
+
+The returned function has the same type safety as `app.safePath` — it infers paths, params, and query schemas from the app type. The app argument is optional and not used at runtime, so you can call `createSafePath<App>()` without passing any value.
 
 ### OAuth Callback Example
 
@@ -964,7 +1032,7 @@ const app = new Spiceflow().use(cors()).route({
 
 ```ts
 import { Spiceflow } from 'spiceflow'
-import { MiddlewareHandler } from 'spiceflow/dist/types'
+import type { MiddlewareHandler } from 'spiceflow'
 
 const app = new Spiceflow()
 
@@ -1660,4 +1728,136 @@ export const client: SpiceflowClient.Create<App> = createSpiceflowClient<App>(
   PUBLIC_URL,
   {},
 )
+```
+
+## React Framework (RSC)
+
+Spiceflow includes a full-stack React framework built on React Server Components (RSC). It uses Vite with `@vitejs/plugin-rsc` under the hood. Server components run on the server by default, and you use `"use client"` to mark interactive components that need to run in the browser.
+
+### Setup
+
+Install the dependencies and create a Vite config:
+
+```bash
+npm install spiceflow react react-dom
+```
+
+```ts
+// vite.config.ts
+import { defineConfig } from 'vite'
+import { spiceflowPlugin } from 'spiceflow/vite'
+
+export default defineConfig({
+  plugins: [
+    spiceflowPlugin({
+      entry: './src/main.tsx',
+    }),
+  ],
+})
+```
+
+### App Entry (Server Component)
+
+The entry file defines your routes using `.page()` for pages and `.layout()` for layouts. This file runs in the RSC environment on the server.
+
+```tsx
+// src/main.tsx
+import { Spiceflow } from 'spiceflow'
+import { Counter } from './app/counter'
+
+const app = new Spiceflow()
+  .layout('/*', async ({ children }) => {
+    return (
+      <html>
+        <head>
+          <meta charSet="UTF-8" />
+        </head>
+        <body>{children}</body>
+      </html>
+    )
+  })
+  .page('/', async () => {
+    // This runs on the server — you can fetch data, access databases, etc.
+    const data = await fetchSomeData()
+    return (
+      <div>
+        <h1>Welcome</h1>
+        <p>Server-rendered data: {data.message}</p>
+        <Counter />
+      </div>
+    )
+  })
+  .page('/about', async () => {
+    return <div><h1>About</h1></div>
+  })
+
+export default app
+```
+
+### Client Components
+
+Mark interactive components with `"use client"` at the top of the file. These are hydrated in the browser and can use hooks like `useState`.
+
+```tsx
+// src/app/counter.tsx
+'use client'
+
+import { useState } from 'react'
+
+export function Counter() {
+  const [count, setCount] = useState(0)
+  return (
+    <div>
+      <p>Count: {count}</p>
+      <button onClick={() => setCount(count + 1)}>+</button>
+    </div>
+  )
+}
+```
+
+### Server Actions
+
+Use `"use server"` to define functions that run on the server but can be called from client components (e.g. form actions).
+
+```tsx
+// src/app/actions.tsx
+'use server'
+
+export async function submitForm(formData: FormData) {
+  const name = formData.get('name')
+  await saveToDatabase(name)
+}
+```
+
+### Client Code Splitting
+
+Code splitting of client components is **automatic** — you don't need `React.lazy()` or dynamic `import()`. Each `"use client"` file becomes a separate chunk, and the browser only loads the chunks needed for the current page.
+
+**How it works:** when the RSC flight stream is sent to the browser, it contains references to client component chunks rather than the actual code. The browser resolves and loads only the chunks referenced on the current page. If route `/about` uses `<Map />` and route `/dashboard` uses `<Chart />`, visiting `/about` will never download the Chart component's JavaScript.
+
+**Avoid barrel files with `"use client"`.** If you have a single file with `"use client"` that re-exports many components, all of them end up in one chunk — defeating code splitting. Instead, put `"use client"` in each individual component file:
+
+```tsx
+// BAD — one big chunk for everything
+// src/components/index.tsx
+'use client'
+export { Chart } from './chart'
+export { Map } from './map'
+export { Table } from './table'
+```
+
+```tsx
+// GOOD — each component is its own chunk
+// src/components/chart.tsx
+'use client'
+export function Chart() { /* ... */ }
+
+// src/components/map.tsx
+'use client'
+export function Map() { /* ... */ }
+
+// Re-export barrel has no directive, just passes through
+// src/components/index.tsx
+export { Chart } from './chart'
+export { Map } from './map'
 ```

@@ -20,4 +20,5 @@ debug
 .last-run.json
 .react-router
 opensrc
+/di
 tmp

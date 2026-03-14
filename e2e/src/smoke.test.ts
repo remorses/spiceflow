@@ -1,4 +1,4 @@
-import { describe, test, afterAll, expect } from 'vitest'
+import { describe, test, expect } from 'vitest'
 import { ChildProcess, spawn } from 'node:child_process'
 import { resolve as resolvePath } from 'node:path'
 import { kill } from 'node:process'
@@ -10,14 +10,14 @@ describe('smoke test with node', () => {
     await smokeTestServer({
       command: 'node',
       args: ['./app-listen.js'],
-      port: await getAvailablePort(62010),
+      port: await getAvailablePort(0),
     })
   })
   test('running app.listenForNode()', async () => {
     await smokeTestServer({
       command: 'node',
       args: ['./app-listen-for-node.js'],
-      port: await getAvailablePort(62020),
+      port: await getAvailablePort(0),
     })
   })
 })
@@ -27,7 +27,7 @@ describe('smoke test with bun', () => {
     await smokeTestServer({
       command: 'bun',
       args: ['./app-listen.js'],
-      port: await getAvailablePort(62110),
+      port: await getAvailablePort(0),
     })
   })
 
@@ -37,7 +37,7 @@ describe('smoke test with bun', () => {
     await smokeTestServer({
       command: 'bun',
       args: ['./app-listen-for-node.js'],
-      port: await getAvailablePort(62120),
+      port: await getAvailablePort(0),
     })
   })
 })
@@ -65,7 +65,6 @@ async function smokeTestServer(input: SmokeTestServerInput): Promise<void> {
     },
     cwd: import.meta.dirname,
   })
-  processes.push(childProcess)
 
   const { resolve, reject, promise } = Promise.withResolvers<void>()
 
@@ -92,41 +91,55 @@ async function smokeTestServer(input: SmokeTestServerInput): Promise<void> {
     resolve()
   })
 
-  await promise
+  try {
+    await promise
 
-  expect(printedListeningToLocalhost).toBe(true)
+    expect(printedListeningToLocalhost).toBe(true)
 
-  const response = await fetch(`http://0.0.0.0:${port}/hello`)
-  expect(response.status).toBe(200)
-  expect(response.headers.get('content-type')).toBe('application/json')
-  const body = await response.text()
-  expect(body).toBe('"Hello, World!"')
+    const response = await fetch(`http://0.0.0.0:${port}/hello`)
+    expect(response.status).toBe(200)
+    expect(response.headers.get('content-type')).toBe('application/json')
+    const body = await response.text()
+    expect(body).toBe('"Hello, World!"')
+  } finally {
+    await stopChildProcess(childProcess)
+  }
 }
 
-// Ensures that processes are killed after all tests are done, otherwise they
-// will prevent tests from running again as the port would already be in use.
-// (Also, they would just consume resources for not purpose)
-// This is not completely foolproof, as killing the test process abruptly will
-// prevent the hook from running, thus keeping those children processes around.
-const processes: ChildProcess[] = []
-afterAll(async () => {
-  for (const childProcess of processes) {
-    // We have to use ps-tree because:
-    // - the process that actually listens to the port is not the process that
-    // we spawned but one of its children, as the executables in
-    // node_modules/.bin are shell wrappers of the actual programs.
-    // - on Unix-like OSes, killing a process does not kill its children.
-    const { resolve, reject, promise } = Promise.withResolvers()
-    psTree(childProcess.pid!, (error, children) => {
-      if (error) {
-        reject(error)
-      }
-      for (const child of children) {
-        kill(Number(child.PID), 'SIGINT')
-      }
-      kill(childProcess.pid!, 'SIGINT')
-      resolve()
-    })
-    await promise
+async function stopChildProcess(childProcess: ChildProcess): Promise<void> {
+  if (!childProcess.pid) {
+    return
   }
-})
+
+  const { resolve, reject, promise } = Promise.withResolvers<void>()
+  psTree(childProcess.pid, (error, children) => {
+    if (error) {
+      reject(error)
+      return
+    }
+
+    for (const child of children) {
+      try {
+        kill(Number(child.PID), 'SIGINT')
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'ESRCH') {
+          reject(error)
+          return
+        }
+      }
+    }
+
+    try {
+      kill(childProcess.pid!, 'SIGINT')
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ESRCH') {
+        reject(error)
+        return
+      }
+    }
+
+    resolve()
+  })
+
+  await promise
+}

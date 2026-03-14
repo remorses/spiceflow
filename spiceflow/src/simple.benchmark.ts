@@ -1,6 +1,6 @@
 import { bench } from 'vitest'
 
-import { Spiceflow } from './spiceflow.ts'
+import { Spiceflow } from './spiceflow.js'
 
 bench('Spiceflow basic routing', async () => {
   const app = new Spiceflow()

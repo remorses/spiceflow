@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest'
 import { z } from 'zod'
-import { Spiceflow } from './spiceflow.ts'
+import { Spiceflow } from './spiceflow.js'
 
 test('middleware can read request body text before handler reads json', async () => {
   let middlewareBody = ''

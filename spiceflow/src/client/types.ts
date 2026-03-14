@@ -1,7 +1,7 @@
 /// <reference lib="dom" />
-import type { AnySpiceflow, Spiceflow } from '../spiceflow.ts'
+import type { AnySpiceflow, Spiceflow } from '../spiceflow.js'
 
-import { SpiceflowFetchError } from './errors.ts'
+import { SpiceflowFetchError } from './errors.js'
 
 export type Prettify<T> = {
   [K in keyof T]: T[K]
@@ -132,7 +132,6 @@ export namespace SpiceflowClient {
   export interface Config {
     // fetch?: Omit<RequestInit, 'headers' | 'method'>
     fetch?: typeof fetch
-    state?: Record<string, any>
     headers?: MaybeArray<
       | RequestInit['headers']
       | ((path: string, options: RequestInit) => RequestInit['headers'] | void)

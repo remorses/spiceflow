@@ -10,6 +10,8 @@ try to run commands inside the package folder that you are working on. for examp
 
 Try to use object arguments for new typescript functions if the function would accept more than one argument, this way you can use the object as a sort of named argument feature, where order of arguments does not matter and it's easier to discover parameters.
 
+Always run `pnpm tsc --noEmit` from the package you changed after code edits, and fix any reported issues before finishing.
+
 do not add useless comments if the code is self descriptive. only add comments if requested or if this was a change that i asked for, meaning it is not obvious code and needs some inline documentation.
 
 try to use early returns and breaks, try nesting code as little as possible, follow the go best practice of if statements: avoid else, nest as little as possible, use top level ifs. minimize nesting.
@@ -28,6 +30,84 @@ Try to use only describe and test in your tests. Do not use beforeAll, before, e
 Sometimes tests work directly on database data, using prisma. To run these tests you have to use the package.json script, which will call `doppler run -- vitest` or similar. Never run doppler cli yourself as you could delete or update production data. Tests generally use a staging database instead.
 
 Never write tests yourself that call prisma or interact with database or emails. For these asks the user to write them for you.
+
+
+# e2e testing (example-react)
+
+E2e tests live in `example-react/e2e/` and use Playwright (chromium only). The dev server starts automatically via the `webServer` config in `playwright.config.ts`.
+
+## running e2e tests
+
+These are the integration test commands for the RSC app in `example-react/`:
+
+- `pnpm test-e2e` runs the Playwright suite against the dev server, so it covers dev-only behavior like HMR and middleware behavior during development.
+- `pnpm test-e2e-preview` runs the same Playwright suite against the production preview build, so it catches build-only regressions that do not show up in dev.
+- Run both commands when validating an integration change, because they exercise different environments and one passing does not imply the other passes.
+
+```bash
+# run from example-react directory, never from root
+cd example-react
+
+# run all e2e tests
+pnpm test-e2e
+
+# filter by test name
+pnpm test-e2e --grep "SSR error"
+
+# run against production build
+pnpm test-e2e-preview
+```
+
+Tests tagged `@dev` are skipped during preview runs; tests tagged `@build` are skipped during dev runs (controlled by `grepInvert` in playwright.config.ts).
+
+## rebuild dist before testing
+
+The Vite SSR middleware imports from `spiceflow/dist/` (the compiled package), NOT from source. If you modify files in `spiceflow/src/`, you must rebuild before e2e tests will pick up the changes:
+
+```bash
+cd spiceflow
+pnpm tsc --noCheck   # --noCheck skips pre-existing type errors
+```
+
+This is the most common reason e2e tests fail after code changes — stale dist files.
+
+## writing e2e tests
+
+- The base URL and port are defined at the top of `basic.test.ts`:
+  ```ts
+  const port = Number(process.env.E2E_PORT || 6174);
+  const baseURL = `http://localhost:${port}`;
+  ```
+- Use `page.goto("/path")` for browser-based tests that need rendering, JS execution, or DOM interaction.
+- Use Node.js `fetch(baseURL + "/path")` directly (not `page.evaluate`) when you need to control HTTP headers like `Origin` — browsers restrict forbidden headers.
+- Use `page.getByTestId()`, `page.getByText()`, `page.getByRole()` for locators. Prefer test-ids for stability.
+- When a `data-testid` matches multiple elements (e.g. multiple counter components on a page), use `.filter({ hasText: "..." })` to disambiguate:
+  ```ts
+  const clientCounter = page.getByTestId("client-counter").filter({ hasText: "Client counter" });
+  await clientCounter.getByRole("button", { name: "+" }).click();
+  ```
+- If a locator's text changes during the test (e.g. HMR edits), do NOT use it through a pre-filtered variable — query the page directly for the new text.
+
+## adding test routes
+
+To add a route for e2e testing, add it in `example-react/src/main.tsx` using the spiceflow API:
+
+```ts
+.page("/my-test-route", async () => {
+    return <MyComponent />;
+})
+```
+
+Client components used in tests should be created in `example-react/src/app/` with a `"use client"` directive.
+
+## HMR tests
+
+- `createEditor("src/app/file.tsx")` from `e2e/helper.ts` edits a file and auto-reverts on dispose.
+- Always call `file[Symbol.dispose]()` or use `try/finally` to restore files after edits.
+- When editing files, make sure the `replace()` string actually exists in the source. For example, `client.tsx` has `name = "Client"` as a default prop — the literal string "Client counter" does NOT exist in the file, so `replace("Client counter", ...)` would be a no-op and the HMR test would silently fail.
+- **Client HMR preserves state**: editing a client component triggers React Fast Refresh without a server re-render. Client state is preserved. Vite's SSR environment logs `page reload` internally but the browser does not actually reload — Fast Refresh handles it.
+- **Server HMR preserves server state**: editing a server component triggers RSC HMR. Server-side state (e.g. counters stored in module scope) is preserved. Client state is also preserved because no full page reload occurs.
+- The home page has a `serverRenderCount` counter (`data-testid="server-render-count"`) that increments on each RSC render. Use it in tests to verify whether a server re-render happened.
 
 
 # website
@@ -58,25 +138,29 @@ For example if the current file is `src/routes/home.tsx` you can import `import 
 
 always use tailwind for styling, prefer using simple styles using flex and gap. Try to use the built in tailwind colors like gray, red, green, etc. Margins should be avoided, instead use flexbox gaps, grid gaps, or separate spacing divs.
 
+## spiceflow/react exports
+
+All React-facing APIs (components, router, utilities) must be exported from `spiceflow/react` (i.e. `spiceflow/src/react/index.ts`). Never import from `spiceflow/dist/react/...` directly — that's an internal path that breaks when the build output changes. If something is meant for users (like `Head`, `Link`, `ProgressBar`, `router`), it must be in the public export.
+
 ## files
 
 always use kebab case for new filenames. never use uppercase letters in filenames
 
 ## changesets
 
-after you make a change that is noteworthy, add a changeset. these will be used later on to create a changelog for the package. use `pnpm changeset add --empty` to create a changeset file in `.changeset` folder, then write there the changes you made in a single concise paragraph. never run other changeset commands, like `pnpm changeset version` or `pnpm changeset publish`. Notice that sometimes the cwd is missing `.changeset` folder, in that case check the parents directories.
+after you make a change that is noteworthy, add a changeset manually as a markdown file inside the `.changeset` folder. these files are used later on to create the changelog for the package. if the current cwd does not have a `.changeset` folder, check parent directories.
 
 NEVER make breaking changes changesets. our releases are close enough in time that you should never do breaking changes, even if we do one you have nothing to worry about because it's probably a publish so close in time that on one will ever use the current version.
 
 Only add changesets for packages that are not marked as `private` in their `package.json` and have a `version` in the package.json.
 
-Changeset files are structured like this:
+Changeset files should be plain `.md` files with this structure:
 
 ```md
 ---
-'package-name': patch # can also be `minor` or `major`, never use major
+'package-name': patch # can also be `minor`, never use `major`
 ---
 
-markdown describing the changes you made, in present tense, like "add support for X" or "fix bug with Y". Be detailed but concise, and never use bullet points or lists. Always show example code snippets if applicable, and use proper markdown formatting.
+markdown describing the changes you made, in present tense, like "add support for X" or "fix bug with Y". write a single concise paragraph, not bullet points or lists. include example code snippets if useful, and use proper markdown formatting.
 
 ```

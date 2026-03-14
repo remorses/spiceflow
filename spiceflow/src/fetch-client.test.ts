@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { createSpiceflowFetch } from './client/fetch.ts'
-import { Spiceflow } from './spiceflow.ts'
+import { Spiceflow } from './spiceflow.tsx'
 import { SpiceflowFetchError } from './client/errors.ts'
 
 import { describe, expect, it } from 'vitest'

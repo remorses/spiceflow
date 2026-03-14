@@ -1,8 +1,4 @@
-import type {
-  StatusMap,
-  InvertedStatusMap,
-  redirect as Redirect,
-} from './utils.ts'
+import type { StatusMap, InvertedStatusMap, Redirect } from './utils.js'
 
 import type {
   RouteSchema,
@@ -11,18 +7,18 @@ import type {
   SingletonBase,
   HTTPHeaders,
   GetRequestSchema,
-} from './types.ts'
+} from './types.js'
 
-import { SpiceflowRequest, WaitUntil } from './spiceflow.ts'
+import { SpiceflowRequest, WaitUntil } from './spiceflow.js'
 
 export type ErrorContext<
+  Path extends string = '',
   in out Route extends RouteSchema = {},
   in out Singleton extends SingletonBase = {
     state: {}
     derive: {}
     resolve: {}
   },
-  Path extends string = '',
 > = Prettify<{
   // body: Route['body']
   query: undefined extends Route['query']
@@ -59,14 +55,14 @@ export type ErrorContext<
   // response: Route['response']
 }>
 
-export type Context<
+export type SpiceflowContext<
+  Path extends string = '',
   in out Route extends RouteSchema = {},
   in out Singleton extends SingletonBase = {
     state: {}
     derive: {}
     resolve: {}
   },
-  Path extends string = '',
 > = Prettify<{
   query: undefined extends Route['query']
     ? Record<string, string>
@@ -85,6 +81,8 @@ export type Context<
   request: SpiceflowRequest<GetRequestSchema<Route>>
   state: Singleton['state']
   waitUntil: WaitUntil
+  // TODO remove this for api routes
+  children?: any
   // response?: Route['response']
 }>
 

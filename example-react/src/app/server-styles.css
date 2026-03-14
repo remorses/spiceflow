@@ -1,0 +1,6 @@
+/* e2e test: verifies server component CSS is loaded */
+[data-testid="css-test-server"] {
+    color: rgb(37, 99, 235);
+    border: 2px solid rgb(37, 99, 235);
+    padding: 8px;
+}

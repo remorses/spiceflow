@@ -1,0 +1,37 @@
+{
+  "name": "example-react",
+  "description": "",
+  "main": "index.js",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "DEBUG_SPICEFLOW=1 vite",
+    "build": "DEBUG_SPICEFLOW=1 vite build --app",
+    "preview": "DEBUG_SPICEFLOW=1 vite preview",
+    "test-e2e": "DEBUG_SPICEFLOW=1 E2E_PORT=6174 playwright test",
+    "pretest-e2e-preview": "rm -rf dist && pnpm build",
+    "test-e2e-preview": "DEBUG_SPICEFLOW=1 E2E_PREVIEW=1 E2E_PORT=6175 playwright test"
+  },
+  "keywords": [],
+  "author": "remorses <beats.by.morse@gmail.com>",
+  "dependencies": {
+    "@chakra-ui/react": "^3.8.0",
+    "@playwright/test": "^1.50.1",
+    "@radix-ui/react-icons": "^1.3.2",
+    "@tailwindcss/vite": "^4.0.5",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.0",
+    "radix-ui": "^1.1.3",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "react-select": "^5.10.0",
+    "spiceflow": "workspace:*",
+    "tailwindcss": "^4.0.5",
+    "vite": "^8.0.0"
+  },
+  "license": "ISC",
+  "devDependencies": {
+    "vite-plugin-inspect": "^10.1.1"
+  }
+}
