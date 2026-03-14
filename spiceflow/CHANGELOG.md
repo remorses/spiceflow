@@ -1,5 +1,17 @@
 # spiceflow
 
+## 1.18.0-rsc.3
+
+### Patch Changes
+
+1. **Fixed route matching specificity** — regex-constrained params and more specific wildcard routes now win over generic catch-alls. Wildcard param extraction for patterns like `/layout/*/page` now correctly captures only the wildcard segment. React layout rendering now receives each layout route's own `params` instead of reusing the page params, fixing nested layout trees that depend on dynamic segments.
+
+2. **Updated Vite integration to Vite 8** — the React plugin dependency is bumped to the matching major, keeping Spiceflow aligned with the current Vite toolchain.
+
+3. **Fixed `HEAD` handling, query param preservation, and CORS body reuse** — `HEAD` routes now reuse `GET` route metadata while returning an empty body. Repeated empty query values like `?tag=&tag=two` are preserved correctly. Request bodies are reusable across middleware and handlers for JSON routes. CORS middleware now mutates response headers in place instead of rebuilding responses from consumed bodies.
+
+4. **Cleaned up RSC migration artifacts** — removed unused framework-only types and stale exports (e.g. `RscHandlerResult`). Server redirects now emit a correct `content-type` header. Client action refresh handling is safer, with payload updates set before awaiting action results.
+
 ## 1.6.2-rsc.2
 
 ### Patch Changes
