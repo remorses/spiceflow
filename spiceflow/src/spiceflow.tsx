@@ -261,7 +261,12 @@ export class Spiceflow<
         pathWithoutPrefix = path.slice(prefix.length) || '/'
       }
 
-      const matchedRoutes = app.router.match(method, pathWithoutPrefix)
+      const matchedRoutesForMethod = app.router.match(method, pathWithoutPrefix)
+      const matchedRoutes = matchedRoutesForMethod?.length
+        ? matchedRoutesForMethod
+        : method === 'HEAD'
+          ? app.router.match('GET', pathWithoutPrefix)
+          : undefined
       if (!matchedRoutes?.length) {
         foundApp = app
         return
@@ -276,27 +281,6 @@ export class Spiceflow<
 
       if (routes.length) {
         return routes
-      }
-
-      // TODO what is this shit?
-      if (method === 'HEAD') {
-        const matched = app.router.match('GET', pathWithoutPrefix)
-        if (matched) {
-          return [
-            {
-              app,
-              route: {
-                hooks: {},
-                handler: (c) => {
-                  return new Response(null, { status: 200 })
-                },
-                method,
-                path,
-              } as InternalRoute,
-              params: this.getAllDecodedParams(matched, pathWithoutPrefix, 0),
-            },
-          ]
-        }
       }
     })
 
@@ -1194,6 +1178,8 @@ export class Spiceflow<
     { state: customState }: { state?: Singleton['state'] } = {},
   ): Promise<Response> => {
     let u = new URL(request.url, 'http://localhost')
+    request =
+      request instanceof SpiceflowRequest ? request : new SpiceflowRequest(u, request)
     const self = this
     const shouldUseDeploymentId =
       isDocumentRequest(request) || isRscRequest(u)
@@ -1264,7 +1250,7 @@ export class Spiceflow<
       response: Response
       stripBody: boolean
     }) => {
-      const finalized = this.finalizeHeadResponse({ response, stripBody })
+      const finalized = this.finalizeHeadResponse({ response, stripBody, request })
       if (
         !deploymentId ||
         !isDocumentRequest(request) ||
@@ -1361,15 +1347,8 @@ export class Spiceflow<
 
     let content = route?.route?.hooks?.content
 
-    if (route?.route?.validateBody) {
-      // TODO don't clone the request
-      let typedRequest =
-        request instanceof SpiceflowRequest
-          ? request
-          : new SpiceflowRequest(u, request)
-      typedRequest.validateBody = route?.route?.validateBody
-      request = typedRequest
-      context.request = typedRequest
+    if (route?.route?.validateBody && request instanceof SpiceflowRequest) {
+      request.validateBody = route?.route?.validateBody
     }
 
     context['params'] = _params
@@ -1473,11 +1452,14 @@ export class Spiceflow<
   private finalizeHeadResponse({
     response,
     stripBody,
+    request,
   }: {
     response: Response
     stripBody: boolean
+    request?: Request
   }) {
-    if (!stripBody) {
+    // per HTTP spec, HEAD responses must never include a body
+    if (!stripBody && request?.method !== 'HEAD') {
       return response
     }
 
@@ -2007,10 +1989,20 @@ function bfsFind<T>(
 
 export class SpiceflowRequest<T = any> extends Request {
   validateBody?: ValidationFunction
+  private textPromise?: Promise<string>
+  private jsonPromise?: Promise<T>
+
+  async text(): Promise<string> {
+    this.textPromise ??= super.text()
+    return this.textPromise
+  }
 
   async json(): Promise<T> {
-    const body = (await super.json()) as Promise<T>
-    return runValidation(body, this.validateBody)
+    this.jsonPromise ??= this.text().then(async (text) => {
+      const body = JSON.parse(text) as T
+      return runValidation(body, this.validateBody)
+    })
+    return this.jsonPromise
   }
 }
 
@@ -2100,7 +2092,7 @@ function parseQuery(queryString: string) {
   const paramsObject = {}
   for (const [key, value] of params) {
     // If the key already exists, convert to an array or push to the existing array
-    if (paramsObject[key]) {
+    if (Object.prototype.hasOwnProperty.call(paramsObject, key)) {
       paramsObject[key] = Array.isArray(paramsObject[key])
         ? [...paramsObject[key], value]
         : [paramsObject[key], value]
