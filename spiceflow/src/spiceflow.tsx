@@ -1289,7 +1289,17 @@ export class Spiceflow<
       })
     }
 
-    const routes = this.match(request.method, path)
+    let routes = this.match(request.method, path)
+    if (
+      request.method === 'HEAD' &&
+      routes.length === 1 &&
+      routes[0]?.route?.handler === notFoundHandler
+    ) {
+      routes = this.match('GET', path)
+    }
+    const shouldStripHeadBody =
+      request.method === 'HEAD' &&
+      routes.every((matchedRoute) => matchedRoute.route.method !== 'HEAD')
 
     const [nonReactRoutes, reactRoutes] = partition(
       routes,
