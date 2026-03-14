@@ -4,9 +4,11 @@ import { describe, expect, test } from 'vitest'
 import {
   getLastCommittedNavigationEvent,
   getLatestPendingNavigationRequest,
+  getLastNavigationEvent,
   getScrollPositions,
   loadScrollPositions,
   recordScrollPosition,
+  router,
   type RouterEvent,
 } from './router.js'
 
@@ -153,6 +155,28 @@ describe('router event selectors', () => {
         "requestId": 2,
         "source": "refresh",
         "type": "navigation-committed",
+      }
+    `)
+  })
+
+  test('does not register navigation events or subscribers on the server', () => {
+    let called = false
+    const unsubscribe = router.subscribe(() => {
+      called = true
+    })
+
+    router.push('/server-only')
+    unsubscribe()
+
+    expect({
+      called,
+      lastNavigationEvent: getLastNavigationEvent(),
+      pathname: router.pathname,
+    }).toMatchInlineSnapshot(`
+      {
+        "called": false,
+        "lastNavigationEvent": null,
+        "pathname": "/server-only",
       }
     `)
   })

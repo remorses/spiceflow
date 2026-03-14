@@ -1,7 +1,9 @@
 import { createBrowserHistory, createMemoryHistory, Location } from 'history'
 
+const isBrowser = typeof window !== 'undefined'
+
 const history =
-  typeof window === 'undefined'
+  !isBrowser
     ? createMemoryHistory()
     : createBrowserHistory({})
 
@@ -122,12 +124,16 @@ function getPreviousLocation(routerEvents: readonly RouterEvent[]): Location {
 }
 
 function requestNavigation(method: NavigationMethod) {
+  if (!isBrowser) {
+    return null
+  }
+
   return appendNavigationEvent<NavigationRequestedEvent>({
     type: 'navigation-requested',
     requestId: ++nextRequestId,
     method,
     location: cloneLocation(history.location),
-    scrollY: typeof window !== 'undefined' ? window.scrollY : 0,
+    scrollY: window.scrollY,
   })
 }
 
@@ -172,27 +178,27 @@ export function getLastNavigationEvent(): NavigationEvent | null {
   return getLastCommittedNavigationEvent(navigationEvents)
 }
 
-history.listen(({ action, location }) => {
-  const pendingRequest = action === 'POP'
-    ? null
-    : getLatestPendingNavigationRequest(navigationEvents)
-  const previousLocation = getPreviousLocation(navigationEvents)
-  const event = appendNavigationEvent<NavigationCommittedEvent>({
-    type: 'navigation-committed',
-    requestId: pendingRequest?.requestId ?? null,
-    action: action as NavigationEvent['action'],
-    location: cloneLocation(location),
-    previousLocation,
-    previousScrollY: action === 'POP'
-      ? (typeof window !== 'undefined' ? window.scrollY : 0)
-      : pendingRequest?.scrollY ?? 0,
-    source: pendingRequest?.method === 'refresh' ? 'refresh' : 'navigate',
-  })
+if (isBrowser) {
+  history.listen(({ action, location }) => {
+    const pendingRequest = action === 'POP'
+      ? null
+      : getLatestPendingNavigationRequest(navigationEvents)
+    const previousLocation = getPreviousLocation(navigationEvents)
+    const event = appendNavigationEvent<NavigationCommittedEvent>({
+      type: 'navigation-committed',
+      requestId: pendingRequest?.requestId ?? null,
+      action: action as NavigationEvent['action'],
+      location: cloneLocation(location),
+      previousLocation,
+      previousScrollY: action === 'POP' ? window.scrollY : pendingRequest?.scrollY ?? 0,
+      source: pendingRequest?.method === 'refresh' ? 'refresh' : 'navigate',
+    })
 
-  for (const cb of subscribers) {
-    cb(event)
-  }
-})
+    for (const cb of subscribers) {
+      cb(event)
+    }
+  })
+}
 
 export const router = {
   get location() {
@@ -218,6 +224,10 @@ export const router = {
     history.replace(history.location)
   },
   subscribe(cb: Subscriber) {
+    if (!isBrowser) {
+      return () => undefined
+    }
+
     subscribers.add(cb)
     return () => {
       subscribers.delete(cb)
