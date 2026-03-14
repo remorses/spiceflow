@@ -93,7 +93,7 @@ export class Spiceflow<
   },
   const out ClientRoutes extends RouteBase = {},
   const out RoutePaths extends string = '',
-  const in out RouteQuerySchemas extends Record<string, unknown> = {},
+  const in out RouteQuerySchemas extends object = {},
 > {
   private id: number = globalIndex++
   private router: TrieRouter<InternalRoute> = new TrieRouter()
@@ -162,7 +162,14 @@ export class Spiceflow<
     hooks,
     handler,
     ...rest
-  }: Partial<InternalRoute>) {
+  }: {
+    method?: HTTPMethod
+    path?: string
+    hooks?: InternalRoute['hooks']
+    handler?: InternalRoute['handler']
+    kind?: InternalRoute['kind']
+    [key: string]: unknown
+  }) {
     const kind = rest.kind
     let bodySchema: TypeSchema = hooks?.request || hooks?.body
     let validateBody = getValidateFunction(bodySchema)
@@ -878,6 +885,7 @@ export class Spiceflow<
     const LocalSchema extends InputSchema<keyof Definitions['type'] & string>,
     const Schema extends UnwrapRoute<LocalSchema, Definitions['type']>,
     const Handle extends InlineHandler<
+      this,
       Schema,
       Singleton,
       JoinPath<BasePath, Path>
@@ -885,7 +893,16 @@ export class Spiceflow<
   >(
     path: Path,
     handler: Handle,
-  ): Spiceflow<BasePath, Scoped, Singleton, Definitions, Metadata, Routes> {
+  ): Spiceflow<
+    BasePath,
+    Scoped,
+    Singleton,
+    Definitions,
+    Metadata,
+    ClientRoutes,
+    RoutePaths,
+    RouteQuerySchemas
+  > {
     const routeConfig = {
       path,
       handler: handler,
@@ -901,6 +918,7 @@ export class Spiceflow<
     const LocalSchema extends InputSchema<keyof Definitions['type'] & string>,
     const Schema extends UnwrapRoute<LocalSchema, Definitions['type']>,
     const Handle extends InlineHandler<
+      this,
       Schema,
       Singleton,
       JoinPath<BasePath, Path>
@@ -908,7 +926,16 @@ export class Spiceflow<
   >(
     path: Path,
     handler?: Handle,
-  ): Spiceflow<BasePath, Scoped, Singleton, Definitions, Metadata, Routes> {
+  ): Spiceflow<
+    BasePath,
+    Scoped,
+    Singleton,
+    Definitions,
+    Metadata,
+    ClientRoutes,
+    RoutePaths,
+    RouteQuerySchemas
+  > {
     let kind: NodeKind = 'staticPage'
     if (!handler) {
       kind = 'staticPageWithoutHandler'
@@ -927,6 +954,7 @@ export class Spiceflow<
     const LocalSchema extends InputSchema<keyof Definitions['type'] & string>,
     const Schema extends UnwrapRoute<LocalSchema, Definitions['type']>,
     const Handle extends InlineHandler<
+      this,
       Schema,
       Singleton,
       JoinPath<BasePath, Path>
@@ -934,7 +962,16 @@ export class Spiceflow<
   >(
     path: Path,
     handler: Handle,
-  ): Spiceflow<BasePath, Scoped, Singleton, Definitions, Metadata, Routes> {
+  ): Spiceflow<
+    BasePath,
+    Scoped,
+    Singleton,
+    Definitions,
+    Metadata,
+    ClientRoutes,
+    RoutePaths,
+    RouteQuerySchemas
+  > {
     const routeConfig = {
       path,
       handler: handler,
@@ -1756,7 +1793,9 @@ export class Spiceflow<
   }
 }
 
-type MergeParamsAndQuery<P extends Record<string, any>, Q> = P & Omit<Partial<Q>, keyof P>
+type MergeParamsAndQuery<P, Q> = [P] extends [undefined]
+  ? Partial<Q>
+  : P & Omit<Partial<Q>, keyof P>
 
 function buildSafePath(path: string, allParams: Record<string, any> | undefined): string {
   let result = path
@@ -1801,7 +1840,7 @@ function buildSafePath(path: string, allParams: Record<string, any> | undefined)
  */
 export function createSafePath<
   const Paths extends string,
-  const QS extends Record<string, unknown>,
+  const QS extends object,
 >(
   _app?: { _types: { RoutePaths: Paths; RouteQuerySchemas: QS } },
 ) {

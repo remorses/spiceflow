@@ -3,9 +3,11 @@ export class SpiceflowFetchError<
   Value extends any = any,
 > extends Error {
   value: Value
+  response?: Response
   constructor(
     public status: Status,
     public passedValue: Value,
+    response?: Response,
   ) {
     let message = String((passedValue as any)?.message || '')
     if (!message) {
@@ -17,5 +19,6 @@ export class SpiceflowFetchError<
     }
     super(message)
     this.value = passedValue
+    this.response = response
   }
 }

@@ -23,6 +23,59 @@
 - initial rsc release
 - Updated dependencies
   - spiceflow@1.6.2-rsc.0
+## 1.18.0
+
+### Minor Changes
+
+1. **New `createSpiceflowFetch` client** — a type-safe `fetch(path, options)` alternative to the proxy-based `createSpiceflowClient`. Export `type App = typeof app` on the server, import it on the client, and get full type safety for paths, path params, query params, request bodies, and responses without importing any server code:
+
+   ```ts
+   // server.ts
+   export type App = typeof app
+
+   // client.ts
+   import { createSpiceflowFetch } from 'spiceflow/client'
+   import type { App } from './server'
+
+   const f = createSpiceflowFetch<App>('http://localhost:3000')
+
+   const user = await f('/users/:id', { params: { id: '123' } })
+   if (user instanceof Error) return user
+   console.log(user.id) // fully typed
+   ```
+
+   Supports streaming routes (returns `AsyncGenerator`), retries, custom headers, and onRequest/onResponse hooks.
+
+2. **`createSpiceflowFetch` returns `Error | Data`** — following the [errore](https://errore.org) convention. Use `instanceof Error` for Go-style early returns — no more `{ data, error }` destructuring or null checks. TypeScript narrows the type automatically after the check. On error, the `SpiceflowFetchError` has `status`, `value` (parsed error body), and `response` (raw `Response`) properties:
+
+   ```ts
+   const result = await f('/users/:id', { params: { id: '123' } })
+   if (result instanceof Error) return result // SpiceflowFetchError with .status, .value
+   console.log(result.name) // TypeScript knows this is the success type
+   ```
+
+3. **`safePath` query params support** — path params and query params are now passed as a single flat object. Path param keys (`:param` segments and `*`) are substituted into the URL, remaining keys become query string parameters. Works with both `app.safePath()` and `createSafePath()`:
+
+   ```ts
+   app.safePath('/users/:id', { id: '42', fields: 'name' })
+   // '/users/42?fields=name'
+
+   app.safePath('/search', { q: 'hello', page: 1 })
+   // '/search?q=hello&page=1'
+   ```
+
+   Unknown keys are rejected by TypeScript when a query schema is defined on the route.
+
+4. **Standalone `createSafePath<App>()`** — build type-safe paths without the app instance, useful in client-side code where you can't import server modules:
+
+   ```ts
+   import { createSafePath } from 'spiceflow'
+   import type { App } from './server'
+
+   const safePath = createSafePath<App>()
+   safePath('/users/:id', { id: '123' })
+   ```
+
 ## 1.17.12
 
 ### Patch Changes

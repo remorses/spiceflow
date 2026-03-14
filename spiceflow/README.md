@@ -134,7 +134,7 @@ const app = new Spiceflow()
     path: '/users/:id',
     params: z.object({
       id: z.string(),
-    }),
+    }),w
     response: z.object({
       id: z.string(),
       name: z.string(),
@@ -362,12 +362,14 @@ async function exampleUsage() {
 }
 ```
 
-## Fetch Client
+## Fetch Client (Recommended)
 
-`createSpiceflowFetch` is a simpler alternative to `createSpiceflowClient` that uses a familiar `fetch(path, options)` interface instead of the proxy-based chainable API. It provides the same type safety for paths, params, query, body, and responses.
+`createSpiceflowFetch` is the recommended way to interact with a Spiceflow app. It uses a familiar `fetch(path, options)` interface instead of the proxy-based chainable API of `createSpiceflowClient`. It provides the same type safety for paths, params, query, body, and responses, but with a simpler and more predictable API.
+
+Export the app type from your server code:
 
 ```ts
-import { createSpiceflowFetch } from 'spiceflow/client'
+// server.ts
 import { Spiceflow } from 'spiceflow'
 import { z } from 'zod'
 
@@ -416,48 +418,61 @@ const app = new Spiceflow()
     },
   })
 
-// Create the fetch client
-const spiceflowFetch = createSpiceflowFetch<typeof app>('http://localhost:3000')
+export type App = typeof app
+```
 
-// Simple GET — method defaults to GET
-const { data, error } = await spiceflowFetch('/hello')
+Then use the `App` type on the client side without importing server code:
+
+```ts
+// client.ts
+import { createSpiceflowFetch } from 'spiceflow/client'
+import type { App } from './server'
+
+const f = createSpiceflowFetch<App>('http://localhost:3000')
+
+// Returns Error | Data — check with instanceof Error
+const greeting = await f('/hello')
+if (greeting instanceof Error) return greeting // early return on error
+console.log(greeting) // 'Hello, World!' — TypeScript knows the type
 
 // POST with typed body
-const { data: user } = await spiceflowFetch('/users', {
+const user = await f('/users', {
   method: 'POST',
   body: { name: 'John', email: 'john@example.com' },
 })
+if (user instanceof Error) return user
+console.log(user.id, user.name) // fully typed
 
 // Path params — type-safe, required when path has :params
-const { data: foundUser } = await spiceflowFetch('/users/:id', {
+const foundUser = await f('/users/:id', {
   params: { id: '123' },
 })
+if (foundUser instanceof Error) return foundUser
 
 // Query params — typed from route schema
-const { data: searchResults } = await spiceflowFetch('/search', {
+const searchResults = await f('/search', {
   query: { q: 'hello', page: 1 },
 })
+if (searchResults instanceof Error) return searchResults
 
 // Streaming — returns AsyncGenerator for async generator routes
-const { data: stream } = await spiceflowFetch('/stream')
+const stream = await f('/stream')
+if (stream instanceof Error) return stream
 for await (const chunk of stream) {
   console.log(chunk) // 'Start', 'Middle', 'End'
 }
 ```
 
-The fetch client returns the same `{ data, error, response, status, headers, url }` shape as `createSpiceflowClient`. It also supports the same configuration options (headers, retries, onRequest/onResponse hooks, custom fetch).
+The fetch client returns `Error | Data` directly following the [errore](https://errore.org) convention — use `instanceof Error` to check for errors with Go-style early returns, then the happy path continues with the narrowed data type. No `{ data, error }` destructuring, no null checks. On error, the returned `SpiceflowFetchError` has `status`, `value` (the parsed error body), and `response` (the raw Response object) properties.
 
-Passing an unknown URL or using `as any` falls back to untyped behavior, so it works as a drop-in for regular fetch when type safety isn't needed:
-
-```ts
-const { data } = await spiceflowFetch('https://example.com/api/whatever' as any)
-```
+The fetch client supports configuration options like headers, retries, onRequest/onResponse hooks, and custom fetch.
 
 You can also pass a Spiceflow app instance directly for server-side usage without network requests:
 
 ```ts
-const spiceflowFetch = createSpiceflowFetch(app)
-const { data } = await spiceflowFetch('/hello')
+const f = createSpiceflowFetch(app)
+const greeting = await f('/hello')
+if (greeting instanceof Error) throw greeting
 ```
 
 ### Path Matching - Supported Features
@@ -603,6 +618,58 @@ const userPostPath = app.safePath('/users/:id/posts/:postId', {
 })
 // Result: '/users/456/posts/abc'
 ```
+
+### Query Parameters
+
+When a route has a `query` schema, `safePath` accepts query parameters alongside path parameters in the same flat object. Query parameters are appended as a query string, and unknown keys are rejected at the type level:
+
+```ts
+const app = new Spiceflow()
+  .route({
+    method: 'GET',
+    path: '/search',
+    query: z.object({ q: z.string(), page: z.coerce.number() }),
+    handler({ query }) {
+      return { results: [], q: query.q }
+    },
+  })
+  .route({
+    method: 'GET',
+    path: '/users/:id',
+    query: z.object({ fields: z.string() }),
+    handler({ params, query }) {
+      return { id: params.id, fields: query.fields }
+    },
+  })
+
+app.safePath('/search', { q: 'hello', page: 1 })
+// Result: '/search?q=hello&page=1'
+
+app.safePath('/users/:id', { id: '42', fields: 'name' })
+// Result: '/users/42?fields=name'
+
+// @ts-expect-error - 'invalid' is not a known query key
+app.safePath('/search', { invalid: 'x' })
+```
+
+### Standalone `createSafePath`
+
+If you need a path builder on the client side where you can't import server app code, use `createSafePath` with the `typeof app` generic:
+
+```ts
+import { createSafePath } from 'spiceflow'
+import type { App } from './server' // import only the type, not the runtime app
+
+const safePath = createSafePath<App>()
+
+safePath('/users/:id', { id: '123' })
+// Result: '/users/123'
+
+safePath('/search', { q: 'hello', page: 1 })
+// Result: '/search?q=hello&page=1'
+```
+
+The returned function has the same type safety as `app.safePath` — it infers paths, params, and query schemas from the app type. The app argument is optional and not used at runtime, so you can call `createSafePath<App>()` without passing any value.
 
 ### OAuth Callback Example
 
