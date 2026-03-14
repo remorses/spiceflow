@@ -44,7 +44,7 @@ function collectHeadTags({
   metaState: MetaState
 }) {
   React.Children.forEach(children, (child) => {
-    if (!React.isValidElement(child)) {
+    if (!React.isValidElement<{ children?: React.ReactNode }>(child)) {
       return
     }
 
@@ -53,7 +53,7 @@ function collectHeadTags({
       return
     }
 
-    if (!('children' in child.props)) {
+    if (child.props.children == null) {
       return
     }
 

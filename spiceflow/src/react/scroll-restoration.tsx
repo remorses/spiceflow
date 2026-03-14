@@ -4,7 +4,13 @@
 'use client'
 
 import React from 'react'
-import { router, NavigationEvent } from './router.js'
+import {
+  getLastNavigationEvent,
+  getScrollPositions,
+  loadScrollPositions,
+  recordScrollPosition,
+  router,
+} from './router.js'
 import { FlightDataContext } from './context.js'
 
 const STORAGE_KEY = 'spiceflow-scroll-positions'
@@ -15,9 +21,6 @@ export interface ScrollRestorationProps {
   storageKey?: string
   nonce?: string
 }
-
-// Saved positions live in memory during the session, flushed to sessionStorage on pagehide.
-let savedPositions: Record<string, number> = {}
 
 function getKey(
   location: { pathname: string; search: string; hash: string; key?: string },
@@ -34,15 +37,18 @@ function getKey(
 function loadPositions(storageKey: string) {
   try {
     const raw = sessionStorage.getItem(storageKey)
-    if (raw) savedPositions = JSON.parse(raw)
+    if (!raw) {
+      return {}
+    }
+    return JSON.parse(raw) as Record<string, number>
   } catch {
-    // private mode or quota exceeded
+    return {}
   }
 }
 
-function persistPositions(storageKey: string) {
+function persistPositions(storageKey: string, positions: Record<string, number>) {
   try {
-    sessionStorage.setItem(storageKey, JSON.stringify(savedPositions))
+    sessionStorage.setItem(storageKey, JSON.stringify(positions))
   } catch {
     // private mode or quota exceeded
   }
@@ -53,55 +59,49 @@ export function ScrollRestoration({
   storageKey = STORAGE_KEY,
   nonce,
 }: ScrollRestorationProps) {
-  const lastEventRef = React.useRef<NavigationEvent | null>(null)
+  const lastHandledNavigationIdRef = React.useRef(0)
   const flightData = React.useContext(FlightDataContext)
 
-  // On mount: disable browser scroll restoration, load saved positions
   React.useEffect(() => {
     window.history.scrollRestoration = 'manual'
-    loadPositions(storageKey)
+    const positions = loadPositions(storageKey)
+    loadScrollPositions({ positions })
     return () => {
       window.history.scrollRestoration = 'auto'
     }
   }, [storageKey])
 
-  // Continuously save scroll position for the current key on every scroll event.
-  // This ensures we always have the latest user scroll position saved, even if
-  // auto-scroll (e.g. browser scrolling to a clicked link) resets scrollY before
-  // the navigation handler fires.
   React.useEffect(() => {
     function onScroll() {
-      const key = getKey(router.location, getKeyFn)
-      savedPositions[key] = window.scrollY
-      // Evict oldest entries to prevent unbounded growth in long sessions
-      const keys = Object.keys(savedPositions)
-      if (keys.length > MAX_SCROLL_ENTRIES) {
-        delete savedPositions[keys[0]]
-      }
+      recordScrollPosition({
+        locationKey: getKey(router.location, getKeyFn),
+        scrollY: window.scrollY,
+      })
     }
-    // Save initial position
+
     onScroll()
     window.addEventListener('scroll', onScroll, { passive: true })
     return () => window.removeEventListener('scroll', onScroll)
   }, [getKeyFn])
 
-  // Subscribe to router: track navigation events for restore logic.
-  React.useEffect(() => {
-    return router.subscribe((event) => {
-      lastEventRef.current = event
-    })
-  }, [getKeyFn])
-
-  // Restore scroll after RSC payload arrives and React renders.
-  // Nulls out lastEventRef so non-navigation payload updates (server actions) are ignored.
   React.useLayoutEffect(() => {
-    const event = lastEventRef.current
-    if (!event) return
-    lastEventRef.current = null
-    // Don't touch scroll on refresh/HMR
-    if (event.source === 'refresh') return
+    const event = getLastNavigationEvent()
+    if (!event) {
+      return
+    }
+    if (event.id === lastHandledNavigationIdRef.current) {
+      return
+    }
+    lastHandledNavigationIdRef.current = event.id
 
-    // POP (back/forward): restore saved position
+    if (event.source === 'refresh') {
+      return
+    }
+
+    const savedPositions = getScrollPositions({
+      maxEntries: MAX_SCROLL_ENTRIES,
+    })
+
     if (event.action === 'POP') {
       const key = getKey(event.location, getKeyFn)
       const savedY = savedPositions[key]
@@ -111,7 +111,6 @@ export function ScrollRestoration({
       }
     }
 
-    // Hash link: scroll to element
     if (event.location.hash) {
       try {
         const id = decodeURIComponent(event.location.hash.slice(1))
@@ -125,19 +124,22 @@ export function ScrollRestoration({
       }
     }
 
-    // PUSH/REPLACE (new navigation): scroll to top
     window.scrollTo(0, 0)
   }, [flightData, getKeyFn])
 
-  // Persist positions to sessionStorage on pagehide.
-  // Re-enable manual mode on pageshow (BFCache restore skips mount effects).
   React.useEffect(() => {
     function onPageHide() {
-      const key = getKey(router.location, getKeyFn)
-      savedPositions[key] = window.scrollY
-      persistPositions(storageKey)
+      recordScrollPosition({
+        locationKey: getKey(router.location, getKeyFn),
+        scrollY: window.scrollY,
+      })
+      persistPositions(
+        storageKey,
+        getScrollPositions({ maxEntries: MAX_SCROLL_ENTRIES }),
+      )
       window.history.scrollRestoration = 'auto'
     }
+
     function onPageShow(e: PageTransitionEvent) {
       if (e.persisted) {
         window.history.scrollRestoration = 'manual'
@@ -151,8 +153,6 @@ export function ScrollRestoration({
     }
   }, [getKeyFn, storageKey])
 
-  // Inline script for SSR: restores scroll before React hydrates to prevent flash.
-  // This runs synchronously during HTML parsing.
   const scriptContent = `(function(){
   try{
     var s=window.history.state||{};

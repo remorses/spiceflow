@@ -10,6 +10,8 @@ try to run commands inside the package folder that you are working on. for examp
 
 Try to use object arguments for new typescript functions if the function would accept more than one argument, this way you can use the object as a sort of named argument feature, where order of arguments does not matter and it's easier to discover parameters.
 
+Always run `pnpm tsc --noEmit` from the package you changed after code edits, and fix any reported issues before finishing.
+
 do not add useless comments if the code is self descriptive. only add comments if requested or if this was a change that i asked for, meaning it is not obvious code and needs some inline documentation.
 
 try to use early returns and breaks, try nesting code as little as possible, follow the go best practice of if statements: avoid else, nest as little as possible, use top level ifs. minimize nesting.

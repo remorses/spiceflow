@@ -5,7 +5,35 @@ const history =
     ? createMemoryHistory()
     : createBrowserHistory({})
 
+const MAX_NAVIGATION_EVENTS = 100
+const DEFAULT_MAX_SCROLL_ENTRIES = 200
+
+type NavigationMethod = 'push' | 'replace' | 'refresh'
+
+type NavigationRequestedEvent = {
+  id: number
+  type: 'navigation-requested'
+  requestId: number
+  method: NavigationMethod
+  location: Location
+  scrollY: number
+}
+
+type NavigationCommittedEvent = {
+  id: number
+  type: 'navigation-committed'
+  requestId: number | null
+  action: 'POP' | 'PUSH' | 'REPLACE'
+  location: Location
+  previousLocation: Location
+  previousScrollY: number
+  source: 'navigate' | 'refresh'
+}
+
+export type RouterEvent = NavigationRequestedEvent | NavigationCommittedEvent
+
 export type NavigationEvent = {
+  id: number
   action: 'POP' | 'PUSH' | 'REPLACE'
   location: Location
   previousLocation: Location
@@ -16,33 +44,154 @@ export type NavigationEvent = {
 type Subscriber = (event: NavigationEvent) => void
 
 const subscribers = new Set<Subscriber>()
+const navigationEvents: RouterEvent[] = []
+const scrollPositions = new Map<string, number>()
+let nextEventId = 0
+let nextRequestId = 0
 
-// Monotonic token for refresh detection. Avoids leaking a stale key-based flag
-// if history.replace is blocked or doesn't emit a listen callback.
-let refreshToken = 0
-let pendingRefreshToken: number | null = null
-let previousLocation: Location = { ...history.location }
-// Captured before push/replace so the value reflects the page being left,
-// not the post-pushState value (which browsers can reset to 0).
-let capturedScrollY = 0
+function cloneLocation(location: Location): Location {
+  return {
+    pathname: location.pathname,
+    search: location.search,
+    hash: location.hash,
+    state: location.state,
+    key: location.key,
+  }
+}
+
+function appendNavigationEvent<TEvent extends RouterEvent>(
+  event: Omit<TEvent, 'id'>,
+): TEvent {
+  const nextEvent = {
+    ...event,
+    id: ++nextEventId,
+  } as TEvent
+  navigationEvents.push(nextEvent)
+  if (navigationEvents.length > MAX_NAVIGATION_EVENTS) {
+    navigationEvents.shift()
+  }
+  return nextEvent
+}
+
+export function getLastCommittedNavigationEvent(
+  routerEvents: readonly RouterEvent[],
+): NavigationCommittedEvent | null {
+  for (let index = routerEvents.length - 1; index >= 0; index -= 1) {
+    const event = routerEvents[index]
+    if (event?.type === 'navigation-committed') {
+      return event
+    }
+  }
+  return null
+}
+
+export function getLatestPendingNavigationRequest(
+  routerEvents: readonly RouterEvent[],
+): NavigationRequestedEvent | null {
+  const committedRequestIds = new Set<number>()
+  for (let index = routerEvents.length - 1; index >= 0; index -= 1) {
+    const event = routerEvents[index]
+    if (!event) {
+      continue
+    }
+    if (event.type === 'navigation-committed') {
+      if (event.requestId != null) {
+        committedRequestIds.add(event.requestId)
+      }
+      continue
+    }
+    if (!committedRequestIds.has(event.requestId)) {
+      return event
+    }
+  }
+  return null
+}
+
+function getPreviousLocation(routerEvents: readonly RouterEvent[]): Location {
+  const committedEvent = getLastCommittedNavigationEvent(routerEvents)
+  if (committedEvent) {
+    return cloneLocation(committedEvent.location)
+  }
+
+  const pendingRequest = getLatestPendingNavigationRequest(routerEvents)
+  if (pendingRequest) {
+    return cloneLocation(pendingRequest.location)
+  }
+
+  return cloneLocation(history.location)
+}
+
+function requestNavigation(method: NavigationMethod) {
+  return appendNavigationEvent<NavigationRequestedEvent>({
+    type: 'navigation-requested',
+    requestId: ++nextRequestId,
+    method,
+    location: cloneLocation(history.location),
+    scrollY: typeof window !== 'undefined' ? window.scrollY : 0,
+  })
+}
+
+function trimScrollPositions(maxEntries: number) {
+  while (scrollPositions.size > maxEntries) {
+    const oldestKey = scrollPositions.keys().next().value
+    if (oldestKey == null) {
+      return
+    }
+    scrollPositions.delete(oldestKey)
+  }
+}
+
+export function recordScrollPosition(args: {
+  locationKey: string
+  scrollY: number
+}) {
+  scrollPositions.delete(args.locationKey)
+  scrollPositions.set(args.locationKey, args.scrollY)
+  trimScrollPositions(DEFAULT_MAX_SCROLL_ENTRIES)
+}
+
+export function loadScrollPositions(args: {
+  positions: Record<string, number>
+  maxEntries?: number
+}) {
+  scrollPositions.clear()
+  for (const [locationKey, scrollY] of Object.entries(args.positions)) {
+    scrollPositions.set(locationKey, scrollY)
+  }
+  trimScrollPositions(args.maxEntries ?? DEFAULT_MAX_SCROLL_ENTRIES)
+}
+
+export function getScrollPositions({
+  maxEntries = DEFAULT_MAX_SCROLL_ENTRIES,
+}: { maxEntries?: number } = {}) {
+  trimScrollPositions(maxEntries)
+  return Object.fromEntries(scrollPositions)
+}
+
+export function getLastNavigationEvent(): NavigationEvent | null {
+  return getLastCommittedNavigationEvent(navigationEvents)
+}
 
 history.listen(({ action, location }) => {
-  // For POP (back/forward), scrollY wasn't captured by push/replace wrappers,
-  // so read it now (browser hasn't scrolled yet for manual scroll restoration).
-  const scrollY = action === 'POP'
-    ? (typeof window !== 'undefined' ? window.scrollY : 0)
-    : capturedScrollY
-  const isRefresh = pendingRefreshToken !== null && action === 'REPLACE'
-  pendingRefreshToken = null
-  const event: NavigationEvent = {
+  const pendingRequest = action === 'POP'
+    ? null
+    : getLatestPendingNavigationRequest(navigationEvents)
+  const previousLocation = getPreviousLocation(navigationEvents)
+  const event = appendNavigationEvent<NavigationCommittedEvent>({
+    type: 'navigation-committed',
+    requestId: pendingRequest?.requestId ?? null,
     action: action as NavigationEvent['action'],
-    location,
+    location: cloneLocation(location),
     previousLocation,
-    previousScrollY: scrollY,
-    source: isRefresh ? 'refresh' : 'navigate',
+    previousScrollY: action === 'POP'
+      ? (typeof window !== 'undefined' ? window.scrollY : 0)
+      : pendingRequest?.scrollY ?? 0,
+    source: pendingRequest?.method === 'refresh' ? 'refresh' : 'navigate',
+  })
+
+  for (const cb of subscribers) {
+    cb(event)
   }
-  previousLocation = { ...location }
-  for (const cb of subscribers) cb(event)
 })
 
 export const router = {
@@ -53,11 +202,11 @@ export const router = {
     return history.location.pathname
   },
   push(...args: Parameters<typeof history.push>) {
-    capturedScrollY = typeof window !== 'undefined' ? window.scrollY : 0
+    requestNavigation('push')
     history.push(...args)
   },
   replace(...args: Parameters<typeof history.replace>) {
-    capturedScrollY = typeof window !== 'undefined' ? window.scrollY : 0
+    requestNavigation('replace')
     history.replace(...args)
   },
   go: history.go,
@@ -65,8 +214,7 @@ export const router = {
   forward: history.forward,
   block: history.block,
   refresh() {
-    pendingRefreshToken = ++refreshToken
-    capturedScrollY = typeof window !== 'undefined' ? window.scrollY : 0
+    requestNavigation('refresh')
     history.replace(history.location)
   },
   subscribe(cb: Subscriber) {
