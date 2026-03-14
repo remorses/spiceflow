@@ -26,6 +26,11 @@ declare module 'virtual:bundler-adapter/ssr' {
   export const importRscEnvironment: RscSsrAdapter['importRscEnvironment']
 }
 
+declare module 'virtual:spiceflow-deployment-id' {
+  const deploymentId: string | undefined
+  export default deploymentId
+}
+
 declare module 'virtual:bundler-adapter/client' {
   import type { RscClientAdapter } from '../adapters/types.js'
   export const createFromReadableStream: RscClientAdapter['createFromReadableStream']

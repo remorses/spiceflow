@@ -381,3 +381,25 @@ test.describe("streaming async generator", () => {
 		await expect(items.nth(2)).toHaveText("message-3");
 	});
 });
+
+test.describe("deployment id @build", () => {
+	const docHeaders = { "sec-fetch-dest": "document" };
+
+	test("document response sets spiceflow-deployment cookie in prod", async () => {
+		const response = await fetch(baseURL + "/", { headers: docHeaders });
+		const setCookie = response.headers.get("set-cookie") ?? "";
+		expect(setCookie).toContain("spiceflow-deployment=");
+		const match = setCookie.match(/spiceflow-deployment=([^;]+)/);
+		expect(match).toBeTruthy();
+		expect(match![1].length).toBeGreaterThanOrEqual(4);
+	});
+
+	test("deployment id is stable across requests", async () => {
+		const first = await fetch(baseURL + "/", { headers: docHeaders });
+		const second = await fetch(baseURL + "/", { headers: docHeaders });
+		const getId = (res: Response) =>
+			res.headers.get("set-cookie")?.match(/spiceflow-deployment=([^;]+)/)?.[1];
+		expect(getId(first)).toBeTruthy();
+		expect(getId(first)).toBe(getId(second));
+	});
+});

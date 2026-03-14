@@ -17,12 +17,16 @@ import { prerenderPlugin } from './react/prerender.js'
 const require = createRequire(import.meta.url)
 const pluginRscRpcPath = require.resolve('@vitejs/plugin-rsc/utils/rpc')
 
+// Module-level so the timestamp is stable even if spiceflowPlugin() is called more than once
+const buildTimestamp = Date.now().toString(36)
+
 export function spiceflowPlugin({
   entry,
 }: {
   entry: string
 }): PluginOption {
   let server: ViteDevServer
+  let resolvedOutDir = 'dist'
 
   return [
     rsc({
@@ -86,6 +90,9 @@ export function spiceflowPlugin({
           },
         },
       }),
+      configResolved(config) {
+        resolvedOutDir = config.build.outDir
+      },
     },
 
     // Write dist/node.js production entry point after build
@@ -96,9 +103,10 @@ export function spiceflowPlugin({
       closeBundle: {
         sequential: true,
         async handler() {
-          await fs.promises.mkdir(path.resolve('dist'), { recursive: true })
+          const outDir = path.resolve(resolvedOutDir)
+          await fs.promises.mkdir(outDir, { recursive: true })
           await fs.promises.writeFile(
-            path.resolve('dist/node.js'),
+            path.join(outDir, 'node.js'),
             `import('./ssr/node.js')`,
           )
         },
@@ -131,7 +139,7 @@ export function spiceflowPlugin({
         }
       },
       async configurePreviewServer(previewServer) {
-        const mod = await import(path.resolve('dist/ssr/index.js'))
+        const mod = await import(path.resolve(resolvedOutDir, 'ssr/index.js'))
         return () => {
           previewServer.middlewares.use(async (req, res, next) => {
             try {
@@ -144,6 +152,11 @@ export function spiceflowPlugin({
       },
     },
 
+    // virtual:spiceflow-deployment-id — build timestamp inlined as a constant.
+    // No runtime fs access needed, works on Node, Cloudflare, edge runtimes, etc.
+    createVirtualPlugin('spiceflow-deployment-id', () => {
+      return `export default ${JSON.stringify(buildTimestamp)}`
+    }),
     // virtual:bundler-adapter/* — resolves to Vite-specific adapter implementations
     // so entry points can import from these instead of directly from @vitejs/plugin-rsc
     createVirtualPlugin('bundler-adapter/server', () => {

@@ -9,7 +9,7 @@
     "build": "DEBUG_SPICEFLOW=1 vite build --app",
     "preview": "DEBUG_SPICEFLOW=1 vite preview",
     "test-e2e": "DEBUG_SPICEFLOW=1 E2E_PORT=6174 playwright test",
-    "pretest-e2e-preview": "pnpm build",
+    "pretest-e2e-preview": "rm -rf dist && pnpm build",
     "test-e2e-preview": "DEBUG_SPICEFLOW=1 E2E_PREVIEW=1 E2E_PORT=6175 playwright test"
   },
   "keywords": [],

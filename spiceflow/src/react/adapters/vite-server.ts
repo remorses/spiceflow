@@ -17,21 +17,12 @@ export function getAppEntryCssElement(): React.ReactNode {
   return import.meta.viteRsc.loadCss('virtual:app-entry')
 }
 
-function extractDeploymentId(bootstrapScriptContent: string) {
-  const match = bootstrapScriptContent.match(
-    /\/assets\/[^/"']+-([A-Za-z0-9_-]+)\.[a-z0-9]+/i,
-  )
-  return match?.[1]
-}
-
 export async function getDeploymentId(): Promise<string | undefined> {
-  if (!import.meta.env.PROD) {
+  if (!import.meta.env.PROD) return undefined
+  try {
+    const { default: id } = await import('virtual:spiceflow-deployment-id')
+    return id ?? undefined
+  } catch {
     return undefined
   }
-
-  const bootstrapScriptContent = await import.meta.viteRsc.loadBootstrapScriptContent(
-    'index',
-  )
-
-  return extractDeploymentId(bootstrapScriptContent)
 }
