@@ -326,6 +326,32 @@ test.describe("CSS loading", () => {
 	});
 });
 
+test.describe("layout stability during navigation", () => {
+	test("layout client component is not remounted on navigation", async ({ page }) => {
+		await page.goto("/");
+		await page.getByText("[hydrated: 1]").click();
+		// Layout useEffect ran once on mount
+		await expect(page.getByTestId("layout-mount-count")).toHaveText("1");
+		// Increment the layout counter to create client state we can track
+		const layoutCounter = page.getByTestId("client-counter").filter({ hasText: "Layout counter" });
+		await layoutCounter.getByRole("button", { name: "+" }).click();
+		await layoutCounter.getByText("Layout counter: 1").click();
+		// Navigate to another page via client-side Link
+		await page.getByRole("link", { name: "Other" }).click();
+		await expect(page).toHaveURL("/other");
+		// Layout mount count should still be 1 (useEffect did not re-run)
+		await expect(page.getByTestId("layout-mount-count")).toHaveText("1");
+		// Layout counter state should be preserved (component was not remounted)
+		await expect(layoutCounter.getByText("Layout counter: 1")).toBeVisible();
+		// Navigate back to home
+		await page.getByRole("link", { name: "Home" }).click();
+		await expect(page).toHaveURL("/");
+		// Still no remount
+		await expect(page.getByTestId("layout-mount-count")).toHaveText("1");
+		await expect(layoutCounter.getByText("Layout counter: 1")).toBeVisible();
+	});
+});
+
 test.describe("streaming async generator", () => {
 	test("client renders items incrementally before generator completes", async ({ page }) => {
 		// Use waitUntil:'commit' so Playwright doesn't wait for the full streaming response

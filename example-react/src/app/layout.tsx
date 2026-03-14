@@ -1,6 +1,6 @@
 import { Link } from "spiceflow/dist/react/components";
 import { ProgressBar } from "spiceflow/dist/react/progress";
-import { Counter } from "./client";
+import { Counter, LayoutMountTracker } from "./client";
 
 export function Layout(props: React.PropsWithChildren) {
 	return (
@@ -14,6 +14,7 @@ export function Layout(props: React.PropsWithChildren) {
 			</head>
 			<body className="px-4 bg-gray-100">
 				<ProgressBar />
+				<LayoutMountTracker />
 				<Counter name="Layout" />
 				<ul>
 					<li>
