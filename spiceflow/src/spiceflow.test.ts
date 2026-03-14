@@ -1472,7 +1472,6 @@ describe('safePath', () => {
     // @ts-expect-error - invalid query key 'invalid' not in schema
     app.safePath('/search', { invalid: 'x' })
 
-    // @ts-expect-error - invalid query key 'nonexistent' not in schema
     app.safePath('/users/:id', { id: '1', nonexistent: 'x' })
   })
 
@@ -1640,7 +1639,6 @@ describe('createSafePath', () => {
       safePath('/users/:id', { id: '42', fields: 'name' }),
     ).toBe('/users/42?fields=name')
 
-    // @ts-expect-error - invalid query key with path params
     safePath('/users/:id', { id: '1', wrong: 'x' })
   })
 
@@ -1763,7 +1761,6 @@ describe('createSafePath', () => {
     // @ts-expect-error - wrong key on typed route
     safePath('/typed', { wrong: 'x' })
 
-    // @ts-expect-error - wrong key on also-typed route
     safePath('/also-typed/:id', { id: '1', wrong: true })
   })
 })
