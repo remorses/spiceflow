@@ -2,6 +2,7 @@ import './globals.css'
 import { Spiceflow } from 'spiceflow'
 import { Suspense } from 'react'
 import { Link } from 'spiceflow/dist/react/components'
+import { ProgressBar } from 'spiceflow/dist/react/progress'
 
 import { sql } from './db'
 
@@ -113,6 +114,7 @@ function RootLayout({ children }: { children: React.ReactNode }) {
       <meta name="twitter:creator" content="@rauchg" />
 
       <body>
+        <ProgressBar />
         <main className="flex min-h-screen flex-col items-center flex-start px-6 pt-6">
           <h1 className="text-3xl font-bold mb-3">How is this not illegal?</h1>
           <p className="text-center">
