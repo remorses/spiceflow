@@ -16,6 +16,7 @@ declare module 'virtual:bundler-adapter/server' {
   export const decodeFormState: RscServerAdapter['decodeFormState']
   export const loadServerAction: RscServerAdapter['loadServerAction']
   export const getAppEntryCssElement: RscServerAdapter['getAppEntryCssElement']
+  export const getDeploymentId: RscServerAdapter['getDeploymentId']
 }
 
 declare module 'virtual:bundler-adapter/ssr' {

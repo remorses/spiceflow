@@ -45,6 +45,17 @@ import {
   isNotFoundError,
   isRedirectError,
 } from './react/errors.js'
+import {
+  createDeploymentCookie,
+  deploymentMismatchStatus,
+  deploymentReasonHeader,
+  deploymentReloadHeader,
+  getDocumentPath,
+  isDocumentRequest,
+  isRscRequest,
+  readDeploymentCookie,
+} from './react/deployment.js'
+import { getRuntimeDeploymentId } from './react/deployment-id.js'
 import { TrieRouter } from './trie-router/router.js'
 import { decodeURIComponent_ } from './trie-router/url.js'
 import { Result } from './trie-router/utils.js'
@@ -1184,6 +1195,11 @@ export class Spiceflow<
   ): Promise<Response> => {
     let u = new URL(request.url, 'http://localhost')
     const self = this
+    const shouldUseDeploymentId =
+      isDocumentRequest(request) || isRscRequest(u)
+    const deploymentId = shouldUseDeploymentId
+      ? await getRuntimeDeploymentId()
+      : undefined
     // Strip .rsc suffix before route matching — the client appends it for RSC data fetches,
     // but routes are registered without it. Without this, dynamic params like :id get corrupted
     // (e.g. { 'id.rsc': '121.rsc' } instead of { id: '121' }).
@@ -1218,6 +1234,60 @@ export class Spiceflow<
       waitUntil: wrappedWaitUntil,
     }
     const root = this.topLevelApp || this
+    const requestDeploymentId = deploymentId
+      ? readDeploymentCookie(request)
+      : undefined
+
+    if (
+      deploymentId &&
+      requestDeploymentId &&
+      deploymentId !== requestDeploymentId &&
+      isRscRequest(u)
+    ) {
+      return new Response(null, {
+        status: deploymentMismatchStatus,
+        headers: {
+          [deploymentReasonHeader]: 'deployment-mismatch',
+          [deploymentReloadHeader]: getDocumentPath(u),
+          'set-cookie': createDeploymentCookie({
+            deploymentId,
+            basePath: root.basePath,
+          }),
+        },
+      })
+    }
+
+    const finalizeResponse = ({
+      response,
+      stripBody,
+    }: {
+      response: Response
+      stripBody: boolean
+    }) => {
+      const finalized = this.finalizeHeadResponse({ response, stripBody })
+      if (
+        !deploymentId ||
+        !isDocumentRequest(request) ||
+        requestDeploymentId === deploymentId
+      ) {
+        return finalized
+      }
+
+      const headers = new Headers(finalized.headers)
+      headers.append(
+        'set-cookie',
+        createDeploymentCookie({
+          deploymentId,
+          basePath: root.basePath,
+        }),
+      )
+
+      return new Response(finalized.body, {
+        status: finalized.status,
+        statusText: finalized.statusText,
+        headers,
+      })
+    }
 
     const routes = this.match(request.method, path)
 
@@ -1266,7 +1336,10 @@ export class Spiceflow<
       }
       const response = await next()
 
-      return response
+      return finalizeResponse({
+        response,
+        stripBody: shouldStripHeadBody,
+      })
     }
     const route = pickBestRoute(nonReactRoutes)
 
@@ -1384,7 +1457,25 @@ export class Spiceflow<
     }
     const response = await next()
 
-    return response
+    return finalizeResponse({ response, stripBody: shouldStripHeadBody })
+  }
+
+  private finalizeHeadResponse({
+    response,
+    stripBody,
+  }: {
+    response: Response
+    stripBody: boolean
+  }) {
+    if (!stripBody) {
+      return response
+    }
+
+    return new Response(null, {
+      status: response.status,
+      statusText: response.statusText,
+      headers: new Headers(response.headers),
+    })
   }
 
   protected superjsonSerialize(value: any, indent = false, request?: Request): string {

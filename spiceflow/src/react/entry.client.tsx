@@ -23,7 +23,66 @@ import {
 } from './components.js'
 import { ServerPayload } from '../spiceflow.js'
 import { FlightDataContext } from './context.js'
+import {
+  getDocumentLocationFromResponse,
+  isFlightResponse,
+  isDeploymentMismatchResponse,
+} from './deployment.js'
 import { getErrorContext } from './errors.js'
+
+function hardNavigate(location: string) {
+  window.location.replace(location)
+}
+
+function never() {
+  return new Promise<never>(() => undefined)
+}
+
+async function fetchFlightResponse(args: {
+  url: URL
+  init?: RequestInit
+  kind: 'navigation' | 'action'
+}) {
+  const response = await fetch(args.url, args.init)
+
+  if (isDeploymentMismatchResponse(response)) {
+    hardNavigate(
+      getDocumentLocationFromResponse({
+        response,
+        requestUrl: args.url,
+      }),
+    )
+    return never()
+  }
+
+  if (response.redirected) {
+    hardNavigate(
+      getDocumentLocationFromResponse({
+        response,
+        requestUrl: args.url,
+      }),
+    )
+    return never()
+  }
+
+  if (args.kind === 'navigation') {
+    if (response.status === 404 || !isFlightResponse(response)) {
+      hardNavigate(
+        getDocumentLocationFromResponse({
+          response,
+          requestUrl: args.url,
+        }),
+      )
+      return never()
+    }
+  } else if (!isFlightResponse(response)) {
+    throw new Error(
+      `Expected action response to be text/x-component but got ${response.status}`,
+    )
+  }
+
+  return response
+}
 
 async function main() {
   let setPayload: (v: Promise<ServerPayload>) => void = () => undefined
@@ -35,9 +94,13 @@ async function main() {
     const url = new URL(window.location.href)
     url.searchParams.set('__rsc', id)
     const payloadPromise = createFromFetch<ServerPayload>(
-      fetch(url, {
-        method: 'POST',
-        body: await encodeReply(args, { temporaryReferences }),
+      fetchFlightResponse({
+        url,
+        kind: 'action',
+        init: {
+          method: 'POST',
+          body: await encodeReply(args, { temporaryReferences }),
+        },
       }),
       { temporaryReferences },
     )
@@ -70,7 +133,9 @@ async function main() {
         const url = new URL(window.location.href)
         url.pathname += '.rsc'
         url.searchParams.set('__rsc', '')
-        const payload = createFromFetch<ServerPayload>(fetch(url))
+        const payload = createFromFetch<ServerPayload>(
+          fetchFlightResponse({ url, kind: 'navigation' }),
+        )
         setPayload(payload)
       })
     }, [])

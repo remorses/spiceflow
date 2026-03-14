@@ -25,6 +25,7 @@ export interface RscServerAdapter {
   ) => Promise<ReactFormState | undefined>
   loadServerAction: (id: string) => Promise<(...args: unknown[]) => unknown>
   getAppEntryCssElement: () => React.ReactNode
+  getDeploymentId?: () => Promise<string | undefined>
 }
 
 export interface RscSsrAdapter {
