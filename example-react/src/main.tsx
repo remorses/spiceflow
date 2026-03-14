@@ -20,9 +20,10 @@ import { DialogDemo } from "./app/dialog";
 import { WithSelect } from "./app/select";
 import { ThrowsDuringSSR } from "./app/ssr-error";
 import { StreamingConsumer } from "./app/streaming-consumer";
-import { Head } from "spiceflow/dist/react/head";
+import { Head } from "spiceflow/react";
 import { CssTestClient } from "./app/client";
 import { CssTestServer } from "./app/css-test-server";
+import { ScrollTestPage } from "./app/scroll-test";
 
 // Increments on every RSC render of the home page. Used by e2e tests to detect
 // unwanted server re-renders (e.g. client HMR should not trigger a server render).
@@ -244,6 +245,12 @@ const app = new Spiceflow()
 	})
 	.page("/select", async () => {
 		return <WithSelect />;
+	})
+	.page("/scroll-restoration/page-a", async () => {
+		return <ScrollTestPage name="Page A" />;
+	})
+	.page("/scroll-restoration/page-b", async () => {
+		return <ScrollTestPage name="Page B" />;
 	})
 	.page("/css-test", async () => {
 		return (
