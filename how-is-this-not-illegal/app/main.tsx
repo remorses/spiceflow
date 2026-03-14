@@ -1,8 +1,7 @@
 import './globals.css'
 import { Spiceflow } from 'spiceflow'
 import { Suspense } from 'react'
-import { Link } from 'spiceflow/dist/react/components'
-import { ProgressBar } from 'spiceflow/dist/react/progress'
+import { Link, ProgressBar } from 'spiceflow/react'
 
 import { sql } from './db'
 

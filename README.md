@@ -1032,7 +1032,7 @@ const app = new Spiceflow().use(cors()).route({
 
 ```ts
 import { Spiceflow } from 'spiceflow'
-import { MiddlewareHandler } from 'spiceflow/dist/types'
+import type { MiddlewareHandler } from 'spiceflow'
 
 const app = new Spiceflow()
 
@@ -1745,7 +1745,7 @@ npm install spiceflow react react-dom
 ```ts
 // vite.config.ts
 import { defineConfig } from 'vite'
-import { spiceflowPlugin } from 'spiceflow/dist/vite'
+import { spiceflowPlugin } from 'spiceflow/vite'
 
 export default defineConfig({
   plugins: [

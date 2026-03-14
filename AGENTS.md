@@ -138,6 +138,10 @@ For example if the current file is `src/routes/home.tsx` you can import `import 
 
 always use tailwind for styling, prefer using simple styles using flex and gap. Try to use the built in tailwind colors like gray, red, green, etc. Margins should be avoided, instead use flexbox gaps, grid gaps, or separate spacing divs.
 
+## spiceflow/react exports
+
+All React-facing APIs (components, router, utilities) must be exported from `spiceflow/react` (i.e. `spiceflow/src/react/index.ts`). Never import from `spiceflow/dist/react/...` directly — that's an internal path that breaks when the build output changes. If something is meant for users (like `Head`, `Link`, `ProgressBar`, `router`), it must be in the public export.
+
 ## files
 
 always use kebab case for new filenames. never use uppercase letters in filenames
