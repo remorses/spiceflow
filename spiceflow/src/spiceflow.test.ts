@@ -2367,8 +2367,8 @@ test(':param beats wildcard regardless of registration order', async () => {
 })
 
 describe('path param edge cases with special characters', () => {
-  // hono trie router does not support prefix matching like medley router
-  test.todo('prefix before param like /v/on-:event matches correctly', async () => {
+  // hono trie router does not support prefix matching — returns 404 instead
+  test('prefix before param like /v/on-:event returns 404 on trie router', async () => {
     const app = new Spiceflow().route({
       method: 'GET',
       path: '/v/on-:event',
@@ -2377,12 +2377,7 @@ describe('path param edge cases with special characters', () => {
     const res = await app.handle(
       new Request('http://localhost/v/on-click', { method: 'GET' }),
     )
-    expect(res.status).toBe(200)
-    expect(await res.json()).toMatchInlineSnapshot(`
-      {
-        "event": "click",
-      }
-    `)
+    expect(res.status).toBe(404)
   })
 
   test('suffix after param like /v/:id.patch treats dot as part of param name', async () => {
@@ -2476,24 +2471,17 @@ describe('path param edge cases with special characters', () => {
     `)
   })
 
-  // hono trie router does not support prefix matching like medley router
-  test.todo('multiple prefixed params in one segment like /v/pre-:a-mid-:b', async () => {
+  // hono trie router does not support prefix matching — returns 404 instead
+  test('multiple prefixed params in one segment like /v/pre-:a-mid-:b returns 404 on trie router', async () => {
     const app = new Spiceflow().route({
       method: 'GET',
       path: '/v/pre-:a-mid-:b',
       handler: ({ params }) => params,
     })
-    // @medley/router only supports one param per segment with a prefix
     const res = await app.handle(
       new Request('http://localhost/v/pre-hello-mid-world', { method: 'GET' }),
     )
-    const body = await res.json()
-    expect(res.status).toBe(200)
-    expect(body).toMatchInlineSnapshot(`
-      {
-        "a-mid-:b": "hello-mid-world",
-      }
-    `)
+    expect(res.status).toBe(404)
   })
 
   test('param with semicolon like /v/:id;type is one param name', async () => {
@@ -2530,8 +2518,8 @@ describe('path param edge cases with special characters', () => {
     `)
   })
 
-  // hono trie router does not support prefix matching like medley router
-  test.todo('version prefix like /api/v:version extracts version correctly', async () => {
+  // hono trie router does not support prefix matching — returns 404 instead
+  test('version prefix like /api/v:version returns 404 on trie router', async () => {
     const app = new Spiceflow().route({
       method: 'GET',
       path: '/api/v:version',
@@ -2540,12 +2528,7 @@ describe('path param edge cases with special characters', () => {
     const res = await app.handle(
       new Request('http://localhost/api/v2', { method: 'GET' }),
     )
-    expect(res.status).toBe(200)
-    expect(await res.json()).toMatchInlineSnapshot(`
-      {
-        "version": "2",
-      }
-    `)
+    expect(res.status).toBe(404)
   })
 
   test('dot in static path works fine', async () => {
