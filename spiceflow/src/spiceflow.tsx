@@ -37,6 +37,7 @@ import { ZodType } from 'zod'
 import { isAsyncIterable, isResponse, isTruthy, redirect } from './utils.js'
 
 import {
+  DefaultNotFoundPage,
   FlightData,
   LayoutContent,
 } from './react/components.js'
@@ -1130,19 +1131,20 @@ export class Spiceflow<
       (x) => x.route.kind === 'page' || x.route.kind === 'staticPage',
     )
     const pageRoute = pickBestRoute(pageRoutes)
-    if (!pageRoute) {
+    // Only render the React 404 page for browser requests (Accept: text/html).
+    // API clients and curl get plain text "Not Found" instead.
+    const isBrowserRequest = request.headers.get('accept')?.includes('text/html')
+    if (!pageRoute && !isBrowserRequest) {
       return new Response('Not Found', { status: 404 })
     }
-
-    let Page = pageRoute?.route?.handler as any
-    let page = (
-      <Page
-        {...{
-          ...context,
-          params: pageRoute.params,
-        }}
-      />
-    )
+    const isNotFound = !pageRoute
+    const PageComponent = isNotFound
+      ? DefaultNotFoundPage
+      : pageRoute.route.handler as any
+    const pageProps = isNotFound
+      ? {}
+      : { ...context, params: pageRoute.params }
+    const page = <PageComponent {...pageProps} />
     const layouts = layoutRoutes
       .map((layout) => {
         if (layout.route.kind !== 'layout') return
@@ -1245,6 +1247,7 @@ export class Spiceflow<
     )
 
     return new Response(stream, {
+      status: isNotFound ? 404 : 200,
       headers: {
         'content-type': 'text/x-component;charset=utf-8',
       },
@@ -1369,9 +1372,21 @@ export class Spiceflow<
       routes,
       (x) => !x.route.kind,
     )
+    // When no route matched (notFoundHandler) but the app has React pages registered
+    // and the request is from a browser, enter the React rendering path so
+    // DefaultNotFoundPage is rendered as HTML instead of plain text.
+    const isBrowserRequest = request.headers.get('accept')?.includes('text/html')
+    const isUnmatchedRoute =
+      nonReactRoutes.length === 1 &&
+      nonReactRoutes[0]?.route?.handler === notFoundHandler
+    const appHasReactPages =
+      this.getAllRoutes().some((r) => r.kind === 'page' || r.kind === 'staticPage')
+    const shouldRenderReact404 =
+      isUnmatchedRoute && !reactRoutes.length && appHasReactPages && isBrowserRequest
     let index = 0
-    if (reactRoutes.length) {
-      const appsInScope = this.getAppsInScope(reactRoutes[0].app)
+    if (reactRoutes.length || shouldRenderReact404) {
+      const fallbackApp = reactRoutes[0]?.app || nonReactRoutes[0]?.app || this
+      const appsInScope = this.getAppsInScope(fallbackApp)
       onErrorHandlers = appsInScope.flatMap((x) => x.onErrorHandlers)
       const middlewares = appsInScope.flatMap((x) => x.middlewares)
       let handlerResponse: Response | undefined

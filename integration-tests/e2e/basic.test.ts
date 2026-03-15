@@ -17,6 +17,20 @@ test.describe("not found", () => {
 		await expect(page.getByText("404")).toBeVisible();
 		await expect(page.getByText("This page could not be found.")).toBeVisible();
 	});
+
+	test("unmatched route renders React 404 page for browser requests", async ({ page }) => {
+		const response = await page.goto("/a/b/does-not-exist");
+		expect(response?.status()).toBe(404);
+		await expect(page.getByText("404")).toBeVisible();
+		await expect(page.getByText("This page could not be found.")).toBeVisible();
+	});
+
+	test("unmatched route returns plain text for non-browser requests", async () => {
+		const response = await fetch(`${baseURL}/a/b/does-not-exist`);
+		expect(response.status).toBe(404);
+		const text = await response.text();
+		expect(text).toBe("Not Found");
+	});
 });
 test.describe("middleware with use()", () => {
 	test("middleware sets response header", async ({ page }) => {
