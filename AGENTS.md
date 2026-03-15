@@ -28,21 +28,21 @@ Sometimes tests work directly on database data, using prisma. To run these tests
 
 Never write tests yourself that call prisma or interact with database or emails. For these asks the user to write them for you.
 
-# e2e testing (example-react)
+# e2e testing (integration-tests)
 
-E2e tests live in `example-react/e2e/` and use Playwright (chromium only). The dev server starts automatically via the `webServer` config in `playwright.config.ts`.
+E2e tests live in `integration-tests/e2e/` and use Playwright (chromium only). The dev server starts automatically via the `webServer` config in `playwright.config.ts`.
 
 ## running e2e tests
 
-These are the integration test commands for the RSC app in `example-react/`:
+These are the integration test commands for the RSC app in `integration-tests/`:
 
 - `pnpm test-e2e` runs the Playwright suite against the dev server, so it covers dev-only behavior like HMR and middleware behavior during development.
 - `pnpm test-e2e-preview` runs the same Playwright suite against the production preview build, so it catches build-only regressions that do not show up in dev.
 - Run both commands when validating an integration change, because they exercise different environments and one passing does not imply the other passes.
 
 ```bash
-# run from example-react directory, never from root
-cd example-react
+# run from integration-tests directory, never from root
+cd integration-tests
 
 # run all e2e tests
 pnpm test-e2e
@@ -88,7 +88,7 @@ This is the most common reason e2e tests fail after code changes — stale dist 
 
 ## adding test routes
 
-To add a route for e2e testing, add it in `example-react/src/main.tsx` using the spiceflow API:
+To add a route for e2e testing, add it in `integration-tests/src/main.tsx` using the spiceflow API:
 
 ```ts
 .page("/my-test-route", async () => {
@@ -96,7 +96,7 @@ To add a route for e2e testing, add it in `example-react/src/main.tsx` using the
 })
 ```
 
-Client components used in tests should be created in `example-react/src/app/` with a `"use client"` directive.
+Client components used in tests should be created in `integration-tests/src/app/` with a `"use client"` directive.
 
 ## HMR tests
 

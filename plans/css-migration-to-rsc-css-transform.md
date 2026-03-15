@@ -58,7 +58,7 @@ Each component gets only its own transitively imported CSS. No manual collection
 
 ## Key Insight: Spiceflow's App Structure
 
-In spiceflow, the user's app entry (e.g. `example-react/src/main.tsx`) is a **server module** that:
+In spiceflow, the user's app entry (e.g. `integration-tests/src/main.tsx`) is a **server module** that:
 
 1. Imports CSS at the top level: `import "./styles.css"`
 2. Exports `default app` (a Spiceflow instance, **not** a React component)
@@ -176,7 +176,7 @@ flight stream. For the app entry's global CSS specifically, we have two options:
 Create a thin server component that imports the global CSS and wraps the page content:
 
 ```tsx
-// example-react/src/app-wrapper.tsx (user-land)
+// integration-tests/src/app-wrapper.tsx (user-land)
 import '../styles.css'
 
 export function AppWrapper({ children }) {
@@ -310,7 +310,7 @@ redundant `<link>` tags after hydration (since Vite's client env also injects in
 - CSS `precedence` groups may differ from the current flat ordering
 - If user CSS relies on specificity from import order, it could break
 
-**Mitigation:** Test with the example-react app and inspect CSS order in dev tools.
+**Mitigation:** Test with the integration-tests app and inspect CSS order in dev tools.
 
 ### 3. CSS in Layouts
 
@@ -336,7 +336,7 @@ The framework-level fix is strongly preferred to avoid breaking existing apps.
 
 **Risk: LOW.** Third-party libraries imported via client components will have their CSS
 handled by the plugin's client-reference CSS system (via `ssr.tsx`'s `wrapResourceProxy`).
-The example-react app already uses Chakra UI — this should work as-is.
+The integration-tests app already uses Chakra UI — this should work as-is.
 
 ### 6. CSS Modules
 
@@ -365,7 +365,7 @@ plugin becomes unnecessary.
 ## Verification Plan
 
 1. Run `pnpm tsc --noCheck` in `spiceflow/` to rebuild dist
-2. Run `pnpm test-e2e` in `example-react/` — all existing tests should pass
+2. Run `pnpm test-e2e` in `integration-tests/` — all existing tests should pass
 3. Manually inspect browser dev tools to verify:
    - CSS is loaded per-component (not all global)
    - No FOUC on page load

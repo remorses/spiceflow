@@ -133,7 +133,7 @@ Key difference: Parcel discovers boundaries from directives rather than explicit
 
 ### Parcel example app
 
-New directory: `example-react-parcel/` mirroring `example-react/` structure with Parcel config.
+New directory: `integration-tests-parcel/` mirroring `integration-tests/` structure with Parcel config.
 
 ---
 
@@ -600,7 +600,7 @@ Rather than fighting Bake's architecture, the integration should **let Bake be t
 | `spiceflow/src/react/adapters/parcel-ssr.ts` | Parcel SSR environment adapter |
 | `spiceflow/src/react/adapters/parcel-client.ts` | Parcel browser adapter |
 | `spiceflow/src/parcel.ts` | Parcel plugin (transformers, resolvers, runtimes) |
-| `example-react-parcel/` | Parcel example app |
+| `integration-tests-parcel/` | Parcel example app |
 
 ### Phase 3: Bun (via Bake)
 
@@ -649,7 +649,7 @@ Rather than fighting Bake's architecture, the integration should **let Bake be t
 - Create Parcel adapters (3 files)
 - Create Parcel plugin (`parcel.ts`)
 - Handle CSS differences
-- Add `example-react-parcel/` + e2e tests
+- Add `integration-tests-parcel/` + e2e tests
 
 **Phase 3: Add Bun support via Bake** (follow-up PR)
 - Create Bun adapters (3 files) with Node.js ↔ web stream bridging
