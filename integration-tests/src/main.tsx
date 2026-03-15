@@ -84,6 +84,28 @@ export const app = new Spiceflow()
 	.page("/top-level-redirect", async () => {
 		throw redirect("/");
 	})
+	// throw redirect/notFound from layout (not page) — tests that the framework
+	// preserves the correct status code even when the throw happens in a layout
+	.layout("/throw-redirect-in-layout/*", async ({ children }) => {
+		throw redirect("/other");
+	})
+	.page("/throw-redirect-in-layout", async () => {
+		return <div>should not render</div>;
+	})
+	.layout("/throw-notfound-in-layout/*", async ({ children }) => {
+		throw notFound();
+	})
+	.page("/throw-notfound-in-layout", async () => {
+		return <div>should not render</div>;
+	})
+	// dedicated pages for client-side navigation tests — separate from the existing
+	// routes so the tests stay isolated and don't interfere with other suites
+	.page("/throw-redirect-in-page", async () => {
+		throw redirect("/other");
+	})
+	.page("/throw-notfound-in-page", async () => {
+		throw notFound();
+	})
 	.page("/redirect-in-rsc", async () => {
 		return <Redirects />;
 	})

@@ -35,6 +35,18 @@ export function Layout(props: React.PropsWithChildren) {
 				<li>
 					<Link href="/scroll-restoration/page-b">Scroll B</Link>
 				</li>
+				<li>
+					<Link href="/throw-redirect-in-page" data-testid="link-throw-redirect-page">throw redirect page</Link>
+				</li>
+				<li>
+					<Link href="/throw-redirect-in-layout" data-testid="link-throw-redirect-layout">throw redirect layout</Link>
+				</li>
+				<li>
+					<Link href="/throw-notfound-in-page" data-testid="link-throw-notfound-page">throw notfound page</Link>
+				</li>
+				<li>
+					<Link href="/throw-notfound-in-layout" data-testid="link-throw-notfound-layout">throw notfound layout</Link>
+				</li>
 				</ul>
 				{props.children}
 			</body>

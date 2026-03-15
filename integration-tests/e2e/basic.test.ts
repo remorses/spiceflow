@@ -396,6 +396,91 @@ test.describe("streaming async generator", () => {
 	});
 });
 
+test.describe("throw response status codes", () => {
+	test("throw redirect in page returns 307 and Location header", async () => {
+		const response = await fetch(`${baseURL}/throw-redirect-in-page`, {
+			redirect: "manual",
+		});
+		expect(response.status).toBe(307);
+		expect(response.headers.get("location")).toBe("/other");
+	});
+
+	test("throw redirect in layout returns 307 and Location header", async () => {
+		const response = await fetch(`${baseURL}/throw-redirect-in-layout`, {
+			redirect: "manual",
+		});
+		expect(response.status).toBe(307);
+		expect(response.headers.get("location")).toBe("/other");
+	});
+
+	test("throw notFound in page returns 404", async () => {
+		const response = await fetch(`${baseURL}/throw-notfound-in-page`);
+		expect(response.status).toBe(404);
+	});
+
+	test("throw notFound in layout returns 404", async () => {
+		const response = await fetch(`${baseURL}/throw-notfound-in-layout`);
+		expect(response.status).toBe(404);
+	});
+
+	test("throw notFound in page renders 404 page for browser request", async ({ page }) => {
+		const response = await page.goto("/throw-notfound-in-page");
+		expect(response?.status()).toBe(404);
+		await expect(page.getByText("404")).toBeVisible();
+		await expect(page.getByText("This page could not be found.")).toBeVisible();
+	});
+
+	test("throw notFound in layout renders 404 page for browser request", async ({ page }) => {
+		const response = await page.goto("/throw-notfound-in-layout");
+		expect(response?.status()).toBe(404);
+		await expect(page.getByText("404")).toBeVisible();
+		await expect(page.getByText("This page could not be found.")).toBeVisible();
+	});
+});
+
+test.describe("client-side navigation with throw response", () => {
+	test("throw redirect in page navigates to target", async ({ page }) => {
+		await page.goto("/");
+		await page.getByText("[hydrated: 1]").click();
+		await page.getByTestId("link-throw-redirect-page").click();
+		await expect(page).toHaveURL("/other");
+	});
+
+	test("throw redirect in layout navigates to target", async ({ page }) => {
+		await page.goto("/");
+		await page.getByText("[hydrated: 1]").click();
+		await page.getByTestId("link-throw-redirect-layout").click();
+		await expect(page).toHaveURL("/other");
+	});
+
+	test("throw notFound in page renders 404 page", async ({ page }) => {
+		await page.goto("/");
+		await page.getByText("[hydrated: 1]").click();
+		await page.getByTestId("link-throw-notfound-page").click();
+		await expect(page.getByText("404")).toBeVisible();
+		await expect(page.getByText("This page could not be found.")).toBeVisible();
+	});
+
+	test("throw notFound in layout renders 404 page", async ({ page }) => {
+		await page.goto("/");
+		await page.getByText("[hydrated: 1]").click();
+		await page.getByTestId("link-throw-notfound-layout").click();
+		await expect(page.getByText("404")).toBeVisible();
+		await expect(page.getByText("This page could not be found.")).toBeVisible();
+	});
+
+	test("layout state is preserved after client-side redirect", async ({ page }) => {
+		await page.goto("/");
+		await page.getByText("[hydrated: 1]").click();
+		const layoutCounter = page.getByTestId("client-counter").filter({ hasText: "Layout counter" });
+		await layoutCounter.getByRole("button", { name: "+" }).click();
+		await layoutCounter.getByText("Layout counter: 1").click();
+		await page.getByTestId("link-throw-redirect-page").click();
+		await expect(page).toHaveURL("/other");
+		await expect(layoutCounter.getByText("Layout counter: 1")).toBeVisible();
+	});
+});
+
 test.describe("deployment id @build", () => {
 	const docHeaders = { "sec-fetch-dest": "document" };
 
