@@ -3,6 +3,7 @@ import { createReadStream, statSync } from 'node:fs'
 import { Readable } from 'node:stream'
 import { resolve } from 'node:path'
 import {
+  getMimeType,
   ServeStaticOptions,
   serveStatic as baseServeStatic,
   staticMiddlewareSymbol,
@@ -23,6 +24,10 @@ export const serveStatic = (options: ServeStaticOptions): MiddlewareHandler => {
         'content-length': String(stats.size),
         'last-modified': stats.mtime.toUTCString(),
       })
+      const mimeType = getMimeType(path, options.mimes)
+      if (mimeType) {
+        headers.set('content-type', mimeType)
+      }
 
       if (c.request?.method === 'HEAD') {
         return new Response(null, { headers })
@@ -40,7 +45,7 @@ export const serveStatic = (options: ServeStaticOptions): MiddlewareHandler => {
   }
 
   const pathResolve = (path: string) => {
-    return resolve(root, path)
+    return resolve(path)
   }
 
   const isDir = (path: string) => {
