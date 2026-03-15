@@ -62,6 +62,9 @@
     "./src/*": {
       "default": "./src/*.ts"
     },
+    "./cloudflare-entrypoint": {
+      "default": "./dist/react/entry.rsc"
+    },
     "./dist/*": {
       "types": "./dist/*.d.ts",
       "default": "./dist/*.js"
