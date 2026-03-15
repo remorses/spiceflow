@@ -1,5 +1,11 @@
 # spiceflow
 
+## 1.18.0-rsc.6
+
+### Patch Changes
+
+1. **Fixed `app.listen()` running in Vite dev** — calling `app.listen(3000)` in your entry file no longer starts a real HTTP server during `vite dev`. Vite owns the server in dev mode; `listen()` is now a noop when `import.meta.hot` is defined and only starts the server in production.
+
 ## 1.18.0-rsc.5
 
 ### Patch Changes
