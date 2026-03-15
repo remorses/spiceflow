@@ -1753,17 +1753,7 @@ export class Spiceflow<
   }
 
   async listen(port: number, hostname: string = '0.0.0.0') {
-    // Delegates to the conditional export: in RSC env, loads SSR fetchHandler
-    // and starts the server with it. In plain API mode, starts with app.handle().
-    const { startServer } = await import('spiceflow/handle-listen')
-    return startServer(this, port, hostname)
-  }
-
-  async _startServer(
-    handler: (request: Request) => Promise<Response> | Response,
-    port: number,
-    hostname: string,
-  ) {
+    const handler = this.handle.bind(this)
     if (typeof Bun !== 'undefined') {
       const app = this
       const server = Bun.serve({
