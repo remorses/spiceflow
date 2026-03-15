@@ -1812,6 +1812,57 @@ export default defineConfig({
 })
 ```
 
+### Cloudflare RSC setup
+
+For Cloudflare Workers, keep the worker-specific SSR output and child environment wiring in Vite, then let your Worker default export delegate to `app.handle(request)`.
+
+```jsonc
+// wrangler.jsonc
+{
+  "main": "spiceflow/cloudflare-entrypoint"
+}
+```
+
+```ts
+// vite.config.ts
+import { cloudflare } from '@cloudflare/vite-plugin'
+import react from '@vitejs/plugin-react'
+import { defineConfig } from 'vite'
+import { spiceflowCloudflareViteConfig, spiceflowPlugin } from 'spiceflow/vite'
+
+export default defineConfig({
+  ...spiceflowCloudflareViteConfig(),
+  plugins: [
+    react(),
+    spiceflowPlugin({ entry: './app/main.tsx' }),
+    cloudflare({
+      viteEnvironment: {
+        name: 'rsc',
+        childEnvironments: ['ssr'],
+      },
+    }),
+  ],
+})
+```
+
+```tsx
+// app/main.tsx
+import { Spiceflow } from 'spiceflow'
+
+export const app = new Spiceflow()
+  .page('/', async () => {
+    return <div>Hello from Cloudflare RSC</div>
+  })
+
+export default {
+  fetch(request: Request) {
+    return app.handle(request)
+  },
+}
+```
+
+See [`cloudflare-example/`](cloudflare-example) for a complete working example.
+
 ### App Entry (Server Component)
 
 The entry file defines your routes using `.page()` for pages and `.layout()` for layouts. This file runs in the RSC environment on the server.
