@@ -1,10 +1,8 @@
-
 # package manager: pnpm with workspace
 
 This project uses pnpm workspaces to manage dependencies. Important scripts are in the root package.json or various packages package.json
 
 try to run commands inside the package folder that you are working on. for example you should never run `pnpm test` from the root
-
 
 # typescript
 
@@ -15,7 +13,6 @@ Always run `pnpm tsc --noEmit` from the package you changed after code edits, an
 do not add useless comments if the code is self descriptive. only add comments if requested or if this was a change that i asked for, meaning it is not obvious code and needs some inline documentation.
 
 try to use early returns and breaks, try nesting code as little as possible, follow the go best practice of if statements: avoid else, nest as little as possible, use top level ifs. minimize nesting.
-
 
 # testing
 
@@ -30,7 +27,6 @@ Try to use only describe and test in your tests. Do not use beforeAll, before, e
 Sometimes tests work directly on database data, using prisma. To run these tests you have to use the package.json script, which will call `doppler run -- vitest` or similar. Never run doppler cli yourself as you could delete or update production data. Tests generally use a staging database instead.
 
 Never write tests yourself that call prisma or interact with database or emails. For these asks the user to write them for you.
-
 
 # e2e testing (example-react)
 
@@ -75,16 +71,18 @@ This is the most common reason e2e tests fail after code changes — stale dist 
 
 - The base URL and port are defined at the top of `basic.test.ts`:
   ```ts
-  const port = Number(process.env.E2E_PORT || 6174);
-  const baseURL = `http://localhost:${port}`;
+  const port = Number(process.env.E2E_PORT || 6174)
+  const baseURL = `http://localhost:${port}`
   ```
 - Use `page.goto("/path")` for browser-based tests that need rendering, JS execution, or DOM interaction.
 - Use Node.js `fetch(baseURL + "/path")` directly (not `page.evaluate`) when you need to control HTTP headers like `Origin` — browsers restrict forbidden headers.
 - Use `page.getByTestId()`, `page.getByText()`, `page.getByRole()` for locators. Prefer test-ids for stability.
 - When a `data-testid` matches multiple elements (e.g. multiple counter components on a page), use `.filter({ hasText: "..." })` to disambiguate:
   ```ts
-  const clientCounter = page.getByTestId("client-counter").filter({ hasText: "Client counter" });
-  await clientCounter.getByRole("button", { name: "+" }).click();
+  const clientCounter = page
+    .getByTestId('client-counter')
+    .filter({ hasText: 'Client counter' })
+  await clientCounter.getByRole('button', { name: '+' }).click()
   ```
 - If a locator's text changes during the test (e.g. HMR edits), do NOT use it through a pre-filtered variable — query the page directly for the new text.
 
@@ -108,7 +106,6 @@ Client components used in tests should be created in `example-react/src/app/` wi
 - **Client HMR preserves state**: editing a client component triggers React Fast Refresh without a server re-render. Client state is preserved. Vite's SSR environment logs `page reload` internally but the browser does not actually reload — Fast Refresh handles it.
 - **Server HMR preserves server state**: editing a server component triggers RSC HMR. Server-side state (e.g. counters stored in module scope) is preserved. Client state is also preserved because no full page reload occurs.
 - The home page has a `serverRenderCount` counter (`data-testid="server-render-count"`) that increments on each RSC render. Use it in tests to verify whether a server re-render happened.
-
 
 # website
 
@@ -162,5 +159,12 @@ Changeset files should be plain `.md` files with this structure:
 ---
 
 markdown describing the changes you made, in present tense, like "add support for X" or "fix bug with Y". write a single concise paragraph, not bullet points or lists. include example code snippets if useful, and use proper markdown formatting.
-
 ```
+
+## vite-rsc
+
+the spiceflow vite plugin depends on vite-rsc plugin. you can read its source code with `opensrc vitejs/vite-plugin-react`. inside folder packages/plugin-rsc`. there are also examples there. inside examples folder
+
+we also try to work well with the cloudflare vite plugin. the source code of that is in `https://github.com/cloudflare/workers-sdk/blob/main/packages/vite-plugin-cloudflare`
+
+we have an example `cloudflare-example` that we can use to make sure pnpm dev, build, preview and deployment work well.
