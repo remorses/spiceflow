@@ -151,3 +151,86 @@ test('static response includes mime type headers', async () => {
     await rm(root, { recursive: true, force: true })
   }
 })
+
+test('decoded URI paths resolve to matching static files', async () => {
+  const root = await createStaticRoot({
+    '炎.txt': 'unicode file',
+  })
+
+  try {
+    const app = new Spiceflow().use(serveStatic({ root }))
+
+    const res = await app.handle(new Request('http://localhost/%E7%82%8E.txt'))
+
+    expect(res.status).toBe(200)
+    expect(res.headers.get('content-type')).toBe('text/plain; charset=utf-8')
+    expect(await res.text()).toMatchInlineSnapshot(`"unicode file"`)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('encoded backslash traversal falls through instead of serving files', async () => {
+  const root = await createStaticRoot({
+    'hello.txt': 'from static',
+  })
+
+  try {
+    const app = new Spiceflow()
+      .use(serveStatic({ root }))
+      .get('/*', () => ({ route: 'catch-all' }))
+
+    const res = await app.handle(
+      new Request('http://localhost/%2e%2e%5Chello.txt'),
+    )
+
+    expect(res.status).toBe(200)
+    expect(await res.json()).toMatchInlineSnapshot(`
+      {
+        "route": "catch-all",
+      }
+    `)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('onFound and onNotFound callbacks receive resolved asset paths', async () => {
+  const root = await createStaticRoot({
+    'hello.txt': 'from static',
+  })
+  const found: string[] = []
+  const missing: string[] = []
+
+  try {
+    const app = new Spiceflow()
+      .use(
+        serveStatic({
+          root,
+          onFound(path) {
+            found.push(path)
+          },
+          onNotFound(path) {
+            missing.push(path)
+          },
+        }),
+      )
+      .get('/*', () => ({ route: 'catch-all' }))
+
+    await app.handle(new Request('http://localhost/hello.txt'))
+    await app.handle(new Request('http://localhost/missing.txt'))
+
+    expect({ found, missing }).toMatchInlineSnapshot(`
+      {
+        "found": [
+          "${root}/hello.txt",
+        ],
+        "missing": [
+          "${root}/missing.txt",
+        ],
+      }
+    `)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
