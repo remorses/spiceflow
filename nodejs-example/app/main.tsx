@@ -35,6 +35,27 @@ export const app = new Spiceflow()
       </div>
     )
   })
+  .page('/about', async function About() {
+    return (
+      <div className="flex flex-col items-center gap-4 p-8 max-w-lg">
+        <h2 className="text-2xl font-bold">About</h2>
+        <p className="text-center text-gray-600 dark:text-gray-300">
+          This is a demo app built with{' '}
+          <a href="https://github.com/nicedoc/spiceflow" className="underline">
+            Spiceflow
+          </a>
+          , showcasing React Server Components with direct database queries from
+          the component tree.
+        </p>
+        <Link
+          href="/"
+          className="mt-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+        >
+          Back to home
+        </Link>
+      </div>
+    )
+  })
   .page('/pokemon/:id', async function PokemonDetails({ params: { id } }) {
     const rows = await sql`SELECT * FROM pokemon WHERE id = ${Number(id)}`
     const pokemon = rows[0]
@@ -166,4 +187,4 @@ function RootLayout({ children }: { children: React.ReactNode }) {
 }
 
 
-app.listen(3000)
+app.listen(Number(process.env.PORT || 3000))

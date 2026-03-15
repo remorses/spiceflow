@@ -6,7 +6,8 @@
     "dev": "dotenv -- vite dev",
     "start": "dotenv -- node dist/rsc/index.js",
     "seed": "dotenv -- bash -c 'psql \"$POSTGRES_URL\" -f sql/init.sql'",
-    "build": "dotenv -- vite build --app"
+    "build": "dotenv -- vite build --app",
+    "bench": "dotenv -- tsx bench.ts"
   },
   "dependencies": {
     "@fontsource/inter": "^4.5.15",
@@ -25,6 +26,8 @@
     "vite": "^8.0.0"
   },
   "devDependencies": {
-    "@vitejs/plugin-react": "^6.0.1"
+    "@hono/node-server": "^1.19.11",
+    "@vitejs/plugin-react": "^6.0.1",
+    "hono": "^4.12.8"
   }
 }
