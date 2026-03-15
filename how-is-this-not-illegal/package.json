@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "dotenv -- vite dev",
+    "start": "dotenv -- node dist/rsc/index.js",
     "seed": "dotenv -- bash -c 'psql \"$POSTGRES_URL\" -f sql/init.sql'",
     "build": "dotenv -- vite build --app"
   },

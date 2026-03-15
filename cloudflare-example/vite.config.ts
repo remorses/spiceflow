@@ -14,7 +14,10 @@ export default defineConfig({
   environments: {
     ssr: {
       build: {
-        // Build SSR inside RSC directory so wrangler can deploy self-contained dist/rsc
+        // SSR must live inside dist/rsc/ because workerd only bundles files within the
+        // Worker's directory. The RSC code loads SSR via import.meta.viteRsc.loadModule
+        // which resolves to a relative import "../ssr/index.js" — if SSR is at dist/ssr/
+        // (sibling), the Worker can't reach it at runtime.
         outDir: './dist/rsc/ssr',
       },
     },
