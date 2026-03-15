@@ -3,10 +3,17 @@
 // /static-page.html, /about (RSC page), and a Hono baseline.
 // Phase 2 re-runs the Spiceflow /about benchmark with --cpu-prof enabled.
 // Profile files are saved to tmp/cpu-profiles/ for analysis with profano.
+//
+// Usage:
+//   pnpm bench              # run with Node.js (default)
+//   pnpm bench -- --bun     # run with Bun
 
 import { execSync, spawn, type ChildProcess } from 'node:child_process'
 import { mkdirSync, existsSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
+
+const useBun = process.argv.includes('--bun')
+const RUNTIME = useBun ? 'bun' : 'node'
 
 const PORT = 3321
 const HONO_PORT = 3322
@@ -71,7 +78,34 @@ async function warmup(url: string, n = 20): Promise<void> {
   }
 }
 
+function startServer(env: Record<string, string>): ChildProcess {
+  return spawnProcess(RUNTIME, ['dist/rsc/index.js'], env)
+}
+
+function startProfiledServer(env: Record<string, string>): ChildProcess {
+  // Both Node and Bun only write --cpu-prof on clean process.exit().
+  // Inject a SIGUSR2 handler that calls process.exit(0) to trigger flush.
+  if (useBun) {
+    return spawnProcess('bun', [
+      '--cpu-prof',
+      '--cpu-prof-dir', PROFILE_DIR,
+      '-e',
+      `process.on("SIGUSR2", () => process.exit(0)); await import("./dist/rsc/index.js");`,
+    ], env)
+  }
+
+  return spawnProcess('node', [
+    '--cpu-prof',
+    '--cpu-prof-dir', PROFILE_DIR,
+    '--input-type=module',
+    '-e',
+    `process.on("SIGUSR2", () => process.exit(0)); await import("./dist/rsc/index.js");`,
+  ], env)
+}
+
 async function main() {
+  console.log(`Runtime: ${RUNTIME}\n`)
+
   // 1. Build
   console.log('Building app...')
   execSync('pnpm build', {
@@ -84,12 +118,10 @@ async function main() {
   //  Phase 1: Benchmark all endpoints (no profiling)
   // =============================================
   console.log('\n========================================')
-  console.log('  Phase 1: Benchmark (no profiling)')
+  console.log(`  Phase 1: Benchmark with ${RUNTIME} (no profiling)`)
   console.log('========================================')
 
-  // Start Spiceflow server
-  const server = spawnProcess('node', ['dist/rsc/index.js'], { PORT: String(PORT) })
-  // Start Hono baseline
+  const server = startServer({ PORT: String(PORT) })
   const hono = spawnProcess('tsx', ['hono-baseline.ts'], { HONO_PORT: String(HONO_PORT) })
 
   try {
@@ -99,15 +131,13 @@ async function main() {
     ])
     console.log('Both servers ready.\n')
 
-    // Warmup both
     await warmup(`${BASE}/about`)
     await warmup(`${BASE}/static-page.html`)
     await warmup(`${HONO_BASE}/about`)
 
-    // Benchmark
     runBombardier(`${HONO_BASE}/about`, 'Hono baseline /about (plain HTML)')
-    runBombardier(`${BASE}/static-page.html`, 'Spiceflow static /static-page.html')
-    runBombardier(`${BASE}/about`, 'Spiceflow RSC /about')
+    runBombardier(`${BASE}/static-page.html`, `Spiceflow static /static-page.html (${RUNTIME})`)
+    runBombardier(`${BASE}/about`, `Spiceflow RSC /about (${RUNTIME})`)
   } finally {
     await Promise.all([stopProcess(server), stopProcess(hono)])
   }
@@ -116,7 +146,7 @@ async function main() {
   //  Phase 2: Spiceflow /about with --cpu-prof
   // =============================================
   console.log('\n========================================')
-  console.log('  Phase 2: Spiceflow /about with --cpu-prof')
+  console.log(`  Phase 2: Spiceflow /about with --cpu-prof (${RUNTIME})`)
   console.log('========================================')
 
   if (existsSync(PROFILE_DIR)) {
@@ -124,25 +154,20 @@ async function main() {
   }
   mkdirSync(PROFILE_DIR, { recursive: true })
 
-  const profServer = spawnProcess('node', [
-    '--cpu-prof',
-    '--cpu-prof-dir', PROFILE_DIR,
-    '--input-type=module',
-    '-e',
-    `process.on("SIGUSR2", () => process.exit(0)); await import("./dist/rsc/index.js");`,
-  ], { PORT: String(PORT) })
+  const profServer = startProfiledServer({ PORT: String(PORT) })
 
   try {
     await waitForServer(`${BASE}/about`)
     console.log('Server ready.\n')
     await warmup(`${BASE}/about`, 10)
-    runBombardier(`${BASE}/about`, 'Spiceflow RSC /about (profiled)')
+    runBombardier(`${BASE}/about`, `Spiceflow RSC /about (${RUNTIME}, profiled)`)
   } finally {
+    // Both runtimes use SIGUSR2 handler to trigger process.exit(0) for profile flush
     await stopProcess(profServer, 'SIGUSR2')
   }
 
   console.log(`\nProfile files saved in: ${PROFILE_DIR}`)
-  console.log('Analyze with: node /Users/morse/Documents/GitHub/kimakivoice/profano/dist/cli.js tmp/cpu-profiles/*.cpuprofile -n 40')
+  console.log('Analyze with: profano tmp/cpu-profiles/*.cpuprofile -n 40')
 }
 
 main().catch((err) => {
