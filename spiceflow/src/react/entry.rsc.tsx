@@ -1,16 +1,14 @@
-// RSC environment entry point. Runs under react-server conditions.
-// Imports the user's app via virtual:app-entry and exposes a fetch handler.
-// Re-exports the user's default export (e.g. Cloudflare Worker { fetch } entry).
+// RSC environment entry point. Re-exports the user app entry and lets
+// `app.handle()` own the Flight -> HTML bridge in react-server mode.
 import { app } from 'virtual:app-entry'
 export * from 'virtual:app-entry'
 import * as entry from 'virtual:app-entry'
 
 export async function handler(request: Request) {
-  const response = await app.handle(request)
-  return response
+  return app.handle(request)
 }
 
-export default entry.default
+export default entry.default ?? { fetch: handler }
 
 // Self-accept HMR so server code changes trigger an efficient RSC stream
 // re-render instead of a full page reload.

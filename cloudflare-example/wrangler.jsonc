@@ -1,9 +1,7 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "spiceflow-cloudflare-example-1",
-  // Points to spiceflow's RSC entry which re-exports the user's default export
-  // (the Worker { fetch } handler from main.tsx) via virtual:app-entry.
-  // The Cloudflare Vite plugin uses this as the RSC environment entry at build time.
+  // Spiceflow's RSC entry re-exports the user Worker default export.
   "main": "spiceflow/cloudflare-entrypoint",
   "compatibility_date": "2026-03-15",
   "compatibility_flags": ["nodejs_compat"],

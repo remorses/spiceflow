@@ -1410,8 +1410,6 @@ export class Spiceflow<
       }
       let response = await next()
 
-      // In RSC environment, forward document requests through SSR to produce HTML.
-      // renderSsr is non-null only in the react-server env (via conditional package exports).
       if (
         renderSsr &&
         !isRscRequest(u) &&

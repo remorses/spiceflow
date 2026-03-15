@@ -4,7 +4,7 @@ import { spiceflowCloudflareViteConfig, spiceflowPlugin } from 'spiceflow/vite'
 import tailwindcss from '@tailwindcss/vite'
 import { defineConfig } from 'vite'
 
-export default defineConfig(({ command }) => ({
+export default defineConfig(() => ({
   ...spiceflowCloudflareViteConfig(),
   clearScreen: false,
   plugins: [
@@ -16,9 +16,8 @@ export default defineConfig(({ command }) => ({
     cloudflare({
       viteEnvironment: {
         name: 'rsc',
-        // Dev needs `ssr` on the main Vite process for `loadModuleDevProxy`.
-        // Build/preview need a child worker env so `ssr/index.js` is workerd-compatible.
-        childEnvironments: command === 'build' ? ['ssr'] : undefined,
+        // Keep dev, preview, and deploy on the same worker child-env shape.
+        childEnvironments: ['ssr'],
       },
     }),
   ],

@@ -5,11 +5,12 @@ import { createRequire } from 'node:module'
 import path from 'node:path'
 import url from 'node:url'
 
-import rsc from '@vitejs/plugin-rsc'
+import rsc, { RscPluginOptions } from '@vitejs/plugin-rsc'
 import {
   type Plugin,
   type PluginOption,
   type RunnableDevEnvironment,
+  type UserConfig,
   type ViteDevServer,
 } from 'vite'
 import { prerenderPlugin } from './react/prerender.js'
@@ -48,24 +49,25 @@ export function spiceflowPlugin({
   let server: ViteDevServer
   let resolvedOutDir = 'dist'
   let isCloudflareRuntime = false
+  const rscOptions: RscPluginOptions = {
+    entries: {
+      rsc: 'spiceflow/dist/react/entry.rsc',
+      ssr: 'spiceflow/dist/react/entry.ssr',
+      client: 'spiceflow/dist/react/entry.client',
+    },
+    serverHandler: false as const,
+    loadModuleDevProxy: true,
+
+    // Stable encryption key for server action closure args. Without this the key changes on
+    // every build/restart, breaking action calls from stale client bundles after a deploy.
+    defineEncryptionKey: 'process.env.RSC_ENCRYPTION_KEY',
+    // Catch invalid cross-environment imports at build time (e.g. importing a server-only
+    // module from a client component) instead of failing at runtime.
+    validateImports: true,
+  }
 
   return [
-    rsc({
-      entries: {
-        rsc: 'spiceflow/dist/react/entry.rsc',
-        ssr: 'spiceflow/dist/react/entry.ssr',
-        client: 'spiceflow/dist/react/entry.client',
-      },
-      serverHandler: false,
-      loadModuleDevProxy: true,
-
-      // Stable encryption key for server action closure args. Without this the key changes on
-      // every build/restart, breaking action calls from stale client bundles after a deploy.
-      defineEncryptionKey: 'process.env.RSC_ENCRYPTION_KEY',
-      // Catch invalid cross-environment imports at build time (e.g. importing a server-only
-      // module from a client component) instead of failing at runtime.
-      validateImports: true,
-    }),
+    rsc(rscOptions),
     prerenderPlugin(),
 
     // Rewrite optimizeDeps entries so @vitejs/plugin-rsc vendor CJS files
@@ -95,10 +97,18 @@ export function spiceflowPlugin({
       },
     },
 
+
+
     {
       name: 'spiceflow:config',
       config(userConfig) {
         const userOnWarn = userConfig.build?.rollupOptions?.onwarn
+        if (hasPluginNamed(userConfig.plugins, 'vite-plugin-cloudflare')) {
+          // Cloudflare child environments already expose worker-side module imports.
+          // Using plugin-rsc's Node dev proxy here makes child `ssr` call
+          // `.runner.import(...)` on a non-runnable CloudflareDevEnvironment.
+          rscOptions.loadModuleDevProxy = false
+        }
         return {
           build: {
             rollupOptions: {
@@ -224,6 +234,26 @@ export function spiceflowPlugin({
     }),
 
   ]
+}
+
+function hasPluginNamed(
+  plugins: UserConfig['plugins'],
+  pluginName: string,
+): boolean {
+  if (!plugins) return false
+
+  for (const plugin of plugins) {
+    if (!plugin) continue
+    if (Array.isArray(plugin)) {
+      if (hasPluginNamed(plugin, pluginName)) return true
+      continue
+    }
+    if ('name' in plugin && plugin.name === pluginName) {
+      return true
+    }
+  }
+
+  return false
 }
 
 function createVirtualPlugin(name: string, load: Plugin['load']): Plugin {

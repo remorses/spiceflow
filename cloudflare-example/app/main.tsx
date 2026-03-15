@@ -1,6 +1,5 @@
 // Spiceflow RSC app on Cloudflare Workers with KV.
-// The default export is the Worker entry point — app.handle() returns HTML
-// for document requests via conditional package exports (react-server → SSR bridge).
+// Custom Worker default exports can still call `app.handle(request)` directly.
 import './globals.css'
 import { Spiceflow } from 'spiceflow'
 import { Suspense } from 'react'
@@ -160,8 +159,6 @@ function RootLayout({ children }: { children: React.ReactNode }) {
   )
 }
 
-
-// Worker default export — user controls the entry, framework stays runtime-agnostic
 export default {
   async fetch(request: Request) {
     return app.handle(request)
