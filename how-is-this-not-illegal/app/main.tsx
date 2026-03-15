@@ -4,8 +4,11 @@ import { Suspense } from 'react'
 import { Link, ProgressBar } from 'spiceflow/react'
 
 import { sql } from './db'
+import { serveStatic } from 'spiceflow'
 
-const app = new Spiceflow()
+export const app = new Spiceflow()
+  .use(serveStatic({ root: './public' }))
+  .use(serveStatic({ root: './dist/client' })) // required to serve vite built static files
   .layout('/*', async ({ children }) => {
     return (
       <RootLayout>
@@ -162,4 +165,5 @@ function RootLayout({ children }: { children: React.ReactNode }) {
   )
 }
 
-export default app
+
+app.listen(3000)
