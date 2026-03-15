@@ -1,4 +1,5 @@
 import { SpiceflowRequest, WaitUntil, Method } from './spiceflow.js'
+import { serveStatic } from './static-node.ts'
 import type { MiddlewareHandler } from './types.ts'
 
 export { Spiceflow, createSafePath } from './spiceflow.ts'
@@ -12,3 +13,4 @@ class Response extends globalThis.Response {}
 export { Response }
 export { SpiceflowRequest }
 export type { MiddlewareHandler }
+export { serveStatic }
