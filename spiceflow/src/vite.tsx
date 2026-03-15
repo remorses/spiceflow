@@ -76,6 +76,31 @@ export function spiceflowPlugin({
 
     {
       name: 'spiceflow:config',
+      config(userConfig) {
+        const userOnWarn = userConfig.build?.rollupOptions?.onwarn
+        return {
+          build: {
+            rollupOptions: {
+              onwarn(warning, defaultHandler) {
+                // Suppress IMPORT_IS_UNDEFINED for virtual:app-entry — it uses
+                // `import * as entry` + re-export which Rollup can't statically verify,
+                // but the runtime check (`if (!entry.app) throw ...`) already covers it.
+                if (
+                  warning.code === 'IMPORT_IS_UNDEFINED' &&
+                  warning.id?.includes('\0virtual:app-entry')
+                ) {
+                  return
+                }
+                if (userOnWarn) {
+                  userOnWarn(warning, defaultHandler)
+                } else {
+                  defaultHandler(warning)
+                }
+              },
+            },
+          },
+        }
+      },
       configResolved(config) {
         resolvedOutDir = config.build.outDir
       },
