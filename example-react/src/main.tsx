@@ -1,6 +1,6 @@
 import { Suspense, useActionState } from "react";
 
-import { Spiceflow } from "spiceflow";
+import { Spiceflow, serveStatic } from "spiceflow";
 import { IndexPage } from "./app/index";
 import { getCounter } from "./app/action";
 import { Layout } from "./app/layout";
@@ -30,6 +30,8 @@ import { ScrollTestPage } from "./app/scroll-test";
 let serverRenderCount = 0;
 
 export const app = new Spiceflow()
+	.use(serveStatic({ root: "./public" }))
+	.use(serveStatic({ root: "./dist/client" })) // required to serve vite built static files
 	.state("middleware1", "")
 	.use(async ({ request, state }, next) => {
 		state.middleware1 = "state set by middleware1";

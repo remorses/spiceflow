@@ -1820,13 +1820,15 @@ All routes registered with `.page()`, `.get()`, etc. are available in `app.safeP
 
 ```tsx
 // src/main.tsx
-import { Spiceflow } from 'spiceflow'
+import { Spiceflow, serveStatic } from 'spiceflow'
 import { Link } from 'spiceflow/react'
 import { z } from 'zod'
 import { Counter } from './app/counter'
 import { Nav } from './app/nav'
 
 export const app = new Spiceflow()
+  .use(serveStatic({ root: './public' }))
+  .use(serveStatic({ root: './dist/client' })) // required to serve vite built static files
   .layout('/*', async ({ children }) => {
     return (
       <html>
