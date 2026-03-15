@@ -13,6 +13,10 @@ export type ServeStaticOptions<E extends Env = Env> = {
   rewriteRequestPath?: (path: string) => string
   onFound?: (path: string, c: Context<E>) => void | Promise<void>
   onNotFound?: (path: string, c: Context<E>) => void | Promise<void>
+  /** Disable stat result caching. When false (default), filesystem lookups are
+   * cached after the first access so repeated requests to the same path skip
+   * syscalls entirely. Set to true in environments where files change at runtime. */
+  noCache?: boolean
 }
 
 const DEFAULT_DOCUMENT = 'index.html'
