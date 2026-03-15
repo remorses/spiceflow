@@ -52,12 +52,10 @@ export async function renderHtml({
   request: Request
   response: Response
 }) {
-  // Three-way split of the RSC flight stream:
-  // - flightForFormState: decoded eagerly to extract formState for renderToReadableStream options
-  // - flightForSsr: decoded lazily inside SsrRoot so React's preinit/preloading context is active
+  // Two-way split of the RSC flight stream:
+  // - flightForSsr: decoded once, used for both formState extraction and SSR rendering
   // - flightStream2: injected raw into HTML as <script> tags for client hydration
-  const [flightForSsrAndForm, flightStream2] = response.body!.tee()
-  const [flightForFormState, flightForSsr] = flightForSsrAndForm.tee()
+  const [flightForSsr, flightStream2] = response.body!.tee()
 
   let baseUrl = new URL('/', request.url).href
   if (baseUrl.endsWith('/')) {
@@ -67,15 +65,15 @@ export async function renderHtml({
 
   const bootstrapScriptContent = await loadBootstrapScriptContent()
 
-  // Lazy init inside component so React's preinit/preloading context is active.
-  // Must be called inside ReactDOMServer context for preinit/preloading behavior.
-  let payloadPromise: Promise<ServerPayload> | undefined
+  // Single deserialization: create the payload promise once, reuse for both
+  // formState extraction (awaited eagerly) and SSR rendering (React.use inside component).
+  const payloadPromise = createFromReadableStream<ServerPayload>(flightForSsr)
+
   function SsrRoot() {
-    payloadPromise ??= createFromReadableStream<ServerPayload>(flightForSsr)
-    const payload = React.use(payloadPromise!)
+    const payload = React.use(payloadPromise)
     return (
       <MetaProvider metaState={metaState}>
-        <FlightDataContext.Provider value={payloadPromise!}>
+        <FlightDataContext.Provider value={payloadPromise}>
           <LayoutContent />
         </FlightDataContext.Provider>
       </MetaProvider>
@@ -87,12 +85,11 @@ export async function renderHtml({
   let status = response.status
 
   try {
-    // Extract formState from a separate stream copy so SsrRoot's lazy init is the actual first call
-    const formStatePayload = await createFromReadableStream<ServerPayload>(flightForFormState)
+    const payload = await payloadPromise
     htmlStream = await ReactDOMServer.renderToReadableStream(<SsrRoot />, {
       bootstrapScriptContent,
       signal: request.signal,
-      formState: formStatePayload.formState,
+      formState: payload.formState,
       onError(e) {
         console.error('[entry.ssr.tsx:renderToReadableStream]', e)
         if (e && typeof e === 'object') {

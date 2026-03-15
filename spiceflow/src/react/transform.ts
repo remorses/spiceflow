@@ -18,21 +18,25 @@ export function injectRSCPayload({
   let startedRSC = false
   let addedHead = false
 
-  // Buffer all HTML chunks enqueued during the current tick of the event loop (roughly)
-  // and write them to the output stream all at once. This ensures that we don't generate
-  // invalid HTML by injecting RSC in between two partial chunks of HTML.
+  // Buffer all HTML chunks enqueued during the current tick of the event loop
+  // and write them to the output stream all at once. This ensures that we don't
+  // generate invalid HTML by injecting RSC in between two partial chunks of HTML.
+  // Uses setImmediate (fires after I/O, before timers) instead of setTimeout(0)
+  // which has a minimum ~1ms delay on Node.js.
   let buffered: Uint8Array[] = []
-  let timeout: ReturnType<typeof setTimeout> | null = null
+  let scheduled = false
+  const schedule = typeof setImmediate === 'function'
+    ? (fn: () => void) => setImmediate(fn)
+    : (fn: () => void) => setTimeout(fn, 0)
+
   function flushBufferedChunks(
     controller: TransformStreamDefaultController<Uint8Array>,
   ) {
     for (let chunk of buffered) {
       let buf = decoder.decode(chunk)
-      // TODO this relies on html document not having a newline after </body>, can easily break? but react dom currently returns it always together so it's fine?
       if (buf.endsWith(trailerBody)) {
         buf = buf.slice(0, -trailerBody.length)
       }
-      // TODO what if the user includes </head> in the html document content?
       if (!addedHead && appendToHead && buf.includes('</head>')) {
         buf = buf.replace('</head>', appendToHead + '\n</head>')
         addedHead = true
@@ -41,17 +45,16 @@ export function injectRSCPayload({
     }
 
     buffered.length = 0
-    timeout = null
+    scheduled = false
   }
 
   return new TransformStream<Uint8Array, Uint8Array>({
     transform(chunk, controller) {
       buffered.push(chunk)
-      if (timeout) {
-        return
-      }
+      if (scheduled) return
 
-      timeout = setTimeout(async () => {
+      scheduled = true
+      schedule(async () => {
         flushBufferedChunks(controller)
         if (!startedRSC) {
           startedRSC = true
@@ -59,12 +62,11 @@ export function injectRSCPayload({
             .catch((err) => controller.error(err))
             .then(() => resolveFlightDataPromise())
         }
-      }, 0)
+      })
     },
     async flush(controller) {
       await flightDataPromise
-      if (timeout) {
-        clearTimeout(timeout)
+      if (scheduled) {
         flushBufferedChunks(controller)
       }
       controller.enqueue(encoder.encode('</body></html>'))
