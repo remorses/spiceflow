@@ -1,5 +1,50 @@
 # spiceflow
 
+## 1.18.0-rsc.4
+
+### Patch Changes
+
+1. **Export `router` from `spiceflow/react`** — client-side navigation singleton with `push`, `replace`, `back`, `forward`, `refresh`, `pathname`, and `subscribe`. No hooks needed:
+
+   ```ts
+   import { router } from 'spiceflow/react'
+
+   router.push('/dashboard')
+   router.refresh()
+   console.log(router.pathname)
+
+   const unsub = router.subscribe(() => {
+     console.log('navigated to', router.pathname)
+   })
+   ```
+
+2. **Object-style `.page()` with query schema support** — pass options as an object and declare typed query params via a Zod schema. Unknown keys are rejected by TypeScript when a schema is present:
+
+   ```ts
+   app.page({
+     path: '/search',
+     query: z.object({ q: z.string(), page: z.number().optional() }),
+     handler: ({ query }) => <SearchPage q={query.q} />,
+   })
+   ```
+
+3. **`safePath` for `.page()` and `.staticPage()` routes** — path params and query params merge into a single flat object. Path param keys are substituted, remaining keys become query string parameters:
+
+   ```ts
+   app.safePath('/users/:id', { id: '42', fields: 'name' })
+   // '/users/42?fields=name'
+   ```
+
+4. **Deployment skew protection** — RSC navigations and server actions now detect stale tabs hitting newer deployments. The deployment ID is derived from the Vite client bootstrap and stored in a secure cookie; stale tabs trigger a hard document navigation instead of a broken RSC fetch.
+
+5. **Fixed Cloudflare Vite RSC dev and deploy** — `app.handle()` now owns the Flight→HTML bridge, so Cloudflare can run `rsc` and `ssr` workers in the same worker graph during dev while user-defined Worker default exports just call `app.handle(request)`. `spiceflowCloudflareViteConfig()` still places the SSR build in `dist/rsc/ssr` for preview and deploy.
+
+6. **Fixed `Head` SSR metadata override rules** — nested pages now override layout defaults by metadata identity instead of only removing exact duplicates. Absolute URL rewriting is narrowed to URL-valued social metadata (`og:image`, `og:url`, `twitter:image`). Nested `Head` children such as fragments continue to work during SSR.
+
+7. **Fixed `serveStatic()` on Node** — directory requests no longer throw `EISDIR`. Exact file matches are served before directory indexes. Concrete routes win over static assets, while static assets still beat root `/*` fallback routes.
+
+8. **Refactored `ScrollRestoration`** — navigation and scroll state are now derived from a bounded router event log instead of mirrored module globals, making refresh detection and scroll position restoration reproducible across RSC navigations.
+
 ## 1.18.0-rsc.3
 
 ### Patch Changes
