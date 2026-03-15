@@ -661,10 +661,10 @@ type _CreateClient<
   Property extends Record<string, unknown> = {},
 > = Path extends `${infer Start}/${infer Rest}`
   ? {
-      [x in Start]: _CreateClient<Rest, Property>
+      [x in Start extends '' ? 'index' : Start]: _CreateClient<Rest, Property>
     }
   : {
-      [x in Path]: Property
+      [x in Path extends '' ? 'index' : Path]: Property
     }
 
 export type CreateClient<
@@ -672,9 +672,7 @@ export type CreateClient<
   Property extends Record<string, unknown> = {},
 > = Path extends `/${infer Rest}`
   ? _CreateClient<Rest, Property>
-  : Path extends ''
-    ? _CreateClient<'index', Property>
-    : _CreateClient<Path, Property>
+  : _CreateClient<Path, Property>
 
 export type ComposeSpiceflowResponse<Response, Handle> = Handle extends (
   ...a: any[]
