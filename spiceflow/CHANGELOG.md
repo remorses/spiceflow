@@ -1,5 +1,13 @@
 # spiceflow
 
+## 1.18.0-rsc.5
+
+### Patch Changes
+
+1. **Fixed duplicate React context crash** — in dev mode, Vite's dep optimizer was bundling spiceflow's `context.js` and `components.js` into `.vite/deps/` while RSC client references loaded the same files raw from `node_modules`, creating two separate `FlightDataContext` instances. The Provider used one copy and `LayoutContent` used the other, so `useContext` returned `undefined` and React threw `An unsupported type was passed to use(): undefined`. Fixed by excluding `spiceflow` from `optimizeDeps` in the client environment.
+
+2. **Clearer error when RSC context is missing** — instead of the cryptic React error, `useFlightData` now throws a descriptive message pointing to the module duplication root cause.
+
 ## 1.18.0-rsc.4
 
 ### Patch Changes

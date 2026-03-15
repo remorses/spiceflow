@@ -1,6 +1,6 @@
 {
   "name": "spiceflow",
-  "version": "1.18.0-rsc.4",
+  "version": "1.18.0-rsc.5",
   "description": "Simple API framework with RPC and type safety",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
