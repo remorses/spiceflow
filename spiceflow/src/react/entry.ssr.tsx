@@ -43,7 +43,7 @@ export async function fetchHandler(request: Request) {
   }
 }
 
-async function renderHtml({
+export async function renderHtml({
   response,
   request,
   prerender,
@@ -191,18 +191,4 @@ export async function getPrerenderRoutes() {
     .filter((x) => x.method === 'GET')
 }
 
-// In production, if the user called .listen() in their entry, start the server.
-// In dev, Vite owns the server so this is a noop.
-async function maybeStartServer() {
-  try {
-    if (import.meta.env?.DEV) return
-  } catch {}
 
-  const rscEntry = await importRscEnvironment()
-  const app = rscEntry.app
-  if (!app._listenPort) return
-
-  await app._startServer(fetchHandler, app._listenPort, app._listenHostname)
-}
-
-maybeStartServer()

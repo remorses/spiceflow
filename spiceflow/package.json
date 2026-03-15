@@ -51,6 +51,14 @@
       "types": "./dist/openapi.d.ts",
       "default": "./dist/openapi.js"
     },
+    "./handle-ssr": {
+      "react-server": "./dist/react/handle-ssr.rsc.js",
+      "default": "./dist/react/handle-ssr.js"
+    },
+    "./handle-listen": {
+      "react-server": "./dist/react/handle-listen.rsc.js",
+      "default": "./dist/react/handle-listen.js"
+    },
     "./src/*": {
       "default": "./src/*.ts"
     },

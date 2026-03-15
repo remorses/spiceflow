@@ -63,6 +63,7 @@ import { Result } from './trie-router/utils.js'
 import { StandardSchemaV1 } from '@standard-schema/spec'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { handleForNode, listenForNode } from './_node-server.js'
+import { renderSsr } from 'spiceflow/handle-ssr'
 import { SpiceflowContext, MiddlewareContext } from './context.js'
 
 let globalIndex = 0
@@ -1406,7 +1407,17 @@ export class Spiceflow<
           return await next()
         }
       }
-      const response = await next()
+      let response = await next()
+
+      // In RSC environment, forward document requests through SSR to produce HTML.
+      // renderSsr is non-null only in the react-server env (via conditional package exports).
+      if (
+        renderSsr &&
+        !isRscRequest(u) &&
+        response.headers.get('content-type')?.startsWith('text/x-component')
+      ) {
+        response = await renderSsr(response, request)
+      }
 
       return finalizeResponse({
         response,
@@ -1735,28 +1746,11 @@ export class Spiceflow<
     return appsInScope
   }
 
-  // Port/hostname set by .listen(). In React/RSC mode, the SSR entry reads
-  // these and starts the actual server. In plain API mode, .listen() starts directly.
-  _listenPort?: number
-  _listenHostname?: string
-
   async listen(port: number, hostname: string = '0.0.0.0') {
-    this._listenPort = port
-    this._listenHostname = hostname
-
-    // Noop inside Vite dev/preview — Vite owns the server
-    try {
-      if (import.meta.env?.DEV) return
-    } catch {}
-
-    // In React/RSC mode, just store the config and return.
-    // The SSR entry starts the server because it has direct access to fetchHandler.
-    try {
-      if (import.meta.env?.SPICEFLOW_RSC) return
-    } catch {}
-
-    // Plain API mode (no React) — start the server directly
-    return this._startServer((request) => this.handle(request), port, hostname)
+    // Delegates to the conditional export: in RSC env, loads SSR fetchHandler
+    // and starts the server with it. In plain API mode, starts with app.handle().
+    const { startServer } = await import('spiceflow/handle-listen')
+    return startServer(this, port, hostname)
   }
 
   async _startServer(

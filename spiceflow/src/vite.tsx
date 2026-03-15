@@ -80,14 +80,17 @@ export function spiceflowPlugin({
         resolvedOutDir = config.build.outDir
       },
     },
-    // Inject environment markers so .listen() can detect RSC vs SSR at build time
+    // Ensure Vite processes spiceflow (not externalized) so conditional package.json
+    // exports (react-server vs default) resolve correctly at build time.
     {
-      name: 'spiceflow:env-defines',
+      name: 'spiceflow:no-external',
       configEnvironment(name, config) {
-        if (name === 'rsc') {
-          config.define = { ...config.define, 'import.meta.env.SPICEFLOW_RSC': 'true' }
-        } else if (name === 'ssr') {
-          config.define = { ...config.define, 'import.meta.env.SPICEFLOW_SSR': 'true' }
+        if (name === 'rsc' || name === 'ssr') {
+          config.resolve ??= {}
+          const existing = config.resolve.noExternal
+          if (existing === true) return
+          const arr = Array.isArray(existing) ? existing : existing ? [existing] : []
+          config.resolve.noExternal = [...arr, 'spiceflow']
         }
       },
     },
@@ -155,11 +158,13 @@ export function spiceflowPlugin({
     }),
 
     // virtual:app-entry — resolves to user's app entry module.
+    // Re-exports `app` (named) and `default` (for Cloudflare Workers default export).
     createVirtualPlugin('app-entry', () => {
       return [
         `import * as entry from '${url.pathToFileURL(path.resolve(entry))}'`,
         `if (!entry.app) throw new Error('[spiceflow] Your entry file must export a Spiceflow instance as "app". Example:\\n\\n  export const app = new Spiceflow()\\n    .page("/", async () => <Home />)\\n    .listen(3000)\\n')`,
         `export const app = entry.app`,
+        `export default entry.default`,
       ].join('\n')
     }),
 
