@@ -10,12 +10,15 @@ export const FlightDataContext = React.createContext<Promise<ServerPayload>>(
 export function useFlightData() {
   const c = React.useContext(FlightDataContext)
 
-  const payload = React.use(c)
-  let root = payload?.root
-  if (!root) {
-    console.log('root not found', payload)
+  if (!c) {
+    throw new Error(
+      '[spiceflow] FlightDataContext is missing. This usually means the ' +
+      'spiceflow module was loaded twice (e.g. one copy bundled by Vite dep ' +
+      'optimizer and another loaded raw from node_modules). Make sure ' +
+      '"spiceflow" is in optimizeDeps.exclude for the client environment.',
+    )
   }
-  return root
 
-  // return React.useContext(FlightDataContext)
+  const payload = React.use(c)
+  return payload?.root
 }

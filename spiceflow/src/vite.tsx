@@ -141,6 +141,12 @@ export function spiceflowPlugin({
     },
     // Ensure Vite processes spiceflow (not externalized) so conditional package.json
     // exports (react-server vs default) resolve correctly at build time.
+    // Also exclude spiceflow from client dep optimization so that RSC client references
+    // (loaded via client-in-server-package-proxy from raw node_modules) share the same
+    // module instances as the entry.client imports. Without this, the dep optimizer
+    // bundles spiceflow's context/components into .vite/deps/ while RSC client refs
+    // load the raw files, creating duplicate React contexts where the Provider and
+    // consumer see different instances.
     {
       name: 'spiceflow:no-external',
       configEnvironment(name, config) {
@@ -150,6 +156,13 @@ export function spiceflowPlugin({
           if (existing === true) return
           const arr = Array.isArray(existing) ? existing : existing ? [existing] : []
           config.resolve.noExternal = [...arr, 'spiceflow']
+        }
+        if (name === 'client') {
+          config.optimizeDeps ??= {}
+          config.optimizeDeps.exclude ??= []
+          if (!config.optimizeDeps.exclude.includes('spiceflow')) {
+            config.optimizeDeps.exclude.push('spiceflow')
+          }
         }
       },
     },
