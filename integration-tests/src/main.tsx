@@ -92,10 +92,16 @@ export const app = new Spiceflow()
 	.page("/throw-redirect-in-layout", async () => {
 		return <div>should not render</div>;
 	})
+	.page("/throw-redirect-in-layout/nested", async () => {
+		return <div>should not render</div>;
+	})
 	.layout("/throw-notfound-in-layout/*", async ({ children }) => {
 		throw notFound();
 	})
 	.page("/throw-notfound-in-layout", async () => {
+		return <div>should not render</div>;
+	})
+	.page("/throw-notfound-in-layout/nested", async () => {
 		return <div>should not render</div>;
 	})
 	// dedicated pages for client-side navigation tests — separate from the existing

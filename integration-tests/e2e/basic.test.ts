@@ -413,6 +413,19 @@ test.describe("throw response status codes", () => {
 		expect(response.headers.get("location")).toBe("/other");
 	});
 
+	test("throw redirect in layout child route returns 307", async () => {
+		const response = await fetch(`${baseURL}/throw-redirect-in-layout/nested`, {
+			redirect: "manual",
+		});
+		expect(response.status).toBe(307);
+		expect(response.headers.get("location")).toBe("/other");
+	});
+
+	test("throw notFound in layout child route returns 404", async () => {
+		const response = await fetch(`${baseURL}/throw-notfound-in-layout/nested`);
+		expect(response.status).toBe(404);
+	});
+
 	test("throw notFound in page returns 404", async () => {
 		const response = await fetch(`${baseURL}/throw-notfound-in-page`);
 		expect(response.status).toBe(404);
@@ -453,29 +466,42 @@ test.describe("client-side navigation with throw response", () => {
 		await expect(page).toHaveURL("/other");
 	});
 
-	test("throw notFound in page renders 404 page", async ({ page }) => {
+	test("throw notFound in page renders 404 page and preserves URL", async ({ page }) => {
 		await page.goto("/");
 		await page.getByText("[hydrated: 1]").click();
 		await page.getByTestId("link-throw-notfound-page").click();
 		await expect(page.getByText("404")).toBeVisible();
 		await expect(page.getByText("This page could not be found.")).toBeVisible();
+		await expect(page).toHaveURL("/throw-notfound-in-page");
 	});
 
-	test("throw notFound in layout renders 404 page", async ({ page }) => {
+	test("throw notFound in layout renders 404 page and preserves URL", async ({ page }) => {
 		await page.goto("/");
 		await page.getByText("[hydrated: 1]").click();
 		await page.getByTestId("link-throw-notfound-layout").click();
 		await expect(page.getByText("404")).toBeVisible();
 		await expect(page.getByText("This page could not be found.")).toBeVisible();
+		await expect(page).toHaveURL("/throw-notfound-in-layout");
 	});
 
-	test("layout state is preserved after client-side redirect", async ({ page }) => {
+	test("layout state is preserved after client-side redirect from page", async ({ page }) => {
 		await page.goto("/");
 		await page.getByText("[hydrated: 1]").click();
 		const layoutCounter = page.getByTestId("client-counter").filter({ hasText: "Layout counter" });
 		await layoutCounter.getByRole("button", { name: "+" }).click();
-		await layoutCounter.getByText("Layout counter: 1").click();
+		await expect(layoutCounter.getByText("Layout counter: 1")).toBeVisible();
 		await page.getByTestId("link-throw-redirect-page").click();
+		await expect(page).toHaveURL("/other");
+		await expect(layoutCounter.getByText("Layout counter: 1")).toBeVisible();
+	});
+
+	test("layout state is preserved after client-side redirect from layout", async ({ page }) => {
+		await page.goto("/");
+		await page.getByText("[hydrated: 1]").click();
+		const layoutCounter = page.getByTestId("client-counter").filter({ hasText: "Layout counter" });
+		await layoutCounter.getByRole("button", { name: "+" }).click();
+		await expect(layoutCounter.getByText("Layout counter: 1")).toBeVisible();
+		await page.getByTestId("link-throw-redirect-layout").click();
 		await expect(page).toHaveURL("/other");
 		await expect(layoutCounter.getByText("Layout counter: 1")).toBeVisible();
 	});
