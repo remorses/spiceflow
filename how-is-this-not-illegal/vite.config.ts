@@ -6,11 +6,10 @@ import tailwindcss from '@tailwindcss/vite'
 export default defineConfig({
   clearScreen: false,
   plugins: [
-    // inspect(),
-    react(),
     spiceflowPlugin({
       entry: './app/main.tsx',
     }),
+    react(),
     tailwindcss(),
   ],
 })

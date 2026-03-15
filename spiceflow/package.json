@@ -63,7 +63,7 @@
       "default": "./src/*.ts"
     },
     "./cloudflare-entrypoint": {
-      "default": "./dist/react/entry.rsc"
+      "default": "./dist/react/entry.rsc.js"
     },
     "./dist/*": {
       "types": "./dist/*.d.ts",
@@ -93,7 +93,7 @@
   "license": "MIT",
   "dependencies": {
     "@standard-schema/spec": "^1.0.0",
-    "@vitejs/plugin-react": "^6.0.0",
+    "@vitejs/plugin-react": "^6.0.1",
     "@vitejs/plugin-rsc": "^0.5.21",
     "copy-anything": "^3.0.5",
     "es-module-lexer": "^1.6.0",

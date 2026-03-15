@@ -7,6 +7,7 @@
   "main": "spiceflow/cloudflare-entrypoint",
   "compatibility_date": "2026-03-15",
   "compatibility_flags": ["nodejs_compat"],
+
   "kv_namespaces": [
     {
       "binding": "POKEMON_KV",

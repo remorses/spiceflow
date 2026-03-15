@@ -76,13 +76,6 @@ export const app = new Spiceflow()
     )
   })
 
-// Worker default export — user controls the entry, framework stays runtime-agnostic
-export default {
-  fetch(request: Request) {
-    return app.handle(request)
-  },
-}
-
 function Loading() {
   return (
     <ul className="max-w-md flex flex-wrap justify-center gap-4 p-4 m-3">
@@ -165,4 +158,12 @@ function RootLayout({ children }: { children: React.ReactNode }) {
       </body>
     </html>
   )
+}
+
+
+// Worker default export — user controls the entry, framework stays runtime-agnostic
+export default {
+  async fetch(request: Request) {
+    return app.handle(request)
+  },
 }

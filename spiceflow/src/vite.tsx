@@ -20,6 +20,26 @@ const pluginRscRpcPath = require.resolve('@vitejs/plugin-rsc/utils/rpc')
 // Module-level so the timestamp is stable even if spiceflowPlugin() is called more than once
 const buildTimestamp = Date.now().toString(36)
 
+export function spiceflowCloudflareViteConfig({
+  outDir = 'dist',
+}: {
+  outDir?: string
+} = {}) {
+  return {
+    environments: {
+      ssr: {
+        build: {
+          // SSR must live inside dist/rsc/ because workerd only bundles files within the
+          // Worker's directory. The RSC code loads SSR via import.meta.viteRsc.loadModule
+          // which resolves to a relative import "../ssr/index.js" — if SSR is at dist/ssr/
+          // (sibling), the Worker can't reach it at runtime.
+          outDir: path.join(outDir, 'rsc/ssr'),
+        },
+      },
+    },
+  }
+}
+
 export function spiceflowPlugin({
   entry,
 }: {
@@ -27,6 +47,7 @@ export function spiceflowPlugin({
 }): PluginOption {
   let server: ViteDevServer
   let resolvedOutDir = 'dist'
+  let isCloudflareRuntime = false
 
   return [
     rsc({
@@ -103,6 +124,9 @@ export function spiceflowPlugin({
       },
       configResolved(config) {
         resolvedOutDir = config.build.outDir
+        isCloudflareRuntime = config.plugins.some((plugin) =>
+          plugin.name.startsWith('vite-plugin-cloudflare:'),
+        )
       },
     },
     // Ensure Vite processes spiceflow (not externalized) so conditional package.json
@@ -124,6 +148,10 @@ export function spiceflowPlugin({
     {
       name: 'spiceflow:ssr-middleware',
       configureServer(_server) {
+        // Cloudflare dev/preview already route requests through the worker entry.
+        // Installing the Node SSR middleware here breaks the supported dev flow
+        // because SSR then needs to call back into the non-runnable worker env.
+        if (isCloudflareRuntime) return
         server = _server
         return () => {
           server.middlewares.use(async (req, res, next) => {
@@ -137,7 +165,7 @@ export function spiceflowPlugin({
               }
               const mod: any = await (
                 server.environments.ssr as RunnableDevEnvironment
-              ).runner.import(resolvedEntry.id)
+              ).runner?.import(resolvedEntry.id)
               const { createRequest, sendResponse } = await import('./react/utils/fetch.js')
               const request = createRequest(req, res)
               const response = await mod.fetchHandler(request)
@@ -149,6 +177,8 @@ export function spiceflowPlugin({
         }
       },
       async configurePreviewServer(previewServer) {
+        // Preview should also go through the built worker entry when Cloudflare owns the runtime.
+        if (isCloudflareRuntime) return
         const mod = await import(path.resolve(resolvedOutDir, 'ssr/index.js'))
         const { createRequest, sendResponse } = await import('./react/utils/fetch.js')
         return () => {

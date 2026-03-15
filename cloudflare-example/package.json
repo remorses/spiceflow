@@ -7,11 +7,12 @@
     "build": "vite build",
     "preview": "vite preview",
     "deploy": "vite build && wrangler deploy",
-    "seed": "tsx scripts/seed.ts"
+    "seed": "tsx scripts/seed.ts",
+    "test": "tsx tests/run-tests.ts"
   },
   "dependencies": {
     "@fontsource/inter": "^4.5.15",
-    "@tailwindcss/vite": "^4.0.6",
+    "@tailwindcss/vite": "^4.2.1",
     "@types/node": "18.16.3",
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
@@ -23,10 +24,11 @@
     "vite": "^8.0.0"
   },
   "devDependencies": {
-    "@cloudflare/vite-plugin": "^1.26.1",
+    "@cloudflare/vite-plugin": "^1.28.0",
     "@cloudflare/workers-types": "^4.20260226.1",
-    "@vitejs/plugin-react": "^6.0.0",
+    "@vitejs/plugin-react": "^6.0.1",
     "tsx": "^4.19.0",
+    "vitest": "^3.2.4",
     "wrangler": "^4.71.0"
   }
 }
