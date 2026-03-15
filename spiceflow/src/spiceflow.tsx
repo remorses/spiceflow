@@ -1753,6 +1753,8 @@ export class Spiceflow<
   }
 
   async listen(port: number, hostname: string = '0.0.0.0') {
+    // In Vite dev, Vite owns the server — noop
+    if (import.meta.hot) return
     const handler = this.handle.bind(this)
     if (typeof Bun !== 'undefined') {
       const app = this
