@@ -1766,6 +1766,7 @@ All routes registered with `.page()`, `.get()`, etc. are available in `app.safeP
 // src/main.tsx
 import { Spiceflow } from 'spiceflow'
 import { Link } from 'spiceflow/react'
+import { z } from 'zod'
 import { Counter } from './app/counter'
 import { Nav } from './app/nav'
 
@@ -1790,8 +1791,8 @@ export const app = new Spiceflow()
         <h1>Welcome</h1>
         <p>Server-rendered data: {data.message}</p>
         <Counter />
-        {/* Type-safe link — params and query are validated at compile time */}
         <Link href={app.safePath('/users/:id', { id: '42' })}>View User 42</Link>
+        <Link href={app.safePath('/search', { q: 'spiceflow' })}>Search</Link>
       </div>
     )
   })
@@ -1806,13 +1807,27 @@ export const app = new Spiceflow()
   .page('/users/:id', async ({ params }) => {
     return <div><h1>User {params.id}</h1></div>
   })
+  // Object-style .page() with query schema — enables type-safe query params
+  .page({
+    path: '/search',
+    query: z.object({ q: z.string(), page: z.number().optional() }),
+    handler: async ({ query }) => {
+      const results = await search(query.q, query.page)
+      return (
+        <div>
+          <h1>Results for "{query.q}"</h1>
+          {results.map(r => <p key={r.id}>{r.title}</p>)}
+        </div>
+      )
+    },
+  })
   .listen(3000)
 
 // Export the app type for use in client components
 export type App = typeof app
 ```
 
-Using `app.safePath()` in server components gives you **type-safe links** — TypeScript validates that the path exists, params are correct, and query values match the schema. Invalid paths or missing params are caught at compile time.
+`app.safePath()` gives you **type-safe links** — TypeScript validates that the path exists, params are correct, and query values match the schema. Invalid paths or missing params are caught at compile time. The closure over `app` sees all routes, including ones defined later in the chain.
 
 ### Client Components
 
@@ -1855,6 +1870,7 @@ export function Nav() {
       <Link href={safePath('/')}>Home</Link>
       <Link href={safePath('/about')}>About</Link>
       <Link href={safePath('/users/:id', { id: '1' })}>User 1</Link>
+      <Link href={safePath('/search', { q: 'docs', page: 1 })}>Search Docs</Link>
     </nav>
   )
 }
