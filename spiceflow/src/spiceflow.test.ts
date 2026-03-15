@@ -1738,6 +1738,58 @@ describe('safePath', () => {
     // @ts-expect-error - invalid path
     app.safePath('/nonexistent')
   })
+
+  test('page() object API with query schema', () => {
+    const app = new Spiceflow()
+      .page({
+        path: '/search',
+        query: z.object({ q: z.string(), page: z.number().optional() }),
+        handler: async ({ query }) => {
+          return `Results for: ${query.q}`
+        },
+      })
+
+    expect(app.safePath('/search', { q: 'hello' })).toBe('/search?q=hello')
+    expect(app.safePath('/search', { q: 'hello', page: 2 })).toBe('/search?q=hello&page=2')
+    // @ts-expect-error - invalid query param
+    app.safePath('/search', { wrong: 'x' })
+  })
+
+  test('page() object API with params and query', () => {
+    const app = new Spiceflow()
+      .page({
+        path: '/users/:id',
+        query: z.object({ tab: z.string().optional() }),
+        handler: async ({ params, query }) => {
+          return `User ${params.id}, tab: ${query.tab}`
+        },
+      })
+
+    expect(app.safePath('/users/:id', { id: '42' })).toBe('/users/42')
+    expect(app.safePath('/users/:id', { id: '42', tab: 'profile' })).toBe('/users/42?tab=profile')
+  })
+
+  test('page() positional API still works without query', () => {
+    const app = new Spiceflow()
+      .page('/about', async () => 'About')
+
+    expect(app.safePath('/about')).toBe('/about')
+  })
+
+  test('staticPage() object API with query schema', () => {
+    const app = new Spiceflow()
+      .staticPage({
+        path: '/docs',
+        query: z.object({ section: z.string().optional() }),
+        handler: async ({ query }) => {
+          return `Docs: ${query.section}`
+        },
+      })
+
+    expect(app.safePath('/docs', { section: 'api' })).toBe('/docs?section=api')
+    // @ts-expect-error - invalid query param
+    app.safePath('/docs', { wrong: 'x' })
+  })
 })
 
 describe('createSafePath', () => {

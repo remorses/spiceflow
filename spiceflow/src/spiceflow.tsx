@@ -897,11 +897,49 @@ export class Spiceflow<
     ClientRoutes,
     RoutePaths | JoinPath<BasePath, Path>,
     RouteQuerySchemas
-  > {
+  >
+  page<
+    const Path extends string,
+    const LocalSchema extends InputSchema<keyof Definitions['type'] & string>,
+    const Schema extends UnwrapRoute<LocalSchema, Definitions['type']>,
+    const Handle extends InlineHandler<
+      this,
+      Schema,
+      Singleton,
+      JoinPath<BasePath, Path>
+    >,
+  >(
+    options: LocalHook<
+      LocalSchema,
+      Schema,
+      Singleton,
+      Definitions['error'],
+      Metadata['macro'],
+      JoinPath<BasePath, Path>
+    > & {
+      path: Path
+      handler: Handle
+    },
+  ): Spiceflow<
+    BasePath,
+    Scoped,
+    Singleton,
+    Definitions,
+    Metadata,
+    ClientRoutes,
+    RoutePaths | JoinPath<BasePath, Path>,
+    RouteQuerySchemas & Record<JoinPath<BasePath, Path>, Schema['query']>
+  >
+  page(pathOrOptions: any, handler?: any) {
+    const path = typeof pathOrOptions === 'string' ? pathOrOptions : pathOrOptions.path
+    const h = typeof pathOrOptions === 'string' ? handler : pathOrOptions.handler
+    const hooks = typeof pathOrOptions === 'string' ? undefined : pathOrOptions
+
     const routeConfig = {
       path,
-      handler: handler,
+      handler: h,
       kind: 'page' as const,
+      hooks,
     }
     this.add({ ...routeConfig, method: 'GET' })
     this.add({ ...routeConfig, method: 'POST' })
@@ -929,15 +967,53 @@ export class Spiceflow<
     ClientRoutes,
     RoutePaths | JoinPath<BasePath, Path>,
     RouteQuerySchemas
-  > {
+  >
+  staticPage<
+    const Path extends string,
+    const LocalSchema extends InputSchema<keyof Definitions['type'] & string>,
+    const Schema extends UnwrapRoute<LocalSchema, Definitions['type']>,
+    const Handle extends InlineHandler<
+      this,
+      Schema,
+      Singleton,
+      JoinPath<BasePath, Path>
+    >,
+  >(
+    options: LocalHook<
+      LocalSchema,
+      Schema,
+      Singleton,
+      Definitions['error'],
+      Metadata['macro'],
+      JoinPath<BasePath, Path>
+    > & {
+      path: Path
+      handler?: Handle
+    },
+  ): Spiceflow<
+    BasePath,
+    Scoped,
+    Singleton,
+    Definitions,
+    Metadata,
+    ClientRoutes,
+    RoutePaths | JoinPath<BasePath, Path>,
+    RouteQuerySchemas & Record<JoinPath<BasePath, Path>, Schema['query']>
+  >
+  staticPage(pathOrOptions: any, handler?: any) {
+    const path = typeof pathOrOptions === 'string' ? pathOrOptions : pathOrOptions.path
+    const h = typeof pathOrOptions === 'string' ? handler : pathOrOptions.handler
+    const hooks = typeof pathOrOptions === 'string' ? undefined : pathOrOptions
+
     let kind: NodeKind = 'staticPage'
-    if (!handler) {
+    if (!h) {
       kind = 'staticPageWithoutHandler'
     }
     const routeConfig = {
       path,
-      handler: handler,
+      handler: h,
       kind,
+      hooks,
     }
     this.add({ ...routeConfig, method: 'GET' })
     return this as any
