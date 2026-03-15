@@ -844,6 +844,62 @@ new Spiceflow().use(({ request }) => {
 })
 ```
 
+### Static Middleware
+
+Use `serveStatic()` to serve files from a directory:
+
+```ts
+import { Spiceflow, serveStatic } from 'spiceflow'
+
+const app = new Spiceflow()
+  .use(serveStatic({ root: './public' }))
+  .route({
+    method: 'GET',
+    path: '/health',
+    handler() {
+      return { ok: true }
+    },
+  })
+  .route({
+    method: 'GET',
+    path: '/*',
+    handler() {
+      return new Response('Not Found', { status: 404 })
+    },
+  })
+```
+
+Static middleware only serves `GET` and `HEAD` requests. It checks the exact file path first, and if the request points to a directory it tries `index.html` inside that directory.
+
+Priority rules:
+
+- Concrete routes win over static files. A route like `/health` is handled by the route even if `public/health` exists.
+- Static files win over root catch-all routes like `/*` and `*`. This is useful for SPA fallbacks and custom 404 routes.
+- If static does not find a file, the request falls through to the next matching route, so a `/*` fallback still runs when the asset is missing.
+- When multiple static middlewares are registered, they are checked in registration order. The first middleware that finds a file wins.
+
+Example behavior:
+
+```text
+request /logo.png
+  -> router matches `/*`
+  -> static checks `public/logo.png`
+  -> if file exists, static serves it
+  -> otherwise the `/*` route runs
+```
+
+Directory requests without an `index.html` fall through instead of throwing filesystem errors like `EISDIR`.
+
+You can stack multiple static roots:
+
+```ts
+const app = new Spiceflow()
+  .use(serveStatic({ root: './public' }))
+  .use(serveStatic({ root: './dist/client' }))
+```
+
+In this example, `./public/logo.png` wins over `./dist/client/logo.png` because `./public` is registered first.
+
 ## How errors are handled in Spiceflow client
 
 The Spiceflow client provides type-safe error handling by returning either a `data` or `error` property. When using the client:
@@ -1758,43 +1814,131 @@ export default defineConfig({
 })
 ```
 
+### Cloudflare RSC setup
+
+For Cloudflare Workers, keep the worker-specific SSR output and child environment wiring in Vite, then let your Worker default export delegate to `app.handle(request)`.
+
+```jsonc
+// wrangler.jsonc
+{
+  "main": "spiceflow/cloudflare-entrypoint"
+}
+```
+
+```ts
+// vite.config.ts
+import { cloudflare } from '@cloudflare/vite-plugin'
+import react from '@vitejs/plugin-react'
+import { defineConfig } from 'vite'
+import { spiceflowCloudflareViteConfig, spiceflowPlugin } from 'spiceflow/vite'
+
+export default defineConfig({
+  ...spiceflowCloudflareViteConfig(),
+  plugins: [
+    react(),
+    spiceflowPlugin({ entry: './app/main.tsx' }),
+    cloudflare({
+      viteEnvironment: {
+        name: 'rsc',
+        childEnvironments: ['ssr'],
+      },
+    }),
+  ],
+})
+```
+
+```tsx
+// app/main.tsx
+import { Spiceflow } from 'spiceflow'
+
+export const app = new Spiceflow()
+  .page('/', async () => {
+    return <div>Hello from Cloudflare RSC</div>
+  })
+
+export default {
+  fetch(request: Request) {
+    return app.handle(request)
+  },
+}
+```
+
+See [`cloudflare-example/`](cloudflare-example) for a complete working example.
+
 ### App Entry (Server Component)
 
 The entry file defines your routes using `.page()` for pages and `.layout()` for layouts. This file runs in the RSC environment on the server.
 
+All routes registered with `.page()`, `.get()`, etc. are available in `app.safePath()` for type-safe URL building — including path params and query params.
+
 ```tsx
 // src/main.tsx
-import { Spiceflow } from 'spiceflow'
+import { Spiceflow, serveStatic } from 'spiceflow'
+import { Link } from 'spiceflow/react'
+import { z } from 'zod'
 import { Counter } from './app/counter'
+import { Nav } from './app/nav'
 
-const app = new Spiceflow()
+export const app = new Spiceflow()
+  .use(serveStatic({ root: './public' }))
+  .use(serveStatic({ root: './dist/client' })) // required to serve vite built static files
   .layout('/*', async ({ children }) => {
     return (
       <html>
         <head>
           <meta charSet="UTF-8" />
         </head>
-        <body>{children}</body>
+        <body>
+          <Nav />
+          {children}
+        </body>
       </html>
     )
   })
   .page('/', async () => {
-    // This runs on the server — you can fetch data, access databases, etc.
     const data = await fetchSomeData()
     return (
       <div>
         <h1>Welcome</h1>
         <p>Server-rendered data: {data.message}</p>
         <Counter />
+        <Link href={app.safePath('/users/:id', { id: '42' })}>View User 42</Link>
+        <Link href={app.safePath('/search', { q: 'spiceflow' })}>Search</Link>
       </div>
     )
   })
   .page('/about', async () => {
-    return <div><h1>About</h1></div>
+    return (
+      <div>
+        <h1>About</h1>
+        <Link href={app.safePath('/')}>Back to Home</Link>
+      </div>
+    )
   })
+  .page('/users/:id', async ({ params }) => {
+    return <div><h1>User {params.id}</h1></div>
+  })
+  // Object-style .page() with query schema — enables type-safe query params
+  .page({
+    path: '/search',
+    query: z.object({ q: z.string(), page: z.number().optional() }),
+    handler: async ({ query }) => {
+      const results = await search(query.q, query.page)
+      return (
+        <div>
+          <h1>Results for "{query.q}"</h1>
+          {results.map(r => <p key={r.id}>{r.title}</p>)}
+        </div>
+      )
+    },
+  })
+  .listen(3000)
 
-export default app
+// Export the app type for use in client components
+export type App = typeof app
 ```
+
+`app.safePath()` gives you **type-safe links** — TypeScript validates that the path exists, params are correct, and query values match the schema. Invalid paths or missing params are caught at compile time. The closure over `app` sees all routes, including ones defined later in the chain.
 
 ### Client Components
 
@@ -1813,6 +1957,32 @@ export function Counter() {
       <p>Count: {count}</p>
       <button onClick={() => setCount(count + 1)}>+</button>
     </div>
+  )
+}
+```
+
+### Type-Safe Links in Client Components
+
+Use `createSafePath` with your app type for type-safe URL building in client components. Since client components can't import the server app directly, pass the type parameter instead — no runtime dependency on the server.
+
+```tsx
+// src/app/nav.tsx
+'use client'
+
+import { createSafePath } from 'spiceflow'
+import { Link } from 'spiceflow/react'
+import type { App } from '../main'
+
+const safePath = createSafePath<App>()
+
+export function Nav() {
+  return (
+    <nav>
+      <Link href={safePath('/')}>Home</Link>
+      <Link href={safePath('/about')}>About</Link>
+      <Link href={safePath('/users/:id', { id: '1' })}>User 1</Link>
+      <Link href={safePath('/search', { q: 'docs', page: 1 })}>Search Docs</Link>
+    </nav>
   )
 }
 ```
