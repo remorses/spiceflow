@@ -351,7 +351,7 @@ const registerSchemaPath = ({
   }
 }
 
-export const openapi = <Path extends string = '/openapi'>({
+export function openapi<Path extends string = '/openapi'>({
   path = '/openapi' as Path,
   ...additional
 }: {
@@ -373,7 +373,7 @@ export const openapi = <Path extends string = '/openapi'>({
         values: string[]
       }
     }
-  } = {}) => {
+  } = {}) {
   const schema = {}
   let totalRoutes = 0
 

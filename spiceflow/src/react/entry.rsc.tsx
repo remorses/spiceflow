@@ -3,7 +3,7 @@
 // Re-exports the user's default export (e.g. Cloudflare Worker { fetch } entry).
 import * as appEntry from 'virtual:app-entry'
 const app = appEntry.app
-export default appEntry.default
+export default app
 
 export async function handler(request: Request) {
   const response = await app.handle(request)

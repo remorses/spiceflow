@@ -68,7 +68,7 @@ export async function addMcpTools<
   return configuredServer
 }
 
-export const mcp = <Path extends string = '/mcp'>({
+export function mcp<Path extends string = '/mcp'>({
   path = '/mcp' as Path,
   name = 'spiceflow',
   version = '1.0.0',
@@ -76,7 +76,7 @@ export const mcp = <Path extends string = '/mcp'>({
    * Map to get a transport from a sessionId and
    */
   transports = defaultTransports,
-} = {}) => {
+} = {}) {
   const messagePath = path + '/message'
 
   let app = new Spiceflow({ name: 'mcp' })

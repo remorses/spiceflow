@@ -1,3 +1,4 @@
+// Static file path resolution shared by environment-specific adapters.
 import { MiddlewareHandler } from './types.js'
 import { isResponse } from './utils.js'
 
@@ -7,15 +8,25 @@ type Data = any
 
 export type ServeStaticOptions<E extends Env = Env> = {
   root?: string
-
-  // path?: string
+  path?: string
   mimes?: Record<string, string>
-  // rewriteRequestPath?: (path: string) => string
+  rewriteRequestPath?: (path: string) => string
+  onFound?: (path: string, c: Context<E>) => void | Promise<void>
   onNotFound?: (path: string, c: Context<E>) => void | Promise<void>
 }
 
 const DEFAULT_DOCUMENT = 'index.html'
 const defaultPathResolve = (path: string) => path
+export const staticMiddlewareSymbol = Symbol.for('spiceflow.serve-static')
+
+export function isStaticMiddleware(handler: unknown): boolean {
+  return Boolean((handler as any)?.[staticMiddlewareSymbol])
+}
+
+function markStaticMiddleware<T extends MiddlewareHandler>(handler: T): T {
+  ;(handler as any)[staticMiddlewareSymbol] = true
+  return handler
+}
 
 /**
  * This middleware is not directly used by the user. Create a wrapper specifying `getContent()` by the environment such as Deno or Bun.
@@ -30,76 +41,85 @@ export const serveStatic = <E extends Env = Env>(
     isDir?: (path: string) => boolean | undefined | Promise<boolean | undefined>
   },
 ): MiddlewareHandler => {
-  return async (c, next) => {
-    let filename = decodeURI(new URL(c.request.url).pathname)
-    // filename = options.rewriteRequestPath
-    //   ? options.rewriteRequestPath(filename)
-    //   : filename
-    const root = options.root
-
-    // If it was Directory, force `/` on the end.
-    if (!filename.endsWith('/') && options.isDir) {
-      const path = getFilePathWithoutDefaultDocument({
-        filename,
-        root,
-      })
-      if (path && (await options.isDir(path))) {
-        filename = filename + '/'
-      }
-    }
-
-    let path = getFilePath({
-      filename,
-      root,
-      defaultDocument: DEFAULT_DOCUMENT,
-    })
-
-    if (!path) {
+  return markStaticMiddleware(async (c, next) => {
+    if (c.request.method !== 'GET' && c.request.method !== 'HEAD') {
       return await next()
     }
 
-    const getContent = options.getContent
+    const root = options.root
     const pathResolve = options.pathResolve ?? defaultPathResolve
+    const resolvedPath = getResolvedFilePath({ c, options })
 
-    path = pathResolve(path)
-    let content = await getContent(path, c)
-
-    if (!content) {
-      let pathWithOutDefaultDocument = getFilePathWithoutDefaultDocument({
-        filename,
-        root,
-      })
-      if (!pathWithOutDefaultDocument) {
-        return await next()
-      }
-      pathWithOutDefaultDocument = pathResolve(pathWithOutDefaultDocument)
-
-      if (pathWithOutDefaultDocument !== path) {
-        content = await getContent(pathWithOutDefaultDocument, c)
-        if (content) {
-          path = pathWithOutDefaultDocument
-        }
-      }
+    if (!resolvedPath) {
+      await options.onNotFound?.(new URL(c.request.url).pathname, c)
+      return await next()
     }
 
+    const exactPath = pathResolve(resolvedPath)
+    const directory = options.isDir ? await options.isDir(exactPath) : false
+    const candidatePath = directory
+      ? pathResolve(
+          getFilePathWithoutDefaultDocument({
+            filename: appendTrailingSlash(resolvedPath) + DEFAULT_DOCUMENT,
+            root,
+          })!,
+        )
+      : exactPath
+
+    const content = await options.getContent(candidatePath, c)
+
     if (isResponse(content)) {
+      await options.onFound?.(candidatePath, c)
       return content
     }
 
     if (content) {
-      let mimeType: string | undefined
-      mimeType = getMimeType(path, options.mimes)
-      let response = new Response(content)
-      if (mimeType) {
-        response.headers.set('Content-Type', mimeType)
-      }
+      const mimeType = getMimeType(candidatePath, options.mimes)
+      const response = new Response(content)
+      response.headers.set('Content-Type', mimeType || 'application/octet-stream')
+      await options.onFound?.(candidatePath, c)
       return response
     }
 
-    await options.onNotFound?.(path, c)
+    await options.onNotFound?.(candidatePath, c)
     await next()
     return
+  })
+}
+
+function getResolvedFilePath<E extends Env>({
+  c,
+  options,
+}: {
+  c: Context<E> & { request: Request }
+  options: ServeStaticOptions<E>
+}) {
+  let filename = options.path
+
+  if (!filename) {
+    try {
+      filename = decodeURI(new URL(c.request.url).pathname)
+    } catch {
+      return
+    }
   }
+
+  if (!options.path && options.rewriteRequestPath) {
+    filename = options.rewriteRequestPath(filename)
+  }
+
+  return getFilePathWithoutDefaultDocument({
+    filename,
+    root: options.root,
+  })
+}
+
+function appendTrailingSlash(path: string) {
+  if (path.endsWith('/')) {
+    return path
+  }
+
+  return path + '/'
 }
 
 const baseMimes: Record<string, string> = {
@@ -228,14 +248,20 @@ export const getFilePathWithoutDefaultDocument = (
   filename = filename.replace(/^\.?[\/\\]/, '')
 
   // foo\bar.txt => foo/bar.txt
-  filename = filename.replace(/\\/, '/')
+  filename = filename.replace(/\\/g, '/')
 
   // assets/ => assets
   root = root.replace(/\/$/, '')
 
   // ./assets/foo.html => assets/foo.html
   let path = root ? root + '/' + filename : filename
-  path = path.replace(/^\.?\//, '')
+  if (!isAbsolutePath(root)) {
+    path = path.replace(/^\.?\//, '')
+  }
 
   return path
+}
+
+function isAbsolutePath(path: string) {
+  return /^(?:[A-Za-z]:)?\//.test(path)
 }

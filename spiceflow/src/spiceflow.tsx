@@ -65,6 +65,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 import { handleForNode, listenForNode } from './_node-server.js'
 import { renderSsr } from 'spiceflow/handle-ssr'
 import { SpiceflowContext, MiddlewareContext } from './context.js'
+import { isStaticMiddleware } from './static.js'
 
 let globalIndex = 0
 
@@ -1429,7 +1430,9 @@ export class Spiceflow<
     // TODO get all apps in scope? layouts can match between apps when using .use?
     const appsInScope = this.getAppsInScope(route.app)
     onErrorHandlers = appsInScope.flatMap((x) => x.onErrorHandlers)
-    const middlewares = appsInScope.flatMap((x) => x.middlewares)
+    const scopedMiddlewares = appsInScope.flatMap((x) => x.middlewares)
+    const middlewares = scopedMiddlewares.filter((x) => !isStaticMiddleware(x))
+    const staticMiddlewares = scopedMiddlewares.filter((x) => isStaticMiddleware(x))
     let { params: _params } = route
 
     let content = route?.route?.hooks?.content
@@ -1485,17 +1488,22 @@ export class Spiceflow<
       return res
     }
 
+    const shouldTryStatic = routeShouldYieldToStatic(route.route)
+    const middlewareChain = shouldTryStatic
+      ? [...middlewares, ...staticMiddlewares]
+      : middlewares
+
     const next = async () => {
       try {
-        if (index < middlewares.length) {
-          const middleware = middlewares[index]
+        if (index < middlewareChain.length) {
+          const middleware = middlewareChain[index]
           index++
 
           const result = await middleware(context, next)
           if (isResponse(result)) {
             handlerResponse = result
           }
-          if (!result && index < middlewares.length) {
+          if (!result && index < middlewareChain.length) {
             return await next()
           } else if (result) {
             return await self.turnHandlerResultIntoResponse(result, route?.route, request)
@@ -2300,6 +2308,10 @@ function pickBestRoute<T extends { route: InternalRoute }>(routes: T[]): T {
     bestSpec = spec
   }
   return best
+}
+
+function routeShouldYieldToStatic(route: InternalRoute) {
+  return route.handler === notFoundHandler || route.path === '/*' || route.path === '*'
 }
 
 function partition<T>(arr: T[], predicate: (item: T) => boolean): [T[], T[]] {

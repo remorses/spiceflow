@@ -1,38 +1,74 @@
-import { stat } from 'fs/promises'
-import fs from 'fs'
-import { ServeStaticOptions, serveStatic as baseServeStatic } from './static.js'
+// Node adapter for serveStatic with safe file lookups and streamed responses.
+import { createReadStream, statSync } from 'node:fs'
+import { Readable } from 'node:stream'
+import { resolve } from 'node:path'
+import {
+  ServeStaticOptions,
+  serveStatic as baseServeStatic,
+  staticMiddlewareSymbol,
+} from './static.js'
 import { MiddlewareHandler } from './types.js'
 
 export const serveStatic = (options: ServeStaticOptions): MiddlewareHandler => {
-  const getContent = (path: string) => {
-    path = `./${path}`
+  const root = resolve(options.root ?? '.')
+
+  const getContent = (path: string, c: { request?: Request }) => {
     try {
-      return fs.readFileSync(path)
+      const stats = statSync(path)
+      if (!stats.isFile()) {
+        return null
+      }
+
+      const headers = new Headers({
+        'content-length': String(stats.size),
+        'last-modified': stats.mtime.toUTCString(),
+      })
+
+      if (c.request?.method === 'HEAD') {
+        return new Response(null, { headers })
+      }
+
+      const stream = Readable.toWeb(createReadStream(path)) as unknown as ReadableStream
+      return new Response(stream, { headers })
     } catch (err: any) {
-      if (err.code !== 'ENOENT') {
+      if (!isIgnorableStaticError(err)) {
         throw err
       }
     }
+
     return null
   }
+
   const pathResolve = (path: string) => {
-    return `./${path}`
+    return resolve(root, path)
   }
+
   const isDir = (path: string) => {
-    let isDir
     try {
-      const stats = fs.statSync(path)
-      isDir = stats.isDirectory()
-    } catch {}
-    return isDir
+      return statSync(path).isDirectory()
+    } catch (err) {
+      if (!isIgnorableStaticError(err)) {
+        throw err
+      }
+    }
   }
+
   const m = baseServeStatic({
     ...options,
     getContent,
     pathResolve,
     isDir,
   })
-  return function serveStatic(c, next) {
+
+  const middleware = function serveStatic(c, next) {
     return m(c, next)
   }
+
+  ;(middleware as any)[staticMiddlewareSymbol] = true
+  return middleware
+}
+
+function isIgnorableStaticError(err: unknown) {
+  const code = (err as { code?: string } | undefined)?.code
+  return code === 'ENOENT' || code === 'ENOTDIR' || code === 'EISDIR'
 }
