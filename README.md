@@ -1760,10 +1760,14 @@ export default defineConfig({
 
 The entry file defines your routes using `.page()` for pages and `.layout()` for layouts. This file runs in the RSC environment on the server.
 
+All routes registered with `.page()`, `.get()`, etc. are available in `app.safePath()` for type-safe URL building — including path params and query params.
+
 ```tsx
 // src/main.tsx
 import { Spiceflow } from 'spiceflow'
+import { Link } from 'spiceflow/react'
 import { Counter } from './app/counter'
+import { Nav } from './app/nav'
 
 export const app = new Spiceflow()
   .layout('/*', async ({ children }) => {
@@ -1772,26 +1776,43 @@ export const app = new Spiceflow()
         <head>
           <meta charSet="UTF-8" />
         </head>
-        <body>{children}</body>
+        <body>
+          <Nav />
+          {children}
+        </body>
       </html>
     )
   })
   .page('/', async () => {
-    // This runs on the server — you can fetch data, access databases, etc.
     const data = await fetchSomeData()
     return (
       <div>
         <h1>Welcome</h1>
         <p>Server-rendered data: {data.message}</p>
         <Counter />
+        {/* Type-safe link — params and query are validated at compile time */}
+        <Link href={app.safePath('/users/:id', { id: '42' })}>View User 42</Link>
       </div>
     )
   })
   .page('/about', async () => {
-    return <div><h1>About</h1></div>
+    return (
+      <div>
+        <h1>About</h1>
+        <Link href={app.safePath('/')}>Back to Home</Link>
+      </div>
+    )
+  })
+  .page('/users/:id', async ({ params }) => {
+    return <div><h1>User {params.id}</h1></div>
   })
   .listen(3000)
+
+// Export the app type for use in client components
+export type App = typeof app
 ```
+
+Using `app.safePath()` in server components gives you **type-safe links** — TypeScript validates that the path exists, params are correct, and query values match the schema. Invalid paths or missing params are caught at compile time.
 
 ### Client Components
 
@@ -1810,6 +1831,31 @@ export function Counter() {
       <p>Count: {count}</p>
       <button onClick={() => setCount(count + 1)}>+</button>
     </div>
+  )
+}
+```
+
+### Type-Safe Links in Client Components
+
+Use `createSafePath` with your app type for type-safe URL building in client components. Since client components can't import the server app directly, pass the type parameter instead — no runtime dependency on the server.
+
+```tsx
+// src/app/nav.tsx
+'use client'
+
+import { createSafePath } from 'spiceflow'
+import { Link } from 'spiceflow/react'
+import type { App } from '../main'
+
+const safePath = createSafePath<App>()
+
+export function Nav() {
+  return (
+    <nav>
+      <Link href={safePath('/')}>Home</Link>
+      <Link href={safePath('/about')}>About</Link>
+      <Link href={safePath('/users/:id', { id: '1' })}>User 1</Link>
+    </nav>
   )
 }
 ```

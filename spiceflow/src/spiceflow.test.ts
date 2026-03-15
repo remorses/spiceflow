@@ -1692,6 +1692,52 @@ describe('safePath', () => {
       app.safePath('/no-schema', { anything: 'works' }),
     ).toBe('/no-schema?anything=works')
   })
+
+  test('safePath works with .page() routes', () => {
+    const app = new Spiceflow()
+      .page('/', async () => 'Home')
+      .page('/about', async () => 'About')
+      .page('/users/:id', async ({ params }) => params.id)
+
+    expect(app.safePath('/')).toBe('/')
+    expect(app.safePath('/about')).toBe('/about')
+    expect(app.safePath('/users/:id', { id: '42' })).toBe('/users/42')
+    // @ts-expect-error - invalid path
+    app.safePath('/nonexistent')
+  })
+
+  test('safePath works inside route handler via app closure, including later routes', async () => {
+    const app = new Spiceflow()
+      .get('/about', () => {
+        return app.safePath('/users/:id', { id: '42' })
+      })
+      .get('/users/:id', ({ params }) => params.id)
+
+    const res = await app.handle(new Request('http://localhost/about'))
+    expect(await res.json()).toBe('/users/42')
+  })
+
+  test('safePath works inside route handler via this for earlier routes', async () => {
+    const app = new Spiceflow()
+      .get('/users/:id', ({ params }) => params.id)
+      .get('/about', function () {
+        return this.safePath('/users/:id', { id: '42' })
+      })
+
+    const res = await app.handle(new Request('http://localhost/about'))
+    expect(await res.json()).toBe('/users/42')
+  })
+
+  test('safePath works with .staticPage() routes', () => {
+    const app = new Spiceflow()
+      .staticPage('/docs')
+      .staticPage('/changelog')
+
+    expect(app.safePath('/docs')).toBe('/docs')
+    expect(app.safePath('/changelog')).toBe('/changelog')
+    // @ts-expect-error - invalid path
+    app.safePath('/nonexistent')
+  })
 })
 
 describe('createSafePath', () => {

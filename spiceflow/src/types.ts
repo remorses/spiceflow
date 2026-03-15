@@ -907,13 +907,11 @@ export type HTTPHeaders = Record<string, string> & {
   'x-ua-compatible'?: string
 }
 
-export type JoinPath<A extends string, B extends string> = `${A}${B extends '/'
-  ? '/index'
-  : B extends ''
+export type JoinPath<A extends string, B extends string> = `${A}${B extends ''
+  ? B
+  : B extends `/${string}`
     ? B
-    : B extends `/${string}`
-      ? B
-      : B}`
+    : B}`
 
 export type PartialWithRequired<T, K extends keyof T> = Partial<Omit<T, K>> &
   Pick<T, K>

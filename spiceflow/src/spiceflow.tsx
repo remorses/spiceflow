@@ -895,7 +895,7 @@ export class Spiceflow<
     Definitions,
     Metadata,
     ClientRoutes,
-    RoutePaths,
+    RoutePaths | JoinPath<BasePath, Path>,
     RouteQuerySchemas
   > {
     const routeConfig = {
@@ -927,7 +927,7 @@ export class Spiceflow<
     Definitions,
     Metadata,
     ClientRoutes,
-    RoutePaths,
+    RoutePaths | JoinPath<BasePath, Path>,
     RouteQuerySchemas
   > {
     let kind: NodeKind = 'staticPage'
@@ -1951,11 +1951,12 @@ function buildSafePath(path: string, allParams: Record<string, any> | undefined)
  * ```
  */
 export function createSafePath<
-  const Paths extends string,
-  const QS extends object,
+  T extends { _types: { RoutePaths: string; RouteQuerySchemas: object } },
 >(
-  _app?: { _types: { RoutePaths: Paths; RouteQuerySchemas: QS } },
+  _app?: T,
 ) {
+  type Paths = T['_types']['RoutePaths']
+  type QS = T['_types']['RouteQuerySchemas']
   return <
     const Path extends Paths,
     const Params extends ExtractParamsFromPath<Path> = ExtractParamsFromPath<Path>,
