@@ -101,7 +101,7 @@ export function spiceflowPlugin({
 
     {
       name: 'spiceflow:config',
-      config(userConfig) {
+      config(userConfig, env) {
         const userOnWarn = userConfig.build?.rollupOptions?.onwarn
         if (hasPluginNamed(userConfig.plugins, 'vite-plugin-cloudflare')) {
           // Cloudflare child environments already expose worker-side module imports.
@@ -110,6 +110,13 @@ export function spiceflowPlugin({
           rscOptions.loadModuleDevProxy = false
         }
         return {
+          // Replace process.env.NODE_ENV at build time so React uses its production
+          // bundle. Without this, the built output contains runtime checks like
+          // `"production" !== process.env.NODE_ENV` that always evaluate to the dev
+          // path, adding ~28% CPU overhead from debug stack traces and fake call sites.
+          define: env.command === 'build'
+            ? { 'process.env.NODE_ENV': JSON.stringify('production') }
+            : undefined,
           build: {
             rollupOptions: {
               onwarn(warning, defaultHandler) {
