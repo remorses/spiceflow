@@ -842,6 +842,62 @@ new Spiceflow().use(({ request }) => {
 })
 ```
 
+### Static Middleware
+
+Use `serveStatic()` to serve files from a directory:
+
+```ts
+import { Spiceflow, serveStatic } from 'spiceflow'
+
+const app = new Spiceflow()
+  .use(serveStatic({ root: './public' }))
+  .route({
+    method: 'GET',
+    path: '/health',
+    handler() {
+      return { ok: true }
+    },
+  })
+  .route({
+    method: 'GET',
+    path: '/*',
+    handler() {
+      return new Response('Not Found', { status: 404 })
+    },
+  })
+```
+
+Static middleware only serves `GET` and `HEAD` requests. It checks the exact file path first, and if the request points to a directory it tries `index.html` inside that directory.
+
+Priority rules:
+
+- Concrete routes win over static files. A route like `/health` is handled by the route even if `public/health` exists.
+- Static files win over root catch-all routes like `/*` and `*`. This is useful for SPA fallbacks and custom 404 routes.
+- If static does not find a file, the request falls through to the next matching route, so a `/*` fallback still runs when the asset is missing.
+- When multiple static middlewares are registered, they are checked in registration order. The first middleware that finds a file wins.
+
+Example behavior:
+
+```text
+request /logo.png
+  -> router matches `/*`
+  -> static checks `public/logo.png`
+  -> if file exists, static serves it
+  -> otherwise the `/*` route runs
+```
+
+Directory requests without an `index.html` fall through instead of throwing filesystem errors like `EISDIR`.
+
+You can stack multiple static roots:
+
+```ts
+const app = new Spiceflow()
+  .use(serveStatic({ root: './public' }))
+  .use(serveStatic({ root: './dist/client' }))
+```
+
+In this example, `./public/logo.png` wins over `./dist/client/logo.png` because `./public` is registered first.
+
 ## How errors are handled in Spiceflow client
 
 The Spiceflow client provides type-safe error handling by returning either a `data` or `error` property. When using the client:
