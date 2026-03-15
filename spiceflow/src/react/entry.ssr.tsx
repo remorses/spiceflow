@@ -84,7 +84,7 @@ export async function renderHtml({
 
   let htmlStream: ReadableStream & { allReady: Promise<void> }
   // Preserve the status from the flight response (e.g. 404 for not-found pages)
-  let status = response.status || 200
+  let status = response.status
 
   try {
     // Extract formState from a separate stream copy so SsrRoot's lazy init is the actual first call

@@ -1131,10 +1131,13 @@ export class Spiceflow<
       (x) => x.route.kind === 'page' || x.route.kind === 'staticPage',
     )
     const pageRoute = pickBestRoute(pageRoutes)
-    // Only render the React 404 page for browser requests (Accept: text/html).
-    // API clients and curl get plain text "Not Found" instead.
-    const isBrowserRequest = request.headers.get('accept')?.includes('text/html')
-    if (!pageRoute && !isBrowserRequest) {
+    // Only render the React 404 page for browser navigation requests (GET/HEAD
+    // with sec-fetch-dest:document or Accept:text/html). API clients, curl, and
+    // non-GET methods get plain text "Not Found" instead.
+    const isSafeMethod = request.method === 'GET' || request.method === 'HEAD'
+    const isBrowserNavigation =
+      isDocumentRequest(request) || request.headers.get('accept')?.includes('text/html')
+    if (!pageRoute && !(isSafeMethod && isBrowserNavigation)) {
       return new Response('Not Found', { status: 404 })
     }
     const isNotFound = !pageRoute
@@ -1373,16 +1376,19 @@ export class Spiceflow<
       (x) => !x.route.kind,
     )
     // When no route matched (notFoundHandler) but the app has React pages registered
-    // and the request is from a browser, enter the React rendering path so
-    // DefaultNotFoundPage is rendered as HTML instead of plain text.
-    const isBrowserRequest = request.headers.get('accept')?.includes('text/html')
+    // and the request is a browser navigation (GET/HEAD), enter the React rendering
+    // path so DefaultNotFoundPage is rendered as HTML instead of plain text.
+    const isSafeMethod = request.method === 'GET' || request.method === 'HEAD'
+    const isBrowserNavigation =
+      isDocumentRequest(request) || request.headers.get('accept')?.includes('text/html')
     const isUnmatchedRoute =
       nonReactRoutes.length === 1 &&
       nonReactRoutes[0]?.route?.handler === notFoundHandler
     const appHasReactPages =
       this.getAllRoutes().some((r) => r.kind === 'page' || r.kind === 'staticPage')
     const shouldRenderReact404 =
-      isUnmatchedRoute && !reactRoutes.length && appHasReactPages && isBrowserRequest
+      isUnmatchedRoute && !reactRoutes.length && appHasReactPages &&
+      isSafeMethod && isBrowserNavigation
     let index = 0
     if (reactRoutes.length || shouldRenderReact404) {
       const fallbackApp = reactRoutes[0]?.app || nonReactRoutes[0]?.app || this
