@@ -16,10 +16,8 @@ export default defineConfig(({ command }) => ({
     cloudflare({
       viteEnvironment: {
         name: 'rsc',
-        // In dev, keep `ssr` on the main Vite process so `loadModuleDevProxy`
-        // can bridge from the worker RSC environment into Node SSR.
-        // In build/preview, emit `ssr` as a worker child environment so the
-        // generated `ssr/index.js` stays workerd-compatible.
+        // Dev needs `ssr` on the main Vite process for `loadModuleDevProxy`.
+        // Build/preview need a child worker env so `ssr/index.js` is workerd-compatible.
         childEnvironments: command === 'build' ? ['ssr'] : undefined,
       },
     }),
