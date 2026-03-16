@@ -279,6 +279,24 @@ test.describe("SSR error fallback (__NO_HYDRATE)", () => {
 	});
 });
 
+test.describe("RSC client-only API errors @dev", () => {
+	test("useState in server component shows actionable error message", async ({
+		request,
+	}) => {
+		// A server component that calls useState triggers a TypeError because
+		// useState is undefined in the react-server build. formatServerError
+		// rewrites the message to tell the developer to add "use client".
+		const response = await request.get(`${baseURL}/usestate-in-rsc`);
+		expect(response.status()).toBe(500);
+		const html = await response.text();
+		// The rewritten error message appears in the inlined RSC flight data
+		expect(html).toContain(
+			"useState only works in Client Components",
+		);
+		expect(html).toContain("use client");
+	});
+});
+
 test.describe("CSRF protection", () => {
 	test("cross-origin POST to action endpoint returns 403", async () => {
 		// Use Node.js fetch directly — browser fetch cannot override the Origin header

@@ -26,6 +26,12 @@ describe('formatServerError', () => {
     expect(err.message).toMatchInlineSnapshot(`"createContext only works in Client Components. Add the "use client" directive at the top of the file to use it."`)
   })
 
+  test('rewrites transpiled createContext variant', () => {
+    const err = new TypeError('(0 , react.createContext) is not a function')
+    formatServerError(err)
+    expect(err.message).toMatchInlineSnapshot(`"createContext only works in Client Components. Add the "use client" directive at the top of the file to use it."`)
+  })
+
   test('rewrites class component error', () => {
     const err = new TypeError(
       'Class extends value undefined is not a constructor or null',

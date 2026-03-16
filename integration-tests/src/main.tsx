@@ -1,4 +1,4 @@
-import { Suspense, useActionState } from "react";
+import { Suspense, useActionState, useState } from "react";
 
 import { Spiceflow, serveStatic, redirect, notFound } from "spiceflow";
 import { IndexPage } from "./app/index";
@@ -257,6 +257,9 @@ export const app = new Spiceflow()
 	.page("/client-error", async () => {
 		return <ClientComponentThrows />;
 	})
+	.page("/usestate-in-rsc", async () => {
+		return <UseStateInServerComponent />;
+	})
 	.page("/streaming", async () => {
 		async function* generateMessages() {
 			yield "message-1";
@@ -346,6 +349,14 @@ async function Redirects() {
 async function ServerComponentThrows() {
 	throw new Error("Server component error");
 	return <div>Server component</div>;
+}
+
+// Server component that accidentally uses useState (a client-only API).
+// useState is undefined in the react-server build, so calling it throws a TypeError.
+// The formatServerError utility should rewrite this into an actionable message.
+function UseStateInServerComponent() {
+	const [count] = useState(0);
+	return <div>count: {count}</div>;
 }
 
 app.listen(Number(process.env.PORT || 3000))

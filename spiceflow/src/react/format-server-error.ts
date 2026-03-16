@@ -9,6 +9,7 @@ const clientOnlyHooks = [
   'useDeferredValue',
   'useEffect',
   'useEffectEvent',
+  'experimental_useOptimistic',
   'useImperativeHandle',
   'useInsertionEffect',
   'useLayoutEffect',
@@ -44,7 +45,7 @@ export function formatServerError(error: unknown): void {
     return
   }
 
-  if (error.message.includes('createContext is not a function')) {
+  if (/\bcreateContext\b.*is not a function/.test(error.message)) {
     setMessage(
       error,
       'createContext only works in Client Components. Add the "use client" directive at the top of the file to use it.',
