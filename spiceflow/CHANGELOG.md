@@ -1,5 +1,21 @@
 # spiceflow
 
+## 1.18.0-rsc.7
+
+### Patch Changes
+
+1. **Fixed API routes being shadowed by layout-only React route matches** — when a path like `/api/hello` matched both a `layout('/*')` and a `.get('/api/hello')` handler, the framework incorrectly entered the React rendering path and returned 404. The route matching logic now checks whether `reactRoutes` contains an actual page or staticPage match before taking priority over API route handlers.
+
+2. **Actionable errors for client-only React APIs in Server Components** — cryptic `TypeError: X is not a function` messages are now rewritten when `useState`, `useEffect`, `createContext`, or class components are accidentally used in Server Components. For example, `TypeError: useState is not a function` becomes `useState only works in Client Components. Add the "use client" directive at the top of the file to use it.`
+
+3. **React 404 page for unmatched browser routes** — browser requests hitting unmatched routes in apps with React pages registered now render the `DefaultNotFoundPage` component through the full RSC → SSR pipeline, wrapped in layouts, with correct HTTP 404 status. Non-browser requests (API clients, curl, fetch without `Accept: text/html`) still get plain text `"Not Found"`.
+
+4. **Fixed SSR client reference resource hints** — moving Flight deserialization back inside the React DOM SSR render context restores stylesheet and preload injection for client components during document rendering, so pages hydrate with the expected early resource hints.
+
+5. **Hardened SSR redirect race** — abort guard, timer cleanup, and error priority fixes prevent redirect responses from racing with in-flight SSR renders.
+
+6. **Fixed `throw redirect()` inside page handlers** — redirecting inside a page handler now correctly returns HTTP 307 instead of 200.
+
 ## 1.18.0-rsc.6
 
 ### Patch Changes
