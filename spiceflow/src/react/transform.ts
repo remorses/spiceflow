@@ -3,8 +3,7 @@
 const encoder = new TextEncoder()
 const trailerBodyBytes = encoder.encode('</body></html>')
 const closeHeadBytes = encoder.encode('</head>')
-const flightScriptPrefix = '<script>(self.__FLIGHT_DATA||=[]).push('
-const flightScriptSuffix = ')</script>'
+const flightScriptPrefix = '(self.__FLIGHT_DATA||=[]).push('
 
 function endsWithSequence(haystack: Uint8Array, needle: Uint8Array) {
   if (haystack.length < needle.length) return false
@@ -164,7 +163,7 @@ function writeChunk(
 ) {
   controller.enqueue(
     encoder.encode(
-      escapeScript(flightScriptPrefix + chunk + flightScriptSuffix),
+      `<script>${escapeScript(flightScriptPrefix + chunk + ')')}</script>`,
     ),
   )
 }
