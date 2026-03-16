@@ -119,6 +119,10 @@ export const app = new Spiceflow()
 
 		throw redirect("/");
 	})
+	.page("/slow-notfound", async () => {
+		await sleep(100);
+		throw notFound();
+	})
 
 	.page("/redirect-in-rsc-suspense", async () => {
 		return (
@@ -339,4 +343,4 @@ async function ServerComponentThrows() {
 	return <div>Server component</div>;
 }
 
-app.listen(3000)
+app.listen(Number(process.env.PORT || 3000))

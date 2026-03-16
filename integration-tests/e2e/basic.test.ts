@@ -516,6 +516,24 @@ test.describe("client-side navigation with throw response", () => {
 	});
 });
 
+test.describe("slow throw response (>50ms) still works via client-side fallback", () => {
+	test("slow redirect navigates to target via client-side", async ({ page }) => {
+		await page.goto("/");
+		await page.getByText("[hydrated: 1]").click();
+		await page.getByTestId("link-slow-redirect").click();
+		await expect(page).toHaveURL("/");
+	});
+
+	test("slow notFound renders 404 page via client-side", async ({ page }) => {
+		await page.goto("/");
+		await page.getByText("[hydrated: 1]").click();
+		await page.getByTestId("link-slow-notfound").click();
+		await expect(page.getByText("404")).toBeVisible();
+		await expect(page.getByText("This page could not be found.")).toBeVisible();
+		await expect(page).toHaveURL("/slow-notfound");
+	});
+});
+
 test.describe("deployment id @build", () => {
 	const docHeaders = { "sec-fetch-dest": "document" };
 

@@ -47,6 +47,12 @@ export function Layout(props: React.PropsWithChildren) {
 				<li>
 					<Link href="/throw-notfound-in-layout" data-testid="link-throw-notfound-layout">throw notfound layout</Link>
 				</li>
+				<li>
+					<Link href="/slow-redirect" data-testid="link-slow-redirect">slow redirect</Link>
+				</li>
+				<li>
+					<Link href="/slow-notfound" data-testid="link-slow-notfound">slow notfound</Link>
+				</li>
 				</ul>
 				{props.children}
 			</body>

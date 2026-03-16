@@ -13,7 +13,7 @@ import {
 import { ServerPayload } from '../spiceflow.js'
 import { LayoutContent } from './components.js'
 import { FlightDataContext } from './context.js'
-import { getErrorContext, isNotFoundError, isRedirectError, contextHeaders, contextToHeaders } from './errors.js'
+import { getErrorContext, isNotFoundError, isRedirectError, contextHeaders, contextToHeaders, type ReactServerErrorContext } from './errors.js'
 import { MetaProvider } from './head.js'
 import { MetaState } from './metastate.js'
 import { injectRSCPayload } from './transform.js'
@@ -83,6 +83,28 @@ export async function renderHtml({
   let htmlStream: ReadableStream & { allReady: Promise<void> }
   // Preserve the status from the flight response (e.g. 404 for not-found pages)
   let status = response.status
+  // When a page throws redirect/notFound, the error flows through the RSC
+  // flight stream as a digest string. During SSR, it can surface through
+  // onError (inside implicit Suspense from flight lazy chunks) instead of
+  // rejecting renderToReadableStream. Capture it here so both paths — the
+  // catch block and the onError callback — can short-circuit the response.
+  let ssrErrorCtx: ReactServerErrorContext | undefined
+
+  function handleErrorContext(ctx: ReactServerErrorContext) {
+    if (isRedirectError(ctx)) {
+      const mergedHeaders = new Headers(response.headers)
+      for (const [k, v] of contextToHeaders(ctx)) {
+        mergedHeaders.append(k, v)
+      }
+      // Override content-type so fetchHandler doesn't mistake this for a
+      // flight response and try to SSR-render the null body.
+      mergedHeaders.set('content-type', 'text/html;charset=utf-8')
+      return new Response(null, { status: ctx.status, headers: mergedHeaders })
+    }
+    if (isNotFoundError(ctx)) {
+      status = 404
+    }
+  }
 
   try {
     const payload = await payloadPromise
@@ -91,45 +113,35 @@ export async function renderHtml({
       signal: request.signal,
       formState: payload.formState,
       onError(e) {
-        console.error('[entry.ssr.tsx:renderToReadableStream]', e)
-        if (e && typeof e === 'object') {
-          const digest = 'digest' in e ? e.digest : undefined
-          if (typeof digest === 'string') return digest
-
-          const message = 'message' in e ? e.message : undefined
-          if (typeof message === 'string') return message
+        const ctx = getErrorContext(e)
+        if (ctx) {
+          if (!ssrErrorCtx) ssrErrorCtx = ctx
+        } else {
+          console.error('[entry.ssr.tsx:renderToReadableStream]', e)
         }
-
-        if (e instanceof Error) {
-          return e.message
-        }
-
+        if (e && typeof e === 'object' && 'digest' in e && typeof e.digest === 'string') return e.digest
+        if (e instanceof Error) return e.message
         return String(e)
       },
     })
     if (prerender || isbot(request.headers.get('user-agent') || '')) {
       await htmlStream.allReady
+    } else {
+      // Race allReady against a short timeout to catch redirect/notFound
+      // errors from Suspense boundaries without blocking normal streaming.
+      await Promise.race([htmlStream.allReady, new Promise<void>((r) => setTimeout(r, 50))])
+    }
+
+    if (ssrErrorCtx) {
+      const res = handleErrorContext(ssrErrorCtx)
+      if (res) return res
     }
   } catch (e) {
     status = 500
-    console.log(`error during ssr render catch`, e)
-    let errCtx = getErrorContext(e)
-    if (errCtx && isRedirectError(errCtx)) {
-      const hdrs = contextHeaders(errCtx)
-      console.log(`redirecting to ${hdrs.location}`)
-      const mergedHeaders = new Headers(response.headers)
-      for (const [k, v] of contextToHeaders(errCtx)) {
-        mergedHeaders.append(k, v)
-      }
-      mergedHeaders.set('content-type', 'text/html;charset=utf-8')
-      return new Response(hdrs.location, {
-        status: errCtx.status,
-        headers: mergedHeaders,
-      })
-    }
-
-    if (errCtx && isNotFoundError(errCtx)) {
-      status = 404
+    const errCtx = getErrorContext(e)
+    if (errCtx) {
+      const res = handleErrorContext(errCtx)
+      if (res) return res
     }
 
     const errorRoot = (
