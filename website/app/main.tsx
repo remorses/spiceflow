@@ -73,10 +73,10 @@ export const app = new Spiceflow()
   .page('/', () => {
     return (
       <div className="px-6 md:px-12 pt-12 pb-24 md:pt-24 w-full flex flex-col items-center">
-        <div className="prose prose-quoteless gap-1 flex flex-col min-w-0 w-full max-w-[900px]">
+        <div className="prose dark:prose-invert prose-quoteless gap-1 flex flex-col min-w-0 w-full max-w-[900px]">
           <ReadmeContent />
         </div>
-        <div className="pt-24 flex flex-col text-sm items-center gap-4">
+        <div className="pt-24 flex flex-col text-sm items-center gap-4 dark:text-gray-400">
           <div>
             Written by{' '}
             <a className="underline" href="https://twitter.com/__morse">

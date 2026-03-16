@@ -11,6 +11,19 @@ body,
 html {
   scroll-padding-top: 40px;
   --max-width: 100%;
+  color-scheme: light dark;
+}
+
+body {
+  background-color: white;
+  color: #24292f;
+}
+
+@media (prefers-color-scheme: dark) {
+  body {
+    background-color: #0d1117;
+    color: #c9d1d9;
+  }
 }
 
 .ch-codeblock code {
@@ -20,8 +33,69 @@ html {
 
 .ch-codeblock {
   box-shadow: none !important;
-  border: 1px solid rgb(229 231 235) !important;
+  border: none !important;
   border-radius: 0px;
+  padding: 0 !important;
+  overflow: visible !important;
+}
+
+.ch-codeblock pre {
+  overflow: visible !important;
+  padding: 0 !important;
+}
+
+.ch-code-wrapper {
+  padding: 0 !important;
+}
+
+/* Remove Code Hike's internal 16px left offset for code lines.
+   The inner div uses translate(16px, 0px) for the gutter offset.
+   Target only that pattern, not the outer translateY line positioning. */
+.ch-code-scroll-content div[style*="margin-left"] {
+  margin-left: 0 !important;
+}
+
+.ch-code-scroll-content div[style*="translate(16px"] {
+  transform: translate(0px, 0px) !important;
+}
+
+/* Dark mode: switch Code Hike to github-dark theme colors */
+@media (prefers-color-scheme: dark) {
+  [data-ch-theme] {
+    --ch-t-colorScheme: dark;
+    --ch-t-foreground: #c9d1d9;
+    --ch-t-background: #0d1117;
+    --ch-t-lighter-inlineBackground: #0d1117e6;
+    --ch-t-editor-background: #0d1117;
+    --ch-t-editor-foreground: #c9d1d9;
+    --ch-t-editor-lineHighlightBackground: #6e76811a;
+    --ch-t-editor-rangeHighlightBackground: #ffffff0b;
+    --ch-t-editor-infoForeground: #3794FF;
+    --ch-t-editor-selectionBackground: #264F78;
+    --ch-t-editorLineNumber-foreground: #6e7681;
+  }
+
+  .ch-code-wrapper {
+    background-color: #0d1117 !important;
+    color: #c9d1d9 !important;
+  }
+
+  .ch-inline-code > code {
+    background: #161b22 !important;
+    color: #c9d1d9 !important;
+  }
+
+  /* Map github-light token colors to github-dark equivalents.
+     Code Hike serializes inline styles as rgb(), so selectors must match that format. */
+  [data-ch-theme] span[style*="color: rgb(207, 34, 46)"]  { color: #FF7B72 !important; }
+  [data-ch-theme] span[style*="color: rgb(5, 80, 174)"]   { color: #79C0FF !important; }
+  [data-ch-theme] span[style*="color: rgb(10, 48, 105)"]  { color: #A5D6FF !important; }
+  [data-ch-theme] span[style*="color: rgb(36, 41, 47)"]   { color: #C9D1D9 !important; }
+  [data-ch-theme] span[style*="color: rgb(110, 119, 129)"]{ color: #8B949E !important; }
+  [data-ch-theme] span[style*="color: rgb(130, 80, 223)"] { color: #D2A8FF !important; }
+  [data-ch-theme] span[style*="color: rgb(149, 56, 0)"]   { color: #FFA657 !important; }
+  [data-ch-theme] span[style*="color: rgb(17, 99, 41)"]   { color: #7EE787 !important; }
+  [data-ch-theme] span[style*="color: rgb(9, 105, 218)"]  { color: #58A6FF !important; }
 }
 
 @media (min-width: 768px) {
