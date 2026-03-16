@@ -385,6 +385,17 @@ const createProxy = (
   }) as any
 }
 
+/**
+ * @deprecated Use `createSpiceflowFetch` instead. It provides the same type safety
+ * with a simpler fetch-like API that returns `Error | Data` directly.
+ *
+ * ```ts
+ * import { createSpiceflowFetch } from 'spiceflow/client'
+ * const f = createSpiceflowFetch<typeof app>('http://localhost:3000')
+ * const result = await f('/hello')
+ * if (result instanceof Error) return result
+ * ```
+ */
 export const createSpiceflowClient = <const App extends AnySpiceflow>(
   domain: App | string,
   config?: SpiceflowClient.Config &
