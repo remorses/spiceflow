@@ -94,6 +94,12 @@ export async function renderHtml({
   // catch block and the onError callback — can short-circuit the response.
   let ssrErrorCtx: ReactServerErrorContext | undefined
 
+  function shouldReplaceCtx(next: ReactServerErrorContext) {
+    if (!ssrErrorCtx) return true
+    // Redirect takes priority over notFound when multiple errors fire
+    return Boolean(isRedirectError(next)) && !isRedirectError(ssrErrorCtx)
+  }
+
   function handleErrorContext(ctx: ReactServerErrorContext) {
     if (isRedirectError(ctx)) {
       const mergedHeaders = new Headers(response.headers)
@@ -121,7 +127,7 @@ export async function renderHtml({
       onError(e) {
         const ctx = getErrorContext(e)
         if (ctx) {
-          if (!ssrErrorCtx) ssrErrorCtx = ctx
+          if (shouldReplaceCtx(ctx)) ssrErrorCtx = ctx
         } else {
           formatServerError(e)
           console.error('[entry.ssr.tsx:renderToReadableStream]', e)
@@ -136,7 +142,12 @@ export async function renderHtml({
     } else {
       // Race allReady against a short timeout to catch redirect/notFound
       // errors from Suspense boundaries without blocking normal streaming.
-      await Promise.race([htmlStream.allReady, new Promise<void>((r) => setTimeout(r, 50))])
+      let timerId: ReturnType<typeof setTimeout> | undefined
+      const timeout = new Promise<void>((r) => { timerId = setTimeout(r, 50) })
+      await Promise.race([
+        htmlStream.allReady.finally(() => { if (timerId) clearTimeout(timerId) }),
+        timeout,
+      ])
     }
 
     if (ssrErrorCtx) {
@@ -144,6 +155,11 @@ export async function renderHtml({
       if (res) return res
     }
   } catch (e) {
+    // Client disconnects surface as abort errors when we race allReady.
+    // Don't convert these to 500 error shells — just rethrow.
+    if (e instanceof Error && e.name === 'AbortError') throw e
+    if (request.signal.aborted) throw e
+
     status = 500
     const errCtx = getErrorContext(e)
     if (errCtx) {
