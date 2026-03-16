@@ -1999,6 +1999,55 @@ export async function submitForm(formData: FormData) {
 }
 ```
 
+### Redirects and Not Found
+
+Throw `redirect()` or `notFound()` anywhere inside a `.page()` or `.layout()` handler to interrupt rendering and return the appropriate HTTP response. This works both for full-page loads (SSR) and client-side navigations (SPA).
+
+```tsx
+import { Spiceflow, redirect, notFound } from 'spiceflow'
+
+export const app = new Spiceflow()
+  .page('/dashboard', async ({ request }) => {
+    const user = await getUser(request)
+    if (!user) {
+      throw redirect('/login')
+    }
+    return <Dashboard user={user} />
+  })
+  .page('/posts/:id', async ({ params }) => {
+    const post = await getPost(params.id)
+    if (!post) {
+      throw notFound()
+    }
+    return <Post post={post} />
+  })
+  // Layouts can also throw — useful for auth guards that protect
+  // an entire section of your app
+  .layout('/admin/*', async ({ children, request }) => {
+    const user = await getUser(request)
+    if (!user?.isAdmin) {
+      throw redirect('/login')
+    }
+    return <AdminLayout>{children}</AdminLayout>
+  })
+```
+
+`redirect()` accepts an optional second argument for custom status codes and headers:
+
+```tsx
+// 301 permanent redirect
+throw redirect('/new-url', { status: 301 })
+
+// Redirect with custom headers
+throw redirect('/login', {
+  headers: { 'set-cookie': 'session=; Max-Age=0' },
+})
+```
+
+**Correct HTTP status codes.** Unlike Next.js, where redirects and not-found thrown during rendering always return a 200 status with client-side handling, Spiceflow returns the actual HTTP status code in the response — `307` for redirects (with a `Location` header) and `404` for not-found pages. This works even when the throw happens after an `await`, because the SSR layer intercepts the error from the RSC stream before flushing the HTML response. Search engines see correct status codes, and `fetch()` calls with `redirect: "manual"` get the real `307` response.
+
+**Client-side navigation.** When a user clicks a `<Link>` that navigates to a page throwing `redirect()`, the router performs the redirect client-side without a full page reload. For `notFound()`, the built-in 404 page is rendered inline while preserving layout state.
+
 ### Client Code Splitting
 
 Code splitting of client components is **automatic** — you don't need `React.lazy()` or dynamic `import()`. Each `"use client"` file becomes a separate chunk, and the browser only loads the chunks needed for the current page.
