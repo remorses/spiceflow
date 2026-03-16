@@ -3,26 +3,25 @@
     <br/>
     <br/>
     <h1>spiceflow</h1>
-    <p>fast, simple and type safe API framework</p>
+    <p>type safe API and React Server Components framework for Node, Bun, and Cloudflare</p>
     <br/>
     <br/>
 </div>
 
-Spiceflow is a lightweight, type-safe API framework for building web services using modern web standards. Read the source code on [GitHub](https://github.com/remorses/spiceflow).
+Spiceflow is a type-safe API framework and full-stack React RSC framework focused on absolute simplicity. It works across all JavaScript runtimes: Node.js, Bun, and Cloudflare Workers. Read the source code on [GitHub](https://github.com/remorses/spiceflow).
 
 ## Features
 
+- Full-stack React framework with React Server Components (RSC), server actions, layouts, and automatic client code splitting
+- Works everywhere: Node.js, Bun, and Cloudflare Workers with the same code
 - Type safe schema based validation via Zod
+- Type safe RPC client generation
+- Simple and intuitive API using web standard Request and Response
 - Can easily generate OpenAPI spec based on your routes
 - Native support for [Fern](https://github.com/fern-api/fern) to generate docs and SDKs (see example docs [here](https://remorses.docs.buildwithfern.com))
 - Support for [Model Context Protocol](https://modelcontextprotocol.io/) to easily wire your app with LLMs
-- Full-stack React framework with React Server Components (RSC), server actions, layouts, and automatic client code splitting
-- Type safe RPC client generation
-- Simple and intuitive API
-- Uses web standards for requests and responses
 - Supports async generators for streaming via server sent events
 - Modular design with `.use()` for mounting sub-apps
-- Base path support
 
 ## Installation
 

@@ -76,7 +76,7 @@ export const app = new Spiceflow()
   })
   .page('/', () => {
     return (
-      <div className="px-6 md:px-12 pt-12 pb-24 md:pt-24 w-full flex flex-col items-center">
+      <div className="px-6 md:px-12 pt-3 pb-24 md:pt-6 w-full flex flex-col items-center">
         <div className="prose dark:prose-invert prose-quoteless gap-1 flex flex-col min-w-0 w-full max-w-[780px]">
           <ReadmeContent />
         </div>

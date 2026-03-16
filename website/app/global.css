@@ -18,14 +18,27 @@ html {
 .prose :is(h1, h2, h3, h4, h5, h6) {
   font-family: var(--font-serif);
   font-weight: 400;
+  line-height: 1.15;
+  margin-top: 1em;
+  margin-bottom: 0.3em;
 }
 
 .prose h1 { font-size: 3em; }
 .prose h2 { font-size: 2.4em; }
 .prose h3 { font-size: 1.8em; }
 
+.prose p {
+  margin-top: 0.4em;
+  margin-bottom: 0.4em;
+}
+
+.prose ul, .prose ol {
+  margin-top: 0.3em;
+  margin-bottom: 0.3em;
+}
+
 .prose :is(h1, h2, h3, h4, h5, h6) + .ch-codeblock {
-  margin-top: 0.5em;
+  margin-top: 0.3em;
 }
 
 .prose .ch-codeblock + :is(h1, h2, h3, h4, h5, h6) {
