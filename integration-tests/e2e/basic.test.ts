@@ -303,10 +303,11 @@ test.describe("CSS loading", () => {
 		await page.goto("/css-test");
 		const clientEl = page.getByTestId("css-test-client");
 		await expect(clientEl).toBeVisible();
-		const color = await clientEl.evaluate((el) => getComputedStyle(el).color);
-		expect(color).toBe("rgb(220, 38, 38)");
-		const border = await clientEl.evaluate((el) => getComputedStyle(el).borderColor);
-		expect(border).toBe("rgb(220, 38, 38)");
+		// In dev, client component CSS loads async via Vite's HMR style injection
+		// (the element is SSR'd before client JS injects the <style> tag).
+		// toHaveCSS auto-retries until the style is applied.
+		await expect(clientEl).toHaveCSS("color", "rgb(220, 38, 38)");
+		await expect(clientEl).toHaveCSS("border-color", "rgb(220, 38, 38)");
 	});
 
 	test("CSS is present in SSR HTML (no FOUC)", async () => {
