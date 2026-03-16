@@ -57,6 +57,10 @@ export const app = new Spiceflow()
             name="viewport"
             content="width=device-width, initial-scale=1"
           />
+          <link
+            href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,200..900;1,8..60,200..900&display=swap"
+            rel="stylesheet"
+          />
           <title>Spiceflow - The Type Safe TypeScript API Framework</title>
           <meta
             name="description"
@@ -73,7 +77,7 @@ export const app = new Spiceflow()
   .page('/', () => {
     return (
       <div className="px-6 md:px-12 pt-12 pb-24 md:pt-24 w-full flex flex-col items-center">
-        <div className="prose dark:prose-invert prose-quoteless gap-1 flex flex-col min-w-0 w-full max-w-[900px]">
+        <div className="prose dark:prose-invert prose-quoteless gap-1 flex flex-col min-w-0 w-full max-w-[780px]">
           <ReadmeContent />
         </div>
         <div className="pt-24 flex flex-col text-sm items-center gap-4 dark:text-gray-400">

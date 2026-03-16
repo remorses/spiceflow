@@ -11,7 +11,25 @@ body,
 html {
   scroll-padding-top: 40px;
   --max-width: 100%;
+  --font-serif: 'Source Serif 4', Georgia, serif;
   color-scheme: light dark;
+}
+
+.prose :is(h1, h2, h3, h4, h5, h6) {
+  font-family: var(--font-serif);
+  font-weight: 400;
+}
+
+.prose h1 { font-size: 3em; }
+.prose h2 { font-size: 2.4em; }
+.prose h3 { font-size: 1.8em; }
+
+.prose :is(h1, h2, h3, h4, h5, h6) + .ch-codeblock {
+  margin-top: 0.5em;
+}
+
+.prose .ch-codeblock + :is(h1, h2, h3, h4, h5, h6) {
+  margin-top: 0.75em;
 }
 
 body {
@@ -37,6 +55,8 @@ body {
   border-radius: 0px;
   padding: 0 !important;
   overflow: visible !important;
+  margin-top: 0.4em !important;
+  margin-bottom: 0.4em !important;
 }
 
 .ch-codeblock pre {
