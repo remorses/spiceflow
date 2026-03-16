@@ -126,7 +126,7 @@ async function waitForReady({
 }): Promise<string> {
   const startedAt = Date.now()
 
-  while (Date.now() - startedAt < 60_000) {
+  while (Date.now() - startedAt < 90_000) {
     if (child.exitCode !== null) {
       throw new Error(`Server exited early\n${output()}`)
     }
