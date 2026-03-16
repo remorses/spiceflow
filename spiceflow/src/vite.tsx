@@ -115,7 +115,7 @@ export function spiceflowPlugin({
           // `"production" !== process.env.NODE_ENV` that always evaluate to the dev
           // path, adding ~28% CPU overhead from debug stack traces and fake call sites.
           define: env.command === 'build'
-            ? { 'process.env.NODE_ENV': JSON.stringify('production') }
+            ? { 'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'production') }
             : undefined,
           build: {
             rollupOptions: {
