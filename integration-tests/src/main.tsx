@@ -325,6 +325,11 @@ export const app = new Spiceflow()
 	.post("/echo", async ({ request }) => {
 		const body = await request.json();
 		return { echo: body };
+	})
+	.get("/api/hello", () => "Hello from API!")
+	.post("/api/echo", async ({ request }) => {
+		const body = await request.json();
+		return { echo: body };
 	});
 
 const somePaths = ["/static/one", "/static/two"];

@@ -1394,8 +1394,19 @@ export class Spiceflow<
     const shouldRenderReact404 =
       isUnmatchedRoute && !reactRoutes.length && appHasReactPages &&
       isSafeMethod && isBrowserNavigation
+    // Layout-only react matches should not take priority over real API route handlers.
+    // Only enter the React path when there's an actual page/staticPage match, or when
+    // there are no real API routes and we need to render a React 404 page.
+    const hasPageMatch = reactRoutes.some(
+      (x) => x.route.kind === 'page' || x.route.kind === 'staticPage',
+    )
+    const hasRealApiRoute = nonReactRoutes.some(
+      (x) => x.route.handler !== notFoundHandler,
+    )
+    const shouldEnterReactPath =
+      hasPageMatch || (reactRoutes.length > 0 && !hasRealApiRoute)
     let index = 0
-    if (reactRoutes.length || shouldRenderReact404) {
+    if (shouldEnterReactPath || shouldRenderReact404) {
       const fallbackApp = reactRoutes[0]?.app || nonReactRoutes[0]?.app || this
       const appsInScope = this.getAppsInScope(fallbackApp)
       onErrorHandlers = appsInScope.flatMap((x) => x.onErrorHandlers)

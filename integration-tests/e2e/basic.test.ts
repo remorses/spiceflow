@@ -32,6 +32,37 @@ test.describe("not found", () => {
 		expect(text).toBe("Not Found");
 	});
 });
+test.describe("API route priority over layout-only matches", () => {
+	// layout("/*") matches /api/hello but there's no page for it — the .get()
+	// handler should execute instead of entering the React rendering path.
+	test("GET /api/hello returns API response, not React 404", async () => {
+		const response = await fetch(`${baseURL}/api/hello`);
+		expect(response.status).toBe(200);
+		const text = await response.text();
+		expect(text).toContain("Hello from API!");
+	});
+
+	test("POST /api/echo returns API response when layout matches", async () => {
+		const response = await fetch(`${baseURL}/api/echo`, {
+			method: "POST",
+			headers: { "content-type": "application/json" },
+			body: JSON.stringify({ test: true }),
+		});
+		expect(response.status).toBe(200);
+		const json = await response.json();
+		expect(json.echo).toEqual({ test: true });
+	});
+
+	test("GET /api/hello via browser returns API response, not React 404", async ({
+		page,
+	}) => {
+		const response = await page.goto("/api/hello");
+		expect(response?.status()).toBe(200);
+		const text = await page.textContent("body");
+		expect(text).toContain("Hello from API!");
+	});
+});
+
 test.describe("middleware with use()", () => {
 	test("middleware sets response header", async ({ page }) => {
 		const response = await page.goto("/");
