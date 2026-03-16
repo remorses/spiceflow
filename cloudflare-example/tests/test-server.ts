@@ -126,18 +126,36 @@ async function waitForReady({
 }): Promise<string> {
   const startedAt = Date.now()
 
+  // Wait for dep optimizations to settle before fetching.
+  // Vite dev with Cloudflare Workers triggers multiple dependency optimization
+  // rounds on fresh installs (CI). Each round causes a full program reload,
+  // and fetching during a reload causes "Invalid hook call" errors from
+  // duplicate React copies. We wait until the output stops changing for 3s
+  // before starting to fetch, so the server is fully stable.
+  let lastOutputLength = 0
+  let stableAt: number | undefined
   while (Date.now() - startedAt < 90_000) {
     if (child.exitCode !== null) {
       throw new Error(`Server exited early\n${output()}`)
     }
-
+    const currentLength = output().length
+    if (currentLength !== lastOutputLength) {
+      lastOutputLength = currentLength
+      stableAt = undefined
+    } else if (!stableAt) {
+      stableAt = Date.now()
+    }
     const localUrl = getLocalUrl({ text: output() })
+    if (!localUrl) {
+      await sleep({ ms: 500 })
+      continue
+    }
+    // Wait at least 3s after output stabilizes before first fetch
+    if (!stableAt || Date.now() - stableAt < 3_000) {
+      await sleep({ ms: 500 })
+      continue
+    }
     try {
-      if (!localUrl) {
-        await sleep({ ms: 500 })
-        continue
-      }
-
       const response = await fetch(localUrl, {
         signal: AbortSignal.timeout(5_000),
       })
