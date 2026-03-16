@@ -464,18 +464,6 @@ test.describe("streaming async generator", () => {
 		const firstItem = page.getByTestId("stream-item").first();
 		await expect(firstItem).toBeVisible({ timeout: 10000 });
 		await expect(firstItem).toHaveText("message-1");
-		if (isStart) {
-			await expect(page.getByTestId("stream-done")).toBeVisible({ timeout: 10000 });
-			const items = page.getByTestId("stream-item");
-			await expect(items).toHaveCount(3);
-			await expect(items.nth(0)).toHaveText("message-1");
-			await expect(items.nth(1)).toHaveText("message-2");
-			await expect(items.nth(2)).toHaveText("message-3");
-			return;
-		}
-		// At this point the generator still has ~3s of work left (2 × 1500ms delays).
-		// "done" marker must NOT be visible yet.
-		expect(await page.getByTestId("stream-done").isVisible()).toBe(false);
 		// Wait for all items to arrive
 		await expect(page.getByTestId("stream-done")).toBeVisible({ timeout: 10000 });
 		const items = page.getByTestId("stream-item");

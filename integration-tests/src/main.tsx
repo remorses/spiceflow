@@ -77,7 +77,7 @@ export const app = new Spiceflow()
 		return <Suspense fallback={<div>not found...</div>}>{children}</Suspense>;
 	})
 	.page("/not-found-in-suspense", async () => {
-		await sleep(100);
+		await sleep(10);
 		throw notFound();
 	})
 	.page("/top-level-redirect", async () => {
@@ -140,7 +140,7 @@ export const app = new Spiceflow()
 		);
 	})
 	.page("/slow", async ({ request, children }) => {
-		await sleep(1000);
+		await sleep(100);
 		return (
 			<div className="">
 				<h1>this is a slow page</h1>
@@ -158,7 +158,7 @@ export const app = new Spiceflow()
 		);
 	})
 	.page("/slow-suspense", async ({ request, children }) => {
-		await sleep(1000);
+		await sleep(100);
 		return (
 			<div className="">
 				<h1>slow page</h1>
@@ -263,9 +263,9 @@ export const app = new Spiceflow()
 	.page("/streaming", async () => {
 		async function* generateMessages() {
 			yield "message-1";
-			await sleep(1500);
+			await sleep(50);
 			yield "message-2";
-			await sleep(1500);
+			await sleep(50);
 			yield "message-3";
 		}
 		return <StreamingConsumer stream={generateMessages()} />;
@@ -341,7 +341,7 @@ for (const path of somePaths) {
 }
 
 async function Redirects() {
-	await sleep(100);
+	await sleep(10);
 	throw redirect("/");
 	return <div>Redirect</div>;
 }
