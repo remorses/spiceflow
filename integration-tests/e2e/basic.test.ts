@@ -3,7 +3,7 @@ import { createEditor } from "./helper.js";
 
 const port = Number(process.env.E2E_PORT || 6174);
 const baseURL = `http://localhost:${port}`;
-const isPreview = Boolean(process.env.E2E_PREVIEW);
+const isStart = Boolean(process.env.E2E_START);
 
 test.describe("not found", () => {
 	test("not found in outer route scope", async ({ page }) => {
@@ -132,6 +132,20 @@ test.describe(() => {
 	test("server reference in server @nojs", async ({ page }) => {
 		await testServerAction(page);
 	});
+
+	test("progressive enhancement POST preserves client reference hints", async ({
+		page,
+	}) => {
+		await page.goto("/");
+		await page
+			.getByTestId("server-counter")
+			.getByRole("button", { name: "+" })
+			.click();
+
+		const html = await page.content();
+		expect(html).toContain('data-testid="client-counter"');
+		expect(html).toContain('data-precedence="vite-rsc/client-reference"');
+	});
 });
 
 async function testServerAction(page: Page) {
@@ -218,13 +232,24 @@ test("server hmr @dev", async ({ page }) => {
 	await page.goto("/");
 	await page.getByText("[hydrated: 1]").click();
 
+	const serverCounter = page.getByTestId("server-counter");
+	const getServerCount = async (label: string) => {
+		const text = await serverCounter.textContent();
+		const match = text?.match(new RegExp(`${label}: (\\d+)`));
+		expect(match?.[1]).toBeTruthy();
+		return Number(match![1]);
+	};
+
+	const initialServerCount = await getServerCount("Server counter");
+
 	// server +1
-	await page.getByText("Server counter: 0").click();
 	await page
 		.getByTestId("server-counter")
 		.getByRole("button", { name: "+" })
 		.click();
-	await page.getByText("Server counter: 1").click();
+	await expect(serverCounter).toContainText(
+		`Server counter: ${initialServerCount + 1}`,
+	);
 
 	// client +1
 	const clientCounter = page.getByTestId("client-counter").filter({ hasText: "Client counter" });
@@ -238,14 +263,18 @@ test("server hmr @dev", async ({ page }) => {
 	try {
 		// edit server
 		await file.edit((s) => s.replace("Server counter", "Server [EDIT] counter"));
-		await page.getByText("Server [EDIT] counter: 1").click();
+		await expect(serverCounter).toContainText(
+			`Server [EDIT] counter: ${initialServerCount + 1}`,
+		);
 
 		// server -1
 		await page
 			.getByTestId("server-counter")
 			.getByRole("button", { name: "-" })
 			.click();
-		await page.getByText("Server [EDIT] counter: 0").click();
+		await expect(serverCounter).toContainText(
+			`Server [EDIT] counter: ${initialServerCount}`,
+		);
 	} finally {
 		file[Symbol.dispose]();
 	}
@@ -435,7 +464,7 @@ test.describe("streaming async generator", () => {
 		const firstItem = page.getByTestId("stream-item").first();
 		await expect(firstItem).toBeVisible({ timeout: 10000 });
 		await expect(firstItem).toHaveText("message-1");
-		if (isPreview) {
+		if (isStart) {
 			await expect(page.getByTestId("stream-done")).toBeVisible({ timeout: 10000 });
 			const items = page.getByTestId("stream-item");
 			await expect(items).toHaveCount(3);

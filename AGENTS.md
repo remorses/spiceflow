@@ -37,7 +37,7 @@ E2e tests live in `integration-tests/e2e/` and use Playwright (chromium only). T
 These are the integration test commands for the RSC app in `integration-tests/`:
 
 - `pnpm test-e2e` runs the Playwright suite against the dev server, so it covers dev-only behavior like HMR and middleware behavior during development.
-- `pnpm test-e2e-preview` runs the same Playwright suite against the production preview build, so it catches build-only regressions that do not show up in dev.
+- `pnpm test-e2e-start` runs the same Playwright suite against the production start server, so it catches build-only regressions that do not show up in dev.
 - Run both commands when validating an integration change, because they exercise different environments and one passing does not imply the other passes.
 
 ```bash
@@ -51,10 +51,10 @@ pnpm test-e2e
 pnpm test-e2e --grep "SSR error"
 
 # run against production build
-pnpm test-e2e-preview
+pnpm test-e2e-start
 ```
 
-Tests tagged `@dev` are skipped during preview runs; tests tagged `@build` are skipped during dev runs (controlled by `grepInvert` in playwright.config.ts).
+Tests tagged `@dev` are skipped during start runs; tests tagged `@build` are skipped during dev runs (controlled by `grepInvert` in `integration-tests/playwright.config.ts`).
 
 ## rebuild dist before testing
 

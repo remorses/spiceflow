@@ -370,5 +370,5 @@ plugin becomes unnecessary.
    - CSS is loaded per-component (not all global)
    - No FOUC on page load
    - CSS HMR works (edit a CSS file → styles update without reload)
-4. Run `pnpm test-e2e-preview` to verify production build CSS works
+4. Run `pnpm test-e2e-start` to verify production build CSS works
 5. Inspect the HTML source to verify `<link>` tags use `precedence` attributes

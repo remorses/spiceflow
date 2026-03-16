@@ -1,14 +1,16 @@
 import { defineConfig, devices } from "@playwright/test";
 
 const port = Number(process.env.E2E_PORT || 6174);
-const isPreview = Boolean(process.env.E2E_PREVIEW);
-const command = isPreview
-	? `PORT=${port} node dist/rsc/index.js`
+const isStart = Boolean(process.env.E2E_START);
+const command = isStart
+	? `PORT=${port} pnpm start`
 	: `pnpm dev --port ${port} --strict-port`;
 
 export default defineConfig({
 	testDir: "e2e",
 	use: {
+		actionTimeout: 5000,
+		navigationTimeout: 5000,
 		trace: "on-first-retry",
 	},
 	projects: [
@@ -27,7 +29,7 @@ export default defineConfig({
 		stderr: 'pipe',
 		port,
 	},
-	grepInvert: isPreview ? /@dev/ : /@build/,
+	grepInvert: isStart ? /@dev/ : /@build/,
 	forbidOnly: !!process.env["CI"],
 	
 	retries: process.env["CI"] ? 2 : 0,
