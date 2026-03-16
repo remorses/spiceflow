@@ -20,4 +20,20 @@ export default defineConfig(() => ({
       },
     }),
   ],
+  // Pre-bundle deps that Vite discovers at runtime during dev. Without this,
+  // fresh installs (CI) trigger multiple dep optimization rounds + program
+  // reloads that cause dual React copies in SSR, crashing with
+  // "Invalid hook call" from RemoveDuplicateServerCss.
+  environments: {
+    rsc: {
+      optimizeDeps: {
+        include: ['copy-anything', 'superjson', 'zod', 'history'],
+      },
+    },
+    ssr: {
+      optimizeDeps: {
+        include: ['isbot', 'history', 'react-dom/server'],
+      },
+    },
+  },
 }))
