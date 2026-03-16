@@ -15,7 +15,7 @@ Spiceflow is a type-safe API framework and full-stack React RSC framework focuse
 - Full-stack React framework with React Server Components (RSC), server actions, layouts, and automatic client code splitting
 - Works everywhere: Node.js, Bun, and Cloudflare Workers with the same code
 - Type safe schema based validation via Zod
-- Type safe RPC client generation
+- Type safe fetch client with full inference on path params, query, body, and response
 - Simple and intuitive API using web standard Request and Response
 - Can easily generate OpenAPI spec based on your routes
 - Native support for [Fern](https://github.com/fern-api/fern) to generate docs and SDKs (see example docs [here](https://remorses.docs.buildwithfern.com))
@@ -120,7 +120,7 @@ const app = new Spiceflow()
 
 ## Type Safety for RPC
 
-To maintain type safety when using the RPC client, it's recommended to **throw Response objects for errors** and **return objects directly for success cases**. This pattern ensures that the returned value types are properly inferred:
+To maintain type safety when using the fetch client, **throw Response objects for errors** and **return objects directly for success cases**. The fetch client returns `Error | Data` directly — use `instanceof Error` to narrow the type:
 
 ```ts
 import { Spiceflow } from 'spiceflow'
@@ -132,7 +132,10 @@ const app = new Spiceflow()
     path: '/users/:id',
     params: z.object({
       id: z.string(),
-    }),w
+    }),
+    query: z.object({
+      q: z.string(),
+    }),
     response: z.object({
       id: z.string(),
       name: z.string(),
@@ -142,11 +145,9 @@ const app = new Spiceflow()
       const user = getUserById(params.id)
 
       if (!user) {
-        // Throw Response for errors to maintain type safety
         throw new Response('User not found', { status: 404 })
       }
 
-      // Return object directly for success - type will be properly inferred
       return {
         id: user.id,
         name: user.name,
@@ -170,13 +171,11 @@ const app = new Spiceflow()
       const body = await request.json()
 
       if (await userExists(body.email)) {
-        // Throw Response for errors
         throw new Response('User already exists', { status: 409 })
       }
 
       const newUser = await createUser(body)
 
-      // Return object directly - RPC client will have proper typing
       return {
         id: newUser.id,
         name: newUser.name,
@@ -185,30 +184,39 @@ const app = new Spiceflow()
     },
   })
 
-// RPC client usage with proper type inference
-import { createSpiceflowClient } from 'spiceflow/client'
+export type App = typeof app
+```
 
-const client = createSpiceflowClient<typeof app>('http://localhost:3000')
+```ts
+// client.ts
+import { createSpiceflowFetch } from 'spiceflow/client'
+import type { App } from './server'
 
-async function example() {
-  // TypeScript knows data is { id: string, name: string, email: string } | undefined
-  const { data, error } = await client.users({ id: '123' }).get()
+const safeFetch = createSpiceflowFetch<App>('http://localhost:3000')
 
-  if (error) {
-    console.error('Error:', error) // Error handling
-    return
-  }
-
-  // data is properly typed here
-  console.log('User:', data.name, data.email)
+// Path params are type-safe — TypeScript requires { id: string }
+const user = await safeFetch('/users/:id', { params: { id: '123' }, query: { q: 'something'} })
+if (user instanceof Error) {
+  console.error('Error:', user.message)
+  return
 }
+// user is typed as { id: string, name: string, email: string }
+console.log('User:', user.name, user.email)
+
+// Body is type-safe — TypeScript requires { name: string, email: string }
+const newUser = await safeFetch('/users', {
+  method: 'POST',
+  body: { name: 'John', email: 'john@example.com' },
+})
+if (newUser instanceof Error) return newUser
+console.log('Created:', newUser.id)
 ```
 
 With this pattern:
 
 - **Success responses**: Return objects directly for automatic JSON serialization and proper type inference
-- **Error responses**: Throw `Response` objects to maintain the error/success distinction in the RPC client
-- **Type safety**: The RPC client will correctly infer the return type as the success object type
+- **Error responses**: Throw `Response` objects — the fetch client returns a `SpiceflowFetchError` with `status`, `value`, and `response` properties
+- **Type safety**: The fetch client gives you full type safety on **path params**, **query params**, **request body**, and **response data** — all inferred from your route definitions
 
 ## Comparisons
 
@@ -282,87 +290,9 @@ new Spiceflow().route({
 })
 ```
 
-## Generate RPC Client
+## Type-Safe Fetch Client
 
-```ts
-import { createSpiceflowClient } from 'spiceflow/client'
-import { Spiceflow } from 'spiceflow'
-import { z } from 'zod'
-
-// Define the app with multiple routes and features
-const app = new Spiceflow()
-  .route({
-    method: 'GET',
-    path: '/hello/:id',
-    handler({ params }) {
-      return `Hello, ${params.id}!`
-    },
-  })
-  .route({
-    method: 'POST',
-    path: '/users',
-    async handler({ request }) {
-      const body = await request.json() // here body has type { name?: string, email?: string }
-      return `Created user: ${body.name}`
-    },
-    request: z.object({
-      name: z.string().optional(),
-      email: z.string().email().optional(),
-    }),
-  })
-  .route({
-    method: 'GET',
-    path: '/stream',
-    async *handler() {
-      yield 'Start'
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-      yield 'Middle'
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-      yield 'End'
-    },
-  })
-
-// Create the client
-const client = createSpiceflowClient<typeof app>('http://localhost:3000')
-
-// Example usage of the client
-async function exampleUsage() {
-  // GET request
-  const { data: helloData, error: helloError } = await client
-    .hello({ id: 'World' })
-    .get()
-  if (helloError) {
-    console.error('Error fetching hello:', helloError)
-  } else {
-    console.log('Hello response:', helloData)
-  }
-
-  // POST request
-  const { data: userData, error: userError } = await client.users.post({
-    name: 'John Doe',
-    email: 'john.doe@example.com',
-  })
-  if (userError) {
-    console.error('Error creating user:', userError)
-  } else {
-    console.log('User creation response:', userData)
-  }
-
-  // Async generator (streaming) request
-  const { data: streamData, error: streamError } = await client.stream.get()
-  if (streamError) {
-    console.error('Error fetching stream:', streamError)
-  } else {
-    for await (const chunk of streamData) {
-      console.log('Stream chunk:', chunk)
-    }
-  }
-}
-```
-
-## Fetch Client (Recommended)
-
-`createSpiceflowFetch` is the recommended way to interact with a Spiceflow app. It uses a familiar `fetch(path, options)` interface instead of the proxy-based chainable API of `createSpiceflowClient`. It provides the same type safety for paths, params, query, body, and responses, but with a simpler and more predictable API.
+`createSpiceflowFetch` provides a type-safe `fetch(path, options)` interface for calling your Spiceflow API. It gives you full type safety on **path params**, **query params**, **request body**, and **response data** — all inferred from your route definitions.
 
 Export the app type from your server code:
 
@@ -426,35 +356,37 @@ Then use the `App` type on the client side without importing server code:
 import { createSpiceflowFetch } from 'spiceflow/client'
 import type { App } from './server'
 
-const f = createSpiceflowFetch<App>('http://localhost:3000')
+const safeFetch = createSpiceflowFetch<App>('http://localhost:3000')
 
-// Returns Error | Data — check with instanceof Error
-const greeting = await f('/hello')
-if (greeting instanceof Error) return greeting // early return on error
+// GET request — returns Error | Data, check with instanceof Error
+const greeting = await safeFetch('/hello')
+if (greeting instanceof Error) return greeting
 console.log(greeting) // 'Hello, World!' — TypeScript knows the type
 
-// POST with typed body
-const user = await f('/users', {
+// POST with typed body — TypeScript requires { name: string, email: string }
+const user = await safeFetch('/users', {
   method: 'POST',
   body: { name: 'John', email: 'john@example.com' },
 })
 if (user instanceof Error) return user
-console.log(user.id, user.name) // fully typed
+console.log(user.id, user.name, user.email) // fully typed
 
-// Path params — type-safe, required when path has :params
-const foundUser = await f('/users/:id', {
+// Path params — type-safe, TypeScript requires { id: string }
+const foundUser = await safeFetch('/users/:id', {
   params: { id: '123' },
 })
 if (foundUser instanceof Error) return foundUser
+console.log(foundUser.id) // typed as string
 
-// Query params — typed from route schema
-const searchResults = await f('/search', {
+// Query params — typed from the route's Zod schema
+const searchResults = await safeFetch('/search', {
   query: { q: 'hello', page: 1 },
 })
 if (searchResults instanceof Error) return searchResults
+console.log(searchResults.results, searchResults.query) // fully typed
 
-// Streaming — returns AsyncGenerator for async generator routes
-const stream = await f('/stream')
+// Streaming — async generator routes return an AsyncGenerator
+const stream = await safeFetch('/stream')
 if (stream instanceof Error) return stream
 for await (const chunk of stream) {
   console.log(chunk) // 'Start', 'Middle', 'End'
@@ -468,8 +400,8 @@ The fetch client supports configuration options like headers, retries, onRequest
 You can also pass a Spiceflow app instance directly for server-side usage without network requests:
 
 ```ts
-const f = createSpiceflowFetch(app)
-const greeting = await f('/hello')
+const safeFetch = createSpiceflowFetch(app)
+const greeting = await safeFetch('/hello')
 if (greeting instanceof Error) throw greeting
 ```
 
@@ -801,19 +733,19 @@ const app = new Spiceflow().route({
 // data: {"message":"Middle"}
 // data: {"message":"End"}
 
-// Client usage example with RPC client
-import { createSpiceflowClient } from 'spiceflow/client'
+// Client usage example with fetch client
+import { createSpiceflowFetch } from 'spiceflow/client'
 
-const client = createSpiceflowClient<typeof app>('http://localhost:3000')
+const safeFetch = createSpiceflowFetch<typeof app>('http://localhost:3000')
 
 async function fetchStream() {
-  const response = await client.sseStream.get()
-  if (response.error) {
-    console.error('Error fetching stream:', response.error)
-  } else {
-    for await (const chunk of response.data) {
-      console.log('Stream chunk:', chunk)
-    }
+  const stream = await safeFetch('/sseStream')
+  if (stream instanceof Error) {
+    console.error('Error fetching stream:', stream.message)
+    return
+  }
+  for await (const chunk of stream) {
+    console.log('Stream chunk:', chunk)
   }
 }
 
@@ -897,20 +829,17 @@ const app = new Spiceflow()
 
 In this example, `./public/logo.png` wins over `./dist/client/logo.png` because `./public` is registered first.
 
-## How errors are handled in Spiceflow client
+## How errors are handled in the fetch client
 
-The Spiceflow client provides type-safe error handling by returning either a `data` or `error` property. When using the client:
+The fetch client returns `Error | Data` directly. When the server responds with a non-2xx status code, the client returns a `SpiceflowFetchError` instead of the data. Use `instanceof Error` to check:
 
-- Thrown errors appear in the `error` field
-- Response objects can be thrown or returned
-- Responses with status codes 200-299 appear in the `data` field
-- Responses with status codes < 200 or ≥ 300 appear in the `error` field
-
-The example below demonstrates handling different types of responses:
+- Responses with status codes 200-299 return the parsed data directly
+- Responses with status codes < 200 or ≥ 300 return a `SpiceflowFetchError`
+- The error has `status`, `value` (parsed response body), and `response` (raw Response) properties
 
 ```ts
 import { Spiceflow } from 'spiceflow'
-import { createSpiceflowClient } from 'spiceflow/client'
+import { createSpiceflowFetch } from 'spiceflow/client'
 
 const app = new Spiceflow()
   .route({
@@ -936,41 +865,32 @@ const app = new Spiceflow()
     },
   })
 
-const client = createSpiceflowClient<typeof app>('http://localhost:3000')
+const safeFetch = createSpiceflowFetch<typeof app>('http://localhost:3000')
 
 async function handleErrors() {
-  const errorResponse = await client.error.get()
-  console.log('Calling error endpoint...')
-  // Logs: Error occurred: Something went wrong
-  if (errorResponse.error) {
-    console.error('Error occurred:', errorResponse.error)
+  const errorResult = await safeFetch('/error')
+  if (errorResult instanceof Error) {
+    console.error('Error occurred:', errorResult.message)
   }
 
-  const unauthorizedResponse = await client.unauthorized.get()
-  console.log('Calling unauthorized endpoint...')
-  // Logs: Unauthorized: Unauthorized access (Status: 401)
-  if (unauthorizedResponse.error) {
-    console.error('Unauthorized:', unauthorizedResponse.error)
+  const unauthorizedResult = await safeFetch('/unauthorized')
+  if (unauthorizedResult instanceof Error) {
+    console.error('Unauthorized:', unauthorizedResult.message, 'Status:', unauthorizedResult.status)
   }
 
-  const successResponse = await client.success.get()
-  console.log('Calling success endpoint...')
-  // Logs: Success: Success message
-  if (successResponse.data) {
-    console.log('Success:', successResponse.data)
-  }
+  const successResult = await safeFetch('/success')
+  if (successResult instanceof Error) return
+  console.log('Success:', successResult) // 'Success message'
 }
 ```
 
-## Using the client server side, without network requests
+## Using the fetch client server side, without network requests
 
-When using the client server-side, you can pass the Spiceflow app instance directly to `createSpiceflowClient()` instead of providing a URL. This allows you to make "virtual" requests that are handled directly by the app without making actual network requests. This is useful for testing, generating documentation, or any other scenario where you want to interact with your API endpoints programmatically without setting up a server.
-
-Here's an example:
+You can pass the Spiceflow app instance directly to `createSpiceflowFetch()` instead of providing a URL. This makes "virtual" requests handled directly by the app without actual network requests. Useful for testing, generating documentation, or interacting with your API programmatically without setting up a server.
 
 ```tsx
 import { Spiceflow } from 'spiceflow'
-import { createSpiceflowClient } from 'spiceflow/client'
+import { createSpiceflowFetch } from 'spiceflow/client'
 import { openapi } from 'spiceflow/openapi'
 import { writeFile } from 'node:fs/promises'
 
@@ -994,11 +914,12 @@ const app = new Spiceflow()
     },
   })
 
-// Create client by passing app instance directly
-const client = createSpiceflowClient(app)
+// Create fetch client by passing app instance directly
+const safeFetch = createSpiceflowFetch(app)
 
 // Get OpenAPI schema and write to disk
-const { data } = await client.openapi.get()
+const data = await safeFetch('/openapi')
+if (data instanceof Error) throw data
 await writeFile('openapi.json', JSON.stringify(data, null, 2))
 console.log('OpenAPI schema saved to openapi.json')
 ```
@@ -1377,7 +1298,7 @@ import path from 'path'
 import yaml from 'js-yaml'
 import { Spiceflow } from 'spiceflow'
 import { openapi } from 'spiceflow/openapi'
-import { createSpiceflowClient } from 'spiceflow/client'
+import { createSpiceflowFetch } from 'spiceflow/client'
 
 const app = new Spiceflow().use(openapi({ path: '/openapi' })).route({
   method: 'GET',
@@ -1388,14 +1309,13 @@ const app = new Spiceflow().use(openapi({ path: '/openapi' })).route({
 })
 
 async function main() {
-  console.log('Creating Spiceflow client...')
-  const client = createSpiceflowClient(app)
+  const safeFetch = createSpiceflowFetch(app)
 
   console.log('Fetching OpenAPI spec...')
-  const { data: openapiJson, error } = await client.openapi.get()
-  if (error) {
-    console.error('Failed to fetch OpenAPI spec:', error)
-    throw error
+  const openapiJson = await safeFetch('/openapi')
+  if (openapiJson instanceof Error) {
+    console.error('Failed to fetch OpenAPI spec:', openapiJson)
+    throw openapiJson
   }
 
   const outputPath = path.resolve('./openapi.yml')
@@ -1774,15 +1694,14 @@ app.listen(3000)
 
 When receiving SIGTERM during deployment, the middleware waits for all active requests to complete before exiting. Perfect for AI workloads that may take minutes to process.
 
-### When using `createSpiceflowClient` and getting typescript error `The inferred type of 'pluginApiClient' cannot be named without a reference to '...'. This is likely not portable. A type annotation is necessary. (ts 2742)`
+### When using `createSpiceflowFetch` and getting typescript error `The inferred type of '...' cannot be named without a reference to '...'. This is likely not portable. A type annotation is necessary. (ts 2742)`
 
-You can resolve this issue by adding an explicing type for the client:
+You can resolve this issue by adding an explicit type for the client:
 
 ```ts
-export const client: SpiceflowClient.Create<App> = createSpiceflowClient<App>(
-  PUBLIC_URL,
-  {},
-)
+import type { SpiceflowFetch } from 'spiceflow/client'
+
+export const f: SpiceflowFetch<App> = createSpiceflowFetch<App>(PUBLIC_URL)
 ```
 
 ## React Framework (RSC)
