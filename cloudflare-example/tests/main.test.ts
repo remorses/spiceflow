@@ -40,7 +40,7 @@ describe('cloudflare example', () => {
     }).toMatchInlineSnapshot(`
       {
         "hasRscSsrEntry": true,
-        "hasSiblingSsrEntry": true,
+        "hasSiblingSsrEntry": false,
         "usesCreateRequire": false,
       }
     `)

@@ -149,7 +149,8 @@ async function waitForReady({
 }
 
 function getLocalUrl({ text }: { text: string }): string | undefined {
-  const match = text.match(/Local:\s+(http:\/\/(?:localhost|127\.0\.0\.1):\d+\/?)/)
+  const plain = text.replace(/\x1b\[[0-9;]*m/g, '')
+  const match = plain.match(/Local:\s+(http:\/\/(?:localhost|127\.0\.0\.1):\d+\/?)/)
   if (!match) return undefined
   return match[1]
 }
