@@ -138,7 +138,9 @@ async function waitForReady({
         continue
       }
 
-      const response = await fetch(localUrl)
+      const response = await fetch(localUrl, {
+        signal: AbortSignal.timeout(5_000),
+      })
       if (response.ok) return localUrl
     } catch {}
 
