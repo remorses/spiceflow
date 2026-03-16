@@ -1,3 +1,5 @@
+'use client'
+
 import { Children } from 'react'
 
 export function SideBySide({ children }: { children: React.ReactNode }) {

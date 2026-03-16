@@ -1,10 +1,11 @@
-// there is a global function fetchData() that returns a Promise
+declare module '*.mdx' {
+  import type { ComponentType } from 'react'
+  const component: ComponentType
+  export default component
+  export const tableOfContents: any[]
+}
 
-declare function fetchData(): Promise<'hello'>
-
-// a module in ./page.js exists
-
-declare module './page' {
-  export const Page: React.FC
-  export default Page
+declare module '*.mdx?raw' {
+  const content: string
+  export default content
 }

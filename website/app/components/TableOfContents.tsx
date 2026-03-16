@@ -1,4 +1,6 @@
-import { Link } from 'react-router'
+'use client'
+
+import { Link } from 'spiceflow/react'
 import { Children } from 'react'
 
 type Toc = {
@@ -28,7 +30,7 @@ export function TableOfContents({
       {flatNodes.map((item) => {
         return (
           <li key={item.id} className={`ml-${item.depth * 4}`}>
-            <Link to={`#${item.id}`}>{item.value}</Link>
+            <Link href={`#${item.id}`}>{item.value}</Link>
           </li>
         )
       })}

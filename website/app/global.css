@@ -1,7 +1,6 @@
 @import '@code-hike/mdx/styles';
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss';
+@plugin '@tailwindcss/typography';
 
 html,
 body,
@@ -10,8 +9,6 @@ body,
 }
 
 html {
-  /* background: theme('colors.gray.50'); */
-  /* make the scroll to section be a bit lower than the top */
   scroll-padding-top: 40px;
   --max-width: 100%;
 }
@@ -27,7 +24,7 @@ html {
   border-radius: 0px;
 }
 
-@media screen(md) {
+@media (min-width: 768px) {
   html {
     --max-width: 700px;
   }
@@ -35,4 +32,13 @@ html {
 
 p {
   width: var(--max-width);
+}
+
+@utility prose-quoteless {
+  & blockquote p:first-of-type::before {
+    content: none;
+  }
+  & blockquote p:first-of-type::after {
+    content: none;
+  }
 }

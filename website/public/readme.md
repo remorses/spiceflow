@@ -842,6 +842,62 @@ new Spiceflow().use(({ request }) => {
 })
 ```
 
+### Static Middleware
+
+Use `serveStatic()` to serve files from a directory:
+
+```ts
+import { Spiceflow, serveStatic } from 'spiceflow'
+
+const app = new Spiceflow()
+  .use(serveStatic({ root: './public' }))
+  .route({
+    method: 'GET',
+    path: '/health',
+    handler() {
+      return { ok: true }
+    },
+  })
+  .route({
+    method: 'GET',
+    path: '/*',
+    handler() {
+      return new Response('Not Found', { status: 404 })
+    },
+  })
+```
+
+Static middleware only serves `GET` and `HEAD` requests. It checks the exact file path first, and if the request points to a directory it tries `index.html` inside that directory.
+
+Priority rules:
+
+- Concrete routes win over static files. A route like `/health` is handled by the route even if `public/health` exists.
+- Static files win over root catch-all routes like `/*` and `*`. This is useful for SPA fallbacks and custom 404 routes.
+- If static does not find a file, the request falls through to the next matching route, so a `/*` fallback still runs when the asset is missing.
+- When multiple static middlewares are registered, they are checked in registration order. The first middleware that finds a file wins.
+
+Example behavior:
+
+```text
+request /logo.png
+  -> router matches `/*`
+  -> static checks `public/logo.png`
+  -> if file exists, static serves it
+  -> otherwise the `/*` route runs
+```
+
+Directory requests without an `index.html` fall through instead of throwing filesystem errors like `EISDIR`.
+
+You can stack multiple static roots:
+
+```ts
+const app = new Spiceflow()
+  .use(serveStatic({ root: './public' }))
+  .use(serveStatic({ root: './dist/client' }))
+```
+
+In this example, `./public/logo.png` wins over `./dist/client/logo.png` because `./public` is registered first.
+
 ## How errors are handled in Spiceflow client
 
 The Spiceflow client provides type-safe error handling by returning either a `data` or `error` property. When using the client:
@@ -1756,6 +1812,56 @@ export default defineConfig({
 })
 ```
 
+### Cloudflare RSC setup
+
+For Cloudflare Workers, keep the worker-specific SSR output and child environment wiring in Vite, then let your Worker default export delegate to `app.handle(request)`.
+
+```jsonc
+// wrangler.jsonc
+{
+  "main": "spiceflow/cloudflare-entrypoint"
+}
+```
+
+```ts
+// vite.config.ts
+import { cloudflare } from '@cloudflare/vite-plugin'
+import react from '@vitejs/plugin-react'
+import { defineConfig } from 'vite'
+import { spiceflowPlugin } from 'spiceflow/vite'
+
+export default defineConfig({
+  plugins: [
+    react(),
+    spiceflowPlugin({ entry: './app/main.tsx' }),
+    cloudflare({
+      viteEnvironment: {
+        name: 'rsc',
+        childEnvironments: ['ssr'],
+      },
+    }),
+  ],
+})
+```
+
+```tsx
+// app/main.tsx
+import { Spiceflow } from 'spiceflow'
+
+export const app = new Spiceflow()
+  .page('/', async () => {
+    return <div>Hello from Cloudflare RSC</div>
+  })
+
+export default {
+  fetch(request: Request) {
+    return app.handle(request)
+  },
+}
+```
+
+See [`cloudflare-example/`](cloudflare-example) for a complete working example.
+
 ### App Entry (Server Component)
 
 The entry file defines your routes using `.page()` for pages and `.layout()` for layouts. This file runs in the RSC environment on the server.
@@ -1764,13 +1870,15 @@ All routes registered with `.page()`, `.get()`, etc. are available in `app.safeP
 
 ```tsx
 // src/main.tsx
-import { Spiceflow } from 'spiceflow'
+import { Spiceflow, serveStatic } from 'spiceflow'
 import { Link } from 'spiceflow/react'
 import { z } from 'zod'
 import { Counter } from './app/counter'
 import { Nav } from './app/nav'
 
 export const app = new Spiceflow()
+  .use(serveStatic({ root: './public' }))
+  .use(serveStatic({ root: './dist/client' })) // required to serve vite built static files
   .layout('/*', async ({ children }) => {
     return (
       <html>
@@ -1889,6 +1997,55 @@ export async function submitForm(formData: FormData) {
   await saveToDatabase(name)
 }
 ```
+
+### Redirects and Not Found
+
+Throw `redirect()` or `notFound()` anywhere inside a `.page()` or `.layout()` handler to interrupt rendering and return the appropriate HTTP response. This works both for full-page loads (SSR) and client-side navigations (SPA).
+
+```tsx
+import { Spiceflow, redirect, notFound } from 'spiceflow'
+
+export const app = new Spiceflow()
+  .page('/dashboard', async ({ request }) => {
+    const user = await getUser(request)
+    if (!user) {
+      throw redirect('/login')
+    }
+    return <Dashboard user={user} />
+  })
+  .page('/posts/:id', async ({ params }) => {
+    const post = await getPost(params.id)
+    if (!post) {
+      throw notFound()
+    }
+    return <Post post={post} />
+  })
+  // Layouts can also throw — useful for auth guards that protect
+  // an entire section of your app
+  .layout('/admin/*', async ({ children, request }) => {
+    const user = await getUser(request)
+    if (!user?.isAdmin) {
+      throw redirect('/login')
+    }
+    return <AdminLayout>{children}</AdminLayout>
+  })
+```
+
+`redirect()` accepts an optional second argument for custom status codes and headers:
+
+```tsx
+// 301 permanent redirect
+throw redirect('/new-url', { status: 301 })
+
+// Redirect with custom headers
+throw redirect('/login', {
+  headers: { 'set-cookie': 'session=; Max-Age=0' },
+})
+```
+
+**Correct HTTP status codes.** Unlike Next.js, where redirects and not-found thrown during rendering always return a 200 status with client-side handling, Spiceflow returns the actual HTTP status code in the response — `307` for redirects (with a `Location` header) and `404` for not-found pages. This works even when the throw happens after an `await`, because the SSR layer intercepts the error from the RSC stream before flushing the HTML response. Search engines see correct status codes, and `fetch()` calls with `redirect: "manual"` get the real `307` response.
+
+**Client-side navigation.** When a user clicks a `<Link>` that navigates to a page throwing `redirect()`, the router performs the redirect client-side without a full page reload. For `notFound()`, the built-in 404 page is rendered inline while preserving layout state.
 
 ### Client Code Splitting
 
