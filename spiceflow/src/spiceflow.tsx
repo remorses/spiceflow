@@ -47,6 +47,7 @@ import {
   isRedirectError,
   contextToHeaders,
 } from './react/errors.js'
+import { formatServerError } from './react/format-server-error.js'
 import {
   createDeploymentCookie,
   deploymentMismatchStatus,
@@ -1247,6 +1248,7 @@ export class Spiceflow<
             const headers = [...error.headers.entries()]
             return `__REACT_SERVER_ERROR__:${JSON.stringify({ status: error.status, headers })}`
           }
+          formatServerError(error)
           console.error('[spiceflow:renderToReadableStream]', error)
           return error?.digest || error?.message
         },
