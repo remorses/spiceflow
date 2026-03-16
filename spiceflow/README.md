@@ -1831,16 +1831,8 @@ import { cloudflare } from '@cloudflare/vite-plugin'
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 import { spiceflowPlugin } from 'spiceflow/vite'
-import path from 'path'
 
 export default defineConfig({
-  environments: {
-    ssr: {
-      build: {
-        outDir: path.join('dist', 'rsc/ssr'),
-      },
-    },
-  },
   plugins: [
     react(),
     spiceflowPlugin({ entry: './app/main.tsx' }),

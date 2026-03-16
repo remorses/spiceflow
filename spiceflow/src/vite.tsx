@@ -84,13 +84,20 @@ export function spiceflowPlugin({
       name: 'spiceflow:config',
       config(userConfig, env) {
         const userOnWarn = userConfig.build?.rollupOptions?.onwarn
-        if (hasPluginNamed(userConfig.plugins, 'vite-plugin-cloudflare')) {
+        const isCloudflare = hasPluginNamed(userConfig.plugins, 'vite-plugin-cloudflare')
+        if (isCloudflare) {
           // Cloudflare child environments already expose worker-side module imports.
           // Using plugin-rsc's Node dev proxy here makes child `ssr` call
           // `.runner.import(...)` on a non-runnable CloudflareDevEnvironment.
           rscOptions.loadModuleDevProxy = false
         }
+        const outDir = userConfig.build?.outDir ?? 'dist'
         return {
+          // SSR must live inside outDir/rsc/ because workerd only bundles files within the
+          // Worker's directory. The RSC code loads SSR via import.meta.viteRsc.loadModule
+          // which resolves to a relative import "../ssr/index.js" — if SSR is at outDir/ssr/
+          // (sibling), the Worker can't reach it at runtime.
+          ...(isCloudflare ? { environments: { ssr: { build: { outDir: path.join(outDir, 'rsc/ssr') } } } } : {}),
           // Replace process.env.NODE_ENV at build time so React uses its production
           // bundle. Without this, the built output contains runtime checks like
           // `"production" !== process.env.NODE_ENV` that always evaluate to the dev
