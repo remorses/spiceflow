@@ -14,6 +14,7 @@ import { ServerPayload } from '../spiceflow.js'
 import { LayoutContent } from './components.js'
 import { FlightDataContext } from './context.js'
 import { getErrorContext, isNotFoundError, isRedirectError, contextHeaders, contextToHeaders, type ReactServerErrorContext } from './errors.js'
+import { formatServerError } from './format-server-error.js'
 import { MetaProvider } from './head.js'
 import { MetaState } from './metastate.js'
 import { injectRSCPayload } from './transform.js'
@@ -52,10 +53,12 @@ export async function renderHtml({
   request: Request
   response: Response
 }) {
-  // Two-way split of the RSC flight stream:
-  // - flightForSsr: decoded once, used for both formState extraction and SSR rendering
+  // Three-way split of the RSC flight stream:
+  // - flightForFormState: decoded eagerly to extract formState for renderToReadableStream options
+  // - flightForSsr: decoded lazily inside SsrRoot so React's preinit/preloading context is active
   // - flightStream2: injected raw into HTML as <script> tags for client hydration
-  const [flightForSsr, flightStream2] = response.body!.tee()
+  const [flightForSsrAndForm, flightStream2] = response.body!.tee()
+  const [flightForFormState, flightForSsr] = flightForSsrAndForm.tee()
 
   let baseUrl = new URL('/', request.url).href
   if (baseUrl.endsWith('/')) {
@@ -65,15 +68,16 @@ export async function renderHtml({
 
   const bootstrapScriptContent = await loadBootstrapScriptContent()
 
-  // Single deserialization: create the payload promise once, reuse for both
-  // formState extraction (awaited eagerly) and SSR rendering (React.use inside component).
-  const payloadPromise = createFromReadableStream<ServerPayload>(flightForSsr)
+  // Keep the first SSR-side createFromReadableStream call inside ReactDOMServer
+  // render context so React can register preinit/preload hints for client refs.
+  let payloadPromise: Promise<ServerPayload> | undefined
 
   function SsrRoot() {
-    const payload = React.use(payloadPromise)
+    payloadPromise ??= createFromReadableStream<ServerPayload>(flightForSsr)
+    const payload = React.use(payloadPromise!)
     return (
       <MetaProvider metaState={metaState}>
-        <FlightDataContext.Provider value={payloadPromise}>
+        <FlightDataContext.Provider value={payloadPromise!}>
           <LayoutContent />
         </FlightDataContext.Provider>
       </MetaProvider>
@@ -107,16 +111,19 @@ export async function renderHtml({
   }
 
   try {
-    const payload = await payloadPromise
+    const formStatePayload = await createFromReadableStream<ServerPayload>(
+      flightForFormState,
+    )
     htmlStream = await ReactDOMServer.renderToReadableStream(<SsrRoot />, {
       bootstrapScriptContent,
       signal: request.signal,
-      formState: payload.formState,
+      formState: formStatePayload.formState,
       onError(e) {
         const ctx = getErrorContext(e)
         if (ctx) {
           if (!ssrErrorCtx) ssrErrorCtx = ctx
         } else {
+          formatServerError(e)
           console.error('[entry.ssr.tsx:renderToReadableStream]', e)
         }
         if (e && typeof e === 'object' && 'digest' in e && typeof e.digest === 'string') return e.digest
@@ -202,5 +209,3 @@ export async function getPrerenderRoutes() {
     )
     .filter((x) => x.method === 'GET')
 }
-
-
