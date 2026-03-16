@@ -21,25 +21,6 @@ const pluginRscRpcPath = require.resolve('@vitejs/plugin-rsc/utils/rpc')
 // Module-level so the timestamp is stable even if spiceflowPlugin() is called more than once
 const buildTimestamp = Date.now().toString(36)
 
-export function spiceflowCloudflareViteConfig({
-  outDir = 'dist',
-}: {
-  outDir?: string
-} = {}) {
-  return {
-    environments: {
-      ssr: {
-        build: {
-          // SSR must live inside dist/rsc/ because workerd only bundles files within the
-          // Worker's directory. The RSC code loads SSR via import.meta.viteRsc.loadModule
-          // which resolves to a relative import "../ssr/index.js" — if SSR is at dist/ssr/
-          // (sibling), the Worker can't reach it at runtime.
-          outDir: path.join(outDir, 'rsc/ssr'),
-        },
-      },
-    },
-  }
-}
 
 export function spiceflowPlugin({
   entry,
