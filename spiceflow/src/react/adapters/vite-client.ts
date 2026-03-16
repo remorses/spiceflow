@@ -10,9 +10,15 @@ export {
 
 export function onHmrUpdate(callback: () => void) {
   if (import.meta.hot) {
+    // Debounce rapid HMR events (e.g. save + format save) to avoid firing
+    // multiple RSC fetches in quick succession. On Cloudflare Workers this
+    // race condition causes "hanging Promise was canceled" errors because
+    // promises from the old request context resolve in the new one.
+    let hmrTimer: ReturnType<typeof setTimeout> | undefined
     import.meta.hot.on('rsc:update', (e: { file: string }) => {
       console.log('[rsc:update]', e.file)
-      callback()
+      clearTimeout(hmrTimer)
+      hmrTimer = setTimeout(callback, 80)
     })
   }
 }

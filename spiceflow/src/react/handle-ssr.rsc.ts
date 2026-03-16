@@ -6,6 +6,12 @@ export async function renderSsr(
   flightResponse: Response,
   request: Request,
 ): Promise<Response> {
+  // Bail early if the request was already aborted (e.g. by HMR canceling a
+  // stale render). Prevents orphaned promises that trigger workerd's
+  // "hanging Promise was canceled" error on Cloudflare Workers.
+  if (request.signal?.aborted) {
+    return new Response('Request aborted', { status: 503 })
+  }
   const mod = await import.meta.viteRsc.loadModule<
     typeof import('./entry.ssr.js')
   >('ssr', 'index')
