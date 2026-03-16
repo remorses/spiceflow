@@ -52,4 +52,30 @@ describe('injectRSCPayload', () => {
     `)
     expect(result).toContain('<meta name="test" content="value">')
   })
+
+  it('strips the original closing tags and appends them once', async () => {
+    const encoder = new TextEncoder()
+    const decoder = new TextDecoder()
+    const readable = new ReadableStream({
+      start(controller) {
+        controller.enqueue(encoder.encode('<html><body>hello'))
+        controller.enqueue(encoder.encode('</body></html>'))
+        controller.close()
+      },
+    })
+
+    const transformed = readable.pipeThrough(injectRSCPayload({}))
+    const chunks: Uint8Array[] = []
+    const reader = transformed.getReader()
+
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      chunks.push(value)
+    }
+
+    const result = decoder.decode(Buffer.concat(chunks))
+    expect(result).toBe('<html><body>hello</body></html>')
+    expect(result.match(/<\/body><\/html>/g)).toHaveLength(1)
+  })
 })

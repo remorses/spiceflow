@@ -1229,13 +1229,18 @@ export class Spiceflow<
       return root
     }
 
+    const payload =
+      request.method === 'GET' || request.method === 'HEAD'
+        ? ({ root } satisfies ServerPayload)
+        : ({
+            root,
+            returnValue,
+            formState,
+            actionError,
+          } satisfies ServerPayload)
+
     const stream = renderToReadableStream<ServerPayload>(
-      {
-        root,
-        returnValue,
-        formState,
-        actionError,
-      } satisfies ServerPayload,
+      payload,
       {
         // Pass the same temporaryReferences used in decodeReply so non-serializable
         // values round-trip correctly through the action response stream.

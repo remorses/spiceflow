@@ -19,6 +19,17 @@ import { MetaProvider } from './head.js'
 import { MetaState } from './metastate.js'
 import { injectRSCPayload } from './transform.js'
 
+let bootstrapScriptContentPromise: Promise<string> | undefined
+
+function getBootstrapScriptContent() {
+  if (import.meta.env.DEV) {
+    return loadBootstrapScriptContent()
+  }
+
+  bootstrapScriptContentPromise ??= loadBootstrapScriptContent()
+  return bootstrapScriptContentPromise
+}
+
 export async function fetchHandler(request: Request) {
   try {
     const url = new URL(request.url)
@@ -53,12 +64,13 @@ export async function renderHtml({
   request: Request
   response: Response
 }) {
-  // Three-way split of the RSC flight stream:
-  // - flightForFormState: decoded eagerly to extract formState for renderToReadableStream options
-  // - flightForSsr: decoded lazily inside SsrRoot so React's preinit/preloading context is active
-  // - flightStream2: injected raw into HTML as <script> tags for client hydration
-  const [flightForSsrAndForm, flightStream2] = response.body!.tee()
-  const [flightForFormState, flightForSsr] = flightForSsrAndForm.tee()
+  // GET/HEAD requests only need one SSR-side decode. POST/form submissions still
+  // split a second SSR copy to extract formState before hydrateRoot runs.
+  const needsFormState = request.method !== 'GET' && request.method !== 'HEAD'
+  const [flightForSsrOrForm, flightStream2] = response.body!.tee()
+  const [flightForFormState, flightForSsr] = needsFormState
+    ? flightForSsrOrForm.tee()
+    : [undefined, flightForSsrOrForm]
 
   let baseUrl = new URL('/', request.url).href
   if (baseUrl.endsWith('/')) {
@@ -66,7 +78,7 @@ export async function renderHtml({
   }
   const metaState = new MetaState({ baseUrl })
 
-  const bootstrapScriptContent = await loadBootstrapScriptContent()
+  const bootstrapScriptContent = await getBootstrapScriptContent()
 
   // Keep the first SSR-side createFromReadableStream call inside ReactDOMServer
   // render context so React can register preinit/preload hints for client refs.
@@ -117,13 +129,9 @@ export async function renderHtml({
   }
 
   try {
-    const formStatePayload = await createFromReadableStream<ServerPayload>(
-      flightForFormState,
-    )
-    htmlStream = await ReactDOMServer.renderToReadableStream(<SsrRoot />, {
+    const renderOptions = {
       bootstrapScriptContent,
       signal: request.signal,
-      formState: formStatePayload.formState,
       onError(e) {
         const ctx = getErrorContext(e)
         if (ctx) {
@@ -136,7 +144,22 @@ export async function renderHtml({
         if (e instanceof Error) return e.message
         return String(e)
       },
-    })
+    }
+
+    if (flightForFormState) {
+      const formStatePayload = await createFromReadableStream<ServerPayload>(
+        flightForFormState,
+      )
+      htmlStream = await ReactDOMServer.renderToReadableStream(<SsrRoot />, {
+        ...renderOptions,
+        formState: formStatePayload.formState,
+      })
+    } else {
+      htmlStream = await ReactDOMServer.renderToReadableStream(
+        <SsrRoot />,
+        renderOptions,
+      )
+    }
     if (prerender || isbot(request.headers.get('user-agent') || '')) {
       await htmlStream.allReady
     } else {

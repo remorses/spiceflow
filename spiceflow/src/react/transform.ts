@@ -1,7 +1,40 @@
 // ported from https://github.com/devongovett/rsc-html-stream/blob/main/server.js
 
 const encoder = new TextEncoder()
-const trailerBody = '</body></html>'
+const trailerBodyBytes = encoder.encode('</body></html>')
+const closeHeadBytes = encoder.encode('</head>')
+const flightScriptPrefix = '<script>(self.__FLIGHT_DATA||=[]).push('
+const flightScriptSuffix = ')</script>'
+
+function endsWithSequence(haystack: Uint8Array, needle: Uint8Array) {
+  if (haystack.length < needle.length) return false
+
+  const offset = haystack.length - needle.length
+  for (let i = 0; i < needle.length; i++) {
+    if (haystack[offset + i] !== needle[i]) {
+      return false
+    }
+  }
+
+  return true
+}
+
+function indexOfSequence(haystack: Uint8Array, needle: Uint8Array) {
+  const limit = haystack.length - needle.length
+  for (let start = 0; start <= limit; start++) {
+    let matched = true
+    for (let i = 0; i < needle.length; i++) {
+      if (haystack[start + i] !== needle[i]) {
+        matched = false
+        break
+      }
+    }
+    if (matched) {
+      return start
+    }
+  }
+  return -1
+}
 
 export function injectRSCPayload({
   rscStream,
@@ -10,13 +43,15 @@ export function injectRSCPayload({
   rscStream?: ReadableStream<Uint8Array>
   appendToHead?: string
 }) {
-  let decoder = new TextDecoder()
   let resolveFlightDataPromise: (value: void) => void
   let flightDataPromise = new Promise<void>(
     (resolve) => (resolveFlightDataPromise = resolve),
   )
   let startedRSC = false
   let addedHead = false
+  const appendToHeadBytes = appendToHead
+    ? encoder.encode(`${appendToHead}\n`)
+    : undefined
 
   // Buffer all HTML chunks enqueued during the current tick of the event loop
   // and write them to the output stream all at once. This ensures that we don't
@@ -33,15 +68,33 @@ export function injectRSCPayload({
     controller: TransformStreamDefaultController<Uint8Array>,
   ) {
     for (let chunk of buffered) {
-      let buf = decoder.decode(chunk)
-      if (buf.endsWith(trailerBody)) {
-        buf = buf.slice(0, -trailerBody.length)
+      let end = chunk.length
+      if (endsWithSequence(chunk, trailerBodyBytes)) {
+        end -= trailerBodyBytes.length
       }
-      if (!addedHead && appendToHead && buf.includes('</head>')) {
-        buf = buf.replace('</head>', appendToHead + '\n</head>')
-        addedHead = true
+
+      if (!addedHead && appendToHeadBytes) {
+        const headIndex = indexOfSequence(chunk, closeHeadBytes)
+        if (headIndex !== -1 && headIndex < end) {
+          if (headIndex > 0) {
+            controller.enqueue(chunk.subarray(0, headIndex))
+          }
+          controller.enqueue(appendToHeadBytes)
+          controller.enqueue(closeHeadBytes)
+
+          const afterHeadIndex = headIndex + closeHeadBytes.length
+          if (afterHeadIndex < end) {
+            controller.enqueue(chunk.subarray(afterHeadIndex, end))
+          }
+
+          addedHead = true
+          continue
+        }
       }
-      controller.enqueue(encoder.encode(buf))
+
+      if (end > 0) {
+        controller.enqueue(end === chunk.length ? chunk : chunk.subarray(0, end))
+      }
     }
 
     buffered.length = 0
@@ -69,7 +122,7 @@ export function injectRSCPayload({
       if (scheduled) {
         flushBufferedChunks(controller)
       }
-      controller.enqueue(encoder.encode('</body></html>'))
+      controller.enqueue(trailerBodyBytes)
     },
   })
 }
@@ -111,7 +164,7 @@ function writeChunk(
 ) {
   controller.enqueue(
     encoder.encode(
-      `<script>${escapeScript(`(self.__FLIGHT_DATA||=[]).push(${chunk})`)}</script>`,
+      escapeScript(flightScriptPrefix + chunk + flightScriptSuffix),
     ),
   )
 }
