@@ -49,14 +49,15 @@ body {
 }
 
 /* Remove Code Hike's internal 16px left offset for code lines.
-   The inner div uses translate(16px, 0px) for the gutter offset.
-   Target only that pattern, not the outer translateY line positioning. */
+   Each line div uses translate(16px, Ypx) where Y varies per line.
+   Can't override transform without losing Y positioning, so
+   shift the parent container left by 16px to compensate. */
 .ch-code-scroll-content div[style*="margin-left"] {
   margin-left: 0 !important;
 }
 
-.ch-code-scroll-content div[style*="translate(16px"] {
-  transform: translate(0px, 0px) !important;
+.ch-code-scroll-content {
+  margin-left: -16px;
 }
 
 /* Dark mode: switch Code Hike to github-dark theme colors */
