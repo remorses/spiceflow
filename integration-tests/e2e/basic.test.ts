@@ -112,6 +112,17 @@ test("client reference", async ({ page }) => {
 	await clientCounter.getByText("Client counter: 0").click();
 });
 
+test("document SSR preinitializes client chunks for client references", async ({
+	request,
+}) => {
+	const response = await request.get("/");
+	expect(response.status()).toBe(200);
+	const html = await response.text();
+
+	expect(html).toContain('data-testid="client-counter"');
+	expect(html).toContain('data-precedence="vite-rsc/client-reference"');
+});
+
 test("server reference in server @js", async ({ page }) => {
 	await testServerAction(page);
 });
