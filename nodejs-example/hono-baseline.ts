@@ -28,6 +28,7 @@ const html = `<!DOCTYPE html>
 </html>`
 
 app.get('/about', (c) => c.html(html))
+app.get('/redirect-test', (c) => c.redirect('/about', 307))
 app.get('/health', (c) => c.json({ status: 'ok' }))
 
 const port = Number(process.env.HONO_PORT || 3322)

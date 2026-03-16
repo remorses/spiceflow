@@ -156,6 +156,11 @@ async function main() {
     runBombardier(`${NEXT_BASE}/about`, 'Next.js RSC /about')
     runBombardier(`${BASE}/static-page.html`, `Spiceflow static /static-page.html (${RUNTIME})`)
     runBombardier(`${BASE}/about`, `Spiceflow RSC /about (${RUNTIME})`)
+
+    // Redirect benchmarks: Spiceflow returns a Response, Next.js throws an error
+    runBombardier(`${HONO_BASE}/redirect-test`, 'Hono redirect /redirect-test')
+    runBombardier(`${NEXT_BASE}/redirect-test`, 'Next.js redirect /redirect-test')
+    runBombardier(`${BASE}/redirect-test`, `Spiceflow redirect /redirect-test (${RUNTIME})`)
   } finally {
     await Promise.all([stopProcess(server), stopProcess(hono), stopProcess(nextjsProc)])
   }

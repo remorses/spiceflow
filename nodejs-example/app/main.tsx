@@ -1,7 +1,7 @@
 import './globals.css'
 import { Spiceflow } from 'spiceflow'
 import { Suspense } from 'react'
-import { Link, ProgressBar } from 'spiceflow/react'
+import { Link, ProgressBar, redirect } from 'spiceflow/react'
 
 import { sql } from './db'
 import { serveStatic } from 'spiceflow'
@@ -34,6 +34,9 @@ export const app = new Spiceflow()
         <Suspense fallback={<div>Loading...</div>}>{children}</Suspense>
       </div>
     )
+  })
+  .page('/redirect-test', async function RedirectTest() {
+    throw redirect('/about')
   })
   .page('/about', async function About() {
     return (
