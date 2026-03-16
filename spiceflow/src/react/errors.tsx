@@ -1,27 +1,35 @@
 export interface ReactServerErrorContext {
   status: number
-  headers?: Record<string, string>
+  headers?: Record<string, string> | [string, string][]
 }
 
-export class ReactServerDigestError extends Error {
-  constructor(public digest: string) {
-    super('ReactServerError')
+// Normalizes headers from either Record or entries array into a plain
+// object. Used when reading headers from decoded digest contexts where
+// we only need single-value access (e.g. checking the location header).
+export function contextHeaders(
+  ctx: ReactServerErrorContext,
+): Record<string, string> {
+  if (!ctx.headers) return {}
+  if (Array.isArray(ctx.headers)) {
+    return Object.fromEntries(ctx.headers)
   }
+  return ctx.headers
 }
-// TODO make redirects faster with this
-// Object.setPrototypeOf(FastError.prototype, Error.prototype)
-// Object.setPrototypeOf(FastError, Error)
 
-export function createError(ctx: ReactServerErrorContext) {
-  const digest = `__REACT_SERVER_ERROR__:${JSON.stringify(ctx)}`
-  return new ReactServerDigestError(digest)
+// Normalizes headers from a decoded digest context into a Headers object,
+// preserving duplicate keys like set-cookie.
+export function contextToHeaders(
+  ctx: ReactServerErrorContext,
+): Headers {
+  if (!ctx.headers) return new Headers()
+  return new Headers(ctx.headers as HeadersInit)
 }
 
 export function redirect(
   location: string,
   options?: { status?: number; headers?: Record<string, string> },
 ) {
-  return createError({
+  return new Response(null, {
     status: options?.status ?? 307,
     headers: {
       ...options?.headers,
@@ -31,14 +39,13 @@ export function redirect(
 }
 
 export function notFound() {
-  return createError({
-    status: 404,
-  })
+  return new Response(null, { status: 404 })
 }
 
 export function isRedirectError(ctx?: ReactServerErrorContext) {
   if (!ctx) return false
-  const location = ctx.headers?.['location']
+  const headers = contextHeaders(ctx)
+  const location = headers['location']
   if (300 <= ctx.status && ctx.status <= 399 && typeof location === 'string') {
     return { location }
   }
@@ -54,6 +61,10 @@ export function isNotFoundError(ctx?: ReactServerErrorContext) {
   return ctx.status === 404
 }
 
+// Decodes the digest string from React's flight stream back into a
+// ReactServerErrorContext. The RSC onError encodes thrown Responses as
+// "__REACT_SERVER_ERROR__:{status,headers}" digest strings, and the SSR
+// layer uses this function to recover the original status/headers.
 export function getErrorContext(
   error: unknown,
 ): ReactServerErrorContext | undefined {

@@ -1,14 +1,13 @@
 import { Suspense, useActionState } from "react";
 
-import { Spiceflow, serveStatic } from "spiceflow";
+import { Spiceflow, serveStatic, redirect, notFound } from "spiceflow";
 import { IndexPage } from "./app/index";
 import { getCounter } from "./app/action";
 import { Layout } from "./app/layout";
 import "./styles.css";
 
 import { ErrorBoundary } from "spiceflow/dist/react/components";
-import { notFound } from "spiceflow/dist/react/errors";
-import { redirect, sleep } from "spiceflow/dist/utils";
+import { sleep } from "spiceflow/dist/utils";
 import { Chakra } from "./app/chakra";
 import {
 	ClientComponentThrows,

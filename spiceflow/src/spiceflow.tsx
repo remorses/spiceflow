@@ -45,6 +45,7 @@ import {
   getErrorContext,
   isNotFoundError,
   isRedirectError,
+  contextToHeaders,
 } from './react/errors.js'
 import {
   createDeploymentCookie,
@@ -1242,6 +1243,10 @@ export class Spiceflow<
           console.log(`POSTPONE`, reason)
         },
         onError(error) {
+          if (error instanceof Response) {
+            const headers = [...error.headers.entries()]
+            return `__REACT_SERVER_ERROR__:${JSON.stringify({ status: error.status, headers })}`
+          }
           console.error('[spiceflow:renderToReadableStream]', error)
           return error?.digest || error?.message
         },
@@ -1464,12 +1469,13 @@ export class Spiceflow<
 
     let handlerResponse: Response | undefined
     async function getResForError(err: any) {
+      if (isResponse(err)) return err
       const errCtx = getErrorContext(err)
       const redirectInfo = isRedirectError(errCtx)
       if (redirectInfo) {
         return new Response(redirectInfo.location, {
           status: errCtx!.status,
-          headers: errCtx!.headers,
+          headers: contextToHeaders(errCtx!),
         })
       }
       if (isNotFoundError(errCtx)) {
@@ -1477,7 +1483,6 @@ export class Spiceflow<
           status: 404,
         })
       }
-      if (isResponse(err)) return err
       let res = await self.runErrorHandlers({
         context,
         onErrorHandlers,
@@ -1694,7 +1699,7 @@ export class Spiceflow<
         if (redirectInfo) {
           return new Response(redirectInfo.location, {
             status: errCtx!.status,
-            headers: errCtx!.headers,
+            headers: contextToHeaders(errCtx!),
           })
         }
       }

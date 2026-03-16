@@ -3,6 +3,7 @@ import { serveStatic } from './static-node.ts'
 import type { MiddlewareHandler } from './types.ts'
 
 export { Spiceflow, createSafePath } from './spiceflow.ts'
+export { redirect, notFound } from './react/errors.tsx'
 export type { AnySpiceflow, WaitUntil } from './spiceflow.ts'
 export { ValidationError } from './error.ts'
 export { preventProcessExitIfBusy } from './prevent-process-exit-if-busy.ts'

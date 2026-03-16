@@ -13,7 +13,7 @@ import {
 import { ServerPayload } from '../spiceflow.js'
 import { LayoutContent } from './components.js'
 import { FlightDataContext } from './context.js'
-import { getErrorContext, isNotFoundError, isRedirectError } from './errors.js'
+import { getErrorContext, isNotFoundError, isRedirectError, contextHeaders, contextToHeaders } from './errors.js'
 import { MetaProvider } from './head.js'
 import { MetaState } from './metastate.js'
 import { injectRSCPayload } from './transform.js'
@@ -115,14 +115,16 @@ export async function renderHtml({
     console.log(`error during ssr render catch`, e)
     let errCtx = getErrorContext(e)
     if (errCtx && isRedirectError(errCtx)) {
-      console.log(`redirecting to ${errCtx.headers?.location}`)
-      return new Response(errCtx.headers?.location, {
+      const hdrs = contextHeaders(errCtx)
+      console.log(`redirecting to ${hdrs.location}`)
+      const mergedHeaders = new Headers(response.headers)
+      for (const [k, v] of contextToHeaders(errCtx)) {
+        mergedHeaders.append(k, v)
+      }
+      mergedHeaders.set('content-type', 'text/html;charset=utf-8')
+      return new Response(hdrs.location, {
         status: errCtx.status,
-        headers: {
-          ...Object.fromEntries(response.headers),
-          ...errCtx.headers,
-          'content-type': 'text/html;charset=utf-8',
-        },
+        headers: mergedHeaders,
       })
     }
 

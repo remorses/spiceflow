@@ -4,7 +4,7 @@ import React, { startTransition, Suspense } from 'react'
 import { ReactFormState } from 'react-dom/client'
 import { router } from './router.js'
 import { ServerPayload } from '../spiceflow.js'
-import { isRedirectError, isNotFoundError, getErrorContext } from './errors.js'
+import { isRedirectError, isNotFoundError, getErrorContext, contextHeaders } from './errors.js'
 import { useFlightData } from './context.js'
 import { ProgressBar } from './progress.js'
 
@@ -74,9 +74,10 @@ class ErrorBoundary_ extends React.Component<Props, State> {
 
   static getDerivedStateFromError(error: Error) {
     const ctx = getErrorContext(error)
-    if (ctx && isRedirectError(ctx) && ctx.headers?.['location']) {
-      console.log('redirecting from browser to', ctx.headers?.['location'])
-      router.replace(ctx.headers?.['location'])
+    const hdrs = ctx ? contextHeaders(ctx) : undefined
+    if (ctx && isRedirectError(ctx) && hdrs?.['location']) {
+      console.log('redirecting from browser to', hdrs['location'])
+      router.replace(hdrs['location'])
       return {}
     }
     if (ctx && isNotFoundError(ctx)) {

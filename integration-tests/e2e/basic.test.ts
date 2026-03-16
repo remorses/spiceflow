@@ -413,6 +413,14 @@ test.describe("throw response status codes", () => {
 		expect(response.headers.get("location")).toBe("/other");
 	});
 
+	test("throw redirect after async operation returns 307 and Location header", async () => {
+		const response = await fetch(`${baseURL}/slow-redirect`, {
+			redirect: "manual",
+		});
+		expect(response.status).toBe(307);
+		expect(response.headers.get("location")).toBe("/");
+	});
+
 	test("throw redirect in layout child route returns 307", async () => {
 		const response = await fetch(`${baseURL}/throw-redirect-in-layout/nested`, {
 			redirect: "manual",
