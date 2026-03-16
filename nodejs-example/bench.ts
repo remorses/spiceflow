@@ -17,8 +17,11 @@ const RUNTIME = useBun ? 'bun' : 'node'
 
 const PORT = 3321
 const HONO_PORT = 3322
+const NEXT_PORT = 3323
 const BASE = `http://localhost:${PORT}`
 const HONO_BASE = `http://localhost:${HONO_PORT}`
+const NEXT_BASE = `http://localhost:${NEXT_PORT}`
+const NEXTJS_DIR = join(import.meta.dirname, 'nextjs-baseline')
 const BOMBARDIER = 'bombardier'
 const DURATION = '10s'
 const CONNECTIONS = 50
@@ -46,9 +49,9 @@ function runBombardier(url: string, label: string): string {
   return result
 }
 
-function spawnProcess(cmd: string, args: string[], env: Record<string, string> = {}): ChildProcess {
+function spawnProcess(cmd: string, args: string[], env: Record<string, string> = {}, cwd?: string): ChildProcess {
   const proc = spawn(cmd, args, {
-    cwd: import.meta.dirname,
+    cwd: cwd ?? import.meta.dirname,
     env: { ...process.env, ...env },
     stdio: 'pipe',
   })
@@ -114,6 +117,14 @@ async function main() {
     env: { ...process.env },
   })
 
+  // Build Next.js baseline
+  console.log('\nBuilding Next.js baseline...')
+  execSync('npm run build', {
+    stdio: 'inherit',
+    cwd: NEXTJS_DIR,
+    env: { ...process.env },
+  })
+
   // =============================================
   //  Phase 1: Benchmark all endpoints (no profiling)
   // =============================================
@@ -123,23 +134,30 @@ async function main() {
 
   const server = startServer({ PORT: String(PORT) })
   const hono = spawnProcess('tsx', ['hono-baseline.ts'], { HONO_PORT: String(HONO_PORT) })
+  const nextjsProc = spawnProcess(
+    'node', ['node_modules/.bin/next', 'start', '-p', String(NEXT_PORT)],
+    {}, NEXTJS_DIR,
+  )
 
   try {
     await Promise.all([
       waitForServer(`${BASE}/about`),
       waitForServer(`${HONO_BASE}/health`),
+      waitForServer(`${NEXT_BASE}/about`),
     ])
-    console.log('Both servers ready.\n')
+    console.log('All servers ready.\n')
 
     await warmup(`${BASE}/about`)
     await warmup(`${BASE}/static-page.html`)
     await warmup(`${HONO_BASE}/about`)
+    await warmup(`${NEXT_BASE}/about`)
 
     runBombardier(`${HONO_BASE}/about`, 'Hono baseline /about (plain HTML)')
+    runBombardier(`${NEXT_BASE}/about`, 'Next.js RSC /about')
     runBombardier(`${BASE}/static-page.html`, `Spiceflow static /static-page.html (${RUNTIME})`)
     runBombardier(`${BASE}/about`, `Spiceflow RSC /about (${RUNTIME})`)
   } finally {
-    await Promise.all([stopProcess(server), stopProcess(hono)])
+    await Promise.all([stopProcess(server), stopProcess(hono), stopProcess(nextjsProc)])
   }
 
   // =============================================
