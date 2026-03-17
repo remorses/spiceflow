@@ -9,8 +9,6 @@ import {
   encodeReply,
   setServerCallback,
 } from '@vitejs/plugin-rsc/browser'
-import { rscStream } from 'rsc-html-stream/client'
-
 import { router } from './router.js'
 import {
   DefaultGlobalErrorPage,
@@ -27,6 +25,30 @@ import {
   isDeploymentMismatchResponse,
 } from './deployment.js'
 import { getErrorContext } from './errors.js'
+
+// Reads the RSC flight payload that the server injected as <script> tags via
+// transform.ts. Chunks already pushed before this module runs are drained,
+// then future pushes are forwarded live. Stream closes on DOMContentLoaded.
+const rscStream = new ReadableStream<Uint8Array>({
+  start(controller) {
+    if (typeof window === 'undefined') return
+    const encoder = new TextEncoder()
+    const enqueue = (chunk: string | Uint8Array) => {
+      controller.enqueue(typeof chunk === 'string' ? encoder.encode(chunk) : chunk)
+    }
+
+    const w = window as any
+    w.__FLIGHT_DATA ||= []
+    w.__FLIGHT_DATA.forEach(enqueue)
+    w.__FLIGHT_DATA.push = enqueue
+
+    if (document.readyState !== 'loading') {
+      controller.close()
+    } else {
+      document.addEventListener('DOMContentLoaded', () => controller.close())
+    }
+  },
+})
 
 function hardNavigate(location: string) {
   window.location.replace(location)
