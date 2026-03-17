@@ -263,7 +263,7 @@ importers:
         version: link:../spiceflow
       tailwindcss:
         specifier: ^4.0.5
-        version: 4.0.6
+        version: 4.2.1
       vite:
         specifier: ^8.0.0
         version: 8.0.0(@types/node@24.0.15)(esbuild@0.27.4)(jiti@2.6.1)(terser@5.46.0)(tsx@4.20.6)(yaml@2.7.0)
@@ -9440,7 +9440,6 @@ snapshots:
   '@types/node@24.0.15':
     dependencies:
       undici-types: 7.8.0
-    optional: true
 
   '@types/parse-json@4.0.2': {}
 
@@ -12015,7 +12014,7 @@ snapshots:
 
   jest-worker@27.5.1:
     dependencies:
-      '@types/node': 24.0.1
+      '@types/node': 24.0.15
       merge-stream: 2.0.0
       supports-color: 8.1.1
 
