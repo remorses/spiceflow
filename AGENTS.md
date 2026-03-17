@@ -104,8 +104,36 @@ Client components used in tests should be created in `integration-tests/src/app/
 - Always call `file[Symbol.dispose]()` or use `try/finally` to restore files after edits.
 - When editing files, make sure the `replace()` string actually exists in the source. For example, `client.tsx` has `name = "Client"` as a default prop — the literal string "Client counter" does NOT exist in the file, so `replace("Client counter", ...)` would be a no-op and the HMR test would silently fail.
 - **Client HMR preserves state**: editing a client component triggers React Fast Refresh without a server re-render. Client state is preserved. Vite's SSR environment logs `page reload` internally but the browser does not actually reload — Fast Refresh handles it.
-- **Server HMR preserves server state**: editing a server component triggers RSC HMR. Server-side state (e.g. counters stored in module scope) is preserved. Client state is also preserved because no full page reload occurs.
+- **Server HMR preserves server state**: editing a server component triggers RSC HMR. Server-side state (e.g. counters stored in module scope) is preserved. Client state is NOT preserved — `router.refresh()` re-fetches the full RSC payload, and React reconciliation remounts client components with fresh state.
 - The home page has a `serverRenderCount` counter (`data-testid="server-render-count"`) that increments on each RSC render. Use it in tests to verify whether a server re-render happened.
+- To detect full page reloads in tests, set a window sentinel before the edit and check it after: `await page.evaluate((s) => { window.__hmrSentinel = s }, sentinel)` — if the sentinel is gone after the edit, a full reload happened.
+
+## debugging unwanted full page reloads in vite
+
+When HMR triggers a full page reload instead of a hot update, the cause is a `{type:"full-reload"}` WebSocket message sent to the browser. To find who sends it, patch `hot.send` on every Vite environment with `console.trace` in a temporary plugin:
+
+```ts
+{
+  name: 'debug-full-reload',
+  configureServer(server) {
+    for (const envName of Object.keys(server.environments)) {
+      const env = server.environments[envName]
+      const origSend = env.hot.send.bind(env.hot)
+      env.hot.send = function (...args) {
+        if (args[0]?.type === 'full-reload') {
+          console.trace(`[full-reload] env=${envName} payload=${JSON.stringify(args[0])}`)
+        }
+        return origSend(...args)
+      }
+    }
+  },
+},
+```
+
+The stack trace reveals exactly which plugin and hook is responsible. Common culprits:
+- `@tailwindcss/vite` hotUpdate sending bare `{type:"full-reload"}` for server-only files it scans for class names
+- Vite's dep optimizer (`runOptimizer` → `fullReload`) when deps change — usually harmless, triggers once
+- `updateModules` in Vite core when `propagateUpdate` hits a dead end (no HMR boundary found)
 
 # website
 
@@ -168,3 +196,5 @@ the spiceflow vite plugin depends on vite-rsc plugin. you can read its source co
 we also try to work well with the cloudflare vite plugin. the source code of that is in `https://github.com/cloudflare/workers-sdk/blob/main/packages/vite-plugin-cloudflare`
 
 we have an example `cloudflare-example` that we can use to make sure pnpm dev, build, preview and deployment work well.
+
+Waku (`opensrc dai-shi/waku`, packages/waku/) is another Vite RSC framework we use as reference for Vite integration patterns. It uses the same `@vitejs/plugin-rsc` plugin and has a similar multi-environment setup (client, ssr, rsc). Useful to check how they handle `optimizeDeps`, `resolve.noExternal`, SSR middleware, and RSC environment config. Their Vite plugins live in `packages/waku/src/lib/vite-plugins/`.

@@ -82,6 +82,32 @@ test("server hmr @dev", async ({ page }) => {
 	}
 });
 
+test("main entry hmr does not trigger full reload @dev", async ({ page }) => {
+	await page.goto("/");
+	await page.getByText("[hydrated: 1]").click();
+
+	// Set a sentinel on window — a full page reload would clear it
+	const sentinel = Math.random().toString(36).slice(2);
+	await page.evaluate((s) => { (window as any).__hmrSentinel = s }, sentinel);
+
+	const file = createEditor("src/main.tsx");
+	try {
+		// Modify the serverRandom computation so "server random:" text changes.
+		// This proves the RSC environment picked up the new code via HMR.
+		await file.edit((s) => s.replace(
+			'const serverRandom = Math.random()',
+			'const serverRandom = "EDITED-" + Math.random()',
+		));
+		// Wait for RSC HMR to re-render
+		await expect(page.getByText("server random: EDITED-")).toBeVisible({ timeout: 10000 });
+		// Sentinel must still be present — proves no full page reload happened
+		const value = await page.evaluate(() => (window as any).__hmrSentinel);
+		expect(value).toBe(sentinel);
+	} finally {
+		file[Symbol.dispose]();
+	}
+});
+
 test("CSS HMR updates styles without page reload @dev", async ({ page }) => {
 	await page.goto("/css-test");
 	const serverEl = page.getByTestId("css-test-server");

@@ -134,30 +134,61 @@ export function spiceflowPlugin({
         )
       },
     },
-    // Ensure Vite processes spiceflow (not externalized) so conditional package.json
-    // exports (react-server vs default) resolve correctly at build time.
-    // Also exclude spiceflow from client dep optimization so that RSC client references
+    // Point optimizeDeps.entries at the user's app entry and spiceflow's own entries
+    // so Vite crawls the full import graph upfront instead of discovering deps late
+    // (which triggers re-optimization rounds + page reloads during dev).
+    //
+    // Also ensures Vite processes spiceflow through its transform pipeline (noExternal)
+    // so conditional package.json exports (react-server vs default) resolve correctly.
+    // Excludes spiceflow from client dep optimization so RSC client references
     // (loaded via client-in-server-package-proxy from raw node_modules) share the same
-    // module instances as the entry.client imports. Without this, the dep optimizer
-    // bundles spiceflow's context/components into .vite/deps/ while RSC client refs
-    // load the raw files, creating duplicate React contexts where the Provider and
-    // consumer see different instances.
+    // module instances as the entry.client imports.
     {
-      name: 'spiceflow:no-external',
+      name: 'spiceflow:optimize-deps',
       configEnvironment(name, config) {
+        // The user's entry file — Vite crawls its imports to discover deps upfront
+        const entryGlob = entry.replace(/\.\w+$/, '.*')
+
+        config.optimizeDeps ??= {}
+        // Normalize entries to array since Vite types it as string | string[]
+        const existing = config.optimizeDeps.entries
+        const entries = Array.isArray(existing) ? existing : existing ? [existing] : []
+        entries.push(entryGlob)
+        config.optimizeDeps.entries = entries
+
+
+        config.optimizeDeps.exclude ??= []
+        if (!config.optimizeDeps.exclude.includes('spiceflow')) {
+          config.optimizeDeps.exclude.push('spiceflow')
+        }
+
+
         if (name === 'rsc' || name === 'ssr') {
           config.resolve ??= {}
           const existing = config.resolve.noExternal
-          if (existing === true) return
-          const arr = Array.isArray(existing) ? existing : existing ? [existing] : []
-          config.resolve.noExternal = [...arr, 'spiceflow']
-        }
-        if (name === 'client') {
-          config.optimizeDeps ??= {}
-          config.optimizeDeps.exclude ??= []
-          if (!config.optimizeDeps.exclude.includes('spiceflow')) {
-            config.optimizeDeps.exclude.push('spiceflow')
+          if (existing !== true) {
+            const arr = Array.isArray(existing) ? existing : existing ? [existing] : []
+            config.resolve.noExternal = [...arr, 'spiceflow']
           }
+        }
+      },
+    },
+
+    // TODO: remove this workaround once @tailwindcss/vite releases the fix from
+    // https://github.com/tailwindlabs/tailwindcss/pull/19745 (merged but unreleased as of 4.2.1)
+    //
+    // Workaround: @tailwindcss/vite's hotUpdate hook sends a bare full-reload
+    // to the client when server-only files (like the app entry) change, because
+    // Tailwind scans them for class names. This breaks RSC HMR by causing a
+    // full page reload instead of letting rsc:update + router.refresh() handle it.
+    {
+      name: 'spiceflow:tailwind-hmr-fix',
+      configResolved(config) {
+        const twPlugin = config.plugins.find(
+          (p) => p.name === '@tailwindcss/vite:generate:serve',
+        )
+        if (twPlugin) {
+          delete twPlugin.hotUpdate
         }
       },
     },
