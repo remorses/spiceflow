@@ -1,7 +1,7 @@
 'use client'
 
 import React, { startTransition, Suspense } from 'react'
-import { ReactFormState } from 'react-dom/client'
+import type { ReactFormState } from 'react-dom/client'
 import { router } from './router.js'
 import { ServerPayload } from '../spiceflow.js'
 import { isRedirectError, isNotFoundError, getErrorContext, contextHeaders } from './errors.js'

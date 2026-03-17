@@ -7,7 +7,6 @@ let excludeMethods = ['OPTIONS']
 
 import type { TypeSchema } from './types.js'
 
-import { zodToJsonSchema } from 'zod-to-json-schema'
 import { z } from 'zod/v4'
 
 const extractParamNames = (path: string): string[] => {
@@ -486,11 +485,9 @@ function getJsonSchema(schema: TypeSchema) {
     return rest as any
   }
   if (isZodSchema(schema)) {
-    let jsonSchema = zodToJsonSchema(schema as any, {
-      removeAdditionalStrategy: 'strict',
-    }) as any
-    const { $schema, ...rest } = jsonSchema
-    return rest as any
+    throw new Error(
+      `cannot get json schema from Zod v3. update to latest Zod v4 to use openapi spiceflow plugin`,
+    )
   }
 
   const { $schema, ...rest } = schema as any
