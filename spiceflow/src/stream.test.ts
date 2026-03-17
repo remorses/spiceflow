@@ -454,4 +454,31 @@ describe('Stream', () => {
     // Should not throw an error for abort
     expect(streamError).toBeUndefined()
   })
+
+  it('does not eagerly drain generator ahead of consumer (backpressure)', async () => {
+    let nextCallCount = 0
+
+    async function* lazyGenerator() {
+      for (let i = 0; i < 50; i++) {
+        nextCallCount++
+        yield `chunk-${i}`
+      }
+    }
+
+    const app = new Spiceflow().get('/', lazyGenerator)
+    const response = await app.handle(req('/'))
+    const reader = response.body!.getReader()
+
+    // Read only the first 3 chunks (plus possible init value)
+    await reader.read()
+    await reader.read()
+    await reader.read()
+
+    // With pull()-based backpressure the generator should not have
+    // been advanced far beyond what was consumed. init pulls 1, then
+    // 3 reads pull ~3 more. Allow a small buffer for prefetch.
+    expect(nextCallCount).toBeLessThanOrEqual(6)
+
+    await reader.cancel()
+  })
 })

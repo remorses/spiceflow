@@ -1895,43 +1895,59 @@ export class Spiceflow<
     }
 
     let self = this
+
+    // Get an explicit async iterator so pull() can advance one step at a time.
+    // Generators implement .next() directly, while other async iterables
+    // (e.g. ReadableStream) need [Symbol.asyncIterator]() to produce one.
+    const iterator: AsyncIterator<unknown> =
+      typeof (generator as any).next === 'function'
+        ? (generator as AsyncIterator<unknown>)
+        : (generator as any)[Symbol.asyncIterator]()
+
+    let end = false
+    let ping: ReturnType<typeof setInterval> | undefined
+    let onAbort: (() => void) | undefined
+
+    // Idempotent cleanup: clears ping, removes abort listener, terminates iterator
+    const cleanup = () => {
+      if (end) return
+      end = true
+      if (ping) {
+        clearInterval(ping)
+        ping = undefined
+      }
+      if (onAbort) {
+        request?.signal?.removeEventListener('abort', onAbort)
+        onAbort = undefined
+      }
+      iterator.return?.()
+    }
+
     return new Response(
       new ReadableStream({
-        async start(controller) {
-          let end = false
-
-          // Set up ping interval
-          const pingInterval = setInterval(() => {
+        start(controller) {
+          ping = setInterval(() => {
             if (!end) {
-              controller.enqueue(Buffer.from('\n'))
+              try {
+                controller.enqueue(Buffer.from('\n'))
+              } catch {
+                cleanup()
+              }
             }
           }, 10 * 1000)
 
-          request?.signal.addEventListener('abort', async () => {
-            end = true
-            clearInterval(pingInterval)
-
-            // Using return() instead of throw() because:
-            // 1. return() allows for cleanup in finally blocks
-            // 2. throw() would trigger error handling which isn't needed for normal aborts
-            // 3. return() is the more graceful way to stop iteration
-
-            if ('return' in generator) {
-              try {
-                await generator.return(undefined)
-              } catch {
-                // Ignore errors from stopping generator
-              }
-            }
-
+          onAbort = () => {
+            cleanup()
             try {
               controller.close()
-            } catch {
-              // nothing
-            }
-          })
+            } catch {}
+          }
+          request?.signal?.addEventListener('abort', onAbort)
 
-          if (init?.value !== undefined && init?.value !== null)
+          // Enqueue the already-extracted init value (first generator
+          // result, used above for done detection). Subsequent values
+          // are produced on-demand by pull().
+          if (init?.value !== undefined && init?.value !== null) {
             controller.enqueue(
               Buffer.from(
                 'event: message\ndata: ' +
@@ -1939,49 +1955,71 @@ export class Spiceflow<
                   '\n\n',
               ),
             )
+          }
+        },
+
+        async pull(controller) {
+          if (end) {
+            try {
+              controller.close()
+            } catch {}
+            return
+          }
 
           try {
-            for await (const chunk of generator) {
-              if (end) break
-              if (chunk === undefined || chunk === null) continue
+            const { value: chunk, done } = await iterator.next()
 
-              controller.enqueue(
-                Buffer.from(
-                  'event: message\ndata: ' +
-                    self.superjsonSerialize(chunk, false, request) +
-                    '\n\n',
-                ),
-              )
+            if (done || end) {
+              cleanup()
+              try {
+                controller.close()
+              } catch {}
+              return
             }
+
+            // null/undefined chunks are skipped; the runtime will
+            // call pull() again since nothing was enqueued.
+            if (chunk === undefined || chunk === null) return
+
+            controller.enqueue(
+              Buffer.from(
+                'event: message\ndata: ' +
+                  self.superjsonSerialize(chunk, false, request) +
+                  '\n\n',
+              ),
+            )
           } catch (error: any) {
-            let res = await self.runErrorHandlers({
+            await self.runErrorHandlers({
               context: {},
               onErrorHandlers: onErrorHandlers,
               error,
               request,
             })
-            controller.enqueue(
-              Buffer.from(
-                'event: error\ndata: ' +
-                  self.superjsonSerialize(
-                    {
-                      ...error,
-                      message: error.message || error.name || 'Error',
-                    },
-                    false,
-                    request
-                  ) +
-                  '\n\n',
-              ),
-            )
+            try {
+              controller.enqueue(
+                Buffer.from(
+                  'event: error\ndata: ' +
+                    self.superjsonSerialize(
+                      {
+                        ...error,
+                        message: error.message || error.name || 'Error',
+                      },
+                      false,
+                      request,
+                    ) +
+                    '\n\n',
+                ),
+              )
+            } catch {}
+            cleanup()
+            try {
+              controller.close()
+            } catch {}
           }
+        },
 
-          clearInterval(pingInterval)
-          try {
-            controller.close()
-          } catch {
-            // nothing
-          }
+        cancel() {
+          cleanup()
         },
       }),
       {
