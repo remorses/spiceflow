@@ -4,6 +4,8 @@ import {
   type ServerResponse,
   createServer,
 } from 'node:http'
+import { Readable } from 'node:stream'
+import { pipeline } from 'node:stream/promises'
 import { AddressInfo } from 'node:net'
 
 export async function listenForNode(
@@ -39,9 +41,8 @@ export async function listenForNode(
 
 export function nodeToWebRequest(req: IncomingMessage, res: ServerResponse): Request {
   const abortController = new AbortController()
-  req.on('error', () => abortController.abort())
-  req.on('aborted', () => abortController.abort())
-  res.on('close', () => {
+  req.once('error', () => abortController.abort())
+  res.once('close', () => {
     if (!res.writableFinished) abortController.abort()
   })
 
@@ -49,42 +50,55 @@ export function nodeToWebRequest(req: IncomingMessage, res: ServerResponse): Req
     req.url || '',
     `http://${req.headers.host || 'localhost'}`,
   )
+
+  const hasBody = req.method !== 'GET' && req.method !== 'HEAD'
+
   return new Request(url.toString(), {
     method: req.method,
-    headers: req.headers as HeadersInit,
-    body:
-      req.method !== 'GET' && req.method !== 'HEAD'
-        ? new ReadableStream({
-            start(controller) {
-              req.on('data', (chunk) => {
-                controller.enqueue(
-                  new Uint8Array(chunk.buffer, chunk.byteOffset, chunk.byteLength),
-                )
-              })
-              req.on('end', () => controller.close())
-            },
-          })
-        : null,
+    headers: newHeadersFromIncoming(req),
+    body: hasBody ? (Readable.toWeb(req) as unknown as ReadableStream<Uint8Array>) : null,
     signal: abortController.signal,
     // @ts-ignore for undici
-    duplex: 'half',
+    duplex: hasBody ? 'half' : undefined,
   })
 }
 
-export async function sendWebResponse(response: Response, res: ServerResponse): Promise<void> {
-  res.writeHead(
-    response.status,
-    Object.fromEntries(response.headers.entries()),
-  )
-  if (response.body) {
-    const reader = response.body.getReader()
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
-      res.write(value)
+// Use rawHeaders to preserve original casing and handle duplicate headers properly
+// (e.g. multiple set-cookie). Skips HTTP/2 pseudo-headers starting with ':'
+function newHeadersFromIncoming(incoming: IncomingMessage): Headers {
+  const headerRecord: [string, string][] = []
+  const rawHeaders = incoming.rawHeaders
+  for (let i = 0; i < rawHeaders.length; i += 2) {
+    const key = rawHeaders[i]
+    const value = rawHeaders[i + 1]
+    if (key.charCodeAt(0) !== /* ':' */ 0x3a) {
+      headerRecord.push([key, value])
     }
   }
-  res.end()
+  return new Headers(headerRecord)
+}
+
+export async function sendWebResponse(response: Response, res: ServerResponse): Promise<void> {
+  // Build headers object, handling multiple set-cookie headers correctly.
+  // Object.fromEntries(response.headers.entries()) collapses duplicate set-cookie
+  // into a single value — we need to preserve them as an array.
+  const headers: Record<string, string | string[]> = Object.fromEntries(response.headers)
+  const setCookies = response.headers.getSetCookie()
+  if (setCookies.length > 0) {
+    delete headers['set-cookie']
+    res.setHeader('set-cookie', setCookies)
+  }
+
+  if (response.body) {
+    res.writeHead(response.status, response.statusText, headers)
+    // pipeline() handles backpressure, error propagation, and cleanup on premature close.
+    // Unlike manual pipe() + event listeners, pipeline settles correctly when the client
+    // disconnects (emits 'close' without 'error').
+    await pipeline(Readable.fromWeb(response.body as any), res)
+  } else {
+    res.writeHead(response.status, response.statusText, headers)
+    res.end()
+  }
 }
 
 export async function handleForNode(
