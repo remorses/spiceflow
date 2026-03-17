@@ -12,10 +12,12 @@ export default defineConfig({
 		actionTimeout: 5000,
 		navigationTimeout: 5000,
 		trace: "on-first-retry",
-	},
+  },
+
 	projects: [
 		{
-			name: "chromium",
+      name: "chromium",
+
 			use: {
 				...devices["Desktop Chrome"],
 				viewport: null,
@@ -29,9 +31,11 @@ export default defineConfig({
 		stderr: 'pipe',
 		port,
 	},
+	fullyParallel: false,
+	workers: 1,
 	grepInvert: isStart ? /@dev/ : /@build/,
 	forbidOnly: !!process.env["CI"],
-	
+
 	retries: process.env["CI"] ? 2 : 0,
 	reporter: "list",
 });
