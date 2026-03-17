@@ -240,7 +240,7 @@ export function spiceflowPlugin({
               const mod: any = await (
                 server.environments.ssr as RunnableDevEnvironment
               ).runner?.import(resolvedEntry.id)
-              const { createRequest, sendResponse } = await import('./react/utils/fetch.js')
+              const { createRequest, sendResponse } = await import('./react/fetch.js')
               const request = createRequest(req, res)
               const response = await mod.fetchHandler(request)
               sendResponse(response, res)
@@ -254,7 +254,7 @@ export function spiceflowPlugin({
         // Preview should also go through the built worker entry when Cloudflare owns the runtime.
         if (isCloudflareRuntime) return
         const mod = await import(path.resolve(resolvedOutDir, 'ssr/index.js'))
-        const { createRequest, sendResponse } = await import('./react/utils/fetch.js')
+        const { createRequest, sendResponse } = await import('./react/fetch.js')
         return () => {
           previewServer.middlewares.use(async (req, res, next) => {
             try {
@@ -269,26 +269,14 @@ export function spiceflowPlugin({
       },
     },
 
-    // virtual:spiceflow-deployment-id — build timestamp inlined as a constant.
+    // Build timestamp inlined as a constant.
     // No runtime fs access needed, works on Node, Cloudflare, edge runtimes, etc.
-    createVirtualPlugin('spiceflow-deployment-id', () => {
+    createVirtualPlugin('virtual:spiceflow-deployment-id', () => {
       return `export default ${JSON.stringify(buildTimestamp)}`
     }),
-    // virtual:bundler-adapter/* — resolves to Vite-specific adapter implementations
-    // so entry points can import from these instead of directly from @vitejs/plugin-rsc
-    createVirtualPlugin('bundler-adapter/server', () => {
-      return `export * from 'spiceflow/dist/react/adapters/vite-server'`
-    }),
-    createVirtualPlugin('bundler-adapter/ssr', () => {
-      return `export * from 'spiceflow/dist/react/adapters/vite-ssr'`
-    }),
-    createVirtualPlugin('bundler-adapter/client', () => {
-      return `export * from 'spiceflow/dist/react/adapters/vite-client'`
-    }),
-
-    // virtual:app-entry — resolves to user's app entry module.
+    // Resolves to user's app entry module.
     // Re-exports `app` (named) and `default` (for Cloudflare Workers default export).
-    createVirtualPlugin('app-entry', () => {
+    createVirtualPlugin('virtual:app-entry', () => {
       return [
         `import * as entry from '${url.pathToFileURL(path.resolve(entry))}'`,
         `if (!entry.app) throw new Error('[spiceflow] Your entry file must export a Spiceflow instance as "app". Example:\\n\\n  export const app = new Spiceflow()\\n    .page("/", async () => <Home />)\\n    .listen(3000)\\n')`,
@@ -345,10 +333,10 @@ function addNoExternal(
   config.resolve.noExternal = Array.from(new Set([...arr, pkg]))
 }
 
-function createVirtualPlugin(name: string, load: Plugin['load']): Plugin {
-  const virtualName = 'virtual:' + name
+function createVirtualPlugin(virtualName: string, load: Plugin['load']): Plugin {
+  const shortName = virtualName.replace('virtual:', '')
   return {
-    name: `spiceflow:virtual-${name}`,
+    name: `spiceflow:virtual-${shortName}`,
     resolveId(source) {
       return source === virtualName ? '\0' + virtualName : undefined
     },

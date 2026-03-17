@@ -4,11 +4,7 @@ import { isbot } from 'isbot'
 
 import React from 'react'
 import ReactDOMServer from 'react-dom/server.edge'
-import {
-  createFromReadableStream,
-  loadBootstrapScriptContent,
-  importRscEnvironment,
-} from 'virtual:bundler-adapter/ssr'
+import { createFromReadableStream } from '@vitejs/plugin-rsc/ssr'
 
 import { ServerPayload } from '../spiceflow.js'
 import { LayoutContent } from './components.js'
@@ -22,12 +18,19 @@ import { injectRSCPayload } from './transform.js'
 let bootstrapScriptContentPromise: Promise<string> | undefined
 
 function getBootstrapScriptContent() {
+  const load = () => import.meta.viteRsc.loadBootstrapScriptContent('index')
   if (import.meta.env.DEV) {
-    return loadBootstrapScriptContent()
+    return load()
   }
-
-  bootstrapScriptContentPromise ??= loadBootstrapScriptContent()
+  bootstrapScriptContentPromise ??= load()
   return bootstrapScriptContentPromise
+}
+
+async function importRscEnvironment(): Promise<typeof import('./entry.rsc.js')> {
+  return import.meta.viteRsc.loadModule<typeof import('./entry.rsc.js')>(
+    'rsc',
+    'index',
+  )
 }
 
 export async function fetchHandler(request: Request) {

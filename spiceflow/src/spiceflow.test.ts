@@ -699,7 +699,7 @@ test('regex constrained route is more specific than a generic param route', asyn
 test('renderReact passes layout params to layouts instead of page params', async () => {
   let payload: any
 
-  vi.doMock('virtual:bundler-adapter/server', () => ({
+  vi.doMock('@vitejs/plugin-rsc/rsc', () => ({
     renderToReadableStream(value) {
       payload = value
       return new ReadableStream({
@@ -713,8 +713,6 @@ test('renderReact passes layout params to layouts instead of page params', async
     decodeAction: async () => () => null,
     decodeFormState: async () => undefined,
     loadServerAction: async () => undefined,
-    getAppEntryCssElement: () => null,
-    getDeploymentId: async () => undefined,
   }))
 
   try {
@@ -754,7 +752,7 @@ test('renderReact passes layout params to layouts instead of page params', async
       layoutId: 'parent',
     })
   } finally {
-    vi.doUnmock('virtual:bundler-adapter/server')
+    vi.doUnmock('@vitejs/plugin-rsc/rsc')
     vi.resetModules()
   }
 })

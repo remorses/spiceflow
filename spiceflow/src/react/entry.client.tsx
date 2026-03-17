@@ -8,9 +8,7 @@ import {
   createTemporaryReferenceSet,
   encodeReply,
   setServerCallback,
-  onHmrUpdate,
-  onHmrError,
-} from 'virtual:bundler-adapter/client'
+} from '@vitejs/plugin-rsc/browser'
 import { rscStream } from 'rsc-html-stream/client'
 
 import { router } from './router.js'
@@ -161,9 +159,27 @@ async function main() {
     })
   }
 
-  onHmrUpdate(() => router.refresh())
+  if (import.meta.hot) {
+    // Debounce rapid HMR events (e.g. save + format save) to avoid firing
+    // multiple RSC fetches in quick succession. On Cloudflare Workers this
+    // race condition causes "hanging Promise was canceled" errors because
+    // promises from the old request context resolve in the new one.
+    let hmrTimer: ReturnType<typeof setTimeout> | undefined
+    import.meta.hot.on('rsc:update', (e: { file: string }) => {
+      console.log('[rsc:update]', e.file)
+      clearTimeout(hmrTimer)
+      hmrTimer = setTimeout(() => router.refresh(), 80)
+    })
+  }
 }
 
-onHmrError()
+if (import.meta.env.DEV) {
+  window.onerror = (_event, _source, _lineno, _colno, err) => {
+    const ErrorOverlay = customElements.get('vite-error-overlay')
+    if (!ErrorOverlay) return
+    const overlay = new (ErrorOverlay as any)(err)
+    document.body.appendChild(overlay)
+  }
+}
 
 main()

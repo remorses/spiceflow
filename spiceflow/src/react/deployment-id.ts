@@ -1,5 +1,5 @@
-// Deployment id loader for the current bundler runtime.
-// Falls back to undefined when the bundler adapter virtual module is unavailable.
+// Deployment id loader. Returns the build timestamp set by the Vite plugin.
+// Falls back to undefined in dev or when the virtual module is unavailable.
 
 let deploymentIdPromise: Promise<string | undefined> | undefined
 
@@ -11,12 +11,11 @@ export async function getRuntimeDeploymentId() {
 }
 
 async function loadRuntimeDeploymentId() {
-  let adapter: { getDeploymentId?: () => Promise<string | undefined> }
+  if (!import.meta.env.PROD) return undefined
   try {
-    adapter = await import('virtual:bundler-adapter/server')
+    const { default: id } = await import('virtual:spiceflow-deployment-id')
+    return id ?? undefined
   } catch {
     return undefined
   }
-
-  return await adapter.getDeploymentId?.()
 }
