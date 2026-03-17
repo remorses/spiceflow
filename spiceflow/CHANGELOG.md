@@ -1,5 +1,25 @@
 # spiceflow
 
+## 1.18.0-rsc.8
+
+### Patch Changes
+
+1. **Auto-configure `optimizeDeps.entries` per Vite environment** — the Vite plugin now automatically sets `optimizeDeps.entries` for the client, rsc, and ssr environments to point at your app entry file. Vite crawls the full import graph upfront during dev, preventing late dependency discovery that triggers re-optimization rounds and page reloads on fresh installs. Apps no longer need manual `optimizeDeps.include` lists for spiceflow's transitive dependencies.
+
+2. **Improved React SSR performance** — document GET/HEAD requests skip the extra Flight decode pass, bootstrap script content is cached in production, the default page payload shape is smaller, and `injectRSCPayload()` does less HTML stream work. These changes improve throughput for normal RSC page renders in the `nodejs-example` benchmark.
+
+3. **Fixed `@tailwindcss/vite` triggering full page reloads during RSC HMR** — the plugin now intercepts `hotUpdate` events for CSS files before `@tailwindcss/vite` can escalate them to a full reload, keeping RSC HMR fast without a browser refresh.
+
+4. **Improved Node.js adapter** — the Node adapter now handles backpressure correctly using `write()` return value and `drain` events, forwards `Set-Cookie` arrays as separate headers, passes raw header arrays through for multi-value headers, and uses `pipeline()` for static file streaming to avoid memory leaks.
+
+5. **Fixed per-URL abort controllers** — RSC and non-RSC requests no longer share abort controllers, preventing in-flight RSC streams from being cancelled when an unrelated request for the same URL is aborted.
+
+6. **Fixed SSE streaming backpressure** — replaced the eager `start()` loop with a pull-based approach so SSE generators are only consumed when the client is ready, preventing unbounded buffering.
+
+7. **Fixed Cloudflare Workers hung requests during HMR** — mitigated an error where Cloudflare's runtime hangs a request when the RSC worker is reloaded mid-flight.
+
+8. **Fixed flight script content escaping** — the full RSC flight script content including prefix and suffix is now properly escaped, preventing script injection edge cases.
+
 ## 1.18.0-rsc.7
 
 ### Patch Changes

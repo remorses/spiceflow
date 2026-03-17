@@ -129,7 +129,6 @@ async function main() {
 
     React.useEffect(() => {
       return router.subscribe(async function onNavigation() {
-        console.log('onNavigation')
         const url = new URL(window.location.href)
         url.pathname += '.rsc'
         url.searchParams.set('__rsc', '')
