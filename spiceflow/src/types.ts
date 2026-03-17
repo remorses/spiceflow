@@ -1,5 +1,5 @@
 // https://github.com/remorses/elysia/blob/main/src/types.ts#L6
-import { StandardSchemaV1 } from '@standard-schema/spec'
+import { StandardSchemaV1 } from './standard-schema.js'
 import z from 'zod'
 
 import type { OpenAPIV3 } from 'openapi-types'

@@ -185,7 +185,7 @@ export function spiceflowPlugin({
           addNoExternal(config, 'spiceflow')
           config.optimizeDeps.include = mergeUnique(
             config.optimizeDeps.include,
-            ['copy-anything', 'superjson', 'zod', 'history'],
+            ['superjson', 'zod', 'history'],
           )
         }
 

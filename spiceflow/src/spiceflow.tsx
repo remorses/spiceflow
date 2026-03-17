@@ -1,6 +1,6 @@
 import type { ReactFormState } from 'react-dom/client'
 
-import { copy } from 'copy-anything'
+import { copy } from './copy-anything.js'
 import superjson from 'superjson'
 
 import { SpiceflowFetchError } from './client/errors.js'
@@ -63,7 +63,7 @@ import { TrieRouter } from './trie-router/router.js'
 import { decodeURIComponent_ } from './trie-router/url.js'
 import { Result } from './trie-router/utils.js'
 
-import { StandardSchemaV1 } from '@standard-schema/spec'
+import type { StandardSchemaV1 } from './standard-schema.js'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { handleForNode, listenForNode } from './_node-server.js'
 import { renderSsr } from 'spiceflow/handle-ssr'
