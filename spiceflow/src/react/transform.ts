@@ -1,9 +1,17 @@
 // ported from https://github.com/devongovett/rsc-html-stream/blob/main/server.js
 
 const encoder = new TextEncoder()
+const latin1Decoder = new TextDecoder('latin1')
 const trailerBodyBytes = encoder.encode('</body></html>')
 const closeHeadBytes = encoder.encode('</head>')
 const flightScriptPrefix = '(self.__FLIGHT_DATA||=[]).push('
+
+function encodeBinaryChunkToBase64(chunk: Uint8Array): string {
+  if (typeof Buffer !== 'undefined') {
+    return Buffer.from(chunk).toString('base64')
+  }
+  return btoa(latin1Decoder.decode(chunk))
+}
 
 function endsWithSequence(haystack: Uint8Array, needle: Uint8Array) {
   if (haystack.length < needle.length) return false
@@ -143,7 +151,7 @@ async function writeRSCStream(
         controller,
       )
     } catch (err) {
-      let base64 = JSON.stringify(btoa(String.fromCodePoint(...chunk)))
+      let base64 = JSON.stringify(encodeBinaryChunkToBase64(chunk))
       writeChunk(
         `Uint8Array.from(atob(${base64}), m => m.codePointAt(0))`,
         controller,
