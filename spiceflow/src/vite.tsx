@@ -146,30 +146,55 @@ export function spiceflowPlugin({
     {
       name: 'spiceflow:optimize-deps',
       configEnvironment(name, config) {
-        // The user's entry file — Vite crawls its imports to discover deps upfront
-        const entryGlob = entry.replace(/\.\w+$/, '.*')
+        const entryGlob = entry.replace(
+          /\.[cm]?[jt]sx?$/,
+          '.{js,jsx,ts,tsx,mjs,mts,cjs,cts}',
+        )
 
         config.optimizeDeps ??= {}
-        // Normalize entries to array since Vite types it as string | string[]
-        const existing = config.optimizeDeps.entries
-        const entries = Array.isArray(existing) ? existing : existing ? [existing] : []
-        entries.push(entryGlob)
-        config.optimizeDeps.entries = entries
+        config.optimizeDeps.entries = mergeUnique(
+          toArray(config.optimizeDeps.entries),
+          [entryGlob],
+        )
 
-
-        config.optimizeDeps.exclude ??= []
-        if (!config.optimizeDeps.exclude.includes('spiceflow')) {
-          config.optimizeDeps.exclude.push('spiceflow')
+        // Each environment runs its own independent optimizer, so deps discovered
+        // late by the rsc/ssr optimizer still cause reloads even if the client
+        // optimizer finished cleanly. Explicitly include known CJS/late-discovered
+        // deps that spiceflow transitively imports so all three environments
+        // pre-bundle them upfront instead of finding them mid-request.
+        if (name === 'client') {
+          config.optimizeDeps.exclude = mergeUnique(
+            config.optimizeDeps.exclude,
+            ['spiceflow'],
+          )
+          config.optimizeDeps.include = mergeUnique(
+            config.optimizeDeps.include,
+            [
+              'react',
+              'react/jsx-runtime',
+              'react/jsx-dev-runtime',
+              'react-dom',
+              'react-dom/client',
+              'superjson',
+              'history',
+            ],
+          )
         }
 
+        if (name === 'rsc') {
+          addNoExternal(config, 'spiceflow')
+          config.optimizeDeps.include = mergeUnique(
+            config.optimizeDeps.include,
+            ['copy-anything', 'superjson', 'zod', 'history'],
+          )
+        }
 
-        if (name === 'rsc' || name === 'ssr') {
-          config.resolve ??= {}
-          const existing = config.resolve.noExternal
-          if (existing !== true) {
-            const arr = Array.isArray(existing) ? existing : existing ? [existing] : []
-            config.resolve.noExternal = [...arr, 'spiceflow']
-          }
+        if (name === 'ssr') {
+          addNoExternal(config, 'spiceflow')
+          config.optimizeDeps.include = mergeUnique(
+            config.optimizeDeps.include,
+            ['isbot', 'history', 'react-dom/server', 'react-dom/server.edge'],
+          )
         }
       },
     },
@@ -293,6 +318,31 @@ function hasPluginNamed(
   }
 
   return false
+}
+
+function mergeUnique<T>(base: T[] | undefined, add: T[]): T[] {
+  return Array.from(new Set([...(base ?? []), ...add]))
+}
+
+function toArray(value: string | string[] | undefined): string[] {
+  if (!value) return []
+  return Array.isArray(value) ? value : [value]
+}
+
+function addNoExternal(
+  config: { resolve?: { noExternal?: unknown } },
+  pkg: string,
+) {
+  config.resolve ??= {}
+  const existing = config.resolve.noExternal
+  if (existing === true) return
+  // Preserve false (user explicitly disabled) — we still need spiceflow processed
+  const arr = Array.isArray(existing)
+    ? existing
+    : existing && existing !== false
+      ? [existing]
+      : []
+  config.resolve.noExternal = Array.from(new Set([...arr, pkg]))
 }
 
 function createVirtualPlugin(name: string, load: Plugin['load']): Plugin {
