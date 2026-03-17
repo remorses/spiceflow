@@ -189,6 +189,12 @@ Changeset files should be plain `.md` files with this structure:
 markdown describing the changes you made, in present tense, like "add support for X" or "fix bug with Y". write a single concise paragraph, not bullet points or lists. include example code snippets if useful, and use proper markdown formatting.
 ```
 
+## check-entry (bundleability guard)
+
+`pnpm check-entry` in the spiceflow package bundles `src/index.ts` with esbuild using zero externals. It runs automatically during `pnpm build`. This validates that `import { Spiceflow } from 'spiceflow'` works for users who are NOT using the React/RSC features and bundle with esbuild, webpack, or similar — without needing to externalize anything.
+
+If this check fails, it means a Vite-only dependency (like `@vitejs/plugin-rsc`) leaked into the main import path. RSC-only imports must go through the `#rsc-runtime` subpath import (defined in package.json `imports` field) which uses the `react-server` condition to resolve to the real implementation in Vite RSC environments and to an empty fallback everywhere else.
+
 ## vite-rsc
 
 the spiceflow vite plugin depends on vite-rsc plugin. you can read its source code with `opensrc vitejs/vite-plugin-react`. inside folder packages/plugin-rsc`. there are also examples there. inside examples folder
