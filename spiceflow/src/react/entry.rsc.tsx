@@ -4,20 +4,29 @@ import { app } from 'virtual:app-entry'
 export * from 'virtual:app-entry'
 import * as entry from 'virtual:app-entry'
 
-// Tracks the abort controller for the current in-flight request so HMR can
-// cancel stale renders before they resolve in a different request context.
-// This prevents the "hanging Promise was canceled" error on Cloudflare Workers
-// when rapid HMR events cause cross-request promise resolution.
-let currentAbort: AbortController | undefined
+/**
+ * Tracks the abort controllers for in-flight requests by URL so HMR can
+ * cancel stale renders for the same URL before they resolve in a different request context.
+ * This prevents the "hanging Promise was canceled" error on Cloudflare Workers
+ * when rapid HMR events cause cross-request promise resolution.
+ */
+const abortControllersByUrl = new Map<string, AbortController>()
 
 export async function handler(request: Request) {
-  currentAbort?.abort()
+  // Abort any previous in-flight request for the same URL
+  const prevAbort = abortControllersByUrl.get(request.url)
+  prevAbort?.abort()
   const abort = new AbortController()
-  currentAbort = abort
+  abortControllersByUrl.set(request.url, abort)
   // Attach our abort signal to the request so downstream code (handle-ssr.rsc.ts)
   // can detect when this render has been superseded by a newer HMR update.
   const signaled = new Request(request, { signal: abort.signal })
-  return app.handle(signaled)
+  try {
+    return await app.handle(signaled)
+  } finally {
+    // Clean up after handling the request
+    abortControllersByUrl.delete(request.url)
+  }
 }
 
 export default entry.default ?? { fetch: handler }
@@ -26,7 +35,10 @@ export default entry.default ?? { fetch: handler }
 // re-render instead of a full page reload.
 if (import.meta.hot) {
   import.meta.hot.accept(() => {
-    currentAbort?.abort()
-    currentAbort = undefined
+    // Abort all in-flight requests on HMR update
+    for (const abort of abortControllersByUrl.values()) {
+      abort.abort()
+    }
+    abortControllersByUrl.clear()
   })
 }
