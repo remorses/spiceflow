@@ -7,6 +7,10 @@ declare module 'virtual:app-entry' {
   export default any
 }
 
+declare module '#rsc-runtime' {
+  export { renderToReadableStream, createTemporaryReferenceSet, decodeReply, decodeAction, decodeFormState, loadServerAction } from '@vitejs/plugin-rsc/rsc'
+}
+
 declare module 'virtual:spiceflow-deployment-id' {
   const deploymentId: string | undefined
   export default deploymentId

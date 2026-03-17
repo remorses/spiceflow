@@ -1125,7 +1125,7 @@ export class Spiceflow<
       decodeAction,
       decodeFormState,
       loadServerAction,
-    } = await import('@vitejs/plugin-rsc/rsc')
+    } = await import('#rsc-runtime')
     // Global CSS for the app entry module. rscCssTransform auto-wraps exported React
     // component functions, but the app entry exports a Spiceflow instance. This manual
     // loadCss() call covers CSS imported at the app entry level (e.g. tailwind, resets).

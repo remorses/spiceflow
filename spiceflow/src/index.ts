@@ -1,12 +1,12 @@
 import { SpiceflowRequest, WaitUntil, Method } from './spiceflow.js'
-import { serveStatic } from './static-node.ts'
-import type { MiddlewareHandler } from './types.ts'
+import { serveStatic } from './static-node.js'
+import type { MiddlewareHandler } from './types.js'
 
-export { Spiceflow, createSafePath } from './spiceflow.ts'
-export { redirect, notFound } from './react/errors.tsx'
-export type { AnySpiceflow, WaitUntil } from './spiceflow.ts'
-export { ValidationError } from './error.ts'
-export { preventProcessExitIfBusy } from './prevent-process-exit-if-busy.ts'
+export { Spiceflow, createSafePath } from './spiceflow.js'
+export { redirect, notFound } from './react/errors.js'
+export type { AnySpiceflow, WaitUntil } from './spiceflow.js'
+export { ValidationError } from './error.js'
+export { preventProcessExitIfBusy } from './prevent-process-exit-if-busy.js'
 
 // utility Response to be used in Cloudflare Workers to shut up the TypeScript errors (cloudflare Response is different than normal Response type)
 class Response extends globalThis.Response {}

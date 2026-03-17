@@ -6,6 +6,12 @@
   "types": "dist/index.d.ts",
   "type": "module",
   "repository": "https://github.com/remorses/spiceflow",
+  "imports": {
+    "#rsc-runtime": {
+      "react-server": "./dist/rsc-runtime.js",
+      "default": "./dist/rsc-runtime.default.js"
+    }
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -76,6 +82,7 @@
     "fern-sdk": "pnpm run gen-openapi && fern generate --force ",
     "fern-docs": "pnpm run gen-openapi && fern generate --docs --force",
     "play-sdk:build": "pnpm vite build --config ./scripts/play-sdk.vite.ts",
+    "check-entry": "esbuild src/index.ts --bundle --platform=node --format=esm --outfile=/dev/null",
     "test": "pnpm vitest",
     "prepare": "# pnpm build",
     "watch": "tsc -w"
