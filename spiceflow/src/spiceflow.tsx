@@ -1277,159 +1277,69 @@ export class Spiceflow<
     }
 
     try {
-      const layoutResultsPromise = Promise.allSettled(
-        layoutRoutes.map(async (layout) => {
-          if (layout.route.kind !== 'layout') return
+      const executeHandler = async (
+        route: ReactMatchedRoute,
+        extra?: { id: string; children: React.ReactNode },
+      ): Promise<RouteResult> => {
+        let handlerResponse: Response | undefined
+        const handlerContext: SpiceflowContext<any, any, any> = {
+          ...baseContext,
+          params: route.params,
+          ...extra && { children: extra.children },
+          get response() {
+            return handlerResponse ??= new Response(null)
+          },
+        }
+        try {
+          const value = await route.route.handler.call(route.app, handlerContext)
+          return { ok: true, value, headers: handlerResponse?.headers }
+        } catch (error) {
+          return { ok: false, error, headers: handlerResponse?.headers }
+        }
+      }
 
+      const layoutResultsPromise = layoutRoutes
+        .filter((layout) => layout.route.kind === 'layout')
+        .map(async (layout) => {
           const id = layout.route.id
           const children = createElement(LayoutContent, { id })
-          let handlerResponse: Response | undefined
-          const handlerContext: SpiceflowContext<any, any, any> = {
-            ...baseContext,
-            params: layout.params,
-            children,
-            get response() {
-              return handlerResponse ??= new Response(null)
-            },
-          }
-          try {
-            const value = await layout.route.handler.call(layout.app, handlerContext)
+          const result = await executeHandler(layout, { id, children })
+          return { ...result, id }
+        })
 
-            return {
-              id,
-              value,
-              headers: handlerResponse?.headers,
-              context: handlerContext,
-            }
-          } catch (error) {
-            throw {
-              error,
-              headers: handlerResponse?.headers,
-              id,
-              context: handlerContext,
-            }
-          }
-        }),
-      )
+      const pageResultPromise = isNotFound
+        ? Promise.resolve({ ok: true as const, value: <DefaultNotFoundPage />, headers: undefined })
+        : executeHandler(pageRoute)
 
-      const pageResultPromise = Promise.allSettled([
-        isNotFound
-          ? Promise.resolve({
-            value: <DefaultNotFoundPage />,
-            headers: undefined,
-            context: baseContext,
-          })
-          : (async () => {
-            let handlerResponse: Response | undefined
-            const handlerContext: SpiceflowContext<any, any, any> = {
-              ...baseContext,
-              params: pageRoute.params,
-              get response() {
-                return handlerResponse ??= new Response(null)
-              },
-            }
-            try {
-              const value = await pageRoute.route.handler.call(
-                pageRoute.app,
-                handlerContext,
-              )
-
-              return {
-                value,
-                headers: handlerResponse?.headers,
-                context: handlerContext,
-              }
-            } catch (error) {
-              throw {
-                error,
-                headers: handlerResponse?.headers,
-                context: handlerContext,
-              }
-            }
-          })()
-      ])
-
-      const [layoutResults, pageResults] = await Promise.all([
-        layoutResultsPromise,
+      const [layoutResults, pageResult] = await Promise.all([
+        Promise.all(layoutResultsPromise),
         pageResultPromise,
       ])
-      const pageResult = pageResults[0]
 
-      const layoutRouteResults: Array<
-        PromiseFulfilledResult<LayoutRouteExecution> |
-          (PromiseRejectedResult & { id: string })
-      > = []
-
-      for (const [index, result] of layoutResults.entries()) {
-        if (result.status === 'fulfilled') {
-          if (result.value) {
-            layoutRouteResults.push({
-              status: 'fulfilled',
-              value: result.value,
-            })
-          }
-          continue
-        }
-
-        const layout = layoutRoutes[index]
-        if (!layout || layout.route.kind !== 'layout') {
-          continue
-        }
-
-        layoutRouteResults.push({
-          status: 'rejected',
-          reason: result.reason,
-          id: result.reason?.id ?? layout.route.id,
-        })
-      }
-
-      const orderedResults = [
-        ...layoutRouteResults,
-        pageResult,
-      ]
+      const allResults = [...layoutResults, pageResult]
 
       const routeHeaders = new Headers()
-      for (const result of orderedResults) {
-        const headers =
-          result.status === 'fulfilled'
-            ? result.value.headers
-            : result.reason?.headers
-        if (!headers) continue
-        appendHeaders(routeHeaders, headers)
+      for (const result of allResults) {
+        if (result.headers) appendHeaders(routeHeaders, result.headers)
       }
 
-      let firstThrown: PromiseRejectedResult | undefined
-      for (const result of orderedResults) {
-        if (result.status !== 'rejected') {
-          continue
-        }
-        if (result.reason?.error instanceof Response) {
-          continue
-        }
-        firstThrown = result
-        break
-      }
-      if (firstThrown) {
-        throw firstThrown.reason?.error ?? firstThrown.reason
+      const firstError = allResults.find(
+        (r) => !r.ok && !(r.error instanceof Response),
+      )
+      if (firstError && !firstError.ok) {
+        throw firstError.error
       }
 
-      const layouts = layoutRouteResults
-        .map((layout) => ({
-          id: layout.status === 'fulfilled' ? layout.value.id : layout.id,
-          element:
-            layout.status === 'fulfilled'
-              ? layout.value.value
-              : <ThrowResponse response={layout.reason.error} />,
-        }))
-        .map((layout) => ({
-          id: layout.id,
-          element: layout.element,
-        }))
+      const layouts = layoutResults.map((layout) => ({
+        id: layout.id,
+        element: layout.ok
+          ? layout.value
+          : <ThrowResponse response={layout.error as Response} />,
+      }))
 
-      const page =
-        pageResult.status === 'fulfilled'
-          ? pageResult.value.value
-          : <ThrowResponse response={pageResult.reason.error} />
+      const page = pageResult.ok
+        ? pageResult.value
+        : <ThrowResponse response={pageResult.error as Response} />
 
       let root: FlightData = {
         page,
