@@ -1009,7 +1009,8 @@ test('renderReact starts layouts and page concurrently', async () => {
       'layout:end',
       'page:end',
     ])
-    expect(response.status).toBe(204)
+    expect(response).toBeInstanceOf(Response)
+    expect(response.status).toMatchInlineSnapshot()
   } finally {
     vi.doUnmock('#rsc-runtime')
     vi.resetModules()

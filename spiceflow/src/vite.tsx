@@ -63,6 +63,9 @@ export function spiceflowPlugin({
             if (entry.startsWith('@vitejs/plugin-rsc')) {
               return `spiceflow > ${entry}`
             }
+            if (entry.startsWith('react-server-dom-webpack/')) {
+              return `spiceflow > ${entry}`
+            }
             return entry
           },
         )
@@ -165,7 +168,7 @@ export function spiceflowPlugin({
         if (name === 'client') {
           config.optimizeDeps.exclude = mergeUnique(
             config.optimizeDeps.exclude,
-            ['spiceflow'],
+            ['spiceflow', '@vitejs/plugin-rsc'],
           )
           config.optimizeDeps.include = mergeUnique(
             config.optimizeDeps.include,
@@ -175,8 +178,9 @@ export function spiceflowPlugin({
               'react/jsx-dev-runtime',
               'react-dom',
               'react-dom/client',
-              'superjson',
-              'history',
+              'spiceflow > react-server-dom-webpack/client.browser',
+              'spiceflow > superjson',
+              'spiceflow > history',
             ],
           )
         }
@@ -277,8 +281,11 @@ export function spiceflowPlugin({
     // Resolves to user's app entry module.
     // Re-exports `app` (named) and `default` (for Cloudflare Workers default export).
     createVirtualPlugin('virtual:app-entry', () => {
+      const resolvedEntryPath = path.resolve(entry)
+      const resolvedEntry = url.pathToFileURL(resolvedEntryPath).href
+
       return [
-        `import * as entry from '${url.pathToFileURL(path.resolve(entry))}'`,
+        `import * as entry from '${resolvedEntry}'`,
         `if (!entry.app) throw new Error('[spiceflow] Your entry file must export a Spiceflow instance as "app". Example:\\n\\n  export const app = new Spiceflow()\\n    .page("/", async () => <Home />)\\n    .listen(3000)\\n')`,
         `export const app = entry.app`,
         `export default entry.default`,
