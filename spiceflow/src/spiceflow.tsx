@@ -1244,11 +1244,7 @@ export class Spiceflow<
       renderToReadableStream,
 
     } = await import('#rsc-runtime')
-    // Global CSS for the app entry module. rscCssTransform auto-wraps exported React
-    // component functions, but the app entry exports a Spiceflow instance. This manual
-    // loadCss() call covers CSS imported at the app entry level (e.g. tailwind, resets).
-    const getAppEntryCssElement = (): React.ReactNode =>
-      import.meta.viteRsc?.loadCss('virtual:app-entry') ?? null
+
 
     const [pageRoutes, layoutRoutes] = partition(
       reactRoutes,
@@ -1273,6 +1269,12 @@ export class Spiceflow<
         return baseResponse ??= new Response(null)
       },
     }
+    const actionState = await this.resolveReactActionState({
+      request,
+    })
+    if (actionState instanceof Response) {
+      return actionState
+    }
 
     try {
       const layoutResultsPromise = Promise.allSettled(
@@ -1290,13 +1292,22 @@ export class Spiceflow<
               return handlerResponse ??= new Response(null)
             },
           }
-          const value = await layout.route.handler.call(layout.app, handlerContext)
+          try {
+            const value = await layout.route.handler.call(layout.app, handlerContext)
 
-          return {
-            id,
-            value,
-            headers: handlerResponse?.headers,
-            context: handlerContext,
+            return {
+              id,
+              value,
+              headers: handlerResponse?.headers,
+              context: handlerContext,
+            }
+          } catch (error) {
+            throw {
+              error,
+              headers: handlerResponse?.headers,
+              id,
+              context: handlerContext,
+            }
           }
         }),
       )
@@ -1317,15 +1328,23 @@ export class Spiceflow<
                 return handlerResponse ??= new Response(null)
               },
             }
-            const value = await pageRoute.route.handler.call(
-              pageRoute.app,
-              handlerContext,
-            )
+            try {
+              const value = await pageRoute.route.handler.call(
+                pageRoute.app,
+                handlerContext,
+              )
 
-            return {
-              value,
-              headers: handlerResponse?.headers,
-              context: handlerContext,
+              return {
+                value,
+                headers: handlerResponse?.headers,
+                context: handlerContext,
+              }
+            } catch (error) {
+              throw {
+                error,
+                headers: handlerResponse?.headers,
+                context: handlerContext,
+              }
             }
           })()
       ])
@@ -1360,7 +1379,7 @@ export class Spiceflow<
         layoutRouteResults.push({
           status: 'rejected',
           reason: result.reason,
-          id: layout.route.id,
+          id: result.reason?.id ?? layout.route.id,
         })
       }
 
@@ -1371,45 +1390,57 @@ export class Spiceflow<
 
       const routeHeaders = new Headers()
       for (const result of orderedResults) {
-        if (result.status !== 'fulfilled' || !result.value.headers) continue
-        appendHeaders(routeHeaders, result.value.headers)
+        const headers =
+          result.status === 'fulfilled'
+            ? result.value.headers
+            : result.reason?.headers
+        if (!headers) continue
+        appendHeaders(routeHeaders, headers)
       }
 
-      const firstThrown = orderedResults.find((result) => result.status === 'rejected')
-      if (firstThrown) {
-        if (firstThrown.reason instanceof Response) {
-          return mergeHeadersIntoResponse({
-            response: firstThrown.reason,
-            source: routeHeaders,
-          })
+      let firstThrown: PromiseRejectedResult | undefined
+      for (const result of orderedResults) {
+        if (result.status !== 'rejected') {
+          continue
         }
-
-        throw firstThrown.reason
+        if (result.reason?.error instanceof Response) {
+          continue
+        }
+        firstThrown = result
+        break
+      }
+      if (firstThrown) {
+        throw firstThrown.reason?.error ?? firstThrown.reason
       }
 
       const layouts = layoutRouteResults
-        .filter((layout) => layout.status === 'fulfilled')
         .map((layout) => ({
-          id: layout.value.id,
-          element: layout.value.value,
+          id: layout.status === 'fulfilled' ? layout.value.id : layout.id,
+          element:
+            layout.status === 'fulfilled'
+              ? layout.value.value
+              : <ThrowResponse response={layout.reason.error} />,
+        }))
+        .map((layout) => ({
+          id: layout.id,
+          element: layout.element,
         }))
 
-      if (pageResult.status !== 'fulfilled') {
-        throw new Error('Expected page route to resolve to a value result')
-      }
-
-      const page = pageResult.value.value
+      const page =
+        pageResult.status === 'fulfilled'
+          ? pageResult.value.value
+          : <ThrowResponse response={pageResult.reason.error} />
 
       let root: FlightData = {
         page,
         layouts,
-        globalCss: getAppEntryCssElement(),
-      }
-      const actionState = await this.resolveReactActionState({
-        request,
-      })
-      if (actionState instanceof Response) {
-        return actionState
+        // Global CSS: rscCssTransform auto-wraps component exports, but this entry
+        // exports a Spiceflow instance so we call loadCss manually.
+        // NOTE: the loadCss call MUST appear exactly as `import.meta.viteRsc.loadCss(`
+        // because vite-rsc's transform uses a regex to find and replace it at build time.
+        // Do not use optional chaining, ternaries around the same expression, or put the
+        // pattern in comments — any of these can confuse the regex-based transform.
+        globalCss: import.meta.viteRsc.loadCss('virtual:app-entry'),
       }
 
       if (root instanceof Response) {
@@ -2428,14 +2459,14 @@ export function bfs(tree: AnySpiceflow) {
   return nodes
 }
 
-type ReactRouteExecution = {
+type RouteResult = {
+  ok: true
   value: React.ReactNode
   headers?: Headers
-  context: SpiceflowContext<any, any, any>
-}
-
-type LayoutRouteExecution = ReactRouteExecution & {
-  id: string
+} | {
+  ok: false
+  error: unknown
+  headers?: Headers
 }
 
 type ReactRoute = InternalRoute & {
@@ -2467,6 +2498,10 @@ function isReactMatchedRoute(route: {
   params: Record<string, string>
 }): route is ReactMatchedRoute {
   return !!route.route.kind
+}
+
+function ThrowResponse({ response }: { response: Response }): never {
+  throw response
 }
 
 export type AnySpiceflow = Spiceflow<any, any, any, any, any, any, any, any>
