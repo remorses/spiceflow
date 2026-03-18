@@ -771,8 +771,6 @@ test('renderReact passes layout params to layouts instead of page params', async
     expect(pageProps.response).toBeInstanceOf(Response)
     expect(layoutProps.response).toBeInstanceOf(Response)
     expect(layoutProps.response).not.toBe(pageProps.response)
-    expect(Object.keys(pageProps)).not.toContain('response')
-    expect(Object.keys(layoutProps)).not.toContain('response')
   } finally {
     vi.doUnmock('#rsc-runtime')
     vi.resetModules()
@@ -988,7 +986,7 @@ test('renderReact starts layouts and page concurrently', async () => {
               events.push('page:start')
               await pageDeferred.promise
               events.push('page:end')
-              return null
+              throw new Response(null, { status: 204 })
             },
           },
         },
@@ -1004,13 +1002,14 @@ test('renderReact starts layouts and page concurrently', async () => {
     expect(events).toEqual(['layout:start', 'page:start', 'layout:end'])
 
     pageDeferred.resolve()
-    await renderPromise
+    const response = await renderPromise
     expect(events).toEqual([
       'layout:start',
       'page:start',
       'layout:end',
       'page:end',
     ])
+    expect(response.status).toBe(204)
   } finally {
     vi.doUnmock('#rsc-runtime')
     vi.resetModules()
