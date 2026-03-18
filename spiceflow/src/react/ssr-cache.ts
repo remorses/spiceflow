@@ -23,17 +23,27 @@ export function hasUncacheableHeaders(headers: Headers): boolean {
   return false
 }
 
+export function isSsrCacheEnabled() {
+  if (typeof process === 'undefined') return true
+  const value = process.env.SPICEFLOW_DISABLE_SSR_CACHE
+  if (!value) return true
+  return value === '0' || value === 'false'
+}
+
 // 5 MB default
 export const ssrCache = new LRUCache<SsrCacheEntry>(5 * 1024 * 1024)
 
 /**
  * Creates a TransformStream that progressively hashes each chunk with MD5 as
- * it passes through. Call `getDigest()` after the stream is fully consumed to
- * get the final hash. Chunks pass through unmodified — the hash is a side effect.
+ * it passes through. Chunks pass through unmodified — the hash is a side effect.
+ * `digestPromise` resolves with the hex digest when the stream fully closes
+ * (flush runs). Await it instead of polling, since flush may run on a later
+ * microtask after allReady resolves.
  */
 export function createHashTransform() {
   const hash = crypto.createHash('md5')
-  let digest: string | undefined
+  let resolveDigest: (value: string) => void
+  const digestPromise = new Promise<string>((r) => { resolveDigest = r })
 
   const transform = new TransformStream<Uint8Array, Uint8Array>({
     transform(chunk, controller) {
@@ -41,14 +51,14 @@ export function createHashTransform() {
       controller.enqueue(chunk)
     },
     flush() {
-      digest = hash.digest('hex')
+      resolveDigest(hash.digest('hex'))
     },
   })
 
   return {
     readable: transform.readable,
     writable: transform.writable,
-    getDigest() { return digest },
+    digestPromise,
   }
 }
 

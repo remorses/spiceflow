@@ -1,6 +1,6 @@
 import { describe, test, expect } from 'vitest'
 import { LRUCache } from '../lru.js'
-import { createHashTransform, collectStream, hasUncacheableHeaders } from './ssr-cache.js'
+import { createHashTransform, collectStream, hasUncacheableHeaders, isSsrCacheEnabled } from './ssr-cache.js'
 
 const encoder = new TextEncoder()
 
@@ -13,15 +13,15 @@ function makeEntry(size: number) {
   }
 }
 
-async function hashBytes(chunks: Uint8Array[]): Promise<{ digest: string | undefined }> {
-  const { readable, writable, getDigest } = createHashTransform()
+async function hashBytes(chunks: Uint8Array[]) {
+  const { readable, writable, digestPromise } = createHashTransform()
   const source = new Blob(chunks).stream()
   // Must consume readable concurrently — pipeTo blocks if no one drains the output
   await Promise.all([
     source.pipeTo(writable),
     readable.pipeTo(new WritableStream()),
   ])
-  return { digest: getDigest() }
+  return { digest: await digestPromise }
 }
 
 describe('LRUCache', () => {
@@ -105,9 +105,23 @@ describe('createHashTransform', () => {
     expect(r.digest).toMatch(/^[0-9a-f]{32}$/)
   })
 
-  test('digest is undefined before stream is fully consumed', () => {
-    const { getDigest } = createHashTransform()
-    expect(getDigest()).toBe(undefined)
+  test('digestPromise resolves only after stream closes', async () => {
+    const { readable, writable, digestPromise } = createHashTransform()
+    let resolved = false
+    digestPromise.then(() => { resolved = true })
+    // Start draining readable concurrently to avoid backpressure
+    const drain = readable.pipeTo(new WritableStream())
+    // Write a chunk but don't close yet
+    const writer = writable.getWriter()
+    await writer.write(encoder.encode('partial'))
+    // Digest should not be resolved yet since stream is still open
+    await new Promise((r) => setTimeout(r, 10))
+    expect(resolved).toBe(false)
+    // Close the stream — flush runs and digest resolves
+    await writer.close()
+    await drain
+    const digest = await digestPromise
+    expect(digest).toMatch(/^[0-9a-f]{32}$/)
   })
 
   test('passes chunks through unmodified', async () => {
@@ -145,5 +159,51 @@ describe('hasUncacheableHeaders', () => {
     headers.set('content-type', 'text/html')
     headers.set('x-custom', 'value')
     expect(hasUncacheableHeaders(headers)).toBe(false)
+  })
+})
+
+describe('isSsrCacheEnabled', () => {
+  test('is enabled by default', () => {
+    const original = process.env.SPICEFLOW_DISABLE_SSR_CACHE
+    delete process.env.SPICEFLOW_DISABLE_SSR_CACHE
+    try {
+      expect(isSsrCacheEnabled()).toBe(true)
+    } finally {
+      if (original === undefined) {
+        delete process.env.SPICEFLOW_DISABLE_SSR_CACHE
+      } else {
+        process.env.SPICEFLOW_DISABLE_SSR_CACHE = original
+      }
+    }
+  })
+
+  test('is disabled when SPICEFLOW_DISABLE_SSR_CACHE is set', () => {
+    const original = process.env.SPICEFLOW_DISABLE_SSR_CACHE
+    process.env.SPICEFLOW_DISABLE_SSR_CACHE = '1'
+    try {
+      expect(isSsrCacheEnabled()).toBe(false)
+    } finally {
+      if (original === undefined) {
+        delete process.env.SPICEFLOW_DISABLE_SSR_CACHE
+      } else {
+        process.env.SPICEFLOW_DISABLE_SSR_CACHE = original
+      }
+    }
+  })
+
+  test('treats 0 and false as enabled', () => {
+    const original = process.env.SPICEFLOW_DISABLE_SSR_CACHE
+    try {
+      process.env.SPICEFLOW_DISABLE_SSR_CACHE = '0'
+      expect(isSsrCacheEnabled()).toBe(true)
+      process.env.SPICEFLOW_DISABLE_SSR_CACHE = 'false'
+      expect(isSsrCacheEnabled()).toBe(true)
+    } finally {
+      if (original === undefined) {
+        delete process.env.SPICEFLOW_DISABLE_SSR_CACHE
+      } else {
+        process.env.SPICEFLOW_DISABLE_SSR_CACHE = original
+      }
+    }
   })
 })

@@ -13,7 +13,7 @@ import { getErrorContext, isNotFoundError, isRedirectError, contextHeaders, cont
 import { formatServerError } from './format-server-error.js'
 import { MetaProvider } from './head.js'
 import { MetaState } from './metastate.js'
-import { ssrCache, createHashTransform, collectStream, hasUncacheableHeaders } from './ssr-cache.js'
+import { ssrCache, createHashTransform, collectStream, hasUncacheableHeaders, isSsrCacheEnabled } from './ssr-cache.js'
 import { injectRSCPayload } from './transform.js'
 
 let bootstrapScriptContentPromise: Promise<string> | undefined
@@ -81,6 +81,7 @@ export async function renderHtml({
   // chunks — no extra tee, no extra race. After allReady resolves within 50ms
   // we check the LRU cache using the completed hash digest.
   const canCache = !import.meta.env.DEV
+    && isSsrCacheEnabled()
     && !prerender
     && !needsFormState
     && response.status >= 200
@@ -242,10 +243,13 @@ export async function renderHtml({
   const htmlHeaders = responseHeaders.filter(([k]) => k.toLowerCase() !== 'content-type')
   htmlHeaders.push(['content-type', 'text/html;charset=utf-8'])
 
-  // When allReady resolved before timeout and we have a hash digest, try
-  // caching the fully rendered HTML for future requests.
-  const digest = hashTransform?.getDigest()
-  if (allReadyBeforeTimeout && digest && status < 300) {
+  // When allReady resolved before timeout, await the hash digest. The
+  // transform's flush() may run on a later microtask after allReady, so we
+  // must await the promise rather than reading synchronously.
+  const digest = allReadyBeforeTimeout && hashTransform
+    ? await hashTransform.digestPromise
+    : undefined
+  if (digest && status < 300) {
     const cached = ssrCache.get(digest)
     if (cached) {
       // Cancel unconsumed streams to free tee branch buffers
