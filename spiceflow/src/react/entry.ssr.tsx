@@ -13,6 +13,7 @@ import { getErrorContext, isNotFoundError, isRedirectError, contextHeaders, cont
 import { formatServerError } from './format-server-error.js'
 import { MetaProvider } from './head.js'
 import { MetaState } from './metastate.js'
+import { ssrCache, createHashTransform, collectStream, hasUncacheableHeaders } from './ssr-cache.js'
 import { injectRSCPayload } from './transform.js'
 
 let bootstrapScriptContentPromise: Promise<string> | undefined
@@ -71,9 +72,25 @@ export async function renderHtml({
   // split a second SSR copy to extract formState before hydrateRoot runs.
   const needsFormState = request.method !== 'GET' && request.method !== 'HEAD'
   const [flightForSsrOrForm, flightStream2] = response.body!.tee()
-  const [flightForFormState, flightForSsr] = needsFormState
+  const [flightForFormState, flightForSsrRaw] = needsFormState
     ? flightForSsrOrForm.tee()
     : [undefined, flightForSsrOrForm]
+
+  // In production, for cacheable GET/HEAD 2xx requests, pipe the SSR flight
+  // stream through a hash transform. The hash accumulates as React consumes
+  // chunks — no extra tee, no extra race. After allReady resolves within 50ms
+  // we check the LRU cache using the completed hash digest.
+  const canCache = !import.meta.env.DEV
+    && !prerender
+    && !needsFormState
+    && response.status >= 200
+    && response.status < 300
+    && !hasUncacheableHeaders(response.headers)
+
+  const hashTransform = canCache ? createHashTransform() : undefined
+  const flightForSsr = hashTransform
+    ? flightForSsrRaw.pipeThrough({ readable: hashTransform.readable, writable: hashTransform.writable })
+    : flightForSsrRaw
 
   let baseUrl = new URL('/', request.url).href
   if (baseUrl.endsWith('/')) {
@@ -131,6 +148,10 @@ export async function renderHtml({
     }
   }
 
+  // Track whether allReady resolved before the 50ms timeout. When true, the
+  // full RSC stream was consumed and the hash digest is available for caching.
+  let allReadyBeforeTimeout = false
+
   try {
     const renderOptions = {
       bootstrapScriptContent,
@@ -165,15 +186,17 @@ export async function renderHtml({
     }
     if (prerender || isbot(request.headers.get('user-agent') || '')) {
       await htmlStream.allReady
+      allReadyBeforeTimeout = true
     } else {
       // Race allReady against a short timeout to catch redirect/notFound
       // errors from Suspense boundaries without blocking normal streaming.
       let timerId: ReturnType<typeof setTimeout> | undefined
-      const timeout = new Promise<void>((r) => { timerId = setTimeout(r, 50) })
-      await Promise.race([
-        htmlStream.allReady.finally(() => { if (timerId) clearTimeout(timerId) }),
+      const timeout = new Promise<'timeout'>((r) => { timerId = setTimeout(() => r('timeout'), 50) })
+      const winner = await Promise.race([
+        htmlStream.allReady.then(() => 'ready' as const).finally(() => { if (timerId) clearTimeout(timerId) }),
         timeout,
       ])
+      allReadyBeforeTimeout = winner === 'ready'
     }
 
     if (ssrErrorCtx) {
@@ -213,6 +236,49 @@ export async function renderHtml({
   }
 
   let appendToHead = metaState.getProcessedTags()
+
+  const responseHeaders: [string, string][] = [...response.headers]
+  // Override content-type for HTML response
+  const htmlHeaders = responseHeaders.filter(([k]) => k.toLowerCase() !== 'content-type')
+  htmlHeaders.push(['content-type', 'text/html;charset=utf-8'])
+
+  // When allReady resolved before timeout and we have a hash digest, try
+  // caching the fully rendered HTML for future requests.
+  const digest = hashTransform?.getDigest()
+  if (allReadyBeforeTimeout && digest && status < 300) {
+    const cached = ssrCache.get(digest)
+    if (cached) {
+      // Cancel unconsumed streams to free tee branch buffers
+      void htmlStream.cancel().catch(() => {})
+      void flightStream2.cancel().catch(() => {})
+      return new Response(cached.html, {
+        status,
+        headers: htmlHeaders,
+      })
+    }
+
+    // Cache miss — collect the full HTML output and store it.
+    const finalStream = htmlStream.pipeThrough(
+      injectRSCPayload({
+        rscStream: flightStream2,
+        appendToHead,
+      }),
+    )
+    const htmlBytes = await collectStream(finalStream)
+
+    ssrCache.set(digest, {
+      html: htmlBytes,
+      status,
+      headers: htmlHeaders,
+      byteSize: htmlBytes.byteLength,
+    })
+
+    return new Response(htmlBytes, {
+      status,
+      headers: htmlHeaders,
+    })
+  }
+
   return new Response(
     htmlStream.pipeThrough(
       injectRSCPayload({
@@ -222,10 +288,7 @@ export async function renderHtml({
     ),
     {
       status,
-      headers: {
-        ...Object.fromEntries(response.headers),
-        'content-type': 'text/html;charset=utf-8',
-      },
+      headers: htmlHeaders,
     },
   )
 }
