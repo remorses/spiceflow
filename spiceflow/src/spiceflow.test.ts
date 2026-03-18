@@ -698,6 +698,8 @@ test('regex constrained route is more specific than a generic param route', asyn
 
 test('renderReact passes layout params to layouts instead of page params', async () => {
   let payload: any
+  let pageProps: any
+  let layoutProps: any
 
   vi.doMock('#rsc-runtime', () => ({
     renderToReadableStream(value) {
@@ -717,14 +719,27 @@ test('renderReact passes layout params to layouts instead of page params', async
 
   try {
     const app = new Spiceflow()
-    const Page = (_props) => null
-    const Layout = (_props) => null
+    const Page = (props: any) => {
+      pageProps = props
+      return null
+    }
+    const Layout = (props: any) => {
+      layoutProps = props
+      return null
+    }
 
     await (app as any).renderReact({
       request: new Request('http://localhost/layouts/parent/pages/child', {
         method: 'GET',
       }),
-      context: { request: undefined, state: {}, query: {}, params: {}, path: '/' },
+      context: {
+        request: undefined,
+        state: {},
+        query: {},
+        params: {},
+        path: '/',
+        response: new Response(null),
+      },
       reactRoutes: [
         {
           app,
@@ -747,14 +762,276 @@ test('renderReact passes layout params to layouts instead of page params', async
       ],
     })
 
-    expect(payload.root.page.props.params).toEqual({ pageId: 'child' })
-    expect(payload.root.layouts[0].element.props.params).toEqual({
+    expect(payload.root.page).toBeNull()
+    expect(payload.root.layouts[0]?.element).toBeNull()
+    expect(pageProps.params).toEqual({ pageId: 'child' })
+    expect(layoutProps.params).toEqual({
       layoutId: 'parent',
     })
+    expect(pageProps.response).toBeInstanceOf(Response)
+    expect(layoutProps.response).toBeInstanceOf(Response)
+    expect(layoutProps.response).not.toBe(pageProps.response)
+    expect(Object.keys(pageProps)).not.toContain('response')
+    expect(Object.keys(layoutProps)).not.toContain('response')
   } finally {
     vi.doUnmock('#rsc-runtime')
     vi.resetModules()
   }
+})
+
+test('renderReact merges page response headers into the flight response', async () => {
+  vi.doMock('#rsc-runtime', () => ({
+    renderToReadableStream() {
+      return new ReadableStream({
+        start(controller) {
+          controller.close()
+        },
+      })
+    },
+    createTemporaryReferenceSet: () => ({}),
+    decodeReply: async () => null,
+    decodeAction: async () => () => null,
+    decodeFormState: async () => undefined,
+    loadServerAction: async () => undefined,
+  }))
+
+  try {
+    vi.resetModules()
+    const { Spiceflow: FreshSpiceflow } = await import('./spiceflow.js')
+    const app = new FreshSpiceflow()
+    const response = await (app as any).renderReact({
+      request: new Request('http://localhost/headers', {
+        method: 'GET',
+      }),
+      context: {
+        request: undefined,
+        state: {},
+        query: {},
+        params: {},
+        path: '/',
+        response: new Response(null),
+      },
+      reactRoutes: [
+        {
+          app,
+          params: {},
+          route: {
+            id: 'page',
+            kind: 'page',
+            handler: ({ response }: any) => {
+              response.headers.set('cache-control', 'private, max-age=60')
+              response.headers.append('set-cookie', 'a=1; Path=/')
+              response.headers.append('set-cookie', 'b=2; Path=/')
+              return null
+            },
+          },
+        },
+      ],
+    })
+
+    expect(response.headers.get('cache-control')).toBe('private, max-age=60')
+    const getSetCookie = (response.headers as Headers & {
+      getSetCookie?: () => string[]
+    }).getSetCookie
+    expect(getSetCookie?.call(response.headers)).toEqual([
+      'a=1; Path=/',
+      'b=2; Path=/',
+    ])
+  } finally {
+    vi.doUnmock('#rsc-runtime')
+    vi.resetModules()
+  }
+})
+
+test('renderReact merges layout and page headers in route order', async () => {
+  vi.doMock('#rsc-runtime', () => ({
+    renderToReadableStream() {
+      return new ReadableStream({
+        start(controller) {
+          controller.close()
+        },
+      })
+    },
+    createTemporaryReferenceSet: () => ({}),
+    decodeReply: async () => null,
+    decodeAction: async () => () => null,
+    decodeFormState: async () => undefined,
+    loadServerAction: async () => undefined,
+  }))
+
+  try {
+    vi.resetModules()
+    const { Spiceflow: FreshSpiceflow } = await import('./spiceflow.js')
+    const app = new FreshSpiceflow()
+    const response = await (app as any).renderReact({
+      request: new Request('http://localhost/headers', {
+        method: 'GET',
+      }),
+      context: {
+        request: undefined,
+        state: {},
+        query: {},
+        params: {},
+        path: '/',
+        response: new Response(null),
+      },
+      reactRoutes: [
+        {
+          app,
+          params: { layoutId: 'outer' },
+          route: {
+            id: 'layout',
+            kind: 'layout',
+            handler: ({ children, response }: any) => {
+              response.headers.set('cache-control', 'layout')
+              response.headers.append('set-cookie', 'layout=1; Path=/')
+              return children
+            },
+          },
+        },
+        {
+          app,
+          params: {},
+          route: {
+            id: 'page',
+            kind: 'page',
+            handler: ({ response }: any) => {
+              response.headers.set('cache-control', 'page')
+              response.headers.append('set-cookie', 'page=1; Path=/')
+              return null
+            },
+          },
+        },
+      ],
+    })
+
+    expect(response.headers.get('cache-control')).toBe('page')
+    const getSetCookie = (response.headers as Headers & {
+      getSetCookie?: () => string[]
+    }).getSetCookie
+    expect(getSetCookie?.call(response.headers)).toEqual([
+      'layout=1; Path=/',
+      'page=1; Path=/',
+    ])
+  } finally {
+    vi.doUnmock('#rsc-runtime')
+    vi.resetModules()
+  }
+})
+
+test('renderReact starts layouts and page concurrently', async () => {
+  vi.doMock('#rsc-runtime', () => ({
+    renderToReadableStream() {
+      return new ReadableStream({
+        start(controller) {
+          controller.close()
+        },
+      })
+    },
+    createTemporaryReferenceSet: () => ({}),
+    decodeReply: async () => null,
+    decodeAction: async () => () => null,
+    decodeFormState: async () => undefined,
+    loadServerAction: async () => undefined,
+  }))
+
+  const createDeferred = () => {
+    let resolve!: () => void
+    const promise = new Promise<void>((resolvePromise) => {
+      resolve = resolvePromise
+    })
+    return { promise, resolve }
+  }
+
+  try {
+    vi.resetModules()
+    const { Spiceflow: FreshSpiceflow } = await import('./spiceflow.js')
+    const app = new FreshSpiceflow()
+    const events: string[] = []
+    const layoutDeferred = createDeferred()
+    const pageDeferred = createDeferred()
+
+    const renderPromise = (app as any).renderReact({
+      request: new Request('http://localhost/concurrent', {
+        method: 'GET',
+      }),
+      context: {
+        request: undefined,
+        state: {},
+        query: {},
+        params: {},
+        path: '/',
+        response: new Response(null),
+      },
+      reactRoutes: [
+        {
+          app,
+          params: { layoutId: 'outer' },
+          route: {
+            id: 'layout',
+            kind: 'layout',
+            handler: async ({ children }: any) => {
+              events.push('layout:start')
+              await layoutDeferred.promise
+              events.push('layout:end')
+              return children
+            },
+          },
+        },
+        {
+          app,
+          params: {},
+          route: {
+            id: 'page',
+            kind: 'page',
+            handler: async () => {
+              events.push('page:start')
+              await pageDeferred.promise
+              events.push('page:end')
+              return null
+            },
+          },
+        },
+      ],
+    })
+
+    await vi.waitFor(() => {
+      expect(events).toEqual(['layout:start', 'page:start'])
+    })
+
+    layoutDeferred.resolve()
+    await Promise.resolve()
+    expect(events).toEqual(['layout:start', 'page:start', 'layout:end'])
+
+    pageDeferred.resolve()
+    await renderPromise
+    expect(events).toEqual([
+      'layout:start',
+      'page:start',
+      'layout:end',
+      'page:end',
+    ])
+  } finally {
+    vi.doUnmock('#rsc-runtime')
+    vi.resetModules()
+  }
+})
+
+test('api routes can set response headers through context.response', async () => {
+  const app = new Spiceflow().get('/headers', ({ response }) => {
+    response.headers.set('x-api-header', 'ok')
+    response.headers.append('set-cookie', 'api-cookie=1; Path=/')
+    return { ok: true }
+  })
+
+  const response = await app.handle(new Request('http://localhost/headers'))
+
+  expect(response.headers.get('x-api-header')).toBe('ok')
+  expect((await response.json())?.ok).toBe(true)
+  const getSetCookie = (response.headers as Headers & {
+    getSetCookie?: () => string[]
+  }).getSetCookie
+  expect(getSetCookie?.call(response.headers)).toEqual(['api-cookie=1; Path=/'])
 })
 
 test('missing route is not found', async () => {
@@ -2699,4 +2976,32 @@ describe('path param edge cases with special characters', () => {
       }
     `)
   })
+})
+
+test('.page() without Vite plugin throws a clear error', async () => {
+  const app = new Spiceflow().page('/', () => 'hello')
+  const res = await app.handle(
+    new Request('http://localhost/', {
+      method: 'GET',
+      headers: { accept: 'text/html' },
+    }),
+  )
+  expect(res.status).toBe(500)
+  const text = await res.text()
+  expect(text).toMatchInlineSnapshot(`"{"message":"[spiceflow] RSC runtime is only available in the react-server environment. This error means renderReact was called outside of a Vite RSC build."}"`)
+})
+
+test('.layout() without Vite plugin throws a clear error', async () => {
+  const app = new Spiceflow()
+    .layout('/', ({ children }) => children)
+    .page('/', () => 'hello')
+  const res = await app.handle(
+    new Request('http://localhost/', {
+      method: 'GET',
+      headers: { accept: 'text/html' },
+    }),
+  )
+  expect(res.status).toBe(500)
+  const text = await res.text()
+  expect(text).toMatchInlineSnapshot(`"{"message":"[spiceflow] RSC runtime is only available in the react-server environment. This error means renderReact was called outside of a Vite RSC build."}"`)
 })

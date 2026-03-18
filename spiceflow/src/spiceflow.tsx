@@ -74,6 +74,131 @@ let globalIndex = 0
 
 type AsyncResponse = Response | Promise<Response>
 
+function defineHiddenProp<T extends object, K extends PropertyKey, V>(
+  target: T,
+  key: K,
+  value: V,
+): T & Record<K, V> {
+  Object.defineProperty(target, key, {
+    value,
+    enumerable: false,
+    configurable: true,
+    writable: true,
+  })
+
+  return target as T & Record<K, V>
+}
+
+function appendHeaders(target: Headers, source: Headers) {
+  let changed = false
+  const getSetCookie = (source as Headers & { getSetCookie?: () => string[] })
+    .getSetCookie
+  const setCookies = getSetCookie?.call(source) ?? []
+
+  for (const cookie of setCookies) {
+    target.append('set-cookie', cookie)
+    changed = true
+  }
+
+  for (const [key, value] of source.entries()) {
+    if (key.toLowerCase() === 'set-cookie' && setCookies.length > 0) continue
+    if (key.toLowerCase() === 'set-cookie') {
+      target.append(key, value)
+    } else {
+      target.set(key, value)
+    }
+    changed = true
+  }
+
+  return changed
+}
+
+function mergeHeadersIntoResponse({
+  response,
+  source,
+}: {
+  response: Response
+  source?: Headers
+}) {
+  if (!source) {
+    return response
+  }
+
+  const headers = new Headers(response.headers)
+  if (!appendHeaders(headers, source)) {
+    return response
+  }
+
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  })
+}
+
+type RouteHandlerResult =
+  | {
+      kind: 'value'
+      value: React.ReactNode
+      headers?: Headers
+      context: SpiceflowContext<any, any, any>
+    }
+  | {
+      kind: 'error'
+      error: unknown
+      headers?: Headers
+      context: SpiceflowContext<any, any, any>
+    }
+
+function isRouteHandlerError(
+  result: RouteHandlerResult,
+): result is Extract<RouteHandlerResult, { kind: 'error' }> {
+  return result.kind === 'error'
+}
+
+function isRouteHandlerValue(
+  result: RouteHandlerResult,
+): result is Extract<RouteHandlerResult, { kind: 'value' }> {
+  return result.kind === 'value'
+}
+
+function isLayoutValueResult<T extends { result: RouteHandlerResult }>(
+  layout: T,
+): layout is T & { result: Extract<RouteHandlerResult, { kind: 'value' }> } {
+  return isRouteHandlerValue(layout.result)
+}
+
+type ReactRoute = InternalRoute & {
+  kind: 'page' | 'staticPage' | 'layout'
+  handler: (
+    this: AnySpiceflow,
+    context: SpiceflowContext<any, any, any>,
+  ) => React.ReactNode | Promise<React.ReactNode>
+}
+
+type ReactMatchedRoute = {
+  route: ReactRoute
+  app: AnySpiceflow
+  params: Record<string, string>
+}
+
+type ReactActionState = {
+  actionError: Error | undefined
+  returnValue: unknown | undefined
+  formState: ReactFormState | undefined
+  temporaryReferences: ReturnType<
+    typeof import('#rsc-runtime')['createTemporaryReferenceSet']
+  > | undefined
+}
+
+function isReactMatchedRoute(route: {
+  route: InternalRoute
+  app: AnySpiceflow
+  params: Record<string, string>
+}): route is ReactMatchedRoute {
+  return !!route.route.kind
+}
+
 export type SpiceflowServerError =
   | ValidationError
   | SpiceflowFetchError<number, any>
@@ -1105,18 +1230,95 @@ export class Spiceflow<
     return this
   }
 
+  private async resolveReactActionState({
+    request,
+    createTemporaryReferenceSet,
+    decodeReply,
+    decodeAction,
+    decodeFormState,
+    loadServerAction,
+  }: {
+    request: Request
+    createTemporaryReferenceSet: typeof import('#rsc-runtime')['createTemporaryReferenceSet']
+    decodeReply: typeof import('#rsc-runtime')['decodeReply']
+    decodeAction: typeof import('#rsc-runtime')['decodeAction']
+    decodeFormState: typeof import('#rsc-runtime')['decodeFormState']
+    loadServerAction: typeof import('#rsc-runtime')['loadServerAction']
+  }): Promise<ReactActionState | Response> {
+    const emptyState: ReactActionState = {
+      actionError: undefined,
+      returnValue: undefined,
+      formState: undefined,
+      temporaryReferences: undefined,
+    }
+    if (request.method !== 'POST') {
+      return emptyState
+    }
+
+    const origin = request.headers.get('Origin')
+    if (origin) {
+      const requestUrl = new URL(request.url)
+      const root = this.topLevelApp || this
+      const allowed = root.allowedActionOrigins
+      const isAllowed =
+        origin === requestUrl.origin ||
+        allowed?.some((rule) =>
+          rule instanceof RegExp ? rule.test(origin) : origin === rule,
+        )
+      if (!isAllowed) {
+        return new Response('Forbidden: origin mismatch', { status: 403 })
+      }
+    }
+
+    try {
+      const url = new URL(request.url)
+      const actionId = url.searchParams.get('__rsc')
+      if (actionId) {
+        const temporaryReferences = createTemporaryReferenceSet()
+        const contentType = request.headers.get('content-type')
+        const body = contentType?.startsWith('multipart/form-data')
+          ? await request.formData()
+          : await request.text()
+        const args = await decodeReply(body, { temporaryReferences })
+        const action = await loadServerAction(actionId)
+
+        return {
+          actionError: undefined,
+          returnValue: await action.apply(null, args),
+          formState: undefined,
+          temporaryReferences,
+        }
+      }
+
+      const formData = await request.formData()
+      const decodedAction = await decodeAction(formData)
+
+      return {
+        actionError: undefined,
+        returnValue: undefined,
+        formState: await decodeFormState(await decodedAction(), formData),
+        temporaryReferences: undefined,
+      }
+    } catch (error) {
+      console.log('action error', error)
+
+      return {
+        actionError: error instanceof Error ? error : new Error(String(error)),
+        returnValue: undefined,
+        formState: undefined,
+        temporaryReferences: undefined,
+      }
+    }
+  }
+
   async renderReact({
     request,
     reactRoutes,
     context,
   }: {
     request: Request
-    context
-    reactRoutes: Array<{
-      route: InternalRoute
-      app: AnySpiceflow
-      params: Record<string, string>
-    }>
+    context: SpiceflowContext<any, any, any>
+    reactRoutes: ReactMatchedRoute[]
   }) {
     const {
       renderToReadableStream,
@@ -1146,131 +1348,213 @@ export class Spiceflow<
     if (!pageRoute && !(isSafeMethod && isBrowserNavigation)) {
       return new Response('Not Found', { status: 404 })
     }
+
     const isNotFound = !pageRoute
-    const PageComponent = isNotFound
-      ? DefaultNotFoundPage
-      : pageRoute.route.handler as any
-    const pageProps = isNotFound
-      ? {}
-      : { ...context, params: pageRoute.params }
-    const page = <PageComponent {...pageProps} />
-    const layouts = layoutRoutes
-      .map((layout) => {
-        if (layout.route.kind !== 'layout') return
-        const id = layout.route.id
-        const children = createElement(LayoutContent, { id })
+    let baseResponse: Response | undefined
+    const baseContext: SpiceflowContext<any, any, any> = {
+      ...context,
+      get response() {
+        return baseResponse ??= new Response(null)
+      },
+    }
 
-        let Layout = layout.route.handler as any
-        const element = (
-          <Layout
-            {...{
-              ...context,
-              params: layout.params,
-              children,
-            }}
-          />
-        )
-        return { element, id }
+    const runRouteHandler = async ({
+      app,
+      handler,
+      params,
+      children,
+    }: {
+      app: AnySpiceflow
+      handler: (
+        this: AnySpiceflow,
+        context: SpiceflowContext<any, any, any>,
+      ) => React.ReactNode | Promise<React.ReactNode>
+      params?: Record<string, string>
+      children?: React.ReactNode
+    }): Promise<RouteHandlerResult> => {
+      let handlerResponse: Response | undefined
+      const handlerContext: SpiceflowContext<any, any, any> = {
+        ...baseContext,
+        ...(params === undefined ? {} : { params }),
+        ...(children === undefined ? {} : { children }),
+      }
+      Object.defineProperty(handlerContext, 'response', {
+        get() {
+          return handlerResponse ??= new Response(null)
+        },
+        enumerable: false,
+        configurable: true,
       })
-      .filter(isTruthy)
 
-    let root: FlightData = {
-      page,
-      layouts,
-      globalCss: getAppEntryCssElement(),
-    }
-    let actionError: Error | undefined
-    let returnValue: unknown | undefined
-    let formState: ReactFormState | undefined
-    // Tracks non-serializable values (DOM nodes, React elements) across action encode/decode.
-    // One set per request, shared between decodeReply and renderToReadableStream.
-    let temporaryReferences: ReturnType<typeof createTemporaryReferenceSet> | undefined
-    if (request.method === 'POST') {
-      // CSRF protection: validate that the Origin header matches the request URL origin.
-      // Must run before the try/catch so a 403 is returned directly, not swallowed into actionError.
-      const origin = request.headers.get('Origin')
-      if (origin) {
-        const requestUrl = new URL(request.url)
-        const root = this.topLevelApp || this
-        const allowed = root.allowedActionOrigins
-        const isAllowed =
-          origin === requestUrl.origin ||
-          allowed?.some((rule) =>
-            rule instanceof RegExp ? rule.test(origin) : origin === rule,
-          )
-        if (!isAllowed) {
-          return new Response('Forbidden: origin mismatch', { status: 403 })
-        }
-      }
       try {
-        const url = new URL(request.url)
-        const actionId = url.searchParams.get('__rsc')
-        if (actionId) {
-          temporaryReferences = createTemporaryReferenceSet()
-          const contentType = request.headers.get('content-type')
-          const body = contentType?.startsWith('multipart/form-data')
-            ? await request.formData()
-            : await request.text()
-          const args = await decodeReply(body, { temporaryReferences })
-          const action = await loadServerAction(actionId)
-          returnValue = await (action as any).apply(null, args)
-        } else {
-          // progressive enhancement (form POST without JS)
-          const formData = await request.formData()
-          const decodedAction = await decodeAction(formData)
-          formState = await decodeFormState(
-            await decodedAction(),
-            formData,
-          )
+        const value = await handler.call(app, handlerContext)
+
+        return {
+          kind: 'value',
+          value,
+          headers: handlerResponse?.headers,
+          context: handlerContext,
         }
-      } catch (e) {
-        console.log('action error', e)
-        actionError = e
+      } catch (error) {
+        return {
+          kind: 'error',
+          error,
+          headers: handlerResponse?.headers,
+          context: handlerContext,
+        }
       }
     }
 
-    if (root instanceof Response) {
-      return root
-    }
+    try {
+      const layoutResultsPromise = Promise.all(
+        layoutRoutes.map(async (layout) => {
+          if (layout.route.kind !== 'layout') return
 
-    const payload =
-      request.method === 'GET' || request.method === 'HEAD'
-        ? ({ root } satisfies ServerPayload)
-        : ({
-            root,
-            returnValue,
-            formState,
-            actionError,
-          } satisfies ServerPayload)
+          const id = layout.route.id
+          const children = createElement(LayoutContent, { id })
+          const result = await runRouteHandler({
+            app: layout.app,
+            handler: layout.route.handler,
+            params: layout.params,
+            children,
+          })
 
-    const stream = renderToReadableStream<ServerPayload>(
-      payload,
-      {
-        // Pass the same temporaryReferences used in decodeReply so non-serializable
-        // values round-trip correctly through the action response stream.
-        temporaryReferences,
-        onPostpone(reason) {
-          console.log(`POSTPONE`, reason)
-        },
-        onError(error) {
-          if (error instanceof Response) {
-            const headers = [...error.headers.entries()]
-            return `__REACT_SERVER_ERROR__:${JSON.stringify({ status: error.status, headers })}`
+          return {
+            id,
+            result,
           }
-          formatServerError(error)
-          console.error('[spiceflow:renderToReadableStream]', error)
-          return error?.digest || error?.message
-        },
-        signal: request.signal,
-      },
-    )
+        }),
+      )
 
-    return new Response(stream, {
-      status: isNotFound ? 404 : 200,
-      headers: {
+      const pageResultPromise = isNotFound
+        ? Promise.resolve<RouteHandlerResult>({
+            kind: 'value',
+            value: <DefaultNotFoundPage />,
+            headers: undefined,
+            context: baseContext,
+          })
+        : runRouteHandler({
+            app: pageRoute.app,
+            handler: pageRoute.route.handler,
+            params: pageRoute.params,
+          })
+
+      const [layoutResults, pageResult] = await Promise.all([
+        layoutResultsPromise,
+        pageResultPromise,
+      ])
+
+      const orderedResults = [
+        ...layoutResults.filter(isTruthy).map((layout) => layout.result),
+        pageResult,
+      ]
+
+      const routeHeaders = new Headers()
+      for (const result of orderedResults) {
+        if (!result.headers) continue
+        appendHeaders(routeHeaders, result.headers)
+      }
+
+      const firstThrown = orderedResults.find(isRouteHandlerError)
+      if (firstThrown) {
+        if (firstThrown.error instanceof Response) {
+          return mergeHeadersIntoResponse({
+            response: firstThrown.error,
+            source: routeHeaders,
+          })
+        }
+
+        throw firstThrown.error
+      }
+
+      const layouts = layoutResults
+        .filter(isTruthy)
+        .filter(isLayoutValueResult)
+        .map((layout) => ({
+          id: layout.id,
+          element: layout.result.value,
+        }))
+
+      if (!isRouteHandlerValue(pageResult)) {
+        throw new Error('Expected page route to resolve to a value result')
+      }
+
+      const page = pageResult.value
+
+      let root: FlightData = {
+        page,
+        layouts,
+        globalCss: getAppEntryCssElement(),
+      }
+      const actionState = await this.resolveReactActionState({
+        request,
+        createTemporaryReferenceSet,
+        decodeReply,
+        decodeAction,
+        decodeFormState,
+        loadServerAction,
+      })
+      if (actionState instanceof Response) {
+        return actionState
+      }
+
+      if (root instanceof Response) {
+        return mergeHeadersIntoResponse({
+          response: root,
+          source: routeHeaders,
+        })
+      }
+
+      const payload =
+        request.method === 'GET' || request.method === 'HEAD'
+          ? ({ root } satisfies ServerPayload)
+          : ({
+              root,
+              returnValue: actionState.returnValue,
+              formState: actionState.formState,
+              actionError: actionState.actionError,
+            } satisfies ServerPayload)
+
+      const stream = renderToReadableStream<ServerPayload>(
+        payload,
+        {
+          // Pass the same temporaryReferences used in decodeReply so non-serializable
+          // values round-trip correctly through the action response stream.
+          temporaryReferences: actionState.temporaryReferences,
+          onPostpone(reason) {
+            console.log(`POSTPONE`, reason)
+          },
+          onError(error) {
+            if (error instanceof Response) {
+              const headers = [...error.headers.entries()]
+              return `__REACT_SERVER_ERROR__:${JSON.stringify({ status: error.status, headers })}`
+            }
+            formatServerError(error)
+            console.error('[spiceflow:renderToReadableStream]', error)
+            return error?.digest || error?.message
+          },
+          signal: request.signal,
+        },
+      )
+
+      const headers = new Headers({
         'content-type': 'text/x-component;charset=utf-8',
-      },
-    })
+      })
+      appendHeaders(headers, routeHeaders)
+
+      return new Response(stream, {
+        status: isNotFound ? 404 : 200,
+        headers,
+      })
+    } catch (error) {
+      if (error instanceof Response) {
+        return mergeHeadersIntoResponse({
+          response: error,
+          source: baseResponse?.headers,
+        })
+      }
+      throw error
+    }
   }
 
   handle = async (
@@ -1310,7 +1594,8 @@ export class Spiceflow<
       return this.waitUntilFn(wrappedPromise)
     }
 
-    const context = {
+    let contextResponse: Response | undefined
+    const context: SpiceflowContext<any, any, any> = {
       redirect,
       state: customState || cloneDeep(this.defaultState),
       query: parseQuery((u.search || '').slice(1)),
@@ -1318,6 +1603,9 @@ export class Spiceflow<
       path,
       params: {},
       waitUntil: wrappedWaitUntil,
+      get response() {
+        return contextResponse ??= new Response(null)
+      },
     }
     const root = this.topLevelApp || this
     const requestDeploymentId = deploymentId
@@ -1391,6 +1679,7 @@ export class Spiceflow<
       routes,
       (x) => !x.route.kind,
     )
+    const typedReactRoutes = reactRoutes.filter(isReactMatchedRoute)
     // When no route matched (notFoundHandler) but the app has React pages registered
     // and the request is a browser navigation (GET/HEAD), enter the React rendering
     // path so DefaultNotFoundPage is rendered as HTML instead of plain text.
@@ -1408,14 +1697,14 @@ export class Spiceflow<
     // Layout-only react matches should not take priority over real API route handlers.
     // Only enter the React path when there's an actual page/staticPage match, or when
     // there are no real API routes and we need to render a React 404 page.
-    const hasPageMatch = reactRoutes.some(
+    const hasPageMatch = typedReactRoutes.some(
       (x) => x.route.kind === 'page' || x.route.kind === 'staticPage',
     )
     const hasRealApiRoute = nonReactRoutes.some(
       (x) => x.route.handler !== notFoundHandler,
     )
     const shouldEnterReactPath =
-      hasPageMatch || (reactRoutes.length > 0 && !hasRealApiRoute)
+      hasPageMatch || (typedReactRoutes.length > 0 && !hasRealApiRoute)
     let index = 0
     if (shouldEnterReactPath || shouldRenderReact404) {
       const fallbackApp = reactRoutes[0]?.app || nonReactRoutes[0]?.app || this
@@ -1437,7 +1726,10 @@ export class Spiceflow<
             if (!result && index < middlewares.length) {
               return await next()
             } else if (result) {
-              return await this.turnHandlerResultIntoResponse(result, undefined, request)
+              return await this.turnHandlerResultIntoResponse({
+                result,
+                request,
+              })
             }
           }
           if (handlerResponse) {
@@ -1447,7 +1739,7 @@ export class Spiceflow<
           const res = await this.renderReact({
             request,
             context,
-            reactRoutes,
+            reactRoutes: typedReactRoutes,
           })
 
           return res
@@ -1552,7 +1844,11 @@ export class Spiceflow<
           if (!result && index < middlewareChain.length) {
             return await next()
           } else if (result) {
-            return await self.turnHandlerResultIntoResponse(result, route?.route, request)
+              return await self.turnHandlerResultIntoResponse({
+                result,
+                route: route?.route,
+                request,
+              })
           }
         }
         if (handlerResponse) {
@@ -1578,14 +1874,23 @@ export class Spiceflow<
           })
           return handlerResponse
         }
-        handlerResponse = await self.turnHandlerResultIntoResponse(res, route?.route, request)
+        handlerResponse = await self.turnHandlerResultIntoResponse({
+          result: res,
+          route: route?.route,
+          request,
+        })
         return handlerResponse
       } catch (err) {
         handlerResponse = await getResForError(err)
         return await next()
       }
     }
-    const response = await next()
+    let response = await next()
+
+    response = mergeHeadersIntoResponse({
+      response,
+      source: contextResponse?.headers,
+    })
 
     return finalizeResponse({ response, stripBody: shouldStripHeadBody })
   }
@@ -1628,9 +1933,15 @@ export class Spiceflow<
   }
 
   private async turnHandlerResultIntoResponse(
-    result: any,
-    route?: InternalRoute,
-    request?: Request,
+    {
+      result,
+      route,
+      request,
+    }: {
+      result: any
+      route?: InternalRoute
+      request?: Request
+    },
   ): Promise<Response> {
     // if user returns a promise, await it
     if (result instanceof Promise) {

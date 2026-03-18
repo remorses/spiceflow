@@ -4,6 +4,11 @@ const port = Number(process.env.E2E_PORT || 6174);
 const baseURL = `http://localhost:${port}`;
 const isStart = Boolean(process.env.E2E_START);
 
+function getSetCookies(response: Response) {
+	const headers = response.headers as Headers & { getSetCookie?: () => string[] };
+	return headers.getSetCookie?.() ?? [];
+}
+
 test.describe("not found", () => {
 	test("not found in outer route scope", async ({ page }) => {
 		await page.goto("/not-found");
@@ -70,6 +75,79 @@ test.describe("middleware with use()", () => {
 	test("middleware sets state", async ({ page }) => {
 		await page.goto("/state");
 		await expect(page.getByText("state set by middleware1")).toBeVisible();
+	});
+	test("api routes can set response headers through context.response", async () => {
+		const response = await fetch(`${baseURL}/api/response-headers`);
+		expect(response.status).toBe(200);
+		expect(response.headers.get("x-api-header")).toBe("ok");
+		expect(getSetCookies(response).join("\n")).toContain("api-cookie=1");
+		expect(await response.json()).toEqual({ ok: true });
+	});
+});
+
+test.describe("response headers from page and layout handlers", () => {
+	test("document response includes page and layout headers", async () => {
+		const response = await fetch(`${baseURL}/response-headers`, {
+			headers: { "sec-fetch-dest": "document" },
+		});
+
+		expect(response.status).toBe(200);
+		expect(response.headers.get("cache-control")).toBe("private, max-age=60");
+		expect(response.headers.get("x-page-header")).toBe("page");
+		expect(response.headers.get("x-layout-header")).toBe("layout");
+		expect(getSetCookies(response).join("\n")).toContain("page-cookie=1");
+	});
+
+	test("rsc response includes page and layout headers", async () => {
+		const response = await fetch(`${baseURL}/response-headers?__rsc=1`, {
+			headers: { accept: "text/x-component" },
+		});
+
+		expect(response.status).toBe(200);
+		expect(response.headers.get("cache-control")).toBe("private, max-age=60");
+		expect(response.headers.get("x-page-header")).toBe("page");
+		expect(response.headers.get("x-layout-header")).toBe("layout");
+		expect(getSetCookies(response).join("\n")).toContain("page-cookie=1");
+	});
+
+	test("redirect response keeps cookies from route headers", async () => {
+		const response = await fetch(`${baseURL}/response-headers/redirect`, {
+			redirect: "manual",
+			headers: { "sec-fetch-dest": "document" },
+		});
+
+		expect(response.status).toBe(307);
+		expect(response.headers.get("location")).toBe("/response-target");
+		expect(response.headers.get("x-layout-header")).toBe("layout");
+		expect(getSetCookies(response).join("\n")).toContain("before-redirect=1");
+	});
+
+	test("client-side navigation applies cookies from the rsc response", async ({ page }) => {
+		await page.goto("/response-nav");
+		await page.getByTestId("response-nav-link").click();
+		await expect(page.getByTestId("response-headers-page")).toBeVisible();
+
+		const cookies = await page.context().cookies();
+		expect(cookies.some((cookie) => cookie.name === "page-cookie")).toBe(true);
+	});
+});
+
+test.describe("layout provided client context", () => {
+	test("client context value is present in the SSR html", async () => {
+		const response = await fetch(`${baseURL}/layout-client-context`, {
+			headers: { "sec-fetch-dest": "document" },
+		});
+
+		expect(response.status).toBe(200);
+		expect(await response.text()).toContain("from-layout-client-provider");
+	});
+
+	test("client context value is available after client navigation", async ({ page }) => {
+		await page.goto("/layout-client-context-nav");
+		await page.getByTestId("layout-client-context-nav-link").click();
+		await expect(page.getByTestId("layout-client-context-value")).toHaveText(
+			"from-layout-client-provider",
+		);
 	});
 });
 

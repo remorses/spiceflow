@@ -81,6 +81,7 @@ export type SpiceflowContext<
   request: SpiceflowRequest<GetRequestSchema<Route>>
   state: Singleton['state']
   waitUntil: WaitUntil
+  response: Response
   // TODO remove this for api routes
   children?: any
   // response?: Route['response']

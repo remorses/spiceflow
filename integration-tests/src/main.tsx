@@ -19,10 +19,14 @@ import { DialogDemo } from "./app/dialog";
 import { WithSelect } from "./app/select";
 import { ThrowsDuringSSR } from "./app/ssr-error";
 import { StreamingConsumer } from "./app/streaming-consumer";
-import { Head } from "spiceflow/react";
+import { Head, Link } from "spiceflow/react";
 import { CssTestClient } from "./app/client";
 import { CssTestServer } from "./app/css-test-server";
 import { ScrollTestPage } from "./app/scroll-test";
+import {
+	LayoutClientContextProvider,
+	LayoutClientContextValue,
+} from "./app/client-context";
 
 // Increments on every RSC render of the home page. Used by e2e tests to detect
 // unwanted server re-renders (e.g. client HMR should not trigger a server render).
@@ -129,6 +133,54 @@ export const app = new Spiceflow()
 			<Suspense fallback={<div>redirecting...</div>}>
 				<Redirects />
 			</Suspense>
+		);
+	})
+	.layout("/response-headers/*", async ({ children, response }) => {
+		response.headers.set("x-layout-header", "layout");
+		return <>{children}</>;
+	})
+	.page("/response-headers", async ({ response }) => {
+		response.headers.set("cache-control", "private, max-age=60");
+		response.headers.set("x-page-header", "page");
+		response.headers.append("set-cookie", "page-cookie=1; Path=/; HttpOnly");
+		return <div data-testid="response-headers-page">response headers page</div>;
+	})
+	.page("/response-headers/redirect", async ({ response }) => {
+		response.headers.append("set-cookie", "before-redirect=1; Path=/; HttpOnly");
+		throw redirect("/response-target");
+	})
+	.page("/response-target", async () => {
+		return <div data-testid="response-target-page">response target</div>;
+	})
+	.page("/response-nav", async () => {
+		return (
+			<div>
+				<Link href="/response-headers" data-testid="response-nav-link">
+					Go to response headers page
+				</Link>
+			</div>
+		);
+	})
+	.layout("/layout-client-context/*", async ({ children }) => {
+		return (
+			<LayoutClientContextProvider value="from-layout-client-provider">
+				{children}
+			</LayoutClientContextProvider>
+		);
+	})
+	.page("/layout-client-context", async () => {
+		return <LayoutClientContextValue />;
+	})
+	.page("/layout-client-context-nav", async () => {
+		return (
+			<div>
+				<Link
+					href="/layout-client-context"
+					data-testid="layout-client-context-nav-link"
+				>
+					Go to layout client context page
+				</Link>
+			</div>
 		);
 	})
 	.layout("/page/*", async ({ request, children }) => {
@@ -330,6 +382,11 @@ export const app = new Spiceflow()
 		return { echo: body };
 	})
 	.get("/api/hello", () => "Hello from API!")
+	.get("/api/response-headers", ({ response }) => {
+		response.headers.set("x-api-header", "ok");
+		response.headers.append("set-cookie", "api-cookie=1; Path=/; HttpOnly");
+		return { ok: true };
+	})
 	.post("/api/echo", async ({ request }) => {
 		const body = await request.json();
 		return { echo: body };
