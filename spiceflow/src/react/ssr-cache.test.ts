@@ -1,6 +1,6 @@
 import { describe, test, expect } from 'vitest'
 import { LRUCache } from '../lru.js'
-import { createHashTransform, collectStream, hasUncacheableHeaders, isSsrCacheEnabled } from './ssr-cache.js'
+import { createHashTransform, collectStream, getSsrCacheMode, hasUncacheableHeaders, isSsrCacheEnabled, prehashFlightStream } from './ssr-cache.js'
 
 const encoder = new TextEncoder()
 
@@ -147,6 +147,30 @@ describe('collectStream', () => {
   })
 })
 
+describe('prehashFlightStream', () => {
+  test('returns digest and original bytes', async () => {
+    const chunks = [encoder.encode('hello'), encoder.encode(' world')]
+    const prehash = prehashFlightStream(new Blob(chunks).stream())
+    const result = await prehash.resultPromise
+    expect(result.digest).toMatch(/^[0-9a-f]{32}$/)
+    expect(await new Blob(result.chunks).text()).toBe('hello world')
+  })
+
+  test('cancel stops the reader cleanly', async () => {
+    const stream = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        controller.enqueue(encoder.encode('chunk'))
+      },
+    })
+    const prehash = prehashFlightStream(stream)
+    await prehash.cancel()
+    await expect(prehash.resultPromise).resolves.toEqual({
+      digest: 'd41d8cd98f00b204e9800998ecf8427e',
+      chunks: [],
+    })
+  })
+})
+
 describe('hasUncacheableHeaders', () => {
   test('returns true when Set-Cookie is present', () => {
     const headers = new Headers()
@@ -203,6 +227,71 @@ describe('isSsrCacheEnabled', () => {
         delete process.env.SPICEFLOW_DISABLE_SSR_CACHE
       } else {
         process.env.SPICEFLOW_DISABLE_SSR_CACHE = original
+      }
+    }
+  })
+})
+
+describe('getSsrCacheMode', () => {
+  test('defaults to post', () => {
+    const originalDisable = process.env.SPICEFLOW_DISABLE_SSR_CACHE
+    const originalMode = process.env.SPICEFLOW_SSR_CACHE_MODE
+    delete process.env.SPICEFLOW_DISABLE_SSR_CACHE
+    delete process.env.SPICEFLOW_SSR_CACHE_MODE
+    try {
+      expect(getSsrCacheMode()).toBe('post')
+    } finally {
+      if (originalDisable === undefined) {
+        delete process.env.SPICEFLOW_DISABLE_SSR_CACHE
+      } else {
+        process.env.SPICEFLOW_DISABLE_SSR_CACHE = originalDisable
+      }
+      if (originalMode === undefined) {
+        delete process.env.SPICEFLOW_SSR_CACHE_MODE
+      } else {
+        process.env.SPICEFLOW_SSR_CACHE_MODE = originalMode
+      }
+    }
+  })
+
+  test('supports prehash mode', () => {
+    const originalDisable = process.env.SPICEFLOW_DISABLE_SSR_CACHE
+    const originalMode = process.env.SPICEFLOW_SSR_CACHE_MODE
+    delete process.env.SPICEFLOW_DISABLE_SSR_CACHE
+    process.env.SPICEFLOW_SSR_CACHE_MODE = 'prehash'
+    try {
+      expect(getSsrCacheMode()).toBe('prehash')
+    } finally {
+      if (originalDisable === undefined) {
+        delete process.env.SPICEFLOW_DISABLE_SSR_CACHE
+      } else {
+        process.env.SPICEFLOW_DISABLE_SSR_CACHE = originalDisable
+      }
+      if (originalMode === undefined) {
+        delete process.env.SPICEFLOW_SSR_CACHE_MODE
+      } else {
+        process.env.SPICEFLOW_SSR_CACHE_MODE = originalMode
+      }
+    }
+  })
+
+  test('disable flag wins over mode', () => {
+    const originalDisable = process.env.SPICEFLOW_DISABLE_SSR_CACHE
+    const originalMode = process.env.SPICEFLOW_SSR_CACHE_MODE
+    process.env.SPICEFLOW_DISABLE_SSR_CACHE = '1'
+    process.env.SPICEFLOW_SSR_CACHE_MODE = 'prehash'
+    try {
+      expect(getSsrCacheMode()).toBe('off')
+    } finally {
+      if (originalDisable === undefined) {
+        delete process.env.SPICEFLOW_DISABLE_SSR_CACHE
+      } else {
+        process.env.SPICEFLOW_DISABLE_SSR_CACHE = originalDisable
+      }
+      if (originalMode === undefined) {
+        delete process.env.SPICEFLOW_SSR_CACHE_MODE
+      } else {
+        process.env.SPICEFLOW_SSR_CACHE_MODE = originalMode
       }
     }
   })

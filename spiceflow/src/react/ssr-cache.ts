@@ -12,6 +12,8 @@ export interface SsrCacheEntry {
   byteSize: number
 }
 
+export type SsrCacheMode = 'off' | 'post' | 'prehash'
+
 const HEADERS_TO_SKIP_CACHING = new Set([
   'set-cookie',
 ])
@@ -28,6 +30,16 @@ export function isSsrCacheEnabled() {
   const value = process.env.SPICEFLOW_DISABLE_SSR_CACHE
   if (!value) return true
   return value === '0' || value === 'false'
+}
+
+export function getSsrCacheMode(): SsrCacheMode {
+  if (!isSsrCacheEnabled()) return 'off'
+  if (typeof process === 'undefined') return 'post'
+  const value = process.env.SPICEFLOW_SSR_CACHE_MODE
+  if (!value) return 'post'
+  if (value === 'off') return 'off'
+  if (value === 'prehash') return 'prehash'
+  return 'post'
 }
 
 // 5 MB default
@@ -59,6 +71,38 @@ export function createHashTransform() {
     readable: transform.readable,
     writable: transform.writable,
     digestPromise,
+  }
+}
+
+export function prehashFlightStream(stream: ReadableStream<Uint8Array>) {
+  const hash = crypto.createHash('md5')
+  const chunks: Uint8Array[] = []
+  const reader = stream.getReader()
+
+  const resultPromise = (async () => {
+    try {
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        hash.update(value)
+        chunks.push(value)
+      }
+      return {
+        digest: hash.digest('hex'),
+        chunks,
+      }
+    } finally {
+      reader.releaseLock()
+    }
+  })()
+
+  return {
+    resultPromise,
+    async cancel() {
+      try {
+        await reader.cancel()
+      } catch {}
+    },
   }
 }
 
