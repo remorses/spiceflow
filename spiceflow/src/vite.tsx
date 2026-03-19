@@ -268,20 +268,21 @@ export function spiceflowPlugin({
     createVirtualPlugin('virtual:app-entry', () => {
       const resolvedEntryPath = path.resolve(entry)
       const resolvedEntry = url.pathToFileURL(resolvedEntryPath).href
-      const clientRelative = path.relative(
-        path.join(resolvedOutDir, 'rsc'),
-        path.join(resolvedOutDir, 'client'),
-      )
+      // Compute the relative path from the RSC entry (outDir/rsc/) to client
+      // assets (outDir/client/). Uses import.meta.dirname so the path resolves
+      // correctly regardless of CWD — users can unwrap or relocate the dist folder.
+      const clientRelative = isCloudflareRuntime
+        ? ''
+        : path.relative(path.join(resolvedOutDir, 'rsc'), path.join(resolvedOutDir, 'client'))
 
       const lines = [
         `import * as entry from '${resolvedEntry}'`,
         `if (!entry.app) throw new Error('[spiceflow] Your entry file must export a Spiceflow instance as "app". Example:\\n\\n  export const app = new Spiceflow()\\n    .page("/", async () => <Home />)\\n    .listen(3000)\\n')`,
       ]
-      // Auto-inject serveStatic for client build output in production.
-      // In dev, import.meta.hot is truthy so this is skipped — Vite serves
-      // client assets from source. Cloudflare Workers handle static files
-      // via their own runtime.
-      if (!isCloudflareRuntime) {
+      // In production builds, auto-inject serveStatic for client build output.
+      // In dev (import.meta.hot is truthy), Vite serves client assets from source.
+      // Cloudflare Workers handle static files via their own runtime, skip injection.
+      if (clientRelative) {
         lines.push(
           `import { serveStatic as __serveStatic } from 'spiceflow'`,
           `import { resolve as __resolve, dirname as __dirname } from 'node:path'`,
