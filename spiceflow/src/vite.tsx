@@ -204,25 +204,6 @@ export function spiceflowPlugin({
       },
     },
 
-    // TODO: remove this workaround once @tailwindcss/vite releases the fix from
-    // https://github.com/tailwindlabs/tailwindcss/pull/19745 (merged but unreleased as of 4.2.1)
-    //
-    // Workaround: @tailwindcss/vite's hotUpdate hook sends a bare full-reload
-    // to the client when server-only files (like the app entry) change, because
-    // Tailwind scans them for class names. This breaks RSC HMR by causing a
-    // full page reload instead of letting rsc:update + router.refresh() handle it.
-    {
-      name: 'spiceflow:tailwind-hmr-fix',
-      configResolved(config) {
-        const twPlugin = config.plugins.find(
-          (p) => p.name === '@tailwindcss/vite:generate:serve',
-        )
-        if (twPlugin) {
-          delete twPlugin.hotUpdate
-        }
-      },
-    },
-
     // SSR middleware for dev and preview servers
     {
       name: 'spiceflow:ssr-middleware',
