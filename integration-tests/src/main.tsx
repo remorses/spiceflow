@@ -39,7 +39,6 @@ function notFound() {
 
 export const app = new Spiceflow()
 	.use(serveStatic({ root: "./public" }))
-	.use(serveStatic({ root: "./dist/client" })) // required to serve vite built static files
 	.state("middleware1", "")
 	.use(async ({ request, state }, next) => {
 		state.middleware1 = "state set by middleware1";

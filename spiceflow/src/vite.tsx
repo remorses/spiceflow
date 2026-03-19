@@ -268,13 +268,34 @@ export function spiceflowPlugin({
     createVirtualPlugin('virtual:app-entry', () => {
       const resolvedEntryPath = path.resolve(entry)
       const resolvedEntry = url.pathToFileURL(resolvedEntryPath).href
+      const clientRelative = path.relative(
+        path.join(resolvedOutDir, 'rsc'),
+        path.join(resolvedOutDir, 'client'),
+      )
 
-      return [
+      const lines = [
         `import * as entry from '${resolvedEntry}'`,
         `if (!entry.app) throw new Error('[spiceflow] Your entry file must export a Spiceflow instance as "app". Example:\\n\\n  export const app = new Spiceflow()\\n    .page("/", async () => <Home />)\\n    .listen(3000)\\n')`,
+      ]
+      // Auto-inject serveStatic for client build output in production.
+      // In dev, import.meta.hot is truthy so this is skipped — Vite serves
+      // client assets from source. Cloudflare Workers handle static files
+      // via their own runtime.
+      if (!isCloudflareRuntime) {
+        lines.push(
+          `import { serveStatic as __serveStatic } from 'spiceflow'`,
+          `import { resolve as __resolve, dirname as __dirname } from 'node:path'`,
+          `if (!import.meta.hot) {`,
+          `  const __clientDir = __resolve(__dirname(import.meta.filename), '${clientRelative}')`,
+          `  entry.app.use(__serveStatic({ root: __clientDir }))`,
+          `}`,
+        )
+      }
+      lines.push(
         `export const app = entry.app`,
         `export default entry.default`,
-      ].join('\n')
+      )
+      return lines.join('\n')
     }),
 
   ]

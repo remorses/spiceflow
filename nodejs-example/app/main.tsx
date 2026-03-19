@@ -8,7 +8,6 @@ import { serveStatic } from 'spiceflow'
 
 export const app = new Spiceflow()
   .use(serveStatic({ root: './public' }))
-  .use(serveStatic({ root: './dist/client' })) // required to serve vite built static files
   .layout('/*', async ({ children }) => {
     return (
       <RootLayout>
