@@ -1926,6 +1926,10 @@ export class Spiceflow<
   async listen(port: number, hostname: string = '0.0.0.0') {
     // In Vite dev, Vite owns the server — noop
     if (import.meta.hot) return
+    // During prerender, skip server startup — we only need the app instance.
+    // Uses globalThis instead of process.env because bundlers replace
+    // process.env.X with its build-time value (undefined), dead-code eliminating the check.
+    if ((globalThis as any).__SPICEFLOW_PRERENDER) return
     const handler = this.handle.bind(this)
     if (typeof Bun !== 'undefined') {
       const app = this

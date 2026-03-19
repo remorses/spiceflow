@@ -182,6 +182,7 @@ const baseMimes: Record<string, string> = {
   '3g2': 'video/3gpp2',
   gltf: 'model/gltf+json',
   glb: 'model/gltf-binary',
+  rsc: 'text/x-component',
 }
 
 export const getMimeType = (

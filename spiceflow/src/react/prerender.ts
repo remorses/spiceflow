@@ -1,7 +1,9 @@
+// Prerender plugin: generates .rsc Flight data files at build time for
+// staticPage() routes. Uses buildApp with order:"post" so it runs AFTER
+// @vitejs/plugin-rsc writes the real assets manifest — no stub needed.
 import fs from 'node:fs'
 import { mkdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
-import { Readable } from 'node:stream'
 import type { Plugin } from 'vite'
 
 type MaybePromise<T> = Promise<T> | T
@@ -19,19 +21,32 @@ type PrerenderEntry = {
 }
 
 export function prerenderPlugin(): Plugin[] {
+  let ssrOutDir = 'dist/ssr'
+  let clientOutDir = 'dist/client'
+  let isCloudflare = false
+
   return [
     {
       name: prerenderPlugin.name + ':build',
       enforce: 'post',
       apply: 'build',
-      applyToEnvironment: (x) => x.name === 'ssr',
-      writeBundle: {
-        sequential: true,
-        handler() {
-          if (!process.env.SPICEFLOW_ENABLE_BUILD_PRERENDER) {
-            return
-          }
-          return processPrerender('dist')
+      configResolved(config) {
+        ssrOutDir = config.environments.ssr?.build?.outDir ?? 'dist/ssr'
+        clientOutDir = config.environments.client?.build?.outDir ?? 'dist/client'
+        isCloudflare = config.plugins.some((p: any) =>
+          p.name?.startsWith('vite-plugin-cloudflare:'),
+        )
+      },
+      // order:"post" runs AFTER all other buildApp hooks — including
+      // @vitejs/plugin-rsc which writes __vite_rsc_assets_manifest.js
+      // at the end of its buildApp. The real manifest exists by the time
+      // this handler fires, so prerendered Flight streams include correct
+      // CSS/JS resource hints.
+      buildApp: {
+        order: 'post',
+        async handler() {
+          if (isCloudflare) return
+          await processPrerender({ ssrOutDir, clientOutDir })
         },
       },
     },
@@ -59,50 +74,58 @@ function urlPathToHtmlPath(pathname: string) {
   return pathname + (pathname.endsWith('/') ? 'index.html' : '.html')
 }
 
-async function processPrerender(outDir: string) {
-  process.env.SPICEFLOW_PRERENDER = '1'
-  console.log('▶▶▶ PRERENDER')
-  const entry: typeof import('./entry.ssr.tsx') = await import(
-    path.resolve(path.join(outDir, 'ssr', 'index.js'))
-  )
+async function processPrerender(dirs: {
+  ssrOutDir: string
+  clientOutDir: string
+}) {
+  const prev = (globalThis as any).__SPICEFLOW_PRERENDER
+  ;(globalThis as any).__SPICEFLOW_PRERENDER = true
+  try {
+    console.log('▶▶▶ PRERENDER')
+    const entry: typeof import('./entry.ssr.tsx') = await import(
+      path.resolve(path.join(dirs.ssrOutDir, 'index.js'))
+    )
 
-  const routes = await entry.getPrerenderRoutes()
-
-  const manifest: PrerenderManifest = { entries: [] }
-  for (const route of routes) {
-    console.log(`  • ${route.path}`)
-    const url = new URL(route.path, 'https://prerender.local')
-    const request = new Request(url, {
-      headers: {
-        'x-react-server-render-mode': 'prerender',
-      },
-    })
-    const { rscResponse, html } = await entry.prerender(request)
-    if (!rscResponse.ok) {
-      console.error(`  • Failed to prerender ${route.path}`)
-      throw new Error(
-        `Failed to prerender ${route.path}: ${rscResponse.status} ${rscResponse.statusText}`,
-      )
+    const routes = await entry.getPrerenderRoutes()
+    if (routes.length === 0) {
+      return
     }
 
-    const htmlFile = urlPathToHtmlPath(route.path)
-    const dataFile = route.path + '.rsc'
-    await mkdir(path.dirname(path.join(outDir, 'client', htmlFile)), {
-      recursive: true,
-    })
-    await writeFile(path.join(outDir, 'client', htmlFile), html)
+    const manifest: PrerenderManifest = { entries: [] }
+    for (const route of routes) {
+      console.log(`  • ${route.path}`)
+      const url = new URL(route.path, 'https://prerender.local')
+      // Set __rsc so fetchHandler returns the raw Flight stream without SSR
+      url.searchParams.set('__rsc', '')
+      const request = new Request(url, {
+        headers: {
+          'x-react-server-render-mode': 'prerender',
+        },
+      })
+      const rscResponse = await entry.fetchHandler(request)
+      if (!rscResponse.ok) {
+        console.error(`  • Failed to prerender ${route.path}`)
+        throw new Error(
+          `Failed to prerender ${route.path}: ${rscResponse.status} ${rscResponse.statusText}`,
+        )
+      }
+
+      const dataFile = route.path + '.rsc'
+      const dataPath = path.join(dirs.clientOutDir, dataFile)
+      await mkdir(path.dirname(dataPath), { recursive: true })
+      await writeFile(dataPath, await rscResponse.text())
+      manifest.entries.push({
+        route: route.path,
+        html: '',
+        data: dataFile,
+      })
+    }
     await writeFile(
-      path.join(outDir, 'client', dataFile),
-      await rscResponse.text(),
+      path.join(dirs.clientOutDir, '__prerender.json'),
+      JSON.stringify(manifest, null, 2),
     )
-    manifest.entries.push({
-      route: route.path,
-      html: htmlFile,
-      data: dataFile,
-    })
+  } finally {
+    if (prev === undefined) delete (globalThis as any).__SPICEFLOW_PRERENDER
+    else (globalThis as any).__SPICEFLOW_PRERENDER = prev
   }
-  await writeFile(
-    path.join(outDir, 'client', '__prerender.json'),
-    JSON.stringify(manifest, null, 2),
-  )
 }

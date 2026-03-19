@@ -355,9 +355,17 @@ export const app = new Spiceflow()
 	.page(
 		"/static/:id",
 		function StaticComponent({ params: { id } }) {
-			return <div className="">This is a static page with id {id}</div>;
+			return <div data-testid="static-page" className="">This is a static page with id {id}</div>;
 		},
 	)
+	.page("/prerender-nav", async () => {
+		return (
+			<div>
+				<Link href="/static/one" data-testid="link-static-one">Go to static one</Link>
+				<Link href="/static/two" data-testid="link-static-two">Go to static two</Link>
+			</div>
+		);
+	})
 	.page("/meta", async ({ request }) => {
 		return (
 			<div className="">

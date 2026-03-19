@@ -761,6 +761,63 @@ test.describe("error boundary auto-reset on navigation", () => {
 	});
 });
 
+// Strip non-deterministic parts from RSC/HTML output for stable snapshots:
+// client reference IDs (hex hashes) and Vite asset filename hashes.
+function stabilize(content: string) {
+	return content
+		.replace(/I\["[a-f0-9]+"/g, 'I["<REF>"')
+		.replace(/\/assets\/([a-zA-Z_-]+)-[a-zA-Z0-9_-]+\.(css|js)/g, "/assets/$1-<HASH>.$2")
+		.replace(/id="_R[a-zA-Z0-9_]*"/g, 'id="_R"')
+		.replace(/<script id="_R[a-zA-Z0-9_]*">/g, '<script id="_R">')
+		.replace(/import\("[^"]*"\)/g, 'import("<ENTRY>")')
+		.replace(/(self\.__FLIGHT_DATA\|\|=\[\])\.push\("[^"]*"\)/g, "$1.push(<FLIGHT_CHUNK>)");
+}
+
+test.describe("prerender", () => {
+	test("staticPage renders correctly", async ({ page }) => {
+		await page.goto("/static/one");
+		await expect(page.getByTestId("static-page")).toBeVisible();
+		await expect(page.getByText("This is a static page with id one")).toBeVisible();
+	});
+
+	test("staticPage renders with different id", async ({ page }) => {
+		await page.goto("/static/two");
+		await expect(page.getByTestId("static-page")).toBeVisible();
+		await expect(page.getByText("This is a static page with id two")).toBeVisible();
+	});
+
+	test("client navigation to staticPage works", async ({ page }) => {
+		await page.goto("/prerender-nav");
+		await page.getByTestId("link-static-one").click();
+		await expect(page.getByTestId("static-page")).toBeVisible();
+		await expect(page.getByText("This is a static page with id one")).toBeVisible();
+	});
+});
+
+test.describe("prerender @build", () => {
+	test("prerendered RSC data is served for staticPage", async () => {
+		const response = await fetch(baseURL + "/static/one.rsc?__rsc=");
+		expect(response.status).toBe(200);
+		const contentType = response.headers.get("content-type") ?? "";
+		expect(contentType).toContain("text/x-component");
+	});
+
+	test("prerendered .rsc file content", async () => {
+		const fs = await import("node:fs");
+		const raw = fs.readFileSync("dist/client/static/one.rsc", "utf-8");
+		expect(stabilize(raw)).toMatchSnapshot("prerendered-rsc-flight-data");
+	});
+
+	test("prerendered page HTML", async () => {
+		const response = await fetch(baseURL + "/static/one", {
+			headers: { "sec-fetch-dest": "document" },
+		});
+		expect(response.status).toBe(200);
+		const html = await response.text();
+		expect(stabilize(html)).toMatchSnapshot("prerendered-page-html");
+	});
+});
+
 test.describe("deployment id @build", () => {
 	const docHeaders = { "sec-fetch-dest": "document" };
 
