@@ -4,6 +4,7 @@ import { Spiceflow, serveStatic, redirect } from "spiceflow";
 import { IndexPage } from "./app/index";
 import { getCounter } from "./app/action";
 import { Layout } from "./app/layout";
+import { StaticPage } from "./app/static-page";
 import "./styles.css";
 
 import { ErrorBoundary } from "spiceflow/dist/react/components";
@@ -359,7 +360,7 @@ export const app = new Spiceflow()
 	.page(
 		"/static/:id",
 		function StaticComponent({ params: { id } }) {
-			return <div data-testid="static-page" className="">This is a static page with id {id}</div>;
+			return <StaticPage id={id} />;
 		},
 	)
 	.page("/prerender-nav", async () => {

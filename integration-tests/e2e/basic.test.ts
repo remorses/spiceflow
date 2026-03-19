@@ -794,6 +794,30 @@ test.describe("prerender", () => {
 	});
 });
 
+test.describe("prerender css", () => {
+	test("prerendered page has imported CSS applied", async ({ page }) => {
+		await page.goto("/static/one");
+		const el = page.getByTestId("static-page");
+		await expect(el).toBeVisible();
+		await expect(el).toHaveCSS("color", "rgb(22, 163, 74)");
+		await expect(el).toHaveCSS("border-color", "rgb(22, 163, 74)");
+		await expect(el).toHaveCSS("padding", "12px");
+	});
+
+	test("CSS is applied after client navigation to prerendered page", async ({ page }) => {
+		await page.goto("/");
+		await expect(page.getByText("Server counter:")).toBeVisible();
+		// Navigate to a prerendered page via client-side link
+		await page.goto("/prerender-nav");
+		await page.getByTestId("link-static-one").click();
+		const el = page.getByTestId("static-page");
+		await expect(el).toBeVisible();
+		await expect(el).toHaveCSS("color", "rgb(22, 163, 74)");
+		await expect(el).toHaveCSS("border-color", "rgb(22, 163, 74)");
+		await expect(el).toHaveCSS("padding", "12px");
+	});
+});
+
 test.describe("prerender @build", () => {
 	test("prerendered RSC data is served for staticPage", async () => {
 		const response = await fetch(baseURL + "/static/one.rsc?__rsc=");

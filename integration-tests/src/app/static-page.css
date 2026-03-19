@@ -1,0 +1,6 @@
+/* e2e test: verifies prerendered page CSS is loaded */
+[data-testid="static-page"] {
+    color: rgb(22, 163, 74);
+    border: 2px solid rgb(22, 163, 74);
+    padding: 12px;
+}
