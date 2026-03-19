@@ -85,8 +85,11 @@ async function fetchFlightResponse(args: {
     return never()
   }
 
-  if (args.kind === 'navigation') {
-    if (response.status === 404 || !isFlightResponse(response)) {
+  if (!isFlightResponse(response)) {
+    // Non-flight responses can't be deserialized — hard navigate for navigations,
+    // throw for actions. Flight responses (even with 404/500 status) are kept so
+    // the error flows through React error boundaries without a full page reload.
+    if (args.kind === 'navigation') {
       hardNavigate(
         getDocumentLocationFromResponse({
           response,
@@ -95,7 +98,9 @@ async function fetchFlightResponse(args: {
       )
       return never()
     }
-  } else if (!isFlightResponse(response)) {
+  }
+
+  if (args.kind === 'action' && !isFlightResponse(response)) {
     throw new Error(
       `Expected action response to be text/x-component but got ${response.status}`,
     )

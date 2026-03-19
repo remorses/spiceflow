@@ -11,6 +11,7 @@ import { ProgressBar } from './progress.js'
 export function LayoutContent(props: { id?: string }) {
   const data = useFlightData()
   if (!data) return null
+  let isPage = false
   const elem = (() => {
     if (!props.id) {
       return data?.layouts[0]?.element ?? data.page
@@ -23,8 +24,22 @@ export function LayoutContent(props: { id?: string }) {
       return nextLayout
     }
 
+    isPage = true
     return data.page
   })()
+  // Wrap the innermost page content in error boundaries so that 404/error
+  // responses render inside the layout shell instead of replacing it entirely.
+  // The outer NotFoundBoundary/ErrorBoundary in BrowserRoot still catches
+  // errors that escape (e.g. layout-level throws during SSR).
+  if (isPage) {
+    return (
+      <ErrorBoundary errorComponent={InlineErrorPage}>
+        <NotFoundBoundary component={InlineNotFoundPage}>
+          {elem}
+        </NotFoundBoundary>
+      </ErrorBoundary>
+    )
+  }
   // Render global CSS from the app entry alongside the root element.
   // rscCssTransform auto-wraps exported component functions, but the app entry
   // exports a Spiceflow instance, so its CSS needs this manual injection.
@@ -114,14 +129,14 @@ class ErrorBoundary_ extends React.Component<Props, State> {
 }
 
 function ErrorAutoReset(props: Pick<ErrorPageProps, 'reset'>) {
-  // TODO
-  // const href = useRouter((s) => s.location.href);
-  // const initialHref = React.useRef(href).current;
-  // React.useEffect(() => {
-  //   if (href !== initialHref) {
-  //     props.reset();
-  //   }
-  // }, [href]);
+  const initialHref = React.useRef(window.location.href).current
+  React.useEffect(() => {
+    return router.subscribe(() => {
+      if (window.location.href !== initialHref) {
+        props.reset()
+      }
+    })
+  }, [props.reset, initialHref])
   return null
 }
 
@@ -179,6 +194,73 @@ export function Link(props: React.ComponentPropsWithRef<'a'>) {
         router.push(e.currentTarget.href)
       }}
     />
+  )
+}
+
+// Inline error component used inside the layout. Unlike DefaultGlobalErrorPage it does
+// NOT render <html>/<body>, so the surrounding layout shell stays alive during
+// client-side navigation to a page that throws.
+function InlineErrorPage(props: ErrorPageProps) {
+  const message = props.serverError
+    ? 'Unknown Server Error (see server logs for the details)'
+    : 'Application Error (see browser console for the details)'
+  return (
+    <div
+      style={{
+        fontFamily:
+          'system-ui,"Segoe UI",Roboto,Helvetica,Arial,sans-serif,"Apple Color Emoji","Segoe UI Emoji"',
+        display: 'flex',
+        flexDirection: 'column',
+        placeContent: 'center',
+        placeItems: 'center',
+        padding: '4rem 0',
+        fontSize: '14px',
+        fontWeight: 400,
+        lineHeight: '28px',
+      }}
+    >
+      <h2>{message}</h2>
+    </div>
+  )
+}
+
+// Inline 404 component used inside the layout. Unlike DefaultNotFoundPage it does NOT
+// render <html>/<body>, so the surrounding layout shell stays alive during client-side
+// navigation to a 404 page.
+function InlineNotFoundPage() {
+  return (
+    <div
+      style={{
+        fontFamily:
+          'system-ui,"Segoe UI",Roboto,Helvetica,Arial,sans-serif,"Apple Color Emoji","Segoe UI Emoji"',
+        display: 'flex',
+        placeContent: 'center',
+        placeItems: 'center',
+        padding: '4rem 0',
+      }}
+    >
+      <div style={{ display: 'flex', lineHeight: '50px' }}>
+        <h1
+          style={{
+            margin: '0 20px 0 0',
+            padding: '0 23px 0 0',
+            fontSize: 24,
+            fontWeight: 500,
+            borderRight: '1px solid rgba(0, 0, 0, .3)',
+          }}
+        >
+          404
+        </h1>
+        <h2
+          style={{
+            fontSize: 14,
+            fontWeight: 400,
+          }}
+        >
+          This page could not be found.
+        </h2>
+      </div>
+    </div>
   )
 }
 

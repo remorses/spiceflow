@@ -643,6 +643,96 @@ test.describe("slow throw response (>50ms) still works via client-side fallback"
 	});
 });
 
+test.describe("soft 404 during client-side navigation (no hard reload)", () => {
+	test("layout state is preserved when navigating to a 404 page", async ({ page }) => {
+		await page.goto("/");
+		await page.getByText("[hydrated: 1]").click();
+
+		// Create layout state we can track
+		const layoutCounter = page.getByTestId("client-counter").filter({ hasText: "Layout counter" });
+		await layoutCounter.getByRole("button", { name: "+" }).click();
+		await expect(layoutCounter.getByText("Layout counter: 1")).toBeVisible();
+
+		// Set a sentinel to detect full page reloads
+		await page.evaluate(() => { (window as any).__softNavSentinel = true });
+
+		// Navigate to a route that throws notFound() — should be a soft navigation
+		await page.getByTestId("link-throw-notfound-page").click();
+		await expect(page.getByText("404")).toBeVisible();
+		await expect(page.getByText("This page could not be found.")).toBeVisible();
+
+		// Layout state should be preserved (no hard reload happened)
+		await expect(layoutCounter.getByText("Layout counter: 1")).toBeVisible();
+
+		// Sentinel should still be present — proves no full page reload
+		const sentinel = await page.evaluate(() => (window as any).__softNavSentinel);
+		expect(sentinel).toBe(true);
+	});
+
+	test("can navigate away from 404 page back to a working page", async ({ page }) => {
+		await page.goto("/");
+		await page.getByText("[hydrated: 1]").click();
+
+		// Navigate to 404 page
+		await page.getByTestId("link-throw-notfound-page").click();
+		await expect(page.getByText("404")).toBeVisible();
+
+		// Navigate back to home — should work without a hard reload
+		await page.getByRole("link", { name: "Home" }).click();
+		await expect(page).toHaveURL("/");
+		await expect(page.getByText("Server counter:")).toBeVisible();
+	});
+});
+
+test.describe("soft server error during client-side navigation", () => {
+	test("layout state is preserved when navigating to a page with server error @build", async ({ page }) => {
+		await page.goto("/");
+		await page.getByText("[hydrated: 1]").click();
+
+		// Create layout state we can track
+		const layoutCounter = page.getByTestId("client-counter").filter({ hasText: "Layout counter" });
+		await layoutCounter.getByRole("button", { name: "+" }).click();
+		await expect(layoutCounter.getByText("Layout counter: 1")).toBeVisible();
+
+		// Set a sentinel to detect full page reloads
+		await page.evaluate(() => { (window as any).__softNavSentinel = true });
+
+		// Navigate to a page that throws a server error
+		await page.getByTestId("link-rsc-error").click();
+
+		// Should show an error state in the error boundary, not a hard reload.
+		// The error from the flight stream doesn't carry __REACT_SERVER_ERROR__ digest,
+		// so the inner error boundary renders the inline error page.
+		await expect(page.getByText("Application Error")).toBeVisible({ timeout: 5000 });
+
+		// Layout state should be preserved
+		await expect(layoutCounter.getByText("Layout counter: 1")).toBeVisible();
+
+		// Sentinel should still be present
+		const sentinel = await page.evaluate(() => (window as any).__softNavSentinel);
+		expect(sentinel).toBe(true);
+	});
+});
+
+test.describe("error boundary auto-reset on navigation", () => {
+	test("error boundary clears when navigating to a new page @build", async ({ page }) => {
+		await page.goto("/");
+		await page.getByText("[hydrated: 1]").click();
+
+		// Navigate to a page with a server error to trigger the error boundary
+		await page.getByTestId("link-rsc-error").click();
+		await expect(page.getByText("Application Error")).toBeVisible({ timeout: 5000 });
+
+		// Navigate back to home — error boundary should auto-reset
+		await page.getByRole("link", { name: "Home" }).click();
+		await expect(page).toHaveURL("/");
+
+		// The error should be gone and normal content should appear
+		await expect(page.getByText("Application Error")).not.toBeVisible();
+		await expect(page.getByText("Server counter:")).toBeVisible();
+	});
+});
+
 test.describe("deployment id @build", () => {
 	const docHeaders = { "sec-fetch-dest": "document" };
 

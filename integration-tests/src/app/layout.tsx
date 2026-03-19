@@ -53,6 +53,9 @@ export function Layout(props: React.PropsWithChildren) {
 				<li>
 					<Link href="/slow-notfound" data-testid="link-slow-notfound">slow notfound</Link>
 				</li>
+				<li>
+					<Link href="/rsc-error" data-testid="link-rsc-error">rsc error</Link>
+				</li>
 				</ul>
 				{props.children}
 			</body>
