@@ -8,9 +8,9 @@
     "dev": "DEBUG_SPICEFLOW=1 vite",
     "build": "DEBUG_SPICEFLOW=1 vite build --app",
     "start": "DEBUG_SPICEFLOW=1 node dist/rsc/index.js",
-    "test-e2e": "DEBUG_SPICEFLOW=1 E2E_PORT=6174 playwright test",
+    "test-e2e": "DEBUG_SPICEFLOW=1 playwright test",
     "pretest-e2e-start": "rm -rf dist *.tsbuildinfo && pnpm build",
-    "test-e2e-start": "DEBUG_SPICEFLOW=1 E2E_START=1 E2E_PORT=6175 playwright test"
+    "test-e2e-start": "DEBUG_SPICEFLOW=1 E2E_START=1 playwright test"
   },
   "keywords": [],
   "author": "remorses <beats.by.morse@gmail.com>",

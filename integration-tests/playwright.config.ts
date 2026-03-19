@@ -1,6 +1,19 @@
 import { defineConfig, devices } from "@playwright/test";
+import { createServer, type AddressInfo } from "node:net";
 
-const port = Number(process.env.E2E_PORT || 6174);
+function getFreePort(): Promise<number> {
+	return new Promise((resolve) => {
+		const server = createServer();
+		server.listen(0, () => {
+			const port = (server.address() as AddressInfo).port;
+			server.close(() => resolve(port));
+		});
+	});
+}
+
+const port = Number(process.env.E2E_PORT) || (await getFreePort());
+process.env.E2E_PORT = String(port);
+
 const isStart = Boolean(process.env.E2E_START);
 const command = isStart
 	? `PORT=${port} pnpm start`
@@ -9,6 +22,7 @@ const command = isStart
 export default defineConfig({
 	testDir: "e2e",
 	use: {
+		baseURL: `http://localhost:${port}`,
 		actionTimeout: 5000,
 		navigationTimeout: 5000,
 		trace: "on-first-retry",
