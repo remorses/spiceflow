@@ -1,40 +1,65 @@
 import { describe, test, expect } from 'vitest'
-import { ChildProcess, spawn } from 'node:child_process'
-import { resolve as resolvePath } from 'node:path'
+import { ChildProcess, spawn, execFileSync } from 'node:child_process'
 import { kill } from 'node:process'
 import psTree from 'ps-tree'
 import { getAvailablePort } from './get-available-port.ts'
+
+function whichSync(cmd: string): string | undefined {
+  try {
+    return execFileSync('which', [cmd], { encoding: 'utf-8' }).trim()
+  } catch {
+    return undefined
+  }
+}
+
+const bunPath = whichSync('bun')
+
+const listenScript = `
+import { Spiceflow } from 'spiceflow'
+const port = process.env.SPICEFLOW_PORT
+if (!port) throw new Error('SPICEFLOW_PORT environment variable is not set')
+const app = new Spiceflow().get('/hello', () => 'Hello, World!')
+app.listen(Number(port))
+`.trim()
+
+const listenForNodeScript = `
+import { Spiceflow } from 'spiceflow'
+const port = process.env.SPICEFLOW_PORT
+if (!port) throw new Error('SPICEFLOW_PORT environment variable is not set')
+const app = new Spiceflow().get('/hello', () => 'Hello, World!')
+app.listenForNode(Number(port))
+`.trim()
 
 describe('smoke test with node', () => {
   test('running app.listen()', async () => {
     await smokeTestServer({
       command: process.execPath,
-      args: ['./smoke-app-listen.js'],
+      args: ['--input-type=module', '-e', listenScript],
       port: await getAvailablePort(0),
     })
   })
   test('running app.listenForNode()', async () => {
     await smokeTestServer({
       command: process.execPath,
-      args: ['./smoke-app-listen-for-node.js'],
+      args: ['--input-type=module', '-e', listenForNodeScript],
       port: await getAvailablePort(0),
     })
   })
 })
 
-describe('smoke test with bun', () => {
+describe.skipIf(!bunPath)('smoke test with bun', () => {
   test('running app.listen()', async () => {
     await smokeTestServer({
-      command: 'bun',
-      args: ['./smoke-app-listen.js'],
+      command: bunPath!,
+      args: ['-e', listenScript],
       port: await getAvailablePort(0),
     })
   })
 
   test('running app.listenForNode()', async () => {
     await smokeTestServer({
-      command: 'bun',
-      args: ['./smoke-app-listen-for-node.js'],
+      command: bunPath!,
+      args: ['-e', listenForNodeScript],
       port: await getAvailablePort(0),
     })
   })
@@ -54,7 +79,6 @@ async function smokeTestServer(input: SmokeTestServerInput): Promise<void> {
     env: {
       SPICEFLOW_PORT: String(port),
     } as unknown as NodeJS.ProcessEnv,
-    cwd: import.meta.dirname,
   }) as ChildProcess
 
   const { resolve, reject, promise } = Promise.withResolvers<void>()
@@ -75,7 +99,7 @@ async function smokeTestServer(input: SmokeTestServerInput): Promise<void> {
     if (exitCode !== 0 && exitCode !== null) {
       reject(
         new Error(
-          `Process exited with code ${exitCode}; run '(cd ${import.meta.dirname}; SPICEFLOW_PORT=${port} ${command} ${args.join(' ')})' to investigate.`,
+          `Process exited with code ${exitCode}; command: SPICEFLOW_PORT=${port} ${command} ${args.join(' ')}`,
         ),
       )
     }
