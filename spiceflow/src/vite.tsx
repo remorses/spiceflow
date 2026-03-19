@@ -63,9 +63,6 @@ export function spiceflowPlugin({
             if (entry.startsWith('@vitejs/plugin-rsc')) {
               return `spiceflow > ${entry}`
             }
-            if (entry.startsWith('react-server-dom-webpack/')) {
-              return `spiceflow > ${entry}`
-            }
             return entry
           },
         )
@@ -178,7 +175,6 @@ export function spiceflowPlugin({
               'react/jsx-dev-runtime',
               'react-dom',
               'react-dom/client',
-              'spiceflow > react-server-dom-webpack/client.browser',
               'spiceflow > superjson',
               'spiceflow > history',
             ],
