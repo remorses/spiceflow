@@ -929,6 +929,150 @@ test('renderReact merges layout and page headers in route order', async () => {
   }
 })
 
+test('renderReact uses page response.status over layout response.status', async () => {
+  vi.doMock('#rsc-runtime', () => ({
+    renderToReadableStream() {
+      return new ReadableStream({
+        start(controller) {
+          controller.close()
+        },
+      })
+    },
+    createTemporaryReferenceSet: () => ({}),
+    decodeReply: async () => null,
+    decodeAction: async () => () => null,
+    decodeFormState: async () => undefined,
+    loadServerAction: async () => undefined,
+  }))
+
+  try {
+    vi.resetModules()
+    const { Spiceflow: FreshSpiceflow } = await import('./spiceflow.js')
+    const app = new FreshSpiceflow()
+    const response = await (app as any).renderReact({
+      request: new Request('http://localhost/status-precedence', {
+        method: 'GET',
+      }),
+      context: {
+        request: undefined,
+        state: {},
+        query: {},
+        params: {},
+        path: '/',
+        response: new Response(null),
+      },
+      reactRoutes: [
+        {
+          app,
+          params: {},
+          route: {
+            id: 'layout',
+            kind: 'layout',
+            handler: ({ children, response }: any) => {
+              response.status = 418
+              return children
+            },
+          },
+        },
+        {
+          app,
+          params: {},
+          route: {
+            id: 'page',
+            kind: 'page',
+            handler: ({ response }: any) => {
+              response.status = 202
+              return null
+            },
+          },
+        },
+      ],
+    })
+
+    expect(response.status).toBe(202)
+  } finally {
+    vi.doUnmock('#rsc-runtime')
+    vi.resetModules()
+  }
+})
+
+test('renderReact falls back to nearest layout response.status when page does not set status', async () => {
+  vi.doMock('#rsc-runtime', () => ({
+    renderToReadableStream() {
+      return new ReadableStream({
+        start(controller) {
+          controller.close()
+        },
+      })
+    },
+    createTemporaryReferenceSet: () => ({}),
+    decodeReply: async () => null,
+    decodeAction: async () => () => null,
+    decodeFormState: async () => undefined,
+    loadServerAction: async () => undefined,
+  }))
+
+  try {
+    vi.resetModules()
+    const { Spiceflow: FreshSpiceflow } = await import('./spiceflow.js')
+    const app = new FreshSpiceflow()
+    const response = await (app as any).renderReact({
+      request: new Request('http://localhost/layout-status', {
+        method: 'GET',
+      }),
+      context: {
+        request: undefined,
+        state: {},
+        query: {},
+        params: {},
+        path: '/',
+        response: new Response(null),
+      },
+      reactRoutes: [
+        {
+          app,
+          params: {},
+          route: {
+            id: 'outer-layout',
+            kind: 'layout',
+            handler: ({ children, response }: any) => {
+              response.status = 451
+              return children
+            },
+          },
+        },
+        {
+          app,
+          params: {},
+          route: {
+            id: 'inner-layout',
+            kind: 'layout',
+            handler: ({ children, response }: any) => {
+              response.status = 429
+              return children
+            },
+          },
+        },
+        {
+          app,
+          params: {},
+          route: {
+            id: 'page',
+            kind: 'page',
+            handler: () => null,
+          },
+        },
+      ],
+    })
+
+    // Nearest layout wins (last matched layout in render order)
+    expect(response.status).toBe(429)
+  } finally {
+    vi.doUnmock('#rsc-runtime')
+    vi.resetModules()
+  }
+})
+
 test('renderReact starts layouts and page concurrently', async () => {
   const createDeferred = () => {
     let resolve!: () => void
@@ -1043,6 +1187,30 @@ test('api routes can set response headers through context.response', async () =>
     getSetCookie?: () => string[]
   }).getSetCookie
   expect(getSetCookie?.call(response.headers)).toEqual(['api-cookie=1; Path=/'])
+})
+
+test('api routes can set response status through context.response', async () => {
+  const app = new Spiceflow().get('/status', ({ response }) => {
+    response.status = 201
+    return { ok: true }
+  })
+
+  const response = await app.handle(new Request('http://localhost/status'))
+
+  expect(response.status).toBe(201)
+  expect(await response.json()).toEqual({ ok: true })
+})
+
+test('returned Response status takes precedence over context.response.status in api routes', async () => {
+  const app = new Spiceflow().get('/response-wins', ({ response }) => {
+    response.status = 418
+    return new Response('accepted', { status: 202 })
+  })
+
+  const response = await app.handle(new Request('http://localhost/response-wins'))
+
+  expect(response.status).toBe(202)
+  expect(await response.text()).toBe('accepted')
 })
 
 test('missing route is not found', async () => {
