@@ -2987,7 +2987,7 @@ test('.page() without Vite plugin throws a clear error', async () => {
   )
   expect(res.status).toBe(500)
   const text = await res.text()
-  expect(text).toMatchInlineSnapshot(`"{"message":"[spiceflow] RSC runtime is only available in the react-server environment. This error means renderReact was called outside of a Vite RSC build."}"`)
+  expect(text).toMatchInlineSnapshot(`"{"message":"[spiceflow] RSC runtime is only available in the react-server environment. This error means renderReact was called outside of a Vite RSC build. Spiceflow .page and .layout methods require using the Vite plugin. See example application: https://github.com/remorses/spiceflow/blob/main/nodejs-example/vite.config.ts"}"`)
 })
 
 test('.layout() without Vite plugin throws a clear error', async () => {
@@ -3002,5 +3002,5 @@ test('.layout() without Vite plugin throws a clear error', async () => {
   )
   expect(res.status).toBe(500)
   const text = await res.text()
-  expect(text).toMatchInlineSnapshot(`"{"message":"[spiceflow] RSC runtime is only available in the react-server environment. This error means renderReact was called outside of a Vite RSC build."}"`)
+  expect(text).toMatchInlineSnapshot(`"{"message":"[spiceflow] RSC runtime is only available in the react-server environment. This error means renderReact was called outside of a Vite RSC build. Spiceflow .page and .layout methods require using the Vite plugin. See example application: https://github.com/remorses/spiceflow/blob/main/nodejs-example/vite.config.ts"}"`)
 })
