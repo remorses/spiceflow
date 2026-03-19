@@ -128,13 +128,15 @@ function ErrorAutoReset(props: Pick<ErrorPageProps, 'reset'>) {
 // https://github.com/vercel/next.js/blob/677c9b372faef680d17e9ba224743f44e1107661/packages/next/src/build/webpack/loaders/next-app-loader.ts#L73
 // https://github.com/vercel/next.js/blob/677c9b372faef680d17e9ba224743f44e1107661/packages/next/src/client/components/error-boundary.tsx#L145
 export function DefaultGlobalErrorPage(props: ErrorPageProps) {
-  const message = props.serverError
-    ? `Unknown Server Error (see server logs for the details)`
-    : `Unknown Client Error (see browser console for the details)`
+  // React strips error.message in production but preserves error.digest,
+  // which contains the original message from the server's onError callback.
+  const digest = (props.error as any)?.digest as string | undefined
+  const detail = digest || props.error?.message
+  const heading = props.serverError ? 'Server Error' : 'Application Error'
   return (
     <html>
       <meta name="robots" content="noindex" />
-      <title>{message}</title>
+      <title>{heading}</title>
       <body
         style={{
           fontFamily:
@@ -149,7 +151,8 @@ export function DefaultGlobalErrorPage(props: ErrorPageProps) {
           lineHeight: '28px',
         }}
       >
-        <h2>{message}</h2>
+        <h2>{heading}</h2>
+        {detail && <p style={{ color: '#666', margin: 0 }}>{detail}</p>}
       </body>
     </html>
   )
