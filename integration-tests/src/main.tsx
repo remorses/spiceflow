@@ -361,18 +361,18 @@ export const app = new Spiceflow()
 	.page("/meta", async ({ request }) => {
 		return (
 			<div className="">
-				<Head>
-					<meta name="test" content="value" />
-					<meta name="test" content="value" />
-					<meta property="og:title" content="Spiceflow Example" />
-					<meta
-						property="og:description"
-						content="An example application built with Spiceflow"
-					/>
-					<meta property="og:type" content="website" />
-					<meta property="og:image" content="/og-image.jpg" />
-					<meta property="og:url" content="https://example.com" />
-				</Head>
+			<Head>
+				<Head.Meta name="test" content="value" />
+				<Head.Meta name="test" content="value" />
+				<Head.Meta property="og:title" content="Spiceflow Example" />
+				<Head.Meta
+					property="og:description"
+					content="An example application built with Spiceflow"
+				/>
+				<Head.Meta property="og:type" content="website" />
+				<Head.Meta property="og:image" content="/og-image.jpg" />
+				<Head.Meta property="og:url" content="https://example.com" />
+			</Head>
 			</div>
 		);
 	})

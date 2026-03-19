@@ -13,10 +13,10 @@ describe('Head', () => {
       <MetaProvider metaState={metaState}>
         <Head>
           <>
-            <title>Nested title</title>
-            <meta name="description" content="Nested description" />
+            <Head.Title>Nested title</Head.Title>
+            <Head.Meta name="description" content="Nested description" />
             <div>
-              <meta property="og:image" content="/nested-image.png" />
+              <Head.Meta property="og:image" content="/nested-image.png" />
             </div>
           </>
         </Head>

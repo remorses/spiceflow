@@ -1795,7 +1795,7 @@ All routes registered with `.page()`, `.get()`, etc. are available in `app.safeP
 ```tsx
 // src/main.tsx
 import { Spiceflow, serveStatic } from 'spiceflow'
-import { Link } from 'spiceflow/react'
+import { Head, Link } from 'spiceflow/react'
 import { z } from 'zod'
 import { Counter } from './app/counter'
 import { Nav } from './app/nav'
@@ -1806,9 +1806,9 @@ export const app = new Spiceflow()
   .layout('/*', async ({ children }) => {
     return (
       <html>
-        <head>
-          <meta charSet="UTF-8" />
-        </head>
+        <Head>
+          <Head.Meta charSet="UTF-8" />
+        </Head>
         <body>
           <Nav />
           {children}

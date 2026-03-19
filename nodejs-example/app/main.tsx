@@ -1,7 +1,7 @@
 import './globals.css'
 import { Spiceflow } from 'spiceflow'
 import { Suspense } from 'react'
-import { Link, ProgressBar, redirect } from 'spiceflow/react'
+import { Head, Link, ProgressBar, redirect } from 'spiceflow/react'
 
 import { sql } from './db'
 import { serveStatic } from 'spiceflow'
@@ -123,21 +123,23 @@ function Pokemon({ id, name }) {
 function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <title>How is this not illegal?</title>
-      <meta
-        name="description"
-        content="Querying Postgres directly from your components"
-      />
-      <meta property="og:title" content="How is this not illegal?" />
-      <meta
-        property="og:description"
-        content="Querying Postgres directly from your components"
-      />
-      <meta property="og:url" content="/test" />
-      <meta property="og:site_name" content="How is this not illegal?" />
-      <meta name="twitter:card" content="summary_large_image" />
-      <meta name="twitter:site" content="@rauchg" />
-      <meta name="twitter:creator" content="@rauchg" />
+      <Head>
+        <Head.Title>How is this not illegal?</Head.Title>
+        <Head.Meta
+          name="description"
+          content="Querying Postgres directly from your components"
+        />
+        <Head.Meta property="og:title" content="How is this not illegal?" />
+        <Head.Meta
+          property="og:description"
+          content="Querying Postgres directly from your components"
+        />
+        <Head.Meta property="og:url" content="/test" />
+        <Head.Meta property="og:site_name" content="How is this not illegal?" />
+        <Head.Meta name="twitter:card" content="summary_large_image" />
+        <Head.Meta name="twitter:site" content="@rauchg" />
+        <Head.Meta name="twitter:creator" content="@rauchg" />
+      </Head>
 
       <body>
         <ProgressBar />

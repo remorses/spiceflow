@@ -26,7 +26,15 @@ Spiceflow is a type-safe API framework and full-stack React RSC framework focuse
 ## Installation
 
 ```bash
-npm install spiceflow zod
+npm install spiceflow
+```
+
+## AI Agents
+
+To let your AI coding agent know how to use spiceflow, run:
+
+```bash
+npx -y skills add remorses/spiceflow
 ```
 
 ## Basic Usage
@@ -1795,7 +1803,7 @@ All routes registered with `.page()`, `.get()`, etc. are available in `app.safeP
 ```tsx
 // src/main.tsx
 import { Spiceflow, serveStatic } from 'spiceflow'
-import { Link } from 'spiceflow/react'
+import { Head, Link } from 'spiceflow/react'
 import { z } from 'zod'
 import { Counter } from './app/counter'
 import { Nav } from './app/nav'
@@ -1806,9 +1814,9 @@ export const app = new Spiceflow()
   .layout('/*', async ({ children }) => {
     return (
       <html>
-        <head>
-          <meta charSet="UTF-8" />
-        </head>
+        <Head>
+          <Head.Meta charSet="UTF-8" />
+        </Head>
         <body>
           <Nav />
           {children}
