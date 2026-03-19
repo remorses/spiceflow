@@ -11,6 +11,7 @@ import { LayoutContent } from './components.js'
 import { FlightDataContext } from './context.js'
 import { getErrorContext, isNotFoundError, isRedirectError, contextHeaders, contextToHeaders, type ReactServerErrorContext } from './errors.js'
 import { formatServerError } from './format-server-error.js'
+import { sanitizeErrorMessage } from './sanitize-error.js'
 import { MetaProvider } from './head.js'
 import { MetaState } from './metastate.js'
 import { injectRSCPayload } from './transform.js'
@@ -143,9 +144,9 @@ export async function renderHtml({
           formatServerError(e)
           console.error('[entry.ssr.tsx:renderToReadableStream]', e)
         }
-        if (e && typeof e === 'object' && 'digest' in e && typeof e.digest === 'string') return e.digest
-        if (e instanceof Error) return e.message
-        return String(e)
+        if (e && typeof e === 'object' && 'digest' in e && typeof e.digest === 'string') return sanitizeErrorMessage(e.digest)
+        if (e instanceof Error) return sanitizeErrorMessage(e.message)
+        return sanitizeErrorMessage(String(e))
       },
     }
 

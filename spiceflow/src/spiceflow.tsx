@@ -49,6 +49,7 @@ import {
   contextToHeaders,
 } from './react/errors.js'
 import { formatServerError } from './react/format-server-error.js'
+import { sanitizeErrorMessage } from './react/sanitize-error.js'
 import {
   createDeploymentCookie,
   deploymentMismatchStatus,
@@ -1391,7 +1392,7 @@ export class Spiceflow<
             }
             formatServerError(error)
             console.error('[spiceflow:renderToReadableStream]', error)
-            return error?.digest || error?.message
+            return sanitizeErrorMessage(error?.digest || error?.message)
           },
           signal: request.signal,
         },
