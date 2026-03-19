@@ -7,7 +7,7 @@
     "start": "next start -p 3323"
   },
   "dependencies": {
-    "next": "^15",
+    "next": "^16",
     "react": "^19",
     "react-dom": "^19"
   }
