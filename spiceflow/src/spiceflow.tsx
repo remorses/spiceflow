@@ -60,7 +60,7 @@ import {
   isRscRequest,
   readDeploymentCookie,
 } from './react/deployment.js'
-import { getRuntimeDeploymentId } from './react/deployment-id.js'
+import { getDeploymentId } from './react/deployment-id.js'
 import { TrieRouter } from './trie-router/router.js'
 import { decodeURIComponent_ } from './trie-router/url.js'
 import { Result } from './trie-router/utils.js'
@@ -1445,7 +1445,7 @@ export class Spiceflow<
     const shouldUseDeploymentId =
       isDocumentRequest(request) || isRscRequest(u)
     const deploymentId = shouldUseDeploymentId
-      ? await getRuntimeDeploymentId()
+      ? await getDeploymentId()
       : undefined
 
     // Strip .rsc suffix before route matching — the client appends it for RSC data fetches,

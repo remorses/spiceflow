@@ -1,21 +1,21 @@
 // Deployment id loader. Returns the build timestamp set by the Vite plugin.
-// Falls back to undefined in dev or when the virtual module is unavailable.
+// Falls back to '' in dev or when the virtual module is unavailable.
 
-let deploymentIdPromise: Promise<string | undefined> | undefined
+let deploymentIdPromise: Promise<string> | undefined
 
-export async function getRuntimeDeploymentId() {
+export async function getDeploymentId(): Promise<string> {
   if (!deploymentIdPromise) {
     deploymentIdPromise = loadRuntimeDeploymentId()
   }
   return deploymentIdPromise
 }
 
-async function loadRuntimeDeploymentId() {
-  if (!import.meta.env.PROD) return undefined
+async function loadRuntimeDeploymentId(): Promise<string> {
+  if (!import.meta.env.PROD) return ''
   try {
     const { default: id } = await import('virtual:spiceflow-deployment-id')
-    return id ?? undefined
+    return id ?? ''
   } catch {
-    return undefined
+    return ''
   }
 }

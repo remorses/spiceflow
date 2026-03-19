@@ -1045,7 +1045,7 @@ test('missing route is not found', async () => {
 test('document requests set a deployment cookie when a deployment id is available', async () => {
   vi.resetModules()
   vi.doMock('./react/deployment-id.js', () => ({
-    getRuntimeDeploymentId: async () => 'deploy-123',
+    getDeploymentId: async () => 'deploy-123',
   }))
 
   try {
@@ -1070,7 +1070,7 @@ test('document requests set a deployment cookie when a deployment id is availabl
 test('rsc deployment mismatch returns a same-origin relative reload path', async () => {
   vi.resetModules()
   vi.doMock('./react/deployment-id.js', () => ({
-    getRuntimeDeploymentId: async () => 'deploy-123',
+    getDeploymentId: async () => 'deploy-123',
   }))
 
   try {
