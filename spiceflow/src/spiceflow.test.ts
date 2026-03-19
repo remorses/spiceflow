@@ -790,6 +790,7 @@ test('renderReact passes layout params to layouts instead of page params', async
 })
 
 test('renderReact merges page response headers into the flight response', async () => {
+  vi.resetModules()
   vi.doMock('#rsc-runtime', () => ({
     renderToReadableStream() {
       return new ReadableStream({
@@ -806,7 +807,6 @@ test('renderReact merges page response headers into the flight response', async 
   }))
 
   try {
-    vi.resetModules()
     const { Spiceflow: FreshSpiceflow } = await import('./spiceflow.js')
     const app = new FreshSpiceflow()
     const response = await (app as any).renderReact({
@@ -854,6 +854,7 @@ test('renderReact merges page response headers into the flight response', async 
 })
 
 test('renderReact merges layout and page headers in route order', async () => {
+  vi.resetModules()
   vi.doMock('#rsc-runtime', () => ({
     renderToReadableStream() {
       return new ReadableStream({
@@ -870,7 +871,6 @@ test('renderReact merges layout and page headers in route order', async () => {
   }))
 
   try {
-    vi.resetModules()
     const { Spiceflow: FreshSpiceflow } = await import('./spiceflow.js')
     const app = new FreshSpiceflow()
     const response = await (app as any).renderReact({
@@ -930,6 +930,7 @@ test('renderReact merges layout and page headers in route order', async () => {
 })
 
 test('renderReact uses page response.status over layout response.status', async () => {
+  vi.resetModules()
   vi.doMock('#rsc-runtime', () => ({
     renderToReadableStream() {
       return new ReadableStream({
@@ -946,7 +947,6 @@ test('renderReact uses page response.status over layout response.status', async 
   }))
 
   try {
-    vi.resetModules()
     const { Spiceflow: FreshSpiceflow } = await import('./spiceflow.js')
     const app = new FreshSpiceflow()
     const response = await (app as any).renderReact({
@@ -997,6 +997,7 @@ test('renderReact uses page response.status over layout response.status', async 
 })
 
 test('renderReact falls back to nearest layout response.status when page does not set status', async () => {
+  vi.resetModules()
   vi.doMock('#rsc-runtime', () => ({
     renderToReadableStream() {
       return new ReadableStream({
@@ -1013,7 +1014,6 @@ test('renderReact falls back to nearest layout response.status when page does no
   }))
 
   try {
-    vi.resetModules()
     const { Spiceflow: FreshSpiceflow } = await import('./spiceflow.js')
     const app = new FreshSpiceflow()
     const response = await (app as any).renderReact({
