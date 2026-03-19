@@ -64,8 +64,10 @@ The Vite SSR middleware imports from `spiceflow/dist/` (the compiled package), N
 
 ```bash
 cd spiceflow
-pnpm tsc --noCheck   # --noCheck skips pre-existing type errors
+pnpm tsc
 ```
+
+NEVER use --noCheck or --noEmit
 
 This is the most common reason e2e tests fail after code changes — stale dist files.
 
