@@ -31,61 +31,52 @@ npm install spiceflow zod
 
 ## Basic Usage
 
-Objects returned from route handlers are automatically serialized to JSON
+API routes return JSON automatically. React pages use `.page()` and `.layout()` for server-rendered UI with client interactivity:
 
-> Notice that Spiceflow also has legacy methods for `.port`, `.get` etc. that use a different API with positional arguments. Using `.route` is preferred
-
-```ts
+```tsx
 import { Spiceflow } from 'spiceflow'
+import { Counter } from './counter'
 
 const app = new Spiceflow()
-  .route({
-    method: 'POST',
-    path: '/hello',
-    handler() {
-      return 'Hello, World!'
-    },
+  .get('/api/hello', () => {
+    return { message: 'Hello, World!' }
   })
-  .route({
-    method: 'POST',
-    path: '/echo',
-    async handler({ request }) {
-      const body = await request.json()
-      return { echo: body }
-    },
+  .layout('/*', async ({ children }) => {
+    return (
+      <html>
+        <body>{children}</body>
+      </html>
+    )
+  })
+  .page('/', async () => {
+    return (
+      <div>
+        <h1>Home</h1>
+        <Counter />
+      </div>
+    )
+  })
+  .page('/about', async () => {
+    return <h1>About</h1>
   })
 
 app.listen(3000)
 ```
 
-> Never declare app and add routes separately, that way you lose the type safety. Instead always append routes with .route in a single expression.
+```tsx
+// counter.tsx
+'use client'
+import { useState } from 'react'
 
-```ts
-// This is an example of what NOT to do when using Spiceflow
-
-import { Spiceflow } from 'spiceflow'
-
-// DO NOT declare the app separately and add routes later
-const app = new Spiceflow()
-
-// Do NOT do this! Defining routes separately will lose type safety
-app.route({
-  method: 'GET',
-  path: '/hello',
-  handler() {
-    return 'Hello, World!'
-  },
-})
-// Do NOT do this! Adding routes separately like this will lose type safety
-app.route({
-  method: 'POST',
-  path: '/echo',
-  async handler({ request }) {
-    const body = await request.json()
-    return body
-  },
-})
+export function Counter() {
+  const [count, setCount] = useState(0)
+  return <button onClick={() => setCount(count + 1)}>Count: {count}</button>
+}
 ```
+
+> React pages require Vite and the spiceflow Vite plugin. See [nodejs-example/vite.config.ts](nodejs-example/vite.config.ts) for setup. API-only apps don't need Vite.
+
+> Use `.route()` instead of `.get()`/`.post()` when you want to pass Zod schemas for validation — it accepts `request`, `response`, `query`, and `params` schemas.
 
 ## Returning JSON
 
@@ -95,26 +86,18 @@ Spiceflow automatically serializes objects returned from handlers to JSON, so yo
 import { Spiceflow } from 'spiceflow'
 
 const app = new Spiceflow()
-  .route({
-    method: 'GET',
-    path: '/user',
-    handler() {
-      // Return object directly - no need for new Response()
-      return { id: 1, name: 'John', email: 'john@example.com' }
-    },
+  .get('/user', () => {
+    // Return object directly - no need for new Response()
+    return { id: 1, name: 'John', email: 'john@example.com' }
   })
-  .route({
-    method: 'POST',
-    path: '/data',
-    async handler({ request }) {
-      const body = await request.json()
-      // Objects are automatically serialized to JSON
-      return {
-        received: body,
-        timestamp: new Date().toISOString(),
-        processed: true,
-      }
-    },
+  .post('/data', async ({ request }) => {
+    const body = await request.json()
+    // Objects are automatically serialized to JSON
+    return {
+      received: body,
+      timestamp: new Date().toISOString(),
+      processed: true,
+    }
   })
 ```
 
@@ -464,6 +447,29 @@ const app = new Spiceflow()
 // GET /users returns { users: [] }
 // GET /users/123 returns { id: '123' }
 // GET /unknown returns 'Page not found' with 404 status
+```
+
+## Chaining Routes for Type Safety
+
+Never declare app and add routes separately — that way you lose the type safety. Instead always append routes in a single chained expression:
+
+```ts
+// This is an example of what NOT to do when using Spiceflow
+
+import { Spiceflow } from 'spiceflow'
+
+// DO NOT declare the app separately and add routes later
+const app = new Spiceflow()
+
+// Do NOT do this! Defining routes separately will lose type safety
+app.get('/hello', () => {
+  return 'Hello, World!'
+})
+// Do NOT do this! Adding routes separately like this will lose type safety
+app.post('/echo', async ({ request }) => {
+  const body = await request.json()
+  return body
+})
 ```
 
 ## Storing Spiceflow in Class Instances
