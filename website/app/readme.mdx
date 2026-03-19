@@ -984,7 +984,7 @@ const app = new Spiceflow()
 
     const url = new URL(request.url)
     const deploymentId = await getDeploymentId()
-    const cacheKey = `${deploymentId}:${url.pathname}${url.search}`
+    const cacheKey = `${deploymentId}:${url.pathname}${url.search}` // IMPORTANT. cache key must always include search to distinguish html and rsc responses
 
     const cached = await state.env.PAGE_CACHE.get(cacheKey)
     if (cached) {
