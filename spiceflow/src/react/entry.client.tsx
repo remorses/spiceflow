@@ -153,13 +153,17 @@ async function main() {
     }, [startTransition, setPayload_])
 
     React.useEffect(() => {
+      let navigationAbort = new AbortController()
       return router.subscribe(async function onNavigation() {
+        navigationAbort.abort()
+        navigationAbort = new AbortController()
         const url = new URL(window.location.href)
         url.pathname += '.rsc'
         url.searchParams.set('__rsc', '')
         const payload = createFromFetch<ServerPayload>(
-          fetchFlightResponse({ url, kind: 'navigation' }),
+          fetchFlightResponse({ url, kind: 'navigation', init: { signal: navigationAbort.signal } }),
         )
+        if (navigationAbort.signal.aborted) return
         setPayload(payload)
       })
     }, [])
