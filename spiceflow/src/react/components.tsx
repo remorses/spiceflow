@@ -7,6 +7,7 @@ import { ServerPayload } from '../spiceflow.js'
 import { isRedirectError, isNotFoundError, getErrorContext, contextHeaders } from './errors.js'
 import { useFlightData } from './context.js'
 import { ProgressBar } from './progress.js'
+import { prefetchRoute } from './prefetch.js'
 
 export function LayoutContent(props: { id?: string }) {
   const data = useFlightData()
@@ -170,10 +171,41 @@ export function DefaultGlobalErrorPage(props: ErrorPageProps) {
   )
 }
 
-export function Link(props: React.ComponentPropsWithRef<'a'>) {
+export function Link({
+  prefetch = true,
+  ...props
+}: React.ComponentPropsWithRef<'a'> & { prefetch?: boolean }) {
+  const hoverTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null)
+
   return (
     <a
       {...props}
+      onMouseEnter={(e) => {
+        props.onMouseEnter?.(e)
+        if (!prefetch) return
+        const href = e.currentTarget.href
+        if (!href) return
+        hoverTimer.current = setTimeout(() => prefetchRoute(href), 80)
+      }}
+      onMouseLeave={(e) => {
+        props.onMouseLeave?.(e)
+        if (hoverTimer.current) {
+          clearTimeout(hoverTimer.current)
+          hoverTimer.current = null
+        }
+      }}
+      onFocus={(e) => {
+        props.onFocus?.(e)
+        if (!prefetch) return
+        const href = e.currentTarget.href
+        if (href) prefetchRoute(href)
+      }}
+      onTouchStart={(e) => {
+        props.onTouchStart?.(e)
+        if (!prefetch) return
+        const href = e.currentTarget.href
+        if (href) prefetchRoute(href)
+      }}
       onClick={(e) => {
         if (
           e.metaKey ||
@@ -186,7 +218,6 @@ export function Link(props: React.ComponentPropsWithRef<'a'>) {
           return
         }
         e.preventDefault()
-
         props.onClick?.(e)
         router.push(e.currentTarget.href)
       }}
