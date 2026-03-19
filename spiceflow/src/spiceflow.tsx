@@ -171,6 +171,7 @@ export class Spiceflow<
   private onErrorHandlers: OnError[] = []
   private routes: InternalRoute[] = []
   private defaultState: Record<any, any> = {}
+
   topLevelApp?: AnySpiceflow = this
   private waitUntilFn: WaitUntil
   private disableSuperJsonUnlessRpc: boolean = false
@@ -1415,9 +1416,13 @@ export class Spiceflow<
     request: Request,
     { state: customState }: { state?: Singleton['state'] } = {},
   ): Promise<Response> => {
-    const u = new URL(request.url, 'http://localhost')
-    request =
-      request instanceof SpiceflowRequest ? request : new SpiceflowRequest(u, request)
+    // Reuse pre-parsed URL if the caller already created a SpiceflowRequest
+    const u = (request instanceof SpiceflowRequest && request.parsedUrl) || new URL(request.url, 'http://localhost')
+    if (!(request instanceof SpiceflowRequest)) {
+      const sfReq = new SpiceflowRequest(u, request)
+      sfReq.parsedUrl = u
+      request = sfReq
+    }
 
     const shouldUseDeploymentId =
       isDocumentRequest(request) || isRscRequest(u)
@@ -1460,10 +1465,12 @@ export class Spiceflow<
     // Mutable ref — set after route resolution, read by waitUntil on error
     let onErrorHandlers: OnError[] = []
     let contextResponse: Response | undefined
+    let _query: Record<string, any> | undefined
     const context: SpiceflowContext<any, any, any> = {
       redirect,
       state: customState || cloneDeep(this.defaultState),
-      query: parseQuery((u.search || '').slice(1)),
+      get query() { return _query ??= parseQuery((u.search || '').slice(1)) },
+      set query(v) { _query = v },
       request,
       path,
       params: {},
@@ -2277,8 +2284,28 @@ function bfsFind<T>(
 
 export class SpiceflowRequest<T = any> extends Request {
   validateBody?: ValidationFunction
+  /** Pre-parsed URL cached from construction to avoid re-parsing in handle() */
+  parsedUrl?: URL
+  /** Lazily created AbortController for disconnect detection */
+  private _disconnectController?: AbortController
+  /** Combined signal: original request signal + disconnect controller */
+  private _combinedSignal?: AbortSignal
+  /** Setup function to wire abort listeners when signal is first accessed.
+   *  Receives the AbortController so listeners can call .abort() on disconnect. */
+  _abortSetup?: (controller: AbortController) => void
   private textPromise?: Promise<string>
   private jsonPromise?: Promise<T>
+
+  get signal(): AbortSignal {
+    const base = super.signal
+    if (!this._abortSetup) return base
+    if (!this._combinedSignal) {
+      this._disconnectController = new AbortController()
+      this._abortSetup(this._disconnectController)
+      this._combinedSignal = AbortSignal.any([base, this._disconnectController.signal])
+    }
+    return this._combinedSignal
+  }
 
   async text(): Promise<string> {
     this.textPromise ??= super.text()
