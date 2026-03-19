@@ -5,7 +5,8 @@
 function unavailable(): never {
   throw new Error(
     '[spiceflow] RSC runtime is only available in the react-server environment. ' +
-    'This error means renderReact was called outside of a Vite RSC build.',
+      'This error means renderReact was called outside of a Vite RSC build. Spiceflow .page and .layout methods require using the Vite plugin. ' +
+      'See example application: https://github.com/remorses/spiceflow/blob/main/nodejs-example/vite.config.ts',
   )
 }
 
