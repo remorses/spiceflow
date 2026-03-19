@@ -209,6 +209,14 @@ markdown describing the changes you made, in present tense, like "add support fo
 
 If this check fails, it means a Vite-only dependency (like `@vitejs/plugin-rsc`) leaked into the main import path. RSC-only imports must go through the `#rsc-runtime` subpath import (defined in package.json `imports` field) which uses the `react-server` condition to resolve to the real implementation in Vite RSC environments and to an empty fallback everywhere else.
 
+**Never import `virtual:` modules directly in spiceflow source files** outside of `.rsc.ts` files. Vite virtual modules (like `virtual:spiceflow-deployment-id`) only exist inside Vite builds — importing them directly makes spiceflow impossible to build or bundle without Vite. Instead, use the package.json `imports` field with a `react-server` condition:
+
+1. Create a `.rsc.ts` file with the real implementation that imports the virtual module
+2. Create a default `.ts` fallback that returns a safe default (e.g. `''`)
+3. Add an entry to package.json `imports` mapping `react-server` → the `.rsc.js` file and `default` → the fallback
+
+Existing examples: `#rsc-runtime`, `#deployment-id`.
+
 ## vite-rsc
 
 the spiceflow vite plugin depends on vite-rsc plugin. you can read its source code with `opensrc vitejs/vite-plugin-react`. inside folder packages/plugin-rsc`. there are also examples there. inside examples folder
