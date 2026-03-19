@@ -102,7 +102,12 @@ function getResolvedFilePath<E extends Env>({
 
   if (!filename) {
     try {
-      filename = decodeURI(new URL(c.request.url).pathname)
+      const url = new URL(c.request.url)
+      filename = decodeURI(url.pathname)
+      // Serve prerendered .rsc Flight data files when the client requests RSC data
+      if (url.searchParams.has('__rsc') && !filename.endsWith('.rsc')) {
+        filename = filename + '.rsc'
+      }
     } catch {
       return
     }

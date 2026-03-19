@@ -158,7 +158,6 @@ async function main() {
         navigationAbort.abort()
         navigationAbort = new AbortController()
         const url = new URL(window.location.href)
-        url.pathname += '.rsc'
         url.searchParams.set('__rsc', '')
         const payload = createFromFetch<ServerPayload>(
           fetchFlightResponse({ url, kind: 'navigation', init: { signal: navigationAbort.signal } }),

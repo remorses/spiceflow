@@ -1254,7 +1254,7 @@ test('rsc deployment mismatch returns a same-origin relative reload path', async
   try {
     const { Spiceflow: FreshSpiceflow } = await import('./spiceflow.js')
     const res = await new FreshSpiceflow().get('/', () => 'ok').handle(
-      new Request('http://internal-proxy/app/page.rsc?__rsc=&q=1', {
+      new Request('http://internal-proxy/app/page?__rsc=&q=1', {
         headers: {
           cookie: 'spiceflow-deployment=deploy-old',
         },

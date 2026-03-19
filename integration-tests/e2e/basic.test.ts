@@ -762,12 +762,12 @@ test.describe("navigation abort controller", () => {
 		// Track RSC requests and their outcomes
 		const rscRequests: { url: string; aborted: boolean }[] = [];
 		page.on("requestfailed", (req) => {
-			if (req.url().includes(".rsc")) {
+			if (req.url().includes("__rsc")) {
 				rscRequests.push({ url: req.url(), aborted: req.failure()?.errorText === "net::ERR_ABORTED" });
 			}
 		});
 		page.on("requestfinished", (req) => {
-			if (req.url().includes(".rsc")) {
+			if (req.url().includes("__rsc")) {
 				rscRequests.push({ url: req.url(), aborted: false });
 			}
 		});
@@ -872,7 +872,7 @@ test.describe("prerender css", () => {
 
 test.describe("prerender @build", () => {
 	test("prerendered RSC data is served for staticPage", async () => {
-		const response = await fetch(baseURL + "/static/one.rsc?__rsc=");
+		const response = await fetch(baseURL + "/static/one?__rsc=");
 		expect(response.status).toBe(200);
 		const contentType = response.headers.get("content-type") ?? "";
 		expect(contentType).toContain("text/x-component");

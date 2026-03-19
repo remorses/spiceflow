@@ -38,9 +38,6 @@ export function createDeploymentCookie(args: {
 
 export function stripRscUrl(url: URL) {
   const next = new URL(url.href)
-  if (next.pathname.endsWith('.rsc')) {
-    next.pathname = next.pathname.slice(0, -4)
-  }
   next.searchParams.delete('__rsc')
   return next
 }
@@ -55,7 +52,7 @@ export function isDocumentRequest(request: Request) {
 }
 
 export function isRscRequest(url: URL) {
-  return url.pathname.endsWith('.rsc') || url.searchParams.has('__rsc')
+  return url.searchParams.has('__rsc')
 }
 
 export function getDocumentLocationFromResponse(args: {

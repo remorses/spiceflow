@@ -1448,13 +1448,7 @@ export class Spiceflow<
       ? await getDeploymentId()
       : undefined
 
-    // Strip .rsc suffix before route matching — the client appends it for RSC data fetches,
-    // but routes are registered without it. Without this, dynamic params like :id get corrupted
-    // (e.g. { 'id.rsc': '121.rsc' } instead of { id: '121' }).
     let path = u.pathname
-    if (path.endsWith('.rsc')) {
-      path = path.slice(0, -4)
-    }
 
     const root = this.topLevelApp || this
     const requestDeploymentId = deploymentId
