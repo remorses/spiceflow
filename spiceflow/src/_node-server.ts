@@ -55,7 +55,6 @@ export function nodeToWebRequest(req: IncomingMessage, res: ServerResponse): Spi
     // @ts-ignore for undici
     duplex: hasBody ? 'half' : undefined,
   })
-  request.parsedUrl = url
   // Defer AbortController creation until request.signal is first accessed.
   // Saves ~1% CPU on requests that never check the signal (API routes, static files).
   request._abortSetup = (controller) => {

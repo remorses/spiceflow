@@ -1419,16 +1419,13 @@ export class Spiceflow<
   }
 
   handle = async (
-    request: Request,
+    incomingRequest: Request,
     { state: customState }: { state?: Singleton['state'] } = {},
   ): Promise<Response> => {
-    // Reuse pre-parsed URL if the caller already created a SpiceflowRequest
-    const u = (request instanceof SpiceflowRequest && request.parsedUrl) || new URL(request.url, 'http://localhost')
-    if (!(request instanceof SpiceflowRequest)) {
-      const sfReq = new SpiceflowRequest(u, request)
-      sfReq.parsedUrl = u
-      request = sfReq
-    }
+    const request = incomingRequest instanceof SpiceflowRequest
+      ? incomingRequest
+      : new SpiceflowRequest(incomingRequest.url, incomingRequest)
+    const u = request.parsedUrl
 
     const shouldUseDeploymentId =
       isDocumentRequest(request) || isRscRequest(u)
@@ -2295,8 +2292,13 @@ function bfsFind<T>(
 
 export class SpiceflowRequest<T = any> extends Request {
   validateBody?: ValidationFunction
-  /** Pre-parsed URL cached from construction to avoid re-parsing in handle() */
-  parsedUrl?: URL
+  /** Lazily parsed URL, cached on first access so we only parse once */
+  private _parsedUrl?: URL
+
+  get parsedUrl(): URL {
+    this._parsedUrl ??= new URL(this.url, 'http://localhost')
+    return this._parsedUrl
+  }
   /** Lazily created AbortController for disconnect detection */
   private _disconnectController?: AbortController
   /** Combined signal: original request signal + disconnect controller */
