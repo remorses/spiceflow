@@ -11,22 +11,7 @@ import { ProgressBar } from './progress.js'
 export function LayoutContent(props: { id?: string }) {
   const data = useFlightData()
   if (!data) return null
-  let isPage = false
-  const elem = (() => {
-    if (!props.id) {
-      return data?.layouts[0]?.element ?? data.page
-    }
-    const layoutIndex = data?.layouts.findIndex(
-      (layout) => layout.id === props.id,
-    )
-    let nextLayout = data?.layouts[layoutIndex + 1]?.element
-    if (nextLayout) {
-      return nextLayout
-    }
-
-    isPage = true
-    return data.page
-  })()
+  const { elem, isPage } = resolveLayoutElement(data, props.id)
   // Wrap the innermost page content in error boundaries so that 404/error
   // responses render inside the layout shell instead of replacing it entirely.
   // The outer NotFoundBoundary/ErrorBoundary in BrowserRoot still catches
@@ -47,6 +32,18 @@ export function LayoutContent(props: { id?: string }) {
     return React.createElement(React.Fragment, null, data.globalCss, elem)
   }
   return elem
+}
+
+function resolveLayoutElement(data: FlightData, id?: string) {
+  if (!id) {
+    return { elem: data.layouts[0]?.element ?? data.page, isPage: false }
+  }
+  const layoutIndex = data.layouts.findIndex((layout) => layout.id === id)
+  const nextLayout = data.layouts[layoutIndex + 1]?.element
+  if (nextLayout) {
+    return { elem: nextLayout, isPage: false }
+  }
+  return { elem: data.page, isPage: true }
 }
 
 export type FlightData = {
