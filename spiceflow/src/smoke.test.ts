@@ -53,14 +53,14 @@ async function smokeTestServer(input: SmokeTestServerInput): Promise<void> {
     stdio: ['ignore', 'pipe', 'inherit'],
     env: {
       SPICEFLOW_PORT: String(port),
-    } as NodeJS.ProcessEnv,
+    } as unknown as NodeJS.ProcessEnv,
     cwd: import.meta.dirname,
   }) as ChildProcess
 
   const { resolve, reject, promise } = Promise.withResolvers<void>()
 
   let printedListeningToLocalhost = false
-  childProcess.stdout.on('data', (data) => {
+  childProcess.stdout!.on('data', (data) => {
     const chunk = data.toString()
     if (chunk === `Listening on http://localhost:${port}\n`) {
       printedListeningToLocalhost = true
