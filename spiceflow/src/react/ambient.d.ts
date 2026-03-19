@@ -15,3 +15,7 @@ declare module 'virtual:spiceflow-deployment-id' {
   const deploymentId: string | undefined
   export default deploymentId
 }
+
+declare module '#deployment-id' {
+  export function getDeploymentId(): Promise<string>
+}

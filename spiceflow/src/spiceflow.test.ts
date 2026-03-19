@@ -181,8 +181,18 @@ test('can encode superjson types', async () => {
     }
     return { items: Array(2).fill(item) }
   })
-  const res = await app.handle(
+  // Plain request without RPC header gets regular JSON (BigInt can't be serialized)
+  const plainRes = await app.handle(
     new Request('http://localhost/superjson', { method: 'POST' }),
+  )
+  expect(plainRes.status).toBe(500)
+
+  // RPC request with x-spiceflow-agent header gets superjson
+  const res = await app.handle(
+    new Request('http://localhost/superjson', {
+      method: 'POST',
+      headers: { 'x-spiceflow-agent': 'spiceflow-client' },
+    }),
   )
   expect(res.status).toBe(200)
   const client = createSpiceflowClient(app)
@@ -1044,7 +1054,7 @@ test('missing route is not found', async () => {
 
 test('document requests set a deployment cookie when a deployment id is available', async () => {
   vi.resetModules()
-  vi.doMock('./react/deployment-id.js', () => ({
+  vi.doMock('#deployment-id', () => ({
     getDeploymentId: async () => 'deploy-123',
   }))
 
@@ -1062,14 +1072,14 @@ test('document requests set a deployment cookie when a deployment id is availabl
       'spiceflow-deployment=deploy-123',
     )
   } finally {
-    vi.doUnmock('./react/deployment-id.js')
+    vi.doUnmock('#deployment-id')
     vi.resetModules()
   }
 })
 
 test('rsc deployment mismatch returns a same-origin relative reload path', async () => {
   vi.resetModules()
-  vi.doMock('./react/deployment-id.js', () => ({
+  vi.doMock('#deployment-id', () => ({
     getDeploymentId: async () => 'deploy-123',
   }))
 
@@ -1086,7 +1096,7 @@ test('rsc deployment mismatch returns a same-origin relative reload path', async
     expect(res.status).toBe(409)
     expect(res.headers.get('x-spiceflow-reload')).toBe('/app/page?q=1')
   } finally {
-    vi.doUnmock('./react/deployment-id.js')
+    vi.doUnmock('#deployment-id')
     vi.resetModules()
   }
 })

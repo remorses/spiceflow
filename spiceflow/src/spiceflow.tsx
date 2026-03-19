@@ -60,7 +60,7 @@ import {
   isRscRequest,
   readDeploymentCookie,
 } from './react/deployment.js'
-import { getDeploymentId } from './react/deployment-id.js'
+import { getDeploymentId } from '#deployment-id'
 import { TrieRouter } from './trie-router/router.js'
 import { decodeURIComponent_ } from './trie-router/url.js'
 import { Result } from './trie-router/utils.js'
@@ -182,7 +182,7 @@ export class Spiceflow<
 
   topLevelApp?: AnySpiceflow = this
   private waitUntilFn: WaitUntil
-  private disableSuperJsonUnlessRpc: boolean = false
+  private disableSuperJsonUnlessRpc: boolean = true
 
   _types = {
     Prefix: '' as BasePath,
@@ -411,7 +411,7 @@ export class Spiceflow<
     } = {},
   ) {
     this.scoped = options.scoped
-    this.disableSuperJsonUnlessRpc = options.disableSuperJsonUnlessRpc || false
+    this.disableSuperJsonUnlessRpc = options.disableSuperJsonUnlessRpc ?? true
     this.allowedActionOrigins = options.allowedActionOrigins
 
     // Set up waitUntil function - use provided one, global one, or noop
@@ -1763,7 +1763,7 @@ export class Spiceflow<
 
     // If flag is set and this is not an RPC request, use regular JSON
     if (this.disableSuperJsonUnlessRpc && !isRpcRequest) {
-      return JSON.stringify(value, null, indent ? 2 : undefined)
+      return JSON.stringify(value ?? null, null, indent ? 2 : undefined)
     }
 
     // Otherwise use superjson

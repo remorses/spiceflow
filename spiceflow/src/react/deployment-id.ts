@@ -1,21 +1,7 @@
-// Deployment id loader. Returns the build timestamp set by the Vite plugin.
-// Falls back to '' in dev or when the virtual module is unavailable.
-
-let deploymentIdPromise: Promise<string> | undefined
+// Fallback for non-RSC environments. Resolved via package.json #deployment-id
+// import map under the "default" condition. Returns '' since the Vite virtual
+// module is not available outside of Vite RSC builds.
 
 export async function getDeploymentId(): Promise<string> {
-  if (!deploymentIdPromise) {
-    deploymentIdPromise = loadRuntimeDeploymentId()
-  }
-  return deploymentIdPromise
-}
-
-async function loadRuntimeDeploymentId(): Promise<string> {
-  if (!import.meta.env.PROD) return ''
-  try {
-    const { default: id } = await import('virtual:spiceflow-deployment-id')
-    return id ?? ''
-  } catch {
-    return ''
-  }
+  return ''
 }

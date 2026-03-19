@@ -10,6 +10,10 @@
     "#rsc-runtime": {
       "react-server": "./dist/rsc-runtime.js",
       "default": "./dist/rsc-runtime.default.js"
+    },
+    "#deployment-id": {
+      "react-server": "./dist/react/deployment-id.rsc.js",
+      "default": "./dist/react/deployment-id.js"
     }
   },
   "exports": {
