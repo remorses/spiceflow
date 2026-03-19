@@ -20,7 +20,6 @@ Spiceflow is a type-safe API framework and full-stack React RSC framework focuse
 - Type safe fetch client with full inference on path params, query, body, and response
 - Simple and intuitive API using web standard Request and Response
 - Can easily generate OpenAPI spec based on your routes
-- Native support for [Fern](https://github.com/fern-api/fern) to generate docs and SDKs (see example docs [here](https://remorses.docs.buildwithfern.com))
 - Support for [Model Context Protocol](https://modelcontextprotocol.io/) to easily wire your app with LLMs
 - Supports async generators for streaming via server sent events
 - Modular design with `.use()` for mounting sub-apps
@@ -1300,62 +1299,6 @@ const mcpServer = await addMcpTools({
 // Now your existing server has access to all Spiceflow routes as tools
 ```
 
-## Generating Fern docs and SDK
-
-Spiceflow has native support for Fern docs and SDK generation using openapi plugin.
-
-The openapi types also have additional types for `x-fern` extensions to help you customize your docs and SDK.
-
-Here is an example script to help you generate an openapi.yml file that you can then use with Fern:
-
-```ts
-import fs from 'fs'
-import path from 'path'
-import yaml from 'js-yaml'
-import { Spiceflow } from 'spiceflow'
-import { openapi } from 'spiceflow/openapi'
-import { createSpiceflowFetch } from 'spiceflow/client'
-
-const app = new Spiceflow().use(openapi({ path: '/openapi' })).route({
-  method: 'GET',
-  path: '/hello',
-  handler() {
-    return 'Hello World'
-  },
-})
-
-async function main() {
-  const safeFetch = createSpiceflowFetch(app)
-
-  console.log('Fetching OpenAPI spec...')
-  const openapiJson = await safeFetch('/openapi')
-  if (openapiJson instanceof Error) {
-    console.error('Failed to fetch OpenAPI spec:', openapiJson)
-    throw openapiJson
-  }
-
-  const outputPath = path.resolve('./openapi.yml')
-  console.log('Writing OpenAPI spec to', outputPath)
-  fs.writeFileSync(
-    outputPath,
-    yaml.dump(openapiJson, {
-      indent: 2,
-      lineWidth: -1,
-    }),
-  )
-  console.log('Successfully wrote OpenAPI spec')
-}
-
-main().catch((e) => {
-  console.error('Failed to generate OpenAPI spec:', e)
-  process.exit(1)
-})
-```
-
-Then follow Fern docs to generate the SDK and docs. You will need to create some Fern yml config files.
-
-You can take a look at the [`scripts/example-app.ts`](spiceflow/scripts/example-app.ts) file for an example app that generates the docs and SDK.
-
 ## Passing state during handle, passing Cloudflare env bindings
 
 You can use bindings type safely using a .state method and then passing the state in the handle method in the second argument:
@@ -1396,30 +1339,6 @@ export default {
     return app.handle(request, { state: { env } })
   },
 }
-```
-
-## Fern SDK streaming support
-
-When you use an async generator in your app, Spiceflow will automatically add the required `x-fern` extensions to the OpenAPI spec to support streaming.
-
-Here is what streaming looks like in the Fern generated SDK:
-
-```ts
-import { ExampleSdkClient } from './sdk-typescript'
-
-const sdk = new ExampleSdkClient({
-  environment: 'http://localhost:3000',
-})
-
-// Get stream data
-const stream = await sdk.getStream()
-for await (const data of stream) {
-  console.log('Stream data:', data)
-}
-
-// Simple GET request
-const response = await sdk.getUsers()
-console.log('Users:', response)
 ```
 
 ## Working with Cookies
@@ -1934,10 +1853,10 @@ export async function submitForm(formData: FormData) {
 
 ### Redirects and Not Found
 
-Throw `redirect()` or `notFound()` anywhere inside a `.page()` or `.layout()` handler to interrupt rendering and return the appropriate HTTP response. This works both for full-page loads (SSR) and client-side navigations (SPA).
+Use `redirect()` and `response.status` inside `.page()` and `.layout()` handlers to control navigation and HTTP status codes:
 
 ```tsx
-import { Spiceflow, redirect, notFound } from 'spiceflow'
+import { Spiceflow, redirect } from 'spiceflow'
 
 export const app = new Spiceflow()
   .page('/dashboard', async ({ request }) => {
@@ -1947,14 +1866,21 @@ export const app = new Spiceflow()
     }
     return <Dashboard user={user} />
   })
-  .page('/posts/:id', async ({ params }) => {
+  .page('/posts/:id', async ({ params, response }) => {
     const post = await getPost(params.id)
     if (!post) {
-      throw notFound()
+      response.status = 404
+      return <NotFound message={`Post ${params.id} not found`} />
     }
     return <Post post={post} />
   })
-  // Layouts can also throw — useful for auth guards that protect
+  // Catch-all page for any unmatched route — works as a custom 404 page.
+  // More specific routes always win over /* regardless of registration order.
+  .page('/*', async ({ response, params }) => {
+    response.status = 404
+    return <NotFound message={`Page not found: ${params['*']}`} />
+  })
+  // Layouts can throw redirect — useful for auth guards that protect
   // an entire section of your app
   .layout('/admin/*', async ({ children, request }) => {
     const user = await getUser(request)
@@ -1977,9 +1903,11 @@ throw redirect('/login', {
 })
 ```
 
-**Correct HTTP status codes.** Unlike Next.js, where redirects and not-found thrown during rendering always return a 200 status with client-side handling, Spiceflow returns the actual HTTP status code in the response — `307` for redirects (with a `Location` header) and `404` for not-found pages. This works even when the throw happens after an `await`, because the SSR layer intercepts the error from the RSC stream before flushing the HTML response. Search engines see correct status codes, and `fetch()` calls with `redirect: "manual"` get the real `307` response.
+**`response.status` and `response.headers`** — every page and layout handler receives a mutable `response` object on the context. Set `response.status` to control the HTTP status code (defaults to 200). Set `response.headers` to add custom headers like `cache-control` or `set-cookie`.
 
-**Client-side navigation.** When a user clicks a `<Link>` that navigates to a page throwing `redirect()`, the router performs the redirect client-side without a full page reload. For `notFound()`, the built-in 404 page is rendered inline while preserving layout state.
+**Correct HTTP status codes.** Unlike Next.js, where redirects always return a 200 status with client-side handling, Spiceflow returns the actual HTTP status code in the response — `307` for redirects (with a `Location` header) and whatever you set via `response.status` for pages. This works even when the throw happens after an `await`, because the SSR layer intercepts the error from the RSC stream before flushing the HTML response. Search engines see correct status codes, and `fetch()` calls with `redirect: "manual"` get the real `307` response.
+
+**Client-side navigation.** When a user clicks a `<Link>` that navigates to a page throwing `redirect()`, the router performs the redirect client-side without a full page reload.
 
 ### Client Code Splitting
 

@@ -11,6 +11,16 @@ import type {
 
 import { SpiceflowRequest, WaitUntil } from './spiceflow.js'
 
+// Mutable response object passed to page, layout, and API handlers via
+// context.response. Unlike the Web Response class (whose status is readonly),
+// this lets handlers set both headers and status directly:
+//   response.headers.set('cache-control', 'private')
+//   response.status = 404
+export interface ContextResponse {
+  headers: Headers
+  status: number
+}
+
 export type ErrorContext<
   Path extends string = '',
   in out Route extends RouteSchema = {},
@@ -81,7 +91,7 @@ export type SpiceflowContext<
   request: SpiceflowRequest<GetRequestSchema<Route>>
   state: Singleton['state']
   waitUntil: WaitUntil
-  response: Response
+  response: ContextResponse
   // TODO remove this for api routes
   children?: any
   // response?: Route['response']

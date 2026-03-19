@@ -768,8 +768,10 @@ test('renderReact passes layout params to layouts instead of page params', async
     expect(layoutProps.params).toEqual({
       layoutId: 'parent',
     })
-    expect(pageProps.response).toBeInstanceOf(Response)
-    expect(layoutProps.response).toBeInstanceOf(Response)
+    expect(pageProps.response).toHaveProperty('headers')
+    expect(pageProps.response).toHaveProperty('status', 200)
+    expect(layoutProps.response).toHaveProperty('headers')
+    expect(layoutProps.response).toHaveProperty('status', 200)
     expect(layoutProps.response).not.toBe(pageProps.response)
   } finally {
     vi.doUnmock('#rsc-runtime')

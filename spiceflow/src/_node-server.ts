@@ -41,6 +41,12 @@ export async function listenForNode(
 }
 
 export function nodeToWebRequest(req: IncomingMessage, res: ServerResponse): SpiceflowRequest {
+  const abortController = new AbortController()
+  req.once('error', () => abortController.abort())
+  res.once('close', () => {
+    if (!res.writableFinished) abortController.abort()
+  })
+
   const url = new URL(
     req.url || '',
     `http://${req.headers.host || 'localhost'}`,
@@ -52,21 +58,10 @@ export function nodeToWebRequest(req: IncomingMessage, res: ServerResponse): Spi
     method: req.method,
     headers: newHeadersFromIncoming(req),
     body: hasBody ? (Readable.toWeb(req) as unknown as ReadableStream<Uint8Array>) : null,
+    signal: abortController.signal,
     // @ts-ignore for undici
     duplex: hasBody ? 'half' : undefined,
   })
-  // Defer AbortController creation until request.signal is first accessed.
-  // Saves ~1% CPU on requests that never check the signal (API routes, static files).
-  request._abortSetup = (controller) => {
-    if (req.destroyed || res.destroyed || res.writableEnded) {
-      controller.abort()
-      return
-    }
-    req.once('error', () => controller.abort())
-    res.once('close', () => {
-      if (!res.writableFinished) controller.abort()
-    })
-  }
   return request
 }
 

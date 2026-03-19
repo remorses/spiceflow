@@ -93,6 +93,9 @@ export function spiceflowPlugin({
         }
         const outDir = userConfig.build?.outDir ?? 'dist'
         return {
+          // Disable Vite's built-in SPA fallback middleware so it doesn't
+          // intercept unmatched paths with a 200 before our middleware runs.
+          appType: 'custom' as const,
           // SSR must live inside outDir/rsc/ because workerd only bundles files within the
           // Worker's directory. The RSC code loads SSR via import.meta.viteRsc.loadModule
           // which resolves to a relative import "../ssr/index.js" — if SSR is at outDir/ssr/

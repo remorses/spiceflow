@@ -1851,10 +1851,10 @@ export async function submitForm(formData: FormData) {
 
 ### Redirects and Not Found
 
-Throw `redirect()` or `notFound()` anywhere inside a `.page()` or `.layout()` handler to interrupt rendering and return the appropriate HTTP response. This works both for full-page loads (SSR) and client-side navigations (SPA).
+Use `redirect()` and `response.status` inside `.page()` and `.layout()` handlers to control navigation and HTTP status codes:
 
 ```tsx
-import { Spiceflow, redirect, notFound } from 'spiceflow'
+import { Spiceflow, redirect } from 'spiceflow'
 
 export const app = new Spiceflow()
   .page('/dashboard', async ({ request }) => {
@@ -1864,14 +1864,21 @@ export const app = new Spiceflow()
     }
     return <Dashboard user={user} />
   })
-  .page('/posts/:id', async ({ params }) => {
+  .page('/posts/:id', async ({ params, response }) => {
     const post = await getPost(params.id)
     if (!post) {
-      throw notFound()
+      response.status = 404
+      return <NotFound message={`Post ${params.id} not found`} />
     }
     return <Post post={post} />
   })
-  // Layouts can also throw — useful for auth guards that protect
+  // Catch-all page for any unmatched route — works as a custom 404 page.
+  // More specific routes always win over /* regardless of registration order.
+  .page('/*', async ({ response, params }) => {
+    response.status = 404
+    return <NotFound message={`Page not found: ${params['*']}`} />
+  })
+  // Layouts can throw redirect — useful for auth guards that protect
   // an entire section of your app
   .layout('/admin/*', async ({ children, request }) => {
     const user = await getUser(request)
@@ -1894,9 +1901,11 @@ throw redirect('/login', {
 })
 ```
 
-**Correct HTTP status codes.** Unlike Next.js, where redirects and not-found thrown during rendering always return a 200 status with client-side handling, Spiceflow returns the actual HTTP status code in the response — `307` for redirects (with a `Location` header) and `404` for not-found pages. This works even when the throw happens after an `await`, because the SSR layer intercepts the error from the RSC stream before flushing the HTML response. Search engines see correct status codes, and `fetch()` calls with `redirect: "manual"` get the real `307` response.
+**`response.status` and `response.headers`** — every page and layout handler receives a mutable `response` object on the context. Set `response.status` to control the HTTP status code (defaults to 200). Set `response.headers` to add custom headers like `cache-control` or `set-cookie`.
 
-**Client-side navigation.** When a user clicks a `<Link>` that navigates to a page throwing `redirect()`, the router performs the redirect client-side without a full page reload. For `notFound()`, the built-in 404 page is rendered inline while preserving layout state.
+**Correct HTTP status codes.** Unlike Next.js, where redirects always return a 200 status with client-side handling, Spiceflow returns the actual HTTP status code in the response — `307` for redirects (with a `Location` header) and whatever you set via `response.status` for pages. This works even when the throw happens after an `await`, because the SSR layer intercepts the error from the RSC stream before flushing the HTML response. Search engines see correct status codes, and `fetch()` calls with `redirect: "manual"` get the real `307` response.
+
+**Client-side navigation.** When a user clicks a `<Link>` that navigates to a page throwing `redirect()`, the router performs the redirect client-side without a full page reload.
 
 ### Client Code Splitting
 

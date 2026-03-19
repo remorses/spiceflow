@@ -1,6 +1,6 @@
 import { Suspense, useActionState, useState } from "react";
 
-import { Spiceflow, serveStatic, redirect, notFound } from "spiceflow";
+import { Spiceflow, serveStatic, redirect } from "spiceflow";
 import { IndexPage } from "./app/index";
 import { getCounter } from "./app/action";
 import { Layout } from "./app/layout";
@@ -31,6 +31,10 @@ import {
 // Increments on every RSC render of the home page. Used by e2e tests to detect
 // unwanted server re-renders (e.g. client HMR should not trigger a server render).
 let serverRenderCount = 0;
+
+function notFound() {
+	return new Response(null, { status: 404 });
+}
 
 export const app = new Spiceflow()
 	.use(serveStatic({ root: "./public" }))

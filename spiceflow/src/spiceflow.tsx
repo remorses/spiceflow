@@ -69,7 +69,7 @@ import type { StandardSchemaV1 } from './standard-schema.js'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { handleForNode, listenForNode } from './_node-server.js'
 import { renderSsr } from 'spiceflow/handle-ssr'
-import { SpiceflowContext, MiddlewareContext } from './context.js'
+import { SpiceflowContext, MiddlewareContext, ContextResponse } from './context.js'
 import { isStaticMiddleware } from './static.js'
 
 let globalIndex = 0
@@ -145,6 +145,13 @@ type MatchedRoute = {
 
 const notFoundHandler = (c) => {
   return new Response('Not Found', { status: 404 })
+}
+
+function createContextResponse(): ContextResponse {
+  return {
+    headers: new Headers(),
+    status: 200,
+  }
 }
 
 export class Spiceflow<
@@ -1270,11 +1277,11 @@ export class Spiceflow<
     }
 
     const isNotFound = !pageRoute
-    let baseResponse: Response | undefined
+    let baseResponse: ContextResponse | undefined
     const baseContext: SpiceflowContext<any, any, any> = {
       ...context,
       get response() {
-        return baseResponse ??= new Response(null)
+        return baseResponse ??= createContextResponse()
       },
     }
 
@@ -1288,13 +1295,13 @@ export class Spiceflow<
         route: ReactMatchedRoute,
         extra?: { id: string; children: React.ReactNode },
       ): Promise<RouteResult> => {
-        let handlerResponse: Response | undefined
+        let handlerResponse: ContextResponse | undefined
         const handlerContext: SpiceflowContext<any, any, any> = {
           ...baseContext,
           params: route.params,
           ...extra && { children: extra.children },
           get response() {
-            return handlerResponse ??= new Response(null)
+            return handlerResponse ??= createContextResponse()
           },
         }
         try {
@@ -1302,11 +1309,11 @@ export class Spiceflow<
           if (value instanceof Error) {
             // Wrap in a component that throws during RSC rendering so error
             // boundaries can catch it and the __NO_HYDRATE shell renders.
-            return { ok: true, value: <ThrowError error={value} />, headers: handlerResponse?.headers }
+            return { ok: true, value: <ThrowError error={value} />, headers: handlerResponse?.headers, status: handlerResponse?.status }
           }
-          return { ok: true, value, headers: handlerResponse?.headers }
+          return { ok: true, value, headers: handlerResponse?.headers, status: handlerResponse?.status }
         } catch (error) {
-          return { ok: false, error, headers: handlerResponse?.headers }
+          return { ok: false, error, headers: handlerResponse?.headers, status: handlerResponse?.status }
         }
       }
 
@@ -1320,7 +1327,7 @@ export class Spiceflow<
         })
 
       const pageResultPromise = isNotFound
-        ? Promise.resolve({ ok: true as const, value: <DefaultNotFoundPage />, headers: undefined })
+        ? Promise.resolve({ ok: true as const, value: <DefaultNotFoundPage />, headers: undefined, status: undefined })
         : executeHandler(pageRoute)
 
       const [layoutResults, pageResult] = await Promise.all([
@@ -1377,7 +1384,6 @@ export class Spiceflow<
               formState: actionState.formState,
               actionError: actionState.actionError,
             } satisfies ServerPayload)
-
       const stream = renderToReadableStream<ServerPayload>(
         payload,
         {
@@ -1403,8 +1409,17 @@ export class Spiceflow<
       })
       appendHeaders(headers, routeHeaders)
 
+      const pageHandlerStatus = pageResult.status && pageResult.status !== 200
+        ? pageResult.status
+        : undefined
+      const layoutHandlerStatus = [...layoutResults]
+        .reverse()
+        .find((layout) => layout.status && layout.status !== 200)
+        ?.status
+      const status = pageHandlerStatus ?? layoutHandlerStatus ?? (isNotFound ? 404 : 200)
+
       return new Response(stream, {
-        status: isNotFound ? 404 : 200,
+        status,
         headers,
       })
     } catch (error) {
@@ -1467,7 +1482,7 @@ export class Spiceflow<
 
     // Mutable ref — set after route resolution, read by waitUntil on error
     let onErrorHandlers: OnError[] = []
-    let contextResponse: Response | undefined
+    let contextResponse: ContextResponse | undefined
     let _query: Record<string, any> | undefined
     const context: SpiceflowContext<any, any, any> = {
       redirect,
@@ -1491,7 +1506,7 @@ export class Spiceflow<
         return this.waitUntilFn(wrappedPromise)
       },
       get response() {
-        return contextResponse ??= new Response(null)
+        return contextResponse ??= createContextResponse()
       },
     }
 
@@ -1600,6 +1615,16 @@ export class Spiceflow<
       response,
       source: contextResponse?.headers,
     })
+
+    // Respect context.response.status for plain-object/JSON handlers, but do
+    // not override explicit statuses from returned/thrown Response objects.
+    if (contextResponse?.status && contextResponse.status !== 200 && response.status === 200) {
+      response = new Response(response.body, {
+        status: contextResponse.status,
+        statusText: response.statusText,
+        headers: response.headers,
+      })
+    }
 
     return finalizeResponse(response, shouldStripHeadBody)
   }
@@ -2303,26 +2328,8 @@ export class SpiceflowRequest<T = any> extends Request {
     this._parsedUrl ??= new URL(this.url, 'http://localhost')
     return this._parsedUrl
   }
-  /** Lazily created AbortController for disconnect detection */
-  private _disconnectController?: AbortController
-  /** Combined signal: original request signal + disconnect controller */
-  private _combinedSignal?: AbortSignal
-  /** Setup function to wire abort listeners when signal is first accessed.
-   *  Receives the AbortController so listeners can call .abort() on disconnect. */
-  _abortSetup?: (controller: AbortController) => void
   private textPromise?: Promise<string>
   private jsonPromise?: Promise<T>
-
-  get signal(): AbortSignal {
-    const base = super.signal
-    if (!this._abortSetup) return base
-    if (!this._combinedSignal) {
-      this._disconnectController = new AbortController()
-      this._abortSetup(this._disconnectController)
-      this._combinedSignal = AbortSignal.any([base, this._disconnectController.signal])
-    }
-    return this._combinedSignal
-  }
 
   async text(): Promise<string> {
     this.textPromise ??= super.text()
@@ -2359,10 +2366,12 @@ type RouteResult = {
   ok: true
   value: React.ReactNode
   headers?: Headers
+  status?: number
 } | {
   ok: false
   error: unknown
   headers?: Headers
+  status?: number
 }
 
 type ReactRoute = InternalRoute & {
