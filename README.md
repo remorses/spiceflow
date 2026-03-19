@@ -18,7 +18,6 @@ Spiceflow is a type-safe API framework and full-stack React RSC framework focuse
 - Type safe fetch client with full inference on path params, query, body, and response
 - Simple and intuitive API using web standard Request and Response
 - Can easily generate OpenAPI spec based on your routes
-- Native support for [Fern](https://github.com/fern-api/fern) to generate docs and SDKs (see example docs [here](https://remorses.docs.buildwithfern.com))
 - Support for [Model Context Protocol](https://modelcontextprotocol.io/) to easily wire your app with LLMs
 - Supports async generators for streaming via server sent events
 - Modular design with `.use()` for mounting sub-apps
@@ -1298,62 +1297,6 @@ const mcpServer = await addMcpTools({
 // Now your existing server has access to all Spiceflow routes as tools
 ```
 
-## Generating Fern docs and SDK
-
-Spiceflow has native support for Fern docs and SDK generation using openapi plugin.
-
-The openapi types also have additional types for `x-fern` extensions to help you customize your docs and SDK.
-
-Here is an example script to help you generate an openapi.yml file that you can then use with Fern:
-
-```ts
-import fs from 'fs'
-import path from 'path'
-import yaml from 'js-yaml'
-import { Spiceflow } from 'spiceflow'
-import { openapi } from 'spiceflow/openapi'
-import { createSpiceflowFetch } from 'spiceflow/client'
-
-const app = new Spiceflow().use(openapi({ path: '/openapi' })).route({
-  method: 'GET',
-  path: '/hello',
-  handler() {
-    return 'Hello World'
-  },
-})
-
-async function main() {
-  const safeFetch = createSpiceflowFetch(app)
-
-  console.log('Fetching OpenAPI spec...')
-  const openapiJson = await safeFetch('/openapi')
-  if (openapiJson instanceof Error) {
-    console.error('Failed to fetch OpenAPI spec:', openapiJson)
-    throw openapiJson
-  }
-
-  const outputPath = path.resolve('./openapi.yml')
-  console.log('Writing OpenAPI spec to', outputPath)
-  fs.writeFileSync(
-    outputPath,
-    yaml.dump(openapiJson, {
-      indent: 2,
-      lineWidth: -1,
-    }),
-  )
-  console.log('Successfully wrote OpenAPI spec')
-}
-
-main().catch((e) => {
-  console.error('Failed to generate OpenAPI spec:', e)
-  process.exit(1)
-})
-```
-
-Then follow Fern docs to generate the SDK and docs. You will need to create some Fern yml config files.
-
-You can take a look at the [`scripts/example-app.ts`](spiceflow/scripts/example-app.ts) file for an example app that generates the docs and SDK.
-
 ## Passing state during handle, passing Cloudflare env bindings
 
 You can use bindings type safely using a .state method and then passing the state in the handle method in the second argument:
@@ -1394,30 +1337,6 @@ export default {
     return app.handle(request, { state: { env } })
   },
 }
-```
-
-## Fern SDK streaming support
-
-When you use an async generator in your app, Spiceflow will automatically add the required `x-fern` extensions to the OpenAPI spec to support streaming.
-
-Here is what streaming looks like in the Fern generated SDK:
-
-```ts
-import { ExampleSdkClient } from './sdk-typescript'
-
-const sdk = new ExampleSdkClient({
-  environment: 'http://localhost:3000',
-})
-
-// Get stream data
-const stream = await sdk.getStream()
-for await (const data of stream) {
-  console.log('Stream data:', data)
-}
-
-// Simple GET request
-const response = await sdk.getUsers()
-console.log('Users:', response)
 ```
 
 ## Working with Cookies
