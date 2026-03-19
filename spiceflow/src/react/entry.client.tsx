@@ -25,6 +25,7 @@ import {
   isDeploymentMismatchResponse,
 } from './deployment.js'
 import { getErrorContext } from './errors.js'
+import { consumePrefetch } from './prefetch.js'
 
 // Reads the RSC flight payload that the server injected as <script> tags via
 // transform.ts. Chunks already pushed before this module runs are drained,
@@ -159,8 +160,9 @@ async function main() {
         navigationAbort = new AbortController()
         const url = new URL(window.location.href)
         url.searchParams.set('__rsc', '')
+        const cached = consumePrefetch(url.pathname, url.search)
         const payload = createFromFetch<ServerPayload>(
-          fetchFlightResponse({ url, kind: 'navigation', init: { signal: navigationAbort.signal } }),
+          cached ?? fetchFlightResponse({ url, kind: 'navigation', init: { signal: navigationAbort.signal } }),
         )
         if (navigationAbort.signal.aborted) return
         setPayload(payload)

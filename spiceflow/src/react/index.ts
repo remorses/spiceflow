@@ -1,4 +1,5 @@
-export { Link,  } from './components.tsx'
+export { Link } from './components.tsx'
+export { prefetchRoute } from './prefetch.tsx'
 export { ProgressBar } from './progress.tsx'
 export { ScrollRestoration } from './scroll-restoration.tsx'
 export { router } from './router.tsx'
