@@ -87,11 +87,14 @@ async function processPrerender(dirs: {
     )
 
     const routes = await entry.getPrerenderRoutes()
+    const manifest: PrerenderManifest = { entries: [] }
     if (routes.length === 0) {
+      await writeFile(
+        path.join(dirs.clientOutDir, '__prerender.json'),
+        JSON.stringify(manifest, null, 2),
+      )
       return
     }
-
-    const manifest: PrerenderManifest = { entries: [] }
     for (const route of routes) {
       console.log(`  • ${route.path}`)
       const url = new URL(route.path, 'https://prerender.local')
