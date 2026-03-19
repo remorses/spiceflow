@@ -380,6 +380,34 @@ test.describe("client component throws during render (SSR)", () => {
 	});
 });
 
+test.describe("route handler returns Error (not throws)", () => {
+	test("API route returning Error behaves like throwing it (500)", async () => {
+		const response = await fetch(`${baseURL}/api/returns-error`);
+		expect(response.status).toBe(500);
+		const body = await response.json();
+		expect(body.message).toBe("api handler returned an error");
+	});
+
+	test("API route returning Error with status property uses that status", async () => {
+		const response = await fetch(`${baseURL}/api/returns-error-with-status`);
+		expect(response.status).toBe(400);
+		const body = await response.json();
+		expect(body.message).toBe("bad request");
+		expect(body.status).toBe(400);
+	});
+
+	test("page handler returning Error shows error shell like thrown errors", async () => {
+		const response = await fetch(`${baseURL}/page-returns-error`, {
+			headers: { accept: "text/html" },
+		});
+		expect(response.status).toBe(500);
+		const html = await response.text();
+		expect(html).toContain("__NO_HYDRATE");
+		expect(html).toContain("500<!-- --> Internal Server Error");
+		expect(html).toContain("page handler returned an error");
+	});
+});
+
 test.describe("CSRF protection", () => {
 	test("cross-origin POST to action endpoint returns 403", async () => {
 		// Use Node.js fetch directly — browser fetch cannot override the Origin header

@@ -2379,6 +2379,96 @@ test('error statusCode fallback', async () => {
   }
 })
 
+test('returning Error from handler behaves like throwing it', async () => {
+  const app = new Spiceflow().get('/test', () => {
+    return new Error('something went wrong')
+  })
+
+  const res = await app.handle(
+    new Request('http://localhost/test', { method: 'GET' }),
+  )
+  expect(res.status).toBe(500)
+  const body = await res.json()
+  expect(body).toMatchInlineSnapshot(`
+    {
+      "message": "something went wrong",
+    }
+  `)
+})
+
+test('returning Error with status property uses that status', async () => {
+  const app = new Spiceflow().get('/test', () => {
+    return Object.assign(new Error('bad request'), { status: 400 })
+  })
+
+  const res = await app.handle(
+    new Request('http://localhost/test', { method: 'GET' }),
+  )
+  expect(res.status).toBe(400)
+  const body = await res.json()
+  expect(body).toMatchInlineSnapshot(`
+    {
+      "message": "bad request",
+      "status": 400,
+    }
+  `)
+})
+
+test('returning Error triggers onError handlers', async () => {
+  let capturedError: any = null
+  const app = new Spiceflow()
+    .get('/test', () => {
+      return Object.assign(new Error('oops'), { status: 422 })
+    })
+    .onError(({ error }) => {
+      capturedError = error
+      return new Response('handled', { status: 422 })
+    })
+
+  const res = await app.handle(
+    new Request('http://localhost/test', { method: 'GET' }),
+  )
+  expect(res.status).toBe(422)
+  expect(await res.text()).toBe('handled')
+  expect(capturedError).toBeInstanceOf(Error)
+  expect(capturedError.message).toBe('oops')
+})
+
+test('throwing Error from handler gives status 500 with message', async () => {
+  const app = new Spiceflow().get('/test', () => {
+    throw new Error('something went wrong')
+  })
+
+  const res = await app.handle(
+    new Request('http://localhost/test', { method: 'GET' }),
+  )
+  expect(res.status).toBe(500)
+  const body = await res.json()
+  expect(body).toMatchInlineSnapshot(`
+    {
+      "message": "something went wrong",
+    }
+  `)
+})
+
+test('throwing Error with status property uses that status', async () => {
+  const app = new Spiceflow().get('/test', () => {
+    throw Object.assign(new Error('bad request'), { status: 400 })
+  })
+
+  const res = await app.handle(
+    new Request('http://localhost/test', { method: 'GET' }),
+  )
+  expect(res.status).toBe(400)
+  const body = await res.json()
+  expect(body).toMatchInlineSnapshot(`
+    {
+      "message": "bad request",
+      "status": 400,
+    }
+  `)
+})
+
 test('route override - same method and path, second route wins', async () => {
   const app = new Spiceflow()
     .get('/test', () => 'first handler')

@@ -1298,6 +1298,11 @@ export class Spiceflow<
         }
         try {
           const value = await route.route.handler.call(route.app, handlerContext)
+          if (value instanceof Error) {
+            // Wrap in a component that throws during RSC rendering so error
+            // boundaries can catch it and the __NO_HYDRATE shell renders.
+            return { ok: true, value: <ThrowError error={value} />, headers: handlerResponse?.headers }
+          }
           return { ok: true, value, headers: handlerResponse?.headers }
         } catch (error) {
           return { ok: false, error, headers: handlerResponse?.headers }
@@ -1575,6 +1580,11 @@ export class Spiceflow<
         context.params = await runValidation(context.params, route?.route?.validateParams)
 
         const res = await route?.route?.handler.call(this, context)
+        // Returning an Error from a handler is treated the same as throwing it:
+        // routes through errorToResponse → onError handlers → status extraction.
+        if (res instanceof Error) {
+          throw res
+        }
         if (isAsyncIterable(res)) {
           return this.handleStream({
             generator: res,
@@ -2381,6 +2391,10 @@ function isReactMatchedRoute(route: {
 
 function ThrowResponse({ response }: { response: Response }): never {
   throw response
+}
+
+function ThrowError({ error }: { error: Error }): never {
+  throw error
 }
 
 export type AnySpiceflow = Spiceflow<any, any, any, any, any, any, any, any>

@@ -377,6 +377,15 @@ export const app = new Spiceflow()
 		);
 	})
 
+	.page("/page-returns-error", async () => {
+		return new Error("page handler returned an error");
+	})
+	.get("/api/returns-error", () => {
+		return new Error("api handler returned an error");
+	})
+	.get("/api/returns-error-with-status", () => {
+		return Object.assign(new Error("bad request"), { status: 400 });
+	})
 	.post("/echo", async ({ request }) => {
 		const body = await request.json();
 		return { echo: body };
