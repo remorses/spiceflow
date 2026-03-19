@@ -189,7 +189,7 @@ export function spiceflowPlugin({
           addNoExternal(config, 'spiceflow')
           config.optimizeDeps.include = mergeUnique(
             config.optimizeDeps.include,
-            ['superjson', 'zod', 'history'],
+            ['spiceflow > superjson', 'spiceflow > history'],
           )
         }
 
@@ -197,7 +197,12 @@ export function spiceflowPlugin({
           addNoExternal(config, 'spiceflow')
           config.optimizeDeps.include = mergeUnique(
             config.optimizeDeps.include,
-            ['isbot', 'history', 'react-dom/server', 'react-dom/server.edge'],
+            [
+              'spiceflow > isbot',
+              'spiceflow > history',
+              'react-dom/server',
+              'react-dom/server.edge',
+            ],
           )
         }
       },
