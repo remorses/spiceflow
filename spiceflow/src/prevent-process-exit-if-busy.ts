@@ -34,13 +34,6 @@ export function preventProcessExitIfBusy(
     isShuttingDown = true
 
     const startTime = Date.now()
-    console.log(
-      `[${new Date().toISOString()}] ${signal} signal received for graceful shutdown`,
-    )
-    console.log(
-      `[${new Date().toISOString()}] Waiting for ${inFlightRequests} in-flight request(s) to complete...`,
-    )
-
     const deadline = Date.now() + maxWaitSeconds * 1000
 
     while (inFlightRequests > 0 && Date.now() < deadline) {
@@ -50,18 +43,8 @@ export function preventProcessExitIfBusy(
     const elapsedSeconds = ((Date.now() - startTime) / 1000).toFixed(1)
 
     if (inFlightRequests > 0) {
-      console.log(
-        `[${new Date().toISOString()}] Shutdown timeout reached after ${elapsedSeconds}s; ${inFlightRequests} request(s) still in progress`,
-      )
-      console.log(
-        `[${new Date().toISOString()}] Forcing shutdown with exit code 1`,
-      )
-    } else {
-      console.log(
-        `[${new Date().toISOString()}] All requests completed successfully after ${elapsedSeconds}s`,
-      )
-      console.log(
-        `[${new Date().toISOString()}] Graceful shutdown complete`,
+      console.error(
+        `[${new Date().toISOString()}] Shutdown timeout reached after ${elapsedSeconds}s; ${inFlightRequests} request(s) still in progress, forcing exit`,
       )
     }
 
@@ -73,9 +56,6 @@ export function preventProcessExitIfBusy(
     ;['SIGINT', 'SIGTERM'].forEach((sig) => {
       process.prependListener(sig as NodeJS.Signals, handleShutdown)
     })
-    console.log(
-      `[${new Date().toISOString()}] Graceful shutdown handlers registered for SIGINT and SIGTERM`,
-    )
   }
 
   // Return Spiceflow middleware with scoped: false
