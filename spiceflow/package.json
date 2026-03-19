@@ -122,6 +122,7 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "ai": "^5.0.14",
+    "esbuild": "^0.27.4",
     "eventsource": "^3.0.5",
     "formdata-node": "^6.0.3",
     "js-base64": "^3.7.7",
