@@ -918,21 +918,6 @@ test('renderReact merges layout and page headers in route order', async () => {
 })
 
 test('renderReact starts layouts and page concurrently', async () => {
-  vi.doMock('#rsc-runtime', () => ({
-    renderToReadableStream() {
-      return new ReadableStream({
-        start(controller) {
-          controller.close()
-        },
-      })
-    },
-    createTemporaryReferenceSet: () => ({}),
-    decodeReply: async () => null,
-    decodeAction: async () => () => null,
-    decodeFormState: async () => undefined,
-    loadServerAction: async () => undefined,
-  }))
-
   const createDeferred = () => {
     let resolve!: () => void
     const promise = new Promise<void>((resolvePromise) => {
@@ -943,6 +928,20 @@ test('renderReact starts layouts and page concurrently', async () => {
 
   try {
     vi.resetModules()
+    vi.doMock('#rsc-runtime', () => ({
+      renderToReadableStream() {
+        return new ReadableStream({
+          start(controller) {
+            controller.close()
+          },
+        })
+      },
+      createTemporaryReferenceSet: () => ({}),
+      decodeReply: async () => null,
+      decodeAction: async () => () => null,
+      decodeFormState: async () => undefined,
+      loadServerAction: async () => undefined,
+    }))
     const { Spiceflow: FreshSpiceflow } = await import('./spiceflow.js')
     const app = new FreshSpiceflow()
     const events: string[] = []
@@ -1010,7 +1009,7 @@ test('renderReact starts layouts and page concurrently', async () => {
       'page:end',
     ])
     expect(response).toBeInstanceOf(Response)
-    expect(response.status).toMatchInlineSnapshot()
+    expect(response.status).toMatchInlineSnapshot(`200`)
   } finally {
     vi.doUnmock('#rsc-runtime')
     vi.resetModules()

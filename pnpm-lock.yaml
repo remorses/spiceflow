@@ -332,6 +332,9 @@ importers:
       '@vitejs/plugin-rsc':
         specifier: ^0.5.21
         version: 0.5.21(react-dom@19.2.4(react@19.2.4))(react-server-dom-webpack@19.2.4(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(webpack@5.105.4(esbuild@0.27.4)))(react@19.2.4)(vite@8.0.0(@types/node@24.0.1)(esbuild@0.27.4)(jiti@2.6.1)(terser@5.46.0)(tsx@4.20.6)(yaml@2.7.0))
+      errore:
+        specifier: ^0.14.0
+        version: 0.14.0
       eventsource-parser:
         specifier: ^3.0.2
         version: 3.0.3
@@ -356,9 +359,6 @@ importers:
       react-server-dom-webpack:
         specifier: 19.2.4
         version: 19.2.4(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(webpack@5.105.4(esbuild@0.27.4))
-      rsc-html-stream:
-        specifier: ^0.0.4
-        version: 0.0.4
       superjson:
         specifier: ^2.2.2
         version: 2.2.2
@@ -4139,6 +4139,10 @@ packages:
   error-stack-parser-es@1.0.5:
     resolution: {integrity: sha512-5qucVt2XcuGMcEGgWI7i+yZpmpByQ8J1lHhcL7PwqCwu9FPP3VUXzT4ltHe5i2z9dePwEHcDVOAfSnHsOlCXRA==}
 
+  errore@0.14.0:
+    resolution: {integrity: sha512-2RI7BGdxWlJe6yJ3DK0pIvLNzXEE4M41VmF2HrH7C2HldTjYiORQNJ+ufsvAvOUGW/4rRHPFOpooP3ebIRIEXw==}
+    hasBin: true
+
   es-abstract@1.23.9:
     resolution: {integrity: sha512-py07lI0wjxAC/DcfK1S6G7iANonniZwTISvdPzk9hzeH0IZIshbuuFxLIU96OyF89Yb9hiqWn8M/bY83KY5vzA==}
     engines: {node: '>= 0.4'}
@@ -5985,9 +5989,6 @@ packages:
   router@2.2.0:
     resolution: {integrity: sha512-nLTrUKm2UyiL7rlhapu/Zl45FwNgkZGaCpZbIHajDYgwlJCOzLSk+cIPAnsEqV955GjILJnKbdQC1nVPz+gAYQ==}
     engines: {node: '>= 18'}
-
-  rsc-html-stream@0.0.4:
-    resolution: {integrity: sha512-1isiXIrlTI/vRLTvS3O4fMrO9qIHje1FSphufrIV5QfzHUgBDCZFwP9b8+rH63nbhxtcKTqfyziwM+2khfX0Uw==}
 
   run-applescript@7.1.0:
     resolution: {integrity: sha512-DPe5pVFaAsinSaV6QjQ6gdiedWDcRCbUuiQfQa2wmWV7+xC9bGulGI8+TdRmoFkAPaBXk8CrAbnlY2ISniJ47Q==}
@@ -10864,6 +10865,8 @@ snapshots:
 
   error-stack-parser-es@1.0.5: {}
 
+  errore@0.14.0: {}
+
   es-abstract@1.23.9:
     dependencies:
       array-buffer-byte-length: 1.0.2
@@ -13353,8 +13356,6 @@ snapshots:
       path-to-regexp: 8.2.0
     transitivePeerDependencies:
       - supports-color
-
-  rsc-html-stream@0.0.4: {}
 
   run-applescript@7.1.0: {}
 

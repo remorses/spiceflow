@@ -8,7 +8,9 @@ try to run commands inside the package folder that you are working on. for examp
 
 Try to use object arguments for new typescript functions if the function would accept more than one argument, this way you can use the object as a sort of named argument feature, where order of arguments does not matter and it's easier to discover parameters.
 
-Always run `pnpm tsc --noEmit` from the package you changed after code edits, and fix any reported issues before finishing.
+Always run `pnpm tsc` (or the package build script) from the package you changed after code edits, and fix any reported issues before finishing. This both type-checks and emits dist files. Never use `--noEmit` — we always want dist to stay in sync with source. Stale dist files are the most common cause of test failures.
+
+Read the `errore` skill before editing code in this repo. This project uses errore for error handling (errors as values, not exceptions).
 
 do not add useless comments if the code is self descriptive. only add comments if requested or if this was a change that i asked for, meaning it is not obvious code and needs some inline documentation.
 
