@@ -45,6 +45,7 @@ export const app = new Spiceflow()
 		state.middleware1 = "state set by middleware1";
 		const res = await next();
 		res.headers.set("x-middleware-1", "ok");
+		res.headers.set("x-middleware-response-type", res.headers.get("content-type") || "");
 
 		return res;
 	})
@@ -57,11 +58,10 @@ export const app = new Spiceflow()
 		);
 	})
 	.page("/state", async ({ state }) => {
-		const middlewareState = state as { middleware1: string };
 		return (
 			<>
 				<title>title from page</title>
-				state: {middlewareState.middleware1}
+				state: {state.middleware1}
 			</>
 		);
 	})

@@ -76,6 +76,18 @@ test.describe("middleware with use()", () => {
 		await page.goto("/state");
 		await expect(page.getByText("state set by middleware1")).toBeVisible();
 	});
+	test("middleware receives SSR HTML response for browser requests", async () => {
+		const response = await fetch(`${baseURL}/`, {
+			headers: { "sec-fetch-dest": "document" },
+		});
+		expect(response.headers.get("x-middleware-response-type")).toBe("text/html;charset=utf-8");
+	});
+	test("middleware receives RSC flight response for RSC requests", async () => {
+		const response = await fetch(`${baseURL}/?__rsc=1`, {
+			headers: { accept: "text/x-component" },
+		});
+		expect(response.headers.get("x-middleware-response-type")).toBe("text/x-component;charset=utf-8");
+	});
 	test("api routes can set response headers through context.response", async () => {
 		const response = await fetch(`${baseURL}/api/response-headers`);
 		expect(response.status).toBe(200);

@@ -1549,20 +1549,19 @@ export class Spiceflow<
       const appsInScope = this.getAppsInScope(resolved.fallbackApp)
       onErrorHandlers = appsInScope.flatMap((x) => x.onErrorHandlers)
 
+      const shouldSsr = !!renderSsr && !isRscRequest(u)
       let response = await this.runMiddlewareChain(
         appsInScope.flatMap((x) => x.middlewares),
         context,
         onErrorHandlers,
-        () => this.renderReact({ request, context, reactRoutes: resolved.reactRoutes }),
+        async () => {
+          let res = await this.renderReact({ request, context, reactRoutes: resolved.reactRoutes })
+          if (shouldSsr && renderSsr && res.headers.get('content-type')?.startsWith('text/x-component')) {
+            res = await renderSsr(res, request)
+          }
+          return res
+        },
       )
-
-      if (
-        renderSsr &&
-        !isRscRequest(u) &&
-        response.headers.get('content-type')?.startsWith('text/x-component')
-      ) {
-        response = await renderSsr(response, request)
-      }
 
       return finalizeResponse(response, shouldStripHeadBody)
     }
