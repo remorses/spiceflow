@@ -317,6 +317,69 @@ test.describe("RSC client-only API errors @dev", () => {
 	});
 });
 
+test.describe("server component throws error", () => {
+	test("returns 500 with __NO_HYDRATE and error in flight data", async () => {
+		const response = await fetch(`${baseURL}/rsc-error`, {
+			headers: { accept: "text/html" },
+		});
+		expect(response.status).toBe(500);
+		const html = await response.text();
+		expect(html).toContain("__NO_HYDRATE");
+		expect(html).toContain("<noscript>500<!-- --> Internal Server Error</noscript>");
+		expect(html).toContain("Server component error");
+	});
+
+	test("dev shows vite error overlay with error message @dev", async ({ page }) => {
+		await page.goto("/rsc-error");
+		const hasFlag = await page.evaluate(() => "__NO_HYDRATE" in globalThis);
+		expect(hasFlag).toBe(true);
+		// In dev, ErrorBoundary rethrows → window.onerror → vite-error-overlay
+		const overlay = page.locator("vite-error-overlay");
+		await expect(overlay).toBeAttached();
+		const overlayText = await overlay.evaluate((el: Element) =>
+			el.shadowRoot?.textContent ?? "",
+		);
+		expect(overlayText).toContain("Server component error");
+	});
+});
+
+test.describe("client component throws during render (SSR)", () => {
+	test("returns 500 with __NO_HYDRATE", async () => {
+		// ClientComponentThrows throws unconditionally. RSC succeeds (it's a client
+		// reference), but SSR fails when rendering the component on the server.
+		const response = await fetch(`${baseURL}/client-error`, {
+			headers: { accept: "text/html" },
+		});
+		expect(response.status).toBe(500);
+		const html = await response.text();
+		expect(html).toContain("__NO_HYDRATE");
+		expect(html).toContain("<noscript>500<!-- --> Internal Server Error</noscript>");
+	});
+
+	test("dev shows vite error overlay with error message @dev", async ({ page }) => {
+		await page.goto("/client-error");
+		const overlay = page.locator("vite-error-overlay");
+		await expect(overlay).toBeAttached();
+		const overlayText = await overlay.evaluate((el: Element) =>
+			el.shadowRoot?.textContent ?? "",
+		);
+		expect(overlayText).toContain("Client component error");
+	});
+
+	test("browser recovers via CSR when client component only throws during SSR", async ({ page }) => {
+		// ThrowsDuringSSR only throws on the server (typeof window === 'undefined').
+		// The __NO_HYDRATE fallback uses createRoot, so the component renders
+		// successfully in the browser without hydration mismatch.
+		await page.goto("/ssr-error-fallback");
+		await expect(page.getByTestId("ssr-recovered")).toContainText("Recovered via CSR");
+		const hasFlag = await page.evaluate(() => "__NO_HYDRATE" in globalThis);
+		expect(hasFlag).toBe(true);
+		// The layout shell is fully rendered by the browser — proves CSR recovery works
+		await expect(page.getByRole("link", { name: "Home" })).toBeVisible();
+		await expect(page.getByRole("link", { name: "Other" })).toBeVisible();
+	});
+});
+
 test.describe("CSRF protection", () => {
 	test("cross-origin POST to action endpoint returns 403", async () => {
 		// Use Node.js fetch directly — browser fetch cannot override the Origin header
