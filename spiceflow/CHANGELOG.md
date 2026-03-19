@@ -1,5 +1,41 @@
 # spiceflow
 
+## 1.18.0-rsc.9
+
+### Patch Changes
+
+1. **HTTP response headers for page, layout, and API handlers** — set response headers via `props.response` in any handler. Headers are forwarded on both document requests and client-side RSC navigations:
+
+   ```tsx
+   app.page('/dashboard', async (props) => {
+     props.response.headers.set('cache-control', 's-maxage=60, stale-while-revalidate=300')
+     props.response.headers.set('set-cookie', 'session=abc; Path=/')
+     return <Dashboard />
+   })
+   ```
+
+   Works the same way in layout handlers and API routes.
+
+2. **Typed `Head` sub-components** — `Head.Meta`, `Head.Title`, `Head.Link`, `Head.Script`, `Head.Style`, and `Head.Base` each provide IDE autocomplete for their attributes. Known attribute values appear in completions; arbitrary strings are still accepted. Always wrap head tags inside `<Head>` for proper deduplication across layouts and pages:
+
+   ```tsx
+   import { Head } from 'spiceflow/react'
+
+   <Head>
+     <Head.Title>My App</Head.Title>
+     <Head.Meta name="description" content="My page" />
+     <Head.Meta property="og:title" content="My page" />
+     <Head.Link rel="stylesheet" href="/styles.css" />
+     <Head.Script src="/analytics.js" type="module" />
+   </Head>
+   ```
+
+3. **Moved `zod` to peer dependency** — fixes potential `instanceof` check failures when npm or pnpm installs a duplicate copy of zod alongside spiceflow's own copy. Users already install zod separately (`npm install spiceflow zod`), so this is a non-breaking change.
+
+4. **Fixed `optimizeDeps` resolution under pnpm strict isolation** — pnpm does not hoist transitive dependencies, so bare package names like `superjson`, `isbot`, and `history` in `optimizeDeps.include` failed to resolve from the user's project root in the RSC and SSR environments. They now use the `spiceflow > pkg` prefix (matching the client environment) so Vite resolves them through spiceflow's own `node_modules`.
+
+5. **Removed `react-server-dom-webpack` dependency** — `@vitejs/plugin-rsc` vendors its own copy of the React Flight protocol internally, so spiceflow no longer needs to pin its own copy. Lighter install.
+
 ## 1.18.0-rsc.8
 
 ### Patch Changes
