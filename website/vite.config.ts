@@ -7,6 +7,7 @@ import mdx from '@mdx-js/rollup'
 import remarkMdxFrontmatter from 'remark-mdx-frontmatter'
 import remarkFrontmatter from 'remark-frontmatter'
 import rehypeMdxImportMedia from 'rehype-mdx-import-media'
+import { remarkGithubLinks } from './app/remark-github-links'
 import { defineConfig } from 'vite'
 import tsconfigPaths from 'vite-tsconfig-paths'
 import { cloudflare } from '@cloudflare/vite-plugin'
@@ -23,6 +24,7 @@ export default defineConfig({
         remarkPlugins: [
           remarkFrontmatter,
           remarkMdxFrontmatter,
+          remarkGithubLinks,
           [
             remarkCodeHike,
             {

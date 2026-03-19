@@ -32,7 +32,8 @@
     "remark-mdx-frontmatter": "^5.0.0",
     "spiceflow": "workspace:^",
     "tailwindcss": "^4.2.1",
-    "unified": "^11.0.5"
+    "unified": "^11.0.5",
+    "unist-util-visit": "^5.1.0"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20240502.0",
