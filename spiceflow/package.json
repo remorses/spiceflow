@@ -102,13 +102,13 @@
     "isbot": "^4.1.0",
     "openapi-types": "^12.1.3",
     "react-server-dom-webpack": "19.2.4",
-    "superjson": "^2.2.2",
-    "zod": "^4.3.6"
+    "superjson": "^2.2.2"
   },
   "peerDependencies": {
     "@modelcontextprotocol/sdk": "*",
     "react": "*",
-    "react-dom": "*"
+    "react-dom": "*",
+    "zod": "^4.0.0"
   },
   "peerDependenciesMeta": {
     "@modelcontextprotocol/sdk": {
@@ -123,6 +123,7 @@
     "@types/react-dom": "^19.2.3",
     "ai": "^5.0.14",
     "esbuild": "^0.27.4",
+    "zod": "^4.3.6",
     "eventsource": "^3.0.5",
     "formdata-node": "^6.0.3",
     "js-base64": "^3.7.7",
