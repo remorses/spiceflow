@@ -6,7 +6,7 @@
     "dev": "dotenv -- vite dev",
     "start": "dotenv -- node dist/rsc/index.js",
     "seed": "dotenv -- bash -c 'psql \"$POSTGRES_URL\" -f sql/init.sql'",
-    "build": "dotenv -- vite build --app",
+    "build": "vite build --app",
     "bench": "dotenv -- tsx bench.ts"
   },
   "dependencies": {

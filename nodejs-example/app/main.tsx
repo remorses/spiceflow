@@ -3,8 +3,27 @@ import { Spiceflow } from 'spiceflow'
 import { Suspense } from 'react'
 import { Head, Link, ProgressBar, redirect } from 'spiceflow/react'
 
-import { sql } from './db'
 import { serveStatic } from 'spiceflow'
+
+const pokemon = [
+  { id: 1, name: 'Bulbasaur' },
+  { id: 4, name: 'Charmander' },
+  { id: 7, name: 'Squirtle' },
+  { id: 25, name: 'Pikachu' },
+  { id: 39, name: 'Jigglypuff' },
+  { id: 52, name: 'Meowth' },
+  { id: 133, name: 'Eevee' },
+  { id: 143, name: 'Snorlax' },
+  { id: 150, name: 'Mewtwo' },
+  { id: 151, name: 'Mew' },
+  { id: 249, name: 'Lugia' },
+  { id: 384, name: 'Rayquaza' },
+]
+
+function getRandomPokemon(count: number) {
+  const shuffled = [...pokemon].sort(() => Math.random() - 0.5)
+  return shuffled.slice(0, count)
+}
 
 export const app = new Spiceflow()
   .use(serveStatic({ root: './public' }))
@@ -16,7 +35,7 @@ export const app = new Spiceflow()
     )
   })
   .page('/', async function Home() {
-    const rows = await sql`SELECT * FROM pokemon ORDER BY RANDOM() LIMIT 12`
+    const rows = getRandomPokemon(12)
     return (
       <PokemonList>
         {rows.map((p) => (
@@ -59,16 +78,15 @@ export const app = new Spiceflow()
     )
   })
   .page('/pokemon/:id', async function PokemonDetails({ params: { id } }) {
-    const rows = await sql`SELECT * FROM pokemon WHERE id = ${Number(id)}`
-    const pokemon = rows[0]
+    const match = pokemon.find((p) => p.id === Number(id))
 
-    if (!pokemon) {
+    if (!match) {
       return <div>Pokemon not found</div>
     }
 
     return (
       <div className="flex flex-col items-center p-4">
-        <Pokemon id={pokemon.id} name={pokemon.name} />
+        <Pokemon id={match.id} name={match.name} />
         <Link
           href="/"
           className="mt-4 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
