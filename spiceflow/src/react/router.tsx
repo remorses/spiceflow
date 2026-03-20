@@ -1,4 +1,5 @@
 import { createBrowserHistory, createMemoryHistory, Location } from 'history'
+import { useMemo, useSyncExternalStore } from 'react'
 
 const isBrowser = typeof window !== 'undefined'
 
@@ -42,6 +43,11 @@ export type NavigationEvent = {
   previousScrollY: number
   source: 'navigate' | 'refresh'
 }
+
+export type ReadonlyURLSearchParams = Omit<
+  URLSearchParams,
+  'append' | 'delete' | 'set' | 'sort'
+>
 
 type Subscriber = (event: NavigationEvent) => void
 
@@ -207,6 +213,9 @@ export const router = {
   get pathname() {
     return history.location.pathname
   },
+  get searchParams(): ReadonlyURLSearchParams {
+    return new URLSearchParams(history.location.search)
+  },
   push(...args: Parameters<typeof history.push>) {
     requestNavigation('push')
     history.push(...args)
@@ -233,4 +242,21 @@ export const router = {
       subscribers.delete(cb)
     }
   },
+}
+
+export function useRouterState() {
+  const location = useSyncExternalStore(
+    (cb) => router.subscribe(cb),
+    () => history.location,
+    () => history.location,
+  )
+  return useMemo(
+    () => ({
+      ...location,
+      searchParams: new URLSearchParams(
+        location.search,
+      ) as ReadonlyURLSearchParams,
+    }),
+    [location],
+  )
 }

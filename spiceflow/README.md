@@ -400,7 +400,7 @@ if (greeting instanceof Error) throw greeting
 ### Path Matching - Supported Features
 
 - **Named parameters**: `:param` - Captures dynamic segments like `/users/:id` or `/api/:version/users/:userId`
-- **Wildcards**: `*` - Matches any remaining path segments like `/files/*` or `/proxy/*`
+- **Wildcards**: `*` - Matches any remaining path segments like `/files/*` or `/proxy/*`. A wildcard route also matches the parent path without a trailing segment — `/files/*` matches both `/files/foo` and `/files`.
 - **Catch-all routes**: `/*` - Use as a not-found handler that catches any unmatched paths
 
 ### Path Matching - Unsupported Features
@@ -1895,6 +1895,65 @@ export function Nav() {
     </nav>
   )
 }
+```
+
+### Client-Side Navigation and Router State
+
+The `router` object handles client-side navigation. Use `router.push` and `router.replace` to navigate programmatically — they accept a string or an object with `pathname`, `search`, and `hash` fields:
+
+```tsx
+// src/app/search-filters.tsx
+'use client'
+
+import { router, useRouterState } from 'spiceflow/react'
+
+export function SearchFilters() {
+  const { pathname, searchParams } = useRouterState()
+
+  const query = searchParams.get('q') ?? ''
+  const page = Number(searchParams.get('page') ?? '1')
+  const sort = searchParams.get('sort') ?? 'relevance'
+
+  function setPage(n: number) {
+    router.push({
+      search: '?' + new URLSearchParams({ q: query, page: String(n), sort }).toString(),
+    })
+  }
+
+  function setSort(newSort: string) {
+    router.push({
+      search: '?' + new URLSearchParams({ q: query, page: '1', sort: newSort }).toString(),
+    })
+  }
+
+  return (
+    <div>
+      <p>Showing results for "{query}" — page {page}, sorted by {sort}</p>
+      <button onClick={() => setSort('date')}>Sort by Date</button>
+      <button onClick={() => setPage(page + 1)}>Next Page</button>
+    </div>
+  )
+}
+```
+
+`useRouterState()` subscribes to navigation changes and re-renders the component when the URL changes. It returns the current `pathname`, `search`, `hash`, and a parsed `searchParams` (a read-only `URLSearchParams`).
+
+You can also navigate to a different pathname with search params, or use `router.replace` to update without adding a history entry:
+
+```tsx
+// Navigate to a new path with search params
+router.push({
+  pathname: '/search',
+  search: '?' + new URLSearchParams({ q: 'spiceflow' }).toString(),
+})
+
+// Replace current history entry (back button skips this)
+router.replace({
+  search: '?' + new URLSearchParams({ tab: 'settings' }).toString(),
+})
+
+// Or just use a plain string
+router.push('/search?q=spiceflow&page=1')
 ```
 
 ### Server Actions
