@@ -3,6 +3,7 @@ import { test, describe, expect, vi } from 'vitest'
 import { bfs, cloneDeep, createSafePath, extractWildcardParam, Spiceflow } from './spiceflow.tsx'
 import { z } from 'zod'
 import { createSpiceflowClient } from './client/index.js'
+import { createSpiceflowFetch } from './client/fetch.ts'
 
 test('works', async () => {
   const res = await new Spiceflow()
@@ -3244,6 +3245,222 @@ describe('path param edge cases with special characters', () => {
         "id": "file.tar.gz",
       }
     `)
+  })
+})
+
+describe('use preserves type safety', () => {
+  test('safePath sees API routes from mounted subapp', () => {
+    const child = new Spiceflow()
+      .get('/users', () => [])
+      .get('/users/:id', () => ({}))
+
+    const app = new Spiceflow()
+      .get('/health', () => 'ok')
+      .use(child)
+
+    expect(app.safePath('/health')).toBe('/health')
+    expect(app.safePath('/users')).toBe('/users')
+    expect(app.safePath('/users/:id', { id: '42' })).toBe('/users/42')
+    // @ts-expect-error - route doesn't exist on parent or child
+    app.safePath('/nonexistent')
+  })
+
+  test('safePath sees routes from subapp with basePath', () => {
+    const child = new Spiceflow({ basePath: '/api' })
+      .get('/users', () => [])
+      .get('/items/:id', () => ({}))
+
+    const app = new Spiceflow()
+      .get('/health', () => 'ok')
+      .use(child)
+
+    expect(app.safePath('/health')).toBe('/health')
+    expect(app.safePath('/api/users')).toBe('/api/users')
+    expect(app.safePath('/api/items/:id', { id: '99' })).toBe('/api/items/99')
+    // @ts-expect-error - unprefixed path shouldn't work
+    app.safePath('/users')
+    // @ts-expect-error - nonexistent child route
+    app.safePath('/api/nonexistent')
+  })
+
+  test('safePath sees page routes from mounted subapp', () => {
+    const child = new Spiceflow()
+      .page('/dashboard', async () => 'Dashboard')
+      .page('/settings', async () => 'Settings')
+
+    const app = new Spiceflow()
+      .page('/', async () => 'Home')
+      .use(child)
+
+    expect(app.safePath('/')).toBe('/')
+    expect(app.safePath('/dashboard')).toBe('/dashboard')
+    expect(app.safePath('/settings')).toBe('/settings')
+    // @ts-expect-error - nonexistent page
+    app.safePath('/nonexistent')
+  })
+
+  test('safePath sees page routes from subapp with basePath', () => {
+    const child = new Spiceflow({ basePath: '/app' })
+      .page('/dashboard', async () => 'Dashboard')
+      .page('/profile/:id', async ({ params }) => params.id)
+
+    const app = new Spiceflow()
+      .page('/', async () => 'Home')
+      .use(child)
+
+    expect(app.safePath('/')).toBe('/')
+    expect(app.safePath('/app/dashboard')).toBe('/app/dashboard')
+    expect(app.safePath('/app/profile/:id', { id: '42' })).toBe('/app/profile/42')
+    // @ts-expect-error - unprefixed path
+    app.safePath('/dashboard')
+    // @ts-expect-error - nonexistent
+    app.safePath('/app/nonexistent')
+  })
+
+  test('safePath sees query schemas from mounted subapp', () => {
+    const child = new Spiceflow({ basePath: '/api' }).get(
+      '/search',
+      ({ query }) => query,
+      { query: z.object({ q: z.string(), limit: z.coerce.number().optional() }) },
+    )
+
+    const app = new Spiceflow()
+      .get('/health', () => 'ok')
+      .use(child)
+
+    expect(app.safePath('/api/search', { q: 'hello', limit: 10 })).toBe(
+      '/api/search?q=hello&limit=10',
+    )
+    // @ts-expect-error - invalid query key
+    app.safePath('/api/search', { wrong: 'x' })
+  })
+
+  test('safePath sees page query schemas from mounted subapp', () => {
+    const child = new Spiceflow({ basePath: '/app' }).page({
+      path: '/search',
+      query: z.object({ q: z.string() }),
+      handler: async ({ query }) => `Results: ${query.q}`,
+    })
+
+    const app = new Spiceflow()
+      .page('/', async () => 'Home')
+      .use(child)
+
+    expect(app.safePath('/app/search', { q: 'test' })).toBe('/app/search?q=test')
+    // @ts-expect-error - invalid query key
+    app.safePath('/app/search', { wrong: 'x' })
+  })
+
+  test('safePath sees staticPage routes from mounted subapp', () => {
+    const child = new Spiceflow({ basePath: '/docs' })
+      .staticPage('/intro')
+      .staticPage('/changelog')
+
+    const app = new Spiceflow()
+      .page('/', async () => 'Home')
+      .use(child)
+
+    expect(app.safePath('/')).toBe('/')
+    expect(app.safePath('/docs/intro')).toBe('/docs/intro')
+    expect(app.safePath('/docs/changelog')).toBe('/docs/changelog')
+    // @ts-expect-error - nonexistent
+    app.safePath('/docs/nonexistent')
+  })
+
+  test('createSafePath works with mounted subapps', () => {
+    const child = new Spiceflow({ basePath: '/api' })
+      .get('/users', () => [])
+      .get('/users/:id', () => ({}))
+
+    const app = new Spiceflow()
+      .get('/health', () => 'ok')
+      .use(child)
+
+    const safePath = createSafePath(app)
+    expect(safePath('/health')).toBe('/health')
+    expect(safePath('/api/users')).toBe('/api/users')
+    expect(safePath('/api/users/:id', { id: '7' })).toBe('/api/users/7')
+    // @ts-expect-error - nonexistent
+    safePath('/nonexistent')
+  })
+
+  test('client sees routes from mounted subapp', async () => {
+    const child = new Spiceflow({ basePath: '/api' })
+      .get('/items', () => [1, 2, 3])
+      .post('/items', () => ({ created: true }))
+
+    const app = new Spiceflow()
+      .get('/health', () => 'ok')
+      .use(child)
+
+    const client = createSpiceflowClient(app)
+    const getRes = await client.api.items.get()
+    if (getRes.error) throw getRes.error
+    expect(getRes.data).toEqual([1, 2, 3])
+
+    const postRes = await client.api.items.post()
+    if (postRes.error) throw postRes.error
+    expect(postRes.data).toEqual({ created: true })
+
+    // @ts-expect-error - nonexistent route on client
+    client.api.nonexistent
+  })
+
+  test('fetch client sees routes from mounted subapp', async () => {
+    const child = new Spiceflow({ basePath: '/v2' })
+      .get('/status', () => ({ ok: true }))
+      .post('/echo', async ({ request }) => await request.json(), {
+        body: z.object({ msg: z.string() }),
+      })
+
+    const app = new Spiceflow()
+      .get('/health', () => 'ok')
+      .use(child)
+
+    const f = createSpiceflowFetch(app)
+
+    const status = await f('/v2/status')
+    if (status instanceof Error) throw status
+    expect(status).toEqual({ ok: true })
+
+    const echo = await f('/v2/echo', {
+      method: 'POST',
+      body: { msg: 'hello' },
+    })
+    if (echo instanceof Error) throw echo
+    expect(echo).toEqual({ msg: 'hello' })
+  })
+
+  test('deeply nested use chains preserve type safety', () => {
+    const grandchild = new Spiceflow().get('/data', () => 'data')
+    const child = new Spiceflow().get('/items', () => []).use(grandchild)
+    const app = new Spiceflow().get('/health', () => 'ok').use(child)
+
+    expect(app.safePath('/health')).toBe('/health')
+    expect(app.safePath('/items')).toBe('/items')
+    expect(app.safePath('/data')).toBe('/data')
+    // @ts-expect-error - nonexistent
+    app.safePath('/nonexistent')
+  })
+
+  test('multiple subapps merged together', () => {
+    const auth = new Spiceflow({ basePath: '/auth' })
+      .post('/login', () => ({ token: 'x' }))
+      .post('/logout', () => 'ok')
+
+    const users = new Spiceflow({ basePath: '/users' }).get(
+      '/:id',
+      () => ({}),
+    )
+
+    const app = new Spiceflow().get('/health', () => 'ok').use(auth).use(users)
+
+    expect(app.safePath('/health')).toBe('/health')
+    expect(app.safePath('/auth/login')).toBe('/auth/login')
+    expect(app.safePath('/auth/logout')).toBe('/auth/logout')
+    expect(app.safePath('/users/:id', { id: '5' })).toBe('/users/5')
+    // @ts-expect-error - nonexistent
+    app.safePath('/nonexistent')
   })
 })
 
