@@ -1,7 +1,11 @@
-// Server action that returns an async generator to test streaming support.
+// Server actions for e2e tests: streaming, simple call, and redirect.
 "use server";
 
-import { sleep } from "spiceflow/dist/utils";
+import { redirect } from "spiceflow";
+
+function sleep(ms: number) {
+	return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 export async function* streamingAction(): AsyncGenerator<string> {
 	yield "chunk-1";
@@ -16,6 +20,5 @@ export async function simpleAction(message: string): Promise<string> {
 }
 
 export async function redirectAction(): Promise<never> {
-	const { redirect } = await import("spiceflow/dist/utils");
 	throw redirect("/other");
 }
