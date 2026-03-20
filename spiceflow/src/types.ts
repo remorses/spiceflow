@@ -916,6 +916,20 @@ export type PartialWithRequired<T, K extends keyof T> = Partial<Omit<T, K>> &
 
 export type GetPathsFromRoutes<Routes extends Record<string, unknown>> =
   Routes extends Record<infer K, any> ? (K extends string ? K : never) : never
+
+// Prefix each path in a union with a base path
+export type PrefixPaths<
+  Base extends string,
+  Paths extends string,
+> = Base extends '' ? Paths : `${Base}${Paths}`
+
+// Re-key a query schemas record with prefixed paths
+export type PrefixQuerySchemas<
+  Base extends string,
+  QS extends Record<string, unknown>,
+> = Base extends ''
+  ? QS
+  : { [K in keyof QS & string as `${Base}${K}`]: QS[K] }
   export type ExtractParamsFromPath<Path extends string> =
     Path extends `${string}:${infer Param}/${infer Rest}`
       ? { [K in Param]: string } & ExtractParamsFromPath<`/${Rest}`>

@@ -3443,6 +3443,62 @@ describe('use preserves type safety', () => {
     app.safePath('/nonexistent')
   })
 
+  test('deeply nested use with basePaths prefixes RoutePaths correctly', () => {
+    const grandchild = new Spiceflow({ basePath: '/v1' }).get(
+      '/data',
+      () => 'data',
+    )
+    const child = new Spiceflow({ basePath: '/api' }).use(grandchild)
+    const app = new Spiceflow().get('/health', () => 'ok').use(child)
+
+    expect(app.safePath('/health')).toBe('/health')
+    // child basePath + grandchild basePath + route = /api/v1/data
+    expect(app.safePath('/api/v1/data')).toBe('/api/v1/data')
+    // @ts-expect-error - unprefixed grandchild path should not work
+    app.safePath('/v1/data')
+    // @ts-expect-error - nonexistent
+    app.safePath('/api/nonexistent')
+  })
+
+  test('fetch client rejects unknown paths', () => {
+    const app = new Spiceflow()
+      .get('/health', () => 'ok')
+      .get('/users/:id', () => ({}))
+      .post('/items', () => ({ created: true }))
+
+    const f = createSpiceflowFetch(app)
+
+    // Known routes are accepted
+    f('/health')
+    f('/users/:id', { params: { id: '1' } })
+    f('/items', { method: 'POST' })
+
+    // @ts-expect-error - unknown path rejected
+    f('/nonexistent')
+    // @ts-expect-error - unknown path rejected
+    f('/users')
+  })
+
+  test('fetch client rejects unknown paths from mounted subapp', () => {
+    const child = new Spiceflow({ basePath: '/api' })
+      .get('/data', () => 'data')
+
+    const app = new Spiceflow()
+      .get('/health', () => 'ok')
+      .use(child)
+
+    const f = createSpiceflowFetch(app)
+
+    // Known routes accepted
+    f('/health')
+    f('/api/data')
+
+    // @ts-expect-error - unknown path rejected
+    f('/api/nonexistent')
+    // @ts-expect-error - unknown path rejected
+    f('/data')
+  })
+
   test('multiple subapps merged together', () => {
     const auth = new Spiceflow({ basePath: '/auth' })
       .post('/login', () => ({ token: 'x' }))

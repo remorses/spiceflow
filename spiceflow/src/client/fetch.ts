@@ -28,6 +28,45 @@ type HttpMethodLower =
   | 'connect'
   | 'subscribe'
 
+// Flatten the nested ClientRoutes tree back into path strings.
+// Inverts CreateClient: { users: { ':id': { get: ... } } } → '/users/:id'
+type FlattenClientRoutes<
+  T,
+  Prefix extends string = '',
+  Depth extends unknown[] = [],
+> = Depth['length'] extends 8
+  ? string
+  : T extends Record<string, any>
+    ? {
+        [K in Exclude<keyof T & string, HttpMethodLower>]:
+          | ([Extract<keyof T[K] & string, HttpMethodLower>] extends [never]
+              ? never
+              : K extends 'index'
+                ? Prefix extends ''
+                  ? '/'
+                  : `/${Prefix}`
+                : Prefix extends ''
+                  ? `/${K}`
+                  : `/${Prefix}/${K}`)
+          | FlattenClientRoutes<
+              T[K],
+              K extends 'index'
+                ? Prefix
+                : Prefix extends ''
+                  ? K
+                  : `${Prefix}/${K}`,
+              [...Depth, unknown]
+            >
+      }[Exclude<keyof T & string, HttpMethodLower>]
+    : never
+
+// Extract all valid path strings from a Spiceflow app's ClientRoutes
+type AppClientPaths<App extends AnySpiceflow> = App extends {
+  _types: { ClientRoutes: infer Routes extends Record<string, any> }
+}
+  ? FlattenClientRoutes<Routes>
+  : string
+
 // Navigate the nested ClientRoutes tree given a path string.
 // Reverses what CreateClient does: `/users/:id` → Routes['users'][':id']
 type NavigateRoutes<Routes, Path extends string> =
@@ -247,7 +286,10 @@ type IsOptionsRequired<
 
 export interface SpiceflowFetch<App extends AnySpiceflow> {
   // Overload: options required when route demands params/query/body
-  <const Path extends string, const Method extends string = 'GET'>(
+  <
+    const Path extends AppClientPaths<App>,
+    const Method extends string = 'GET',
+  >(
     ...args: IsOptionsRequired<App, Path, Method> extends true
       ? [path: Path, options: ResolveOptions<App, Path, Method>]
       : [path: Path, options?: ResolveOptions<App, Path, Method>]

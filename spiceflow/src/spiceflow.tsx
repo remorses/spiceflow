@@ -31,6 +31,8 @@ import {
   SingletonBase,
   TypeSchema,
   UnwrapRoute,
+  PrefixPaths,
+  PrefixQuerySchemas,
 } from './types.js'
 
 import React, { createElement } from 'react'
@@ -1142,8 +1144,12 @@ export class Spiceflow<
           ? ClientRoutes & NewSpiceflow['_types']['ClientRoutes']
           : ClientRoutes &
               CreateClient<BasePath, NewSpiceflow['_types']['ClientRoutes']>,
-        RoutePaths | NewSpiceflow['_types']['RoutePaths'],
-        RouteQuerySchemas & NewSpiceflow['_types']['RouteQuerySchemas']
+        BasePath extends ``
+          ? RoutePaths | NewSpiceflow['_types']['RoutePaths']
+          : RoutePaths | PrefixPaths<BasePath, NewSpiceflow['_types']['RoutePaths']>,
+        BasePath extends ``
+          ? RouteQuerySchemas & NewSpiceflow['_types']['RouteQuerySchemas']
+          : RouteQuerySchemas & PrefixQuerySchemas<BasePath, NewSpiceflow['_types']['RouteQuerySchemas']>
       >
   use<const Schema extends RouteSchema>(
     handler: MiddlewareHandler<Schema, Singleton>,
