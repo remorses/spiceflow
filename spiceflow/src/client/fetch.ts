@@ -35,7 +35,7 @@ type FlattenClientRoutes<
   Prefix extends string = '',
   Depth extends unknown[] = [],
 > = Depth['length'] extends 8
-  ? string
+  ? never
   : T extends Record<string, any>
     ? {
         [K in Exclude<keyof T & string, HttpMethodLower>]:

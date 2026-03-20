@@ -3499,6 +3499,18 @@ describe('use preserves type safety', () => {
     f('/data')
   })
 
+  test('basePath alone is not a valid safePath when child has no root route', () => {
+    const child = new Spiceflow({ basePath: '/api' }).get(
+      '/data',
+      () => 'data',
+    )
+    const app = new Spiceflow().use(child)
+
+    expect(app.safePath('/api/data')).toBe('/api/data')
+    // @ts-expect-error - /api alone is not a route, child has no handler at '/'
+    app.safePath('/api')
+  })
+
   test('multiple subapps merged together', () => {
     const auth = new Spiceflow({ basePath: '/auth' })
       .post('/login', () => ({ token: 'x' }))

@@ -917,11 +917,12 @@ export type PartialWithRequired<T, K extends keyof T> = Partial<Omit<T, K>> &
 export type GetPathsFromRoutes<Routes extends Record<string, unknown>> =
   Routes extends Record<infer K, any> ? (K extends string ? K : never) : never
 
-// Prefix each path in a union with a base path
+// Prefix each path in a union with a base path.
+// Excludes empty strings so '' doesn't create phantom base-path-only routes.
 export type PrefixPaths<
   Base extends string,
   Paths extends string,
-> = Base extends '' ? Paths : `${Base}${Paths}`
+> = Base extends '' ? Paths : Paths extends '' ? never : `${Base}${Paths}`
 
 // Re-key a query schemas record with prefixed paths
 export type PrefixQuerySchemas<
@@ -930,7 +931,33 @@ export type PrefixQuerySchemas<
 > = Base extends ''
   ? QS
   : { [K in keyof QS & string as `${Base}${K}`]: QS[K] }
-  export type ExtractParamsFromPath<Path extends string> =
+
+// Re-key a loader data record with prefixed paths
+export type PrefixLoaderData<
+  Base extends string,
+  LD extends object,
+> = Base extends ''
+  ? LD
+  : { [K in keyof LD & string as `${Base}${K}`]: LD[K] }
+
+// True if a loader pattern (exact or trailing /*) matches a given path
+export type LoaderMatchesPath<
+  Pattern extends string,
+  Path extends string,
+> = Pattern extends `${infer Prefix}/*`
+  ? Path extends `${Prefix}${string}` ? true : false
+  : Pattern extends Path ? true : false
+
+// Merge all matching loader return types for a given path (least → most specific)
+export type MergedLoaderData<
+  LoaderMap extends object,
+  Path extends string,
+> = UnionToIntersection<{
+  [K in keyof LoaderMap & string]:
+    LoaderMatchesPath<K, Path> extends true ? LoaderMap[K] : never
+}[keyof LoaderMap & string]>
+
+export type ExtractParamsFromPath<Path extends string> =
     Path extends `${string}:${infer Param}/${infer Rest}`
       ? { [K in Param]: string } & ExtractParamsFromPath<`/${Rest}`>
       : Path extends `${string}:${infer Param}`
