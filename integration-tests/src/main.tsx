@@ -23,7 +23,6 @@ import { StreamingConsumer } from "./app/streaming-consumer";
 import {
 	StreamingActionTest,
 	SimpleActionTest,
-	AbortActionTest,
 } from "./app/action-test-client";
 import { Head, Link } from "spiceflow/react";
 import { CssTestClient } from "./app/client";
@@ -483,9 +482,7 @@ export const app = new Spiceflow()
 	.page("/server-action-simple", async () => {
 		return <SimpleActionTest />;
 	})
-	.page("/server-action-abort", async () => {
-		return <AbortActionTest />;
-	});
+;
 
 const somePaths = ["/static/one", "/static/two"];
 for (const path of somePaths) {

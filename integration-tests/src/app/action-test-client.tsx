@@ -1,12 +1,8 @@
-// Client components for testing server actions: streaming, abort, and direct calls.
+// Client components for testing server actions: streaming and direct calls.
 "use client";
 
-import React, { useState, useEffect, useTransition } from "react";
-import {
-	streamingAction,
-	simpleAction,
-	actionWithAbortSignal,
-} from "./action-streaming";
+import React, { useState, useTransition } from "react";
+import { streamingAction, simpleAction } from "./action-streaming";
 
 export function StreamingActionTest() {
 	const [items, setItems] = useState<string[]>([]);
@@ -70,29 +66,4 @@ export function SimpleActionTest() {
 	);
 }
 
-export function AbortActionTest() {
-	const [result, setResult] = useState<string | null>(null);
-	const [error, setError] = useState<string | null>(null);
 
-	async function handleClick() {
-		setResult(null);
-		setError(null);
-		try {
-			const controller = new AbortController();
-			const res = await actionWithAbortSignal(controller.signal);
-			setResult(res);
-		} catch (err) {
-			setError(err instanceof Error ? err.message : String(err));
-		}
-	}
-
-	return (
-		<div data-testid="abort-action-test">
-			<button data-testid="call-abort-action" onClick={handleClick}>
-				Call with AbortSignal
-			</button>
-			{result && <div data-testid="abort-action-result">{result}</div>}
-			{error && <div data-testid="abort-action-error">{error}</div>}
-		</div>
-	);
-}

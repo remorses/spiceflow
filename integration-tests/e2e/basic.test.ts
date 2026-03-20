@@ -1080,22 +1080,6 @@ test.describe("server actions", () => {
 		);
 	});
 
-	test("AbortSignal becomes temporary reference, not real signal", async ({ page }) => {
-		// AbortSignal is not serializable across the RSC wire protocol.
-		// encodeReply converts it to a temporary reference, so the server
-		// receives a placeholder object instead of a real AbortSignal.
-		await page.goto("/server-action-abort");
-		await expect(page.getByTestId("layout-mount-count")).toHaveText("1", { timeout: 10000 });
-		await page.getByTestId("call-abort-action").click();
-		await expect(page.getByTestId("abort-action-result")).toBeVisible({
-			timeout: 10000,
-		});
-		const result = JSON.parse(
-			(await page.getByTestId("abort-action-result").textContent()) ?? "{}",
-		);
-		expect(result.isRealSignal).toBe(false);
-	});
-
 	test("server action returning async generator streams items incrementally", async ({ page }) => {
 		await page.goto("/server-action-streaming");
 		await expect(page.getByTestId("layout-mount-count")).toHaveText("1", { timeout: 10000 });

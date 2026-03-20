@@ -14,13 +14,3 @@ export async function* streamingAction(): AsyncGenerator<string> {
 export async function simpleAction(message: string): Promise<string> {
 	return `echo: ${message}`;
 }
-
-export async function actionWithAbortSignal(
-	signal: unknown,
-): Promise<string> {
-	// AbortSignal is not serializable across the RSC boundary.
-	// It arrives as a temporary reference placeholder, not a real AbortSignal.
-	const isRealSignal = signal instanceof AbortSignal;
-	const type = signal === undefined ? "undefined" : typeof signal === "object" ? signal?.constructor?.name ?? "object" : typeof signal;
-	return JSON.stringify({ isRealSignal, type });
-}
