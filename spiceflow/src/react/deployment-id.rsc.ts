@@ -12,7 +12,7 @@ export async function getDeploymentId(): Promise<string> {
 }
 
 async function loadRuntimeDeploymentId(): Promise<string> {
-  if (!import.meta.env.PROD) return ''
+  if (import.meta.hot) return ''
   try {
     const { default: id } = await import('virtual:spiceflow-deployment-id')
     return id ?? ''
