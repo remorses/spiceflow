@@ -1914,13 +1914,13 @@ export function SearchFilters() {
 
   function setPage(n: number) {
     router.push({
-      search: '?' + new URLSearchParams({ q: query, page: String(n), sort }).toString(),
+      search: '?' + new URLSearchParams({ q: query, page: String(n), sort }),
     })
   }
 
   function setSort(newSort: string) {
     router.push({
-      search: '?' + new URLSearchParams({ q: query, page: '1', sort: newSort }).toString(),
+      search: '?' + new URLSearchParams({ q: query, page: '1', sort: newSort }),
     })
   }
 
@@ -1942,12 +1942,12 @@ You can also navigate to a different pathname with search params, or use `router
 // Navigate to a new path with search params
 router.push({
   pathname: '/search',
-  search: '?' + new URLSearchParams({ q: 'spiceflow' }).toString(),
+  search: '?' + new URLSearchParams({ q: 'spiceflow' }),
 })
 
 // Replace current history entry (back button skips this)
 router.replace({
-  search: '?' + new URLSearchParams({ tab: 'settings' }).toString(),
+  search: '?' + new URLSearchParams({ tab: 'settings' }),
 })
 
 // Or just use a plain string
