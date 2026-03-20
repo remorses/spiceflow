@@ -1,8 +1,8 @@
-// Client components for testing server actions: streaming and direct calls.
+// Client components for testing server actions: streaming, direct calls, and redirect.
 "use client";
 
 import React, { useState, useTransition } from "react";
-import { streamingAction, simpleAction } from "./action-streaming";
+import { streamingAction, simpleAction, redirectAction } from "./action-streaming";
 
 export function StreamingActionTest() {
 	const [items, setItems] = useState<string[]>([]);
@@ -38,6 +38,16 @@ export function StreamingActionTest() {
 			{done && <div data-testid="action-stream-done">done</div>}
 			{error && <div data-testid="action-stream-error">{error}</div>}
 			{isPending && <div data-testid="action-pending">pending</div>}
+		</div>
+	);
+}
+
+export function RedirectActionTest() {
+	return (
+		<div data-testid="redirect-action-test">
+			<button data-testid="call-redirect-action" onClick={() => redirectAction()}>
+				Redirect via action
+			</button>
 		</div>
 	);
 }

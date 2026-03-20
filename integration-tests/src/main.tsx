@@ -23,7 +23,10 @@ import { StreamingConsumer } from "./app/streaming-consumer";
 import {
 	StreamingActionTest,
 	SimpleActionTest,
+	RedirectActionTest,
 } from "./app/action-test-client";
+
+let inlineActionRenderCount = 0;
 import { Head, Link } from "spiceflow/react";
 import { CssTestClient } from "./app/client";
 import { CssTestServer } from "./app/css-test-server";
@@ -482,7 +485,11 @@ export const app = new Spiceflow()
 	.page("/server-action-simple", async () => {
 		return <SimpleActionTest />;
 	})
+	.page("/server-action-redirect", async () => {
+		return <RedirectActionTest />;
+	})
 	.page("/inline-action-with-closure", async () => {
+		let renderCount = inlineActionRenderCount++;
 		const closedValue = "just-a-string";
 		async function myAction(formData: FormData) {
 			"use server";
@@ -493,7 +500,7 @@ export const app = new Spiceflow()
 			<form action={myAction} data-testid="inline-action-form">
 				<input name="name" type="text" defaultValue="world" />
 				<button type="submit">Submit</button>
-				<div data-testid="inline-action-status">ready</div>
+				<div data-testid="inline-action-render-count">{renderCount}</div>
 			</form>
 		);
 	})

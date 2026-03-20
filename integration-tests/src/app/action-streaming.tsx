@@ -14,3 +14,8 @@ export async function* streamingAction(): AsyncGenerator<string> {
 export async function simpleAction(message: string): Promise<string> {
 	return `echo: ${message}`;
 }
+
+export async function redirectAction(): Promise<never> {
+	const { redirect } = await import("spiceflow/dist/utils");
+	throw redirect("/other");
+}

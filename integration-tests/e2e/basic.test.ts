@@ -1151,16 +1151,27 @@ test.describe("server actions", () => {
 		}, { timeout: 5000 }).toBe(true);
 	});
 
-	test("inline 'use server' with closure over local variable works", async ({ page }) => {
+	test("inline 'use server' with closure revalidates the page after submit", async ({ page }) => {
 		const errors: string[] = [];
 		page.on("pageerror", (err) => errors.push(err.message));
 		await page.goto("/inline-action-with-closure");
 		await expect(page.getByTestId("layout-mount-count")).toHaveText("1", { timeout: 10000 });
+		const countBefore = await page.getByTestId("inline-action-render-count").textContent();
 		await page.locator('input[name="name"]').fill("world");
 		await page.getByRole("button", { name: "Submit" }).click();
-		// Form should submit without crashing (no encryption error).
-		// Wait for the RSC round-trip, then check the form is still there.
-		await expect(page.getByTestId("inline-action-form")).toBeVisible({ timeout: 5000 });
+		// After the action completes, the page should revalidate (re-render on server),
+		// so the render count increments.
+		await expect(page.getByTestId("inline-action-render-count")).not.toHaveText(
+			countBefore!,
+			{ timeout: 10000 },
+		);
 		expect(errors).toEqual([]);
+	});
+
+	test("direct server action throwing redirect navigates to target", async ({ page }) => {
+		await page.goto("/server-action-redirect");
+		await expect(page.getByTestId("layout-mount-count")).toHaveText("1", { timeout: 10000 });
+		await page.getByTestId("call-redirect-action").click();
+		await expect(page).toHaveURL("/other", { timeout: 10000 });
 	});
 });
