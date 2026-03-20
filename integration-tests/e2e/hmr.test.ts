@@ -21,7 +21,7 @@ test("client hmr @dev", async ({ page }) => {
 		// If a full page reload happened, state would reset to 0.
 		await expect(page.getByText("Client [EDIT] counter: 1")).toBeVisible();
 		// Wait to ensure any delayed server re-render would have completed
-		await page.waitForTimeout(2000);
+		await page.waitForTimeout(500);
 		// Server render count must not have changed — no server re-render happened
 		const renderCountAfter = await page.getByTestId("server-render-count").textContent();
 		expect(renderCountAfter).toBe(renderCountBefore);

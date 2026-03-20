@@ -40,7 +40,6 @@ test.describe("scroll restoration", () => {
 
 		// Scroll down and wait for scroll event to register
 		await page.evaluate(() => window.scrollTo(0, 1200));
-		await page.waitForTimeout(500);
 		await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(1000);
 
 		// Navigate to page B via layout Link (PUSH)

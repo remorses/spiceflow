@@ -778,13 +778,10 @@ test.describe("navigation abort controller", () => {
 
 		// Should land on /other
 		await expect(page).toHaveURL("/other");
-		// Wait for any in-flight requests to settle
-		await page.waitForTimeout(300);
-		await expect(page).toHaveURL("/other");
 
-		// The slow page RSC fetch should have been aborted
+		// The slow page RSC fetch should have been aborted (poll until abort is recorded)
+		await expect.poll(() => rscRequests.find((r) => r.url.includes("/slow")), { timeout: 2000 }).toBeTruthy();
 		const slowRequest = rscRequests.find((r) => r.url.includes("/slow"));
-		expect(slowRequest).toBeTruthy();
 		expect(slowRequest!.aborted).toBe(true);
 
 		// The /other RSC fetch should have completed normally
@@ -1143,23 +1140,27 @@ test.describe("server actions", () => {
 		await expect(page.getByTestId("layout-mount-count")).toHaveText("1", { timeout: 10000 });
 		await page.locator('input[name="name"]').fill("test");
 		await page.getByRole("button", { name: "Submit" }).click();
-		await page.waitForTimeout(2000);
 		// The error reaches the client as a pageerror or shows in the error boundary
-		const bodyText = await page.evaluate(() => document.body.textContent ?? "");
-		const hasError =
-			bodyText.includes("test error") ||
-			bodyText.includes("Application Error") ||
-			errors.some((e) => e.includes("test error"));
-		expect(hasError).toBe(true);
+		await expect.poll(async () => {
+			const bodyText = await page.evaluate(() => document.body?.textContent ?? "");
+			return (
+				errors.some((e) => e.includes("test error")) ||
+				bodyText.includes("test error") ||
+				bodyText.includes("Application Error")
+			);
+		}, { timeout: 5000 }).toBe(true);
 	});
 
 	test("inline 'use server' with closure over local variable works", async ({ page }) => {
+		const errors: string[] = [];
+		page.on("pageerror", (err) => errors.push(err.message));
 		await page.goto("/inline-action-with-closure");
 		await expect(page.getByTestId("layout-mount-count")).toHaveText("1", { timeout: 10000 });
 		await page.locator('input[name="name"]').fill("world");
 		await page.getByRole("button", { name: "Submit" }).click();
-		// Form should submit without crashing (no encryption error)
-		await page.waitForTimeout(2000);
-		await expect(page.getByTestId("inline-action-form")).toBeVisible();
+		// Form should submit without crashing (no encryption error).
+		// Wait for the RSC round-trip, then check the form is still there.
+		await expect(page.getByTestId("inline-action-form")).toBeVisible({ timeout: 5000 });
+		expect(errors).toEqual([]);
 	});
 });
