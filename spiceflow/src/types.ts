@@ -174,6 +174,7 @@ export interface MetadataBase {
   schema: RouteSchema
   macro: BaseMacro
   macroFn: BaseMacroFn
+  loaderData: object
 }
 
 export type RouteSchema = {
@@ -632,7 +633,7 @@ export type InternalRoute = {
   // prefix: string
 }
 
-export type NodeKind = 'page' | 'layout' | 'staticPage' | 'staticPageWithoutHandler'
+export type NodeKind = 'page' | 'layout' | 'loader' | 'staticPage' | 'staticPageWithoutHandler'
 
 export type AddPrefix<Prefix extends string, T> = {
   [K in keyof T as Prefix extends string ? `${Prefix}${K & string}` : K]: T[K]
@@ -947,6 +948,9 @@ export type LoaderMatchesPath<
 > = Pattern extends `${infer Prefix}/*`
   ? Path extends `${Prefix}${string}` ? true : false
   : Pattern extends Path ? true : false
+
+type UnionToIntersection<U> =
+  (U extends any ? (x: U) => void : never) extends (x: infer I) => void ? I : never
 
 // Merge all matching loader return types for a given path (least → most specific)
 export type MergedLoaderData<
