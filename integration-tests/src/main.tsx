@@ -8,7 +8,10 @@ import { StaticPage } from "./app/static-page";
 import "./styles.css";
 
 import { ErrorBoundary } from "spiceflow/dist/react/components";
-import { sleep } from "spiceflow/dist/utils";
+
+function sleep(ms: number) {
+	return new Promise((resolve) => setTimeout(resolve, ms));
+}
 import { Chakra } from "./app/chakra";
 import {
 	ClientComponentThrows,

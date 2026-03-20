@@ -3,7 +3,7 @@ import "./client.css";
 
 import React, { useActionState } from "react";
 import { add } from "./action-by-client";
-import { redirect } from "spiceflow/dist/utils";
+import { redirect } from "spiceflow";
 import { action } from "./form-action";
 
 type ClientFormState = {

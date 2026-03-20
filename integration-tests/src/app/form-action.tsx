@@ -1,6 +1,6 @@
 "use server";
 
-import { redirect } from "spiceflow/dist/utils";
+import { redirect } from "spiceflow";
 
 export async function action(
 	{ shouldRedirect, shouldError, result },
