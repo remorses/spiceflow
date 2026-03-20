@@ -3821,4 +3821,19 @@ describe('.use() with page and layout routes', () => {
     expect(paths).toContain('/admin')
     expect(paths).toContain('/admin/dashboard')
   })
+
+  test('unmatched non-browser request returns 404 (not React runtime 500)', async () => {
+    const subApp = new Spiceflow({ basePath: '/admin' })
+      .page('/dashboard', async () => 'Dashboard')
+
+    const app = new Spiceflow().use(subApp)
+
+    const res = await app.handle(
+      new Request('http://localhost/not-found', {
+        method: 'GET',
+        headers: { accept: 'application/json' },
+      }),
+    )
+    expect(res.status).toBe(404)
+  })
 })
