@@ -1139,10 +1139,7 @@ export class Spiceflow<
         Scoped,
         Singleton,
         Definitions,
-        Metadata & { loaderData: BasePath extends ``
-          ? NewSpiceflow['_types']['Metadata']['loaderData']
-          : PrefixLoaderData<BasePath, NewSpiceflow['_types']['Metadata']['loaderData']>
-        },
+        Metadata,
         BasePath extends ``
           ? ClientRoutes & NewSpiceflow['_types']['ClientRoutes']
           : ClientRoutes &
@@ -2397,18 +2394,8 @@ type ReactRoute = InternalRoute & {
   ) => React.ReactNode | Promise<React.ReactNode>
 }
 
-type LoaderRoute = InternalRoute & {
-  kind: 'loader'
-  handler: (
-    this: AnySpiceflow,
-    context: SpiceflowContext<any, any, any>,
-  ) => unknown | Promise<unknown>
-}
-
-type ReactOrLoaderRoute = ReactRoute | LoaderRoute
-
 type ReactMatchedRoute = {
-  route: ReactOrLoaderRoute
+  route: ReactRoute
   app: AnySpiceflow
   params: Record<string, string>
 }
