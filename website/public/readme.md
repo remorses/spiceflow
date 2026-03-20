@@ -968,25 +968,23 @@ new Spiceflow()
 
 Use middleware to cache full-page HTML in Cloudflare KV. The deployment ID is included in the cache key so each deploy gets its own cache namespace — this prevents serving stale HTML that references old CSS/JS filenames with different content hashes.
 
+This example uses `import { env } from 'cloudflare:workers'` to access KV bindings directly from anywhere in your code, without threading env through `.state()`.
+
 ```tsx
 import { Spiceflow, getDeploymentId } from 'spiceflow'
-
-interface Env {
-  PAGE_CACHE: KVNamespace
-}
+import { env } from 'cloudflare:workers'
 
 const app = new Spiceflow()
-  .state('env', {} as Env)
-  .use(async ({ request, state, waitUntil }, next) => {
+  .use(async ({ request, waitUntil }, next) => {
     if (request.method !== 'GET') {
       return next()
     }
 
     const url = new URL(request.url)
     const deploymentId = await getDeploymentId()
-    const cacheKey = `${deploymentId}:${url.pathname}${url.search}`
+    const cacheKey = `${deploymentId}:${url.pathname}${url.search}` // IMPORTANT. cache key must always include search to distinguish html and rsc responses
 
-    const cached = await state.env.PAGE_CACHE.get(cacheKey)
+    const cached = await env.PAGE_CACHE.get(cacheKey)
     if (cached) {
       return new Response(cached, {
         headers: { 'content-type': 'text/html; charset=utf-8', 'x-cache': 'HIT' },
@@ -1001,7 +999,7 @@ const app = new Spiceflow()
     const html = await response.text()
     // Write to KV in the background so the response is not delayed
     waitUntil(
-      state.env.PAGE_CACHE.put(cacheKey, html, {
+      env.PAGE_CACHE.put(cacheKey, html, {
         expirationTtl: 60 * 60 * 24 * 7, // 7 days
       }),
     )
@@ -1016,8 +1014,8 @@ const app = new Spiceflow()
   })
 
 export default {
-  fetch(request: Request, env: Env, ctx: ExecutionContext) {
-    return app.handle(request, { state: { env } })
+  fetch(request: Request) {
+    return app.handle(request)
   },
 }
 ```
@@ -1359,7 +1357,7 @@ const mcpServer = await addMcpTools({
 
 ## Passing state during handle, passing Cloudflare env bindings
 
-You can use bindings type safely using a .state method and then passing the state in the handle method in the second argument:
+You can use bindings type safely using a `.state` method and then passing the state in the `handle` method in the second argument. This pattern is useful for dependency injection — you can swap the env with mocks when testing with Node.js:
 
 ```tsx
 import { Spiceflow } from 'spiceflow'
@@ -1398,6 +1396,8 @@ export default {
   },
 }
 ```
+
+> **Alternative:** On Cloudflare Workers you can also `import { env } from 'cloudflare:workers'` to access bindings directly from anywhere in your code, without threading env through `.state()`. See the [KV caching example](#caching-react-pages-with-cloudflare-kv) above for this approach.
 
 ## Working with Cookies
 
