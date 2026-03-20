@@ -482,6 +482,21 @@ export const app = new Spiceflow()
 	.page("/server-action-simple", async () => {
 		return <SimpleActionTest />;
 	})
+	.page("/inline-action-with-closure", async () => {
+		const closedValue = "just-a-string";
+		async function myAction(formData: FormData) {
+			"use server";
+			const name = formData.get("name");
+			return `hello ${name}, state=${closedValue}`;
+		}
+		return (
+			<form action={myAction} data-testid="inline-action-form">
+				<input name="name" type="text" defaultValue="world" />
+				<button type="submit">Submit</button>
+				<div data-testid="inline-action-status">ready</div>
+			</form>
+		);
+	})
 ;
 
 const somePaths = ["/static/one", "/static/two"];

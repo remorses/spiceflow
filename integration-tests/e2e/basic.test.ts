@@ -1152,4 +1152,14 @@ test.describe("server actions", () => {
 			errors.some((e) => e.includes("test error"));
 		expect(hasError).toBe(true);
 	});
+
+	test("inline 'use server' with closure over local variable works", async ({ page }) => {
+		await page.goto("/inline-action-with-closure");
+		await expect(page.getByTestId("layout-mount-count")).toHaveText("1", { timeout: 10000 });
+		await page.locator('input[name="name"]').fill("world");
+		await page.getByRole("button", { name: "Submit" }).click();
+		// Form should submit without crashing (no encryption error)
+		await page.waitForTimeout(2000);
+		await expect(page.getByTestId("inline-action-form")).toBeVisible();
+	});
 });
