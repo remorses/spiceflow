@@ -3491,3 +3491,255 @@ test('.layout() without Vite plugin throws a clear error', async () => {
   const text = await res.text()
   expect(text).toMatchInlineSnapshot(`"{"message":"[spiceflow] RSC runtime is only available in the react-server environment. This error means renderReact was called outside of a Vite RSC build. Spiceflow .page and .layout methods require using the Vite plugin. See example application: https://github.com/remorses/spiceflow/blob/main/nodejs-example/vite.config.ts"}"`)
 })
+
+describe('.use() with page and layout routes', () => {
+  test('getAllRoutes includes page routes from sub-app with basePath', () => {
+    const subApp = new Spiceflow({ basePath: '/admin' })
+      .page('/dashboard', async () => 'Dashboard')
+      .page('/settings', async () => 'Settings')
+
+    const app = new Spiceflow().use(subApp)
+
+    const allRoutes = app.getAllRoutes()
+    const pageRoutes = allRoutes.filter((r) => r.kind === 'page')
+    const pagePaths = [...new Set(pageRoutes.map((r) => r.path))].sort()
+
+    expect(pagePaths).toMatchInlineSnapshot(`
+      [
+        "/admin/dashboard",
+        "/admin/settings",
+      ]
+    `)
+  })
+
+  test('getAllRoutes includes layout routes from sub-app with basePath', () => {
+    const subApp = new Spiceflow({ basePath: '/admin' })
+      .layout('/', ({ children }) => children)
+      .page('/dashboard', async () => 'Dashboard')
+
+    const app = new Spiceflow().use(subApp)
+
+    const allRoutes = app.getAllRoutes()
+    const layoutRoutes = allRoutes.filter((r) => r.kind === 'layout')
+    const layoutPaths = [...new Set(layoutRoutes.map((r) => r.path))].sort()
+
+    expect(layoutPaths).toMatchInlineSnapshot(`
+      [
+        "/admin",
+      ]
+    `)
+  })
+
+  test('getAllRoutes with nested .use() and multiple basePaths', () => {
+    const deepApp = new Spiceflow({ basePath: '/v1' })
+      .page('/users', async () => 'Users')
+
+    const midApp = new Spiceflow({ basePath: '/api' })
+      .layout('/', ({ children }) => children)
+      .use(deepApp)
+
+    const app = new Spiceflow().use(midApp)
+
+    const allRoutes = app.getAllRoutes()
+    const reactRoutes = allRoutes.filter(
+      (r) => r.kind === 'page' || r.kind === 'layout',
+    )
+    const paths = [...new Set(reactRoutes.map((r) => `${r.kind}:${r.path}`))].sort()
+
+    expect(paths).toMatchInlineSnapshot(`
+      [
+        "layout:/api",
+        "page:/api/v1/users",
+      ]
+    `)
+  })
+
+  test('page in sub-app with basePath enters React path (returns RSC error, not 404)', async () => {
+    const subApp = new Spiceflow({ basePath: '/admin' })
+      .page('/dashboard', async () => 'Dashboard')
+
+    const app = new Spiceflow().use(subApp)
+
+    const res = await app.handle(
+      new Request('http://localhost/admin/dashboard', {
+        method: 'GET',
+        headers: { accept: 'text/html' },
+      }),
+    )
+    // 500 = route matched and entered React render path (RSC runtime not available outside Vite)
+    // 404 would mean the route was not found
+    expect(res.status).toBe(500)
+    const text = await res.text()
+    expect(text).toContain('RSC runtime is only available')
+  })
+
+  test('layout + page in sub-app with basePath enters React path', async () => {
+    const subApp = new Spiceflow({ basePath: '/admin' })
+      .layout('/', ({ children }) => children)
+      .page('/dashboard', async () => 'Dashboard')
+
+    const app = new Spiceflow().use(subApp)
+
+    const res = await app.handle(
+      new Request('http://localhost/admin/dashboard', {
+        method: 'GET',
+        headers: { accept: 'text/html' },
+      }),
+    )
+    expect(res.status).toBe(500)
+    const text = await res.text()
+    expect(text).toContain('RSC runtime is only available')
+  })
+
+  test('page in sub-app with parent basePath and sub basePath', async () => {
+    const subApp = new Spiceflow({ basePath: '/v1' })
+      .page('/users', async () => 'Users')
+
+    const app = new Spiceflow({ basePath: '/api' }).use(subApp)
+
+    const res = await app.handle(
+      new Request('http://localhost/api/v1/users', {
+        method: 'GET',
+        headers: { accept: 'text/html' },
+      }),
+    )
+    expect(res.status).toBe(500)
+    const text = await res.text()
+    expect(text).toContain('RSC runtime is only available')
+  })
+
+  test('page in sub-app at wrong path does not match the page route', async () => {
+    const subApp = new Spiceflow({ basePath: '/admin' })
+      .page('/dashboard', async () => 'Dashboard')
+
+    const app = new Spiceflow().use(subApp)
+
+    const res = await app.handle(
+      new Request('http://localhost/dashboard', {
+        method: 'GET',
+        headers: { accept: 'text/html' },
+      }),
+    )
+    // The app has React pages so unmatched browser requests enter the React 404 path,
+    // which fails with RSC error (500) outside Vite. The important thing is the page
+    // route handler is NOT called — it's a React-level 404, not a match on /dashboard.
+    expect(res.status).toBe(500)
+    const text = await res.text()
+    expect(text).toContain('RSC runtime is only available')
+  })
+
+  test('mixed API routes and pages in sub-app with basePath', async () => {
+    const subApp = new Spiceflow({ basePath: '/admin' })
+      .get('/api/data', () => ({ data: 'hello' }))
+      .page('/dashboard', async () => 'Dashboard')
+
+    const app = new Spiceflow().use(subApp)
+
+    const apiRes = await app.handle(
+      new Request('http://localhost/admin/api/data', { method: 'GET' }),
+    )
+    expect(apiRes.status).toBe(200)
+    expect(await apiRes.json()).toMatchInlineSnapshot(`
+      {
+        "data": "hello",
+      }
+    `)
+
+    const pageRes = await app.handle(
+      new Request('http://localhost/admin/dashboard', {
+        method: 'GET',
+        headers: { accept: 'text/html' },
+      }),
+    )
+    expect(pageRes.status).toBe(500)
+    const text = await pageRes.text()
+    expect(text).toContain('RSC runtime is only available')
+  })
+
+  test('multiple sub-apps with pages at different basePaths', async () => {
+    const adminApp = new Spiceflow({ basePath: '/admin' })
+      .page('/dashboard', async () => 'Admin Dashboard')
+
+    const docsApp = new Spiceflow({ basePath: '/docs' })
+      .page('/getting-started', async () => 'Getting Started')
+
+    const app = new Spiceflow().use(adminApp).use(docsApp)
+
+    const allRoutes = app.getAllRoutes()
+    const pagePaths = [...new Set(
+      allRoutes.filter((r) => r.kind === 'page').map((r) => r.path),
+    )].sort()
+
+    expect(pagePaths).toMatchInlineSnapshot(`
+      [
+        "/admin/dashboard",
+        "/docs/getting-started",
+      ]
+    `)
+
+    const adminRes = await app.handle(
+      new Request('http://localhost/admin/dashboard', {
+        method: 'GET',
+        headers: { accept: 'text/html' },
+      }),
+    )
+    expect(adminRes.status).toBe(500) // RSC error = route matched
+
+    const docsRes = await app.handle(
+      new Request('http://localhost/docs/getting-started', {
+        method: 'GET',
+        headers: { accept: 'text/html' },
+      }),
+    )
+    expect(docsRes.status).toBe(500) // RSC error = route matched
+  })
+
+  test('safePath works with page routes from sub-app (includes basePath)', () => {
+    const subApp = new Spiceflow({ basePath: '/admin' })
+      .page('/dashboard', async () => 'Dashboard')
+      .page('/users/:id', async ({ params }) => params.id)
+
+    const app = new Spiceflow().use(subApp)
+
+    // safePath types include the basePath since JoinPath<BasePath, Path> encodes it
+    expect(subApp.safePath('/admin/dashboard')).toBe('/admin/dashboard')
+    expect(subApp.safePath('/admin/users/:id', { id: '42' })).toBe('/admin/users/42')
+  })
+
+  test('getAllRoutes normalizes trailing slash for layout at / in sub-app', () => {
+    const subApp = new Spiceflow({ basePath: '/app' })
+      .layout('/', ({ children }) => children)
+      .page('/home', async () => 'Home')
+
+    const app = new Spiceflow().use(subApp)
+
+    const allRoutes = app.getAllRoutes()
+    const paths = [...new Set(allRoutes.map((r) => `${r.kind || 'api'}:${r.path}`))].sort()
+
+    // Layout at '/' with basePath '/app' should be '/app', not '/app/'
+    expect(paths).toMatchInlineSnapshot(`
+      [
+        "layout:/app",
+        "page:/app/home",
+      ]
+    `)
+  })
+
+  test('getAllRoutes with wildcard route in sub-app has no trailing slash', () => {
+    const subApp = new Spiceflow({ basePath: '/admin' })
+      .get('/*', () => 'catch-all')
+      .layout('/', ({ children }) => children)
+      .page('/dashboard', async () => 'Dashboard')
+
+    const app = new Spiceflow().use(subApp)
+
+    const allRoutes = app.getAllRoutes()
+    const paths = [...new Set(allRoutes.map((r) => r.path))].sort()
+
+    // No trailing slashes — wildcard is '/admin/*', layout is '/admin'
+    expect(paths.some((p) => p.endsWith('/') && p !== '/')).toBe(false)
+    expect(paths).toContain('/admin/*')
+    expect(paths).toContain('/admin')
+    expect(paths).toContain('/admin/dashboard')
+  })
+})

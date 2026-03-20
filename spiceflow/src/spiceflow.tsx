@@ -210,7 +210,12 @@ export class Spiceflow<
         this.getAppAndParents(x).map((x) => x.basePath),
       )
 
-      return x.routes.map((x) => ({ ...x, path: prefix + x.path }))
+      return x.routes.map((x) => {
+        const joined = prefix + x.path
+        // Normalize: strip trailing slash (same as match() and add()) but keep bare '/'
+        const path = joined.replace(/\/$/, '') || '/'
+        return { ...x, path }
+      })
     })
     return allRoutes
   }
