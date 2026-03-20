@@ -9,13 +9,15 @@ import remarkFrontmatter from 'remark-frontmatter'
 import rehypeMdxImportMedia from 'rehype-mdx-import-media'
 import { remarkGithubLinks } from './app/remark-github-links'
 import { defineConfig } from 'vite'
-import tsconfigPaths from 'vite-tsconfig-paths'
 import { cloudflare } from '@cloudflare/vite-plugin'
 import react from '@vitejs/plugin-react'
 import { spiceflowPlugin } from 'spiceflow/vite'
 import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig({
+  resolve: {
+    tsconfigPaths: true,
+  },
   plugins: [
     react(),
     {
@@ -47,7 +49,6 @@ export default defineConfig({
       entry: './app/main.tsx',
     }),
     tailwindcss(),
-    tsconfigPaths(),
     cloudflare({
       viteEnvironment: {
         name: 'rsc',
