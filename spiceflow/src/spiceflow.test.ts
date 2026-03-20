@@ -3462,6 +3462,85 @@ describe('use preserves type safety', () => {
     // @ts-expect-error - nonexistent
     app.safePath('/nonexistent')
   })
+
+  test('page routes excluded from proxy client types', () => {
+    const child = new Spiceflow({ basePath: '/app' })
+      .page('/dashboard', async () => 'Dashboard')
+      .get('/api/data', () => ({ items: [] }))
+
+    const app = new Spiceflow().use(child)
+    const client = createSpiceflowClient(app)
+
+    // API route is accessible on client
+    client.app.api.data.get()
+
+    // @ts-expect-error - page route not in ClientRoutes
+    client.app.dashboard
+  })
+
+  test('staticPage routes excluded from proxy client types', () => {
+    const child = new Spiceflow({ basePath: '/docs' })
+      .staticPage('/intro')
+      .get('/api/versions', () => [1, 2])
+
+    const app = new Spiceflow().use(child)
+    const client = createSpiceflowClient(app)
+
+    // API route is accessible
+    client.docs.api.versions.get()
+
+    // @ts-expect-error - staticPage route not in ClientRoutes
+    client.docs.intro
+  })
+
+  test('page routes excluded from fetch client ClientRoutes', () => {
+    const child = new Spiceflow({ basePath: '/app' })
+      .page('/dashboard', async () => 'Dashboard')
+      .get('/api/data', () => ({ items: [] }))
+
+    const app = new Spiceflow().use(child)
+    const f = createSpiceflowFetch(app)
+
+    // API route works with typed result
+    f('/app/api/data')
+
+    // fetch client accepts any string path (falls back to untyped),
+    // so page paths aren't rejected — but they resolve to fallback types,
+    // not the page handler's return type
+  })
+
+  test('layout paths excluded from safePath', () => {
+    const child = new Spiceflow({ basePath: '/app' })
+      .layout('/', ({ children }) => children)
+      .page('/dashboard', async () => 'Dashboard')
+
+    const app = new Spiceflow()
+      .get('/health', () => 'ok')
+      .use(child)
+
+    // API and page routes work
+    expect(app.safePath('/health')).toBe('/health')
+    expect(app.safePath('/app/dashboard')).toBe('/app/dashboard')
+
+    // @ts-expect-error - layout path not in RoutePaths
+    app.safePath('/app/')
+  })
+
+  test('layout paths excluded from proxy client and fetch client', () => {
+    const child = new Spiceflow({ basePath: '/app' })
+      .layout('/', ({ children }) => children)
+      .get('/api/data', () => 'data')
+
+    const app = new Spiceflow().use(child)
+
+    const client = createSpiceflowClient(app)
+    client.app.api.data.get()
+
+    const f = createSpiceflowFetch(app)
+    f('/app/api/data')
+
+    // layout doesn't add to ClientRoutes — no navigable endpoint to access
+  })
 })
 
 test('.page() without Vite plugin throws a clear error', async () => {
