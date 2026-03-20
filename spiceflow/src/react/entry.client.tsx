@@ -203,7 +203,7 @@ async function main() {
   }
 }
 
-if (import.meta.env.DEV) {
+if (import.meta.hot) {
   window.onerror = (_event, _source, _lineno, _colno, err) => {
     const ErrorOverlay = customElements.get('vite-error-overlay')
     if (!ErrorOverlay) return

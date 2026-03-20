@@ -95,7 +95,7 @@ class ErrorBoundary_ extends React.Component<Props, State> {
     if (ctx && isNotFoundError(ctx)) {
       throw error
     }
-    if (import.meta.env.DEV) {
+    if (import.meta.hot) {
       throw error
     }
     return { error }

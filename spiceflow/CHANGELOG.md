@@ -1,5 +1,53 @@
 # spiceflow
 
+## 1.18.0-rsc.11
+
+### Patch Changes
+
+1. **Removed Link prefetch** — the `prefetch` prop and hover/focus/touch prefetching have been removed from the `Link` component. `prefetchRoute` is no longer exported from `spiceflow/react`. Links now navigate directly without prefetching:
+
+   ```tsx
+   import { Link } from 'spiceflow/react'
+
+   // prefetch prop is no longer accepted
+   <Link href="/dashboard">Dashboard</Link>
+   ```
+
+2. **More reliable dev mode detection** — switched from `import.meta.env.PROD/DEV` to `import.meta.hot` throughout the framework (`getDeploymentId`, `ErrorBoundary`, `entry.client`, `entry.ssr`). `import.meta.hot` is defined by Vite in dev/HMR mode and is always `undefined` in production builds, making it a more accurate and portable check.
+
+## 1.18.0-rsc.10
+
+### Patch Changes
+
+1. **Link prefetch on hover** — the `Link` component now fetches the RSC payload when the user hovers (with 80ms debounce), focuses, or touches a link. Cached responses are consumed on navigation, making client-side page transitions feel instant. Prefetch is enabled by default and opt-out per link:
+
+   ```tsx
+   import { Link } from 'spiceflow/react'
+
+   // prefetch on hover (default)
+   <Link href="/dashboard">Dashboard</Link>
+
+   // disable prefetch for this link
+   <Link href="/dashboard" prefetch={false}>Dashboard</Link>
+   ```
+
+   `prefetchRoute(href)` is also exported from `spiceflow/react` for programmatic prefetching.
+
+2. **Removed `.rsc` URL extension from client navigations** — RSC data fetches now use only the `?__rsc` query parameter to signal the server, producing cleaner URLs (e.g. `/about?__rsc=` instead of `/about.rsc?__rsc=`). Prerendered `.rsc` Flight data files on disk are still served correctly via `serveStatic`.
+
+3. **Prerendering enabled by default for `staticPage()` routes** — prerendering no longer requires the `SPICEFLOW_ENABLE_BUILD_PRERENDER` env var. It now runs automatically during `vite build --app`, generating `.rsc` Flight data files so client-side navigations to prerendered pages are served from disk rather than re-rendered dynamically.
+
+4. **`getDeploymentId` exported from main entry** — returns the build-time deployment identifier (a base-36 timestamp), useful for cache keys and logging. Returns `''` in dev mode:
+
+   ```ts
+   import { getDeploymentId } from 'spiceflow'
+   const id = getDeploymentId() // e.g. "lk3m2p9"
+   ```
+
+5. **Consistent response status across all route types** — `context.response` is now a mutable plain object `{ headers, status }`. Handler-provided status codes are applied consistently for API routes, React pages, and layouts, while explicit statuses from returned or thrown `Response` objects are still preserved.
+
+6. **Optimized `SpiceflowRequest.parsedUrl`** — URL parsing is now lazy and cached on first access, removing manual `parsedUrl` assignments from `handle()` and `nodeToWebRequest()`.
+
 ## 1.18.0-rsc.9
 
 ### Patch Changes

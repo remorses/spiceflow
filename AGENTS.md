@@ -226,3 +226,7 @@ we also try to work well with the cloudflare vite plugin. the source code of tha
 we have an example `cloudflare-example` that we can use to make sure pnpm dev, build, preview and deployment work well.
 
 Waku (`opensrc dai-shi/waku`, packages/waku/) is another Vite RSC framework we use as reference for Vite integration patterns. It uses the same `@vitejs/plugin-rsc` plugin and has a similar multi-environment setup (client, ssr, rsc). Useful to check how they handle `optimizeDeps`, `resolve.noExternal`, SSR middleware, and RSC environment config. Their Vite plugins live in `packages/waku/src/lib/vite-plugins/`.
+
+## import.meta.env
+
+do not use import.meta.env to get env variables. this is not always available. instead to know if we are in development you can use `import.meta.hot` instead

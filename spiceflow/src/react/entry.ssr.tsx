@@ -20,7 +20,7 @@ let bootstrapScriptContentPromise: Promise<string> | undefined
 
 function getBootstrapScriptContent() {
   const load = () => import.meta.viteRsc.loadBootstrapScriptContent('index')
-  if (import.meta.env.DEV) {
+  if (import.meta.hot) {
     return load()
   }
   bootstrapScriptContentPromise ??= load()
