@@ -33,6 +33,11 @@ import {
 // unwanted server re-renders (e.g. client HMR should not trigger a server render).
 let serverRenderCount = 0;
 
+// In-memory page cache for e2e testing of the README caching middleware pattern.
+// Key = pathname+search (naturally separates HTML and RSC responses).
+const pageCache = new Map<string, { body: string; status: number; headers: [string, string][] }>();
+let cachedPageRenderCount = 0;
+
 function notFound() {
 	return new Response(null, { status: 404 });
 }
@@ -355,6 +360,61 @@ export const app = new Spiceflow()
 				</div>
 			</div>
 		);
+	})
+	.use(async ({ request }, next) => {
+		const url = new URL(request.url);
+		if (!url.pathname.startsWith("/cached-page")) {
+			return next();
+		}
+		if (request.method !== "GET") {
+			return next();
+		}
+		const cacheKey = `${url.pathname}${url.search}`;
+		const cached = pageCache.get(cacheKey);
+		if (cached) {
+			const headers = new Headers(cached.headers);
+			headers.set("x-cache", "HIT");
+			return new Response(cached.body, { status: cached.status, headers });
+		}
+		const response = await next();
+		if (!response || response.status !== 200) {
+			return response;
+		}
+		const body = await response.text();
+		const headers = new Headers(response.headers);
+		headers.set("x-cache", "MISS");
+		pageCache.set(cacheKey, { body, status: response.status, headers: [...headers.entries()] });
+		return new Response(body, { status: response.status, headers });
+	})
+	.page("/cached-page", async () => {
+		cachedPageRenderCount++;
+		const timestamp = Date.now();
+		const random = Math.random().toString(36).slice(2);
+		return (
+			<div data-testid="cached-page">
+				<h1>Cached Page</h1>
+				<span data-testid="cached-render-count">{cachedPageRenderCount}</span>
+				<span data-testid="cached-timestamp">{timestamp}</span>
+				<span data-testid="cached-random">{random}</span>
+				<Link href="/" data-testid="cached-page-home-link">
+					Back to Home
+				</Link>
+			</div>
+		);
+	})
+	.page("/cached-page-nav", async () => {
+		return (
+			<div>
+				<Link href="/cached-page" data-testid="link-to-cached-page">
+					Go to cached page
+				</Link>
+			</div>
+		);
+	})
+	.get("/api/cache-clear", () => {
+		pageCache.clear();
+		cachedPageRenderCount = 0;
+		return { cleared: true };
 	})
 	.page(
 		"/static/:id",

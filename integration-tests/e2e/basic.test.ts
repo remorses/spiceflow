@@ -901,6 +901,151 @@ test.describe("prerender @build", () => {
 	});
 });
 
+test.describe("middleware page cache", () => {
+	// Clear cache before each test so they're isolated
+	test.beforeEach(async () => {
+		await fetch(`${baseURL}/api/cache-clear`);
+	});
+
+	test("first HTML request is MISS, second is HIT with identical content", async () => {
+		const first = await fetch(`${baseURL}/cached-page`, {
+			headers: { "sec-fetch-dest": "document" },
+		});
+		expect(first.status).toBe(200);
+		expect(first.headers.get("x-cache")).toBe("MISS");
+		const firstHtml = await first.text();
+
+		const second = await fetch(`${baseURL}/cached-page`, {
+			headers: { "sec-fetch-dest": "document" },
+		});
+		expect(second.status).toBe(200);
+		expect(second.headers.get("x-cache")).toBe("HIT");
+		const secondHtml = await second.text();
+
+		expect(secondHtml).toBe(firstHtml);
+	});
+
+	test("first RSC request is MISS, second is HIT with identical payload", async () => {
+		const first = await fetch(`${baseURL}/cached-page?__rsc=1`, {
+			headers: { accept: "text/x-component" },
+		});
+		expect(first.status).toBe(200);
+		expect(first.headers.get("x-cache")).toBe("MISS");
+		const firstPayload = await first.text();
+
+		const second = await fetch(`${baseURL}/cached-page?__rsc=1`, {
+			headers: { accept: "text/x-component" },
+		});
+		expect(second.status).toBe(200);
+		expect(second.headers.get("x-cache")).toBe("HIT");
+		const secondPayload = await second.text();
+
+		expect(secondPayload).toBe(firstPayload);
+	});
+
+	test("HTML and RSC caches are separate (different cache keys)", async () => {
+		const html = await fetch(`${baseURL}/cached-page`, {
+			headers: { "sec-fetch-dest": "document" },
+		});
+		expect(html.headers.get("x-cache")).toBe("MISS");
+
+		const rsc = await fetch(`${baseURL}/cached-page?__rsc=1`, {
+			headers: { accept: "text/x-component" },
+		});
+		expect(rsc.headers.get("x-cache")).toBe("MISS");
+
+		const htmlAgain = await fetch(`${baseURL}/cached-page`, {
+			headers: { "sec-fetch-dest": "document" },
+		});
+		expect(htmlAgain.headers.get("x-cache")).toBe("HIT");
+
+		const rscAgain = await fetch(`${baseURL}/cached-page?__rsc=1`, {
+			headers: { accept: "text/x-component" },
+		});
+		expect(rscAgain.headers.get("x-cache")).toBe("HIT");
+	});
+
+	test("cached page renders correctly in browser", async ({ page }) => {
+		await page.goto("/cached-page");
+		await expect(page.getByTestId("cached-page")).toBeVisible();
+		await expect(page.getByRole("heading", { name: "Cached Page" })).toBeVisible();
+		await expect(page.getByTestId("cached-render-count")).toHaveText("1");
+	});
+
+	test("cached page serves same content on reload (render count stays 1)", async ({ page }) => {
+		await page.goto("/cached-page");
+		await expect(page.getByTestId("cached-render-count")).toHaveText("1");
+		const firstRandom = await page.getByTestId("cached-random").textContent();
+
+		await page.reload();
+		await expect(page.getByTestId("cached-render-count")).toHaveText("1");
+		const secondRandom = await page.getByTestId("cached-random").textContent();
+		expect(secondRandom).toBe(firstRandom);
+	});
+
+	test("client-side navigation to cached page returns cached RSC payload", async ({ page }) => {
+		// Start on home — has [hydrated: 1] marker for confirming JS is ready
+		await page.goto("/");
+		await page.getByText("[hydrated: 1]").click();
+
+		// First client-side nav to cached page — should be MISS (primes RSC cache)
+		let rscResponsePromise = page.waitForResponse(
+			(res) => res.url().includes("cached-page") && res.url().includes("__rsc"),
+		);
+		await page.getByTestId("link-cached-page").click();
+		let rscResponse = await rscResponsePromise;
+		expect(rscResponse.headers()["x-cache"]).toBe("MISS");
+		await expect(page.getByTestId("cached-page")).toBeVisible();
+		const primeRandom = await page.getByTestId("cached-random").textContent();
+
+		// Navigate back home
+		await page.getByTestId("cached-page-home-link").click();
+		await expect(page).toHaveURL("/");
+
+		// Second client-side nav — should be HIT
+		rscResponsePromise = page.waitForResponse(
+			(res) => res.url().includes("cached-page") && res.url().includes("__rsc"),
+		);
+		await page.getByTestId("link-cached-page").click();
+		rscResponse = await rscResponsePromise;
+		expect(rscResponse.headers()["x-cache"]).toBe("HIT");
+
+		// Content should match what was cached (same random value)
+		await expect(page.getByTestId("cached-page")).toBeVisible();
+		const navRandom = await page.getByTestId("cached-random").textContent();
+		expect(navRandom).toBe(primeRandom);
+	});
+
+	test("client-side nav from layout link uses cached RSC payload", async ({ page }) => {
+		// Start on home page
+		await page.goto("/");
+		await page.getByText("[hydrated: 1]").click();
+
+		// First client-side nav — primes RSC cache (MISS)
+		let rscResponsePromise = page.waitForResponse(
+			(res) => res.url().includes("cached-page") && res.url().includes("__rsc"),
+		);
+		await page.getByTestId("link-cached-page").click();
+		let rscResponse = await rscResponsePromise;
+		expect(rscResponse.headers()["x-cache"]).toBe("MISS");
+		await expect(page.getByTestId("cached-page")).toBeVisible();
+
+		// Navigate back home
+		await page.getByRole("link", { name: "Home", exact: true }).click();
+		await expect(page).toHaveURL("/");
+
+		// Second nav — should be HIT
+		rscResponsePromise = page.waitForResponse(
+			(res) => res.url().includes("cached-page") && res.url().includes("__rsc"),
+		);
+		await page.getByTestId("link-cached-page").click();
+		rscResponse = await rscResponsePromise;
+		expect(rscResponse.headers()["x-cache"]).toBe("HIT");
+
+		await expect(page.getByTestId("cached-page")).toBeVisible();
+	});
+});
+
 test.describe("deployment id @build", () => {
 	const docHeaders = { "sec-fetch-dest": "document" };
 
