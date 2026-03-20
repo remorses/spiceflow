@@ -20,6 +20,11 @@ import { DialogDemo } from "./app/dialog";
 import { WithSelect } from "./app/select";
 import { ThrowsDuringSSR } from "./app/ssr-error";
 import { StreamingConsumer } from "./app/streaming-consumer";
+import {
+	StreamingActionTest,
+	SimpleActionTest,
+	AbortActionTest,
+} from "./app/action-test-client";
 import { Head, Link } from "spiceflow/react";
 import { CssTestClient } from "./app/client";
 import { CssTestServer } from "./app/css-test-server";
@@ -471,6 +476,15 @@ export const app = new Spiceflow()
 	.post("/api/echo", async ({ request }) => {
 		const body = await request.json();
 		return { echo: body };
+	})
+	.page("/server-action-streaming", async () => {
+		return <StreamingActionTest />;
+	})
+	.page("/server-action-simple", async () => {
+		return <SimpleActionTest />;
+	})
+	.page("/server-action-abort", async () => {
+		return <AbortActionTest />;
 	});
 
 const somePaths = ["/static/one", "/static/two"];

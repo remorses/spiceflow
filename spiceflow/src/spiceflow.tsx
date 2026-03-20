@@ -1228,6 +1228,9 @@ export class Spiceflow<
 
       const formData = await request.formData()
       const decodedAction = await decodeAction(formData)
+      if (typeof decodedAction !== 'function') {
+        return emptyState
+      }
 
       return {
         actionError: undefined,
@@ -1236,6 +1239,11 @@ export class Spiceflow<
         temporaryReferences: undefined,
       }
     } catch (error) {
+      // Thrown Responses (redirect, notFound) bypass the action payload entirely —
+      // return them as HTTP responses so the browser handles them natively.
+      if (error instanceof Response) {
+        return error
+      }
       console.log('action error', error)
 
       return {

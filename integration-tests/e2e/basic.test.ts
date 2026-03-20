@@ -1067,3 +1067,105 @@ test.describe("deployment id @build", () => {
 		expect(getId(first)).toBe(getId(second));
 	});
 });
+
+test.describe("server actions", () => {
+	test("simple server action called from client returns value", async ({ page }) => {
+		await page.goto("/server-action-simple");
+		// Wait for hydration (layout mount tracker increments from 0 to 1)
+		await expect(page.getByTestId("layout-mount-count")).toHaveText("1", { timeout: 10000 });
+		await page.getByTestId("call-simple-action").click();
+		await expect(page.getByTestId("simple-action-result")).toHaveText(
+			"echo: hello",
+			{ timeout: 10000 },
+		);
+	});
+
+	test("AbortSignal becomes temporary reference, not real signal", async ({ page }) => {
+		// AbortSignal is not serializable across the RSC wire protocol.
+		// encodeReply converts it to a temporary reference, so the server
+		// receives a placeholder object instead of a real AbortSignal.
+		await page.goto("/server-action-abort");
+		await expect(page.getByTestId("layout-mount-count")).toHaveText("1", { timeout: 10000 });
+		await page.getByTestId("call-abort-action").click();
+		await expect(page.getByTestId("abort-action-result")).toBeVisible({
+			timeout: 10000,
+		});
+		const result = JSON.parse(
+			(await page.getByTestId("abort-action-result").textContent()) ?? "{}",
+		);
+		expect(result.isRealSignal).toBe(false);
+	});
+
+	test("server action returning async generator streams items incrementally", async ({ page }) => {
+		await page.goto("/server-action-streaming");
+		await expect(page.getByTestId("layout-mount-count")).toHaveText("1", { timeout: 10000 });
+		await page.getByTestId("start-streaming").click();
+		// First item should appear before the generator completes
+		const firstItem = page.getByTestId("action-stream-item").first();
+		await expect(firstItem).toBeVisible({ timeout: 10000 });
+		await expect(firstItem).toHaveText("chunk-1");
+		// Wait for completion
+		await expect(page.getByTestId("action-stream-done")).toBeVisible({
+			timeout: 10000,
+		});
+		const items = page.getByTestId("action-stream-item");
+		await expect(items).toHaveCount(3);
+		await expect(items.nth(0)).toHaveText("chunk-1");
+		await expect(items.nth(1)).toHaveText("chunk-2");
+		await expect(items.nth(2)).toHaveText("chunk-3");
+	});
+
+	test("form action with useActionState submits and returns result", async ({
+		page,
+	}) => {
+		await page.goto("/form");
+		await expect(page.getByTestId("layout-mount-count")).toHaveText("1", { timeout: 10000 });
+		await page.locator('input[name="name"]').fill("test");
+		await page.getByRole("button", { name: "Submit" }).click();
+		await expect(page.locator("pre")).toContainText('"result":"ok"', {
+			timeout: 10000,
+		});
+	});
+
+	test("server action called directly preserves client component state", async ({ page }) => {
+		await page.goto("/server-action-simple");
+		await expect(page.getByTestId("layout-mount-count")).toHaveText("1", { timeout: 10000 });
+		// Increment the layout counter to set some client state
+		const layoutCounter = page.getByTestId("client-counter").filter({ hasText: "Layout" });
+		await layoutCounter.getByRole("button", { name: "+" }).click();
+		await expect(layoutCounter).toContainText("Layout counter: 1");
+		// Call the server action
+		await page.getByTestId("call-simple-action").click();
+		await expect(page.getByTestId("simple-action-result")).toHaveText(
+			"echo: hello",
+			{ timeout: 10000 },
+		);
+		// Layout counter state should be preserved after server action
+		await expect(layoutCounter).toContainText("Layout counter: 1");
+	});
+
+	test("throw redirect() in server action navigates to target", async ({ page }) => {
+		await page.goto("/form-redirect");
+		await expect(page.getByTestId("layout-mount-count")).toHaveText("1", { timeout: 10000 });
+		await page.locator('input[name="name"]').fill("test");
+		await page.getByRole("button", { name: "Submit" }).click();
+		await expect(page).toHaveURL("/", { timeout: 10000 });
+	});
+
+	test("throw Error in server action propagates to client", async ({ page }) => {
+		const errors: string[] = [];
+		page.on("pageerror", (err) => errors.push(err.message));
+		await page.goto("/form-error");
+		await expect(page.getByTestId("layout-mount-count")).toHaveText("1", { timeout: 10000 });
+		await page.locator('input[name="name"]').fill("test");
+		await page.getByRole("button", { name: "Submit" }).click();
+		await page.waitForTimeout(2000);
+		// The error reaches the client as a pageerror or shows in the error boundary
+		const bodyText = await page.evaluate(() => document.body.textContent ?? "");
+		const hasError =
+			bodyText.includes("test error") ||
+			bodyText.includes("Application Error") ||
+			errors.some((e) => e.includes("test error"));
+		expect(hasError).toBe(true);
+	});
+});
