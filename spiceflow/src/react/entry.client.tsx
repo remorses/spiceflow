@@ -146,7 +146,9 @@ async function main() {
   const initialPayload = createFromReadableStream<ServerPayload>(rscStream)
   // Seed the loader data store from the initial RSC payload so getLoaderData()
   // resolves for top-level await in client modules.
-  initialPayload.then((payload) => {
+  // Wrap in Promise.resolve because createFromReadableStream returns a thenable
+  // (not a full Promise), so .then() doesn't return something with .catch().
+  Promise.resolve(initialPayload).then((payload) => {
     router.__setLoaderData(payload.root?.loaderData)
   }).catch(() => {})
 
@@ -174,7 +176,7 @@ async function main() {
         if (navigationAbort.signal.aborted) return
         setPayload(payload)
         const version = ++navVersion
-        payload.then((resolved) => {
+        Promise.resolve(payload).then((resolved) => {
           if (version !== navVersion) return
           router.__setLoaderData(resolved.root?.loaderData)
         }).catch(() => {})
