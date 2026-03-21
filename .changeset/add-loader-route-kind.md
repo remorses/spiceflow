@@ -8,7 +8,7 @@ Add `.loader()` route kind for server-side data loading, `createRouter<App>()` f
 
 **`createRouter<typeof app>()`** returns typed `router`, `useRouterState`, `useLoaderData`, and `href` — all in one factory call. Path is always inferred from the argument.
 
-**`safePath` → `href`** renamed on both `app.href()` and `createHref()`. `createSafePath` is still exported as a deprecated alias.
+**`safePath` → `href`** renamed on both `app.href()` and `createHref()`. The old `createSafePath` and `buildSafePath` exports are removed.
 
 ```ts
 // server

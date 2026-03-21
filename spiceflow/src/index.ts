@@ -2,7 +2,7 @@ import { SpiceflowRequest, WaitUntil, Method } from './spiceflow.js'
 import { serveStatic } from './static-node.js'
 import type { MiddlewareHandler } from './types.js'
 
-export { Spiceflow, createSafePath, createSafePath as createHref } from './spiceflow.js'
+export { Spiceflow, createHref } from './spiceflow.js'
 export { redirect } from './react/errors.js'
 export type { AnySpiceflow, WaitUntil } from './spiceflow.js'
 export type { ContextResponse, SpiceflowContext } from './context.js'

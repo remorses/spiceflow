@@ -2297,8 +2297,7 @@ export class Spiceflow<
   }
 }
 
-/** @deprecated Use `buildHref` from loader-utils instead */
-export const buildSafePath = buildHref
+
 
 /**
  * Create a standalone type-safe path builder. Pass your app instance for automatic
@@ -2330,8 +2329,7 @@ export function createHref<
   }
 }
 
-/** @deprecated Use `createHref` instead */
-export const createSafePath = createHref
+
 
 const METHODS = [
   'ALL',
