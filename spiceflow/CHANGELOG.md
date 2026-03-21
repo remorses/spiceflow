@@ -1,5 +1,47 @@
 # spiceflow
 
+## 1.18.0-rsc.12
+
+### Minor Changes
+
+1. **`.loader()` route kind for server-side data loading** — loaders run before page and layout handlers, with their return values merged by path specificity and passed to handlers via `ctx.loaderData`. Wildcard patterns like `/*` match all routes for global data (e.g. auth):
+
+   ```ts
+   const app = new Spiceflow()
+     .loader('/*', async () => ({ user: await getUser() }))
+     .page('/dashboard', (ctx) => <Dashboard user={ctx.loaderData.user} />)
+   ```
+
+2. **`createRouter<App>()` factory for typed client utilities** — returns `router`, `useLoaderData`, `useRouterState`, and `href` all in one call. Paths and loader data types are fully inferred:
+
+   ```ts
+   import { createRouter } from 'spiceflow/react'
+   export const { router, useLoaderData, href } = createRouter<typeof app>()
+
+   router.push('/dashboard')                    // typed paths + params
+   const { user } = useLoaderData('/dashboard') // typed, path inferred
+   href('/users/:id', { id: '123' })            // type-safe URL builder
+   ```
+
+3. **`safePath` renamed to `href`** — `app.href()` and `createHref()` replace the old `safePath` API. The deprecated `createSafePath` and `buildSafePath` exports are removed.
+
+### Patch Changes
+
+4. **`useRouterState` hook and `router.searchParams` getter** — `useRouterState()` subscribes to navigation changes via `useSyncExternalStore` and returns the current location with a parsed `searchParams` property typed as `ReadonlyURLSearchParams`. `router.searchParams` provides the same read-only access outside React:
+
+   ```ts
+   import { createRouter } from 'spiceflow/react'
+   const { useRouterState, router } = createRouter<typeof app>()
+
+   // inside a component
+   const { pathname, searchParams } = useRouterState()
+
+   // outside React
+   const q = router.searchParams.get('q')
+   ```
+
+5. **`getLoaderData()` for non-React access** — resolves loader data from the RSC flight payload outside of React components via a Promise-based API with navigation versioning.
+
 ## 1.18.0-rsc.11
 
 ### Patch Changes
