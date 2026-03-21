@@ -25,7 +25,7 @@ Spiceflow is a type-safe API framework and full-stack React RSC framework focuse
 ## Installation
 
 ```bash
-npm install spiceflow
+npm install spiceflow@rsc
 ```
 
 ## AI Agents
@@ -1706,7 +1706,7 @@ Spiceflow includes a full-stack React framework built on React Server Components
 Install the dependencies and create a Vite config:
 
 ```bash
-npm install spiceflow react react-dom
+npm install spiceflow@rsc react react-dom
 ```
 
 ```ts
