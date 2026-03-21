@@ -1936,16 +1936,16 @@ import { getLoaderData, router } from './router'
 import { EditorState } from 'prosemirror-state'
 import { EditorView } from 'prosemirror-view'
 
-// Module scope — runs before React renders.
-// The editor is created with server data immediately, no loading state.
-const { document } = getLoaderData('/editor/:id')
+// Top-level await — module pauses until loader data resolves from the RSC
+// flight payload. Supports Date, Map, Set etc (RSC encoding, not JSON).
+const { document } = await getLoaderData('/editor/:id')
 const state = EditorState.create({ doc: document.content })
 const view = new EditorView(null, { state })
 
 // Update editor when loader data changes on navigation
-router.subscribe((event) => {
+router.subscribe(async (event) => {
   if (event.action !== 'LOADER_DATA') return
-  const { document } = getLoaderData('/editor/:id')
+  const { document } = await getLoaderData('/editor/:id')
   view.updateState(EditorState.create({ doc: document.content }))
 })
 

@@ -7,7 +7,7 @@ import { ServerPayload } from '../spiceflow.js'
 import { isRedirectError, isNotFoundError, getErrorContext, contextHeaders } from './errors.js'
 import { useFlightData, useLoaderData } from './context.js'
 export { useLoaderData }
-export function getLoaderData(): Record<string, unknown> {
+export function getLoaderData(): Promise<Record<string, unknown>> {
   return router.getLoaderData()
 }
 import { ProgressBar } from './progress.js'

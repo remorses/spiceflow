@@ -39,6 +39,7 @@ import {
 	LayoutClientContextValue,
 } from "./app/client-context";
 import { LoaderDataDisplay, LoaderNavLinks } from "./app/loader-test-client";
+import { GlobalLoaderDisplay, SubscribeDataReader } from "./app/loader-global-client";
 
 // Increments on every RSC render of the home page. Used by e2e tests to detect
 // unwanted server re-renders (e.g. client HMR should not trigger a server render).
@@ -546,6 +547,16 @@ export const app = new Spiceflow()
 		return (
 			<div>
 				<LoaderNavLinks />
+			</div>
+		);
+	})
+	// --- getLoaderData (module scope) tests ---
+	.page("/loader-test/global", async ({ loaderData }) => {
+		return (
+			<div>
+				<div data-testid="loader-data-server">{JSON.stringify(loaderData)}</div>
+				<GlobalLoaderDisplay />
+				<SubscribeDataReader />
 			</div>
 		);
 	})

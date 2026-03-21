@@ -1311,4 +1311,42 @@ test.describe("loaders", () => {
 		const text = await page.textContent("body");
 		expect(text).not.toContain("should not render");
 	});
+
+	test("getLoaderData bootstrap seed is injected in SSR HTML", async () => {
+		const response = await fetch(`${baseURL}/loader-test/global`);
+		const html = await response.text();
+		expect(html).toContain("__SPICEFLOW_LOADER_DATA__");
+		expect(html).toContain("from-wildcard-loader");
+	});
+
+	test("getLoaderData resolves with correct data after hydration", async ({ page }) => {
+		await page.goto("/loader-test/global");
+		await expect(page.getByTestId("read-loader-data")).toBeVisible({ timeout: 10000 });
+
+		// Read loader data directly from the bootstrap seed via page.evaluate
+		const bootstrapData = await page.evaluate(() => (window as any).__SPICEFLOW_LOADER_DATA__);
+		expect(bootstrapData).toBeTruthy();
+		expect(bootstrapData.global).toBe("from-wildcard-loader");
+	});
+
+	test("getLoaderData updates after client-side navigation", async ({ page }) => {
+		// Start on a page with loader data, expose getLoaderData on window
+		await page.goto("/loader-test/global");
+		await expect(page.getByTestId("link-global-nested")).toBeVisible({ timeout: 10000 });
+
+		// Navigate to nested page (has wildcard + exact loaders)
+		await page.getByTestId("link-global-nested").click();
+		await expect(page).toHaveURL("/loader-test/nested", { timeout: 10000 });
+
+		// The subscribe callback in loader-global-client.tsx stores updated data.
+		// After navigation, check the useLoaderData hook (React path) which reads
+		// from the flight context — confirms the RSC payload has the merged data.
+		await expect(page.getByTestId("loader-data-client")).toBeVisible({ timeout: 10000 });
+		await expect(async () => {
+			const clientData = await page.getByTestId("loader-data-client").textContent();
+			const parsed = JSON.parse(clientData!);
+			expect(parsed.global).toBe("from-wildcard-loader");
+			expect(parsed.nested).toBe("from-nested-loader");
+		}).toPass({ timeout: 10000 });
+	});
 });

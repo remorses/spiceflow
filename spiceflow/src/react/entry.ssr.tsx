@@ -84,8 +84,11 @@ export async function renderHtml({
   }
   const metaState = new MetaState({ baseUrl })
 
+  // Seed getLoaderData() synchronously before client modules evaluate.
+  // Without this, top-level await in client components deadlocks: the module
+  // waits for loader data, but the RSC payload can't resolve until the module loads.
   const loaderDataPrefix = loaderData && Object.keys(loaderData).length > 0
-    ? `self.__SPICEFLOW_LOADER_DATA__=${JSON.stringify(loaderData)};`
+    ? `self.__SPICEFLOW_LOADER_DATA__=${JSON.stringify(loaderData).replace(/</g, '\\u003c')};`
     : ''
   const bootstrapScriptContent = loaderDataPrefix + await getBootstrapScriptContent()
 

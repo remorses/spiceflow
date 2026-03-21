@@ -207,12 +207,18 @@ if (isBrowser) {
 }
 
 
-// Loader data store — initialized from window.__SPICEFLOW_LOADER_DATA__ (set by
-// SSR script injection), updated on navigation when the RSC payload resolves.
-let loaderData: Record<string, unknown> =
-  isBrowser && (window as any).__SPICEFLOW_LOADER_DATA__
-    ? (window as any).__SPICEFLOW_LOADER_DATA__
-    : {}
+// Loader data store — seeded from window.__SPICEFLOW_LOADER_DATA__ (bootstrap
+// script) on initial load so getLoaderData() resolves immediately in client
+// modules using top-level await. Updated on navigation from the RSC payload.
+const initialLoaderData = isBrowser && (window as any).__SPICEFLOW_LOADER_DATA__
+  ? (window as any).__SPICEFLOW_LOADER_DATA__ as Record<string, unknown>
+  : null
+let loaderData: Record<string, unknown> = initialLoaderData ?? {}
+let loaderDataInitialized = !!initialLoaderData
+let loaderDataResolve: ((data: Record<string, unknown>) => void) | null = null
+const loaderDataReady = loaderDataInitialized
+  ? Promise.resolve(loaderData)
+  : new Promise<Record<string, unknown>>((resolve) => { loaderDataResolve = resolve })
 
 export const router = {
   get location() {
@@ -250,12 +256,19 @@ export const router = {
       subscribers.delete(cb)
     }
   },
-  getLoaderData(): Record<string, unknown> {
-    return loaderData
+  getLoaderData(): Promise<Record<string, unknown>> {
+    if (!isBrowser) return Promise.resolve(loaderData)
+    if (loaderDataInitialized) return Promise.resolve(loaderData)
+    return loaderDataReady
   },
   /** @internal */
   __setLoaderData(data: Record<string, unknown> | undefined) {
     loaderData = data ?? {}
+    if (!loaderDataInitialized) {
+      loaderDataInitialized = true
+      loaderDataResolve?.(loaderData)
+      loaderDataResolve = null
+    }
     const location = history.location
     const event: NavigationEvent = {
       id: ++nextEventId,

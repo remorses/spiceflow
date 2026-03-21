@@ -50,7 +50,7 @@ export function createRouter<App extends {
 
   function getLoaderData<const Path extends Paths | (string & {}) = string>(
     _path?: Path,
-  ): LoaderDataReturn<LD, Path> {
+  ): Promise<LoaderDataReturn<LD, Path>> {
     return router.getLoaderData() as any
   }
 
