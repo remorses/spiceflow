@@ -207,18 +207,15 @@ if (isBrowser) {
 }
 
 
-// Loader data store — seeded from window.__SPICEFLOW_LOADER_DATA__ (bootstrap
-// script) on initial load so getLoaderData() resolves immediately in client
-// modules using top-level await. Updated on navigation from the RSC payload.
-const initialLoaderData = isBrowser && (window as any).__SPICEFLOW_LOADER_DATA__
-  ? (window as any).__SPICEFLOW_LOADER_DATA__ as Record<string, unknown>
-  : null
-let loaderData: Record<string, unknown> = initialLoaderData ?? {}
-let loaderDataInitialized = !!initialLoaderData
+// Loader data store — seeded from the RSC flight payload on initial load
+// (via __setLoaderData called from entry.client.tsx before hydrateRoot),
+// updated on navigation when new payloads resolve.
+let loaderData: Record<string, unknown> = {}
+let loaderDataInitialized = false
 let loaderDataResolve: ((data: Record<string, unknown>) => void) | null = null
-const loaderDataReady = loaderDataInitialized
-  ? Promise.resolve(loaderData)
-  : new Promise<Record<string, unknown>>((resolve) => { loaderDataResolve = resolve })
+const loaderDataReady = new Promise<Record<string, unknown>>((resolve) => {
+  loaderDataResolve = resolve
+})
 
 export const router = {
   get location() {

@@ -63,12 +63,10 @@ export async function renderHtml({
   response,
   request,
   prerender,
-  loaderData,
 }: {
   prerender?: boolean
   request: Request
   response: Response
-  loaderData?: Record<string, unknown>
 }) {
   // GET/HEAD requests only need one SSR-side decode. POST/form submissions still
   // split a second SSR copy to extract formState before hydrateRoot runs.
@@ -84,13 +82,7 @@ export async function renderHtml({
   }
   const metaState = new MetaState({ baseUrl })
 
-  // Seed getLoaderData() synchronously before client modules evaluate.
-  // Without this, top-level await in client components deadlocks: the module
-  // waits for loader data, but the RSC payload can't resolve until the module loads.
-  const loaderDataPrefix = loaderData && Object.keys(loaderData).length > 0
-    ? `self.__SPICEFLOW_LOADER_DATA__=${JSON.stringify(loaderData).replace(/</g, '\\u003c')};`
-    : ''
-  const bootstrapScriptContent = loaderDataPrefix + await getBootstrapScriptContent()
+  const bootstrapScriptContent = await getBootstrapScriptContent()
 
   // Keep the first SSR-side createFromReadableStream call inside ReactDOMServer
   // render context so React can register preinit/preload hints for client refs.

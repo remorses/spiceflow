@@ -1312,21 +1312,19 @@ test.describe("loaders", () => {
 		expect(text).not.toContain("should not render");
 	});
 
-	test("getLoaderData bootstrap seed is injected in SSR HTML", async () => {
-		const response = await fetch(`${baseURL}/loader-test/global`);
-		const html = await response.text();
-		expect(html).toContain("__SPICEFLOW_LOADER_DATA__");
-		expect(html).toContain("from-wildcard-loader");
-	});
-
 	test("getLoaderData resolves with correct data after hydration", async ({ page }) => {
 		await page.goto("/loader-test/global");
 		await expect(page.getByTestId("read-loader-data")).toBeVisible({ timeout: 10000 });
-
-		// Read loader data directly from the bootstrap seed via page.evaluate
-		const bootstrapData = await page.evaluate(() => (window as any).__SPICEFLOW_LOADER_DATA__);
-		expect(bootstrapData).toBeTruthy();
-		expect(bootstrapData.global).toBe("from-wildcard-loader");
+		// Read loader data via getLoaderData() exposed on window by test component
+		await expect(async () => {
+			const data = await page.evaluate(async () => {
+				const fn = (window as any).__test_getLoaderData;
+				if (!fn) return null;
+				return await fn();
+			});
+			expect(data).toBeTruthy();
+			expect((data as any).global).toBe("from-wildcard-loader");
+		}).toPass({ timeout: 10000 });
 	});
 
 	test("getLoaderData updates after client-side navigation", async ({ page }) => {
