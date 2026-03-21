@@ -1,5 +1,11 @@
 # spiceflow
 
+## 1.18.0-rsc.13
+
+### Patch Changes
+
+1. **Fixed hydration crash on initial page load** — `createFromReadableStream` and `createFromFetch` from `@vitejs/plugin-rsc/browser` return thenables rather than native Promises. Calling `.then().catch()` on a thenable caused a `TypeError` that crashed the browser entry before `hydrateRoot` could run, leaving every page stuck unhydrated. All client interactivity (navigation, server actions, HMR) was broken as a result.
+
 ## 1.18.0-rsc.12
 
 ### Minor Changes
