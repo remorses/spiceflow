@@ -529,9 +529,9 @@ export class ChatDurableObject {
 }
 ```
 
-## Safe Path Building
+## Type-Safe Path Building
 
-The `safePath` method provides a type-safe way to build URLs with parameters. It helps prevent runtime errors by ensuring all required parameters are provided and properly substituted into the path.
+The `href` method provides a type-safe way to build URLs with parameters. It helps prevent runtime errors by ensuring all required parameters are provided and properly substituted into the path.
 
 ```ts
 import { Spiceflow } from 'spiceflow'
@@ -553,11 +553,11 @@ const app = new Spiceflow()
   })
 
 // Building URLs with required parameters
-const userPath = app.safePath('/users/:id', { id: '123' })
+const userPath = app.href('/users/:id', { id: '123' })
 // Result: '/users/123'
 
 // Building URLs with required parameters
-const userPostPath = app.safePath('/users/:id/posts/:postId', {
+const userPostPath = app.href('/users/:id/posts/:postId', {
   id: '456',
   postId: 'abc',
 })
@@ -566,7 +566,7 @@ const userPostPath = app.safePath('/users/:id/posts/:postId', {
 
 ### Query Parameters
 
-When a route has a `query` schema, `safePath` accepts query parameters alongside path parameters in the same flat object. Query parameters are appended as a query string, and unknown keys are rejected at the type level:
+When a route has a `query` schema, `href` accepts query parameters alongside path parameters in the same flat object. Query parameters are appended as a query string, and unknown keys are rejected at the type level:
 
 ```ts
 const app = new Spiceflow()
@@ -587,38 +587,38 @@ const app = new Spiceflow()
     },
   })
 
-app.safePath('/search', { q: 'hello', page: 1 })
+app.href('/search', { q: 'hello', page: 1 })
 // Result: '/search?q=hello&page=1'
 
-app.safePath('/users/:id', { id: '42', fields: 'name' })
+app.href('/users/:id', { id: '42', fields: 'name' })
 // Result: '/users/42?fields=name'
 
 // @ts-expect-error - 'invalid' is not a known query key
-app.safePath('/search', { invalid: 'x' })
+app.href('/search', { invalid: 'x' })
 ```
 
-### Standalone `createSafePath`
+### Standalone `createHref`
 
-If you need a path builder on the client side where you can't import server app code, use `createSafePath` with the `typeof app` generic:
+If you need a path builder on the client side where you can't import server app code, use `createHref` with the `typeof app` generic:
 
 ```ts
-import { createSafePath } from 'spiceflow'
+import { createHref } from 'spiceflow'
 import type { App } from './server' // import only the type, not the runtime app
 
-const safePath = createSafePath<App>()
+const href = createHref<App>()
 
-safePath('/users/:id', { id: '123' })
+href('/users/:id', { id: '123' })
 // Result: '/users/123'
 
-safePath('/search', { q: 'hello', page: 1 })
+href('/search', { q: 'hello', page: 1 })
 // Result: '/search?q=hello&page=1'
 ```
 
-The returned function has the same type safety as `app.safePath` — it infers paths, params, and query schemas from the app type. The app argument is optional and not used at runtime, so you can call `createSafePath<App>()` without passing any value.
+The returned function has the same type safety as `app.href` — it infers paths, params, and query schemas from the app type. The app argument is optional and not used at runtime, so you can call `createHref<App>()` without passing any value.
 
 ### OAuth Callback Example
 
-The `safePath` method is particularly useful when building callback URLs for OAuth flows, where you need to construct URLs dynamically based on user data or session information:
+The `href` method is particularly useful when building callback URLs for OAuth flows, where you need to construct URLs dynamically based on user data or session information:
 
 ```ts
 import { Spiceflow } from 'spiceflow'
@@ -649,7 +649,7 @@ const app = new Spiceflow()
 
       // Build the OAuth callback URL safely
       const callbackUrl = new URL(
-        app.safePath('/auth/callback/:provider/:userId', {
+        app.href('/auth/callback/:provider/:userId', {
           provider,
           userId,
         }),
@@ -671,7 +671,7 @@ const app = new Spiceflow()
 
 In this example:
 
-- The callback URL is built safely using `safePath` with type checking
+- The callback URL is built safely using `href` with type checking
 - Required parameters like `provider` and `userId` must be provided
 - The resulting URL is guaranteed to be properly formatted
 
@@ -1779,7 +1779,7 @@ See [`cloudflare-example/`](cloudflare-example) for a complete working example.
 
 The entry file defines your routes using `.page()` for pages and `.layout()` for layouts. This file runs in the RSC environment on the server.
 
-All routes registered with `.page()`, `.get()`, etc. are available in `app.safePath()` for type-safe URL building — including path params and query params.
+All routes registered with `.page()`, `.get()`, etc. are available in `app.href()` for type-safe URL building — including path params and query params.
 
 ```tsx
 // src/main.tsx
@@ -1812,8 +1812,8 @@ export const app = new Spiceflow()
         <h1>Welcome</h1>
         <p>Server-rendered data: {data.message}</p>
         <Counter />
-        <Link href={app.safePath('/users/:id', { id: '42' })}>View User 42</Link>
-        <Link href={app.safePath('/search', { q: 'spiceflow' })}>Search</Link>
+        <Link href={app.href('/users/:id', { id: '42' })}>View User 42</Link>
+        <Link href={app.href('/search', { q: 'spiceflow' })}>Search</Link>
       </div>
     )
   })
@@ -1821,7 +1821,7 @@ export const app = new Spiceflow()
     return (
       <div>
         <h1>About</h1>
-        <Link href={app.safePath('/')}>Back to Home</Link>
+        <Link href={app.href('/')}>Back to Home</Link>
       </div>
     )
   })
@@ -1848,7 +1848,7 @@ export const app = new Spiceflow()
 export type App = typeof app
 ```
 
-`app.safePath()` gives you **type-safe links** — TypeScript validates that the path exists, params are correct, and query values match the schema. Invalid paths or missing params are caught at compile time. The closure over `app` sees all routes, including ones defined later in the chain.
+`app.href()` gives you **type-safe links** — TypeScript validates that the path exists, params are correct, and query values match the schema. Invalid paths or missing params are caught at compile time. The closure over `app` sees all routes, including ones defined later in the chain.
 
 ### Client Components
 
@@ -1871,27 +1871,34 @@ export function Counter() {
 }
 ```
 
-### Type-Safe Links in Client Components
+### Type-Safe Client Router
 
-Use `createSafePath` with your app type for type-safe URL building in client components. Since client components can't import the server app directly, pass the type parameter instead — no runtime dependency on the server.
+Use `createRouter` with your app type for type-safe navigation, URL building, and loader data access in client components. Bind the app type once — all paths, params, query schemas, and loader data are inferred from arguments.
+
+```tsx
+// src/app/router.ts
+'use client'
+
+import { createRouter } from 'spiceflow/react'
+import type { App } from '../main'
+
+export const { router, useRouterState, useLoaderData, href } = createRouter<App>()
+```
 
 ```tsx
 // src/app/nav.tsx
 'use client'
 
-import { createSafePath } from 'spiceflow'
 import { Link } from 'spiceflow/react'
-import type { App } from '../main'
-
-const safePath = createSafePath<App>()
+import { href } from './router'
 
 export function Nav() {
   return (
     <nav>
-      <Link href={safePath('/')}>Home</Link>
-      <Link href={safePath('/about')}>About</Link>
-      <Link href={safePath('/users/:id', { id: '1' })}>User 1</Link>
-      <Link href={safePath('/search', { q: 'docs', page: 1 })}>Search Docs</Link>
+      <Link href={href('/')}>Home</Link>
+      <Link href={href('/about')}>About</Link>
+      <Link href={href('/users/:id', { id: '1' })}>User 1</Link>
+      <Link href={href('/search', { q: 'docs', page: 1 })}>Search Docs</Link>
     </nav>
   )
 }
@@ -1899,13 +1906,13 @@ export function Nav() {
 
 ### Client-Side Navigation and Router State
 
-The `router` object handles client-side navigation. Use `router.push` and `router.replace` to navigate programmatically — they accept a string or an object with `pathname`, `search`, and `hash` fields:
+The `router` object from `createRouter` handles type-safe client-side navigation. `router.push` and `router.replace` accept typed paths with autocomplete — params and query values are validated at compile time:
 
 ```tsx
 // src/app/search-filters.tsx
 'use client'
 
-import { router, useRouterState } from 'spiceflow/react'
+import { router, useRouterState } from './router'
 
 export function SearchFilters() {
   const { pathname, searchParams } = useRouterState()

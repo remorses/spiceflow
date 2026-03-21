@@ -73,6 +73,7 @@ export type SpiceflowContext<
     derive: {}
     resolve: {}
   },
+  LoaderData = {},
 > = Prettify<{
   query: undefined extends Route['query']
     ? Record<string, string>
@@ -92,6 +93,7 @@ export type SpiceflowContext<
   state: Singleton['state']
   waitUntil: WaitUntil
   response: ContextResponse
+  loaderData: LoaderData
   // TODO remove this for api routes
   children?: any
   // response?: Route['response']

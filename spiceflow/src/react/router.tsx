@@ -206,6 +206,7 @@ if (isBrowser) {
   })
 }
 
+
 export const router = {
   get location() {
     return history.location

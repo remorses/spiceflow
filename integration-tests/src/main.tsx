@@ -38,6 +38,7 @@ import {
 	LayoutClientContextProvider,
 	LayoutClientContextValue,
 } from "./app/client-context";
+import { LoaderDataDisplay, LoaderNavLinks } from "./app/loader-test-client";
 
 // Increments on every RSC render of the home page. Used by e2e tests to detect
 // unwanted server re-renders (e.g. client HMR should not trigger a server render).
@@ -506,6 +507,78 @@ export const app = new Spiceflow()
 				<div data-testid="inline-action-render-count">{renderCount}</div>
 			</form>
 		);
+	})
+	// --- Loader tests ---
+	.loader("/loader-test/*", async () => {
+		return { global: "from-wildcard-loader" };
+	})
+	.loader("/loader-test/nested", async () => {
+		return { nested: "from-nested-loader" };
+	})
+	.page("/loader-test", async ({ loaderData }) => {
+		return (
+			<div>
+				<div data-testid="loader-data-server">{JSON.stringify(loaderData)}</div>
+				<LoaderDataDisplay />
+				<LoaderNavLinks />
+			</div>
+		);
+	})
+	.page("/loader-test/nested", async ({ loaderData }) => {
+		return (
+			<div>
+				<div data-testid="loader-data-server">{JSON.stringify(loaderData)}</div>
+				<LoaderDataDisplay />
+				<LoaderNavLinks />
+			</div>
+		);
+	})
+	.page("/loader-test/other", async ({ loaderData }) => {
+		return (
+			<div>
+				<div data-testid="loader-data-server">{JSON.stringify(loaderData)}</div>
+				<LoaderDataDisplay />
+				<LoaderNavLinks />
+			</div>
+		);
+	})
+	.page("/loader-nav-start", async () => {
+		return (
+			<div>
+				<LoaderNavLinks />
+			</div>
+		);
+	})
+	// --- Loader redirect/notFound tests ---
+	.loader("/loader-redirect", async () => {
+		throw redirect("/other");
+	})
+	.page("/loader-redirect", async () => {
+		return <div>should not render</div>;
+	})
+	.loader("/loader-redirect-return", async () => {
+		return redirect("/other");
+	})
+	.page("/loader-redirect-return", async () => {
+		return <div>should not render</div>;
+	})
+	.loader("/loader-notfound", async () => {
+		throw notFound();
+	})
+	.page("/loader-notfound", async () => {
+		return <div>should not render</div>;
+	})
+	.loader("/loader-notfound-return", async () => {
+		return notFound();
+	})
+	.page("/loader-notfound-return", async () => {
+		return <div>should not render</div>;
+	})
+	.loader("/loader-error", async () => {
+		throw new Error("loader-boom");
+	})
+	.page("/loader-error", async () => {
+		return <div>should not render</div>;
 	})
 ;
 

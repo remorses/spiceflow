@@ -1175,3 +1175,140 @@ test.describe("server actions", () => {
 		await expect(page).toHaveURL("/other", { timeout: 10000 });
 	});
 });
+
+test.describe("loaders", () => {
+	test("wildcard loader data is passed to page via ctx.loaderData (SSR)", async ({ page }) => {
+		await page.goto("/loader-test");
+		const serverData = await page.getByTestId("loader-data-server").textContent();
+		const parsed = JSON.parse(serverData!);
+		expect(parsed.global).toBe("from-wildcard-loader");
+	});
+
+	test("wildcard + exact loaders merge for nested page (SSR)", async ({ page }) => {
+		await page.goto("/loader-test/nested");
+		const serverData = await page.getByTestId("loader-data-server").textContent();
+		const parsed = JSON.parse(serverData!);
+		expect(parsed.global).toBe("from-wildcard-loader");
+		expect(parsed.nested).toBe("from-nested-loader");
+	});
+
+	test("only wildcard loader matches for pages without exact loader (SSR)", async ({ page }) => {
+		await page.goto("/loader-test/other");
+		const serverData = await page.getByTestId("loader-data-server").textContent();
+		const parsed = JSON.parse(serverData!);
+		expect(parsed.global).toBe("from-wildcard-loader");
+		expect(parsed.nested).toBeUndefined();
+	});
+
+	test("useLoaderData hook renders loader data on client after hydration", async ({ page }) => {
+		await page.goto("/loader-test");
+		await expect(page.getByTestId("loader-data-client")).toBeVisible({ timeout: 10000 });
+		const clientData = await page.getByTestId("loader-data-client").textContent();
+		const parsed = JSON.parse(clientData!);
+		expect(parsed.global).toBe("from-wildcard-loader");
+	});
+
+	test("useLoaderData shows merged data for nested page after hydration", async ({ page }) => {
+		await page.goto("/loader-test/nested");
+		await expect(page.getByTestId("loader-data-client")).toBeVisible({ timeout: 10000 });
+		const clientData = await page.getByTestId("loader-data-client").textContent();
+		const parsed = JSON.parse(clientData!);
+		expect(parsed.global).toBe("from-wildcard-loader");
+		expect(parsed.nested).toBe("from-nested-loader");
+	});
+
+	test("client-side navigation updates loader data", async ({ page }) => {
+		await page.goto("/loader-nav-start");
+		// Wait for hydration
+		await expect(page.getByTestId("link-loader-nested")).toBeVisible({ timeout: 10000 });
+
+		// Navigate to nested (has wildcard + exact loaders)
+		await page.getByTestId("link-loader-nested").click();
+		await expect(page).toHaveURL("/loader-test/nested", { timeout: 10000 });
+		await expect(page.getByTestId("loader-data-client")).toBeVisible({ timeout: 10000 });
+		const nestedData = await page.getByTestId("loader-data-client").textContent();
+		const nestedParsed = JSON.parse(nestedData!);
+		expect(nestedParsed.global).toBe("from-wildcard-loader");
+		expect(nestedParsed.nested).toBe("from-nested-loader");
+
+		// Navigate to /loader-test/other (only wildcard loader)
+		await page.getByTestId("link-loader-other").click();
+		await expect(page).toHaveURL("/loader-test/other", { timeout: 10000 });
+		// Wait for server data to update (confirms we got new page render)
+		await expect(page.getByTestId("loader-data-server")).toContainText("from-wildcard-loader", { timeout: 10000 });
+		// Client data should only have wildcard loader, not nested
+		await expect(async () => {
+			const otherData = await page.getByTestId("loader-data-client").textContent();
+			const otherParsed = JSON.parse(otherData!);
+			expect(otherParsed.global).toBe("from-wildcard-loader");
+			expect(otherParsed.nested).toBeUndefined();
+		}).toPass({ timeout: 10000 });
+	});
+
+	test("client-side navigation from non-loader page to loader page gets data", async ({ page }) => {
+		await page.goto("/loader-nav-start");
+		await expect(page.getByTestId("link-loader-test")).toBeVisible({ timeout: 10000 });
+
+		await page.getByTestId("link-loader-test").click();
+		await expect(page).toHaveURL("/loader-test", { timeout: 10000 });
+		await expect(page.getByTestId("loader-data-client")).toBeVisible({ timeout: 10000 });
+		const data = await page.getByTestId("loader-data-client").textContent();
+		const parsed = JSON.parse(data!);
+		expect(parsed.global).toBe("from-wildcard-loader");
+	});
+
+	test("server and client loader data match on initial load", async ({ page }) => {
+		await page.goto("/loader-test/nested");
+		await expect(page.getByTestId("loader-data-client")).toBeVisible({ timeout: 10000 });
+
+		const serverData = await page.getByTestId("loader-data-server").textContent();
+		const clientData = await page.getByTestId("loader-data-client").textContent();
+		expect(JSON.parse(serverData!)).toEqual(JSON.parse(clientData!));
+	});
+
+	test("throw redirect in loader returns 307 and Location header", async () => {
+		const response = await fetch(`${baseURL}/loader-redirect`, {
+			redirect: "manual",
+		});
+		expect(response.status).toBe(307);
+		expect(response.headers.get("location")).toBe("/other");
+	});
+
+	test("return redirect in loader returns 307 and Location header", async () => {
+		const response = await fetch(`${baseURL}/loader-redirect-return`, {
+			redirect: "manual",
+		});
+		expect(response.status).toBe(307);
+		expect(response.headers.get("location")).toBe("/other");
+	});
+
+	test("throw notFound in loader returns 404", async () => {
+		const response = await fetch(`${baseURL}/loader-notfound`);
+		expect(response.status).toBe(404);
+	});
+
+	test("return notFound in loader returns 404", async () => {
+		const response = await fetch(`${baseURL}/loader-notfound-return`);
+		expect(response.status).toBe(404);
+	});
+
+	test("throw redirect in loader navigates via browser", async ({ page }) => {
+		const response = await page.goto("/loader-redirect");
+		expect(page.url()).toContain("/other");
+	});
+
+	test("throw notFound in loader returns 404 in browser", async ({ page }) => {
+		const response = await page.goto("/loader-notfound");
+		expect(response?.status()).toBe(404);
+	});
+
+	test("throw error in loader renders error boundary", async ({ page }) => {
+		const response = await page.goto("/loader-error");
+		expect(response?.status()).toBe(500);
+		// Error boundary should catch the loader error and render an error UI
+		// instead of a blank page or raw 500. The page content "should not render"
+		// must NOT appear.
+		const text = await page.textContent("body");
+		expect(text).not.toContain("should not render");
+	});
+});

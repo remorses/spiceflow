@@ -12,6 +12,7 @@ import {
   DefinitionBase,
   ErrorHandler,
   ExtractParamsFromPath,
+  HrefArgs,
   GetRequestSchema,
   HTTPMethod,
   ValidationFunction,
@@ -33,7 +34,9 @@ import {
   UnwrapRoute,
   PrefixPaths,
   PrefixQuerySchemas,
+  PrefixLoaderData,
 } from './types.js'
+import { buildHref } from './react/loader-utils.js'
 
 import React, { createElement } from 'react'
 import { ZodType } from 'zod'
@@ -170,6 +173,7 @@ export class Spiceflow<
     schema: {}
     macro: {}
     macroFn: {}
+    loaderData: {}
   },
   const out ClientRoutes extends RouteBase = {},
   const out RoutePaths extends string = '',
@@ -1128,6 +1132,34 @@ export class Spiceflow<
     return this as any
   }
 
+  loader<
+    const Path extends string,
+    const Handle extends (
+      context: SpiceflowContext<JoinPath<BasePath, Path>, {}, Singleton>,
+    ) => Record<string, unknown> | Promise<Record<string, unknown>>,
+  >(
+    path: Path,
+    handler: Handle,
+  ): Spiceflow<
+    BasePath,
+    Scoped,
+    Singleton,
+    Definitions,
+    Metadata & { loaderData: Record<JoinPath<BasePath, Path>, Awaited<ReturnType<Handle>>> },
+    ClientRoutes,
+    RoutePaths,
+    RouteQuerySchemas
+  > {
+    const routeConfig = {
+      path,
+      handler: handler as any,
+      kind: 'loader' as const,
+    }
+    this.add({ ...routeConfig, method: 'GET' })
+    this.add({ ...routeConfig, method: 'POST' })
+    return this as any
+  }
+
   private scoped?: Scoped = true as Scoped
 
   use<const NewSpiceflow extends AnySpiceflow>(
@@ -1139,7 +1171,10 @@ export class Spiceflow<
         Scoped,
         Singleton,
         Definitions,
-        Metadata,
+        Metadata & { loaderData: BasePath extends ``
+          ? NewSpiceflow['_types']['Metadata']['loaderData']
+          : PrefixLoaderData<BasePath, NewSpiceflow['_types']['Metadata']['loaderData']>
+        },
         BasePath extends ``
           ? ClientRoutes & NewSpiceflow['_types']['ClientRoutes']
           : ClientRoutes &
@@ -1279,9 +1314,13 @@ export class Spiceflow<
     // before we touch import.meta.viteRsc.loadCss (which would give a confusing error).
     const { renderToReadableStream } = await import('#rsc-runtime')
 
-    const [pageRoutes, layoutRoutes] = partition(
+    const [pageRoutes, nonPageRoutes] = partition(
       reactRoutes,
       (x) => x.route.kind === 'page' || x.route.kind === 'staticPage',
+    )
+    const [loaderRoutes, layoutRoutes] = partition(
+      nonPageRoutes,
+      (x) => x.route.kind === 'loader',
     )
     const pageRoute = pickBestRoute(pageRoutes)
 
@@ -1310,6 +1349,44 @@ export class Spiceflow<
     }
 
     try {
+      // Execute loaders and merge their data directly. The trie router already
+      // matched these loaders for this request — no need to re-match. Sort by
+      // specificity so more specific loaders override less specific ones.
+      loaderRoutes.sort(compareRouteSpecificity)
+      let loaderError: Error | null = null
+      const loaderResults = await Promise.all(
+        loaderRoutes.map(async (loader) => {
+          let handlerResponse: ContextResponse | undefined
+          const loaderContext: SpiceflowContext<any, any, any> = {
+            ...baseContext,
+            params: loader.params,
+            loaderData: {},
+            get response() {
+              return handlerResponse ??= createContextResponse()
+            },
+          }
+          try {
+            const data = await loader.route.handler.call(loader.app, loaderContext)
+            if (data instanceof Response) throw data
+            if (data == null) return null
+            if (typeof data !== 'object' || Array.isArray(data)) {
+              throw new Error(`Loader "${loader.route.path}" must return a plain object, got ${Array.isArray(data) ? 'array' : typeof data}`)
+            }
+            return data
+          } catch (error) {
+            // Redirect/notFound Responses short-circuit the entire request
+            if (error instanceof Response) throw error
+            // Other errors are surfaced via error boundary during RSC render
+            if (!loaderError) loaderError = error instanceof Error ? error : new Error(String(error))
+            return null
+          }
+        }),
+      )
+      const mergedLoaderData: Record<string, unknown> = {}
+      for (const data of loaderResults) {
+        if (data != null) Object.assign(mergedLoaderData, data)
+      }
+
       const executeHandler = async (
         route: ReactMatchedRoute,
         extra?: { id: string; children: React.ReactNode },
@@ -1318,6 +1395,7 @@ export class Spiceflow<
         const handlerContext: SpiceflowContext<any, any, any> = {
           ...baseContext,
           params: route.params,
+          loaderData: mergedLoaderData,
           ...extra && { children: extra.children },
           get response() {
             return handlerResponse ??= createContextResponse()
@@ -1345,9 +1423,13 @@ export class Spiceflow<
           return { ...result, id }
         })
 
-      const pageResultPromise = isNotFound
-        ? Promise.resolve({ ok: true as const, value: <DefaultNotFoundPage />, headers: undefined, status: undefined })
-        : executeHandler(pageRoute)
+      // Skip page handler when a loader failed — the error will be rendered
+      // via <ThrowError> so the layout error boundary catches it.
+      const pageResultPromise = loaderError
+        ? Promise.resolve({ ok: true as const, value: <ThrowError error={loaderError} />, headers: undefined, status: undefined })
+        : isNotFound
+          ? Promise.resolve({ ok: true as const, value: <DefaultNotFoundPage />, headers: undefined, status: undefined })
+          : executeHandler(pageRoute)
 
       const [layoutResults, pageResult] = await Promise.all([
         Promise.all(layoutResultsPromise),
@@ -1388,7 +1470,8 @@ export class Spiceflow<
       const globalCssResult = errore.try(() => import.meta.viteRsc.loadCss('virtual:app-entry'))
       const globalCss = globalCssResult instanceof Error ? undefined : globalCssResult
 
-      let root: FlightData = { page, layouts, globalCss }
+      const hasLoaderData = Object.keys(mergedLoaderData).length > 0
+      let root: FlightData = { page, layouts, globalCss, ...(hasLoaderData && { loaderData: mergedLoaderData }) }
 
       if (root instanceof Response) {
         return mergeHeadersIntoResponse({ response: root, source: routeHeaders })
@@ -1505,6 +1588,7 @@ export class Spiceflow<
       request,
       path,
       params: {},
+      loaderData: {},
       waitUntil: (promise: Promise<any>) => {
         const wrappedPromise = promise.catch(async (error) => {
           const spiceflowError: SpiceflowServerError =
@@ -2202,59 +2286,19 @@ export class Spiceflow<
       },
     )
   }
-  safePath<
+  href<
     const Path extends RoutePaths,
     const Params extends ExtractParamsFromPath<Path>,
   >(
     path: Path,
-    ...rest: [Params] extends [undefined]
-      ? Path extends keyof RouteQuerySchemas
-        ? unknown extends RouteQuerySchemas[Path]
-          ? [] | [allParams?: Record<string, string | number | boolean>]
-          : [] | [allParams?: Partial<RouteQuerySchemas[Path]>]
-        : [] | [allParams?: Record<string, string | number | boolean>]
-      : Path extends keyof RouteQuerySchemas
-        ? unknown extends RouteQuerySchemas[Path]
-          ? [allParams: Params & Record<string, string | number | boolean>]
-          : [allParams: MergeParamsAndQuery<Params, RouteQuerySchemas[Path]>]
-        : [allParams: Params] | [allParams: Params & Record<string, string | number | boolean>]
+    ...rest: HrefArgs<RoutePaths, RouteQuerySchemas, Path, Params>
   ): string {
-    return buildSafePath(path, rest[0] as Record<string, any> | undefined)
+    return buildHref(path, rest[0] as Record<string, any> | undefined)
   }
 }
 
-type MergeParamsAndQuery<P, Q> = [P] extends [undefined]
-  ? Partial<Q>
-  : P & Omit<Partial<Q>, keyof P>
-
-function buildSafePath(path: string, allParams: Record<string, any> | undefined): string {
-  let result = path
-  if (!allParams || typeof allParams !== 'object') return result
-
-  const pathParamNames = new Set<string>()
-  const paramMatches = path.matchAll(/:(\w+)/g)
-  for (const m of paramMatches) {
-    pathParamNames.add(m[1])
-  }
-  const hasWildcard = path.includes('*')
-  if (hasWildcard) pathParamNames.add('*')
-
-  const searchParams = new URLSearchParams()
-  for (const [key, value] of Object.entries(allParams)) {
-    if (value === undefined || value === null) continue
-    if (key === '*' && hasWildcard) {
-      result = result.replace(/\*/, String(value))
-    } else if (pathParamNames.has(key)) {
-      result = result.replace(new RegExp(`:${key}`, 'g'), String(value))
-    } else {
-      searchParams.set(key, String(value))
-    }
-  }
-
-  const qs = searchParams.toString()
-  if (qs) result += '?' + qs
-  return result
-}
+/** @deprecated Use `buildHref` from loader-utils instead */
+export const buildSafePath = buildHref
 
 /**
  * Create a standalone type-safe path builder. Pass your app instance for automatic
@@ -2264,11 +2308,11 @@ function buildSafePath(path: string, allParams: Record<string, any> | undefined)
  * const app = new Spiceflow()
  *   .get('/users/:id', handler, { query: z.object({ page: z.number() }) })
  *
- * const safePath = createSafePath(app)
- * safePath('/users/:id', { id: '123', page: 1 })
+ * const href = createHref(app)
+ * href('/users/:id', { id: '123', page: 1 })
  * ```
  */
-export function createSafePath<
+export function createHref<
   T extends { _types: { RoutePaths: string; RouteQuerySchemas: object } },
 >(
   _app?: T,
@@ -2280,21 +2324,14 @@ export function createSafePath<
     const Params extends ExtractParamsFromPath<Path> = ExtractParamsFromPath<Path>,
   >(
     path: Path,
-    ...rest: [Params] extends [undefined]
-      ? Path extends keyof QS
-        ? unknown extends QS[Path]
-          ? [] | [allParams?: Record<string, string | number | boolean>]
-          : [] | [allParams?: Partial<QS[Path]>]
-        : [] | [allParams?: Record<string, string | number | boolean>]
-      : Path extends keyof QS
-        ? unknown extends QS[Path]
-          ? [allParams: Params & Record<string, string | number | boolean>]
-          : [allParams: MergeParamsAndQuery<Params, QS[Path]>]
-        : [allParams: Params] | [allParams: Params & Record<string, string | number | boolean>]
+    ...rest: HrefArgs<Paths, QS, Path, Params>
   ): string => {
-    return buildSafePath(path, rest[0] as Record<string, any> | undefined)
+    return buildHref(path, rest[0] as Record<string, any> | undefined)
   }
 }
+
+/** @deprecated Use `createHref` instead */
+export const createSafePath = createHref
 
 const METHODS = [
   'ALL',
@@ -2387,11 +2424,11 @@ type RouteResult = {
 }
 
 type ReactRoute = InternalRoute & {
-  kind: 'page' | 'staticPage' | 'layout'
+  kind: 'page' | 'staticPage' | 'layout' | 'loader'
   handler: (
     this: AnySpiceflow,
     context: SpiceflowContext<any, any, any>,
-  ) => React.ReactNode | Promise<React.ReactNode>
+  ) => any
 }
 
 type ReactMatchedRoute = {
@@ -2620,6 +2657,24 @@ function partition<T>(arr: T[], predicate: (item: T) => boolean): [T[], T[]] {
     },
     [[], []] as [T[], T[]],
   )
+}
+
+// Sort comparator: least specific first, most specific last.
+// Uses the same specificity logic as pickBestRoute so merge ordering
+// is consistent: Object.assign spreads least-specific first, most-specific wins.
+function compareRouteSpecificity(a: { route: InternalRoute }, b: { route: InternalRoute }): number {
+  const sa = getRouteSpecificity(a.route)
+  const sb = getRouteSpecificity(b.route)
+  // More wildcards = less specific (sort first)
+  if (sa.wildcardCount !== sb.wildcardCount) return sb.wildcardCount - sa.wildcardCount
+  // Fewer static segments = less specific
+  if (sa.staticSegmentCount !== sb.staticSegmentCount) return sa.staticSegmentCount - sb.staticSegmentCount
+  // Fewer regex params = less specific
+  if (sa.regexParamCount !== sb.regexParamCount) return sa.regexParamCount - sb.regexParamCount
+  // More named params = less specific
+  if (sa.namedParamCount !== sb.namedParamCount) return sb.namedParamCount - sa.namedParamCount
+  // Fewer segments = less specific
+  return sa.segmentCount - sb.segmentCount
 }
 
 export interface ServerPayload {

@@ -174,6 +174,7 @@ export interface MetadataBase {
   schema: RouteSchema
   macro: BaseMacro
   macroFn: BaseMacroFn
+  loaderData: object
 }
 
 export type RouteSchema = {
@@ -632,7 +633,7 @@ export type InternalRoute = {
   // prefix: string
 }
 
-export type NodeKind = 'page' | 'layout' | 'staticPage' | 'staticPageWithoutHandler'
+export type NodeKind = 'page' | 'layout' | 'loader' | 'staticPage' | 'staticPageWithoutHandler'
 
 export type AddPrefix<Prefix extends string, T> = {
   [K in keyof T as Prefix extends string ? `${Prefix}${K & string}` : K]: T[K]
@@ -712,6 +713,7 @@ export type MergeSpiceflowInstances<
     schema: {}
     macro: {}
     macroFn: {}
+    loaderData: {}
   },
   Routes extends RouteBase = {},
 > = Instances extends [
@@ -754,6 +756,7 @@ export type MergeSpiceflowInstances<
         schema: Prettify<Metadata['schema']>
         macro: Prettify<Metadata['macro']>
         macroFn: Prettify<Metadata['macroFn']>
+        loaderData: Metadata['loaderData']
       },
       Routes
     >
@@ -932,6 +935,67 @@ export type PrefixQuerySchemas<
   ? QS
   : { [K in keyof QS & string as `${Base}${K}`]: QS[K] }
 
+// Re-key a loader data record with prefixed paths
+export type PrefixLoaderData<
+  Base extends string,
+  LD extends object,
+> = Base extends ''
+  ? LD
+  : { [K in keyof LD & string as `${Base}${K}`]: LD[K] }
+
+// True if a loader pattern matches a given path at the type level.
+// Supports exact match, trailing /* wildcard, and :param segments.
+// Recurses segment-by-segment for patterns with :param.
+export type LoaderMatchesPath<
+  Pattern extends string,
+  Path extends string,
+> = Pattern extends `${infer Prefix}/*`
+  ? Prefix extends ''
+    ? true
+    : LoaderSegmentsMatch<Split<Prefix, '/'>, Split<Path, '/'>> extends true
+      ? true
+      : Path extends Prefix | `${Prefix}/${string}` ? true : false
+  : LoaderSegmentsMatch<Split<Pattern, '/'>, Split<Path, '/'>>
+
+// Split a string by delimiter
+type Split<S extends string, D extends string> =
+  S extends `${infer Head}${D}${infer Tail}`
+    ? [Head, ...Split<Tail, D>]
+    : [S]
+
+// Match pattern segments against path segments, supporting :param
+type LoaderSegmentsMatch<
+  P extends string[],
+  T extends string[],
+> = P extends [infer PH extends string, ...infer PR extends string[]]
+  ? T extends [infer TH extends string, ...infer TR extends string[]]
+    ? PH extends `:${string}`
+      ? TH extends '' ? false : LoaderSegmentsMatch<PR, TR>
+      : PH extends TH
+        ? LoaderSegmentsMatch<PR, TR>
+        : false
+    : false
+  : T extends [] ? true : false
+
+// Distribute U into contra-variant positions then infer the intersection.
+// Standard distributive conditional type trick: U extends any triggers
+// distribution over each union member.
+type UnionToIntersection<U> =
+  (U extends any ? (x: U) => void : never) extends (x: infer I) => void ? I : never
+
+// Merge all matching loader return types for a given path (least → most specific)
+export type MergedLoaderData<
+  LoaderMap extends object,
+  Path extends string,
+> = UnionToIntersection<{
+  [K in keyof LoaderMap & string]:
+    LoaderMatchesPath<K, Path> extends true ? LoaderMap[K] : never
+}[keyof LoaderMap & string]>
+
+// Intersection of ALL loader return types (used when path is not a literal)
+export type AllLoaderData<LoaderMap extends object> =
+  UnionToIntersection<LoaderMap[keyof LoaderMap]>
+
 export type ExtractParamsFromPath<Path extends string> =
     Path extends `${string}:${infer Param}/${infer Rest}`
       ? { [K in Param]: string } & ExtractParamsFromPath<`/${Rest}`>
@@ -940,3 +1004,24 @@ export type ExtractParamsFromPath<Path extends string> =
         : Path extends `${string}*${infer StarRest}`
           ? { ['*']: string }
           : undefined
+
+type MergeParamsAndQuery<P, Q> = [P] extends [undefined]
+  ? Partial<Q>
+  : P & Omit<Partial<Q>, keyof P>
+
+export type HrefArgs<
+  Paths extends string,
+  QS extends object,
+  Path extends Paths,
+  Params extends ExtractParamsFromPath<Path>,
+> = [Params] extends [undefined]
+  ? Path extends keyof QS
+    ? unknown extends QS[Path]
+      ? [] | [allParams?: Record<string, string | number | boolean>]
+      : [] | [allParams?: Partial<QS[Path]>]
+    : [] | [allParams?: Record<string, string | number | boolean>]
+  : Path extends keyof QS
+    ? unknown extends QS[Path]
+      ? [allParams: Params & Record<string, string | number | boolean>]
+      : [allParams: MergeParamsAndQuery<Params, QS[Path]>]
+    : [allParams: Params] | [allParams: Params & Record<string, string | number | boolean>]

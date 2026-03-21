@@ -5,7 +5,8 @@ import type { ReactFormState } from 'react-dom/client'
 import { router } from './router.js'
 import { ServerPayload } from '../spiceflow.js'
 import { isRedirectError, isNotFoundError, getErrorContext, contextHeaders } from './errors.js'
-import { useFlightData } from './context.js'
+import { useFlightData, useLoaderData } from './context.js'
+export { useLoaderData }
 import { ProgressBar } from './progress.js'
 
 export function LayoutContent(props: { id?: string }) {
@@ -50,6 +51,7 @@ export type FlightData = {
   page: any
   layouts: { id: string; element: React.ReactNode }[]
   globalCss?: React.ReactNode
+  loaderData?: Record<string, unknown>
 }
 
 import type { ReactServerErrorContext } from './errors.js'

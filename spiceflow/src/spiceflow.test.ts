@@ -1,6 +1,6 @@
 import { test, describe, expect, vi } from 'vitest'
 
-import { bfs, cloneDeep, createSafePath, extractWildcardParam, Spiceflow } from './spiceflow.tsx'
+import { bfs, cloneDeep, createHref, extractWildcardParam, Spiceflow } from './spiceflow.tsx'
 import { z } from 'zod'
 import { createSpiceflowClient } from './client/index.js'
 import { createSpiceflowFetch } from './client/fetch.ts'
@@ -135,7 +135,7 @@ test('this works to reference app in handler', async () => {
       method: 'POST',
       path: '/href',
       handler() {
-        return this.safePath('/another')
+        return this.href('/another')
       },
     })
     .handle(new Request('http://localhost/href', { method: 'POST' }))
@@ -1838,23 +1838,23 @@ test('can pass additional props to body schema', async () => {
   })
 })
 
-describe('safePath', () => {
+describe('href', () => {
   test('handles simple paths without parameters', () => {
     const app = new Spiceflow()
       .get('/users', () => 'users')
       .get('/posts', () => 'posts')
       .get('/posts/*', () => 'posts')
 
-    expect(app.safePath('/users')).toBe('/users')
-    expect(app.safePath('/posts')).toBe('/posts')
+    expect(app.href('/users')).toBe('/users')
+    expect(app.href('/posts')).toBe('/posts')
     // @ts-expect-error
-    app.safePath('/posts/*')
-    expect(app.safePath('/posts/*', { '*': 'some/key' })).toBe(
+    app.href('/posts/*')
+    expect(app.href('/posts/*', { '*': 'some/key' })).toBe(
       '/posts/some/key',
     )
   })
 
-  test('safePath with .route works for static and wildcard paths', () => {
+  test('href with .route works for static and wildcard paths', () => {
     const app = new Spiceflow()
       .route({
         path: '/users',
@@ -1871,15 +1871,15 @@ describe('safePath', () => {
         handler: () => 'files',
       })
 
-    expect(app.safePath('/users')).toBe('/users')
-    expect(app.safePath('/posts')).toBe('/posts')
+    expect(app.href('/users')).toBe('/users')
+    expect(app.href('/posts')).toBe('/posts')
     // @ts-expect-error
-    app.safePath('/files/*')
+    app.href('/files/*')
     // @ts-expect-error
-    app.safePath('/nonexistent', {})
+    app.href('/nonexistent', {})
     // @ts-expect-error
-    app.safePath('/nonexistent')
-    expect(app.safePath('/files/*', { '*': 'a/b.txt' })).toBe('/files/a/b.txt')
+    app.href('/nonexistent')
+    expect(app.href('/files/*', { '*': 'a/b.txt' })).toBe('/files/a/b.txt')
   })
 
   test('handles paths with required parameters', () => {
@@ -1887,13 +1887,13 @@ describe('safePath', () => {
       .get('/users/:id', ({ params }) => params.id)
       .get('/posts/:postId/comments/:commentId', ({ params }) => params)
 
-    expect(app.safePath('/users/:id', { id: '123' })).toBe('/users/123')
+    expect(app.href('/users/:id', { id: '123' })).toBe('/users/123')
     // @ts-expect-error
-    app.safePath('/nonusers/:id', { id: '123' })
+    app.href('/nonusers/:id', { id: '123' })
     // @ts-expect-error
-    app.safePath('/users/:nonid', { nonid: '123' })
+    app.href('/users/:nonid', { nonid: '123' })
     expect(
-      app.safePath('/posts/:postId/comments/:commentId', {
+      app.href('/posts/:postId/comments/:commentId', {
         postId: 'abc',
         commentId: '456',
       }),
@@ -1903,17 +1903,17 @@ describe('safePath', () => {
   test('handles numeric parameter values', () => {
     const app = new Spiceflow().get('/users/:id', ({ params }) => params.id)
 
-    expect(app.safePath('/users/:id', { id: '123' })).toBe('/users/123')
-    expect(app.safePath('/users/:id', { id: '0' })).toBe('/users/0')
+    expect(app.href('/users/:id', { id: '123' })).toBe('/users/123')
+    expect(app.href('/users/:id', { id: '0' })).toBe('/users/0')
   })
 
   test('handles empty parameters object', () => {
     const app = new Spiceflow().get('/static', () => 'static')
 
-    expect(app.safePath('/static')).toBe('/static')
+    expect(app.href('/static')).toBe('/static')
   })
 
-  test('all HTTP methods are available in safePath', async () => {
+  test('all HTTP methods are available in href', async () => {
     // Create app with all routes first so TypeScript knows about all paths
     const app = new Spiceflow()
       .get('/api/users', () => 'get users')
@@ -1929,19 +1929,19 @@ describe('safePath', () => {
         handler: () => 'custom route',
       })
 
-    // All routes should be accessible via safePath outside handlers
-    expect(app.safePath('/api/users')).toBe('/api/users')
-    expect(app.safePath('/api/users/:id', { id: '123' })).toBe('/api/users/123')
-    expect(app.safePath('/api/status')).toBe('/api/status')
-    expect(app.safePath('/api/cors')).toBe('/api/cors')
-    expect(app.safePath('/api/custom')).toBe('/api/custom')
+    // All routes should be accessible via href outside handlers
+    expect(app.href('/api/users')).toBe('/api/users')
+    expect(app.href('/api/users/:id', { id: '123' })).toBe('/api/users/123')
+    expect(app.href('/api/status')).toBe('/api/status')
+    expect(app.href('/api/cors')).toBe('/api/cors')
+    expect(app.href('/api/custom')).toBe('/api/custom')
 
-    // Test that safePath works inside a route handler by creating a separate test
+    // Test that href works inside a route handler by creating a separate test
     const testApp = new Spiceflow()
       .get('/target', () => 'target')
       .get('/source', function () {
-        // Should be able to call safePath from inside handler
-        return this.safePath('/target')
+        // Should be able to call href from inside handler
+        return this.href('/target')
       })
 
     const res = await testApp.handle(
@@ -1958,27 +1958,27 @@ describe('safePath', () => {
       .put('/api/settings/:id', () => 'settings')
 
     // Valid paths work
-    expect(app.safePath('/api/users')).toBe('/api/users')
-    expect(app.safePath('/api/posts')).toBe('/api/posts')
-    expect(app.safePath('/api/settings/:id', { id: '1' })).toBe(
+    expect(app.href('/api/users')).toBe('/api/users')
+    expect(app.href('/api/posts')).toBe('/api/posts')
+    expect(app.href('/api/settings/:id', { id: '1' })).toBe(
       '/api/settings/1',
     )
 
     // Invalid paths should cause TypeScript errors
     // @ts-expect-error - Path not defined in app
-    app.safePath('/api/nonexistent')
+    app.href('/api/nonexistent')
 
     // @ts-expect-error - Path not defined in app
-    app.safePath('/completely/different/path')
+    app.href('/completely/different/path')
 
     // @ts-expect-error - Path not defined in app
-    app.safePath('/api/users/invalid')
+    app.href('/api/users/invalid')
 
     // @ts-expect-error - Wrong parameter name
-    app.safePath('/api/settings/:wrongParam', { wrongParam: '1' })
+    app.href('/api/settings/:wrongParam', { wrongParam: '1' })
   })
 
-  test('safePath works with all method shorthand functions', () => {
+  test('href works with all method shorthand functions', () => {
     const app = new Spiceflow()
       .get('/get-route', () => 'get')
       .post('/post-route', () => 'post')
@@ -1989,27 +1989,27 @@ describe('safePath', () => {
       .options('/options-route', () => 'options')
       .all('/all-route', () => 'all')
 
-    // All method shortcuts should make paths available in safePath
-    expect(app.safePath('/get-route')).toBe('/get-route')
-    expect(app.safePath('/post-route')).toBe('/post-route')
-    expect(app.safePath('/put-route')).toBe('/put-route')
-    expect(app.safePath('/patch-route')).toBe('/patch-route')
-    expect(app.safePath('/delete-route')).toBe('/delete-route')
-    expect(app.safePath('/head-route')).toBe('/head-route')
-    expect(app.safePath('/options-route')).toBe('/options-route')
-    expect(app.safePath('/all-route')).toBe('/all-route')
+    // All method shortcuts should make paths available in href
+    expect(app.href('/get-route')).toBe('/get-route')
+    expect(app.href('/post-route')).toBe('/post-route')
+    expect(app.href('/put-route')).toBe('/put-route')
+    expect(app.href('/patch-route')).toBe('/patch-route')
+    expect(app.href('/delete-route')).toBe('/delete-route')
+    expect(app.href('/head-route')).toBe('/head-route')
+    expect(app.href('/options-route')).toBe('/options-route')
+    expect(app.href('/all-route')).toBe('/all-route')
 
     // Invalid routes should fail
     // @ts-expect-error - Path not defined
-    app.safePath('/invalid-route')
+    app.href('/invalid-route')
   })
 
-  test('safePath works inside route handlers', async () => {
+  test('href works inside route handlers', async () => {
     const app = new Spiceflow()
       .get('/target', () => 'target reached')
       .post('/redirect-test', function () {
         // Should be able to reference other routes in the same app
-        return this.safePath('/target')
+        return this.href('/target')
       })
 
     const res = await app.handle(
@@ -2019,7 +2019,7 @@ describe('safePath', () => {
     expect(await res.json()).toBe('/target')
   })
 
-  test('safePath appends query params', () => {
+  test('href appends query params', () => {
     const app = new Spiceflow()
       .get('/search', () => 'results', {
         query: z.object({ q: z.string(), page: z.coerce.number() }),
@@ -2028,44 +2028,44 @@ describe('safePath', () => {
         query: z.object({ fields: z.string() }),
       })
 
-    expect(app.safePath('/search', { q: 'hello', page: 1 })).toBe(
+    expect(app.href('/search', { q: 'hello', page: 1 })).toBe(
       '/search?q=hello&page=1',
     )
     expect(
-      app.safePath('/users/:id', { id: '42', fields: 'name' }),
+      app.href('/users/:id', { id: '42', fields: 'name' }),
     ).toBe('/users/42?fields=name')
 
     // @ts-expect-error - invalid query key 'invalid' not in schema
-    app.safePath('/search', { invalid: 'x' })
+    app.href('/search', { invalid: 'x' })
 
-    app.safePath('/users/:id', { id: '1', nonexistent: 'x' })
+    app.href('/users/:id', { id: '1', nonexistent: 'x' })
   })
 
-  test('safePath with query params and no path params', () => {
+  test('href with query params and no path params', () => {
     const app = new Spiceflow().get('/items', () => 'items', {
       query: z.object({ sort: z.string(), limit: z.coerce.number() }),
     })
 
     expect(
-      app.safePath('/items', { sort: 'date', limit: 10 }),
+      app.href('/items', { sort: 'date', limit: 10 }),
     ).toBe('/items?sort=date&limit=10')
 
     // @ts-expect-error - wrong query key
-    app.safePath('/items', { order: 'asc' })
+    app.href('/items', { order: 'asc' })
   })
 
-  test('safePath without query still works', () => {
+  test('href without query still works', () => {
     const app = new Spiceflow()
       .get('/simple', () => 'simple')
       .get('/with-query', () => 'q', {
         query: z.object({ x: z.string() }),
       })
 
-    expect(app.safePath('/simple')).toBe('/simple')
-    expect(app.safePath('/with-query')).toBe('/with-query')
+    expect(app.href('/simple')).toBe('/simple')
+    expect(app.href('/with-query')).toBe('/with-query')
   })
 
-  test('safePath with .route and query', () => {
+  test('href with .route and query', () => {
     const app = new Spiceflow().route({
       method: 'GET',
       path: '/api/search',
@@ -2074,24 +2074,24 @@ describe('safePath', () => {
     })
 
     expect(
-      app.safePath('/api/search', { term: 'test' }),
+      app.href('/api/search', { term: 'test' }),
     ).toBe('/api/search?term=test')
 
     // @ts-expect-error - invalid query key for .route-based route
-    app.safePath('/api/search', { wrong: 'x' })
+    app.href('/api/search', { wrong: 'x' })
   })
 
-  test('safePath skips undefined/null query values', () => {
+  test('href skips undefined/null query values', () => {
     const app = new Spiceflow().get('/filter', () => 'filter', {
       query: z.object({ a: z.string(), b: z.string().optional() }),
     })
 
     expect(
-      app.safePath('/filter', { a: 'yes', b: undefined }),
+      app.href('/filter', { a: 'yes', b: undefined }),
     ).toBe('/filter?a=yes')
   })
 
-  test('safePath query with basePath', () => {
+  test('href query with basePath', () => {
     const app = new Spiceflow({ basePath: '/api' }).get(
       '/search',
       () => 'search',
@@ -2101,14 +2101,14 @@ describe('safePath', () => {
     )
 
     expect(
-      app.safePath('/api/search', { q: 'hello' }),
+      app.href('/api/search', { q: 'hello' }),
     ).toBe('/api/search?q=hello')
 
     // @ts-expect-error - invalid query key with basePath
-    app.safePath('/api/search', { wrong: 'x' })
+    app.href('/api/search', { wrong: 'x' })
   })
 
-  test('safePath query with all HTTP method shorthands', () => {
+  test('href query with all HTTP method shorthands', () => {
     const app = new Spiceflow()
       .put('/put-q', () => 'put', {
         query: z.object({ x: z.string() }),
@@ -2120,51 +2120,51 @@ describe('safePath', () => {
         query: z.object({ confirm: z.boolean() }),
       })
 
-    expect(app.safePath('/put-q', { x: 'val' })).toBe(
+    expect(app.href('/put-q', { x: 'val' })).toBe(
       '/put-q?x=val',
     )
-    expect(app.safePath('/patch-q', { y: 5 })).toBe(
+    expect(app.href('/patch-q', { y: 5 })).toBe(
       '/patch-q?y=5',
     )
-    expect(app.safePath('/del-q', { confirm: true })).toBe(
+    expect(app.href('/del-q', { confirm: true })).toBe(
       '/del-q?confirm=true',
     )
 
     // @ts-expect-error - wrong query key on put
-    app.safePath('/put-q', { wrong: 'x' })
+    app.href('/put-q', { wrong: 'x' })
 
     // @ts-expect-error - wrong query key on patch
-    app.safePath('/patch-q', { wrong: 1 })
+    app.href('/patch-q', { wrong: 1 })
 
     // @ts-expect-error - wrong query key on delete
-    app.safePath('/del-q', { wrong: true })
+    app.href('/del-q', { wrong: true })
   })
 
-  test('safePath routes without query schema accept arbitrary query at runtime', () => {
+  test('href routes without query schema accept arbitrary query at runtime', () => {
     const app = new Spiceflow().get('/no-schema', () => 'ok')
 
     expect(
-      app.safePath('/no-schema', { anything: 'works' }),
+      app.href('/no-schema', { anything: 'works' }),
     ).toBe('/no-schema?anything=works')
   })
 
-  test('safePath works with .page() routes', () => {
+  test('href works with .page() routes', () => {
     const app = new Spiceflow()
       .page('/', async () => 'Home')
       .page('/about', async () => 'About')
       .page('/users/:id', async ({ params }) => params.id)
 
-    expect(app.safePath('/')).toBe('/')
-    expect(app.safePath('/about')).toBe('/about')
-    expect(app.safePath('/users/:id', { id: '42' })).toBe('/users/42')
+    expect(app.href('/')).toBe('/')
+    expect(app.href('/about')).toBe('/about')
+    expect(app.href('/users/:id', { id: '42' })).toBe('/users/42')
     // @ts-expect-error - invalid path
-    app.safePath('/nonexistent')
+    app.href('/nonexistent')
   })
 
-  test('safePath works inside route handler via app closure, including later routes', async () => {
+  test('href works inside route handler via app closure, including later routes', async () => {
     const app = new Spiceflow()
       .get('/about', () => {
-        return app.safePath('/users/:id', { id: '42' })
+        return app.href('/users/:id', { id: '42' })
       })
       .get('/users/:id', ({ params }) => params.id)
 
@@ -2172,26 +2172,26 @@ describe('safePath', () => {
     expect(await res.json()).toBe('/users/42')
   })
 
-  test('safePath works inside route handler via this for earlier routes', async () => {
+  test('href works inside route handler via this for earlier routes', async () => {
     const app = new Spiceflow()
       .get('/users/:id', ({ params }) => params.id)
       .get('/about', function () {
-        return this.safePath('/users/:id', { id: '42' })
+        return this.href('/users/:id', { id: '42' })
       })
 
     const res = await app.handle(new Request('http://localhost/about'))
     expect(await res.json()).toBe('/users/42')
   })
 
-  test('safePath works with .staticPage() routes', () => {
+  test('href works with .staticPage() routes', () => {
     const app = new Spiceflow()
       .staticPage('/docs')
       .staticPage('/changelog')
 
-    expect(app.safePath('/docs')).toBe('/docs')
-    expect(app.safePath('/changelog')).toBe('/changelog')
+    expect(app.href('/docs')).toBe('/docs')
+    expect(app.href('/changelog')).toBe('/changelog')
     // @ts-expect-error - invalid path
-    app.safePath('/nonexistent')
+    app.href('/nonexistent')
   })
 
   test('page() object API with query schema', () => {
@@ -2204,10 +2204,10 @@ describe('safePath', () => {
         },
       })
 
-    expect(app.safePath('/search', { q: 'hello' })).toBe('/search?q=hello')
-    expect(app.safePath('/search', { q: 'hello', page: 2 })).toBe('/search?q=hello&page=2')
+    expect(app.href('/search', { q: 'hello' })).toBe('/search?q=hello')
+    expect(app.href('/search', { q: 'hello', page: 2 })).toBe('/search?q=hello&page=2')
     // @ts-expect-error - invalid query param
-    app.safePath('/search', { wrong: 'x' })
+    app.href('/search', { wrong: 'x' })
   })
 
   test('page() object API with params and query', () => {
@@ -2220,15 +2220,15 @@ describe('safePath', () => {
         },
       })
 
-    expect(app.safePath('/users/:id', { id: '42' })).toBe('/users/42')
-    expect(app.safePath('/users/:id', { id: '42', tab: 'profile' })).toBe('/users/42?tab=profile')
+    expect(app.href('/users/:id', { id: '42' })).toBe('/users/42')
+    expect(app.href('/users/:id', { id: '42', tab: 'profile' })).toBe('/users/42?tab=profile')
   })
 
   test('page() positional API still works without query', () => {
     const app = new Spiceflow()
       .page('/about', async () => 'About')
 
-    expect(app.safePath('/about')).toBe('/about')
+    expect(app.href('/about')).toBe('/about')
   })
 
   test('staticPage() object API with query schema', () => {
@@ -2241,23 +2241,23 @@ describe('safePath', () => {
         },
       })
 
-    expect(app.safePath('/docs', { section: 'api' })).toBe('/docs?section=api')
+    expect(app.href('/docs', { section: 'api' })).toBe('/docs?section=api')
     // @ts-expect-error - invalid query param
-    app.safePath('/docs', { wrong: 'x' })
+    app.href('/docs', { wrong: 'x' })
   })
 })
 
-describe('createSafePath', () => {
+describe('createHref', () => {
   test('works with simple paths', () => {
     const app = new Spiceflow()
       .get('/users', () => 'users')
       .get('/posts', () => 'posts')
 
-    const safePath = createSafePath(app)
-    expect(safePath('/users')).toBe('/users')
-    expect(safePath('/posts')).toBe('/posts')
+    const href = createHref(app)
+    expect(href('/users')).toBe('/users')
+    expect(href('/posts')).toBe('/posts')
     // @ts-expect-error - invalid path
-    safePath('/nonexistent')
+    href('/nonexistent')
   })
 
   test('works with path params', () => {
@@ -2265,16 +2265,16 @@ describe('createSafePath', () => {
       .get('/users/:id', ({ params }) => params.id)
       .get('/posts/:postId/comments/:commentId', ({ params }) => params)
 
-    const safePath = createSafePath(app)
-    expect(safePath('/users/:id', { id: '123' })).toBe('/users/123')
+    const href = createHref(app)
+    expect(href('/users/:id', { id: '123' })).toBe('/users/123')
     expect(
-      safePath('/posts/:postId/comments/:commentId', {
+      href('/posts/:postId/comments/:commentId', {
         postId: 'abc',
         commentId: '456',
       }),
     ).toBe('/posts/abc/comments/456')
     // @ts-expect-error - wrong path
-    safePath('/wrong/:id', { id: '1' })
+    href('/wrong/:id', { id: '1' })
   })
 
   test('works with query params and rejects invalid keys', () => {
@@ -2283,13 +2283,13 @@ describe('createSafePath', () => {
         query: z.object({ q: z.string(), page: z.coerce.number() }),
       })
 
-    const safePath = createSafePath(app)
-    expect(safePath('/search', { q: 'hello', page: 1 })).toBe(
+    const href = createHref(app)
+    expect(href('/search', { q: 'hello', page: 1 })).toBe(
       '/search?q=hello&page=1',
     )
 
     // @ts-expect-error - invalid query key
-    safePath('/search', { invalid: 'x' })
+    href('/search', { invalid: 'x' })
   })
 
   test('works with both path and query params', () => {
@@ -2298,19 +2298,19 @@ describe('createSafePath', () => {
         query: z.object({ fields: z.string() }),
       })
 
-    const safePath = createSafePath(app)
+    const href = createHref(app)
     expect(
-      safePath('/users/:id', { id: '42', fields: 'name' }),
+      href('/users/:id', { id: '42', fields: 'name' }),
     ).toBe('/users/42?fields=name')
 
-    safePath('/users/:id', { id: '1', wrong: 'x' })
+    href('/users/:id', { id: '1', wrong: 'x' })
   })
 
   test('works with wildcard paths', () => {
     const app = new Spiceflow().get('/files/*', () => 'files')
 
-    const safePath = createSafePath(app)
-    expect(safePath('/files/*', { '*': 'a/b.txt' })).toBe('/files/a/b.txt')
+    const href = createHref(app)
+    expect(href('/files/*', { '*': 'a/b.txt' })).toBe('/files/a/b.txt')
   })
 
   test('rejects invalid query keys across multiple routes', () => {
@@ -2322,20 +2322,20 @@ describe('createSafePath', () => {
         query: z.object({ dryRun: z.boolean() }),
       })
 
-    const safePath = createSafePath(app)
+    const href = createHref(app)
 
-    expect(safePath('/items', { sort: 'name', limit: 10 })).toBe(
+    expect(href('/items', { sort: 'name', limit: 10 })).toBe(
       '/items?sort=name&limit=10',
     )
-    expect(safePath('/create', { dryRun: true })).toBe(
+    expect(href('/create', { dryRun: true })).toBe(
       '/create?dryRun=true',
     )
 
     // @ts-expect-error - 'order' not in /items query schema
-    safePath('/items', { order: 'asc' })
+    href('/items', { order: 'asc' })
 
     // @ts-expect-error - 'verbose' not in /create query schema
-    safePath('/create', { verbose: true })
+    href('/create', { verbose: true })
   })
 
   test('works with .route and rejects invalid query keys', () => {
@@ -2346,16 +2346,16 @@ describe('createSafePath', () => {
       handler: () => 'data',
     })
 
-    const safePath = createSafePath(app)
-    expect(safePath('/api/data', { format: 'json' })).toBe(
+    const href = createHref(app)
+    expect(href('/api/data', { format: 'json' })).toBe(
       '/api/data?format=json',
     )
 
     // @ts-expect-error - invalid query key on .route
-    safePath('/api/data', { type: 'csv' })
+    href('/api/data', { type: 'csv' })
 
     // @ts-expect-error - invalid path
-    safePath('/api/other')
+    href('/api/other')
   })
 
   test('works with basePath and rejects invalid query keys', () => {
@@ -2367,24 +2367,24 @@ describe('createSafePath', () => {
       },
     )
 
-    const safePath = createSafePath(app)
-    expect(safePath('/v2/users', { active: true })).toBe(
+    const href = createHref(app)
+    expect(href('/v2/users', { active: true })).toBe(
       '/v2/users?active=true',
     )
 
     // @ts-expect-error - invalid query key
-    safePath('/v2/users', { status: 'active' })
+    href('/v2/users', { status: 'active' })
 
     // @ts-expect-error - path without basePath prefix
-    safePath('/users')
+    href('/users')
   })
 
   test('without query schema allows arbitrary query', () => {
     const app = new Spiceflow().get('/free', () => 'ok')
 
-    const safePath = createSafePath(app)
+    const href = createHref(app)
     expect(
-      safePath('/free', { any: 'value', works: 'here' }),
+      href('/free', { any: 'value', works: 'here' }),
     ).toBe('/free?any=value&works=here')
   })
 
@@ -2393,11 +2393,11 @@ describe('createSafePath', () => {
       query: z.object({ a: z.string(), b: z.string(), c: z.string() }),
     })
 
-    const safePath = createSafePath(app)
-    expect(safePath('/filter', { a: 'only-a' })).toBe(
+    const href = createHref(app)
+    expect(href('/filter', { a: 'only-a' })).toBe(
       '/filter?a=only-a',
     )
-    expect(safePath('/filter', { a: '1', c: '3' })).toBe(
+    expect(href('/filter', { a: '1', c: '3' })).toBe(
       '/filter?a=1&c=3',
     )
   })
@@ -2412,20 +2412,20 @@ describe('createSafePath', () => {
         query: z.object({ verbose: z.boolean() }),
       })
 
-    const safePath = createSafePath(app)
+    const href = createHref(app)
 
-    expect(safePath('/typed', { x: 'val' })).toBe('/typed?x=val')
-    expect(safePath('/untyped', { anything: 'goes' })).toBe(
+    expect(href('/typed', { x: 'val' })).toBe('/typed?x=val')
+    expect(href('/untyped', { anything: 'goes' })).toBe(
       '/untyped?anything=goes',
     )
     expect(
-      safePath('/also-typed/:id', { id: '1', verbose: true }),
+      href('/also-typed/:id', { id: '1', verbose: true }),
     ).toBe('/also-typed/1?verbose=true')
 
     // @ts-expect-error - wrong key on typed route
-    safePath('/typed', { wrong: 'x' })
+    href('/typed', { wrong: 'x' })
 
-    safePath('/also-typed/:id', { id: '1', wrong: true })
+    href('/also-typed/:id', { id: '1', wrong: true })
   })
 })
 
@@ -3249,7 +3249,7 @@ describe('path param edge cases with special characters', () => {
 })
 
 describe('use preserves type safety', () => {
-  test('safePath sees API routes from mounted subapp', () => {
+  test('href sees API routes from mounted subapp', () => {
     const child = new Spiceflow()
       .get('/users', () => [])
       .get('/users/:id', () => ({}))
@@ -3258,14 +3258,14 @@ describe('use preserves type safety', () => {
       .get('/health', () => 'ok')
       .use(child)
 
-    expect(app.safePath('/health')).toBe('/health')
-    expect(app.safePath('/users')).toBe('/users')
-    expect(app.safePath('/users/:id', { id: '42' })).toBe('/users/42')
+    expect(app.href('/health')).toBe('/health')
+    expect(app.href('/users')).toBe('/users')
+    expect(app.href('/users/:id', { id: '42' })).toBe('/users/42')
     // @ts-expect-error - route doesn't exist on parent or child
-    app.safePath('/nonexistent')
+    app.href('/nonexistent')
   })
 
-  test('safePath sees routes from subapp with basePath', () => {
+  test('href sees routes from subapp with basePath', () => {
     const child = new Spiceflow({ basePath: '/api' })
       .get('/users', () => [])
       .get('/items/:id', () => ({}))
@@ -3274,16 +3274,16 @@ describe('use preserves type safety', () => {
       .get('/health', () => 'ok')
       .use(child)
 
-    expect(app.safePath('/health')).toBe('/health')
-    expect(app.safePath('/api/users')).toBe('/api/users')
-    expect(app.safePath('/api/items/:id', { id: '99' })).toBe('/api/items/99')
+    expect(app.href('/health')).toBe('/health')
+    expect(app.href('/api/users')).toBe('/api/users')
+    expect(app.href('/api/items/:id', { id: '99' })).toBe('/api/items/99')
     // @ts-expect-error - unprefixed path shouldn't work
-    app.safePath('/users')
+    app.href('/users')
     // @ts-expect-error - nonexistent child route
-    app.safePath('/api/nonexistent')
+    app.href('/api/nonexistent')
   })
 
-  test('safePath sees page routes from mounted subapp', () => {
+  test('href sees page routes from mounted subapp', () => {
     const child = new Spiceflow()
       .page('/dashboard', async () => 'Dashboard')
       .page('/settings', async () => 'Settings')
@@ -3292,14 +3292,14 @@ describe('use preserves type safety', () => {
       .page('/', async () => 'Home')
       .use(child)
 
-    expect(app.safePath('/')).toBe('/')
-    expect(app.safePath('/dashboard')).toBe('/dashboard')
-    expect(app.safePath('/settings')).toBe('/settings')
+    expect(app.href('/')).toBe('/')
+    expect(app.href('/dashboard')).toBe('/dashboard')
+    expect(app.href('/settings')).toBe('/settings')
     // @ts-expect-error - nonexistent page
-    app.safePath('/nonexistent')
+    app.href('/nonexistent')
   })
 
-  test('safePath sees page routes from subapp with basePath', () => {
+  test('href sees page routes from subapp with basePath', () => {
     const child = new Spiceflow({ basePath: '/app' })
       .page('/dashboard', async () => 'Dashboard')
       .page('/profile/:id', async ({ params }) => params.id)
@@ -3308,16 +3308,16 @@ describe('use preserves type safety', () => {
       .page('/', async () => 'Home')
       .use(child)
 
-    expect(app.safePath('/')).toBe('/')
-    expect(app.safePath('/app/dashboard')).toBe('/app/dashboard')
-    expect(app.safePath('/app/profile/:id', { id: '42' })).toBe('/app/profile/42')
+    expect(app.href('/')).toBe('/')
+    expect(app.href('/app/dashboard')).toBe('/app/dashboard')
+    expect(app.href('/app/profile/:id', { id: '42' })).toBe('/app/profile/42')
     // @ts-expect-error - unprefixed path
-    app.safePath('/dashboard')
+    app.href('/dashboard')
     // @ts-expect-error - nonexistent
-    app.safePath('/app/nonexistent')
+    app.href('/app/nonexistent')
   })
 
-  test('safePath sees query schemas from mounted subapp', () => {
+  test('href sees query schemas from mounted subapp', () => {
     const child = new Spiceflow({ basePath: '/api' }).get(
       '/search',
       ({ query }) => query,
@@ -3328,14 +3328,14 @@ describe('use preserves type safety', () => {
       .get('/health', () => 'ok')
       .use(child)
 
-    expect(app.safePath('/api/search', { q: 'hello', limit: 10 })).toBe(
+    expect(app.href('/api/search', { q: 'hello', limit: 10 })).toBe(
       '/api/search?q=hello&limit=10',
     )
     // @ts-expect-error - invalid query key
-    app.safePath('/api/search', { wrong: 'x' })
+    app.href('/api/search', { wrong: 'x' })
   })
 
-  test('safePath sees page query schemas from mounted subapp', () => {
+  test('href sees page query schemas from mounted subapp', () => {
     const child = new Spiceflow({ basePath: '/app' }).page({
       path: '/search',
       query: z.object({ q: z.string() }),
@@ -3346,12 +3346,12 @@ describe('use preserves type safety', () => {
       .page('/', async () => 'Home')
       .use(child)
 
-    expect(app.safePath('/app/search', { q: 'test' })).toBe('/app/search?q=test')
+    expect(app.href('/app/search', { q: 'test' })).toBe('/app/search?q=test')
     // @ts-expect-error - invalid query key
-    app.safePath('/app/search', { wrong: 'x' })
+    app.href('/app/search', { wrong: 'x' })
   })
 
-  test('safePath sees staticPage routes from mounted subapp', () => {
+  test('href sees staticPage routes from mounted subapp', () => {
     const child = new Spiceflow({ basePath: '/docs' })
       .staticPage('/intro')
       .staticPage('/changelog')
@@ -3360,14 +3360,14 @@ describe('use preserves type safety', () => {
       .page('/', async () => 'Home')
       .use(child)
 
-    expect(app.safePath('/')).toBe('/')
-    expect(app.safePath('/docs/intro')).toBe('/docs/intro')
-    expect(app.safePath('/docs/changelog')).toBe('/docs/changelog')
+    expect(app.href('/')).toBe('/')
+    expect(app.href('/docs/intro')).toBe('/docs/intro')
+    expect(app.href('/docs/changelog')).toBe('/docs/changelog')
     // @ts-expect-error - nonexistent
-    app.safePath('/docs/nonexistent')
+    app.href('/docs/nonexistent')
   })
 
-  test('createSafePath works with mounted subapps', () => {
+  test('createHref works with mounted subapps', () => {
     const child = new Spiceflow({ basePath: '/api' })
       .get('/users', () => [])
       .get('/users/:id', () => ({}))
@@ -3376,12 +3376,12 @@ describe('use preserves type safety', () => {
       .get('/health', () => 'ok')
       .use(child)
 
-    const safePath = createSafePath(app)
-    expect(safePath('/health')).toBe('/health')
-    expect(safePath('/api/users')).toBe('/api/users')
-    expect(safePath('/api/users/:id', { id: '7' })).toBe('/api/users/7')
+    const href = createHref(app)
+    expect(href('/health')).toBe('/health')
+    expect(href('/api/users')).toBe('/api/users')
+    expect(href('/api/users/:id', { id: '7' })).toBe('/api/users/7')
     // @ts-expect-error - nonexistent
-    safePath('/nonexistent')
+    href('/nonexistent')
   })
 
   test('client sees routes from mounted subapp', async () => {
@@ -3436,11 +3436,11 @@ describe('use preserves type safety', () => {
     const child = new Spiceflow().get('/items', () => []).use(grandchild)
     const app = new Spiceflow().get('/health', () => 'ok').use(child)
 
-    expect(app.safePath('/health')).toBe('/health')
-    expect(app.safePath('/items')).toBe('/items')
-    expect(app.safePath('/data')).toBe('/data')
+    expect(app.href('/health')).toBe('/health')
+    expect(app.href('/items')).toBe('/items')
+    expect(app.href('/data')).toBe('/data')
     // @ts-expect-error - nonexistent
-    app.safePath('/nonexistent')
+    app.href('/nonexistent')
   })
 
   test('deeply nested use with basePaths prefixes RoutePaths correctly', () => {
@@ -3451,13 +3451,13 @@ describe('use preserves type safety', () => {
     const child = new Spiceflow({ basePath: '/api' }).use(grandchild)
     const app = new Spiceflow().get('/health', () => 'ok').use(child)
 
-    expect(app.safePath('/health')).toBe('/health')
+    expect(app.href('/health')).toBe('/health')
     // child basePath + grandchild basePath + route = /api/v1/data
-    expect(app.safePath('/api/v1/data')).toBe('/api/v1/data')
+    expect(app.href('/api/v1/data')).toBe('/api/v1/data')
     // @ts-expect-error - unprefixed grandchild path should not work
-    app.safePath('/v1/data')
+    app.href('/v1/data')
     // @ts-expect-error - nonexistent
-    app.safePath('/api/nonexistent')
+    app.href('/api/nonexistent')
   })
 
   test('fetch client rejects unknown paths', () => {
@@ -3499,16 +3499,16 @@ describe('use preserves type safety', () => {
     f('/data')
   })
 
-  test('basePath alone is not a valid safePath when child has no root route', () => {
+  test('basePath alone is not a valid href when child has no root route', () => {
     const child = new Spiceflow({ basePath: '/api' }).get(
       '/data',
       () => 'data',
     )
     const app = new Spiceflow().use(child)
 
-    expect(app.safePath('/api/data')).toBe('/api/data')
+    expect(app.href('/api/data')).toBe('/api/data')
     // @ts-expect-error - /api alone is not a route, child has no handler at '/'
-    app.safePath('/api')
+    app.href('/api')
   })
 
   test('multiple subapps merged together', () => {
@@ -3523,12 +3523,12 @@ describe('use preserves type safety', () => {
 
     const app = new Spiceflow().get('/health', () => 'ok').use(auth).use(users)
 
-    expect(app.safePath('/health')).toBe('/health')
-    expect(app.safePath('/auth/login')).toBe('/auth/login')
-    expect(app.safePath('/auth/logout')).toBe('/auth/logout')
-    expect(app.safePath('/users/:id', { id: '5' })).toBe('/users/5')
+    expect(app.href('/health')).toBe('/health')
+    expect(app.href('/auth/login')).toBe('/auth/login')
+    expect(app.href('/auth/logout')).toBe('/auth/logout')
+    expect(app.href('/users/:id', { id: '5' })).toBe('/users/5')
     // @ts-expect-error - nonexistent
-    app.safePath('/nonexistent')
+    app.href('/nonexistent')
   })
 
   test('page routes excluded from proxy client types', () => {
@@ -3577,7 +3577,7 @@ describe('use preserves type safety', () => {
     // not the page handler's return type
   })
 
-  test('layout paths excluded from safePath', () => {
+  test('layout paths excluded from href', () => {
     const child = new Spiceflow({ basePath: '/app' })
       .layout('/', ({ children }) => children)
       .page('/dashboard', async () => 'Dashboard')
@@ -3587,11 +3587,11 @@ describe('use preserves type safety', () => {
       .use(child)
 
     // API and page routes work
-    expect(app.safePath('/health')).toBe('/health')
-    expect(app.safePath('/app/dashboard')).toBe('/app/dashboard')
+    expect(app.href('/health')).toBe('/health')
+    expect(app.href('/app/dashboard')).toBe('/app/dashboard')
 
     // @ts-expect-error - layout path not in RoutePaths
-    app.safePath('/app/')
+    app.href('/app/')
   })
 
   test('layout paths excluded from proxy client and fetch client', () => {
@@ -3841,16 +3841,16 @@ describe('.use() with page and layout routes', () => {
     expect(docsRes.status).toBe(500) // RSC error = route matched
   })
 
-  test('safePath works with page routes from sub-app (includes basePath)', () => {
+  test('href works with page routes from sub-app (includes basePath)', () => {
     const subApp = new Spiceflow({ basePath: '/admin' })
       .page('/dashboard', async () => 'Dashboard')
       .page('/users/:id', async ({ params }) => params.id)
 
     const app = new Spiceflow().use(subApp)
 
-    // safePath types include the basePath since JoinPath<BasePath, Path> encodes it
-    expect(subApp.safePath('/admin/dashboard')).toBe('/admin/dashboard')
-    expect(subApp.safePath('/admin/users/:id', { id: '42' })).toBe('/admin/users/42')
+    // href types include the basePath since JoinPath<BasePath, Path> encodes it
+    expect(subApp.href('/admin/dashboard')).toBe('/admin/dashboard')
+    expect(subApp.href('/admin/users/:id', { id: '42' })).toBe('/admin/users/42')
   })
 
   test('getAllRoutes normalizes trailing slash for layout at / in sub-app', () => {

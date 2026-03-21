@@ -22,3 +22,9 @@ export function useFlightData() {
   const payload = React.use(c)
   return payload?.root
 }
+
+// Untyped loader data hook — for typed access use createRouter<App>().useLoaderData
+export function useLoaderData(): Record<string, unknown> {
+  const flightData = useFlightData()
+  return flightData?.loaderData ?? {}
+}
