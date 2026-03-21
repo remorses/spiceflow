@@ -597,7 +597,7 @@ app.href('/search', { invalid: 'x' })
 
 ### Standalone `createHref`
 
-If you need a path builder on the client side where you can't import server app code, use `createHref` with the `typeof app` generic:
+If you need a path builder on the client side where you can't import server app code, use `createHref` with the `App` type:
 
 ```ts
 import { createHref } from 'spiceflow'
@@ -721,9 +721,10 @@ app.route({
 Async generators will create a server sent event response.
 
 ```ts
+// server.ts
 import { Spiceflow } from 'spiceflow'
 
-const app = new Spiceflow().route({
+export const app = new Spiceflow().route({
   method: 'GET',
   path: '/sseStream',
   async *handler() {
@@ -735,21 +736,17 @@ const app = new Spiceflow().route({
   },
 })
 
-// Server-Sent Events (SSE) format
-// The server will send events in the following format:
-// data: {"message":"Start"}
-// data: {"message":"Middle"}
-// data: {"message":"End"}
+export type App = typeof app
+```
 
-// Example response output:
-// data: {"message":"Start"}
-// data: {"message":"Middle"}
-// data: {"message":"End"}
+Server-Sent Events (SSE) format — the server sends events as `data: {"message":"Start"}\n\n` chunks.
 
-// Client usage example with fetch client
+```ts
+// client.ts
 import { createSpiceflowFetch } from 'spiceflow/client'
+import type { App } from './server'
 
-const safeFetch = createSpiceflowFetch<typeof app>('http://localhost:3000')
+const safeFetch = createSpiceflowFetch<App>('http://localhost:3000')
 
 async function fetchStream() {
   const stream = await safeFetch('/sseStream')
@@ -851,10 +848,10 @@ The fetch client returns `Error | Data` directly. When the server responds with 
 - The error has `status`, `value` (parsed response body), and `response` (raw Response) properties
 
 ```ts
+// server.ts
 import { Spiceflow } from 'spiceflow'
-import { createSpiceflowFetch } from 'spiceflow/client'
 
-const app = new Spiceflow()
+export const app = new Spiceflow()
   .route({
     method: 'GET',
     path: '/error',
@@ -878,7 +875,15 @@ const app = new Spiceflow()
     },
   })
 
-const safeFetch = createSpiceflowFetch<typeof app>('http://localhost:3000')
+export type App = typeof app
+```
+
+```ts
+// client.ts
+import { createSpiceflowFetch } from 'spiceflow/client'
+import type { App } from './server'
+
+const safeFetch = createSpiceflowFetch<App>('http://localhost:3000')
 
 async function handleErrors() {
   const errorResult = await safeFetch('/error')
@@ -1764,6 +1769,8 @@ export const app = new Spiceflow()
     return <div>Hello from Cloudflare RSC</div>
   })
 
+export type App = typeof app
+
 export default {
   fetch(request: Request) {
     return app.handle(request)
@@ -2102,6 +2109,8 @@ export const app = new Spiceflow()
     }
     return <AdminLayout>{children}</AdminLayout>
   })
+
+export type App = typeof app
 ```
 
 `redirect()` accepts an optional second argument for custom status codes and headers:
