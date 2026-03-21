@@ -37,7 +37,7 @@ export type RouterEvent = NavigationRequestedEvent | NavigationCommittedEvent
 
 export type NavigationEvent = {
   id: number
-  action: 'POP' | 'PUSH' | 'REPLACE'
+  action: 'POP' | 'PUSH' | 'REPLACE' | 'LOADER_DATA'
   location: Location
   previousLocation: Location
   previousScrollY: number
@@ -193,7 +193,7 @@ if (isBrowser) {
     const event = appendNavigationEvent<NavigationCommittedEvent>({
       type: 'navigation-committed',
       requestId: pendingRequest?.requestId ?? null,
-      action: action as NavigationEvent['action'],
+      action,
       location: cloneLocation(location),
       previousLocation,
       previousScrollY: action === 'POP' ? window.scrollY : pendingRequest?.scrollY ?? 0,
@@ -206,6 +206,13 @@ if (isBrowser) {
   })
 }
 
+
+// Loader data store — initialized from window.__SPICEFLOW_LOADER_DATA__ (set by
+// SSR script injection), updated on navigation when the RSC payload resolves.
+let loaderData: Record<string, unknown> =
+  isBrowser && (window as any).__SPICEFLOW_LOADER_DATA__
+    ? (window as any).__SPICEFLOW_LOADER_DATA__
+    : {}
 
 export const router = {
   get location() {
@@ -241,6 +248,25 @@ export const router = {
     subscribers.add(cb)
     return () => {
       subscribers.delete(cb)
+    }
+  },
+  getLoaderData(): Record<string, unknown> {
+    return loaderData
+  },
+  /** @internal */
+  __setLoaderData(data: Record<string, unknown> | undefined) {
+    loaderData = data ?? {}
+    const location = history.location
+    const event: NavigationEvent = {
+      id: ++nextEventId,
+      action: 'LOADER_DATA',
+      location,
+      previousLocation: location,
+      previousScrollY: isBrowser ? window.scrollY : 0,
+      source: 'navigate',
+    }
+    for (const cb of subscribers) {
+      cb(event)
     }
   },
 }

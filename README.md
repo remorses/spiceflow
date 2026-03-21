@@ -1869,6 +1869,95 @@ export function Counter() {
 }
 ```
 
+### Loaders
+
+Loaders run on the server before page and layout handlers. They solve a common problem: when you need the same data in both server components and client components, or in both a layout and a page, without prop drilling or React context.
+
+```tsx
+const app = new Spiceflow()
+  // Auth loader for all routes — wildcard pattern matches everything
+  .loader('/*', async ({ request }) => {
+    const user = await getUser(request.headers.get('cookie'))
+    if (!user) throw redirect('/login')
+    return { user }
+  })
+  // Page-specific loader
+  .loader('/dashboard', async () => {
+    const stats = await getStats()
+    return { stats }
+  })
+  .layout('/*', async ({ loaderData, children }) => {
+    // loaderData.user is available here from the wildcard loader
+    return (
+      <html>
+        <body>
+          <nav>{loaderData.user.name}</nav>
+          {children}
+        </body>
+      </html>
+    )
+  })
+  .page('/dashboard', async ({ loaderData }) => {
+    // Both loaders matched — data is merged by specificity
+    // loaderData = { user: ..., stats: ... }
+    return <Dashboard user={loaderData.user} stats={loaderData.stats} />
+  })
+```
+
+When multiple loaders match a route (e.g. `/*` and `/dashboard` both match `/dashboard`), their return values are merged into a single flat object. More specific loaders override less specific ones on key conflicts.
+
+**Reading loader data in client components** uses the `useLoaderData` hook from `createRouter`:
+
+```tsx
+// src/app/sidebar.tsx
+'use client'
+
+import { useLoaderData } from './router'
+
+export function Sidebar() {
+  // Type-safe: path narrows the return type to the loaders matching '/dashboard'
+  const { user, stats } = useLoaderData('/dashboard')
+  return <aside>{user.name} — {stats.totalViews} views</aside>
+}
+```
+
+Loader data updates automatically on client-side navigation — when the user navigates to a new route, the server re-runs the matching loaders and the new data arrives atomically with the new page content via the RSC flight stream.
+
+**Reading loader data outside React** with `getLoaderData` is useful when you need data before React starts rendering, for example to initialize a ProseMirror editor, a canvas, or a WebGL scene. It reads synchronously from a global set by the server during SSR — available at module scope before any component mounts:
+
+```tsx
+// src/app/editor.tsx
+'use client'
+
+import { useCallback } from 'react'
+import { getLoaderData, router } from './router'
+import { EditorState } from 'prosemirror-state'
+import { EditorView } from 'prosemirror-view'
+
+// Module scope — runs before React renders.
+// The editor is created with server data immediately, no loading state.
+const { document } = getLoaderData('/editor/:id')
+const state = EditorState.create({ doc: document.content })
+const view = new EditorView(null, { state })
+
+// Update editor when loader data changes on navigation
+router.subscribe((event) => {
+  if (event.action !== 'LOADER_DATA') return
+  const { document } = getLoaderData('/editor/:id')
+  view.updateState(EditorState.create({ doc: document.content }))
+})
+
+export function Editor() {
+  // Mount the existing EditorView into the DOM — no useEffect needed
+  const ref = useCallback((node: HTMLDivElement | null) => {
+    if (node && !node.firstChild) node.appendChild(view.dom)
+  }, [])
+  return <div ref={ref} />
+}
+```
+
+**Error handling**: if a loader throws a `redirect()` or `notFound()`, the entire request short-circuits — the page handler never runs. If a loader throws any other error, it renders through the nearest error boundary instead of showing a blank page.
+
 ### Type-Safe Client Router
 
 Use `createRouter` with your app type for type-safe navigation, URL building, and loader data access in client components. Bind the app type once — all paths, params, query schemas, and loader data are inferred from arguments.
@@ -1880,7 +1969,7 @@ Use `createRouter` with your app type for type-safe navigation, URL building, an
 import { createRouter } from 'spiceflow/react'
 import type { App } from '../main'
 
-export const { router, useRouterState, useLoaderData, href } = createRouter<App>()
+export const { router, useRouterState, useLoaderData, getLoaderData, href } = createRouter<App>()
 ```
 
 ```tsx

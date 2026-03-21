@@ -1,7 +1,7 @@
 // Typed router utilities factory. Binds the App type once so path/query/loader
 // types are inferred automatically from the app definition.
 //
-//   const { router, useRouterState, useLoaderData, href } = createRouter<typeof app>()
+//   const { router, useRouterState, useLoaderData, getLoaderData, href } = createRouter<typeof app>()
 //   router.push(href('/users/:id', { id: '123' }))
 'use client'
 
@@ -48,5 +48,11 @@ export function createRouter<App extends {
     return (flightData?.loaderData ?? {}) as any
   }
 
-  return { router, useRouterState, useLoaderData, href }
+  function getLoaderData<const Path extends Paths | (string & {}) = string>(
+    _path?: Path,
+  ): LoaderDataReturn<LD, Path> {
+    return router.getLoaderData() as any
+  }
+
+  return { router, useRouterState, useLoaderData, getLoaderData, href }
 }

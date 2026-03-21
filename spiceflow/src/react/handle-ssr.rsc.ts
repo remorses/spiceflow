@@ -5,6 +5,7 @@
 export async function renderSsr(
   flightResponse: Response,
   request: Request,
+  { loaderData }: { loaderData?: Record<string, unknown> } = {},
 ): Promise<Response> {
   // Bail early if the request was already aborted (e.g. by HMR canceling a
   // stale render). Prevents orphaned promises that trigger workerd's
@@ -15,5 +16,5 @@ export async function renderSsr(
   const mod = await import.meta.viteRsc.loadModule<
     typeof import('./entry.ssr.js')
   >('ssr', 'index')
-  return mod.renderHtml({ response: flightResponse, request })
+  return mod.renderHtml({ response: flightResponse, request, loaderData })
 }

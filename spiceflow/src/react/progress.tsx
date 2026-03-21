@@ -94,7 +94,8 @@ function useProgress() {
   )
 
   useEffect(() => {
-    return router.subscribe(() => {
+    return router.subscribe((event) => {
+      if (event.action === 'LOADER_DATA') return
       start()
     })
   }, [])

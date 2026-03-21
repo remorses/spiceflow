@@ -1309,7 +1309,7 @@ export class Spiceflow<
     request: Request
     context: SpiceflowContext<any, any, any>
     reactRoutes: ReactMatchedRoute[]
-  }) {
+  }): Promise<{ response: Response; loaderData?: Record<string, unknown> }> {
     // Import RSC runtime early — outside Vite RSC builds this throws a clear error
     // before we touch import.meta.viteRsc.loadCss (which would give a confusing error).
     const { renderToReadableStream } = await import('#rsc-runtime')
@@ -1331,7 +1331,7 @@ export class Spiceflow<
     const isBrowserNavigation =
       isDocumentRequest(request) || request.headers.get('accept')?.includes('text/html')
     if (!pageRoute && !(isSafeMethod && isBrowserNavigation)) {
-      return new Response('Not Found', { status: 404 })
+      return { response: new Response('Not Found', { status: 404 }) }
     }
 
     const isNotFound = !pageRoute
@@ -1345,7 +1345,7 @@ export class Spiceflow<
 
     const actionState = await this.resolveReactActionState({ request })
     if (actionState instanceof Response) {
-      return actionState
+      return { response: actionState }
     }
 
     try {
@@ -1474,7 +1474,7 @@ export class Spiceflow<
       let root: FlightData = { page, layouts, globalCss, ...(hasLoaderData && { loaderData: mergedLoaderData }) }
 
       if (root instanceof Response) {
-        return mergeHeadersIntoResponse({ response: root, source: routeHeaders })
+        return { response: mergeHeadersIntoResponse({ response: root, source: routeHeaders }) }
       }
 
       const payload =
@@ -1520,16 +1520,18 @@ export class Spiceflow<
         ?.status
       const status = pageHandlerStatus ?? layoutHandlerStatus ?? (isNotFound ? 404 : 200)
 
-      return new Response(stream, {
-        status,
-        headers,
-      })
+      return {
+        response: new Response(stream, { status, headers }),
+        loaderData: hasLoaderData ? mergedLoaderData : undefined,
+      }
     } catch (error) {
       if (error instanceof Response) {
-        return mergeHeadersIntoResponse({
-          response: error,
-          source: baseResponse?.headers,
-        })
+        return {
+          response: mergeHeadersIntoResponse({
+            response: error,
+            source: baseResponse?.headers,
+          }),
+        }
       }
       throw error
     }
@@ -1652,9 +1654,9 @@ export class Spiceflow<
         context,
         onErrorHandlers,
         async () => {
-          let res = await this.renderReact({ request, context, reactRoutes: resolved.reactRoutes })
+          let { response: res, loaderData } = await this.renderReact({ request, context, reactRoutes: resolved.reactRoutes })
           if (shouldSsr && renderSsr && res.headers.get('content-type')?.startsWith('text/x-component')) {
-            res = await renderSsr(res, request)
+            res = await renderSsr(res, request, { loaderData })
           }
           return res
         },

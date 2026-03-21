@@ -132,6 +132,7 @@ async function main() {
 
     setPayload(payloadPromise)
     const payload = await payloadPromise
+    router.__setLoaderData(payload.root?.loaderData)
 
     if (payload.actionError) {
       console.log(getErrorContext(payload.actionError))
@@ -154,7 +155,8 @@ async function main() {
 
     React.useEffect(() => {
       let navigationAbort = new AbortController()
-      return router.subscribe(async function onNavigation() {
+      return router.subscribe(async function onNavigation(event) {
+        if (event.action === 'LOADER_DATA') return
         navigationAbort.abort()
         navigationAbort = new AbortController()
         const url = new URL(window.location.href)
@@ -164,6 +166,9 @@ async function main() {
         )
         if (navigationAbort.signal.aborted) return
         setPayload(payload)
+        payload.then((resolved) => {
+          router.__setLoaderData(resolved.root?.loaderData)
+        }).catch(() => {})
       })
     }, [])
 
