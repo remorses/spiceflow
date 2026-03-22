@@ -7,7 +7,10 @@
     "start": "dotenv -- node dist/rsc/index.js",
     "seed": "dotenv -- bash -c 'psql \"$POSTGRES_URL\" -f sql/init.sql'",
     "build": "vite build --app",
-    "bench": "dotenv -- tsx bench.ts"
+    "bench": "dotenv -- tsx bench.ts",
+    "deno:dev": "deno run -A node_modules/.bin/vite dev",
+    "deno:build": "deno run -A node_modules/.bin/vite build --app",
+    "deno:start": "deno run -A dist/rsc/index.js"
   },
   "dependencies": {
     "@fontsource/inter": "^4.5.15",

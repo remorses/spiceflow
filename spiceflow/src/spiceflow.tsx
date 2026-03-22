@@ -2079,6 +2079,13 @@ export class Spiceflow<
       return { port: server.port, server }
     }
 
+    // Deno native server — uses Deno.serve() with web standard Request/Response,
+    // bypassing the node:http adapter for better performance.
+    if (typeof Deno !== 'undefined' && typeof Deno.serve === 'function') {
+      const server = Deno.serve({ port, hostname }, handler)
+      return { port, server }
+    }
+
     return listenForNode(handler, port, hostname)
   }
 

@@ -7,13 +7,15 @@
 // Usage:
 //   pnpm bench              # run with Node.js (default)
 //   pnpm bench -- --bun     # run with Bun
+//   pnpm bench -- --deno    # run with Deno
 
 import { execSync, spawn, type ChildProcess } from 'node:child_process'
 import { mkdirSync, existsSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 
 const useBun = process.argv.includes('--bun')
-const RUNTIME = useBun ? 'bun' : 'node'
+const useDeno = process.argv.includes('--deno')
+const RUNTIME = useDeno ? 'deno' : useBun ? 'bun' : 'node'
 
 const PORT = 3321
 const HONO_PORT = 3322
@@ -82,12 +84,20 @@ async function warmup(url: string, n = 20): Promise<void> {
 }
 
 function startServer(env: Record<string, string>): ChildProcess {
+  if (useDeno) {
+    return spawnProcess('deno', ['run', '-A', 'dist/rsc/index.js'], env)
+  }
   return spawnProcess(RUNTIME, ['dist/rsc/index.js'], env)
 }
 
 function startProfiledServer(env: Record<string, string>): ChildProcess {
   // Both Node and Bun only write --cpu-prof on clean process.exit().
   // Inject a SIGUSR2 handler that calls process.exit(0) to trigger flush.
+  if (useDeno) {
+    // Deno does not support --cpu-prof, just run normally for phase 2
+    return spawnProcess('deno', ['run', '-A', 'dist/rsc/index.js'], env)
+  }
+
   if (useBun) {
     return spawnProcess('bun', [
       '--cpu-prof',
