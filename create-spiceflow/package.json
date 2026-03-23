@@ -28,6 +28,7 @@
   ],
   "scripts": {
     "build": "rm -rf dist *.tsbuildinfo && tsc && chmod +x dist/index.js",
+    "lint": "lintcn lint --fix",
     "prepublishOnly": "pnpm build"
   },
   "repository": {
