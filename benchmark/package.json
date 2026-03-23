@@ -1,14 +1,16 @@
 {
-  "name": "nodejs-example",
+  "name": "benchmark",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "vite dev",
     "build": "vite build --app",
-    "start": "node dist/rsc/index.js"
+    "start": "node dist/rsc/index.js",
+    "bench": "tsx bench.ts"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.2.2",
+    "@types/node": "18.16.3",
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
     "react": "19.2.4",
@@ -19,6 +21,8 @@
     "vite": "^8.0.0"
   },
   "devDependencies": {
-    "@vitejs/plugin-react": "^6.0.1"
+    "@hono/node-server": "^1.19.11",
+    "@vitejs/plugin-react": "^6.0.1",
+    "hono": "^4.12.8"
   }
 }

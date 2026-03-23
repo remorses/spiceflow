@@ -1,6 +1,6 @@
-// Benchmark script for the nodejs-example Spiceflow app.
+// Benchmark script for the Spiceflow app.
 // Builds the app, starts the production server, runs bombardier against
-// /static-page.html, /about (RSC page), and a Hono baseline.
+// /static-page.html, /about (RSC page), and Hono/Next.js baselines.
 // Phase 2 re-runs the Spiceflow /about benchmark with --cpu-prof enabled.
 // Profile files are saved to tmp/cpu-profiles/ for analysis with profano.
 //
@@ -94,7 +94,6 @@ function startProfiledServer(env: Record<string, string>): ChildProcess {
   // Both Node and Bun only write --cpu-prof on clean process.exit().
   // Inject a SIGUSR2 handler that calls process.exit(0) to trigger flush.
   if (useDeno) {
-    // Deno does not support --cpu-prof, just run normally for phase 2
     return spawnProcess('deno', ['run', '-A', 'dist/rsc/index.js'], env)
   }
 

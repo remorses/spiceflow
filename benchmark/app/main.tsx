@@ -61,11 +61,8 @@ export const app = new Spiceflow()
       <div className="flex flex-col items-center gap-4 p-8 max-w-lg">
         <h2 className="text-2xl font-bold">About</h2>
         <p className="text-center text-gray-600 dark:text-gray-300">
-          This is a demo app built with{' '}
-          <a href="https://github.com/remorses/spiceflow" className="underline">
-            Spiceflow
-          </a>
-          , showcasing React Server Components.
+          This is a demo app built with Spiceflow, showcasing React Server
+          Components.
         </p>
         <Link
           href="/"
@@ -140,27 +137,15 @@ function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
       <Head>
-        <Head.Title>Spiceflow Example</Head.Title>
+        <Head.Title>Spiceflow Benchmark</Head.Title>
       </Head>
 
       <body>
         <ProgressBar />
         <main className="flex min-h-screen flex-col items-center flex-start px-6 pt-6">
-          <h1 className="text-3xl font-bold mb-3">Spiceflow Example</h1>
+          <h1 className="text-3xl font-bold mb-3">Spiceflow Benchmark</h1>
           {children}
         </main>
-
-        <footer className="text-xs p-5 text-center text-gray-600">
-          Images courtesy of{' '}
-          <a
-            target="_blank"
-            className="underline"
-            href="https://github.com/PokeAPI/sprites/tree/master/sprites/pokemon"
-          >
-            PokeAPI
-          </a>{' '}
-          – Pokemon is © 1996-2023 Nintendo, Creatures, Inc., GAME FREAK
-        </footer>
       </body>
     </html>
   )
