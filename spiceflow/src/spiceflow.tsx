@@ -642,7 +642,7 @@ export class Spiceflow<
     const normalizedMethods: string[] = Array.isArray(actualMethod)
       ? actualMethod.flatMap((m) => {
           const method = typeof m === 'string' ? m.toUpperCase() : m
-          return method === '*' ? [...METHODS] : [method as string]
+          return method === '*' ? [...METHODS] : [method]
         })
       : (() => {
           const method =

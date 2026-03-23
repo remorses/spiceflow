@@ -55,7 +55,7 @@ export const processHeaders = (
           headers[key.toLowerCase()] = value[1] as string
         else
           for (const [k, value] of key)
-            headers[k.toLowerCase()] = value as string
+            headers[k.toLowerCase()] = value
       }
     return headers
   }
