@@ -1,6 +1,6 @@
 {
   "name": "create-spiceflow",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "Create a new Spiceflow project",
   "type": "module",
   "main": "./dist/index.js",
@@ -48,5 +48,10 @@
   "devDependencies": {
     "@types/node": "~24.0.1",
     "typescript": "^5.7.0"
+  },
+  "dependencies": {
+    "@clack/prompts": "^1.1.0",
+    "@xmorse/tar-parser": "^0.3.0",
+    "goke": "^6.3.0"
   }
 }
