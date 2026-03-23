@@ -64,9 +64,7 @@ test('middleware with next changes the response', async () => {
       return res
     })
     .get('/ids/:id', () => 'hi')
-    .post('/ids/:id', ({ params: { id } }) => id, {
-      params: z.object({ id: z.string() }),
-    })
+    .post('/ids/:id', ({ params: { id } }) => id)
     .handle(new Request('http://localhost/ids/xxx', { method: 'GET' }))
   expect(res.status).toBe(200)
   expect(await res.json()).toEqual('hi')

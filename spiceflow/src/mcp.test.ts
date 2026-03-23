@@ -23,9 +23,6 @@ describe('ai sdk mcp', () => {
         ({ params: { id } }) => {
           return 'hello ' + id
         },
-        {
-          params: z.object({ id: z.string() }),
-        },
       )
       .post(
         '/somethingElse/:id',
@@ -35,7 +32,6 @@ describe('ai sdk mcp', () => {
           }
         },
         {
-          params: z.object({ id: z.string() }),
           body: z.any(),
         },
       )
@@ -200,9 +196,6 @@ describe('MCP Plugin', () => {
         '/somethingElse/:id',
         ({ params: { id } }) => {
           return 'hello ' + id
-        },
-        {
-          params: z.object({ id: z.string() }),
         },
       )
       .get(
@@ -440,7 +433,6 @@ describe('addMcpTools', () => {
           return { created: id, data: await request.json() }
         },
         {
-          params: z.object({ id: z.string() }),
           body: z.object({ name: z.string() }),
         },
       )
@@ -532,7 +524,6 @@ describe('addMcpTools', () => {
           return { updated: id, data: await request.json() }
         },
         {
-          params: z.object({ id: z.string() }),
           body: z.object({ value: z.string() }),
         },
       )

@@ -21,9 +21,7 @@ describe('cors middleware', () => {
       state.y
       return 'hi'
     })
-    .post('/ids/:id', ({ params: { id } }) => id, {
-      params: z.object({ id: z.string() }),
-    })
+    .post('/ids/:id', ({ params: { id } }) => id)
 
   test('GET request returns correct response and CORS headers', async () => {
     const res = await app.handle(request('ids/xxx'))

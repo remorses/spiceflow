@@ -332,9 +332,7 @@ test('handler returns url encoded data', async () => {
 test('GET dynamic route', async () => {
   const res = await new Spiceflow()
     .get('/ids/:id', () => 'hi')
-    .post('/ids/:id', ({ params: { id } }) => id, {
-      params: z.object({ id: z.string() }),
-    })
+    .post('/ids/:id', ({ params: { id } }) => id)
     .handle(new Request('http://localhost/ids/xxx', { method: 'GET' }))
   expect(res.status).toBe(200)
   expect(await res.json()).toEqual('hi')
@@ -565,11 +563,6 @@ test('GET dynamic route, params are typed with schema', async () => {
         // @ts-expect-error
         params.sdfsd
         return id
-      },
-      {
-        params: z.object({
-          id: z.string(),
-        }),
       },
     )
     .handle(new Request('http://localhost/ids/hi', { method: 'GET' }))

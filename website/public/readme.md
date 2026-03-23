@@ -120,9 +120,6 @@ const app = new Spiceflow()
   .route({
     method: 'GET',
     path: '/users/:id',
-    params: z.object({
-      id: z.string(),
-    }),
     query: z.object({
       q: z.string(),
     }),
@@ -269,9 +266,6 @@ new Spiceflow().route({
   response: z.object({
     id: z.number(),
     name: z.string(),
-  }),
-  params: z.object({
-    id: z.string(),
   }),
   async handler({ request, params }) {
     const typedJson = await request.json() // this body will have the correct type
