@@ -13,6 +13,7 @@ import { getErrorContext, isNotFoundError, isRedirectError, contextHeaders, cont
 import { formatServerError } from './format-server-error.js'
 import { MetaProvider } from './head.js'
 import { MetaState } from './metastate.js'
+import { ssrCache, createHashTransform, collectStream, getSsrCacheMode, hasUncacheableHeaders, prehashFlightStream } from './ssr-cache.js'
 import { injectRSCPayload } from './transform.js'
 
 let bootstrapScriptContentPromise: Promise<string> | undefined
@@ -31,6 +32,17 @@ async function importRscEnvironment(): Promise<typeof import('./entry.rsc.js')> 
     'rsc',
     'index',
   )
+}
+
+function buildHtmlHeaders(response: Response) {
+  const responseHeaders: [string, string][] = [...response.headers]
+  const htmlHeaders = responseHeaders.filter(([k]) => k.toLowerCase() !== 'content-type')
+  htmlHeaders.push(['content-type', 'text/html;charset=utf-8'])
+  return htmlHeaders
+}
+
+function canUsePrehashCache(request: Request) {
+  return !request.headers.has('cookie') && !request.headers.has('authorization')
 }
 
 export async function fetchHandler(request: Request) {
@@ -67,13 +79,56 @@ export async function renderHtml({
   request: Request
   response: Response
 }) {
+  const cacheMode = getSsrCacheMode()
+  if (cacheMode === 'prehash') {
+    return renderHtmlWithPrehashCache({ response, request, prerender })
+  }
+
+  return renderHtmlStreaming({
+    response,
+    request,
+    prerender,
+    cacheMode,
+  })
+}
+
+async function renderHtmlStreaming({
+  response,
+  request,
+  prerender,
+  cacheMode,
+  allReadyTimeoutMs = 50,
+}: {
+  prerender?: boolean
+  request: Request
+  response: Response
+  cacheMode: 'off' | 'post'
+  allReadyTimeoutMs?: number
+}) {
   // GET/HEAD requests only need one SSR-side decode. POST/form submissions still
   // split a second SSR copy to extract formState before hydrateRoot runs.
   const needsFormState = request.method !== 'GET' && request.method !== 'HEAD'
   const [flightForSsrOrForm, flightStream2] = response.body!.tee()
-  const [flightForFormState, flightForSsr] = needsFormState
+  const [flightForFormState, flightForSsrRaw] = needsFormState
     ? flightForSsrOrForm.tee()
     : [undefined, flightForSsrOrForm]
+
+  // In production, for cacheable GET/HEAD 2xx requests, pipe the SSR flight
+  // stream through a hash transform. The hash accumulates as React consumes
+  // chunks — no extra tee, no extra race. After allReady resolves within 50ms
+  // we check the LRU cache using the completed hash digest.
+  const canCache = cacheMode === 'post'
+    && !import.meta.env.DEV
+    && !prerender
+    && !needsFormState
+    && response.status >= 200
+    && response.status < 300
+    && !hasUncacheableHeaders(response.headers)
+
+  const hashTransform = canCache ? createHashTransform() : undefined
+  const flightForSsr = hashTransform
+    ? flightForSsrRaw.pipeThrough({ readable: hashTransform.readable, writable: hashTransform.writable })
+    : flightForSsrRaw
 
   let baseUrl = new URL('/', request.url).href
   if (baseUrl.endsWith('/')) {
@@ -131,6 +186,10 @@ export async function renderHtml({
     }
   }
 
+  // Track whether allReady resolved before the 50ms timeout. When true, the
+  // full RSC stream was consumed and the hash digest is available for caching.
+  let allReadyBeforeTimeout = false
+
   try {
     const renderOptions = {
       bootstrapScriptContent,
@@ -165,15 +224,21 @@ export async function renderHtml({
     }
     if (prerender || isbot(request.headers.get('user-agent') || '')) {
       await htmlStream.allReady
+      allReadyBeforeTimeout = true
     } else {
       // Race allReady against a short timeout to catch redirect/notFound
       // errors from Suspense boundaries without blocking normal streaming.
-      let timerId: ReturnType<typeof setTimeout> | undefined
-      const timeout = new Promise<void>((r) => { timerId = setTimeout(r, 50) })
-      await Promise.race([
-        htmlStream.allReady.finally(() => { if (timerId) clearTimeout(timerId) }),
-        timeout,
-      ])
+      if (allReadyTimeoutMs <= 0) {
+        allReadyBeforeTimeout = false
+      } else {
+        let timerId: ReturnType<typeof setTimeout> | undefined
+        const timeout = new Promise<'timeout'>((r) => { timerId = setTimeout(() => r('timeout'), allReadyTimeoutMs) })
+        const winner = await Promise.race([
+          htmlStream.allReady.then(() => 'ready' as const).finally(() => { if (timerId) clearTimeout(timerId) }),
+          timeout,
+        ])
+        allReadyBeforeTimeout = winner === 'ready'
+      }
     }
 
     if (ssrErrorCtx) {
@@ -213,6 +278,49 @@ export async function renderHtml({
   }
 
   let appendToHead = metaState.getProcessedTags()
+
+  const htmlHeaders = buildHtmlHeaders(response)
+
+  // When allReady resolved before timeout, await the hash digest. The
+  // transform's flush() may run on a later microtask after allReady, so we
+  // must await the promise rather than reading synchronously.
+  const digest = allReadyBeforeTimeout && hashTransform
+    ? await hashTransform.digestPromise
+    : undefined
+  if (digest && status < 300) {
+    const cached = ssrCache.get(digest)
+    if (cached) {
+      // Cancel unconsumed streams to free tee branch buffers
+      void htmlStream.cancel().catch(() => {})
+      void flightStream2.cancel().catch(() => {})
+      return new Response(cached.html, {
+        status,
+        headers: htmlHeaders,
+      })
+    }
+
+    // Cache miss — collect the full HTML output and store it.
+    const finalStream = htmlStream.pipeThrough(
+      injectRSCPayload({
+        rscStream: flightStream2,
+        appendToHead,
+      }),
+    )
+    const htmlBytes = await collectStream(finalStream)
+
+    ssrCache.set(digest, {
+      html: htmlBytes,
+      status,
+      headers: htmlHeaders,
+      byteSize: htmlBytes.byteLength,
+    })
+
+    return new Response(htmlBytes, {
+      status,
+      headers: htmlHeaders,
+    })
+  }
+
   return new Response(
     htmlStream.pipeThrough(
       injectRSCPayload({
@@ -222,12 +330,108 @@ export async function renderHtml({
     ),
     {
       status,
-      headers: {
-        ...Object.fromEntries(response.headers),
-        'content-type': 'text/html;charset=utf-8',
-      },
+      headers: htmlHeaders,
     },
   )
+}
+
+async function renderHtmlWithPrehashCache({
+  response,
+  request,
+  prerender,
+}: {
+  prerender?: boolean
+  request: Request
+  response: Response
+}) {
+  const isGetOrHead = request.method === 'GET' || request.method === 'HEAD'
+  const canCache = !import.meta.env.DEV
+    && !prerender
+    && isGetOrHead
+    && response.status >= 200
+    && response.status < 300
+    && !hasUncacheableHeaders(response.headers)
+    && canUsePrehashCache(request)
+    && !isbot(request.headers.get('user-agent') || '')
+
+  if (!canCache) {
+    return renderHtmlStreaming({
+      response,
+      request,
+      prerender,
+      cacheMode: 'off',
+    })
+  }
+
+  const [flightForHash, flightOriginal] = response.body!.tee()
+  const prehash = prehashFlightStream(flightForHash)
+  const startedAt = Date.now()
+  let timerId: ReturnType<typeof setTimeout> | undefined
+  const timeout = new Promise<'timeout'>((resolve) => {
+    timerId = setTimeout(() => resolve('timeout'), 50)
+  })
+
+  const prehashResult = await Promise.race([
+    prehash.resultPromise.finally(() => {
+      if (timerId) clearTimeout(timerId)
+    }),
+    timeout,
+  ])
+
+  if (prehashResult === 'timeout') {
+    await prehash.cancel()
+    const elapsedMs = Date.now() - startedAt
+    const remainingAllReadyBudget = Math.max(0, 50 - elapsedMs)
+    return renderHtmlStreaming({
+      response: new Response(flightOriginal, {
+        status: response.status,
+        headers: response.headers,
+      }),
+      request,
+      prerender,
+      cacheMode: 'off',
+      allReadyTimeoutMs: remainingAllReadyBudget,
+    })
+  }
+
+  await flightOriginal.cancel().catch(() => {})
+  const htmlHeaders = buildHtmlHeaders(response)
+  const cached = ssrCache.get(prehashResult.digest)
+  if (cached) {
+    return new Response(cached.html, {
+      status: response.status,
+      headers: htmlHeaders,
+    })
+  }
+
+  const htmlResponse = await renderHtmlStreaming({
+    response: new Response(new Blob(prehashResult.chunks), {
+      status: response.status,
+      headers: response.headers,
+    }),
+    request,
+    prerender,
+    cacheMode: 'off',
+    allReadyTimeoutMs: 0,
+  })
+
+  if (htmlResponse.status >= 300 || !htmlResponse.body) {
+    return htmlResponse
+  }
+
+  const htmlBytes = await collectStream(htmlResponse.body)
+  const headers: [string, string][] = [...htmlResponse.headers]
+  ssrCache.set(prehashResult.digest, {
+    html: htmlBytes,
+    status: htmlResponse.status,
+    headers,
+    byteSize: htmlBytes.byteLength,
+  })
+
+  return new Response(htmlBytes, {
+    status: htmlResponse.status,
+    headers,
+  })
 }
 
 export async function prerender(request: Request) {
