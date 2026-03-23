@@ -72,8 +72,8 @@ import { Result } from './trie-router/utils.js'
 
 import type { StandardSchemaV1 } from './standard-schema.js'
 import type { IncomingMessage, ServerResponse } from 'node:http'
-import { handleForNode, listenForNode } from './_node-server.js'
-import { renderSsr } from 'spiceflow/handle-ssr'
+import { handleForNode, listenForNode } from '#node-server'
+import { renderSsr } from '#handle-ssr'
 import { SpiceflowContext, MiddlewareContext, ContextResponse } from './context.js'
 import { isStaticMiddleware } from './static.js'
 
