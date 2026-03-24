@@ -1348,3 +1348,27 @@ test.describe("loaders", () => {
 		}).toPass({ timeout: 10000 });
 	});
 });
+
+test.describe(".server.ts file guard", () => {
+	test("page renders normally when .server.ts is not imported from client @dev", async ({ page }) => {
+		await page.goto("/server-guard-test");
+		await expect(page.getByTestId("server-guard-test")).toContainText("server guard ok");
+	});
+
+	test("importing .server.ts from client component shows error @dev", async ({ page }) => {
+		// Load any page to establish HMR connection, then dynamically import
+		// the bad module. The resolveId hook throws during import analysis in
+		// the client environment. The terminal shows "Server-only module
+		// referenced by client"; the browser overlay shows the module fetch failure.
+		await page.goto("/server-guard-test");
+		await expect(page.getByTestId("server-guard-test")).toContainText("server guard ok");
+		// Trigger client-env resolution by importing the module from the browser
+		page.evaluate(() => import("/src/app/bad-server-import-client.tsx")).catch(() => {});
+		const overlay = page.locator("vite-error-overlay");
+		await expect(overlay).toBeAttached({ timeout: 10000 });
+		const overlayText = await overlay.evaluate((el: Element) =>
+			el.shadowRoot?.textContent ?? "",
+		);
+		expect(overlayText).toContain("bad-server-import-client.tsx");
+	});
+});

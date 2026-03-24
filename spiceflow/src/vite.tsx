@@ -14,6 +14,7 @@ import {
   type ViteDevServer,
 } from 'vite'
 import { prerenderPlugin } from './react/prerender.js'
+import { serverFileGuardPlugin } from './server-file-guard.js'
 
 const require = createRequire(import.meta.url)
 const pluginRscRpcPath = require.resolve('@vitejs/plugin-rsc/utils/rpc')
@@ -52,6 +53,7 @@ export function spiceflowPlugin({
   return [
     rsc(rscOptions),
     prerenderPlugin(),
+    serverFileGuardPlugin(),
 
     // Rewrite optimizeDeps entries so @vitejs/plugin-rsc vendor CJS files
     // resolve through the spiceflow framework package (where the plugin is installed)

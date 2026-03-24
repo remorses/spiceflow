@@ -40,6 +40,7 @@ import {
 } from "./app/client-context";
 import { LoaderDataDisplay, LoaderNavLinks } from "./app/loader-test-client";
 import { GlobalLoaderDisplay, SubscribeDataReader } from "./app/loader-global-client";
+import { ServerGuardTestClient } from "./app/server-guard-test-client";
 
 // Increments on every RSC render of the home page. Used by e2e tests to detect
 // unwanted server re-renders (e.g. client HMR should not trigger a server render).
@@ -461,6 +462,9 @@ export const app = new Spiceflow()
 		);
 	})
 
+	.page("/server-guard-test", async () => {
+		return <ServerGuardTestClient />;
+	})
 	.page("/page-returns-error", async () => {
 		return new Error("page handler returned an error");
 	})
