@@ -1,0 +1,337 @@
+// Tests for OTel instrumentation: verifies span creation, attributes, error recording,
+// and the full span tree for API and React-style routes.
+
+import { test, describe, expect } from 'vitest'
+import { Spiceflow } from './spiceflow.js'
+import type { SpiceflowTracer, SpiceflowSpan } from './instrumentation.js'
+
+interface TestSpan {
+  name: string
+  kind?: number
+  attributes: Record<string, string | number | boolean>
+  status?: { code: number; message?: string }
+  errors: Array<{ name: string; message: string }>
+  ended: boolean
+  children: TestSpan[]
+  parent?: TestSpan
+}
+
+// Test double tracer that records all span operations and tracks parent-child via
+// a simple stack (startActiveSpan pushes, end pops).
+function createTestTracer() {
+  const spans: TestSpan[] = []
+  const stack: TestSpan[] = []
+
+  const tracer: SpiceflowTracer = {
+    startActiveSpan(name: string, ...args: any[]) {
+      const fn = args[args.length - 1] as (span: SpiceflowSpan) => unknown
+      const options = args.length > 1 ? args[0] : {}
+      const parent = stack[stack.length - 1]
+      const testSpan: TestSpan = {
+        name,
+        kind: options.kind,
+        attributes: { ...options.attributes },
+        errors: [],
+        ended: false,
+        children: [],
+        parent,
+      }
+      if (parent) parent.children.push(testSpan)
+      spans.push(testSpan)
+      stack.push(testSpan)
+
+      const span: SpiceflowSpan = {
+        setAttribute(key, value) {
+          testSpan.attributes[key] = value
+          return span
+        },
+        setStatus(status) {
+          testSpan.status = status
+          return span
+        },
+        recordException(exception) {
+          const err = exception instanceof Error
+            ? { name: exception.name, message: exception.message }
+            : { name: 'Error', message: String(exception) }
+          testSpan.errors.push(err)
+        },
+        updateName(n) {
+          testSpan.name = n
+          return span
+        },
+        end() {
+          testSpan.ended = true
+          const idx = stack.lastIndexOf(testSpan)
+          if (idx !== -1) stack.splice(idx, 1)
+        },
+      }
+      return fn(span)
+    },
+  }
+
+  return { tracer, spans }
+}
+
+// Strip parent refs to avoid circular snapshot
+function serializeSpans(spans: TestSpan[]) {
+  return spans.map((s) => ({
+    name: s.name,
+    kind: s.kind,
+    attributes: s.attributes,
+    status: s.status,
+    errors: s.errors,
+    ended: s.ended,
+    children: serializeSpans(s.children),
+  }))
+}
+
+describe('instrumentation', () => {
+  test('no spans when tracer is not set', async () => {
+    const app = new Spiceflow().get('/hello', () => 'world')
+    const res = await app.handle(new Request('http://localhost/hello'))
+    expect(res.status).toBe(200)
+    expect(await res.text()).toBe('"world"')
+  })
+
+  test('root span for GET request', async () => {
+    const { tracer, spans } = createTestTracer()
+    const app = new Spiceflow({ tracer }).get('/hello', () => 'world')
+    const res = await app.handle(new Request('http://localhost/hello'))
+
+    expect(res.status).toBe(200)
+    const roots = spans.filter((s) => !s.parent)
+    expect(roots).toHaveLength(1)
+    expect(roots[0].name).toBe('GET /hello')
+    expect(roots[0].attributes['http.request.method']).toBe('GET')
+    expect(roots[0].attributes['http.response.status_code']).toBe(200)
+    expect(roots[0].attributes['http.route']).toBe('/hello')
+    expect(roots[0].ended).toBe(true)
+  })
+
+  test('handler span is child of root span', async () => {
+    const { tracer, spans } = createTestTracer()
+    const app = new Spiceflow({ tracer }).get('/users/:id', () => ({ id: '1' }))
+    await app.handle(new Request('http://localhost/users/1'))
+
+    const root = spans.find((s) => !s.parent)!
+    expect(root.name).toBe('GET /users/:id')
+    expect(root.attributes['http.route']).toBe('/users/:id')
+
+    const handler = root.children.find((s) => s.name.startsWith('handler'))
+    expect(handler).toBeDefined()
+    expect(handler!.name).toBe('handler - /users/:id')
+    expect(handler!.ended).toBe(true)
+  })
+
+  test('middleware spans are children of root', async () => {
+    const { tracer, spans } = createTestTracer()
+    function authMiddleware(_ctx: any, next: any) { return next() }
+    const app = new Spiceflow({ tracer })
+      .use(authMiddleware)
+      .get('/hello', () => 'world')
+
+    await app.handle(new Request('http://localhost/hello'))
+
+    const root = spans.find((s) => !s.parent)!
+    const mw = root.children.find((s) => s.name === 'middleware - authMiddleware')
+    expect(mw).toBeDefined()
+    expect(mw!.ended).toBe(true)
+  })
+
+  test('anonymous middleware gets fallback name', async () => {
+    const { tracer, spans } = createTestTracer()
+    const app = new Spiceflow({ tracer })
+      .use((_ctx: any, next: any) => next())
+      .get('/hello', () => 'world')
+
+    await app.handle(new Request('http://localhost/hello'))
+
+    const root = spans.find((s) => !s.parent)!
+    const mw = root.children.find((s) => s.name === 'middleware - anonymous')
+    expect(mw).toBeDefined()
+  })
+
+  test('error in handler records exception on handler span', async () => {
+    const { tracer, spans } = createTestTracer()
+    const app = new Spiceflow({ tracer })
+      .get('/fail', () => { throw new Error('boom') })
+      .onError(({ error }) => new Response(error.message, { status: 500 }))
+
+    const res = await app.handle(new Request('http://localhost/fail'))
+    expect(res.status).toBe(500)
+
+    const handler = spans.find((s) => s.name.startsWith('handler'))!
+    expect(handler.errors).toHaveLength(1)
+    expect(handler.errors[0].message).toBe('boom')
+    expect(handler.status?.code).toBe(2) // ERROR
+
+    const root = spans.find((s) => !s.parent)!
+    expect(root.attributes['http.response.status_code']).toBe(500)
+    expect(root.status?.code).toBe(2) // ERROR
+  })
+
+  test('errore fingerprint is propagated as span attribute', async () => {
+    const { tracer, spans } = createTestTracer()
+
+    // Simulate an errore-style tagged error with fingerprint
+    class TaggedError extends Error {
+      fingerprint = ['TaggedError', 'Something went wrong with $id']
+      constructor() {
+        super('Something went wrong with 42')
+        this.name = 'TaggedError'
+      }
+    }
+
+    const app = new Spiceflow({ tracer })
+      .get('/fail', () => { throw new TaggedError() })
+      .onError(({ error }) => new Response(error.message, { status: 500 }))
+
+    await app.handle(new Request('http://localhost/fail'))
+
+    const handler = spans.find((s) => s.name.startsWith('handler'))!
+    expect(handler.attributes['error.fingerprint']).toBe(
+      'TaggedError\nSomething went wrong with $id',
+    )
+    expect(handler.attributes['error.type']).toBe('TaggedError')
+  })
+
+  test('full API span tree', async () => {
+    const { tracer, spans } = createTestTracer()
+    function cors(_ctx: any, next: any) { return next() }
+    function auth(_ctx: any, next: any) { return next() }
+
+    const app = new Spiceflow({ tracer })
+      .use(cors)
+      .use(auth)
+      .get('/api/users/:id', () => ({ id: '1', name: 'Alice' }))
+
+    await app.handle(new Request('http://localhost/api/users/1'))
+
+    const roots = serializeSpans(spans.filter((s) => !s.parent))
+    expect(roots).toMatchInlineSnapshot(`
+      [
+        {
+          "attributes": {
+            "http.request.method": "GET",
+            "http.response.status_code": 200,
+            "http.route": "/api/users/:id",
+            "url.full": "http://localhost/api/users/1",
+            "url.path": "/api/users/1",
+          },
+          "children": [
+            {
+              "attributes": {},
+              "children": [
+                {
+                  "attributes": {},
+                  "children": [
+                    {
+                      "attributes": {},
+                      "children": [],
+                      "ended": true,
+                      "errors": [],
+                      "kind": undefined,
+                      "name": "handler - /api/users/:id",
+                      "status": undefined,
+                    },
+                  ],
+                  "ended": true,
+                  "errors": [],
+                  "kind": undefined,
+                  "name": "middleware - auth",
+                  "status": undefined,
+                },
+              ],
+              "ended": true,
+              "errors": [],
+              "kind": undefined,
+              "name": "middleware - cors",
+              "status": undefined,
+            },
+          ],
+          "ended": true,
+          "errors": [],
+          "kind": 1,
+          "name": "GET /api/users/:id",
+          "status": undefined,
+        },
+      ]
+    `)
+  })
+
+  test('POST request span', async () => {
+    const { tracer, spans } = createTestTracer()
+    const app = new Spiceflow({ tracer })
+      .post('/items', () => ({ created: true }))
+
+    await app.handle(new Request('http://localhost/items', { method: 'POST' }))
+
+    const root = spans.find((s) => !s.parent)!
+    expect(root.name).toBe('POST /items')
+    expect(root.attributes['http.request.method']).toBe('POST')
+    expect(root.attributes['http.response.status_code']).toBe(200)
+  })
+
+  test('unmatched route keeps low-cardinality root span name', async () => {
+    const { tracer, spans } = createTestTracer()
+    const app = new Spiceflow({ tracer }).get('/hello', () => 'world')
+
+    const res = await app.handle(new Request('http://localhost/not-found'))
+    expect(res.status).toBe(404)
+
+    const root = spans.find((s) => !s.parent)!
+    // Root span should NOT contain the raw URL path — stays as method-only
+    expect(root.name).toBe('GET')
+    expect(root.attributes['http.response.status_code']).toBe(404)
+    // http.route should not be set for unmatched routes
+    expect(root.attributes['http.route']).toBeUndefined()
+  })
+
+  test('thrown Response (redirect) is not recorded as error', async () => {
+    const { tracer, spans } = createTestTracer()
+    const { redirect } = await import('./react/errors.js')
+
+    const app = new Spiceflow({ tracer })
+      .get('/old', () => { throw redirect('/new') })
+
+    const res = await app.handle(new Request('http://localhost/old'))
+    expect(res.status).toBe(307)
+
+    const handler = spans.find((s) => s.name.startsWith('handler'))!
+    // Response throws are control flow, not errors — no exception recorded
+    expect(handler.errors).toHaveLength(0)
+    expect(handler.status).toBeUndefined()
+  })
+
+  test('non-Error throw records exception on span', async () => {
+    const { tracer, spans } = createTestTracer()
+    const app = new Spiceflow({ tracer })
+      .get('/fail', () => { throw 'string error' })
+      .onError(() => new Response('handled', { status: 500 }))
+
+    await app.handle(new Request('http://localhost/fail'))
+
+    const handler = spans.find((s) => s.name.startsWith('handler'))!
+    expect(handler.errors).toHaveLength(1)
+    expect(handler.errors[0].message).toBe('string error')
+    expect(handler.status?.code).toBe(2)
+  })
+
+  test('middleware that returns early creates span', async () => {
+    const { tracer, spans } = createTestTracer()
+    function earlyReturn() { return new Response('blocked', { status: 403 }) }
+
+    const app = new Spiceflow({ tracer })
+      .use(earlyReturn)
+      .get('/hello', () => 'world')
+
+    const res = await app.handle(new Request('http://localhost/hello'))
+    expect(res.status).toBe(403)
+
+    const root = spans.find((s) => !s.parent)!
+    const mw = root.children.find((s) => s.name === 'middleware - earlyReturn')
+    expect(mw).toBeDefined()
+    expect(mw!.ended).toBe(true)
+    expect(root.attributes['http.response.status_code']).toBe(403)
+  })
+})

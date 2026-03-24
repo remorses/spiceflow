@@ -8,6 +8,7 @@ export type { AnySpiceflow, WaitUntil } from './spiceflow.js'
 export type { ContextResponse, SpiceflowContext } from './context.js'
 export type { MergedLoaderData, AllLoaderData } from './types.js'
 export { ValidationError } from './error.js'
+export type { SpiceflowTracer, SpiceflowSpan } from './instrumentation.js'
 export { preventProcessExitIfBusy } from './prevent-process-exit-if-busy.js'
 export { getDeploymentId } from '#deployment-id'
 

@@ -76,6 +76,15 @@ import { handleForNode, listenForNode } from '#node-server'
 import { renderSsr } from '#handle-ssr'
 import { SpiceflowContext, MiddlewareContext, ContextResponse } from './context.js'
 import { isStaticMiddleware } from './static.js'
+import {
+  type SpiceflowTracer,
+  type SpiceflowSpan,
+  withSpan,
+  recordError,
+  finalizeRequestSpan,
+  SPAN_KIND_SERVER,
+  ATTR,
+} from './instrumentation.js'
 
 let globalIndex = 0
 
@@ -189,6 +198,7 @@ export class Spiceflow<
   topLevelApp?: AnySpiceflow = this
   private waitUntilFn: WaitUntil
   private disableSuperJsonUnlessRpc: boolean = true
+  tracer?: SpiceflowTracer
 
   _types = {
     Prefix: '' as BasePath,
@@ -419,11 +429,13 @@ export class Spiceflow<
       basePath?: BasePath
       disableSuperJsonUnlessRpc?: boolean
       allowedActionOrigins?: (string | RegExp)[]
+      tracer?: SpiceflowTracer
     } = {},
   ) {
     this.scoped = options.scoped
     this.disableSuperJsonUnlessRpc = options.disableSuperJsonUnlessRpc ?? true
     this.allowedActionOrigins = options.allowedActionOrigins
+    this.tracer = options.tracer
 
     // Set up waitUntil function - use provided one, global one, or noop
     this.waitUntilFn =
@@ -1366,13 +1378,24 @@ export class Spiceflow<
             },
           }
           try {
-            const data = await loader.route.handler.call(loader.app, loaderContext)
-            if (data instanceof Response) throw data
-            if (data == null) return null
-            if (typeof data !== 'object' || Array.isArray(data)) {
-              throw new Error(`Loader "${loader.route.path}" must return a plain object, got ${Array.isArray(data) ? 'array' : typeof data}`)
+            if (!this.tracer) {
+              const data = await loader.route.handler.call(loader.app, loaderContext)
+              if (data instanceof Response) throw data
+              if (data == null) return null
+              if (typeof data !== 'object' || Array.isArray(data)) {
+                throw new Error(`Loader "${loader.route.path}" must return a plain object, got ${Array.isArray(data) ? 'array' : typeof data}`)
+              }
+              return data
             }
-            return data
+            return await withSpan(this.tracer, `loader - ${loader.route.path}`, {}, async () => {
+              const data = await loader.route.handler.call(loader.app, loaderContext)
+              if (data instanceof Response) throw data
+              if (data == null) return null
+              if (typeof data !== 'object' || Array.isArray(data)) {
+                throw new Error(`Loader "${loader.route.path}" must return a plain object, got ${Array.isArray(data) ? 'array' : typeof data}`)
+              }
+              return data
+            })
           } catch (error) {
             // Redirect/notFound Responses short-circuit the entire request
             if (error instanceof Response) throw error
@@ -1419,7 +1442,15 @@ export class Spiceflow<
         .map(async (layout) => {
           const id = layout.route.id
           const children = createElement(LayoutContent, { id })
-          const result = await executeHandler(layout, { id, children })
+          const result = !this.tracer
+            ? await executeHandler(layout, { id, children })
+            : await withSpan(this.tracer, `layout - ${layout.route.path}`, {}, async (span) => {
+                const res = await executeHandler(layout, { id, children })
+                if (!res.ok && !(res.error instanceof Response) && span) {
+                  recordError(span, res.error)
+                }
+                return res
+              })
           return { ...result, id }
         })
 
@@ -1429,7 +1460,15 @@ export class Spiceflow<
         ? Promise.resolve({ ok: true as const, value: <ThrowError error={loaderError} />, headers: undefined, status: undefined })
         : isNotFound
           ? Promise.resolve({ ok: true as const, value: <DefaultNotFoundPage />, headers: undefined, status: undefined })
-          : executeHandler(pageRoute)
+          : !this.tracer
+            ? executeHandler(pageRoute)
+            : withSpan(this.tracer, `page - ${pageRoute.route.path}`, {}, async (span) => {
+                const res = await executeHandler(pageRoute)
+                if (!res.ok && !(res.error instanceof Response) && span) {
+                  recordError(span, res.error)
+                }
+                return res
+              })
 
       const [layoutResults, pageResult] = await Promise.all([
         Promise.all(layoutResultsPromise),
@@ -1486,41 +1525,48 @@ export class Spiceflow<
               formState: actionState.formState,
               actionError: actionState.actionError,
             } satisfies ServerPayload)
-      const stream = renderToReadableStream<ServerPayload>(
-        payload,
-        {
-          temporaryReferences: actionState.temporaryReferences,
-          onPostpone(reason) {
-            console.log(`POSTPONE`, reason)
+      const buildRscResponse = async (serializeSpan?: SpiceflowSpan) => {
+        const stream = renderToReadableStream<ServerPayload>(
+          payload,
+          {
+            temporaryReferences: actionState.temporaryReferences,
+            onPostpone(reason) {
+              console.log(`POSTPONE`, reason)
+            },
+            onError(error) {
+              if (serializeSpan) {
+                recordError(serializeSpan, error)
+              }
+              if (error instanceof Response) {
+                const headers = [...error.headers.entries()]
+                return `__REACT_SERVER_ERROR__:${JSON.stringify({ status: error.status, headers })}`
+              }
+              formatServerError(error)
+              console.error('[spiceflow:renderToReadableStream]', error)
+              return sanitizeErrorMessage(error?.digest || error?.message)
+            },
+            signal: request.signal,
           },
-          onError(error) {
-            if (error instanceof Response) {
-              const headers = [...error.headers.entries()]
-              return `__REACT_SERVER_ERROR__:${JSON.stringify({ status: error.status, headers })}`
-            }
-            formatServerError(error)
-            console.error('[spiceflow:renderToReadableStream]', error)
-            return sanitizeErrorMessage(error?.digest || error?.message)
-          },
-          signal: request.signal,
-        },
-      )
+        )
 
-      const headers = new Headers({
-        'content-type': 'text/x-component;charset=utf-8',
-      })
-      appendHeaders(headers, routeHeaders)
+        const headers = new Headers({
+          'content-type': 'text/x-component;charset=utf-8',
+        })
+        appendHeaders(headers, routeHeaders)
 
-      const pageHandlerStatus = pageResult.status && pageResult.status !== 200
-        ? pageResult.status
-        : undefined
-      const layoutHandlerStatus = [...layoutResults]
-        .reverse()
-        .find((layout) => layout.status && layout.status !== 200)
-        ?.status
-      const status = pageHandlerStatus ?? layoutHandlerStatus ?? (isNotFound ? 404 : 200)
+        const pageHandlerStatus = pageResult.status && pageResult.status !== 200
+          ? pageResult.status
+          : undefined
+        const layoutHandlerStatus = [...layoutResults]
+          .reverse()
+          .find((layout) => layout.status && layout.status !== 200)
+          ?.status
+        const status = pageHandlerStatus ?? layoutHandlerStatus ?? (isNotFound ? 404 : 200)
 
-      return new Response(stream, { status, headers })
+        return new Response(stream, { status, headers })
+      }
+      if (!this.tracer) return buildRscResponse()
+      return withSpan(this.tracer, 'rsc.serialize', {}, buildRscResponse)
     } catch (error) {
       if (error instanceof Response) {
         return mergeHeadersIntoResponse({
@@ -1541,185 +1587,238 @@ export class Spiceflow<
       : new SpiceflowRequest(incomingRequest.url, incomingRequest)
     const u = request.parsedUrl
 
-    const shouldUseDeploymentId =
-      isDocumentRequest(request) || isRscRequest(u)
-    const deploymentId = shouldUseDeploymentId
-      ? await getDeploymentId()
-      : undefined
-
     let path = u.pathname
 
-    const root = this.topLevelApp || this
-    const requestDeploymentId = deploymentId
-      ? readDeploymentCookie(request)
-      : undefined
+    if (!this.tracer) return this.executeRequest(request, u, path, customState)
 
-    if (
-      deploymentId &&
-      requestDeploymentId &&
-      deploymentId !== requestDeploymentId &&
-      isRscRequest(u)
-    ) {
-      return new Response(null, {
-        status: deploymentMismatchStatus,
-        headers: {
-          [deploymentReasonHeader]: 'deployment-mismatch',
-          [deploymentReloadHeader]: getDocumentPath(u),
-          'set-cookie': createDeploymentCookie({
-            deploymentId,
-            basePath: root.basePath,
-          }),
-        },
-      })
-    }
-
-    // Mutable ref — set after route resolution, read by waitUntil on error
-    let onErrorHandlers: OnError[] = []
-    let contextResponse: ContextResponse | undefined
-    let _query: Record<string, any> | undefined
-    const context: SpiceflowContext<any, any, any> = {
-      redirect,
-      state: customState || cloneDeep(this.defaultState),
-      get query() { return _query ??= parseQuery((u.search || '').slice(1)) },
-      set query(v) { _query = v },
-      request,
-      path,
-      params: {},
-      loaderData: {},
-      waitUntil: (promise: Promise<any>) => {
-        const wrappedPromise = promise.catch(async (error) => {
-          const spiceflowError: SpiceflowServerError =
-            error instanceof Error ? error : new Error(String(error))
-          await this.runErrorHandlers({
-            context,
-            onErrorHandlers,
-            error: spiceflowError,
-            request,
-          })
-        })
-        return this.waitUntilFn(wrappedPromise)
+    return withSpan(this.tracer, request.method, {
+      kind: SPAN_KIND_SERVER,
+      attributes: {
+        [ATTR.HTTP_REQUEST_METHOD]: request.method,
+        [ATTR.URL_FULL]: request.url,
+        [ATTR.URL_PATH]: path,
       },
-      get response() {
-        return contextResponse ??= createContextResponse()
-      },
-    }
+    }, async (rootSpan) => {
+      return this.executeRequest(request, u, path, customState, rootSpan)
+    })
+  }
 
-    const finalizeResponse = (response: Response, stripBody: boolean) => {
-      const finalized = this.finalizeHeadResponse(response, stripBody, request.method === 'HEAD')
+  private executeRequest = async (
+    request: SpiceflowRequest,
+    u: URL,
+    path: string,
+    customState: any,
+    rootSpan?: SpiceflowSpan,
+  ): Promise<Response> => {
+      const shouldUseDeploymentId =
+        isDocumentRequest(request) || isRscRequest(u)
+      const deploymentId = shouldUseDeploymentId
+        ? await getDeploymentId()
+        : undefined
+
+      const root = this.topLevelApp || this
+      const requestDeploymentId = deploymentId
+        ? readDeploymentCookie(request)
+        : undefined
+
       if (
-        !deploymentId ||
-        !isDocumentRequest(request) ||
-        requestDeploymentId === deploymentId
+        deploymentId &&
+        requestDeploymentId &&
+        deploymentId !== requestDeploymentId &&
+        isRscRequest(u)
       ) {
-        return finalized
+        const res = new Response(null, {
+          status: deploymentMismatchStatus,
+          headers: {
+            [deploymentReasonHeader]: 'deployment-mismatch',
+            [deploymentReloadHeader]: getDocumentPath(u),
+            'set-cookie': createDeploymentCookie({
+              deploymentId,
+              basePath: root.basePath,
+            }),
+          },
+        })
+        finalizeRequestSpan(rootSpan, res)
+        return res
       }
-      const headers = new Headers(finalized.headers)
-      headers.append(
-        'set-cookie',
-        createDeploymentCookie({ deploymentId, basePath: root.basePath }),
-      )
-      return new Response(finalized.body, {
-        status: finalized.status,
-        statusText: finalized.statusText,
-        headers,
-      })
-    }
 
-    let routes = this.match(request.method, path)
-    if (
-      request.method === 'HEAD' &&
-      routes.length === 1 &&
-      routes[0]?.route?.handler === notFoundHandler
-    ) {
-      routes = this.match('GET', path)
-    }
-    const shouldStripHeadBody =
-      request.method === 'HEAD' &&
-      routes.every((matchedRoute) => matchedRoute.route.method !== 'HEAD')
+      // Mutable ref — set after route resolution, read by waitUntil on error
+      let onErrorHandlers: OnError[] = []
+      let contextResponse: ContextResponse | undefined
+      let _query: Record<string, any> | undefined
+      const context: SpiceflowContext<any, any, any> = {
+        redirect,
+        state: customState || cloneDeep(this.defaultState),
+        get query() { return _query ??= parseQuery((u.search || '').slice(1)) },
+        set query(v) { _query = v },
+        request,
+        path,
+        params: {},
+        loaderData: {},
+        waitUntil: (promise: Promise<any>) => {
+          const wrappedPromise = promise.catch(async (error) => {
+            const spiceflowError: SpiceflowServerError =
+              error instanceof Error ? error : new Error(String(error))
+            await this.runErrorHandlers({
+              context,
+              onErrorHandlers,
+              error: spiceflowError,
+              request,
+            })
+          })
+          return this.waitUntilFn(wrappedPromise)
+        },
+        get response() {
+          return contextResponse ??= createContextResponse()
+        },
+      }
 
-    const resolved = this.resolveRoutes(request, routes)
+      const finalizeResponse = (response: Response, stripBody: boolean) => {
+        const finalized = this.finalizeHeadResponse(response, stripBody, request.method === 'HEAD')
+        if (
+          !deploymentId ||
+          !isDocumentRequest(request) ||
+          requestDeploymentId === deploymentId
+        ) {
+          return finalized
+        }
+        const headers = new Headers(finalized.headers)
+        headers.append(
+          'set-cookie',
+          createDeploymentCookie({ deploymentId, basePath: root.basePath }),
+        )
+        return new Response(finalized.body, {
+          status: finalized.status,
+          statusText: finalized.statusText,
+          headers,
+        })
+      }
 
-    if (resolved.react) {
-      const appsInScope = this.getAppsInScope(resolved.fallbackApp)
+      let routes = this.match(request.method, path)
+      if (
+        request.method === 'HEAD' &&
+        routes.length === 1 &&
+        routes[0]?.route?.handler === notFoundHandler
+      ) {
+        routes = this.match('GET', path)
+      }
+      const shouldStripHeadBody =
+        request.method === 'HEAD' &&
+        routes.every((matchedRoute) => matchedRoute.route.method !== 'HEAD')
+
+      const resolved = this.resolveRoutes(request, routes)
+
+      if (resolved.react) {
+        const reactRoute = resolved.reactRoutes.find((r) => r.route.kind === 'page' || r.route.kind === 'staticPage')?.route.path
+        if (rootSpan && reactRoute) rootSpan.updateName(`${request.method} ${reactRoute}`)
+
+        const appsInScope = this.getAppsInScope(resolved.fallbackApp)
+        onErrorHandlers = appsInScope.flatMap((x) => x.onErrorHandlers)
+
+        const shouldSsr = !!renderSsr && !isRscRequest(u)
+        let response = await this.runMiddlewareChain(
+          appsInScope.flatMap((x) => x.middlewares),
+          context,
+          onErrorHandlers,
+          async () => {
+            let res = await this.renderReact({ request, context, reactRoutes: resolved.reactRoutes })
+            if (shouldSsr && renderSsr && res.headers.get('content-type')?.startsWith('text/x-component')) {
+              res = await renderSsr(res, request)
+            }
+            return res
+          },
+        )
+
+        const result = finalizeResponse(response, shouldStripHeadBody)
+        finalizeRequestSpan(rootSpan, result, reactRoute)
+        return result
+      }
+
+      const { route } = resolved
+      const isRealRoute = route?.route?.handler !== notFoundHandler
+      const routeTemplate = isRealRoute ? route?.route?.path : undefined
+      if (rootSpan && routeTemplate) rootSpan.updateName(`${request.method} ${routeTemplate}`)
+
+      const appsInScope = this.getAppsInScope(route.app)
       onErrorHandlers = appsInScope.flatMap((x) => x.onErrorHandlers)
 
-      const shouldSsr = !!renderSsr && !isRscRequest(u)
+      if (route?.route?.validateBody && request instanceof SpiceflowRequest) {
+        request.validateBody = route?.route?.validateBody
+      }
+      context['params'] = route.params
+
+      const scopedMiddlewares = appsInScope.flatMap((x) => x.middlewares)
+      const middlewares = scopedMiddlewares.filter((x) => !isStaticMiddleware(x))
+      const staticMiddlewares = scopedMiddlewares.filter((x) => isStaticMiddleware(x))
+      const shouldTryStatic = routeShouldYieldToStatic(route.route)
+      const middlewareChain = shouldTryStatic
+        ? [...middlewares, ...staticMiddlewares]
+        : middlewares
+
       let response = await this.runMiddlewareChain(
-        appsInScope.flatMap((x) => x.middlewares),
+        middlewareChain,
         context,
         onErrorHandlers,
         async () => {
-          let res = await this.renderReact({ request, context, reactRoutes: resolved.reactRoutes })
-          if (shouldSsr && renderSsr && res.headers.get('content-type')?.startsWith('text/x-component')) {
-            res = await renderSsr(res, request)
+          context.query = await runValidation(context.query, route?.route?.validateQuery)
+          context.params = await runValidation(context.params, route?.route?.validateParams)
+
+          if (!this.tracer) {
+            const res = await route?.route?.handler.call(this, context)
+            // Returning an Error from a handler is treated the same as throwing it:
+            // routes through errorToResponse → onError handlers → status extraction.
+            if (res instanceof Error) {
+              throw res
+            }
+            if (isAsyncIterable(res)) {
+              return this.handleStream({
+                generator: res,
+                request,
+                onErrorHandlers,
+                route: route?.route,
+              })
+            }
+            return this.turnHandlerResultIntoResponse(res, route?.route, request)
           }
-          return res
+          return withSpan(this.tracer, `handler - ${route?.route?.path || path}`, {}, async () => {
+            const res = await route?.route?.handler.call(this, context)
+            // Returning an Error from a handler is treated the same as throwing it:
+            // routes through errorToResponse → onError handlers → status extraction.
+            if (res instanceof Error) {
+              throw res
+            }
+            if (isAsyncIterable(res)) {
+              return this.handleStream({
+                generator: res,
+                request,
+                onErrorHandlers,
+                route: route?.route,
+              })
+            }
+            return this.turnHandlerResultIntoResponse(res, route?.route, request)
+          })
         },
+        route?.route,
       )
 
-      return finalizeResponse(response, shouldStripHeadBody)
-    }
-
-    const { route } = resolved
-    const appsInScope = this.getAppsInScope(route.app)
-    onErrorHandlers = appsInScope.flatMap((x) => x.onErrorHandlers)
-
-    if (route?.route?.validateBody && request instanceof SpiceflowRequest) {
-      request.validateBody = route?.route?.validateBody
-    }
-    context['params'] = route.params
-
-    const scopedMiddlewares = appsInScope.flatMap((x) => x.middlewares)
-    const middlewares = scopedMiddlewares.filter((x) => !isStaticMiddleware(x))
-    const staticMiddlewares = scopedMiddlewares.filter((x) => isStaticMiddleware(x))
-    const shouldTryStatic = routeShouldYieldToStatic(route.route)
-    const middlewareChain = shouldTryStatic
-      ? [...middlewares, ...staticMiddlewares]
-      : middlewares
-
-    let response = await this.runMiddlewareChain(
-      middlewareChain,
-      context,
-      onErrorHandlers,
-      async () => {
-        context.query = await runValidation(context.query, route?.route?.validateQuery)
-        context.params = await runValidation(context.params, route?.route?.validateParams)
-
-        const res = await route?.route?.handler.call(this, context)
-        // Returning an Error from a handler is treated the same as throwing it:
-        // routes through errorToResponse → onError handlers → status extraction.
-        if (res instanceof Error) {
-          throw res
-        }
-        if (isAsyncIterable(res)) {
-          return this.handleStream({
-            generator: res,
-            request,
-            onErrorHandlers,
-            route: route?.route,
-          })
-        }
-        return this.turnHandlerResultIntoResponse(res, route?.route, request)
-      },
-      route?.route,
-    )
-
-    response = mergeHeadersIntoResponse({
-      response,
-      source: contextResponse?.headers,
-    })
-
-    // Respect context.response.status for plain-object/JSON handlers, but do
-    // not override explicit statuses from returned/thrown Response objects.
-    if (contextResponse?.status && contextResponse.status !== 200 && response.status === 200) {
-      response = new Response(response.body, {
-        status: contextResponse.status,
-        statusText: response.statusText,
-        headers: response.headers,
+      response = mergeHeadersIntoResponse({
+        response,
+        source: contextResponse?.headers,
       })
-    }
 
-    return finalizeResponse(response, shouldStripHeadBody)
+      // Respect context.response.status for plain-object/JSON handlers, but do
+      // not override explicit statuses from returned/thrown Response objects.
+      if (contextResponse?.status && contextResponse.status !== 200 && response.status === 200) {
+        response = new Response(response.body, {
+          status: contextResponse.status,
+          statusText: response.statusText,
+          headers: response.headers,
+        })
+      }
+
+      const result = finalizeResponse(response, shouldStripHeadBody)
+      finalizeRequestSpan(rootSpan, result, routeTemplate)
+      return result
   }
 
   private resolveRoutes(
@@ -1778,7 +1877,9 @@ export class Spiceflow<
         if (index < middlewares.length) {
           const middleware = middlewares[index]
           index++
-          const result = await middleware(context, next)
+          const result = this.tracer
+            ? await withSpan(this.tracer, `middleware - ${middleware.name || 'anonymous'}`, {}, async () => middleware(context, next))
+            : await middleware(context, next)
           if (isResponse(result)) {
             handlerResponse = result
           }
