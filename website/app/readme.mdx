@@ -21,6 +21,7 @@ Spiceflow is a type-safe API framework and full-stack React RSC framework focuse
 - Support for [Model Context Protocol](https://modelcontextprotocol.io/) to easily wire your app with LLMs
 - Supports async generators for streaming via server sent events
 - Modular design with `.use()` for mounting sub-apps
+- Built-in [OpenTelemetry](https://opentelemetry.io/) tracing with zero overhead when disabled
 
 ## Installation
 
@@ -1685,6 +1686,79 @@ app.listen(3000)
 ```
 
 When receiving SIGTERM during deployment, the middleware waits for all active requests to complete before exiting. Perfect for AI workloads that may take minutes to process.
+
+## Tracing (OpenTelemetry)
+
+Spiceflow has built-in OpenTelemetry tracing. Pass a `tracer` to the constructor and every request gets automatic spans for middleware, handlers, loaders, layouts, pages, and RSC serialization — no monkey-patching, no plugins.
+
+### Setup
+
+Install the OTel SDK packages alongside spiceflow:
+
+```bash
+npm install @opentelemetry/sdk-node @opentelemetry/exporter-trace-otlp-http @opentelemetry/api
+```
+
+Create a tracing setup file that runs **before** your app starts. This registers the OTel SDK globally so spans are collected and exported:
+
+```ts
+// tracing.ts
+import { NodeSDK } from '@opentelemetry/sdk-node'
+import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http'
+
+const sdk = new NodeSDK({
+  serviceName: 'my-app',
+  traceExporter: new OTLPTraceExporter({
+    // Send traces to your collector or observability backend
+    url: 'http://localhost:4318/v1/traces',
+  }),
+})
+
+sdk.start()
+```
+
+Then pass a tracer to your Spiceflow app:
+
+```ts
+// main.ts
+import './tracing' // must be imported first
+import { trace } from '@opentelemetry/api'
+import { Spiceflow } from 'spiceflow'
+
+const app = new Spiceflow({ tracer: trace.getTracer('my-app') })
+  .get('/api/users/:id', ({ params }) => {
+    return { id: params.id, name: 'Alice' }
+  })
+```
+
+### What you get
+
+Every request produces a span tree. For API routes:
+
+```
+GET /api/users/:id [server]
+├── middleware - cors
+├── middleware - auth
+└── handler - /api/users/:id
+```
+
+For React routes with loaders and layouts:
+
+```
+GET /dashboard [server]
+├── middleware - auth
+├── loader - /dashboard
+├── loader - /sidebar
+├── layout - /
+├── page - /dashboard
+└── rsc.serialize
+```
+
+Each span includes standard HTTP attributes (`http.request.method`, `http.route`, `http.response.status_code`, `url.full`) following [OTel semantic conventions](https://opentelemetry.io/docs/specs/semconv/http/http-spans/). Errors are recorded with `recordException` and set the span status to ERROR. If your errors use [errore](https://errore.org) tagged errors, the stable fingerprint is propagated as an `error.fingerprint` attribute for consistent error grouping.
+
+### Zero overhead without tracer
+
+When no `tracer` is passed, every instrumentation point is skipped entirely — no strings allocated, no objects created, no extra async wrappers. The code path is identical to what it would be without the tracing feature.
 
 > When using `createSpiceflowFetch` and getting typescript error `The inferred type of '...' cannot be named without a reference to '...'. This is likely not portable. A type annotation is necessary. (ts 2742)`
 
