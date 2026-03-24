@@ -1723,7 +1723,9 @@ export class Spiceflow<
           async () => {
             let res = await this.renderReact({ request, context, reactRoutes: resolved.reactRoutes })
             if (shouldSsr && renderSsr && res.headers.get('content-type')?.startsWith('text/x-component')) {
-              res = await renderSsr(res, request)
+              res = this.tracer
+                ? await withSpan(this.tracer, 'ssr.render', {}, () => renderSsr!(res, request))
+                : await renderSsr(res, request)
             }
             return res
           },
