@@ -2297,3 +2297,37 @@ export function Map() { /* ... */ }
 export { Chart } from './chart'
 export { Map } from './map'
 ```
+
+## Do Not Manually Convert Node Requests
+
+In user-facing code, you should almost never convert a Node.js `req`/`res` pair into a standard `Request` yourself. Spiceflow already exposes the right adapter for each situation, so this conversion should stay inside Spiceflow rather than in app code.
+
+- If you want to run your app on a port in Node.js or Bun, use `app.listen(3000)`. Spiceflow sets up the server adapter for you. Cloudflare Workers are the main exception because there is no port-based server to listen on there.
+- If you need to plug a Spiceflow app into a classic Node.js handler API that gives you `req` and `res` (for example a Next.js pages API route), use `app.handleForNode(req, res)`. The older `app.handleNode(req, res)` alias also exists, but `handleForNode` is the current API.
+- If you are already inside a modern WHATWG-style handler that gives you a standard `Request`, just delegate with `return app.handle(request)`.
+
+```ts
+import { Spiceflow } from 'spiceflow'
+import type { IncomingMessage, ServerResponse } from 'node:http'
+
+const app = new Spiceflow().get('/hello', () => {
+  return { hello: 'world' }
+})
+
+// Run directly on Node.js or Bun
+app.listen(3000)
+
+// Use inside a classic Node.js req/res handler
+export async function nodeHandler(req: IncomingMessage, res: ServerResponse) {
+  await app.handleForNode(req, res)
+}
+
+// Use inside a standard Request handler
+export default {
+  fetch(request: Request) {
+    return app.handle(request)
+  },
+}
+```
+
+If you find yourself writing manual request-conversion glue in app code, that is usually a sign that you should use one of these Spiceflow entrypoints instead.
