@@ -13,7 +13,11 @@ export async function listenForNode(
   handler: (request: Request) => Promise<Response> | Response,
   port: number,
   hostname: string = '0.0.0.0',
-): Promise<{port: number, server: Server<typeof IncomingMessage, typeof ServerResponse>}> {
+): Promise<{
+  port: number
+  server: Server<typeof IncomingMessage, typeof ServerResponse>
+  stop: () => Promise<void>
+}> {
   const server = createServer(async (req, res) => {
     try {
       const request = nodeToWebRequest(req, res)
@@ -37,7 +41,20 @@ export async function listenForNode(
   })
 
   const actualPort = (server.address() as AddressInfo).port
-  return {port: actualPort, server}
+
+  const stop = () => {
+    return new Promise<void>((resolve, reject) => {
+      server.close((error) => {
+        if (error) {
+          reject(error)
+          return
+        }
+        resolve()
+      })
+    })
+  }
+
+  return { port: actualPort, server, stop }
 }
 
 export function nodeToWebRequest(req: IncomingMessage, res: ServerResponse): SpiceflowRequest {

@@ -13,6 +13,57 @@ test('works', async () => {
   expect(await res.json()).toEqual('hi')
 })
 
+test('listen() returns stop() that shuts down the server', async () => {
+  const listener = await new Spiceflow()
+    .get('/hello', () => 'Hello, World!')
+    .listen(0, '127.0.0.1')
+
+  expect(listener.stop).toEqual(expect.any(Function))
+
+  const port = listener.port
+  if (port === undefined) {
+    throw new Error('listen() did not return a port in the node test runtime')
+  }
+
+  const stop: () => Promise<void> = listener.stop
+  const url = `http://127.0.0.1:${port}/hello`
+
+  try {
+    const response = await fetch(url)
+    expect(response.status).toBe(200)
+    expect(await response.json()).toBe('Hello, World!')
+  } finally {
+    await stop()
+  }
+
+  const stoppedFetch = await fetch(url).catch((error) => error)
+  expect(stoppedFetch).toBeInstanceOf(TypeError)
+})
+
+test('listen() returns noop stop() during prerender', async () => {
+  const globalThisWithPrerender = globalThis as typeof globalThis & {
+    __SPICEFLOW_PRERENDER?: boolean
+  }
+  globalThisWithPrerender.__SPICEFLOW_PRERENDER = true
+
+  try {
+    const listener = await new Spiceflow().get('/hello', () => 'Hello').listen(0)
+    const stop: () => Promise<void> = listener.stop
+
+    expect(listener).toEqual(
+      expect.objectContaining({
+        port: undefined,
+        server: undefined,
+        stop: expect.any(Function),
+      }),
+    )
+
+    await stop()
+  } finally {
+    delete globalThisWithPrerender.__SPICEFLOW_PRERENDER
+  }
+})
+
 test('* param is a path without front slash', async () => {
   const app = new Spiceflow().post('/upload/*', ({ params }) => {
     return params['*']

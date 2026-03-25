@@ -2202,13 +2202,16 @@ export class Spiceflow<
     return appsInScope
   }
 
-  async listen(port: number, hostname: string = '0.0.0.0') {
+  async listen(
+    port: number,
+    hostname: string = '0.0.0.0',
+  ): Promise<SpiceflowListenResult> {
     // In Vite dev, Vite owns the server — noop
-    if (import.meta.hot) return
+    if (import.meta.hot) return createNoopListenResult()
     // During prerender, skip server startup — we only need the app instance.
     // Uses globalThis instead of process.env because bundlers replace
     // process.env.X with its build-time value (undefined), dead-code eliminating the check.
-    if ((globalThis as any).__SPICEFLOW_PRERENDER) return
+    if ((globalThis as any).__SPICEFLOW_PRERENDER) return createNoopListenResult()
     const handler = this.handle.bind(this)
     if (typeof Bun !== 'undefined') {
       const app = this
@@ -2229,22 +2232,35 @@ export class Spiceflow<
         fetch: handler,
       })
 
-      process.on('beforeExit', () => {
+      const stop = async () => {
         server.stop()
+      }
+
+      process.on('beforeExit', () => {
+        stop()
       })
 
       const displayedHost =
         server.hostname === '0.0.0.0' ? 'localhost' : server.hostname
       console.log(`Listening on http://${displayedHost}:${server.port}`)
 
-      return { port: server.port, server }
+      return { port: server.port, server, stop }
     }
 
     // Deno native server — uses Deno.serve() with web standard Request/Response,
     // bypassing the node:http adapter for better performance.
     if (typeof Deno !== 'undefined' && typeof Deno.serve === 'function') {
-      const server = Deno.serve({ port, hostname }, handler)
-      return { port, server }
+      const server = Deno.serve({ port, hostname }, handler) as {
+        shutdown: () => Promise<void>
+      }
+
+      return {
+        port,
+        server,
+        stop: async () => {
+          await server.shutdown()
+        },
+      }
     }
 
     return listenForNode(handler, port, hostname)
