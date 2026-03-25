@@ -1,5 +1,85 @@
 # spiceflow
 
+## 1.18.0-rsc.14
+
+### Minor Changes
+
+1. **Built-in OpenTelemetry tracing** — pass a `tracer` to the Spiceflow constructor and every request automatically gets spans for middleware, handlers, loaders, layouts, pages, and RSC serialization. No monkey-patching or plugins required. The tracer interface is structurally compatible with `@opentelemetry/api` so there's zero runtime dependency:
+
+   ```ts
+   import './tracing' // OTel SDK setup, must run first
+   import { trace } from '@opentelemetry/api'
+   import { Spiceflow } from 'spiceflow'
+
+   const app = new Spiceflow({ tracer: trace.getTracer('my-app') })
+     .get('/api/users/:id', ({ params }) => {
+       return { id: params.id, name: 'Alice' }
+     })
+   ```
+
+   For API routes you get:
+
+   ```
+   GET /api/users/:id [server]
+   ├── middleware - cors
+   └── handler - /api/users/:id
+   ```
+
+   For React routes with loaders and layouts:
+
+   ```
+   GET /dashboard [server]
+   ├── middleware - auth
+   ├── loader - /dashboard
+   ├── layout - /
+   ├── page - /dashboard
+   └── rsc.serialize
+   ```
+
+   Each span includes standard HTTP attributes following OTel semantic conventions. Errors are recorded with `recordException` and set the span status to ERROR. When no tracer is passed, all instrumentation points are skipped with zero overhead.
+
+2. **`span` and `tracer` on handler context** — all route types (API routes, pages, layouts, loaders, middleware) now receive `span` and `tracer` on their context object. Add custom attributes, record caught exceptions, and create child spans directly from handlers without any conditional checks. When no tracer is configured, both are no-op implementations that V8 inlines away:
+
+   ```ts
+   // add attributes to the current handler span
+   .get('/api/users/:id', ({ params, span }) => {
+     const user = db.findUser(params.id)
+     span.setAttribute('user.plan', user.plan)
+     return user
+   })
+
+   // record a caught exception without re-throwing
+   .post('/api/webhook', async ({ request, span }) => {
+     const body = await request.json()
+     try {
+       await processWebhook(body)
+     } catch (err) {
+       span.recordException(err)
+     }
+     return { ok: true }
+   })
+
+   // create child spans for DB calls or external APIs
+   .get('/api/data', async ({ tracer, params }) => {
+     return tracer.startActiveSpan('db.query', async (dbSpan) => {
+       const data = await db.query(params.id)
+       dbSpan.setAttribute('db.rows', data.length)
+       dbSpan.end()
+       return data
+     })
+   })
+   ```
+
+   Also exports `withSpan`, `noopSpan`, and `noopTracer` as public utilities.
+
+### Patch Changes
+
+3. **Native Deno runtime support** — `app.listen()` now uses `Deno.serve()` with web standard Request/Response directly when running under Deno, bypassing the `node:http` adapter. Same approach as Bun's native `Bun.serve()` integration.
+
+4. **Stable `stop()` method on `app.listen()` return** — the object returned by `app.listen()` now has a consistent `stop()` method across all runtimes (Node, Bun, Deno) including no-op cases like Vite dev and prerender. Cleanup code can shut down listeners without server-specific type assertions.
+
+5. **`.server.ts` file boundary guard** — files ending in `.server.ts`, `.server.tsx`, etc. (or inside a `.server/` directory) now produce a clear error when imported from a client component during development. The error shows the exact import path and the offending file, similar to how React Router handles this convention.
+
 ## 1.18.0-rsc.13
 
 ### Patch Changes
