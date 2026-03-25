@@ -10,6 +10,7 @@ import type {
 } from './types.js'
 
 import { SpiceflowRequest, WaitUntil } from './spiceflow.js'
+import type { SpiceflowSpan, SpiceflowTracer } from './instrumentation.js'
 
 // Mutable response object passed to page, layout, and API handlers via
 // context.response. Unlike the Web Response class (whose status is readonly),
@@ -62,6 +63,8 @@ export type ErrorContext<
   request: SpiceflowRequest<GetRequestSchema<Route>>
   state: Singleton['state']
   waitUntil: WaitUntil
+  span: SpiceflowSpan
+  tracer: SpiceflowTracer
   // response: Route['response']
 }>
 
@@ -94,6 +97,8 @@ export type SpiceflowContext<
   waitUntil: WaitUntil
   response: ContextResponse
   loaderData: LoaderData
+  span: SpiceflowSpan
+  tracer: SpiceflowTracer
   // TODO remove this for api routes
   children?: any
   // response?: Route['response']
@@ -111,6 +116,8 @@ export type MiddlewareContext<
   query?: Record<string, string | undefined>
   params?: Record<string, string | undefined>
   waitUntil: WaitUntil
+  span: SpiceflowSpan
+  tracer: SpiceflowTracer
 
   redirect: Redirect
   // server: Server | null

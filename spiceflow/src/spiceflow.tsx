@@ -84,11 +84,40 @@ import {
   finalizeRequestSpan,
   SPAN_KIND_SERVER,
   ATTR,
+  noopSpan,
+  noopTracer,
 } from './instrumentation.js'
 
 let globalIndex = 0
 
 type AsyncResponse = Response | Promise<Response>
+
+export type SpiceflowListenResult =
+  | {
+      port: number | undefined
+      server: Bun.Server
+      stop: () => Promise<void>
+    }
+  | {
+      port: number
+      server: unknown
+      stop: () => Promise<void>
+    }
+  | {
+      port: undefined
+      server: undefined
+      stop: () => Promise<void>
+    }
+
+async function noopStop() {}
+
+function createNoopListenResult(): SpiceflowListenResult {
+  return {
+    port: undefined,
+    server: undefined,
+    stop: noopStop,
+  }
+}
 
 function appendHeaders(target: Headers, source: Headers) {
   let changed = false
@@ -1387,7 +1416,8 @@ export class Spiceflow<
               }
               return data
             }
-            return await withSpan(this.tracer, `loader - ${loader.route.path}`, {}, async () => {
+            return await withSpan(this.tracer, `loader - ${loader.route.path}`, {}, async (loaderSpan) => {
+              if (loaderSpan) loaderContext.span = loaderSpan
               const data = await loader.route.handler.call(loader.app, loaderContext)
               if (data instanceof Response) throw data
               if (data == null) return null
@@ -1413,6 +1443,7 @@ export class Spiceflow<
       const executeHandler = async (
         route: ReactMatchedRoute,
         extra?: { id: string; children: React.ReactNode },
+        activeSpan?: SpiceflowSpan,
       ): Promise<RouteResult> => {
         let handlerResponse: ContextResponse | undefined
         const handlerContext: SpiceflowContext<any, any, any> = {
@@ -1420,6 +1451,7 @@ export class Spiceflow<
           params: route.params,
           loaderData: mergedLoaderData,
           ...extra && { children: extra.children },
+          ...activeSpan && { span: activeSpan },
           get response() {
             return handlerResponse ??= createContextResponse()
           },
@@ -1445,7 +1477,7 @@ export class Spiceflow<
           const result = !this.tracer
             ? await executeHandler(layout, { id, children })
             : await withSpan(this.tracer, `layout - ${layout.route.path}`, {}, async (span) => {
-                const res = await executeHandler(layout, { id, children })
+                const res = await executeHandler(layout, { id, children }, span)
                 if (!res.ok && !(res.error instanceof Response) && span) {
                   recordError(span, res.error)
                 }
@@ -1463,7 +1495,7 @@ export class Spiceflow<
           : !this.tracer
             ? executeHandler(pageRoute)
             : withSpan(this.tracer, `page - ${pageRoute.route.path}`, {}, async (span) => {
-                const res = await executeHandler(pageRoute)
+                const res = await executeHandler(pageRoute, undefined, span)
                 if (!res.ok && !(res.error instanceof Response) && span) {
                   recordError(span, res.error)
                 }
@@ -1534,6 +1566,14 @@ export class Spiceflow<
               console.log(`POSTPONE`, reason)
             },
             onError(error) {
+              // TODO: for error reporting (Sentry-like), we need an error.handled
+              // attribute to distinguish breaking errors from error-boundary-caught ones.
+              // React's onError fires for both, but at this point we don't know if an
+              // error boundary will catch it. Errors caught by boundaries are graceful
+              // degradation (log-only), not incidents (notify). Same applies to loader
+              // errors — they render through error boundaries, page still works.
+              // When we build our own error reporting, add severity/handled classification
+              // so non-breaking errors don't trigger notifications.
               if (serializeSpan) {
                 recordError(serializeSpan, error)
               }
@@ -1655,6 +1695,8 @@ export class Spiceflow<
         path,
         params: {},
         loaderData: {},
+        span: noopSpan,
+        tracer: this.tracer ?? noopTracer,
         waitUntil: (promise: Promise<any>) => {
           const wrappedPromise = promise.catch(async (error) => {
             const spiceflowError: SpiceflowServerError =
@@ -1778,26 +1820,34 @@ export class Spiceflow<
                 request,
                 onErrorHandlers,
                 route: route?.route,
+                context,
               })
             }
             return this.turnHandlerResultIntoResponse(res, route?.route, request)
           }
-          return withSpan(this.tracer, `handler - ${route?.route?.path || path}`, {}, async () => {
-            const res = await route?.route?.handler.call(this, context)
-            // Returning an Error from a handler is treated the same as throwing it:
-            // routes through errorToResponse → onError handlers → status extraction.
-            if (res instanceof Error) {
-              throw res
+          return withSpan(this.tracer, `handler - ${route?.route?.path || path}`, {}, async (handlerSpan) => {
+            const prevSpan = context.span
+            if (handlerSpan) context.span = handlerSpan
+            try {
+              const res = await route?.route?.handler.call(this, context)
+              // Returning an Error from a handler is treated the same as throwing it:
+              // routes through errorToResponse → onError handlers → status extraction.
+              if (res instanceof Error) {
+                throw res
+              }
+              if (isAsyncIterable(res)) {
+                return this.handleStream({
+                  generator: res,
+                  request,
+                  onErrorHandlers,
+                  route: route?.route,
+                  context,
+                })
+              }
+              return this.turnHandlerResultIntoResponse(res, route?.route, request)
+            } finally {
+              context.span = prevSpan
             }
-            if (isAsyncIterable(res)) {
-              return this.handleStream({
-                generator: res,
-                request,
-                onErrorHandlers,
-                route: route?.route,
-              })
-            }
-            return this.turnHandlerResultIntoResponse(res, route?.route, request)
           })
         },
         route?.route,
@@ -1880,7 +1930,15 @@ export class Spiceflow<
           const middleware = middlewares[index]
           index++
           const result = this.tracer
-            ? await withSpan(this.tracer, `middleware - ${middleware.name || 'anonymous'}`, {}, async () => middleware(context, next))
+            ? await withSpan(this.tracer, `middleware - ${middleware.name || 'anonymous'}`, {}, async (mwSpan) => {
+                const prevSpan = context.span
+                if (mwSpan) context.span = mwSpan
+                try {
+                  return await middleware(context, next)
+                } finally {
+                  context.span = prevSpan
+                }
+              })
             : await middleware(context, next)
           if (isResponse(result)) {
             handlerResponse = result
@@ -2226,11 +2284,13 @@ export class Spiceflow<
     generator,
     request,
     route,
+    context,
   }: {
     generator: Generator | AsyncGenerator
     onErrorHandlers: OnError[]
     request: Request
     route: InternalRoute
+    context?: Partial<MiddlewareContext>
   }) {
     let init = generator.next()
     if (init instanceof Promise) init = await init
@@ -2349,7 +2409,7 @@ export class Spiceflow<
             )
           } catch (error: any) {
             await self.runErrorHandlers({
-              context: {},
+              context: context ?? {},
               onErrorHandlers: onErrorHandlers,
               error,
               request,

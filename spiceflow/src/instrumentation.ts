@@ -37,6 +37,23 @@ export const SPAN_KIND_SERVER = 1
 // OTel SpanStatusCode values
 const STATUS_ERROR = 2
 
+// No-op implementations so context.span and context.tracer are always available
+// without undefined checks. V8 inlines these empty methods away.
+export const noopSpan: SpiceflowSpan = {
+  setAttribute() { return this },
+  setStatus() { return this },
+  recordException() {},
+  updateName() { return this },
+  end() {},
+}
+
+export const noopTracer: SpiceflowTracer = {
+  startActiveSpan(name: string, ...args: any[]) {
+    const fn = args[args.length - 1]
+    return fn(noopSpan)
+  },
+}
+
 // Semantic convention attribute keys (string literals to avoid importing @opentelemetry/semantic-conventions)
 export const ATTR = {
   HTTP_REQUEST_METHOD: 'http.request.method',

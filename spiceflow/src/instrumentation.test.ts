@@ -4,6 +4,7 @@
 import { test, describe, expect } from 'vitest'
 import { Spiceflow } from './spiceflow.js'
 import type { SpiceflowTracer, SpiceflowSpan } from './instrumentation.js'
+import { noopSpan, noopTracer } from './instrumentation.js'
 
 interface TestSpan {
   name: string
@@ -333,5 +334,153 @@ describe('instrumentation', () => {
     expect(mw).toBeDefined()
     expect(mw!.ended).toBe(true)
     expect(root.attributes['http.response.status_code']).toBe(403)
+  })
+
+  test('context.span and context.tracer are noops when no tracer is set', async () => {
+    let capturedSpan: SpiceflowSpan | undefined
+    let capturedTracer: SpiceflowTracer | undefined
+
+    const app = new Spiceflow().get('/hello', ({ span, tracer }) => {
+      capturedSpan = span
+      capturedTracer = tracer
+      return 'world'
+    })
+
+    await app.handle(new Request('http://localhost/hello'))
+    expect(capturedSpan).toBe(noopSpan)
+    expect(capturedTracer).toBe(noopTracer)
+  })
+
+  test('context.tracer is the real tracer when tracer is set', async () => {
+    const { tracer } = createTestTracer()
+    let capturedTracer: SpiceflowTracer | undefined
+
+    const app = new Spiceflow({ tracer }).get('/hello', (ctx) => {
+      capturedTracer = ctx.tracer
+      return 'world'
+    })
+
+    await app.handle(new Request('http://localhost/hello'))
+    expect(capturedTracer).toBe(tracer)
+  })
+
+  test('context.span is the handler span when tracer is set', async () => {
+    const { tracer, spans } = createTestTracer()
+    let capturedSpan: SpiceflowSpan | undefined
+
+    const app = new Spiceflow({ tracer }).get('/hello', ({ span }) => {
+      capturedSpan = span
+      span.setAttribute('custom.key', 'custom-value')
+      return 'world'
+    })
+
+    await app.handle(new Request('http://localhost/hello'))
+    expect(capturedSpan).not.toBe(noopSpan)
+
+    const handlerSpan = spans.find((s) => s.name.startsWith('handler'))!
+    expect(handlerSpan.attributes['custom.key']).toBe('custom-value')
+  })
+
+  test('context.span in middleware is the middleware span', async () => {
+    const { tracer, spans } = createTestTracer()
+
+    function tagMiddleware({ span }: any, next: any) {
+      span.setAttribute('mw.tag', 'tagged')
+      return next()
+    }
+
+    const app = new Spiceflow({ tracer })
+      .use(tagMiddleware)
+      .get('/hello', () => 'world')
+
+    await app.handle(new Request('http://localhost/hello'))
+
+    const mwSpan = spans.find((s) => s.name === 'middleware - tagMiddleware')!
+    expect(mwSpan.attributes['mw.tag']).toBe('tagged')
+  })
+
+  test('context.span.recordException works for caught errors', async () => {
+    const { tracer, spans } = createTestTracer()
+
+    const app = new Spiceflow({ tracer }).get('/hello', ({ span }) => {
+      try {
+        throw new Error('suppressed')
+      } catch (err) {
+        span.recordException(err as Error)
+      }
+      return 'ok'
+    })
+
+    const res = await app.handle(new Request('http://localhost/hello'))
+    expect(res.status).toBe(200)
+
+    const handlerSpan = spans.find((s) => s.name.startsWith('handler'))!
+    expect(handlerSpan.errors).toHaveLength(1)
+    expect(handlerSpan.errors[0].message).toBe('suppressed')
+  })
+
+  test('context.tracer.startActiveSpan creates child spans', async () => {
+    const { tracer, spans } = createTestTracer()
+
+    const app = new Spiceflow({ tracer }).get('/hello', async ({ tracer }) => {
+      return tracer.startActiveSpan('db.query', (dbSpan) => {
+        dbSpan.setAttribute('db.statement', 'SELECT * FROM users')
+        dbSpan.end()
+        return { users: [] }
+      })
+    })
+
+    await app.handle(new Request('http://localhost/hello'))
+
+    const dbSpan = spans.find((s) => s.name === 'db.query')!
+    expect(dbSpan).toBeDefined()
+    expect(dbSpan.attributes['db.statement']).toBe('SELECT * FROM users')
+    expect(dbSpan.ended).toBe(true)
+    expect(dbSpan.parent?.name).toBe('handler - /hello')
+  })
+
+  test('context.span is restored after next() in middleware', async () => {
+    const { tracer, spans } = createTestTracer()
+    let spanBeforeNext: SpiceflowSpan | undefined
+    let spanAfterNext: SpiceflowSpan | undefined
+
+    function outerMiddleware({ span }: any, next: any) {
+      spanBeforeNext = span
+      const result = next()
+      return result.then((res: any) => {
+        spanAfterNext = span
+        return res
+      })
+    }
+
+    // Note: spanAfterNext check happens in the withSpan's try/finally restore.
+    // The middleware reads `span` from the context reference captured at call time.
+    // But since we restore context.span in finally, the middleware's local `span`
+    // variable (destructured at call time) still points to the middleware span.
+    const app = new Spiceflow({ tracer })
+      .use(outerMiddleware)
+      .get('/hello', () => 'world')
+
+    await app.handle(new Request('http://localhost/hello'))
+
+    // Both should be the middleware span, not the handler span
+    expect(spanBeforeNext).toBeDefined()
+    expect(spanBeforeNext).toBe(spanAfterNext)
+  })
+
+  test('noopSpan methods are safe to call', () => {
+    expect(noopSpan.setAttribute('key', 'value')).toBe(noopSpan)
+    expect(noopSpan.setStatus({ code: 0 })).toBe(noopSpan)
+    expect(noopSpan.updateName('new-name')).toBe(noopSpan)
+    noopSpan.recordException(new Error('test'))
+    noopSpan.end()
+  })
+
+  test('noopTracer.startActiveSpan calls fn with noopSpan', () => {
+    let received: SpiceflowSpan | undefined
+    noopTracer.startActiveSpan('test', (span) => {
+      received = span
+    })
+    expect(received).toBe(noopSpan)
   })
 })

@@ -1756,9 +1756,63 @@ GET /dashboard [server]
 
 Each span includes standard HTTP attributes (`http.request.method`, `http.route`, `http.response.status_code`, `url.full`) following [OTel semantic conventions](https://opentelemetry.io/docs/specs/semconv/http/http-spans/). Errors are recorded with `recordException` and set the span status to ERROR. If your errors use [errore](https://errore.org) tagged errors, the stable fingerprint is propagated as an `error.fingerprint` attribute for consistent error grouping.
 
+### Custom spans and attributes
+
+Every handler receives `span` and `tracer` on its context. These work whether or not you configured a tracer — when no tracer is passed, they use no-op implementations that do nothing, so you never need conditional checks.
+
+**Add attributes to the current span:**
+
+```ts
+.get('/api/users/:id', ({ params, span }) => {
+  const user = db.findUser(params.id)
+  span.setAttribute('user.plan', user.plan)
+  return user
+})
+```
+
+**Record a caught exception without re-throwing:**
+
+```ts
+.post('/api/webhook', async ({ request, span }) => {
+  const body = await request.json()
+  try {
+    await processWebhook(body)
+  } catch (err) {
+    span.recordException(err)
+  }
+  return { ok: true }
+})
+```
+
+**Create child spans for DB calls or external APIs:**
+
+```ts
+.get('/api/data', async ({ tracer, params }) => {
+  return tracer.startActiveSpan('db.query', async (dbSpan) => {
+    const data = await db.query(params.id)
+    dbSpan.setAttribute('db.rows', data.length)
+    dbSpan.end()
+    return data
+  })
+})
+```
+
+You can also import `withSpan` as a convenience wrapper that handles errors and `span.end()` automatically:
+
+```ts
+import { withSpan } from 'spiceflow'
+
+.get('/api/data', async ({ tracer, params }) => {
+  return withSpan(tracer, 'db.query', {}, async (dbSpan) => {
+    dbSpan.setAttribute('db.table', 'users')
+    return db.query(params.id)
+  })
+})
+```
+
 ### Zero overhead without tracer
 
-When no `tracer` is passed, every instrumentation point is skipped entirely — no strings allocated, no objects created, no extra async wrappers. The code path is identical to what it would be without the tracing feature.
+When no `tracer` is passed, every instrumentation point is skipped entirely — no strings allocated, no objects created, no extra async wrappers. The `span` and `tracer` on the handler context use no-op implementations whose empty methods V8 inlines away.
 
 > When using `createSpiceflowFetch` and getting typescript error `The inferred type of '...' cannot be named without a reference to '...'. This is likely not portable. A type annotation is necessary. (ts 2742)`
 
