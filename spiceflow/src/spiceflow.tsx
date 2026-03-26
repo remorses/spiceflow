@@ -366,13 +366,17 @@ export class Spiceflow<
     // remove trailing slash which can cause problems
     path = path.replace(/\/$/, '') || '/'
 
-    const result = bfsFind(this, (app) => {
+    // Collect matched routes from all apps so that more-specific child
+    // routes are visible even when a less-specific parent route also matches.
+    const allRoutes: MatchedRoute[] = []
+    const allApps = bfs(this)
+    for (const app of allApps) {
       app.topLevelApp = root
       let prefix = this.joinBasePaths(
         this.getAppAndParents(app).map((x) => x.basePath),
       ).replace(/\/$/, '')
       if (prefix && !path.startsWith(prefix)) {
-        return
+        continue
       }
       let pathWithoutPrefix = path
       if (prefix) {
@@ -387,35 +391,33 @@ export class Spiceflow<
           : undefined
       if (!matchedRoutes?.length) {
         foundApp = app
-        return
+        continue
       }
 
-      // Get all matched routes
-        const routes = matchedRoutes[0].map(([route, params], index) => ({
-          app,
-          route,
-          params: this.getAllDecodedParams(matchedRoutes, pathWithoutPrefix, index),
-        }))
+      // Get all matched routes from this app
+      const routes = matchedRoutes[0].map(([route, params], index) => ({
+        app,
+        route,
+        params: this.getAllDecodedParams(matchedRoutes, pathWithoutPrefix, index),
+      }))
 
-      if (routes.length) {
-        return routes
-      }
-    })
+      allRoutes.push(...routes)
+    }
 
-    return (
-      result || [
-        {
-          app: foundApp || root,
-          route: {
-            hooks: {},
-            handler: notFoundHandler,
-            method,
-            path,
-          } as InternalRoute,
-          params: {},
-        },
-      ]
-    )
+    return allRoutes.length
+      ? allRoutes
+      : [
+          {
+            app: foundApp || root,
+            route: {
+              hooks: {},
+              handler: notFoundHandler,
+              method,
+              path,
+            } as InternalRoute,
+            params: {},
+          },
+        ]
   }
 
   state<const Name extends string | number | symbol, Value>(
@@ -2778,7 +2780,7 @@ function getRouteSpecificity(route: InternalRoute) {
   }
 }
 
-function pickBestRoute<T extends { route: InternalRoute }>(routes: T[]): T {
+function pickBestRoute<T extends { route: InternalRoute; app?: AnySpiceflow }>(routes: T[]): T {
   if (routes.length <= 1) return routes[0]
   let best = routes[0]
   let bestSpec = getRouteSpecificity(best.route)
@@ -2819,9 +2821,13 @@ function pickBestRoute<T extends { route: InternalRoute }>(routes: T[]): T {
       continue
     }
     if (spec.segmentCount < bestSpec.segmentCount) continue
-    // 6. Same pattern shape: last registered wins (override)
-    best = routes[i]
-    bestSpec = spec
+    // 6. Same pattern shape: within the same app instance last registered
+    //    wins (route override). Across different apps first match wins
+    //    (parent / earlier .use() takes priority, matching Express/Hono).
+    if (best.app && routes[i].app && best.app === routes[i].app) {
+      best = routes[i]
+      bestSpec = spec
+    }
   }
   return best
 }

@@ -2835,6 +2835,36 @@ test('route override with .use() - child routes are accessible when no parent ro
   )
 })
 
+// Unlike Express/Hono where registration order alone determines priority,
+// Spiceflow uses specificity-based ranking: a child's exact route beats a
+// parent's wildcard even though the parent was registered first.
+test('child app specific routes beat parent wildcard routes', async () => {
+  const childApp = new Spiceflow()
+    .get('/api/hello', () => 'child hello')
+    .get('/api/shared', () => 'child shared')
+
+  const app = new Spiceflow()
+    .get('/*', () => 'catchall')
+    .get('/api/shared', () => 'parent shared')
+    .layout('/*', ({ children }) => children)
+    .page('/', async () => 'Home')
+    .use(childApp)
+
+  // Child's specific route beats parent's wildcard
+  const helloRes = await app.handle(
+    new Request('http://localhost/api/hello', { method: 'GET' }),
+  )
+  expect(helloRes.status).toBe(200)
+  expect(await helloRes.json()).toBe('child hello')
+
+  // Parent's same-specificity route wins over child's (registration order)
+  const sharedRes = await app.handle(
+    new Request('http://localhost/api/shared', { method: 'GET' }),
+  )
+  expect(sharedRes.status).toBe(200)
+  expect(await sharedRes.json()).toBe('parent shared')
+})
+
 test('disableSuperJsonUnlessRpc is inherited by child apps', async () => {
   // Test that child apps inherit the flag from parent
   const childApp = new Spiceflow()
