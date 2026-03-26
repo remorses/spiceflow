@@ -2014,6 +2014,51 @@ export type App = typeof app
 
 `app.href()` gives you **type-safe links** — TypeScript validates that the path exists, params are correct, and query values match the schema. Invalid paths or missing params are caught at compile time. The closure over `app` sees all routes, including ones defined later in the chain.
 
+### SEO: Titles & Descriptions
+
+Every page should always have a `<Head.Title>` and a `<Head.Meta name="description">`. These are the two most important tags for SEO — they control what appears in search engine results.
+
+**Title:** Keep titles under 60 characters so they don't get truncated in search results. Put the most important keywords first. Use a consistent format like `Page Name | Site Name`.
+
+**Description:** Keep descriptions between 120–160 characters. Summarize the page content clearly — this is the snippet shown below the title in search results. Each page should have a unique description that accurately reflects its content.
+
+```tsx
+.page('/', async () => {
+  return (
+    <div>
+      <Head>
+        <Head.Title>Spiceflow – Build Type-Safe APIs</Head.Title>
+        <Head.Meta name="description" content="A fast, type-safe API and RSC framework for TypeScript." />
+      </Head>
+      <h1>Welcome</h1>
+    </div>
+  )
+})
+```
+
+If you want a consistent title prefix or suffix across all pages, create a wrapper component:
+
+```tsx
+function PageHead({ title, description }: { title: string; description: string }) {
+  return (
+    <Head>
+      <Head.Title>{title} | My App</Head.Title>
+      <Head.Meta name="description" content={description} />
+    </Head>
+  )
+}
+
+// Then use it in any page
+.page('/about', async () => {
+  return (
+    <div>
+      <PageHead title="About" description="Learn more about our team and mission." />
+      <h1>About</h1>
+    </div>
+  )
+})
+```
+
 ### Client Components
 
 Mark interactive components with `"use client"` at the top of the file. These are hydrated in the browser and can use hooks like `useState`.
