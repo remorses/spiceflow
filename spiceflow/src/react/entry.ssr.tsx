@@ -12,8 +12,6 @@ import { FlightDataContext } from './context.js'
 import { getErrorContext, isNotFoundError, isRedirectError, contextHeaders, contextToHeaders, type ReactServerErrorContext } from './errors.js'
 import { formatServerError } from './format-server-error.js'
 import { sanitizeErrorMessage } from './sanitize-error.js'
-import { MetaProvider } from './head.js'
-import { MetaState } from './metastate.js'
 import { injectRSCPayload } from './transform.js'
 
 let bootstrapScriptContentPromise: Promise<string> | undefined
@@ -76,12 +74,6 @@ export async function renderHtml({
     ? flightForSsrOrForm.tee()
     : [undefined, flightForSsrOrForm]
 
-  let baseUrl = new URL('/', request.url).href
-  if (baseUrl.endsWith('/')) {
-    baseUrl = baseUrl.slice(0, -1)
-  }
-  const metaState = new MetaState({ baseUrl })
-
   const bootstrapScriptContent = await getBootstrapScriptContent()
 
   // Keep the first SSR-side createFromReadableStream call inside ReactDOMServer
@@ -92,11 +84,9 @@ export async function renderHtml({
     payloadPromise ??= createFromReadableStream<ServerPayload>(flightForSsr)
     const payload = React.use(payloadPromise!)
     return (
-      <MetaProvider metaState={metaState}>
-        <FlightDataContext.Provider value={payloadPromise!}>
-          <LayoutContent />
-        </FlightDataContext.Provider>
-      </MetaProvider>
+      <FlightDataContext.Provider value={payloadPromise!}>
+        <LayoutContent />
+      </FlightDataContext.Provider>
     )
   }
 
@@ -213,12 +203,10 @@ export async function renderHtml({
     })
   }
 
-  let appendToHead = metaState.getProcessedTags()
   return new Response(
     htmlStream.pipeThrough(
       injectRSCPayload({
         rscStream: flightStream2,
-        appendToHead,
       }),
     ),
     {

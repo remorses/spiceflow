@@ -47,6 +47,7 @@ import {
   FlightData,
   LayoutContent,
 } from './react/components.js'
+import { CollectedHead } from './react/head.js'
 import {
   getErrorContext,
   isNotFoundError,
@@ -1542,9 +1543,19 @@ export class Spiceflow<
       // pattern in comments — any of these can confuse the regex-based transform.
       const globalCssResult = errore.try(() => import.meta.viteRsc.loadCss('virtual:app-entry'))
       const globalCss = globalCssResult instanceof Error ? undefined : globalCssResult
+      let baseUrl = new URL('/', request.url).href
+      if (baseUrl.endsWith('/')) {
+        baseUrl = baseUrl.slice(0, -1)
+      }
 
       const hasLoaderData = Object.keys(mergedLoaderData).length > 0
-      let root: FlightData = { page, layouts, globalCss, ...(hasLoaderData && { loaderData: mergedLoaderData }) }
+      let root: FlightData = {
+        page,
+        layouts,
+        globalCss,
+        ...(hasLoaderData && { loaderData: mergedLoaderData }),
+        head: <CollectedHead baseUrl={baseUrl} />,
+      }
 
       if (root instanceof Response) {
         return mergeHeadersIntoResponse({ response: root, source: routeHeaders })

@@ -1,7 +1,5 @@
-'use client'
-
 import React from 'react'
-import { MetaState } from './metastate.js'
+import { getProcessedHeadTagElements } from './head-processing.js'
 import type {
   MetaProps,
   TitleProps,
@@ -15,19 +13,7 @@ type HeadProps = {
   children?: React.ReactNode
 }
 
-const MetaContext = React.createContext<MetaState | null>(null)
-
-export const MetaProvider = ({
-  metaState,
-  children,
-}: {
-  metaState: MetaState
-  children: React.ReactNode
-}) => {
-  return (
-    <MetaContext.Provider value={metaState}>{children}</MetaContext.Provider>
-  )
-}
+const getHeadStore = React.cache(() => ({ tags: [] as React.ReactElement[] }))
 
 function MetaComponent(props: MetaProps): React.JSX.Element {
   return <meta {...props} />
@@ -53,7 +39,6 @@ function BaseComponent(props: BaseProps): React.JSX.Element {
   return <base {...props} />
 }
 
-// Map from sub-component function to the intrinsic tag name it renders
 const TAG_MAP = new Map<Function, string>([
   [MetaComponent, 'meta'],
   [TitleComponent, 'title'],
@@ -65,23 +50,11 @@ const TAG_MAP = new Map<Function, string>([
 
 /**
  * Collects `<meta>`, `<title>`, `<link>`, `<base>`, `<style>`, and `<script>` tags
- * for server-side rendering. Tags are deduplicated across layouts and pages so the
- * innermost page can override metadata set by a parent layout.
- *
- * Always use `<Head>` to wrap head tags so they are properly deduplicated.
- * Use `Head.Meta`, `Head.Title`, `Head.Link`, etc. for IDE autocomplete.
+ * for the current RSC render so layouts and pages can override each other by key.
  */
 export const Head = Object.assign(
   ({ children }: HeadProps) => {
-    if (typeof window !== 'undefined') {
-      return children
-    }
-
-    const metaState = React.useContext(MetaContext)
-    if (!metaState) throw new Error('Head must be used within MetaProvider')
-
-    collectHeadTags({ children, metaState })
-
+    getHeadStore().tags.push(...collectHeadElements(children))
     return null
   },
   {
@@ -94,14 +67,31 @@ export const Head = Object.assign(
   },
 )
 
+export function CollectedHead({ baseUrl }: { baseUrl?: string }) {
+  return (
+    <>
+      {getProcessedHeadTagElements({
+        tags: [...getHeadStore().tags].reverse(),
+        baseUrl,
+      })}
+    </>
+  )
+}
+
 const VALID_TAGS = new Set(['title', 'meta', 'link', 'base', 'style', 'script'])
+
+export function collectHeadElements(children: React.ReactNode) {
+  const tags: React.ReactElement[] = []
+  collectHeadTags({ children, tags })
+  return tags
+}
 
 function collectHeadTags({
   children,
-  metaState,
+  tags,
 }: {
   children: React.ReactNode
-  metaState: MetaState
+  tags: React.ReactElement[]
 }) {
   React.Children.forEach(children, (child) => {
     if (!React.isValidElement<{ children?: React.ReactNode }>(child)) {
@@ -110,12 +100,12 @@ function collectHeadTags({
 
     const tagName = TAG_MAP.get(child.type as Function)
     if (tagName) {
-      metaState.addTag(React.createElement(tagName, child.props))
+      tags.push(React.createElement(tagName, child.props))
       return
     }
 
     if (typeof child.type === 'string' && VALID_TAGS.has(child.type)) {
-      metaState.addTag(child)
+      tags.push(child)
       return
     }
 
@@ -125,7 +115,7 @@ function collectHeadTags({
 
     collectHeadTags({
       children: child.props.children,
-      metaState,
+      tags,
     })
   })
 }

@@ -33,7 +33,10 @@ export function LayoutContent(props: { id?: string }) {
   // rscCssTransform auto-wraps exported component functions, but the app entry
   // exports a Spiceflow instance, so its CSS needs this manual injection.
   if (!props.id && data.globalCss) {
-    return React.createElement(React.Fragment, null, data.globalCss, elem)
+    return React.createElement(React.Fragment, null, data.globalCss, elem, data.head)
+  }
+  if (!props.id && data.head) {
+    return React.createElement(React.Fragment, null, elem, data.head)
   }
   return elem
 }
@@ -55,6 +58,7 @@ export type FlightData = {
   layouts: { id: string; element: React.ReactNode }[]
   globalCss?: React.ReactNode
   loaderData?: Record<string, unknown>
+  head?: React.ReactNode
 }
 
 import type { ReactServerErrorContext } from './errors.js'
