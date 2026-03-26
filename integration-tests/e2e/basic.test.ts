@@ -163,6 +163,79 @@ test.describe("layout provided client context", () => {
 	});
 });
 
+test.describe("Head client components", () => {
+	test("document response includes Head.Title and deduplicated meta tags", async () => {
+		const response = await fetch(`${baseURL}/meta`, {
+			headers: { "sec-fetch-dest": "document" },
+		});
+
+		expect(response.status).toBe(200);
+		const html = await response.text();
+
+		expect(html).toContain("<title>Spiceflow Example</title>");
+		expect(html).toContain('<meta name="test" content="value"/>');
+		expect(html.match(/<meta name="test" content="value"\/>/g)).toHaveLength(1);
+		expect(html).toContain(
+			`<meta property="og:image" content="${baseURL}/og-image.jpg"/>`,
+		);
+	});
+
+	test("browser document title and meta tags are available after hydration", async ({
+		page,
+	}) => {
+		await page.goto("/meta");
+
+		await expect(page).toHaveTitle("Spiceflow Example");
+		await expect(page.locator('head meta[name="test"]')).toHaveCount(1);
+		await expect(page.locator('head meta[property="og:title"]')).toHaveAttribute(
+			"content",
+			"Spiceflow Example",
+		);
+		await expect(page.locator('head meta[property="og:image"]')).toHaveAttribute(
+			"content",
+			`${baseURL}/og-image.jpg`,
+		);
+	});
+
+	test("page Head overrides layout title and meta tags by key", async () => {
+		const response = await fetch(`${baseURL}/meta-override`, {
+			headers: { "sec-fetch-dest": "document" },
+		});
+
+		expect(response.status).toBe(200);
+		const html = await response.text();
+
+		expect(html.match(/<title>/g)).toHaveLength(1);
+		expect(html).toContain("<title>Page title</title>");
+		expect(html).not.toContain("<title>Layout title</title>");
+		expect(html.match(/<meta name="description"/g)).toHaveLength(1);
+		expect(html).toContain('<meta name="description" content="Page description"/>');
+		expect(html).not.toContain(
+			'<meta name="description" content="Layout description"/>',
+		);
+		expect(html.match(/<meta property="og:title"/g)).toHaveLength(1);
+		expect(html).toContain('<meta property="og:title" content="Page og:title"/>');
+		expect(html).not.toContain('<meta property="og:title" content="Layout og:title"/>');
+	});
+
+	test("browser head keeps only page overrides after hydration", async ({ page }) => {
+		await page.goto("/meta-override");
+
+		await expect(page).toHaveTitle("Page title");
+		await expect(page.locator("head title")).toHaveCount(1);
+		await expect(page.locator('head meta[name="description"]')).toHaveCount(1);
+		await expect(page.locator('head meta[name="description"]')).toHaveAttribute(
+			"content",
+			"Page description",
+		);
+		await expect(page.locator('head meta[property="og:title"]')).toHaveCount(1);
+		await expect(page.locator('head meta[property="og:title"]')).toHaveAttribute(
+			"content",
+			"Page og:title",
+		);
+	});
+});
+
 test.describe("redirect", () => {
 	test("redirect in outer route scope", async ({ page }) => {
 		await page.goto("/top-level-redirect");

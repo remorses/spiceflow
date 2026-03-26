@@ -69,7 +69,9 @@ export const app = new Spiceflow()
 	.layout("/*", async ({ children, state }) => {
 		return (
 			<Layout>
-				<title>title from layout</title>
+				<Head>
+					<Head.Title>title from layout</Head.Title>
+				</Head>
 				{children}
 			</Layout>
 		);
@@ -77,7 +79,9 @@ export const app = new Spiceflow()
 	.page("/state", async ({ state }) => {
 		return (
 			<>
-				<title>title from page</title>
+				<Head>
+					<Head.Title>title from page</Head.Title>
+				</Head>
 				state: {state.middleware1}
 			</>
 		);
@@ -88,7 +92,9 @@ export const app = new Spiceflow()
 		const serverRandom = Math.random().toString(36).slice(2);
 		return (
 			<>
-				<title>title from page</title>
+				<Head>
+					<Head.Title>title from page</Head.Title>
+				</Head>
 				<span data-testid="server-render-count">{serverRenderCount}</span>
 				<IndexPage counter={counter} serverRandom={serverRandom} />
 			</>
@@ -447,6 +453,7 @@ export const app = new Spiceflow()
 		return (
 			<div className="">
 			<Head>
+				<Head.Title>Spiceflow Example</Head.Title>
 				<Head.Meta name="test" content="value" />
 				<Head.Meta name="test" content="value" />
 				<Head.Meta property="og:title" content="Spiceflow Example" />
@@ -458,6 +465,29 @@ export const app = new Spiceflow()
 				<Head.Meta property="og:image" content="/og-image.jpg" />
 				<Head.Meta property="og:url" content="https://example.com" />
 			</Head>
+			</div>
+		);
+	})
+	.layout("/meta-override/*", async ({ children }) => {
+		return (
+			<>
+				<Head>
+					<Head.Title>Layout title</Head.Title>
+					<Head.Meta name="description" content="Layout description" />
+					<Head.Meta property="og:title" content="Layout og:title" />
+				</Head>
+				{children}
+			</>
+		);
+	})
+	.page("/meta-override", async () => {
+		return (
+			<div>
+				<Head>
+					<Head.Title>Page title</Head.Title>
+					<Head.Meta name="description" content="Page description" />
+					<Head.Meta property="og:title" content="Page og:title" />
+				</Head>
 			</div>
 		);
 	})
