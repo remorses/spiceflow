@@ -1,5 +1,5 @@
-import React from "react"
-import { ServerPayload } from "../spiceflow.js"
+import React from 'react'
+import { ServerPayload } from '../spiceflow.js'
 
 export const FlightDataContext = React.createContext<Promise<ServerPayload>>(
   undefined!,
@@ -13,9 +13,9 @@ export function useFlightData() {
   if (!c) {
     throw new Error(
       '[spiceflow] FlightDataContext is missing. This usually means the ' +
-      'spiceflow module was loaded twice (e.g. one copy bundled by Vite dep ' +
-      'optimizer and another loaded raw from node_modules). Make sure ' +
-      '"spiceflow" is in optimizeDeps.exclude for the client environment.',
+        'spiceflow module was loaded twice (e.g. one copy bundled by Vite dep ' +
+        'optimizer and another loaded raw from node_modules). Make sure ' +
+        '"spiceflow" is in optimizeDeps.exclude for the client environment.',
     )
   }
 

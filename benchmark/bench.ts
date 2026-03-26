@@ -51,7 +51,12 @@ function runBombardier(url: string, label: string): string {
   return result
 }
 
-function spawnProcess(cmd: string, args: string[], env: Record<string, string> = {}, cwd?: string): ChildProcess {
+function spawnProcess(
+  cmd: string,
+  args: string[],
+  env: Record<string, string> = {},
+  cwd?: string,
+): ChildProcess {
   const proc = spawn(cmd, args, {
     cwd: cwd ?? import.meta.dirname,
     env: { ...process.env, ...env },
@@ -62,7 +67,10 @@ function spawnProcess(cmd: string, args: string[], env: Record<string, string> =
   return proc
 }
 
-async function stopProcess(proc: ChildProcess, signal: NodeJS.Signals = 'SIGTERM'): Promise<void> {
+async function stopProcess(
+  proc: ChildProcess,
+  signal: NodeJS.Signals = 'SIGTERM',
+): Promise<void> {
   proc.kill(signal)
   await new Promise<void>((resolve) => {
     const timeout = setTimeout(() => {
@@ -98,21 +106,31 @@ function startProfiledServer(env: Record<string, string>): ChildProcess {
   }
 
   if (useBun) {
-    return spawnProcess('bun', [
-      '--cpu-prof',
-      '--cpu-prof-dir', PROFILE_DIR,
-      '-e',
-      `process.on("SIGUSR2", () => process.exit(0)); await import("./dist/rsc/index.js");`,
-    ], env)
+    return spawnProcess(
+      'bun',
+      [
+        '--cpu-prof',
+        '--cpu-prof-dir',
+        PROFILE_DIR,
+        '-e',
+        `process.on("SIGUSR2", () => process.exit(0)); await import("./dist/rsc/index.js");`,
+      ],
+      env,
+    )
   }
 
-  return spawnProcess('node', [
-    '--cpu-prof',
-    '--cpu-prof-dir', PROFILE_DIR,
-    '--input-type=module',
-    '-e',
-    `process.on("SIGUSR2", () => process.exit(0)); await import("./dist/rsc/index.js");`,
-  ], env)
+  return spawnProcess(
+    'node',
+    [
+      '--cpu-prof',
+      '--cpu-prof-dir',
+      PROFILE_DIR,
+      '--input-type=module',
+      '-e',
+      `process.on("SIGUSR2", () => process.exit(0)); await import("./dist/rsc/index.js");`,
+    ],
+    env,
+  )
 }
 
 async function main() {
@@ -142,10 +160,14 @@ async function main() {
   console.log('========================================')
 
   const server = startServer({ PORT: String(PORT) })
-  const hono = spawnProcess('tsx', ['hono-baseline.ts'], { HONO_PORT: String(HONO_PORT) })
+  const hono = spawnProcess('tsx', ['hono-baseline.ts'], {
+    HONO_PORT: String(HONO_PORT),
+  })
   const nextjsProc = spawnProcess(
-    'node', ['node_modules/.bin/next', 'start', '-p', String(NEXT_PORT)],
-    {}, NEXTJS_DIR,
+    'node',
+    ['node_modules/.bin/next', 'start', '-p', String(NEXT_PORT)],
+    {},
+    NEXTJS_DIR,
   )
 
   try {
@@ -163,15 +185,28 @@ async function main() {
 
     runBombardier(`${HONO_BASE}/about`, 'Hono baseline /about (plain HTML)')
     runBombardier(`${NEXT_BASE}/about`, 'Next.js RSC /about')
-    runBombardier(`${BASE}/static-page.html`, `Spiceflow static /static-page.html (${RUNTIME})`)
+    runBombardier(
+      `${BASE}/static-page.html`,
+      `Spiceflow static /static-page.html (${RUNTIME})`,
+    )
     runBombardier(`${BASE}/about`, `Spiceflow RSC /about (${RUNTIME})`)
 
     // Redirect benchmarks: Spiceflow returns a Response, Next.js throws an error
     runBombardier(`${HONO_BASE}/redirect-test`, 'Hono redirect /redirect-test')
-    runBombardier(`${NEXT_BASE}/redirect-test`, 'Next.js redirect /redirect-test')
-    runBombardier(`${BASE}/redirect-test`, `Spiceflow redirect /redirect-test (${RUNTIME})`)
+    runBombardier(
+      `${NEXT_BASE}/redirect-test`,
+      'Next.js redirect /redirect-test',
+    )
+    runBombardier(
+      `${BASE}/redirect-test`,
+      `Spiceflow redirect /redirect-test (${RUNTIME})`,
+    )
   } finally {
-    await Promise.all([stopProcess(server), stopProcess(hono), stopProcess(nextjsProc)])
+    await Promise.all([
+      stopProcess(server),
+      stopProcess(hono),
+      stopProcess(nextjsProc),
+    ])
   }
 
   // =============================================
@@ -192,7 +227,10 @@ async function main() {
     await waitForServer(`${BASE}/about`)
     console.log('Server ready.\n')
     await warmup(`${BASE}/about`, 10)
-    runBombardier(`${BASE}/about`, `Spiceflow RSC /about (${RUNTIME}, profiled)`)
+    runBombardier(
+      `${BASE}/about`,
+      `Spiceflow RSC /about (${RUNTIME}, profiled)`,
+    )
   } finally {
     // Both runtimes use SIGUSR2 handler to trigger process.exit(0) for profile flush
     await stopProcess(profServer, 'SIGUSR2')

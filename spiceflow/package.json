@@ -43,7 +43,6 @@
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     },
-
     "./cors": {
       "types": "./dist/cors.d.ts",
       "default": "./dist/cors.js"
@@ -68,7 +67,6 @@
       "types": "./dist/openapi.d.ts",
       "default": "./dist/openapi.js"
     },
-
     "./src/*": {
       "default": "./src/*.ts"
     },

@@ -24,12 +24,14 @@ body {
     rgb(var(--background-start-rgb));
 }
 
-
 @layer utilities {
   .bg-gradient-radial {
     background-image: radial-gradient(var(--tw-gradient-stops));
   }
   .bg-gradient-conic {
-    background-image: conic-gradient(from 180deg at 50% 50%, var(--tw-gradient-stops));
+    background-image: conic-gradient(
+      from 180deg at 50% 50%,
+      var(--tw-gradient-stops)
+    );
   }
 }

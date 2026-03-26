@@ -57,7 +57,10 @@ export async function listenForNode(
   return { port: actualPort, server, stop }
 }
 
-export function nodeToWebRequest(req: IncomingMessage, res: ServerResponse): SpiceflowRequest {
+export function nodeToWebRequest(
+  req: IncomingMessage,
+  res: ServerResponse,
+): SpiceflowRequest {
   const abortController = new AbortController()
   req.once('error', () => abortController.abort())
   res.once('close', () => {
@@ -74,7 +77,9 @@ export function nodeToWebRequest(req: IncomingMessage, res: ServerResponse): Spi
   const request = new SpiceflowRequest(url.toString(), {
     method: req.method,
     headers: newHeadersFromIncoming(req),
-    body: hasBody ? (Readable.toWeb(req) as unknown as ReadableStream<Uint8Array>) : null,
+    body: hasBody
+      ? (Readable.toWeb(req) as unknown as ReadableStream<Uint8Array>)
+      : null,
     signal: abortController.signal,
     // @ts-ignore for undici
     duplex: hasBody ? 'half' : undefined,
@@ -97,11 +102,16 @@ function newHeadersFromIncoming(incoming: IncomingMessage): Headers {
   return new Headers(headerRecord)
 }
 
-export async function sendWebResponse(response: Response, res: ServerResponse): Promise<void> {
+export async function sendWebResponse(
+  response: Response,
+  res: ServerResponse,
+): Promise<void> {
   // Build headers object, handling multiple set-cookie headers correctly.
   // Object.fromEntries(response.headers.entries()) collapses duplicate set-cookie
   // into a single value — we need to preserve them as an array.
-  const headers: Record<string, string | string[]> = Object.fromEntries(response.headers)
+  const headers: Record<string, string | string[]> = Object.fromEntries(
+    response.headers,
+  )
   const setCookies = response.headers.getSetCookie()
   if (setCookies.length > 0) {
     delete headers['set-cookie']

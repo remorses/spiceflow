@@ -18,12 +18,9 @@ describe('ai sdk mcp', () => {
     const app = new Spiceflow({})
       .use(mcp({ path: '/mcp' }))
       .get('/goSomething', () => 'hi')
-      .get(
-        '/somethingElse/:id',
-        ({ params: { id } }) => {
-          return 'hello ' + id
-        },
-      )
+      .get('/somethingElse/:id', ({ params: { id } }) => {
+        return 'hello ' + id
+      })
       .post(
         '/somethingElse/:id',
         ({ params: { id } }) => {
@@ -192,12 +189,9 @@ describe('MCP Plugin', () => {
       .use(mcp({ path: '/mcp' }))
       .get('/goSomething', () => 'hi')
       .get('/users', () => ({ users: [{ id: 1, name: 'John' }] }))
-      .get(
-        '/somethingElse/:id',
-        ({ params: { id } }) => {
-          return 'hello ' + id
-        },
-      )
+      .get('/somethingElse/:id', ({ params: { id } }) => {
+        return 'hello ' + id
+      })
       .get(
         '/search',
         ({ query }) => {
@@ -558,8 +552,9 @@ describe('addMcpTools', () => {
     await configuredServer.connect(mockTransport as any)
 
     const basePath = app.topLevelApp?.basePath || ''
-    const openapiResponse = await app
-      .topLevelApp!.handle(new Request(`http://localhost${basePath}/_mcp_openapi`))
+    const openapiResponse = await app.topLevelApp!.handle(
+      new Request(`http://localhost${basePath}/_mcp_openapi`),
+    )
 
     expect(openapiResponse.status).toBe(200)
     const openapiDoc = await openapiResponse.json()

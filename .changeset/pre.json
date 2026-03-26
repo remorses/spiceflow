@@ -6,7 +6,5 @@
     "spiceflow": "1.6.1",
     "nodejs-example": "0.1.0"
   },
-  "changesets": [
-    "five-toes-learn"
-  ]
+  "changesets": ["five-toes-learn"]
 }

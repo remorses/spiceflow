@@ -80,7 +80,10 @@ export const serveStatic = <E extends Env = Env>(
     if (content) {
       const mimeType = getMimeType(candidatePath, options.mimes)
       const response = new Response(content)
-      response.headers.set('Content-Type', mimeType || 'application/octet-stream')
+      response.headers.set(
+        'Content-Type',
+        mimeType || 'application/octet-stream',
+      )
       await options.onFound?.(candidatePath, c)
       return response
     }

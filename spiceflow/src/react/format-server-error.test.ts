@@ -5,31 +5,41 @@ describe('formatServerError', () => {
   test('rewrites useState is not a function', () => {
     const err = new TypeError('useState is not a function')
     formatServerError(err)
-    expect(err.message).toMatchInlineSnapshot(`"useState only works in Client Components. Add the "use client" directive at the top of the file to use it."`)
+    expect(err.message).toMatchInlineSnapshot(
+      `"useState only works in Client Components. Add the "use client" directive at the top of the file to use it."`,
+    )
   })
 
   test('rewrites useEffect is not a function', () => {
     const err = new TypeError('useEffect is not a function')
     formatServerError(err)
-    expect(err.message).toMatchInlineSnapshot(`"useEffect only works in Client Components. Add the "use client" directive at the top of the file to use it."`)
+    expect(err.message).toMatchInlineSnapshot(
+      `"useEffect only works in Client Components. Add the "use client" directive at the top of the file to use it."`,
+    )
   })
 
   test('rewrites useReducer is not a function', () => {
     const err = new TypeError('useReducer is not a function')
     formatServerError(err)
-    expect(err.message).toMatchInlineSnapshot(`"useReducer only works in Client Components. Add the "use client" directive at the top of the file to use it."`)
+    expect(err.message).toMatchInlineSnapshot(
+      `"useReducer only works in Client Components. Add the "use client" directive at the top of the file to use it."`,
+    )
   })
 
   test('rewrites createContext is not a function', () => {
     const err = new TypeError('createContext is not a function')
     formatServerError(err)
-    expect(err.message).toMatchInlineSnapshot(`"createContext only works in Client Components. Add the "use client" directive at the top of the file to use it."`)
+    expect(err.message).toMatchInlineSnapshot(
+      `"createContext only works in Client Components. Add the "use client" directive at the top of the file to use it."`,
+    )
   })
 
   test('rewrites transpiled createContext variant', () => {
     const err = new TypeError('(0 , react.createContext) is not a function')
     formatServerError(err)
-    expect(err.message).toMatchInlineSnapshot(`"createContext only works in Client Components. Add the "use client" directive at the top of the file to use it."`)
+    expect(err.message).toMatchInlineSnapshot(
+      `"createContext only works in Client Components. Add the "use client" directive at the top of the file to use it."`,
+    )
   })
 
   test('rewrites class component error', () => {

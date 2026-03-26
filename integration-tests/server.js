@@ -1,12 +1,12 @@
-import handler from './dist/ssr/index.js'
+import handler from "./dist/ssr/index.js";
 
-import http from 'node:http'
+import http from "node:http";
 
 const server = http.createServer((req, res) => {
-  handler(req, res)
-})
+	handler(req, res);
+});
 
-const port = process.env.PORT || 3000
+const port = process.env.PORT || 3000;
 server.listen(port, () => {
-  console.log(`Server running at http://localhost:${port}`)
-})
+	console.log(`Server running at http://localhost:${port}`);
+});

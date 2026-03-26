@@ -9,7 +9,14 @@ import { createFromReadableStream } from '@vitejs/plugin-rsc/ssr'
 import { ServerPayload } from '../spiceflow.js'
 import { LayoutContent } from './components.js'
 import { FlightDataContext } from './context.js'
-import { getErrorContext, isNotFoundError, isRedirectError, contextHeaders, contextToHeaders, type ReactServerErrorContext } from './errors.js'
+import {
+  getErrorContext,
+  isNotFoundError,
+  isRedirectError,
+  contextHeaders,
+  contextToHeaders,
+  type ReactServerErrorContext,
+} from './errors.js'
 import { formatServerError } from './format-server-error.js'
 import { sanitizeErrorMessage } from './sanitize-error.js'
 import { injectRSCPayload } from './transform.js'
@@ -25,7 +32,9 @@ function getBootstrapScriptContent() {
   return bootstrapScriptContentPromise
 }
 
-async function importRscEnvironment(): Promise<typeof import('./entry.rsc.js')> {
+async function importRscEnvironment(): Promise<
+  typeof import('./entry.rsc.js')
+> {
   return import.meta.viteRsc.loadModule<typeof import('./entry.rsc.js')>(
     'rsc',
     'index',
@@ -38,9 +47,7 @@ export async function fetchHandler(request: Request) {
     const rscEntry = await importRscEnvironment()
     const response = await rscEntry.handler(request)
 
-    if (
-      !response.headers.get('content-type')?.startsWith('text/x-component')
-    ) {
+    if (!response.headers.get('content-type')?.startsWith('text/x-component')) {
       return response
     }
 
@@ -134,16 +141,21 @@ export async function renderHtml({
           formatServerError(e)
           console.error('[entry.ssr.tsx:renderToReadableStream]', e)
         }
-        if (e && typeof e === 'object' && 'digest' in e && typeof e.digest === 'string') return sanitizeErrorMessage(e.digest)
+        if (
+          e &&
+          typeof e === 'object' &&
+          'digest' in e &&
+          typeof e.digest === 'string'
+        )
+          return sanitizeErrorMessage(e.digest)
         if (e instanceof Error) return sanitizeErrorMessage(e.message)
         return sanitizeErrorMessage(String(e))
       },
     }
 
     if (flightForFormState) {
-      const formStatePayload = await createFromReadableStream<ServerPayload>(
-        flightForFormState,
-      )
+      const formStatePayload =
+        await createFromReadableStream<ServerPayload>(flightForFormState)
       htmlStream = await ReactDOMServer.renderToReadableStream(<SsrRoot />, {
         ...renderOptions,
         formState: formStatePayload.formState,
@@ -160,9 +172,13 @@ export async function renderHtml({
       // Race allReady against a short timeout to catch redirect/notFound
       // errors from Suspense boundaries without blocking normal streaming.
       let timerId: ReturnType<typeof setTimeout> | undefined
-      const timeout = new Promise<void>((r) => { timerId = setTimeout(r, 50) })
+      const timeout = new Promise<void>((r) => {
+        timerId = setTimeout(r, 50)
+      })
       await Promise.race([
-        htmlStream.allReady.finally(() => { if (timerId) clearTimeout(timerId) }),
+        htmlStream.allReady.finally(() => {
+          if (timerId) clearTimeout(timerId)
+        }),
         timeout,
       ])
     }

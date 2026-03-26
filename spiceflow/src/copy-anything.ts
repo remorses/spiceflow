@@ -10,7 +10,9 @@ function isArray(payload: unknown): payload is unknown[] {
   return getType(payload) === 'Array'
 }
 
-function isPlainObject(payload: unknown): payload is Record<PropertyKey, unknown> {
+function isPlainObject(
+  payload: unknown,
+): payload is Record<PropertyKey, unknown> {
   if (getType(payload) !== 'Object') return false
   const prototype = Object.getPrototypeOf(payload)
   return (
@@ -55,22 +57,19 @@ export function copy<T>(target: T, options: CopyOptions = {}): T {
   }
   const props = Object.getOwnPropertyNames(target)
   const symbols = Object.getOwnPropertySymbols(target)
-  return [...props, ...symbols].reduce(
-    (carry, key) => {
-      if (isArray(options.props) && !options.props.includes(key)) {
-        return carry
-      }
-      const val = target[key]
-      const newVal = copy(val, options)
-      assignProp(
-        carry as Record<PropertyKey, unknown>,
-        key,
-        newVal,
-        target as Record<PropertyKey, unknown>,
-        options.nonenumerable,
-      )
+  return [...props, ...symbols].reduce((carry, key) => {
+    if (isArray(options.props) && !options.props.includes(key)) {
       return carry
-    },
-    {} as T,
-  )
+    }
+    const val = target[key]
+    const newVal = copy(val, options)
+    assignProp(
+      carry as Record<PropertyKey, unknown>,
+      key,
+      newVal,
+      target as Record<PropertyKey, unknown>,
+      options.nonenumerable,
+    )
+    return carry
+  }, {} as T)
 }

@@ -6,7 +6,8 @@
 const REDACTED = '[REDACTED]'
 
 // JWT tokens: eyJ followed by base64url chars, with 2 or 3 dot-separated segments
-const JWT_RE = /eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}(?:\.[A-Za-z0-9_-]{10,})?/g
+const JWT_RE =
+  /eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}(?:\.[A-Za-z0-9_-]{10,})?/g
 
 // Bearer / token header values
 const BEARER_RE = /\b(Bearer\s+)\S{8,}/gi
@@ -16,24 +17,32 @@ const TOKEN_PARAM_RE = /\b(token=)\S{8,}/gi
 const CONN_STRING_RE = /:\/\/([^:/?#]+):([^@]{3,})@/g
 
 // Common API key prefixes followed by high-entropy strings
-const API_KEY_PREFIX_RE = /\b(sk[-_]|pk[-_]|api[-_]?key[-_]?|AKIA|ghp_|gho_|ghs_|ghr_|glpat-|xox[bpsar]-|whsec_|sk_live_|pk_live_|sk_test_|pk_test_|rk_live_|rk_test_)[A-Za-z0-9_-]{8,}/g
+const API_KEY_PREFIX_RE =
+  /\b(sk[-_]|pk[-_]|api[-_]?key[-_]?|AKIA|ghp_|gho_|ghs_|ghr_|glpat-|xox[bpsar]-|whsec_|sk_live_|pk_live_|sk_test_|pk_test_|rk_live_|rk_test_)[A-Za-z0-9_-]{8,}/g
 
 // Generic high-entropy: 20+ character strings that mix letters, digits, and
 // common key chars (-, _, /) without spaces. Entropy is estimated by counting
 // distinct character classes: lowercase, uppercase, digit, symbol.
-const HIGH_ENTROPY_RE = /(?<![A-Za-z0-9_/-])[A-Za-z0-9_/-]{20,}(?![A-Za-z0-9_/-])/g
+const HIGH_ENTROPY_RE =
+  /(?<![A-Za-z0-9_/-])[A-Za-z0-9_/-]{20,}(?![A-Za-z0-9_/-])/g
 
 function charClassCount(s: string): number {
   let mask = 0
   for (let i = 0; i < s.length; i++) {
     const c = s.charCodeAt(i)
-    if (c >= 97 && c <= 122) mask |= 1       // a-z
-    else if (c >= 65 && c <= 90) mask |= 2    // A-Z
-    else if (c >= 48 && c <= 57) mask |= 4    // 0-9
-    else mask |= 8                             // symbols
+    if (c >= 97 && c <= 122)
+      mask |= 1 // a-z
+    else if (c >= 65 && c <= 90)
+      mask |= 2 // A-Z
+    else if (c >= 48 && c <= 57)
+      mask |= 4 // 0-9
+    else mask |= 8 // symbols
   }
   let count = 0
-  while (mask) { count += mask & 1; mask >>= 1 }
+  while (mask) {
+    count += mask & 1
+    mask >>= 1
+  }
   return count
 }
 

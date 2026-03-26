@@ -2,7 +2,13 @@ import { Button } from "./button";
 import { changeCounter } from "./action";
 import { Calculator, Counter, Hydrated } from "./client";
 
-export function IndexPage({ counter, serverRandom }: { counter: number; serverRandom: string }) {
+export function IndexPage({
+	counter,
+	serverRandom,
+}: {
+	counter: number;
+	serverRandom: string;
+}) {
 	return (
 		<div className=" bg-gray-50 gap-2">
 			<div>server random: {serverRandom}</div>

@@ -1,4 +1,4 @@
-'use client'
+"use client";
 import Select from "react-select";
 
 const options = [

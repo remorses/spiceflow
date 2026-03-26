@@ -43,7 +43,9 @@ export async function runCommand({
   })
 
   if (exitCode !== 0) {
-    throw new Error(`Command failed: ${command} ${args.join(' ')}\n${stdout}\n${stderr}`)
+    throw new Error(
+      `Command failed: ${command} ${args.join(' ')}\n${stdout}\n${stderr}`,
+    )
   }
 
   return { stdout, stderr }
@@ -85,7 +87,11 @@ export async function startServer({
   }
 }
 
-export async function stopServer({ process }: { process: ChildProcess }): Promise<void> {
+export async function stopServer({
+  process,
+}: {
+  process: ChildProcess
+}): Promise<void> {
   if (process.exitCode !== null) return
 
   process.kill('SIGTERM')
@@ -152,7 +158,9 @@ async function waitForReady({
 
 function getLocalUrl({ text }: { text: string }): string | undefined {
   const plain = text.replace(/\x1b\[[0-9;]*m/g, '')
-  const match = plain.match(/Local:\s+(http:\/\/(?:localhost|127\.0\.0\.1):\d+\/?)/)
+  const match = plain.match(
+    /Local:\s+(http:\/\/(?:localhost|127\.0\.0\.1):\d+\/?)/,
+  )
   if (!match) return undefined
   return match[1]
 }

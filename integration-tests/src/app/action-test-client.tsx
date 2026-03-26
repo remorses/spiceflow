@@ -2,7 +2,11 @@
 "use client";
 
 import React, { useState, useTransition } from "react";
-import { streamingAction, simpleAction, redirectAction } from "./action-streaming";
+import {
+	streamingAction,
+	simpleAction,
+	redirectAction,
+} from "./action-streaming";
 
 export function StreamingActionTest() {
 	const [items, setItems] = useState<string[]>([]);
@@ -27,7 +31,10 @@ export function StreamingActionTest() {
 
 	return (
 		<div data-testid="streaming-action-test">
-			<button data-testid="start-streaming" onClick={() => startTransition(handleClick)}>
+			<button
+				data-testid="start-streaming"
+				onClick={() => startTransition(handleClick)}
+			>
 				Start Streaming
 			</button>
 			{items.map((item, i) => (
@@ -45,7 +52,10 @@ export function StreamingActionTest() {
 export function RedirectActionTest() {
 	return (
 		<div data-testid="redirect-action-test">
-			<button data-testid="call-redirect-action" onClick={() => redirectAction()}>
+			<button
+				data-testid="call-redirect-action"
+				onClick={() => redirectAction()}
+			>
 				Redirect via action
 			</button>
 		</div>
@@ -75,5 +85,3 @@ export function SimpleActionTest() {
 		</div>
 	);
 }
-
-

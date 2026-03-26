@@ -23,12 +23,12 @@ test.describe("scroll restoration", () => {
 		await expect(page.getByRole("heading", { name: "Page B" })).toBeVisible();
 
 		// Should scroll to top
-		await expect
-			.poll(() => page.evaluate(() => window.scrollY))
-			.toBe(0);
+		await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
 	});
 
-	test("restores scroll position on back navigation (POP)", async ({ page }) => {
+	test("restores scroll position on back navigation (POP)", async ({
+		page,
+	}) => {
 		// Start from home to ensure proper hydration and SPA navigation
 		await page.goto("/");
 		await page.getByText("[hydrated: 1]").click();
@@ -40,7 +40,9 @@ test.describe("scroll restoration", () => {
 
 		// Scroll down and wait for scroll event to register
 		await page.evaluate(() => window.scrollTo(0, 1200));
-		await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(1000);
+		await expect
+			.poll(() => page.evaluate(() => window.scrollY))
+			.toBeGreaterThan(1000);
 
 		// Navigate to page B via layout Link (PUSH)
 		await page.getByRole("link", { name: "Scroll B" }).click();

@@ -1,11 +1,18 @@
-import { type Page, expect, test, type APIRequestContext } from "@playwright/test";
+import {
+	type Page,
+	expect,
+	test,
+	type APIRequestContext,
+} from "@playwright/test";
 
 const port = Number(process.env.E2E_PORT || 6174);
 const baseURL = `http://localhost:${port}`;
 const isStart = Boolean(process.env.E2E_START);
 
 function getSetCookies(response: Response) {
-	const headers = response.headers as Headers & { getSetCookie?: () => string[] };
+	const headers = response.headers as Headers & {
+		getSetCookie?: () => string[];
+	};
 	return headers.getSetCookie?.() ?? [];
 }
 
@@ -22,7 +29,9 @@ test.describe("not found", () => {
 		await expect(page.getByText("This page could not be found.")).toBeVisible();
 	});
 
-	test("unmatched route renders React 404 page for browser requests", async ({ page }) => {
+	test("unmatched route renders React 404 page for browser requests", async ({
+		page,
+	}) => {
 		const response = await page.goto("/a/b/does-not-exist");
 		expect(response?.status()).toBe(404);
 		await expect(page.getByText("404")).toBeVisible();
@@ -80,13 +89,17 @@ test.describe("middleware with use()", () => {
 		const response = await fetch(`${baseURL}/`, {
 			headers: { "sec-fetch-dest": "document" },
 		});
-		expect(response.headers.get("x-middleware-response-type")).toBe("text/html;charset=utf-8");
+		expect(response.headers.get("x-middleware-response-type")).toBe(
+			"text/html;charset=utf-8",
+		);
 	});
 	test("middleware receives RSC flight response for RSC requests", async () => {
 		const response = await fetch(`${baseURL}/?__rsc=1`, {
 			headers: { accept: "text/x-component" },
 		});
-		expect(response.headers.get("x-middleware-response-type")).toBe("text/x-component;charset=utf-8");
+		expect(response.headers.get("x-middleware-response-type")).toBe(
+			"text/x-component;charset=utf-8",
+		);
 	});
 	test("api routes can set response headers through context.response", async () => {
 		const response = await fetch(`${baseURL}/api/response-headers`);
@@ -134,7 +147,9 @@ test.describe("response headers from page and layout handlers", () => {
 		expect(getSetCookies(response).join("\n")).toContain("before-redirect=1");
 	});
 
-	test("client-side navigation applies cookies from the rsc response", async ({ page }) => {
+	test("client-side navigation applies cookies from the rsc response", async ({
+		page,
+	}) => {
 		await page.goto("/response-nav");
 		await page.getByTestId("response-nav-link").click();
 		await expect(page.getByTestId("response-headers-page")).toBeVisible();
@@ -154,7 +169,9 @@ test.describe("layout provided client context", () => {
 		expect(await response.text()).toContain("from-layout-client-provider");
 	});
 
-	test("client context value is available after client navigation", async ({ page }) => {
+	test("client context value is available after client navigation", async ({
+		page,
+	}) => {
 		await page.goto("/layout-client-context-nav");
 		await page.getByTestId("layout-client-context-nav-link").click();
 		await expect(page.getByTestId("layout-client-context-value")).toHaveText(
@@ -187,14 +204,12 @@ test.describe("Head client components", () => {
 
 		await expect(page).toHaveTitle("Spiceflow Example");
 		await expect(page.locator('head meta[name="test"]')).toHaveCount(1);
-		await expect(page.locator('head meta[property="og:title"]')).toHaveAttribute(
-			"content",
-			"Spiceflow Example",
-		);
-		await expect(page.locator('head meta[property="og:image"]')).toHaveAttribute(
-			"content",
-			`${baseURL}/og-image.jpg`,
-		);
+		await expect(
+			page.locator('head meta[property="og:title"]'),
+		).toHaveAttribute("content", "Spiceflow Example");
+		await expect(
+			page.locator('head meta[property="og:image"]'),
+		).toHaveAttribute("content", `${baseURL}/og-image.jpg`);
 	});
 
 	test("page Head overrides layout title and meta tags by key", async () => {
@@ -209,16 +224,24 @@ test.describe("Head client components", () => {
 		expect(html).toContain("<title>Page title</title>");
 		expect(html).not.toContain("<title>Layout title</title>");
 		expect(html.match(/<meta name="description"/g)).toHaveLength(1);
-		expect(html).toContain('<meta name="description" content="Page description"/>');
+		expect(html).toContain(
+			'<meta name="description" content="Page description"/>',
+		);
 		expect(html).not.toContain(
 			'<meta name="description" content="Layout description"/>',
 		);
 		expect(html.match(/<meta property="og:title"/g)).toHaveLength(1);
-		expect(html).toContain('<meta property="og:title" content="Page og:title"/>');
-		expect(html).not.toContain('<meta property="og:title" content="Layout og:title"/>');
+		expect(html).toContain(
+			'<meta property="og:title" content="Page og:title"/>',
+		);
+		expect(html).not.toContain(
+			'<meta property="og:title" content="Layout og:title"/>',
+		);
 	});
 
-	test("browser head keeps only page overrides after hydration", async ({ page }) => {
+	test("browser head keeps only page overrides after hydration", async ({
+		page,
+	}) => {
 		await page.goto("/meta-override");
 
 		await expect(page).toHaveTitle("Page title");
@@ -229,10 +252,9 @@ test.describe("Head client components", () => {
 			"Page description",
 		);
 		await expect(page.locator('head meta[property="og:title"]')).toHaveCount(1);
-		await expect(page.locator('head meta[property="og:title"]')).toHaveAttribute(
-			"content",
-			"Page og:title",
-		);
+		await expect(
+			page.locator('head meta[property="og:title"]'),
+		).toHaveAttribute("content", "Page og:title");
 	});
 });
 
@@ -266,7 +288,9 @@ test.describe("redirect", () => {
 test("client reference", async ({ page }) => {
 	await page.goto("/");
 	await page.getByText("[hydrated: 1]").click();
-	const clientCounter = page.getByTestId("client-counter").filter({ hasText: "Client counter" });
+	const clientCounter = page
+		.getByTestId("client-counter")
+		.filter({ hasText: "Client counter" });
 	await clientCounter.getByText("Client counter: 0").click();
 	await clientCounter.getByRole("button", { name: "+" }).click();
 	await clientCounter.getByText("Client counter: 1").click();
@@ -382,7 +406,9 @@ test.describe("SSR error fallback (__NO_HYDRATE)", () => {
 		expect(hasFlag).toBe(true);
 	});
 
-	test("normal page HTML does not contain __NO_HYDRATE", async ({ request }) => {
+	test("normal page HTML does not contain __NO_HYDRATE", async ({
+		request,
+	}) => {
 		const response = await request.get(`${baseURL}/`);
 		expect(response.status()).toBe(200);
 		const html = await response.text();
@@ -410,19 +436,23 @@ test.describe("server component throws error", () => {
 		expect(response.status).toBe(500);
 		const html = await response.text();
 		expect(html).toContain("__NO_HYDRATE");
-		expect(html).toContain("<noscript>500<!-- --> Internal Server Error</noscript>");
+		expect(html).toContain(
+			"<noscript>500<!-- --> Internal Server Error</noscript>",
+		);
 		expect(html).toContain("Server component error");
 	});
 
-	test("dev shows vite error overlay with error message @dev", async ({ page }) => {
+	test("dev shows vite error overlay with error message @dev", async ({
+		page,
+	}) => {
 		await page.goto("/rsc-error");
 		const hasFlag = await page.evaluate(() => "__NO_HYDRATE" in globalThis);
 		expect(hasFlag).toBe(true);
 		// In dev, ErrorBoundary rethrows → window.onerror → vite-error-overlay
 		const overlay = page.locator("vite-error-overlay");
 		await expect(overlay).toBeAttached();
-		const overlayText = await overlay.evaluate((el: Element) =>
-			el.shadowRoot?.textContent ?? "",
+		const overlayText = await overlay.evaluate(
+			(el: Element) => el.shadowRoot?.textContent ?? "",
 		);
 		expect(overlayText).toContain("Server component error");
 	});
@@ -438,25 +468,33 @@ test.describe("client component throws during render (SSR)", () => {
 		expect(response.status).toBe(500);
 		const html = await response.text();
 		expect(html).toContain("__NO_HYDRATE");
-		expect(html).toContain("<noscript>500<!-- --> Internal Server Error</noscript>");
+		expect(html).toContain(
+			"<noscript>500<!-- --> Internal Server Error</noscript>",
+		);
 	});
 
-	test("dev shows vite error overlay with error message @dev", async ({ page }) => {
+	test("dev shows vite error overlay with error message @dev", async ({
+		page,
+	}) => {
 		await page.goto("/client-error");
 		const overlay = page.locator("vite-error-overlay");
 		await expect(overlay).toBeAttached();
-		const overlayText = await overlay.evaluate((el: Element) =>
-			el.shadowRoot?.textContent ?? "",
+		const overlayText = await overlay.evaluate(
+			(el: Element) => el.shadowRoot?.textContent ?? "",
 		);
 		expect(overlayText).toContain("Client component error");
 	});
 
-	test("browser recovers via CSR when client component only throws during SSR", async ({ page }) => {
+	test("browser recovers via CSR when client component only throws during SSR", async ({
+		page,
+	}) => {
 		// ThrowsDuringSSR only throws on the server (typeof window === 'undefined').
 		// The __NO_HYDRATE fallback uses createRoot, so the component renders
 		// successfully in the browser without hydration mismatch.
 		await page.goto("/ssr-error-fallback");
-		await expect(page.getByTestId("ssr-recovered")).toContainText("Recovered via CSR");
+		await expect(page.getByTestId("ssr-recovered")).toContainText(
+			"Recovered via CSR",
+		);
 		const hasFlag = await page.evaluate(() => "__NO_HYDRATE" in globalThis);
 		expect(hasFlag).toBe(true);
 		// The layout shell is fully rendered by the browser — proves CSR recovery works
@@ -551,7 +589,9 @@ test.describe("CSS loading", () => {
 		await expect(serverEl).toBeVisible();
 		const color = await serverEl.evaluate((el) => getComputedStyle(el).color);
 		expect(color).toBe("rgb(37, 99, 235)");
-		const border = await serverEl.evaluate((el) => getComputedStyle(el).borderColor);
+		const border = await serverEl.evaluate(
+			(el) => getComputedStyle(el).borderColor,
+		);
 		expect(border).toBe("rgb(37, 99, 235)");
 	});
 
@@ -572,17 +612,20 @@ test.describe("CSS loading", () => {
 		// The HTML should contain stylesheet link tags
 		expect(html).toContain('rel="stylesheet"');
 	});
-
 });
 
 test.describe("layout stability during navigation", () => {
-	test("layout client component is not remounted on navigation", async ({ page }) => {
+	test("layout client component is not remounted on navigation", async ({
+		page,
+	}) => {
 		await page.goto("/");
 		await page.getByText("[hydrated: 1]").click();
 		// Layout useEffect ran once on mount
 		await expect(page.getByTestId("layout-mount-count")).toHaveText("1");
 		// Increment the layout counter to create client state we can track
-		const layoutCounter = page.getByTestId("client-counter").filter({ hasText: "Layout counter" });
+		const layoutCounter = page
+			.getByTestId("client-counter")
+			.filter({ hasText: "Layout counter" });
 		await layoutCounter.getByRole("button", { name: "+" }).click();
 		await layoutCounter.getByText("Layout counter: 1").click();
 		// Navigate to another page via client-side Link
@@ -602,7 +645,9 @@ test.describe("layout stability during navigation", () => {
 });
 
 test.describe("streaming async generator", () => {
-	test("client renders items incrementally before generator completes", async ({ page }) => {
+	test("client renders items incrementally before generator completes", async ({
+		page,
+	}) => {
 		// Use waitUntil:'commit' so Playwright doesn't wait for the full streaming response
 		await page.goto("/streaming", { waitUntil: "commit" });
 		// First item should appear while the generator is still yielding
@@ -610,7 +655,9 @@ test.describe("streaming async generator", () => {
 		await expect(firstItem).toBeVisible({ timeout: 10000 });
 		await expect(firstItem).toHaveText("message-1");
 		// Wait for all items to arrive
-		await expect(page.getByTestId("stream-done")).toBeVisible({ timeout: 10000 });
+		await expect(page.getByTestId("stream-done")).toBeVisible({
+			timeout: 10000,
+		});
 		const items = page.getByTestId("stream-item");
 		await expect(items).toHaveCount(3);
 		await expect(items.nth(0)).toHaveText("message-1");
@@ -667,14 +714,18 @@ test.describe("throw response status codes", () => {
 		expect(response.status).toBe(404);
 	});
 
-	test("throw notFound in page renders 404 page for browser request", async ({ page }) => {
+	test("throw notFound in page renders 404 page for browser request", async ({
+		page,
+	}) => {
 		const response = await page.goto("/throw-notfound-in-page");
 		expect(response?.status()).toBe(404);
 		await expect(page.getByText("404")).toBeVisible();
 		await expect(page.getByText("This page could not be found.")).toBeVisible();
 	});
 
-	test("throw notFound in layout renders 404 page for browser request", async ({ page }) => {
+	test("throw notFound in layout renders 404 page for browser request", async ({
+		page,
+	}) => {
 		const response = await page.goto("/throw-notfound-in-layout");
 		expect(response?.status()).toBe(404);
 		await expect(page.getByText("404")).toBeVisible();
@@ -697,7 +748,9 @@ test.describe("client-side navigation with throw response", () => {
 		await expect(page).toHaveURL("/other");
 	});
 
-	test("throw notFound in page renders 404 page and preserves URL", async ({ page }) => {
+	test("throw notFound in page renders 404 page and preserves URL", async ({
+		page,
+	}) => {
 		await page.goto("/");
 		await page.getByText("[hydrated: 1]").click();
 		await page.getByTestId("link-throw-notfound-page").click();
@@ -706,7 +759,9 @@ test.describe("client-side navigation with throw response", () => {
 		await expect(page).toHaveURL("/throw-notfound-in-page");
 	});
 
-	test("throw notFound in layout renders 404 page and preserves URL", async ({ page }) => {
+	test("throw notFound in layout renders 404 page and preserves URL", async ({
+		page,
+	}) => {
 		await page.goto("/");
 		await page.getByText("[hydrated: 1]").click();
 		await page.getByTestId("link-throw-notfound-layout").click();
@@ -715,10 +770,14 @@ test.describe("client-side navigation with throw response", () => {
 		await expect(page).toHaveURL("/throw-notfound-in-layout");
 	});
 
-	test("layout state is preserved after client-side redirect from page", async ({ page }) => {
+	test("layout state is preserved after client-side redirect from page", async ({
+		page,
+	}) => {
 		await page.goto("/");
 		await page.getByText("[hydrated: 1]").click();
-		const layoutCounter = page.getByTestId("client-counter").filter({ hasText: "Layout counter" });
+		const layoutCounter = page
+			.getByTestId("client-counter")
+			.filter({ hasText: "Layout counter" });
 		await layoutCounter.getByRole("button", { name: "+" }).click();
 		await expect(layoutCounter.getByText("Layout counter: 1")).toBeVisible();
 		await page.getByTestId("link-throw-redirect-page").click();
@@ -726,10 +785,14 @@ test.describe("client-side navigation with throw response", () => {
 		await expect(layoutCounter.getByText("Layout counter: 1")).toBeVisible();
 	});
 
-	test("layout state is preserved after client-side redirect from layout", async ({ page }) => {
+	test("layout state is preserved after client-side redirect from layout", async ({
+		page,
+	}) => {
 		await page.goto("/");
 		await page.getByText("[hydrated: 1]").click();
-		const layoutCounter = page.getByTestId("client-counter").filter({ hasText: "Layout counter" });
+		const layoutCounter = page
+			.getByTestId("client-counter")
+			.filter({ hasText: "Layout counter" });
 		await layoutCounter.getByRole("button", { name: "+" }).click();
 		await expect(layoutCounter.getByText("Layout counter: 1")).toBeVisible();
 		await page.getByTestId("link-throw-redirect-layout").click();
@@ -739,7 +802,9 @@ test.describe("client-side navigation with throw response", () => {
 });
 
 test.describe("slow throw response (>50ms) still works via client-side fallback", () => {
-	test("slow redirect navigates to target via client-side", async ({ page }) => {
+	test("slow redirect navigates to target via client-side", async ({
+		page,
+	}) => {
 		await page.goto("/");
 		await page.getByText("[hydrated: 1]").click();
 		await page.getByTestId("link-slow-redirect").click();
@@ -757,17 +822,23 @@ test.describe("slow throw response (>50ms) still works via client-side fallback"
 });
 
 test.describe("soft 404 during client-side navigation (no hard reload)", () => {
-	test("layout state is preserved when navigating to a 404 page", async ({ page }) => {
+	test("layout state is preserved when navigating to a 404 page", async ({
+		page,
+	}) => {
 		await page.goto("/");
 		await page.getByText("[hydrated: 1]").click();
 
 		// Create layout state we can track
-		const layoutCounter = page.getByTestId("client-counter").filter({ hasText: "Layout counter" });
+		const layoutCounter = page
+			.getByTestId("client-counter")
+			.filter({ hasText: "Layout counter" });
 		await layoutCounter.getByRole("button", { name: "+" }).click();
 		await expect(layoutCounter.getByText("Layout counter: 1")).toBeVisible();
 
 		// Set a sentinel to detect full page reloads
-		await page.evaluate(() => { (window as any).__softNavSentinel = true });
+		await page.evaluate(() => {
+			(window as any).__softNavSentinel = true;
+		});
 
 		// Navigate to a route that throws notFound() — should be a soft navigation
 		await page.getByTestId("link-throw-notfound-page").click();
@@ -778,11 +849,15 @@ test.describe("soft 404 during client-side navigation (no hard reload)", () => {
 		await expect(layoutCounter.getByText("Layout counter: 1")).toBeVisible();
 
 		// Sentinel should still be present — proves no full page reload
-		const sentinel = await page.evaluate(() => (window as any).__softNavSentinel);
+		const sentinel = await page.evaluate(
+			() => (window as any).__softNavSentinel,
+		);
 		expect(sentinel).toBe(true);
 	});
 
-	test("can navigate away from 404 page back to a working page", async ({ page }) => {
+	test("can navigate away from 404 page back to a working page", async ({
+		page,
+	}) => {
 		await page.goto("/");
 		await page.getByText("[hydrated: 1]").click();
 
@@ -798,17 +873,23 @@ test.describe("soft 404 during client-side navigation (no hard reload)", () => {
 });
 
 test.describe("soft server error during client-side navigation", () => {
-	test("layout state is preserved when navigating to a page with server error @build", async ({ page }) => {
+	test("layout state is preserved when navigating to a page with server error @build", async ({
+		page,
+	}) => {
 		await page.goto("/");
 		await page.getByText("[hydrated: 1]").click();
 
 		// Create layout state we can track
-		const layoutCounter = page.getByTestId("client-counter").filter({ hasText: "Layout counter" });
+		const layoutCounter = page
+			.getByTestId("client-counter")
+			.filter({ hasText: "Layout counter" });
 		await layoutCounter.getByRole("button", { name: "+" }).click();
 		await expect(layoutCounter.getByText("Layout counter: 1")).toBeVisible();
 
 		// Set a sentinel to detect full page reloads
-		await page.evaluate(() => { (window as any).__softNavSentinel = true });
+		await page.evaluate(() => {
+			(window as any).__softNavSentinel = true;
+		});
 
 		// Navigate to a page that throws a server error
 		await page.getByTestId("link-rsc-error").click();
@@ -816,13 +897,17 @@ test.describe("soft server error during client-side navigation", () => {
 		// Should show an error state in the error boundary, not a hard reload.
 		// The error from the flight stream doesn't carry __REACT_SERVER_ERROR__ digest,
 		// so the inner error boundary renders the inline error page.
-		await expect(page.getByText("Application Error")).toBeVisible({ timeout: 5000 });
+		await expect(page.getByText("Application Error")).toBeVisible({
+			timeout: 5000,
+		});
 
 		// Layout state should be preserved
 		await expect(layoutCounter.getByText("Layout counter: 1")).toBeVisible();
 
 		// Sentinel should still be present
-		const sentinel = await page.evaluate(() => (window as any).__softNavSentinel);
+		const sentinel = await page.evaluate(
+			() => (window as any).__softNavSentinel,
+		);
 		expect(sentinel).toBe(true);
 	});
 });
@@ -836,7 +921,10 @@ test.describe("navigation abort controller", () => {
 		const rscRequests: { url: string; aborted: boolean }[] = [];
 		page.on("requestfailed", (req) => {
 			if (req.url().includes("__rsc")) {
-				rscRequests.push({ url: req.url(), aborted: req.failure()?.errorText === "net::ERR_ABORTED" });
+				rscRequests.push({
+					url: req.url(),
+					aborted: req.failure()?.errorText === "net::ERR_ABORTED",
+				});
 			}
 		});
 		page.on("requestfinished", (req) => {
@@ -853,7 +941,11 @@ test.describe("navigation abort controller", () => {
 		await expect(page).toHaveURL("/other");
 
 		// The slow page RSC fetch should have been aborted (poll until abort is recorded)
-		await expect.poll(() => rscRequests.find((r) => r.url.includes("/slow")), { timeout: 2000 }).toBeTruthy();
+		await expect
+			.poll(() => rscRequests.find((r) => r.url.includes("/slow")), {
+				timeout: 2000,
+			})
+			.toBeTruthy();
 		const slowRequest = rscRequests.find((r) => r.url.includes("/slow"));
 		expect(slowRequest!.aborted).toBe(true);
 
@@ -865,13 +957,17 @@ test.describe("navigation abort controller", () => {
 });
 
 test.describe("error boundary auto-reset on navigation", () => {
-	test("error boundary clears when navigating to a new page @build", async ({ page }) => {
+	test("error boundary clears when navigating to a new page @build", async ({
+		page,
+	}) => {
 		await page.goto("/");
 		await page.getByText("[hydrated: 1]").click();
 
 		// Navigate to a page with a server error to trigger the error boundary
 		await page.getByTestId("link-rsc-error").click();
-		await expect(page.getByText("Application Error")).toBeVisible({ timeout: 5000 });
+		await expect(page.getByText("Application Error")).toBeVisible({
+			timeout: 5000,
+		});
 
 		// Navigate back to home — error boundary should auto-reset
 		await page.getByRole("link", { name: "Home" }).click();
@@ -888,31 +984,43 @@ test.describe("error boundary auto-reset on navigation", () => {
 function stabilize(content: string) {
 	return content
 		.replace(/I\["[a-f0-9]+"/g, 'I["<REF>"')
-		.replace(/\/assets\/([a-zA-Z_-]+)-[a-zA-Z0-9_-]+\.(css|js)/g, "/assets/$1-<HASH>.$2")
+		.replace(
+			/\/assets\/([a-zA-Z_-]+)-[a-zA-Z0-9_-]+\.(css|js)/g,
+			"/assets/$1-<HASH>.$2",
+		)
 		.replace(/id="_R[a-zA-Z0-9_]*"/g, 'id="_R"')
 		.replace(/<script id="_R[a-zA-Z0-9_]*">/g, '<script id="_R">')
 		.replace(/import\("[^"]*"\)/g, 'import("<ENTRY>")')
-		.replace(/(self\.__FLIGHT_DATA\|\|=\[\])\.push\("[^"]*"\)/g, "$1.push(<FLIGHT_CHUNK>)");
+		.replace(
+			/(self\.__FLIGHT_DATA\|\|=\[\])\.push\("[^"]*"\)/g,
+			"$1.push(<FLIGHT_CHUNK>)",
+		);
 }
 
 test.describe("prerender", () => {
 	test("staticPage renders correctly", async ({ page }) => {
 		await page.goto("/static/one");
 		await expect(page.getByTestId("static-page")).toBeVisible();
-		await expect(page.getByText("This is a static page with id one")).toBeVisible();
+		await expect(
+			page.getByText("This is a static page with id one"),
+		).toBeVisible();
 	});
 
 	test("staticPage renders with different id", async ({ page }) => {
 		await page.goto("/static/two");
 		await expect(page.getByTestId("static-page")).toBeVisible();
-		await expect(page.getByText("This is a static page with id two")).toBeVisible();
+		await expect(
+			page.getByText("This is a static page with id two"),
+		).toBeVisible();
 	});
 
 	test("client navigation to staticPage works", async ({ page }) => {
 		await page.goto("/prerender-nav");
 		await page.getByTestId("link-static-one").click();
 		await expect(page.getByTestId("static-page")).toBeVisible();
-		await expect(page.getByText("This is a static page with id one")).toBeVisible();
+		await expect(
+			page.getByText("This is a static page with id one"),
+		).toBeVisible();
 	});
 });
 
@@ -926,7 +1034,9 @@ test.describe("prerender css", () => {
 		await expect(el).toHaveCSS("padding", "12px");
 	});
 
-	test("CSS is applied after client navigation to prerendered page", async ({ page }) => {
+	test("CSS is applied after client navigation to prerendered page", async ({
+		page,
+	}) => {
 		await page.goto("/");
 		await expect(page.getByText("Server counter:")).toBeVisible();
 		// Navigate to a prerendered page via client-side link
@@ -952,7 +1062,10 @@ test.describe("prerender @build", () => {
 		const fs = await import("node:fs");
 		const raw = fs.readFileSync("dist/client/static/one.rsc", "utf-8");
 		// Write to file for debugging instead of snapshots that break on unrelated changes
-		fs.writeFileSync("test-results/prerendered-rsc-flight-data.txt", stabilize(raw));
+		fs.writeFileSync(
+			"test-results/prerendered-rsc-flight-data.txt",
+			stabilize(raw),
+		);
 		expect(raw.length).toBeGreaterThan(0);
 		expect(raw).toContain("static page with id");
 	});
@@ -1038,11 +1151,15 @@ test.describe("middleware page cache", () => {
 	test("cached page renders correctly in browser", async ({ page }) => {
 		await page.goto("/cached-page");
 		await expect(page.getByTestId("cached-page")).toBeVisible();
-		await expect(page.getByRole("heading", { name: "Cached Page" })).toBeVisible();
+		await expect(
+			page.getByRole("heading", { name: "Cached Page" }),
+		).toBeVisible();
 		await expect(page.getByTestId("cached-render-count")).toHaveText("1");
 	});
 
-	test("cached page serves same content on reload (render count stays 1)", async ({ page }) => {
+	test("cached page serves same content on reload (render count stays 1)", async ({
+		page,
+	}) => {
 		await page.goto("/cached-page");
 		await expect(page.getByTestId("cached-render-count")).toHaveText("1");
 		const firstRandom = await page.getByTestId("cached-random").textContent();
@@ -1053,7 +1170,9 @@ test.describe("middleware page cache", () => {
 		expect(secondRandom).toBe(firstRandom);
 	});
 
-	test("client-side navigation to cached page returns cached RSC payload", async ({ page }) => {
+	test("client-side navigation to cached page returns cached RSC payload", async ({
+		page,
+	}) => {
 		// Start on home — has [hydrated: 1] marker for confirming JS is ready
 		await page.goto("/");
 		await page.getByText("[hydrated: 1]").click();
@@ -1086,7 +1205,9 @@ test.describe("middleware page cache", () => {
 		expect(navRandom).toBe(primeRandom);
 	});
 
-	test("client-side nav from layout link uses cached RSC payload", async ({ page }) => {
+	test("client-side nav from layout link uses cached RSC payload", async ({
+		page,
+	}) => {
 		// Start on home page
 		await page.goto("/");
 		await page.getByText("[hydrated: 1]").click();
@@ -1139,10 +1260,14 @@ test.describe("deployment id @build", () => {
 });
 
 test.describe("server actions", () => {
-	test("simple server action called from client returns value", async ({ page }) => {
+	test("simple server action called from client returns value", async ({
+		page,
+	}) => {
 		await page.goto("/server-action-simple");
 		// Wait for hydration (layout mount tracker increments from 0 to 1)
-		await expect(page.getByTestId("layout-mount-count")).toHaveText("1", { timeout: 10000 });
+		await expect(page.getByTestId("layout-mount-count")).toHaveText("1", {
+			timeout: 10000,
+		});
 		await page.getByTestId("call-simple-action").click();
 		await expect(page.getByTestId("simple-action-result")).toHaveText(
 			"echo: hello",
@@ -1150,9 +1275,13 @@ test.describe("server actions", () => {
 		);
 	});
 
-	test("server action returning async generator streams items incrementally", async ({ page }) => {
+	test("server action returning async generator streams items incrementally", async ({
+		page,
+	}) => {
 		await page.goto("/server-action-streaming");
-		await expect(page.getByTestId("layout-mount-count")).toHaveText("1", { timeout: 10000 });
+		await expect(page.getByTestId("layout-mount-count")).toHaveText("1", {
+			timeout: 10000,
+		});
 		await page.getByTestId("start-streaming").click();
 		// First item should appear before the generator completes
 		const firstItem = page.getByTestId("action-stream-item").first();
@@ -1173,7 +1302,9 @@ test.describe("server actions", () => {
 		page,
 	}) => {
 		await page.goto("/form");
-		await expect(page.getByTestId("layout-mount-count")).toHaveText("1", { timeout: 10000 });
+		await expect(page.getByTestId("layout-mount-count")).toHaveText("1", {
+			timeout: 10000,
+		});
 		await page.locator('input[name="name"]').fill("test");
 		await page.getByRole("button", { name: "Submit" }).click();
 		await expect(page.locator("pre")).toContainText('"result":"ok"', {
@@ -1181,11 +1312,17 @@ test.describe("server actions", () => {
 		});
 	});
 
-	test("server action called directly preserves client component state", async ({ page }) => {
+	test("server action called directly preserves client component state", async ({
+		page,
+	}) => {
 		await page.goto("/server-action-simple");
-		await expect(page.getByTestId("layout-mount-count")).toHaveText("1", { timeout: 10000 });
+		await expect(page.getByTestId("layout-mount-count")).toHaveText("1", {
+			timeout: 10000,
+		});
 		// Increment the layout counter to set some client state
-		const layoutCounter = page.getByTestId("client-counter").filter({ hasText: "Layout" });
+		const layoutCounter = page
+			.getByTestId("client-counter")
+			.filter({ hasText: "Layout" });
 		await layoutCounter.getByRole("button", { name: "+" }).click();
 		await expect(layoutCounter).toContainText("Layout counter: 1");
 		// Call the server action
@@ -1198,38 +1335,59 @@ test.describe("server actions", () => {
 		await expect(layoutCounter).toContainText("Layout counter: 1");
 	});
 
-	test("throw redirect() in server action navigates to target", async ({ page }) => {
+	test("throw redirect() in server action navigates to target", async ({
+		page,
+	}) => {
 		await page.goto("/form-redirect");
-		await expect(page.getByTestId("layout-mount-count")).toHaveText("1", { timeout: 10000 });
+		await expect(page.getByTestId("layout-mount-count")).toHaveText("1", {
+			timeout: 10000,
+		});
 		await page.locator('input[name="name"]').fill("test");
 		await page.getByRole("button", { name: "Submit" }).click();
 		await expect(page).toHaveURL("/", { timeout: 10000 });
 	});
 
-	test("throw Error in server action propagates to client", async ({ page }) => {
+	test("throw Error in server action propagates to client", async ({
+		page,
+	}) => {
 		const errors: string[] = [];
 		page.on("pageerror", (err) => errors.push(err.message));
 		await page.goto("/form-error");
-		await expect(page.getByTestId("layout-mount-count")).toHaveText("1", { timeout: 10000 });
+		await expect(page.getByTestId("layout-mount-count")).toHaveText("1", {
+			timeout: 10000,
+		});
 		await page.locator('input[name="name"]').fill("test");
 		await page.getByRole("button", { name: "Submit" }).click();
 		// The error reaches the client as a pageerror or shows in the error boundary
-		await expect.poll(async () => {
-			const bodyText = await page.evaluate(() => document.body?.textContent ?? "");
-			return (
-				errors.some((e) => e.includes("test error")) ||
-				bodyText.includes("test error") ||
-				bodyText.includes("Application Error")
-			);
-		}, { timeout: 5000 }).toBe(true);
+		await expect
+			.poll(
+				async () => {
+					const bodyText = await page.evaluate(
+						() => document.body?.textContent ?? "",
+					);
+					return (
+						errors.some((e) => e.includes("test error")) ||
+						bodyText.includes("test error") ||
+						bodyText.includes("Application Error")
+					);
+				},
+				{ timeout: 5000 },
+			)
+			.toBe(true);
 	});
 
-	test("inline 'use server' with closure revalidates the page after submit", async ({ page }) => {
+	test("inline 'use server' with closure revalidates the page after submit", async ({
+		page,
+	}) => {
 		const errors: string[] = [];
 		page.on("pageerror", (err) => errors.push(err.message));
 		await page.goto("/inline-action-with-closure");
-		await expect(page.getByTestId("layout-mount-count")).toHaveText("1", { timeout: 10000 });
-		const countBefore = await page.getByTestId("inline-action-render-count").textContent();
+		await expect(page.getByTestId("layout-mount-count")).toHaveText("1", {
+			timeout: 10000,
+		});
+		const countBefore = await page
+			.getByTestId("inline-action-render-count")
+			.textContent();
 		await page.locator('input[name="name"]').fill("world");
 		await page.getByRole("button", { name: "Submit" }).click();
 		// After the action completes, the page should revalidate (re-render on server),
@@ -1241,50 +1399,78 @@ test.describe("server actions", () => {
 		expect(errors).toEqual([]);
 	});
 
-	test("direct server action throwing redirect navigates to target", async ({ page }) => {
+	test("direct server action throwing redirect navigates to target", async ({
+		page,
+	}) => {
 		await page.goto("/server-action-redirect");
-		await expect(page.getByTestId("layout-mount-count")).toHaveText("1", { timeout: 10000 });
+		await expect(page.getByTestId("layout-mount-count")).toHaveText("1", {
+			timeout: 10000,
+		});
 		await page.getByTestId("call-redirect-action").click();
 		await expect(page).toHaveURL("/other", { timeout: 10000 });
 	});
 });
 
 test.describe("loaders", () => {
-	test("wildcard loader data is passed to page via ctx.loaderData (SSR)", async ({ page }) => {
+	test("wildcard loader data is passed to page via ctx.loaderData (SSR)", async ({
+		page,
+	}) => {
 		await page.goto("/loader-test");
-		const serverData = await page.getByTestId("loader-data-server").textContent();
+		const serverData = await page
+			.getByTestId("loader-data-server")
+			.textContent();
 		const parsed = JSON.parse(serverData!);
 		expect(parsed.global).toBe("from-wildcard-loader");
 	});
 
-	test("wildcard + exact loaders merge for nested page (SSR)", async ({ page }) => {
+	test("wildcard + exact loaders merge for nested page (SSR)", async ({
+		page,
+	}) => {
 		await page.goto("/loader-test/nested");
-		const serverData = await page.getByTestId("loader-data-server").textContent();
+		const serverData = await page
+			.getByTestId("loader-data-server")
+			.textContent();
 		const parsed = JSON.parse(serverData!);
 		expect(parsed.global).toBe("from-wildcard-loader");
 		expect(parsed.nested).toBe("from-nested-loader");
 	});
 
-	test("only wildcard loader matches for pages without exact loader (SSR)", async ({ page }) => {
+	test("only wildcard loader matches for pages without exact loader (SSR)", async ({
+		page,
+	}) => {
 		await page.goto("/loader-test/other");
-		const serverData = await page.getByTestId("loader-data-server").textContent();
+		const serverData = await page
+			.getByTestId("loader-data-server")
+			.textContent();
 		const parsed = JSON.parse(serverData!);
 		expect(parsed.global).toBe("from-wildcard-loader");
 		expect(parsed.nested).toBeUndefined();
 	});
 
-	test("useLoaderData hook renders loader data on client after hydration", async ({ page }) => {
+	test("useLoaderData hook renders loader data on client after hydration", async ({
+		page,
+	}) => {
 		await page.goto("/loader-test");
-		await expect(page.getByTestId("loader-data-client")).toBeVisible({ timeout: 10000 });
-		const clientData = await page.getByTestId("loader-data-client").textContent();
+		await expect(page.getByTestId("loader-data-client")).toBeVisible({
+			timeout: 10000,
+		});
+		const clientData = await page
+			.getByTestId("loader-data-client")
+			.textContent();
 		const parsed = JSON.parse(clientData!);
 		expect(parsed.global).toBe("from-wildcard-loader");
 	});
 
-	test("useLoaderData shows merged data for nested page after hydration", async ({ page }) => {
+	test("useLoaderData shows merged data for nested page after hydration", async ({
+		page,
+	}) => {
 		await page.goto("/loader-test/nested");
-		await expect(page.getByTestId("loader-data-client")).toBeVisible({ timeout: 10000 });
-		const clientData = await page.getByTestId("loader-data-client").textContent();
+		await expect(page.getByTestId("loader-data-client")).toBeVisible({
+			timeout: 10000,
+		});
+		const clientData = await page
+			.getByTestId("loader-data-client")
+			.textContent();
 		const parsed = JSON.parse(clientData!);
 		expect(parsed.global).toBe("from-wildcard-loader");
 		expect(parsed.nested).toBe("from-nested-loader");
@@ -1293,13 +1479,19 @@ test.describe("loaders", () => {
 	test("client-side navigation updates loader data", async ({ page }) => {
 		await page.goto("/loader-nav-start");
 		// Wait for hydration
-		await expect(page.getByTestId("link-loader-nested")).toBeVisible({ timeout: 10000 });
+		await expect(page.getByTestId("link-loader-nested")).toBeVisible({
+			timeout: 10000,
+		});
 
 		// Navigate to nested (has wildcard + exact loaders)
 		await page.getByTestId("link-loader-nested").click();
 		await expect(page).toHaveURL("/loader-test/nested", { timeout: 10000 });
-		await expect(page.getByTestId("loader-data-client")).toBeVisible({ timeout: 10000 });
-		const nestedData = await page.getByTestId("loader-data-client").textContent();
+		await expect(page.getByTestId("loader-data-client")).toBeVisible({
+			timeout: 10000,
+		});
+		const nestedData = await page
+			.getByTestId("loader-data-client")
+			.textContent();
 		const nestedParsed = JSON.parse(nestedData!);
 		expect(nestedParsed.global).toBe("from-wildcard-loader");
 		expect(nestedParsed.nested).toBe("from-nested-loader");
@@ -1308,34 +1500,53 @@ test.describe("loaders", () => {
 		await page.getByTestId("link-loader-other").click();
 		await expect(page).toHaveURL("/loader-test/other", { timeout: 10000 });
 		// Wait for server data to update (confirms we got new page render)
-		await expect(page.getByTestId("loader-data-server")).toContainText("from-wildcard-loader", { timeout: 10000 });
+		await expect(page.getByTestId("loader-data-server")).toContainText(
+			"from-wildcard-loader",
+			{ timeout: 10000 },
+		);
 		// Client data should only have wildcard loader, not nested
 		await expect(async () => {
-			const otherData = await page.getByTestId("loader-data-client").textContent();
+			const otherData = await page
+				.getByTestId("loader-data-client")
+				.textContent();
 			const otherParsed = JSON.parse(otherData!);
 			expect(otherParsed.global).toBe("from-wildcard-loader");
 			expect(otherParsed.nested).toBeUndefined();
 		}).toPass({ timeout: 10000 });
 	});
 
-	test("client-side navigation from non-loader page to loader page gets data", async ({ page }) => {
+	test("client-side navigation from non-loader page to loader page gets data", async ({
+		page,
+	}) => {
 		await page.goto("/loader-nav-start");
-		await expect(page.getByTestId("link-loader-test")).toBeVisible({ timeout: 10000 });
+		await expect(page.getByTestId("link-loader-test")).toBeVisible({
+			timeout: 10000,
+		});
 
 		await page.getByTestId("link-loader-test").click();
 		await expect(page).toHaveURL("/loader-test", { timeout: 10000 });
-		await expect(page.getByTestId("loader-data-client")).toBeVisible({ timeout: 10000 });
+		await expect(page.getByTestId("loader-data-client")).toBeVisible({
+			timeout: 10000,
+		});
 		const data = await page.getByTestId("loader-data-client").textContent();
 		const parsed = JSON.parse(data!);
 		expect(parsed.global).toBe("from-wildcard-loader");
 	});
 
-	test("server and client loader data match on initial load", async ({ page }) => {
+	test("server and client loader data match on initial load", async ({
+		page,
+	}) => {
 		await page.goto("/loader-test/nested");
-		await expect(page.getByTestId("loader-data-client")).toBeVisible({ timeout: 10000 });
+		await expect(page.getByTestId("loader-data-client")).toBeVisible({
+			timeout: 10000,
+		});
 
-		const serverData = await page.getByTestId("loader-data-server").textContent();
-		const clientData = await page.getByTestId("loader-data-client").textContent();
+		const serverData = await page
+			.getByTestId("loader-data-server")
+			.textContent();
+		const clientData = await page
+			.getByTestId("loader-data-client")
+			.textContent();
 		expect(JSON.parse(serverData!)).toEqual(JSON.parse(clientData!));
 	});
 
@@ -1385,9 +1596,13 @@ test.describe("loaders", () => {
 		expect(text).not.toContain("should not render");
 	});
 
-	test("getLoaderData resolves with correct data after hydration", async ({ page }) => {
+	test("getLoaderData resolves with correct data after hydration", async ({
+		page,
+	}) => {
 		await page.goto("/loader-test/global");
-		await expect(page.getByTestId("read-loader-data")).toBeVisible({ timeout: 10000 });
+		await expect(page.getByTestId("read-loader-data")).toBeVisible({
+			timeout: 10000,
+		});
 		// Read loader data via getLoaderData() exposed on window by test component
 		await expect(async () => {
 			const data = await page.evaluate(async () => {
@@ -1400,10 +1615,14 @@ test.describe("loaders", () => {
 		}).toPass({ timeout: 10000 });
 	});
 
-	test("getLoaderData updates after client-side navigation", async ({ page }) => {
+	test("getLoaderData updates after client-side navigation", async ({
+		page,
+	}) => {
 		// Start on a page with loader data, expose getLoaderData on window
 		await page.goto("/loader-test/global");
-		await expect(page.getByTestId("link-global-nested")).toBeVisible({ timeout: 10000 });
+		await expect(page.getByTestId("link-global-nested")).toBeVisible({
+			timeout: 10000,
+		});
 
 		// Navigate to nested page (has wildcard + exact loaders)
 		await page.getByTestId("link-global-nested").click();
@@ -1412,9 +1631,13 @@ test.describe("loaders", () => {
 		// The subscribe callback in loader-global-client.tsx stores updated data.
 		// After navigation, check the useLoaderData hook (React path) which reads
 		// from the flight context — confirms the RSC payload has the merged data.
-		await expect(page.getByTestId("loader-data-client")).toBeVisible({ timeout: 10000 });
+		await expect(page.getByTestId("loader-data-client")).toBeVisible({
+			timeout: 10000,
+		});
 		await expect(async () => {
-			const clientData = await page.getByTestId("loader-data-client").textContent();
+			const clientData = await page
+				.getByTestId("loader-data-client")
+				.textContent();
 			const parsed = JSON.parse(clientData!);
 			expect(parsed.global).toBe("from-wildcard-loader");
 			expect(parsed.nested).toBe("from-nested-loader");
@@ -1423,24 +1646,34 @@ test.describe("loaders", () => {
 });
 
 test.describe(".server.ts file guard", () => {
-	test("page renders normally when .server.ts is not imported from client @dev", async ({ page }) => {
+	test("page renders normally when .server.ts is not imported from client @dev", async ({
+		page,
+	}) => {
 		await page.goto("/server-guard-test");
-		await expect(page.getByTestId("server-guard-test")).toContainText("server guard ok");
+		await expect(page.getByTestId("server-guard-test")).toContainText(
+			"server guard ok",
+		);
 	});
 
-	test("importing .server.ts from client component shows error @dev", async ({ page }) => {
+	test("importing .server.ts from client component shows error @dev", async ({
+		page,
+	}) => {
 		// Load any page to establish HMR connection, then dynamically import
 		// the bad module. The resolveId hook throws during import analysis in
 		// the client environment. The terminal shows "Server-only module
 		// referenced by client"; the browser overlay shows the module fetch failure.
 		await page.goto("/server-guard-test");
-		await expect(page.getByTestId("server-guard-test")).toContainText("server guard ok");
+		await expect(page.getByTestId("server-guard-test")).toContainText(
+			"server guard ok",
+		);
 		// Trigger client-env resolution by importing the module from the browser
-		page.evaluate(() => import("/src/app/bad-server-import-client.tsx")).catch(() => {});
+		page
+			.evaluate(() => import("/src/app/bad-server-import-client.tsx"))
+			.catch(() => {});
 		const overlay = page.locator("vite-error-overlay");
 		await expect(overlay).toBeAttached({ timeout: 10000 });
-		const overlayText = await overlay.evaluate((el: Element) =>
-			el.shadowRoot?.textContent ?? "",
+		const overlayText = await overlay.evaluate(
+			(el: Element) => el.shadowRoot?.textContent ?? "",
 		);
 		expect(overlayText).toContain("bad-server-import-client.tsx");
 	});

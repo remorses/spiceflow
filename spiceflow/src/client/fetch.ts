@@ -69,23 +69,24 @@ type AppClientPaths<App extends AnySpiceflow> = App extends {
 
 // Navigate the nested ClientRoutes tree given a path string.
 // Reverses what CreateClient does: `/users/:id` → Routes['users'][':id']
-type NavigateRoutes<Routes, Path extends string> =
-  Path extends `/${infer Rest}`
-    ? Rest extends ''
-      ? 'index' extends keyof Routes
-        ? Routes['index']
-        : never
-      : _NavigateRoutes<Routes, Rest>
-    : _NavigateRoutes<Routes, Path>
+type NavigateRoutes<Routes, Path extends string> = Path extends `/${infer Rest}`
+  ? Rest extends ''
+    ? 'index' extends keyof Routes
+      ? Routes['index']
+      : never
+    : _NavigateRoutes<Routes, Rest>
+  : _NavigateRoutes<Routes, Path>
 
-type _NavigateRoutes<Routes, Path extends string> =
-  Path extends `${infer Segment}/${infer Rest}`
-    ? Segment extends keyof Routes
-      ? _NavigateRoutes<Routes[Segment], Rest>
-      : never
-    : Path extends keyof Routes
-      ? Routes[Path]
-      : never
+type _NavigateRoutes<
+  Routes,
+  Path extends string,
+> = Path extends `${infer Segment}/${infer Rest}`
+  ? Segment extends keyof Routes
+    ? _NavigateRoutes<Routes[Segment], Rest>
+    : never
+  : Path extends keyof Routes
+    ? Routes[Path]
+    : never
 
 type RouteAtPath<
   Routes extends Record<string, any>,
@@ -97,18 +98,18 @@ type MethodsAtPath<
   Path extends string,
 > = Extract<keyof RouteAtPath<Routes, Path>, HttpMethodLower>
 
-type AllowedMethod<
-  Routes extends Record<string, any>,
-  Path extends string,
-> = Uppercase<MethodsAtPath<Routes, Path>> | MethodsAtPath<Routes, Path>
+type AllowedMethod<Routes extends Record<string, any>, Path extends string> =
+  | Uppercase<MethodsAtPath<Routes, Path>>
+  | MethodsAtPath<Routes, Path>
 
 type RouteInfoForMethod<
   Routes extends Record<string, any>,
   Path extends string,
   Method extends string,
-> = Lowercase<Method> extends keyof RouteAtPath<Routes, Path>
-  ? RouteAtPath<Routes, Path>[Lowercase<Method>]
-  : never
+> =
+  Lowercase<Method> extends keyof RouteAtPath<Routes, Path>
+    ? RouteAtPath<Routes, Path>[Lowercase<Method>]
+    : never
 
 // ─── Options type ────────────────────────────────────────────────────────────
 
@@ -123,28 +124,30 @@ type QueryOption<
   Routes extends Record<string, any>,
   Path extends string,
   Method extends string,
-> = RouteInfoForMethod<Routes, Path, Method> extends {
-  query: infer Q
-}
-  ? undefined extends Q
-    ? { query?: Record<string, unknown> }
-    : { query: Q }
-  : { query?: Record<string, unknown> }
+> =
+  RouteInfoForMethod<Routes, Path, Method> extends {
+    query: infer Q
+  }
+    ? undefined extends Q
+      ? { query?: Record<string, unknown> }
+      : { query: Q }
+    : { query?: Record<string, unknown> }
 
 // Body option: typed from route schema, only for non-GET/HEAD/SUBSCRIBE methods
 type BodyOption<
   Routes extends Record<string, any>,
   Path extends string,
   Method extends string,
-> = Lowercase<Method> extends 'get' | 'head' | 'subscribe'
-  ? {}
-  : RouteInfoForMethod<Routes, Path, Method> extends {
-        request: infer Body
-      }
-    ? undefined extends Body
-      ? { body?: unknown }
-      : { body: Body }
-    : { body?: unknown }
+> =
+  Lowercase<Method> extends 'get' | 'head' | 'subscribe'
+    ? {}
+    : RouteInfoForMethod<Routes, Path, Method> extends {
+          request: infer Body
+        }
+      ? undefined extends Body
+        ? { body?: unknown }
+        : { body: Body }
+      : { body?: unknown }
 
 // Check if options has any required fields
 type HasRequiredFields<
@@ -244,7 +247,9 @@ type FetchResult<
   Routes extends Record<string, any>,
   Path extends string,
   Method extends string,
-> = FetchResultError<Routes, Path, Method> | FetchResultData<Routes, Path, Method>
+> =
+  | FetchResultError<Routes, Path, Method>
+  | FetchResultData<Routes, Path, Method>
 
 // ─── Public type ─────────────────────────────────────────────────────────────
 
@@ -286,10 +291,7 @@ type IsOptionsRequired<
 
 export interface SpiceflowFetch<App extends AnySpiceflow> {
   // Overload: options required when route demands params/query/body
-  <
-    const Path extends AppClientPaths<App>,
-    const Method extends string = 'GET',
-  >(
+  <const Path extends AppClientPaths<App>, const Method extends string = 'GET'>(
     ...args: IsOptionsRequired<App, Path, Method> extends true
       ? [path: Path, options: ResolveOptions<App, Path, Method>]
       : [path: Path, options?: ResolveOptions<App, Path, Method>]

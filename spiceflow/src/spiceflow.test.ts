@@ -1,6 +1,12 @@
 import { test, describe, expect, vi } from 'vitest'
 
-import { bfs, cloneDeep, createHref, extractWildcardParam, Spiceflow } from './spiceflow.tsx'
+import {
+  bfs,
+  cloneDeep,
+  createHref,
+  extractWildcardParam,
+  Spiceflow,
+} from './spiceflow.tsx'
 import { z } from 'zod'
 import { createSpiceflowClient } from './client/index.js'
 import { createSpiceflowFetch } from './client/fetch.ts'
@@ -47,7 +53,9 @@ test('listen() returns noop stop() during prerender', async () => {
   globalThisWithPrerender.__SPICEFLOW_PRERENDER = true
 
   try {
-    const listener = await new Spiceflow().get('/hello', () => 'Hello').listen(0)
+    const listener = await new Spiceflow()
+      .get('/hello', () => 'Hello')
+      .listen(0)
     const stop: () => Promise<void> = listener.stop
 
     expect(listener).toEqual(
@@ -530,7 +538,9 @@ test('GET with query and zod', async () => {
 test('GET with repeated empty query values preserves all values', async () => {
   const res = await new Spiceflow()
     .get('/query', ({ query }) => query.tag)
-    .handle(new Request('http://localhost/query?tag=&tag=two', { method: 'GET' }))
+    .handle(
+      new Request('http://localhost/query?tag=&tag=two', { method: 'GET' }),
+    )
 
   expect(res.status).toBe(200)
   expect(await res.json()).toEqual(['', 'two'])
@@ -556,7 +566,9 @@ test('GET wildcard path param is typed as optional', async () => {
       params['*'].toUpperCase()
       return params['*'] ?? 'none'
     })
-    .handle(new Request('http://localhost/files/path/to/file.txt', { method: 'GET' }))
+    .handle(
+      new Request('http://localhost/files/path/to/file.txt', { method: 'GET' }),
+    )
 
   expect(res.status).toBe(200)
   expect(await res.json()).toEqual('path/to/file.txt')
@@ -582,7 +594,9 @@ test('GET non-trailing ? stays in the param key type', async () => {
       params.id
       return params['id?']
     })
-    .handle(new Request('http://localhost/users/123/details', { method: 'GET' }))
+    .handle(
+      new Request('http://localhost/users/123/details', { method: 'GET' }),
+    )
 
   expect(res.status).toBe(200)
   expect(await res.json()).toEqual('123')
@@ -607,15 +621,12 @@ test('GET dynamic route with .route(), params are typed', async () => {
 
 test('GET dynamic route, params are typed with schema', async () => {
   const res = await new Spiceflow()
-    .get(
-      '/ids/:id',
-      ({ params }) => {
-        let id = params.id
-        // @ts-expect-error
-        params.sdfsd
-        return id
-      },
-    )
+    .get('/ids/:id', ({ params }) => {
+      let id = params.id
+      // @ts-expect-error
+      params.sdfsd
+      return id
+    })
     .handle(new Request('http://localhost/ids/hi', { method: 'GET' }))
   expect(res.status).toBe(200)
   expect(await res.json()).toEqual('hi')
@@ -885,9 +896,11 @@ test('renderReact merges page response headers into the flight response', async 
     })
 
     expect(response.headers.get('cache-control')).toBe('private, max-age=60')
-    const getSetCookie = (response.headers as Headers & {
-      getSetCookie?: () => string[]
-    }).getSetCookie
+    const getSetCookie = (
+      response.headers as Headers & {
+        getSetCookie?: () => string[]
+      }
+    ).getSetCookie
     expect(getSetCookie?.call(response.headers)).toEqual([
       'a=1; Path=/',
       'b=2; Path=/',
@@ -961,9 +974,11 @@ test('renderReact merges layout and page headers in route order', async () => {
     })
 
     expect(response.headers.get('cache-control')).toBe('page')
-    const getSetCookie = (response.headers as Headers & {
-      getSetCookie?: () => string[]
-    }).getSetCookie
+    const getSetCookie = (
+      response.headers as Headers & {
+        getSetCookie?: () => string[]
+      }
+    ).getSetCookie
     expect(getSetCookie?.call(response.headers)).toEqual([
       'layout=1; Path=/',
       'page=1; Path=/',
@@ -1228,9 +1243,11 @@ test('api routes can set response headers through context.response', async () =>
 
   expect(response.headers.get('x-api-header')).toBe('ok')
   expect((await response.json())?.ok).toBe(true)
-  const getSetCookie = (response.headers as Headers & {
-    getSetCookie?: () => string[]
-  }).getSetCookie
+  const getSetCookie = (
+    response.headers as Headers & {
+      getSetCookie?: () => string[]
+    }
+  ).getSetCookie
   expect(getSetCookie?.call(response.headers)).toEqual(['api-cookie=1; Path=/'])
 })
 
@@ -1252,7 +1269,9 @@ test('returned Response status takes precedence over context.response.status in 
     return new Response('accepted', { status: 202 })
   })
 
-  const response = await app.handle(new Request('http://localhost/response-wins'))
+  const response = await app.handle(
+    new Request('http://localhost/response-wins'),
+  )
 
   expect(response.status).toBe(202)
   expect(await response.text()).toBe('accepted')
@@ -1273,13 +1292,15 @@ test('document requests set a deployment cookie when a deployment id is availabl
 
   try {
     const { Spiceflow: FreshSpiceflow } = await import('./spiceflow.js')
-    const res = await new FreshSpiceflow().get('/', () => 'ok').handle(
-      new Request('http://localhost/', {
-        headers: {
-          'sec-fetch-dest': 'document',
-        },
-      }),
-    )
+    const res = await new FreshSpiceflow()
+      .get('/', () => 'ok')
+      .handle(
+        new Request('http://localhost/', {
+          headers: {
+            'sec-fetch-dest': 'document',
+          },
+        }),
+      )
 
     expect(res.headers.get('set-cookie')).toContain(
       'spiceflow-deployment=deploy-123',
@@ -1298,13 +1319,15 @@ test('rsc deployment mismatch returns a same-origin relative reload path', async
 
   try {
     const { Spiceflow: FreshSpiceflow } = await import('./spiceflow.js')
-    const res = await new FreshSpiceflow().get('/', () => 'ok').handle(
-      new Request('http://internal-proxy/app/page?__rsc=&q=1', {
-        headers: {
-          cookie: 'spiceflow-deployment=deploy-old',
-        },
-      }),
-    )
+    const res = await new FreshSpiceflow()
+      .get('/', () => 'ok')
+      .handle(
+        new Request('http://internal-proxy/app/page?__rsc=&q=1', {
+          headers: {
+            cookie: 'spiceflow-deployment=deploy-old',
+          },
+        }),
+      )
 
     expect(res.status).toBe(409)
     expect(res.headers.get('x-spiceflow-reload')).toBe('/app/page?q=1')
@@ -1893,9 +1916,7 @@ describe('href', () => {
     expect(app.href('/posts')).toBe('/posts')
     // @ts-expect-error
     app.href('/posts/*')
-    expect(app.href('/posts/*', { '*': 'some/key' })).toBe(
-      '/posts/some/key',
-    )
+    expect(app.href('/posts/*', { '*': 'some/key' })).toBe('/posts/some/key')
   })
 
   test('href with .route works for static and wildcard paths', () => {
@@ -2004,9 +2025,7 @@ describe('href', () => {
     // Valid paths work
     expect(app.href('/api/users')).toBe('/api/users')
     expect(app.href('/api/posts')).toBe('/api/posts')
-    expect(app.href('/api/settings/:id', { id: '1' })).toBe(
-      '/api/settings/1',
-    )
+    expect(app.href('/api/settings/:id', { id: '1' })).toBe('/api/settings/1')
 
     // Invalid paths should cause TypeScript errors
     // @ts-expect-error - Path not defined in app
@@ -2075,9 +2094,9 @@ describe('href', () => {
     expect(app.href('/search', { q: 'hello', page: 1 })).toBe(
       '/search?q=hello&page=1',
     )
-    expect(
-      app.href('/users/:id', { id: '42', fields: 'name' }),
-    ).toBe('/users/42?fields=name')
+    expect(app.href('/users/:id', { id: '42', fields: 'name' })).toBe(
+      '/users/42?fields=name',
+    )
 
     // @ts-expect-error - invalid query key 'invalid' not in schema
     app.href('/search', { invalid: 'x' })
@@ -2090,9 +2109,9 @@ describe('href', () => {
       query: z.object({ sort: z.string(), limit: z.coerce.number() }),
     })
 
-    expect(
-      app.href('/items', { sort: 'date', limit: 10 }),
-    ).toBe('/items?sort=date&limit=10')
+    expect(app.href('/items', { sort: 'date', limit: 10 })).toBe(
+      '/items?sort=date&limit=10',
+    )
 
     // @ts-expect-error - wrong query key
     app.href('/items', { order: 'asc' })
@@ -2117,9 +2136,9 @@ describe('href', () => {
       handler: () => 'search',
     })
 
-    expect(
-      app.href('/api/search', { term: 'test' }),
-    ).toBe('/api/search?term=test')
+    expect(app.href('/api/search', { term: 'test' })).toBe(
+      '/api/search?term=test',
+    )
 
     // @ts-expect-error - invalid query key for .route-based route
     app.href('/api/search', { wrong: 'x' })
@@ -2130,9 +2149,9 @@ describe('href', () => {
       query: z.object({ a: z.string(), b: z.string().optional() }),
     })
 
-    expect(
-      app.href('/filter', { a: 'yes', b: undefined }),
-    ).toBe('/filter?a=yes')
+    expect(app.href('/filter', { a: 'yes', b: undefined })).toBe(
+      '/filter?a=yes',
+    )
   })
 
   test('href query with basePath', () => {
@@ -2144,9 +2163,7 @@ describe('href', () => {
       },
     )
 
-    expect(
-      app.href('/api/search', { q: 'hello' }),
-    ).toBe('/api/search?q=hello')
+    expect(app.href('/api/search', { q: 'hello' })).toBe('/api/search?q=hello')
 
     // @ts-expect-error - invalid query key with basePath
     app.href('/api/search', { wrong: 'x' })
@@ -2164,15 +2181,9 @@ describe('href', () => {
         query: z.object({ confirm: z.boolean() }),
       })
 
-    expect(app.href('/put-q', { x: 'val' })).toBe(
-      '/put-q?x=val',
-    )
-    expect(app.href('/patch-q', { y: 5 })).toBe(
-      '/patch-q?y=5',
-    )
-    expect(app.href('/del-q', { confirm: true })).toBe(
-      '/del-q?confirm=true',
-    )
+    expect(app.href('/put-q', { x: 'val' })).toBe('/put-q?x=val')
+    expect(app.href('/patch-q', { y: 5 })).toBe('/patch-q?y=5')
+    expect(app.href('/del-q', { confirm: true })).toBe('/del-q?confirm=true')
 
     // @ts-expect-error - wrong query key on put
     app.href('/put-q', { wrong: 'x' })
@@ -2187,9 +2198,9 @@ describe('href', () => {
   test('href routes without query schema accept arbitrary query at runtime', () => {
     const app = new Spiceflow().get('/no-schema', () => 'ok')
 
-    expect(
-      app.href('/no-schema', { anything: 'works' }),
-    ).toBe('/no-schema?anything=works')
+    expect(app.href('/no-schema', { anything: 'works' })).toBe(
+      '/no-schema?anything=works',
+    )
   })
 
   test('href works with .page() routes', () => {
@@ -2228,9 +2239,7 @@ describe('href', () => {
   })
 
   test('href works with .staticPage() routes', () => {
-    const app = new Spiceflow()
-      .staticPage('/docs')
-      .staticPage('/changelog')
+    const app = new Spiceflow().staticPage('/docs').staticPage('/changelog')
 
     expect(app.href('/docs')).toBe('/docs')
     expect(app.href('/changelog')).toBe('/changelog')
@@ -2239,51 +2248,51 @@ describe('href', () => {
   })
 
   test('page() object API with query schema', () => {
-    const app = new Spiceflow()
-      .page({
-        path: '/search',
-        query: z.object({ q: z.string(), page: z.number().optional() }),
-        handler: async ({ query }) => {
-          return `Results for: ${query.q}`
-        },
-      })
+    const app = new Spiceflow().page({
+      path: '/search',
+      query: z.object({ q: z.string(), page: z.number().optional() }),
+      handler: async ({ query }) => {
+        return `Results for: ${query.q}`
+      },
+    })
 
     expect(app.href('/search', { q: 'hello' })).toBe('/search?q=hello')
-    expect(app.href('/search', { q: 'hello', page: 2 })).toBe('/search?q=hello&page=2')
+    expect(app.href('/search', { q: 'hello', page: 2 })).toBe(
+      '/search?q=hello&page=2',
+    )
     // @ts-expect-error - invalid query param
     app.href('/search', { wrong: 'x' })
   })
 
   test('page() object API with params and query', () => {
-    const app = new Spiceflow()
-      .page({
-        path: '/users/:id',
-        query: z.object({ tab: z.string().optional() }),
-        handler: async ({ params, query }) => {
-          return `User ${params.id}, tab: ${query.tab}`
-        },
-      })
+    const app = new Spiceflow().page({
+      path: '/users/:id',
+      query: z.object({ tab: z.string().optional() }),
+      handler: async ({ params, query }) => {
+        return `User ${params.id}, tab: ${query.tab}`
+      },
+    })
 
     expect(app.href('/users/:id', { id: '42' })).toBe('/users/42')
-    expect(app.href('/users/:id', { id: '42', tab: 'profile' })).toBe('/users/42?tab=profile')
+    expect(app.href('/users/:id', { id: '42', tab: 'profile' })).toBe(
+      '/users/42?tab=profile',
+    )
   })
 
   test('page() positional API still works without query', () => {
-    const app = new Spiceflow()
-      .page('/about', async () => 'About')
+    const app = new Spiceflow().page('/about', async () => 'About')
 
     expect(app.href('/about')).toBe('/about')
   })
 
   test('staticPage() object API with query schema', () => {
-    const app = new Spiceflow()
-      .staticPage({
-        path: '/docs',
-        query: z.object({ section: z.string().optional() }),
-        handler: async ({ query }) => {
-          return `Docs: ${query.section}`
-        },
-      })
+    const app = new Spiceflow().staticPage({
+      path: '/docs',
+      query: z.object({ section: z.string().optional() }),
+      handler: async ({ query }) => {
+        return `Docs: ${query.section}`
+      },
+    })
 
     expect(app.href('/docs', { section: 'api' })).toBe('/docs?section=api')
     // @ts-expect-error - invalid query param
@@ -2322,10 +2331,9 @@ describe('createHref', () => {
   })
 
   test('works with query params and rejects invalid keys', () => {
-    const app = new Spiceflow()
-      .get('/search', () => 'results', {
-        query: z.object({ q: z.string(), page: z.coerce.number() }),
-      })
+    const app = new Spiceflow().get('/search', () => 'results', {
+      query: z.object({ q: z.string(), page: z.coerce.number() }),
+    })
 
     const href = createHref(app)
     expect(href('/search', { q: 'hello', page: 1 })).toBe(
@@ -2337,15 +2345,14 @@ describe('createHref', () => {
   })
 
   test('works with both path and query params', () => {
-    const app = new Spiceflow()
-      .get('/users/:id', ({ params }) => params.id, {
-        query: z.object({ fields: z.string() }),
-      })
+    const app = new Spiceflow().get('/users/:id', ({ params }) => params.id, {
+      query: z.object({ fields: z.string() }),
+    })
 
     const href = createHref(app)
-    expect(
-      href('/users/:id', { id: '42', fields: 'name' }),
-    ).toBe('/users/42?fields=name')
+    expect(href('/users/:id', { id: '42', fields: 'name' })).toBe(
+      '/users/42?fields=name',
+    )
 
     href('/users/:id', { id: '1', wrong: 'x' })
   })
@@ -2371,9 +2378,7 @@ describe('createHref', () => {
     expect(href('/items', { sort: 'name', limit: 10 })).toBe(
       '/items?sort=name&limit=10',
     )
-    expect(href('/create', { dryRun: true })).toBe(
-      '/create?dryRun=true',
-    )
+    expect(href('/create', { dryRun: true })).toBe('/create?dryRun=true')
 
     // @ts-expect-error - 'order' not in /items query schema
     href('/items', { order: 'asc' })
@@ -2391,9 +2396,7 @@ describe('createHref', () => {
     })
 
     const href = createHref(app)
-    expect(href('/api/data', { format: 'json' })).toBe(
-      '/api/data?format=json',
-    )
+    expect(href('/api/data', { format: 'json' })).toBe('/api/data?format=json')
 
     // @ts-expect-error - invalid query key on .route
     href('/api/data', { type: 'csv' })
@@ -2412,9 +2415,7 @@ describe('createHref', () => {
     )
 
     const href = createHref(app)
-    expect(href('/v2/users', { active: true })).toBe(
-      '/v2/users?active=true',
-    )
+    expect(href('/v2/users', { active: true })).toBe('/v2/users?active=true')
 
     // @ts-expect-error - invalid query key
     href('/v2/users', { status: 'active' })
@@ -2427,9 +2428,9 @@ describe('createHref', () => {
     const app = new Spiceflow().get('/free', () => 'ok')
 
     const href = createHref(app)
-    expect(
-      href('/free', { any: 'value', works: 'here' }),
-    ).toBe('/free?any=value&works=here')
+    expect(href('/free', { any: 'value', works: 'here' })).toBe(
+      '/free?any=value&works=here',
+    )
   })
 
   test('partial query params are accepted', () => {
@@ -2438,12 +2439,8 @@ describe('createHref', () => {
     })
 
     const href = createHref(app)
-    expect(href('/filter', { a: 'only-a' })).toBe(
-      '/filter?a=only-a',
-    )
-    expect(href('/filter', { a: '1', c: '3' })).toBe(
-      '/filter?a=1&c=3',
-    )
+    expect(href('/filter', { a: 'only-a' })).toBe('/filter?a=only-a')
+    expect(href('/filter', { a: '1', c: '3' })).toBe('/filter?a=1&c=3')
   })
 
   test('mixed routes with and without query schemas', () => {
@@ -2462,9 +2459,9 @@ describe('createHref', () => {
     expect(href('/untyped', { anything: 'goes' })).toBe(
       '/untyped?anything=goes',
     )
-    expect(
-      href('/also-typed/:id', { id: '1', verbose: true }),
-    ).toBe('/also-typed/1?verbose=true')
+    expect(href('/also-typed/:id', { id: '1', verbose: true })).toBe(
+      '/also-typed/1?verbose=true',
+    )
 
     // @ts-expect-error - wrong key on typed route
     href('/typed', { wrong: 'x' })
@@ -2867,32 +2864,38 @@ test('child app specific routes beat parent wildcard routes', async () => {
 
 test('disableSuperJsonUnlessRpc is inherited by child apps', async () => {
   // Test that child apps inherit the flag from parent
-  const childApp = new Spiceflow()
-    .get('/date', () => ({ date: new Date('2024-01-01') }))
+  const childApp = new Spiceflow().get('/date', () => ({
+    date: new Date('2024-01-01'),
+  }))
 
-  const parentApp = new Spiceflow({ disableSuperJsonUnlessRpc: true })
-    .use(childApp)
+  const parentApp = new Spiceflow({ disableSuperJsonUnlessRpc: true }).use(
+    childApp,
+  )
 
   // Regular request should not use superjson
   const regularRes = await parentApp.handle(
-    new Request('http://localhost/date', { method: 'GET' })
+    new Request('http://localhost/date', { method: 'GET' }),
   )
   expect(regularRes.status).toBe(200)
   const regularData = await regularRes.text()
   expect(regularData).not.toContain('__superjsonMeta')
-  expect(regularData).toMatchInlineSnapshot(`"{"date":"2024-01-01T00:00:00.000Z"}"`)
+  expect(regularData).toMatchInlineSnapshot(
+    `"{"date":"2024-01-01T00:00:00.000Z"}"`,
+  )
 
   // RPC request should use superjson
   const rpcRes = await parentApp.handle(
     new Request('http://localhost/date', {
       method: 'GET',
-      headers: { 'x-spiceflow-agent': 'spiceflow-client' }
-    })
+      headers: { 'x-spiceflow-agent': 'spiceflow-client' },
+    }),
   )
   expect(rpcRes.status).toBe(200)
   const rpcData = await rpcRes.text()
   expect(rpcData).toContain('__superjsonMeta')
-  expect(rpcData).toMatchInlineSnapshot(`"{"date":"2024-01-01T00:00:00.000Z","__superjsonMeta":{"values":{"date":["Date"]}}}"`)
+  expect(rpcData).toMatchInlineSnapshot(
+    `"{"date":"2024-01-01T00:00:00.000Z","__superjsonMeta":{"values":{"date":["Date"]}}}"`,
+  )
 })
 
 test('child app inherits disableSuperJsonUnlessRpc from parent even if set to false', async () => {
@@ -2900,20 +2903,23 @@ test('child app inherits disableSuperJsonUnlessRpc from parent even if set to fa
   const parentApp = new Spiceflow({ disableSuperJsonUnlessRpc: true })
 
   // Child explicitly sets the flag to false (wants to keep using superjson)
-  const childApp = new Spiceflow()
-    .get('/date', () => ({ date: new Date('2024-01-01') }))
+  const childApp = new Spiceflow().get('/date', () => ({
+    date: new Date('2024-01-01'),
+  }))
 
   parentApp.use(childApp)
 
   // After being mounted, child should inherit parent's setting
   // Regular request should not use superjson because parent has flag set
   const regularRes = await parentApp.handle(
-    new Request('http://localhost/date', { method: 'GET' })
+    new Request('http://localhost/date', { method: 'GET' }),
   )
   expect(regularRes.status).toBe(200)
   const regularData = await regularRes.text()
   expect(regularData).not.toContain('__superjsonMeta')
-  expect(regularData).toMatchInlineSnapshot(`"{"date":"2024-01-01T00:00:00.000Z"}"`)
+  expect(regularData).toMatchInlineSnapshot(
+    `"{"date":"2024-01-01T00:00:00.000Z"}"`,
+  )
 })
 
 test('/* as not-found handler - registered first', async () => {
@@ -2928,45 +2934,51 @@ test('/* as not-found handler - registered first', async () => {
 
   // Specific routes should still work (not be caught by /*)
   const homeRes = await app.handle(
-    new Request('http://localhost/', { method: 'GET' })
+    new Request('http://localhost/', { method: 'GET' }),
   )
   expect(homeRes.status).toBe(200)
   expect(await homeRes.json()).toEqual({ message: 'Home' })
 
   const usersRes = await app.handle(
-    new Request('http://localhost/users', { method: 'GET' })
+    new Request('http://localhost/users', { method: 'GET' }),
   )
   expect(usersRes.status).toBe(200)
   expect(await usersRes.json()).toEqual({ message: 'Users list' })
 
   const userRes = await app.handle(
-    new Request('http://localhost/users/123', { method: 'GET' })
+    new Request('http://localhost/users/123', { method: 'GET' }),
   )
   expect(userRes.status).toBe(200)
   expect(await userRes.json()).toEqual({ message: 'User', id: '123' })
 
   const apiRes = await app.handle(
-    new Request('http://localhost/api/data', { method: 'POST' })
+    new Request('http://localhost/api/data', { method: 'POST' }),
   )
   expect(apiRes.status).toBe(200)
   expect(await apiRes.json()).toEqual({ message: 'Data posted' })
 
   // Non-existent routes should be caught by /*
   const notFoundRes = await app.handle(
-    new Request('http://localhost/non-existent', { method: 'GET' })
+    new Request('http://localhost/non-existent', { method: 'GET' }),
   )
   expect(notFoundRes.status).toBe(200)
-  expect(await notFoundRes.json()).toEqual({ message: 'Not found', path: 'catch-all' })
+  expect(await notFoundRes.json()).toEqual({
+    message: 'Not found',
+    path: 'catch-all',
+  })
 
   const deepNotFoundRes = await app.handle(
-    new Request('http://localhost/some/deep/path', { method: 'GET' })
+    new Request('http://localhost/some/deep/path', { method: 'GET' }),
   )
   expect(deepNotFoundRes.status).toBe(200)
-  expect(await deepNotFoundRes.json()).toEqual({ message: 'Not found', path: 'catch-all' })
+  expect(await deepNotFoundRes.json()).toEqual({
+    message: 'Not found',
+    path: 'catch-all',
+  })
 
   // Wrong method should still return 404 (not caught by GET /*)
   const wrongMethodRes = await app.handle(
-    new Request('http://localhost/users', { method: 'DELETE' })
+    new Request('http://localhost/users', { method: 'DELETE' }),
   )
   expect(wrongMethodRes.status).toBe(404)
 })
@@ -2983,35 +2995,41 @@ test('/* as not-found handler - registered last', async () => {
 
   // Specific routes should still work
   const homeRes = await app.handle(
-    new Request('http://localhost/', { method: 'GET' })
+    new Request('http://localhost/', { method: 'GET' }),
   )
   expect(homeRes.status).toBe(200)
   expect(await homeRes.json()).toEqual({ message: 'Home' })
 
   const usersRes = await app.handle(
-    new Request('http://localhost/users', { method: 'GET' })
+    new Request('http://localhost/users', { method: 'GET' }),
   )
   expect(usersRes.status).toBe(200)
   expect(await usersRes.json()).toEqual({ message: 'Users list' })
 
   const userRes = await app.handle(
-    new Request('http://localhost/users/123', { method: 'GET' })
+    new Request('http://localhost/users/123', { method: 'GET' }),
   )
   expect(userRes.status).toBe(200)
   expect(await userRes.json()).toEqual({ message: 'User', id: '123' })
 
   // Non-existent routes should be caught by /*
   const notFoundRes = await app.handle(
-    new Request('http://localhost/non-existent', { method: 'GET' })
+    new Request('http://localhost/non-existent', { method: 'GET' }),
   )
   expect(notFoundRes.status).toBe(200)
-  expect(await notFoundRes.json()).toEqual({ message: 'Not found', path: 'catch-all' })
+  expect(await notFoundRes.json()).toEqual({
+    message: 'Not found',
+    path: 'catch-all',
+  })
 
   const deepNotFoundRes = await app.handle(
-    new Request('http://localhost/some/deep/path', { method: 'GET' })
+    new Request('http://localhost/some/deep/path', { method: 'GET' }),
   )
   expect(deepNotFoundRes.status).toBe(200)
-  expect(await deepNotFoundRes.json()).toEqual({ message: 'Not found', path: 'catch-all' })
+  expect(await deepNotFoundRes.json()).toEqual({
+    message: 'Not found',
+    path: 'catch-all',
+  })
 })
 
 test('/* with all methods as not-found handler', async () => {
@@ -3023,43 +3041,55 @@ test('/* with all methods as not-found handler', async () => {
 
   // Specific routes work
   const getUsersRes = await app.handle(
-    new Request('http://localhost/api/users', { method: 'GET' })
+    new Request('http://localhost/api/users', { method: 'GET' }),
   )
   expect(getUsersRes.status).toBe(200)
   expect(await getUsersRes.json()).toEqual({ message: 'GET users' })
 
   const postUsersRes = await app.handle(
-    new Request('http://localhost/api/users', { method: 'POST' })
+    new Request('http://localhost/api/users', { method: 'POST' }),
   )
   expect(postUsersRes.status).toBe(200)
   expect(await postUsersRes.json()).toEqual({ message: 'POST users' })
 
   // Non-existent paths are caught
   const notFoundGetRes = await app.handle(
-    new Request('http://localhost/not-found', { method: 'GET' })
+    new Request('http://localhost/not-found', { method: 'GET' }),
   )
   expect(notFoundGetRes.status).toBe(200)
-  expect(await notFoundGetRes.json()).toEqual({ message: 'Custom 404', method: 'any' })
+  expect(await notFoundGetRes.json()).toEqual({
+    message: 'Custom 404',
+    method: 'any',
+  })
 
   // Different methods on non-existent paths are also caught
   const notFoundPostRes = await app.handle(
-    new Request('http://localhost/not-found', { method: 'POST' })
+    new Request('http://localhost/not-found', { method: 'POST' }),
   )
   expect(notFoundPostRes.status).toBe(200)
-  expect(await notFoundPostRes.json()).toEqual({ message: 'Custom 404', method: 'any' })
+  expect(await notFoundPostRes.json()).toEqual({
+    message: 'Custom 404',
+    method: 'any',
+  })
 
   const notFoundDeleteRes = await app.handle(
-    new Request('http://localhost/not-found', { method: 'DELETE' })
+    new Request('http://localhost/not-found', { method: 'DELETE' }),
   )
   expect(notFoundDeleteRes.status).toBe(200)
-  expect(await notFoundDeleteRes.json()).toEqual({ message: 'Custom 404', method: 'any' })
+  expect(await notFoundDeleteRes.json()).toEqual({
+    message: 'Custom 404',
+    method: 'any',
+  })
 
   // With trie router, ALL /* catches any method on any path, including DELETE on /api/users
   const wrongMethodRes = await app.handle(
-    new Request('http://localhost/api/users', { method: 'DELETE' })
+    new Request('http://localhost/api/users', { method: 'DELETE' }),
   )
   expect(wrongMethodRes.status).toBe(200)
-  expect(await wrongMethodRes.json()).toEqual({ message: 'Custom 404', method: 'any' })
+  expect(await wrongMethodRes.json()).toEqual({
+    message: 'Custom 404',
+    method: 'any',
+  })
 })
 
 test('/* priority - more specific routes always win', async () => {
@@ -3071,28 +3101,28 @@ test('/* priority - more specific routes always win', async () => {
 
   // Most specific route wins
   const exactRes = await app.handle(
-    new Request('http://localhost/users/special/exact', { method: 'GET' })
+    new Request('http://localhost/users/special/exact', { method: 'GET' }),
   )
   expect(exactRes.status).toBe(200)
   expect(await exactRes.json()).toBe('exact-match')
 
   // Next most specific catch-all wins
   const specialCatchRes = await app.handle(
-    new Request('http://localhost/users/special/something', { method: 'GET' })
+    new Request('http://localhost/users/special/something', { method: 'GET' }),
   )
   expect(specialCatchRes.status).toBe(200)
   expect(await specialCatchRes.json()).toBe('special-users-catch-all')
 
   // Users catch-all for other users paths
   const usersCatchRes = await app.handle(
-    new Request('http://localhost/users/other', { method: 'GET' })
+    new Request('http://localhost/users/other', { method: 'GET' }),
   )
   expect(usersCatchRes.status).toBe(200)
   expect(await usersCatchRes.json()).toBe('users-catch-all')
 
   // General catch-all for everything else
   const generalCatchRes = await app.handle(
-    new Request('http://localhost/something-else', { method: 'GET' })
+    new Request('http://localhost/something-else', { method: 'GET' }),
   )
   expect(generalCatchRes.status).toBe(200)
   expect(await generalCatchRes.json()).toBe('catch-all')
@@ -3105,7 +3135,7 @@ test(':param beats wildcard regardless of registration order', async () => {
     .get('/users/:id', () => 'param')
 
   const res1 = await app1.handle(
-    new Request('http://localhost/users/123', { method: 'GET' })
+    new Request('http://localhost/users/123', { method: 'GET' }),
   )
   expect(res1.status).toBe(200)
   expect(await res1.json()).toBe('param')
@@ -3116,7 +3146,7 @@ test(':param beats wildcard regardless of registration order', async () => {
     .get('/users/*', () => 'wildcard')
 
   const res2 = await app2.handle(
-    new Request('http://localhost/users/456', { method: 'GET' })
+    new Request('http://localhost/users/456', { method: 'GET' }),
   )
   expect(res2.status).toBe(200)
   expect(await res2.json()).toBe('param')
@@ -3328,9 +3358,7 @@ describe('use preserves type safety', () => {
       .get('/users', () => [])
       .get('/users/:id', () => ({}))
 
-    const app = new Spiceflow()
-      .get('/health', () => 'ok')
-      .use(child)
+    const app = new Spiceflow().get('/health', () => 'ok').use(child)
 
     expect(app.href('/health')).toBe('/health')
     expect(app.href('/users')).toBe('/users')
@@ -3344,9 +3372,7 @@ describe('use preserves type safety', () => {
       .get('/users', () => [])
       .get('/items/:id', () => ({}))
 
-    const app = new Spiceflow()
-      .get('/health', () => 'ok')
-      .use(child)
+    const app = new Spiceflow().get('/health', () => 'ok').use(child)
 
     expect(app.href('/health')).toBe('/health')
     expect(app.href('/api/users')).toBe('/api/users')
@@ -3362,9 +3388,7 @@ describe('use preserves type safety', () => {
       .page('/dashboard', async () => 'Dashboard')
       .page('/settings', async () => 'Settings')
 
-    const app = new Spiceflow()
-      .page('/', async () => 'Home')
-      .use(child)
+    const app = new Spiceflow().page('/', async () => 'Home').use(child)
 
     expect(app.href('/')).toBe('/')
     expect(app.href('/dashboard')).toBe('/dashboard')
@@ -3378,9 +3402,7 @@ describe('use preserves type safety', () => {
       .page('/dashboard', async () => 'Dashboard')
       .page('/profile/:id', async ({ params }) => params.id)
 
-    const app = new Spiceflow()
-      .page('/', async () => 'Home')
-      .use(child)
+    const app = new Spiceflow().page('/', async () => 'Home').use(child)
 
     expect(app.href('/')).toBe('/')
     expect(app.href('/app/dashboard')).toBe('/app/dashboard')
@@ -3395,12 +3417,12 @@ describe('use preserves type safety', () => {
     const child = new Spiceflow({ basePath: '/api' }).get(
       '/search',
       ({ query }) => query,
-      { query: z.object({ q: z.string(), limit: z.coerce.number().optional() }) },
+      {
+        query: z.object({ q: z.string(), limit: z.coerce.number().optional() }),
+      },
     )
 
-    const app = new Spiceflow()
-      .get('/health', () => 'ok')
-      .use(child)
+    const app = new Spiceflow().get('/health', () => 'ok').use(child)
 
     expect(app.href('/api/search', { q: 'hello', limit: 10 })).toBe(
       '/api/search?q=hello&limit=10',
@@ -3416,9 +3438,7 @@ describe('use preserves type safety', () => {
       handler: async ({ query }) => `Results: ${query.q}`,
     })
 
-    const app = new Spiceflow()
-      .page('/', async () => 'Home')
-      .use(child)
+    const app = new Spiceflow().page('/', async () => 'Home').use(child)
 
     expect(app.href('/app/search', { q: 'test' })).toBe('/app/search?q=test')
     // @ts-expect-error - invalid query key
@@ -3430,9 +3450,7 @@ describe('use preserves type safety', () => {
       .staticPage('/intro')
       .staticPage('/changelog')
 
-    const app = new Spiceflow()
-      .page('/', async () => 'Home')
-      .use(child)
+    const app = new Spiceflow().page('/', async () => 'Home').use(child)
 
     expect(app.href('/')).toBe('/')
     expect(app.href('/docs/intro')).toBe('/docs/intro')
@@ -3446,9 +3464,7 @@ describe('use preserves type safety', () => {
       .get('/users', () => [])
       .get('/users/:id', () => ({}))
 
-    const app = new Spiceflow()
-      .get('/health', () => 'ok')
-      .use(child)
+    const app = new Spiceflow().get('/health', () => 'ok').use(child)
 
     const href = createHref(app)
     expect(href('/health')).toBe('/health')
@@ -3463,9 +3479,7 @@ describe('use preserves type safety', () => {
       .get('/items', () => [1, 2, 3])
       .post('/items', () => ({ created: true }))
 
-    const app = new Spiceflow()
-      .get('/health', () => 'ok')
-      .use(child)
+    const app = new Spiceflow().get('/health', () => 'ok').use(child)
 
     const client = createSpiceflowClient(app)
     const getRes = await client.api.items.get()
@@ -3487,9 +3501,7 @@ describe('use preserves type safety', () => {
         body: z.object({ msg: z.string() }),
       })
 
-    const app = new Spiceflow()
-      .get('/health', () => 'ok')
-      .use(child)
+    const app = new Spiceflow().get('/health', () => 'ok').use(child)
 
     const f = createSpiceflowFetch(app)
 
@@ -3554,12 +3566,9 @@ describe('use preserves type safety', () => {
   })
 
   test('fetch client rejects unknown paths from mounted subapp', () => {
-    const child = new Spiceflow({ basePath: '/api' })
-      .get('/data', () => 'data')
+    const child = new Spiceflow({ basePath: '/api' }).get('/data', () => 'data')
 
-    const app = new Spiceflow()
-      .get('/health', () => 'ok')
-      .use(child)
+    const app = new Spiceflow().get('/health', () => 'ok').use(child)
 
     const f = createSpiceflowFetch(app)
 
@@ -3574,10 +3583,7 @@ describe('use preserves type safety', () => {
   })
 
   test('basePath alone is not a valid href when child has no root route', () => {
-    const child = new Spiceflow({ basePath: '/api' }).get(
-      '/data',
-      () => 'data',
-    )
+    const child = new Spiceflow({ basePath: '/api' }).get('/data', () => 'data')
     const app = new Spiceflow().use(child)
 
     expect(app.href('/api/data')).toBe('/api/data')
@@ -3590,12 +3596,12 @@ describe('use preserves type safety', () => {
       .post('/login', () => ({ token: 'x' }))
       .post('/logout', () => 'ok')
 
-    const users = new Spiceflow({ basePath: '/users' }).get(
-      '/:id',
-      () => ({}),
-    )
+    const users = new Spiceflow({ basePath: '/users' }).get('/:id', () => ({}))
 
-    const app = new Spiceflow().get('/health', () => 'ok').use(auth).use(users)
+    const app = new Spiceflow()
+      .get('/health', () => 'ok')
+      .use(auth)
+      .use(users)
 
     expect(app.href('/health')).toBe('/health')
     expect(app.href('/auth/login')).toBe('/auth/login')
@@ -3656,9 +3662,7 @@ describe('use preserves type safety', () => {
       .layout('/', ({ children }) => children)
       .page('/dashboard', async () => 'Dashboard')
 
-    const app = new Spiceflow()
-      .get('/health', () => 'ok')
-      .use(child)
+    const app = new Spiceflow().get('/health', () => 'ok').use(child)
 
     // API and page routes work
     expect(app.href('/health')).toBe('/health')
@@ -3695,7 +3699,9 @@ test('.page() without Vite plugin throws a clear error', async () => {
   )
   expect(res.status).toBe(500)
   const text = await res.text()
-  expect(text).toMatchInlineSnapshot(`"{"message":"[spiceflow] RSC runtime is only available in the react-server environment. This error means renderReact was called outside of a Vite RSC build. Spiceflow .page and .layout methods require using the Vite plugin. See example application: https://github.com/remorses/spiceflow/blob/main/nodejs-example/vite.config.ts"}"`)
+  expect(text).toMatchInlineSnapshot(
+    `"{"message":"[spiceflow] RSC runtime is only available in the react-server environment. This error means renderReact was called outside of a Vite RSC build. Spiceflow .page and .layout methods require using the Vite plugin. See example application: https://github.com/remorses/spiceflow/blob/main/nodejs-example/vite.config.ts"}"`,
+  )
 })
 
 test('.layout() without Vite plugin throws a clear error', async () => {
@@ -3710,7 +3716,9 @@ test('.layout() without Vite plugin throws a clear error', async () => {
   )
   expect(res.status).toBe(500)
   const text = await res.text()
-  expect(text).toMatchInlineSnapshot(`"{"message":"[spiceflow] RSC runtime is only available in the react-server environment. This error means renderReact was called outside of a Vite RSC build. Spiceflow .page and .layout methods require using the Vite plugin. See example application: https://github.com/remorses/spiceflow/blob/main/nodejs-example/vite.config.ts"}"`)
+  expect(text).toMatchInlineSnapshot(
+    `"{"message":"[spiceflow] RSC runtime is only available in the react-server environment. This error means renderReact was called outside of a Vite RSC build. Spiceflow .page and .layout methods require using the Vite plugin. See example application: https://github.com/remorses/spiceflow/blob/main/nodejs-example/vite.config.ts"}"`,
+  )
 })
 
 describe('.use() with page and layout routes', () => {
@@ -3752,8 +3760,10 @@ describe('.use() with page and layout routes', () => {
   })
 
   test('getAllRoutes with nested .use() and multiple basePaths', () => {
-    const deepApp = new Spiceflow({ basePath: '/v1' })
-      .page('/users', async () => 'Users')
+    const deepApp = new Spiceflow({ basePath: '/v1' }).page(
+      '/users',
+      async () => 'Users',
+    )
 
     const midApp = new Spiceflow({ basePath: '/api' })
       .layout('/', ({ children }) => children)
@@ -3765,7 +3775,9 @@ describe('.use() with page and layout routes', () => {
     const reactRoutes = allRoutes.filter(
       (r) => r.kind === 'page' || r.kind === 'layout',
     )
-    const paths = [...new Set(reactRoutes.map((r) => `${r.kind}:${r.path}`))].sort()
+    const paths = [
+      ...new Set(reactRoutes.map((r) => `${r.kind}:${r.path}`)),
+    ].sort()
 
     expect(paths).toMatchInlineSnapshot(`
       [
@@ -3776,8 +3788,10 @@ describe('.use() with page and layout routes', () => {
   })
 
   test('page in sub-app with basePath enters React path (returns RSC error, not 404)', async () => {
-    const subApp = new Spiceflow({ basePath: '/admin' })
-      .page('/dashboard', async () => 'Dashboard')
+    const subApp = new Spiceflow({ basePath: '/admin' }).page(
+      '/dashboard',
+      async () => 'Dashboard',
+    )
 
     const app = new Spiceflow().use(subApp)
 
@@ -3813,8 +3827,10 @@ describe('.use() with page and layout routes', () => {
   })
 
   test('page in sub-app with parent basePath and sub basePath', async () => {
-    const subApp = new Spiceflow({ basePath: '/v1' })
-      .page('/users', async () => 'Users')
+    const subApp = new Spiceflow({ basePath: '/v1' }).page(
+      '/users',
+      async () => 'Users',
+    )
 
     const app = new Spiceflow({ basePath: '/api' }).use(subApp)
 
@@ -3830,8 +3846,10 @@ describe('.use() with page and layout routes', () => {
   })
 
   test('page in sub-app at wrong path does not match the page route', async () => {
-    const subApp = new Spiceflow({ basePath: '/admin' })
-      .page('/dashboard', async () => 'Dashboard')
+    const subApp = new Spiceflow({ basePath: '/admin' }).page(
+      '/dashboard',
+      async () => 'Dashboard',
+    )
 
     const app = new Spiceflow().use(subApp)
 
@@ -3878,18 +3896,22 @@ describe('.use() with page and layout routes', () => {
   })
 
   test('multiple sub-apps with pages at different basePaths', async () => {
-    const adminApp = new Spiceflow({ basePath: '/admin' })
-      .page('/dashboard', async () => 'Admin Dashboard')
+    const adminApp = new Spiceflow({ basePath: '/admin' }).page(
+      '/dashboard',
+      async () => 'Admin Dashboard',
+    )
 
-    const docsApp = new Spiceflow({ basePath: '/docs' })
-      .page('/getting-started', async () => 'Getting Started')
+    const docsApp = new Spiceflow({ basePath: '/docs' }).page(
+      '/getting-started',
+      async () => 'Getting Started',
+    )
 
     const app = new Spiceflow().use(adminApp).use(docsApp)
 
     const allRoutes = app.getAllRoutes()
-    const pagePaths = [...new Set(
-      allRoutes.filter((r) => r.kind === 'page').map((r) => r.path),
-    )].sort()
+    const pagePaths = [
+      ...new Set(allRoutes.filter((r) => r.kind === 'page').map((r) => r.path)),
+    ].sort()
 
     expect(pagePaths).toMatchInlineSnapshot(`
       [
@@ -3924,7 +3946,9 @@ describe('.use() with page and layout routes', () => {
 
     // href types include the basePath since JoinPath<BasePath, Path> encodes it
     expect(subApp.href('/admin/dashboard')).toBe('/admin/dashboard')
-    expect(subApp.href('/admin/users/:id', { id: '42' })).toBe('/admin/users/42')
+    expect(subApp.href('/admin/users/:id', { id: '42' })).toBe(
+      '/admin/users/42',
+    )
   })
 
   test('getAllRoutes normalizes trailing slash for layout at / in sub-app', () => {
@@ -3935,7 +3959,9 @@ describe('.use() with page and layout routes', () => {
     const app = new Spiceflow().use(subApp)
 
     const allRoutes = app.getAllRoutes()
-    const paths = [...new Set(allRoutes.map((r) => `${r.kind || 'api'}:${r.path}`))].sort()
+    const paths = [
+      ...new Set(allRoutes.map((r) => `${r.kind || 'api'}:${r.path}`)),
+    ].sort()
 
     // Layout at '/' with basePath '/app' should be '/app', not '/app/'
     expect(paths).toMatchInlineSnapshot(`
@@ -3965,8 +3991,10 @@ describe('.use() with page and layout routes', () => {
   })
 
   test('unmatched non-browser request returns 404 (not React runtime 500)', async () => {
-    const subApp = new Spiceflow({ basePath: '/admin' })
-      .page('/dashboard', async () => 'Dashboard')
+    const subApp = new Spiceflow({ basePath: '/admin' }).page(
+      '/dashboard',
+      async () => 'Dashboard',
+    )
 
     const app = new Spiceflow().use(subApp)
 

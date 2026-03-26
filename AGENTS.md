@@ -145,6 +145,7 @@ When HMR triggers a full page reload instead of a hot update, the cause is a `{t
 ```
 
 The stack trace reveals exactly which plugin and hook is responsible. Common culprits:
+
 - `@tailwindcss/vite` hotUpdate sending bare `{type:"full-reload"}` for server-only files it scans for class names
 - Vite's dep optimizer (`runOptimizer` → `fullReload`) when deps change — usually harmless, triggers once
 - `updateModules` in Vite core when `propagateUpdate` hits a dead end (no HMR boundary found)

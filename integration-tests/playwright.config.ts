@@ -26,11 +26,11 @@ export default defineConfig({
 		actionTimeout: 5000,
 		navigationTimeout: 5000,
 		trace: "on-first-retry",
-  },
+	},
 
 	projects: [
 		{
-      name: "chromium",
+			name: "chromium",
 
 			use: {
 				...devices["Desktop Chrome"],
@@ -41,8 +41,8 @@ export default defineConfig({
 	],
 	webServer: {
 		command,
-		stdout: 'pipe',
-		stderr: 'pipe',
+		stdout: "pipe",
+		stderr: "pipe",
 		port,
 	},
 	fullyParallel: false,

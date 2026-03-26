@@ -13,10 +13,7 @@ import type {
   ExtractParamsFromPath,
   HrefArgs,
 } from '../types.js'
-import {
-  router,
-  useRouterState,
-} from './router.js'
+import { router, useRouterState } from './router.js'
 import { buildHref } from './loader-utils.js'
 
 type LoaderDataReturn<
@@ -24,20 +21,24 @@ type LoaderDataReturn<
   Path extends string,
 > = string extends Path ? AllLoaderData<LD> : MergedLoaderData<LD, Path>
 
-export function createRouter<App extends {
-  _types: { RoutePaths: string; RouteQuerySchemas: object; Metadata: MetadataBase }
-}>() {
+export function createRouter<
+  App extends {
+    _types: {
+      RoutePaths: string
+      RouteQuerySchemas: object
+      Metadata: MetadataBase
+    }
+  },
+>() {
   type Paths = App['_types']['RoutePaths']
   type QS = App['_types']['RouteQuerySchemas']
   type LD = App['_types']['Metadata']['loaderData']
 
   function href<
     const Path extends Paths,
-    const Params extends ExtractParamsFromPath<Path> = ExtractParamsFromPath<Path>,
-  >(
-    path: Path,
-    ...rest: HrefArgs<Paths, QS, Path, Params>
-  ): string {
+    const Params extends
+      ExtractParamsFromPath<Path> = ExtractParamsFromPath<Path>,
+  >(path: Path, ...rest: HrefArgs<Paths, QS, Path, Params>): string {
     return buildHref(path, rest[0] as Record<string, any> | undefined)
   }
 

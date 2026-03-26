@@ -109,11 +109,9 @@ const app = new Spiceflow()
   })
   .get('/id/:id', ({ params: { id } }) => id)
   .get('/items/:id/:id2', ({ params }) => params)
-  .get(
-    '/search',
-    ({ query }) => query,
-    { query: z.object({ q: z.string(), page: z.coerce.number().optional() }) },
-  )
+  .get('/search', ({ query }) => query, {
+    query: z.object({ q: z.string(), page: z.coerce.number().optional() }),
+  })
 
 const f = createSpiceflowFetch(app)
 
@@ -242,7 +240,8 @@ describe('fetch client', () => {
     const result = await f('/throws-402-json')
 
     expect(result).toBeInstanceOf(SpiceflowFetchError)
-    if (!(result instanceof SpiceflowFetchError)) throw new Error('Expected SpiceflowFetchError')
+    if (!(result instanceof SpiceflowFetchError))
+      throw new Error('Expected SpiceflowFetchError')
     expect(result.status).toBe(402)
     expect(result.value).toEqual({ reason: 'Payment required', code: 4021 })
   })

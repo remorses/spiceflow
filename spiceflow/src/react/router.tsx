@@ -3,10 +3,7 @@ import { useMemo, useSyncExternalStore } from 'react'
 
 const isBrowser = typeof window !== 'undefined'
 
-const history =
-  !isBrowser
-    ? createMemoryHistory()
-    : createBrowserHistory({})
+const history = !isBrowser ? createMemoryHistory() : createBrowserHistory({})
 
 const MAX_NAVIGATION_EVENTS = 100
 const DEFAULT_MAX_SCROLL_ENTRIES = 200
@@ -186,9 +183,10 @@ export function getLastNavigationEvent(): NavigationEvent | null {
 
 if (isBrowser) {
   history.listen(({ action, location }) => {
-    const pendingRequest = action === 'POP'
-      ? null
-      : getLatestPendingNavigationRequest(navigationEvents)
+    const pendingRequest =
+      action === 'POP'
+        ? null
+        : getLatestPendingNavigationRequest(navigationEvents)
     const previousLocation = getPreviousLocation(navigationEvents)
     const event = appendNavigationEvent<NavigationCommittedEvent>({
       type: 'navigation-committed',
@@ -196,7 +194,8 @@ if (isBrowser) {
       action,
       location: cloneLocation(location),
       previousLocation,
-      previousScrollY: action === 'POP' ? window.scrollY : pendingRequest?.scrollY ?? 0,
+      previousScrollY:
+        action === 'POP' ? window.scrollY : (pendingRequest?.scrollY ?? 0),
       source: pendingRequest?.method === 'refresh' ? 'refresh' : 'navigate',
     })
 
@@ -205,7 +204,6 @@ if (isBrowser) {
     }
   })
 }
-
 
 // Loader data store — seeded from the RSC flight payload on initial load
 // (via __setLoaderData called from entry.client.tsx before hydrateRoot),

@@ -4,7 +4,12 @@ import React, { startTransition, Suspense } from 'react'
 import type { ReactFormState } from 'react-dom/client'
 import { router } from './router.js'
 import { ServerPayload } from '../spiceflow.js'
-import { isRedirectError, isNotFoundError, getErrorContext, contextHeaders } from './errors.js'
+import {
+  isRedirectError,
+  isNotFoundError,
+  getErrorContext,
+  contextHeaders,
+} from './errors.js'
 import { useFlightData, useLoaderData } from './context.js'
 export { useLoaderData }
 export function getLoaderData(): Promise<Record<string, unknown>> {
@@ -33,7 +38,13 @@ export function LayoutContent(props: { id?: string }) {
   // rscCssTransform auto-wraps exported component functions, but the app entry
   // exports a Spiceflow instance, so its CSS needs this manual injection.
   if (!props.id && data.globalCss) {
-    return React.createElement(React.Fragment, null, data.globalCss, elem, data.head)
+    return React.createElement(
+      React.Fragment,
+      null,
+      data.globalCss,
+      elem,
+      data.head,
+    )
   }
   if (!props.id && data.head) {
     return React.createElement(React.Fragment, null, elem, data.head)

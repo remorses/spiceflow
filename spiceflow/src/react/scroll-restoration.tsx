@@ -17,7 +17,11 @@ const STORAGE_KEY = 'spiceflow-scroll-positions'
 const MAX_SCROLL_ENTRIES = 200
 
 export interface ScrollRestorationProps {
-  getKey?: (location: { pathname: string; search: string; hash: string }) => string | null
+  getKey?: (location: {
+    pathname: string
+    search: string
+    hash: string
+  }) => string | null
   storageKey?: string
   nonce?: string
 }
@@ -46,7 +50,10 @@ function loadPositions(storageKey: string) {
   }
 }
 
-function persistPositions(storageKey: string, positions: Record<string, number>) {
+function persistPositions(
+  storageKey: string,
+  positions: Record<string, number>,
+) {
   try {
     sessionStorage.setItem(storageKey, JSON.stringify(positions))
   } catch {

@@ -18,9 +18,7 @@ export function contextHeaders(
 
 // Normalizes headers from a decoded digest context into a Headers object,
 // preserving duplicate keys like set-cookie.
-export function contextToHeaders(
-  ctx: ReactServerErrorContext,
-): Headers {
+export function contextToHeaders(ctx: ReactServerErrorContext): Headers {
   if (!ctx.headers) return new Headers()
   return new Headers(ctx.headers as HeadersInit)
 }

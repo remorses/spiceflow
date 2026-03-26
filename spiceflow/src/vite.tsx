@@ -22,12 +22,7 @@ const pluginRscRpcPath = require.resolve('@vitejs/plugin-rsc/utils/rpc')
 // Module-level so the timestamp is stable even if spiceflowPlugin() is called more than once
 const buildTimestamp = Date.now().toString(36)
 
-
-export function spiceflowPlugin({
-  entry,
-}: {
-  entry: string
-}): PluginOption {
+export function spiceflowPlugin({ entry }: { entry: string }): PluginOption {
   let server: ViteDevServer
   let resolvedOutDir = 'dist'
   let isCloudflareRuntime = false
@@ -82,13 +77,14 @@ export function spiceflowPlugin({
       },
     },
 
-
-
     {
       name: 'spiceflow:config',
       config(userConfig, env) {
         const userOnWarn = userConfig.build?.rollupOptions?.onwarn
-        const isCloudflare = hasPluginNamed(userConfig.plugins, 'vite-plugin-cloudflare')
+        const isCloudflare = hasPluginNamed(
+          userConfig.plugins,
+          'vite-plugin-cloudflare',
+        )
         if (isCloudflare) {
           // Cloudflare child environments already expose worker-side module imports.
           // Using plugin-rsc's Node dev proxy here makes child `ssr` call
@@ -104,14 +100,25 @@ export function spiceflowPlugin({
           // Worker's directory. The RSC code loads SSR via import.meta.viteRsc.loadModule
           // which resolves to a relative import "../ssr/index.js" — if SSR is at outDir/ssr/
           // (sibling), the Worker can't reach it at runtime.
-          ...(isCloudflare ? { environments: { ssr: { build: { outDir: path.join(outDir, 'rsc/ssr') } } } } : {}),
+          ...(isCloudflare
+            ? {
+                environments: {
+                  ssr: { build: { outDir: path.join(outDir, 'rsc/ssr') } },
+                },
+              }
+            : {}),
           // Replace process.env.NODE_ENV at build time so React uses its production
           // bundle. Without this, the built output contains runtime checks like
           // `"production" !== process.env.NODE_ENV` that always evaluate to the dev
           // path, adding ~28% CPU overhead from debug stack traces and fake call sites.
-          define: env.command === 'build'
-            ? { 'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'production') }
-            : undefined,
+          define:
+            env.command === 'build'
+              ? {
+                  'process.env.NODE_ENV': JSON.stringify(
+                    process.env.NODE_ENV || 'production',
+                  ),
+                }
+              : undefined,
           build: {
             rollupOptions: {
               onwarn(warning, defaultHandler) {
@@ -224,16 +231,19 @@ export function spiceflowPlugin({
           server.middlewares.use(async (req, res, next) => {
             if (req.url?.includes('__inspect')) return next()
             try {
-              const resolvedEntry = await server.environments.ssr.pluginContainer.resolveId(
-                'spiceflow/dist/react/entry.ssr',
-              )
+              const resolvedEntry =
+                await server.environments.ssr.pluginContainer.resolveId(
+                  'spiceflow/dist/react/entry.ssr',
+                )
               if (!resolvedEntry) {
                 throw new Error('Failed to resolve spiceflow SSR entry')
               }
               const mod: any = await (
                 server.environments.ssr as RunnableDevEnvironment
               ).runner?.import(resolvedEntry.id)
-              const { createRequest, sendResponse } = await import('./react/fetch.js')
+              const { createRequest, sendResponse } = await import(
+                './react/fetch.js'
+              )
               const request = createRequest(req, res)
               const response = await mod.fetchHandler(request)
               sendResponse(response, res)
@@ -295,13 +305,9 @@ export function spiceflowPlugin({
           `}`,
         )
       }
-      lines.push(
-        `export const app = entry.app`,
-        `export default entry.default`,
-      )
+      lines.push(`export const app = entry.app`, `export default entry.default`)
       return lines.join('\n')
     }),
-
   ]
 }
 
@@ -350,7 +356,10 @@ function addNoExternal(
   config.resolve.noExternal = Array.from(new Set([...arr, pkg]))
 }
 
-function createVirtualPlugin(virtualName: string, load: Plugin['load']): Plugin {
+function createVirtualPlugin(
+  virtualName: string,
+  load: Plugin['load'],
+): Plugin {
   const shortName = virtualName.replace('virtual:', '')
   return {
     name: `spiceflow:virtual-${shortName}`,

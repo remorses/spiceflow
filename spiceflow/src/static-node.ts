@@ -32,7 +32,11 @@ export const serveStatic = (options: ServeStaticOptions): MiddlewareHandler => {
     try {
       const stats = statSync(path)
       if (stats.isFile()) {
-        result = { kind: 'file', size: stats.size, mtime: stats.mtime.toUTCString() }
+        result = {
+          kind: 'file',
+          size: stats.size,
+          mtime: stats.mtime.toUTCString(),
+        }
       } else if (stats.isDirectory()) {
         result = { kind: 'dir' }
       } else {
@@ -64,7 +68,9 @@ export const serveStatic = (options: ServeStaticOptions): MiddlewareHandler => {
       return new Response(null, { headers })
     }
 
-    const stream = Readable.toWeb(createReadStream(path)) as unknown as ReadableStream
+    const stream = Readable.toWeb(
+      createReadStream(path),
+    ) as unknown as ReadableStream
     return new Response(stream, { headers })
   }
 

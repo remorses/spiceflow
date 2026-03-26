@@ -64,10 +64,13 @@ const app = new Spiceflow()
     })
   })
   .get('/throws-402-json', () => {
-    throw new Response(JSON.stringify({ reason: 'Payment required', code: 4021 }), {
-      status: 402,
-      headers: { 'content-type': 'application/json' },
-    })
+    throw new Response(
+      JSON.stringify({ reason: 'Payment required', code: 4021 }),
+      {
+        status: 402,
+        headers: { 'content-type': 'application/json' },
+      },
+    )
   })
   .use(
     new Spiceflow({ basePath: '/nested' }).get('/data', ({ params }) => 'hi'),

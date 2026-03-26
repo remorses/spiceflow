@@ -75,7 +75,11 @@ import type { StandardSchemaV1 } from './standard-schema.js'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { handleForNode, listenForNode } from '#node-server'
 import { renderSsr } from '#handle-ssr'
-import { SpiceflowContext, MiddlewareContext, ContextResponse } from './context.js'
+import {
+  SpiceflowContext,
+  MiddlewareContext,
+  ContextResponse,
+} from './context.js'
 import { isStaticMiddleware } from './static.js'
 import {
   type SpiceflowTracer,
@@ -179,7 +183,6 @@ type OnError = (x: {
   request: Request
   path: string
 }) => AsyncResponse
-
 
 type MatchedRoute = {
   app: AnySpiceflow
@@ -399,7 +402,11 @@ export class Spiceflow<
       const routes = matchedRoutes[0].map(([route, params], index) => ({
         app,
         route,
-        params: this.getAllDecodedParams(matchedRoutes, pathWithoutPrefix, index),
+        params: this.getAllDecodedParams(
+          matchedRoutes,
+          pathWithoutPrefix,
+          index,
+        ),
       }))
 
       allRoutes.push(...routes)
@@ -1054,8 +1061,10 @@ export class Spiceflow<
     RouteQuerySchemas & Record<JoinPath<BasePath, Path>, Schema['query']>
   >
   page(pathOrOptions: any, handler?: any) {
-    const path = typeof pathOrOptions === 'string' ? pathOrOptions : pathOrOptions.path
-    const h = typeof pathOrOptions === 'string' ? handler : pathOrOptions.handler
+    const path =
+      typeof pathOrOptions === 'string' ? pathOrOptions : pathOrOptions.path
+    const h =
+      typeof pathOrOptions === 'string' ? handler : pathOrOptions.handler
     const hooks = typeof pathOrOptions === 'string' ? undefined : pathOrOptions
 
     const routeConfig = {
@@ -1124,8 +1133,10 @@ export class Spiceflow<
     RouteQuerySchemas & Record<JoinPath<BasePath, Path>, Schema['query']>
   >
   staticPage(pathOrOptions: any, handler?: any) {
-    const path = typeof pathOrOptions === 'string' ? pathOrOptions : pathOrOptions.path
-    const h = typeof pathOrOptions === 'string' ? handler : pathOrOptions.handler
+    const path =
+      typeof pathOrOptions === 'string' ? pathOrOptions : pathOrOptions.path
+    const h =
+      typeof pathOrOptions === 'string' ? handler : pathOrOptions.handler
     const hooks = typeof pathOrOptions === 'string' ? undefined : pathOrOptions
 
     let kind: NodeKind = 'staticPage'
@@ -1189,7 +1200,9 @@ export class Spiceflow<
     Scoped,
     Singleton,
     Definitions,
-    Metadata & { loaderData: Record<JoinPath<BasePath, Path>, Awaited<ReturnType<Handle>>> },
+    Metadata & {
+      loaderData: Record<JoinPath<BasePath, Path>, Awaited<ReturnType<Handle>>>
+    },
     ClientRoutes,
     RoutePaths,
     RouteQuerySchemas
@@ -1215,9 +1228,13 @@ export class Spiceflow<
         Scoped,
         Singleton,
         Definitions,
-        Metadata & { loaderData: BasePath extends ``
-          ? NewSpiceflow['_types']['Metadata']['loaderData']
-          : PrefixLoaderData<BasePath, NewSpiceflow['_types']['Metadata']['loaderData']>
+        Metadata & {
+          loaderData: BasePath extends ``
+            ? NewSpiceflow['_types']['Metadata']['loaderData']
+            : PrefixLoaderData<
+                BasePath,
+                NewSpiceflow['_types']['Metadata']['loaderData']
+              >
         },
         BasePath extends ``
           ? ClientRoutes & NewSpiceflow['_types']['ClientRoutes']
@@ -1225,10 +1242,16 @@ export class Spiceflow<
               CreateClient<BasePath, NewSpiceflow['_types']['ClientRoutes']>,
         BasePath extends ``
           ? RoutePaths | NewSpiceflow['_types']['RoutePaths']
-          : RoutePaths | PrefixPaths<BasePath, NewSpiceflow['_types']['RoutePaths']>,
+          :
+              | RoutePaths
+              | PrefixPaths<BasePath, NewSpiceflow['_types']['RoutePaths']>,
         BasePath extends ``
           ? RouteQuerySchemas & NewSpiceflow['_types']['RouteQuerySchemas']
-          : RouteQuerySchemas & PrefixQuerySchemas<BasePath, NewSpiceflow['_types']['RouteQuerySchemas']>
+          : RouteQuerySchemas &
+              PrefixQuerySchemas<
+                BasePath,
+                NewSpiceflow['_types']['RouteQuerySchemas']
+              >
       >
   use<const Schema extends RouteSchema>(
     handler: MiddlewareHandler<Schema, Singleton>,
@@ -1373,7 +1396,8 @@ export class Spiceflow<
     // non-GET methods get plain text "Not Found" instead.
     const isSafeMethod = request.method === 'GET' || request.method === 'HEAD'
     const isBrowserNavigation =
-      isDocumentRequest(request) || request.headers.get('accept')?.includes('text/html')
+      isDocumentRequest(request) ||
+      request.headers.get('accept')?.includes('text/html')
     if (!pageRoute && !(isSafeMethod && isBrowserNavigation)) {
       return new Response('Not Found', { status: 404 })
     }
@@ -1383,7 +1407,7 @@ export class Spiceflow<
     const baseContext: SpiceflowContext<any, any, any> = {
       ...context,
       get response() {
-        return baseResponse ??= createContextResponse()
+        return (baseResponse ??= createContextResponse())
       },
     }
 
@@ -1406,34 +1430,51 @@ export class Spiceflow<
             params: loader.params,
             loaderData: {},
             get response() {
-              return handlerResponse ??= createContextResponse()
+              return (handlerResponse ??= createContextResponse())
             },
           }
           try {
             if (!this.tracer) {
-              const data = await loader.route.handler.call(loader.app, loaderContext)
+              const data = await loader.route.handler.call(
+                loader.app,
+                loaderContext,
+              )
               if (data instanceof Response) throw data
               if (data == null) return null
               if (typeof data !== 'object' || Array.isArray(data)) {
-                throw new Error(`Loader "${loader.route.path}" must return a plain object, got ${Array.isArray(data) ? 'array' : typeof data}`)
+                throw new Error(
+                  `Loader "${loader.route.path}" must return a plain object, got ${Array.isArray(data) ? 'array' : typeof data}`,
+                )
               }
               return data
             }
-            return await withSpan(this.tracer, `loader - ${loader.route.path}`, {}, async (loaderSpan) => {
-              if (loaderSpan) loaderContext.span = loaderSpan
-              const data = await loader.route.handler.call(loader.app, loaderContext)
-              if (data instanceof Response) throw data
-              if (data == null) return null
-              if (typeof data !== 'object' || Array.isArray(data)) {
-                throw new Error(`Loader "${loader.route.path}" must return a plain object, got ${Array.isArray(data) ? 'array' : typeof data}`)
-              }
-              return data
-            })
+            return await withSpan(
+              this.tracer,
+              `loader - ${loader.route.path}`,
+              {},
+              async (loaderSpan) => {
+                if (loaderSpan) loaderContext.span = loaderSpan
+                const data = await loader.route.handler.call(
+                  loader.app,
+                  loaderContext,
+                )
+                if (data instanceof Response) throw data
+                if (data == null) return null
+                if (typeof data !== 'object' || Array.isArray(data)) {
+                  throw new Error(
+                    `Loader "${loader.route.path}" must return a plain object, got ${Array.isArray(data) ? 'array' : typeof data}`,
+                  )
+                }
+                return data
+              },
+            )
           } catch (error) {
             // Redirect/notFound Responses short-circuit the entire request
             if (error instanceof Response) throw error
             // Other errors are surfaced via error boundary during RSC render
-            if (!loaderError) loaderError = error instanceof Error ? error : new Error(String(error))
+            if (!loaderError)
+              loaderError =
+                error instanceof Error ? error : new Error(String(error))
             return null
           }
         }),
@@ -1453,22 +1494,40 @@ export class Spiceflow<
           ...baseContext,
           params: route.params,
           loaderData: mergedLoaderData,
-          ...extra && { children: extra.children },
-          ...activeSpan && { span: activeSpan },
+          ...(extra && { children: extra.children }),
+          ...(activeSpan && { span: activeSpan }),
           get response() {
-            return handlerResponse ??= createContextResponse()
+            return (handlerResponse ??= createContextResponse())
           },
         }
         try {
-          const value = await route.route.handler.call(route.app, handlerContext)
+          const value = await route.route.handler.call(
+            route.app,
+            handlerContext,
+          )
           if (value instanceof Error) {
             // Wrap in a component that throws during RSC rendering so error
             // boundaries can catch it and the __NO_HYDRATE shell renders.
-            return { ok: true, value: <ThrowError error={value} />, headers: handlerResponse?.headers, status: handlerResponse?.status }
+            return {
+              ok: true,
+              value: <ThrowError error={value} />,
+              headers: handlerResponse?.headers,
+              status: handlerResponse?.status,
+            }
           }
-          return { ok: true, value, headers: handlerResponse?.headers, status: handlerResponse?.status }
+          return {
+            ok: true,
+            value,
+            headers: handlerResponse?.headers,
+            status: handlerResponse?.status,
+          }
         } catch (error) {
-          return { ok: false, error, headers: handlerResponse?.headers, status: handlerResponse?.status }
+          return {
+            ok: false,
+            error,
+            headers: handlerResponse?.headers,
+            status: handlerResponse?.status,
+          }
         }
       }
 
@@ -1479,31 +1538,55 @@ export class Spiceflow<
           const children = createElement(LayoutContent, { id })
           const result = !this.tracer
             ? await executeHandler(layout, { id, children })
-            : await withSpan(this.tracer, `layout - ${layout.route.path}`, {}, async (span) => {
-                const res = await executeHandler(layout, { id, children }, span)
-                if (!res.ok && !(res.error instanceof Response) && span) {
-                  recordError(span, res.error)
-                }
-                return res
-              })
+            : await withSpan(
+                this.tracer,
+                `layout - ${layout.route.path}`,
+                {},
+                async (span) => {
+                  const res = await executeHandler(
+                    layout,
+                    { id, children },
+                    span,
+                  )
+                  if (!res.ok && !(res.error instanceof Response) && span) {
+                    recordError(span, res.error)
+                  }
+                  return res
+                },
+              )
           return { ...result, id }
         })
 
       // Skip page handler when a loader failed — the error will be rendered
       // via <ThrowError> so the layout error boundary catches it.
       const pageResultPromise = loaderError
-        ? Promise.resolve({ ok: true as const, value: <ThrowError error={loaderError} />, headers: undefined, status: undefined })
+        ? Promise.resolve({
+            ok: true as const,
+            value: <ThrowError error={loaderError} />,
+            headers: undefined,
+            status: undefined,
+          })
         : isNotFound
-          ? Promise.resolve({ ok: true as const, value: <DefaultNotFoundPage />, headers: undefined, status: undefined })
+          ? Promise.resolve({
+              ok: true as const,
+              value: <DefaultNotFoundPage />,
+              headers: undefined,
+              status: undefined,
+            })
           : !this.tracer
             ? executeHandler(pageRoute)
-            : withSpan(this.tracer, `page - ${pageRoute.route.path}`, {}, async (span) => {
-                const res = await executeHandler(pageRoute, undefined, span)
-                if (!res.ok && !(res.error instanceof Response) && span) {
-                  recordError(span, res.error)
-                }
-                return res
-              })
+            : withSpan(
+                this.tracer,
+                `page - ${pageRoute.route.path}`,
+                {},
+                async (span) => {
+                  const res = await executeHandler(pageRoute, undefined, span)
+                  if (!res.ok && !(res.error instanceof Response) && span) {
+                    recordError(span, res.error)
+                  }
+                  return res
+                },
+              )
 
       const [layoutResults, pageResult] = await Promise.all([
         Promise.all(layoutResultsPromise),
@@ -1526,14 +1609,18 @@ export class Spiceflow<
 
       const layouts = layoutResults.map((layout) => ({
         id: layout.id,
-        element: layout.ok
-          ? layout.value
-          : <ThrowResponse response={layout.error as Response} />,
+        element: layout.ok ? (
+          layout.value
+        ) : (
+          <ThrowResponse response={layout.error as Response} />
+        ),
       }))
 
-      const page = pageResult.ok
-        ? pageResult.value
-        : <ThrowResponse response={pageResult.error as Response} />
+      const page = pageResult.ok ? (
+        pageResult.value
+      ) : (
+        <ThrowResponse response={pageResult.error as Response} />
+      )
 
       // Global CSS: rscCssTransform auto-wraps component exports, but this entry
       // exports a Spiceflow instance so we call loadCss manually.
@@ -1541,8 +1628,11 @@ export class Spiceflow<
       // because vite-rsc's transform uses a regex to find and replace it at build time.
       // Do not use optional chaining, ternaries around the same expression, or put the
       // pattern in comments — any of these can confuse the regex-based transform.
-      const globalCssResult = errore.try(() => import.meta.viteRsc.loadCss('virtual:app-entry'))
-      const globalCss = globalCssResult instanceof Error ? undefined : globalCssResult
+      const globalCssResult = errore.try(() =>
+        import.meta.viteRsc.loadCss('virtual:app-entry'),
+      )
+      const globalCss =
+        globalCssResult instanceof Error ? undefined : globalCssResult
       let baseUrl = new URL('/', request.url).href
       if (baseUrl.endsWith('/')) {
         baseUrl = baseUrl.slice(0, -1)
@@ -1558,7 +1648,10 @@ export class Spiceflow<
       }
 
       if (root instanceof Response) {
-        return mergeHeadersIntoResponse({ response: root, source: routeHeaders })
+        return mergeHeadersIntoResponse({
+          response: root,
+          source: routeHeaders,
+        })
       }
 
       const payload =
@@ -1571,50 +1664,48 @@ export class Spiceflow<
               actionError: actionState.actionError,
             } satisfies ServerPayload)
       const buildRscResponse = async (serializeSpan?: SpiceflowSpan) => {
-        const stream = renderToReadableStream<ServerPayload>(
-          payload,
-          {
-            temporaryReferences: actionState.temporaryReferences,
-            onPostpone(reason) {
-              console.log(`POSTPONE`, reason)
-            },
-            onError(error) {
-              // TODO: for error reporting (Sentry-like), we need an error.handled
-              // attribute to distinguish breaking errors from error-boundary-caught ones.
-              // React's onError fires for both, but at this point we don't know if an
-              // error boundary will catch it. Errors caught by boundaries are graceful
-              // degradation (log-only), not incidents (notify). Same applies to loader
-              // errors — they render through error boundaries, page still works.
-              // When we build our own error reporting, add severity/handled classification
-              // so non-breaking errors don't trigger notifications.
-              if (serializeSpan) {
-                recordError(serializeSpan, error)
-              }
-              if (error instanceof Response) {
-                const headers = [...error.headers.entries()]
-                return `__REACT_SERVER_ERROR__:${JSON.stringify({ status: error.status, headers })}`
-              }
-              formatServerError(error)
-              console.error('[spiceflow:renderToReadableStream]', error)
-              return sanitizeErrorMessage(error?.digest || error?.message)
-            },
-            signal: request.signal,
+        const stream = renderToReadableStream<ServerPayload>(payload, {
+          temporaryReferences: actionState.temporaryReferences,
+          onPostpone(reason) {
+            console.log(`POSTPONE`, reason)
           },
-        )
+          onError(error) {
+            // TODO: for error reporting (Sentry-like), we need an error.handled
+            // attribute to distinguish breaking errors from error-boundary-caught ones.
+            // React's onError fires for both, but at this point we don't know if an
+            // error boundary will catch it. Errors caught by boundaries are graceful
+            // degradation (log-only), not incidents (notify). Same applies to loader
+            // errors — they render through error boundaries, page still works.
+            // When we build our own error reporting, add severity/handled classification
+            // so non-breaking errors don't trigger notifications.
+            if (serializeSpan) {
+              recordError(serializeSpan, error)
+            }
+            if (error instanceof Response) {
+              const headers = [...error.headers.entries()]
+              return `__REACT_SERVER_ERROR__:${JSON.stringify({ status: error.status, headers })}`
+            }
+            formatServerError(error)
+            console.error('[spiceflow:renderToReadableStream]', error)
+            return sanitizeErrorMessage(error?.digest || error?.message)
+          },
+          signal: request.signal,
+        })
 
         const headers = new Headers({
           'content-type': 'text/x-component;charset=utf-8',
         })
         appendHeaders(headers, routeHeaders)
 
-        const pageHandlerStatus = pageResult.status && pageResult.status !== 200
-          ? pageResult.status
-          : undefined
+        const pageHandlerStatus =
+          pageResult.status && pageResult.status !== 200
+            ? pageResult.status
+            : undefined
         const layoutHandlerStatus = [...layoutResults]
           .reverse()
-          .find((layout) => layout.status && layout.status !== 200)
-          ?.status
-        const status = pageHandlerStatus ?? layoutHandlerStatus ?? (isNotFound ? 404 : 200)
+          .find((layout) => layout.status && layout.status !== 200)?.status
+        const status =
+          pageHandlerStatus ?? layoutHandlerStatus ?? (isNotFound ? 404 : 200)
 
         return new Response(stream, { status, headers })
       }
@@ -1635,25 +1726,31 @@ export class Spiceflow<
     incomingRequest: Request,
     { state: customState }: { state?: Singleton['state'] } = {},
   ): Promise<Response> => {
-    const request = incomingRequest instanceof SpiceflowRequest
-      ? incomingRequest
-      : new SpiceflowRequest(incomingRequest.url, incomingRequest)
+    const request =
+      incomingRequest instanceof SpiceflowRequest
+        ? incomingRequest
+        : new SpiceflowRequest(incomingRequest.url, incomingRequest)
     const u = request.parsedUrl
 
     let path = u.pathname
 
     if (!this.tracer) return this.executeRequest(request, u, path, customState)
 
-    return withSpan(this.tracer, request.method, {
-      kind: SPAN_KIND_SERVER,
-      attributes: {
-        [ATTR.HTTP_REQUEST_METHOD]: request.method,
-        [ATTR.URL_FULL]: request.url,
-        [ATTR.URL_PATH]: path,
+    return withSpan(
+      this.tracer,
+      request.method,
+      {
+        kind: SPAN_KIND_SERVER,
+        attributes: {
+          [ATTR.HTTP_REQUEST_METHOD]: request.method,
+          [ATTR.URL_FULL]: request.url,
+          [ATTR.URL_PATH]: path,
+        },
       },
-    }, async (rootSpan) => {
-      return this.executeRequest(request, u, path, customState, rootSpan)
-    })
+      async (rootSpan) => {
+        return this.executeRequest(request, u, path, customState, rootSpan)
+      },
+    )
   }
 
   private executeRequest = async (
@@ -1663,182 +1760,215 @@ export class Spiceflow<
     customState: any,
     rootSpan?: SpiceflowSpan,
   ): Promise<Response> => {
-      const shouldUseDeploymentId =
-        isDocumentRequest(request) || isRscRequest(u)
-      const deploymentId = shouldUseDeploymentId
-        ? await getDeploymentId()
-        : undefined
+    const shouldUseDeploymentId = isDocumentRequest(request) || isRscRequest(u)
+    const deploymentId = shouldUseDeploymentId
+      ? await getDeploymentId()
+      : undefined
 
-      const root = this.topLevelApp || this
-      const requestDeploymentId = deploymentId
-        ? readDeploymentCookie(request)
-        : undefined
+    const root = this.topLevelApp || this
+    const requestDeploymentId = deploymentId
+      ? readDeploymentCookie(request)
+      : undefined
 
-      if (
-        deploymentId &&
-        requestDeploymentId &&
-        deploymentId !== requestDeploymentId &&
-        isRscRequest(u)
-      ) {
-        const res = new Response(null, {
-          status: deploymentMismatchStatus,
-          headers: {
-            [deploymentReasonHeader]: 'deployment-mismatch',
-            [deploymentReloadHeader]: getDocumentPath(u),
-            'set-cookie': createDeploymentCookie({
-              deploymentId,
-              basePath: root.basePath,
-            }),
-          },
-        })
-        finalizeRequestSpan(rootSpan, res)
-        return res
-      }
+    if (
+      deploymentId &&
+      requestDeploymentId &&
+      deploymentId !== requestDeploymentId &&
+      isRscRequest(u)
+    ) {
+      const res = new Response(null, {
+        status: deploymentMismatchStatus,
+        headers: {
+          [deploymentReasonHeader]: 'deployment-mismatch',
+          [deploymentReloadHeader]: getDocumentPath(u),
+          'set-cookie': createDeploymentCookie({
+            deploymentId,
+            basePath: root.basePath,
+          }),
+        },
+      })
+      finalizeRequestSpan(rootSpan, res)
+      return res
+    }
 
-      // Mutable ref — set after route resolution, read by waitUntil on error
-      let onErrorHandlers: OnError[] = []
-      let contextResponse: ContextResponse | undefined
-      let _query: Record<string, any> | undefined
-      const context: SpiceflowContext<any, any, any> = {
-        redirect,
-        state: customState || cloneDeep(this.defaultState),
-        get query() { return _query ??= parseQuery((u.search || '').slice(1)) },
-        set query(v) { _query = v },
-        request,
-        path,
-        params: {},
-        loaderData: {},
-        span: noopSpan,
-        tracer: this.tracer ?? noopTracer,
-        waitUntil: (promise: Promise<any>) => {
-          const wrappedPromise = promise.catch(async (error) => {
-            const spiceflowError: SpiceflowServerError =
-              error instanceof Error ? error : new Error(String(error))
-            await this.runErrorHandlers({
-              context,
-              onErrorHandlers,
-              error: spiceflowError,
-              request,
-            })
+    // Mutable ref — set after route resolution, read by waitUntil on error
+    let onErrorHandlers: OnError[] = []
+    let contextResponse: ContextResponse | undefined
+    let _query: Record<string, any> | undefined
+    const context: SpiceflowContext<any, any, any> = {
+      redirect,
+      state: customState || cloneDeep(this.defaultState),
+      get query() {
+        return (_query ??= parseQuery((u.search || '').slice(1)))
+      },
+      set query(v) {
+        _query = v
+      },
+      request,
+      path,
+      params: {},
+      loaderData: {},
+      span: noopSpan,
+      tracer: this.tracer ?? noopTracer,
+      waitUntil: (promise: Promise<any>) => {
+        const wrappedPromise = promise.catch(async (error) => {
+          const spiceflowError: SpiceflowServerError =
+            error instanceof Error ? error : new Error(String(error))
+          await this.runErrorHandlers({
+            context,
+            onErrorHandlers,
+            error: spiceflowError,
+            request,
           })
-          return this.waitUntilFn(wrappedPromise)
-        },
-        get response() {
-          return contextResponse ??= createContextResponse()
-        },
-      }
-
-      const finalizeResponse = (response: Response, stripBody: boolean) => {
-        const finalized = this.finalizeHeadResponse(response, stripBody, request.method === 'HEAD')
-        if (
-          !deploymentId ||
-          !isDocumentRequest(request) ||
-          requestDeploymentId === deploymentId
-        ) {
-          return finalized
-        }
-        const headers = new Headers(finalized.headers)
-        headers.append(
-          'set-cookie',
-          createDeploymentCookie({ deploymentId, basePath: root.basePath }),
-        )
-        return new Response(finalized.body, {
-          status: finalized.status,
-          statusText: finalized.statusText,
-          headers,
         })
-      }
+        return this.waitUntilFn(wrappedPromise)
+      },
+      get response() {
+        return (contextResponse ??= createContextResponse())
+      },
+    }
 
-      let routes = this.match(request.method, path)
+    const finalizeResponse = (response: Response, stripBody: boolean) => {
+      const finalized = this.finalizeHeadResponse(
+        response,
+        stripBody,
+        request.method === 'HEAD',
+      )
       if (
-        request.method === 'HEAD' &&
-        routes.length === 1 &&
-        routes[0]?.route?.handler === notFoundHandler
+        !deploymentId ||
+        !isDocumentRequest(request) ||
+        requestDeploymentId === deploymentId
       ) {
-        routes = this.match('GET', path)
+        return finalized
       }
-      const shouldStripHeadBody =
-        request.method === 'HEAD' &&
-        routes.every((matchedRoute) => matchedRoute.route.method !== 'HEAD')
+      const headers = new Headers(finalized.headers)
+      headers.append(
+        'set-cookie',
+        createDeploymentCookie({ deploymentId, basePath: root.basePath }),
+      )
+      return new Response(finalized.body, {
+        status: finalized.status,
+        statusText: finalized.statusText,
+        headers,
+      })
+    }
 
-      const resolved = this.resolveRoutes(request, routes)
+    let routes = this.match(request.method, path)
+    if (
+      request.method === 'HEAD' &&
+      routes.length === 1 &&
+      routes[0]?.route?.handler === notFoundHandler
+    ) {
+      routes = this.match('GET', path)
+    }
+    const shouldStripHeadBody =
+      request.method === 'HEAD' &&
+      routes.every((matchedRoute) => matchedRoute.route.method !== 'HEAD')
 
-      if (resolved.react) {
-        const reactRoute = resolved.reactRoutes.find((r) => r.route.kind === 'page' || r.route.kind === 'staticPage')?.route.path
-        if (rootSpan && reactRoute) rootSpan.updateName(`${request.method} ${reactRoute}`)
+    const resolved = this.resolveRoutes(request, routes)
 
-        const appsInScope = this.getAppsInScope(resolved.fallbackApp)
-        onErrorHandlers = appsInScope.flatMap((x) => x.onErrorHandlers)
+    if (resolved.react) {
+      const reactRoute = resolved.reactRoutes.find(
+        (r) => r.route.kind === 'page' || r.route.kind === 'staticPage',
+      )?.route.path
+      if (rootSpan && reactRoute)
+        rootSpan.updateName(`${request.method} ${reactRoute}`)
 
-        const shouldSsr = !!renderSsr && !isRscRequest(u)
-        let response = await this.runMiddlewareChain(
-          appsInScope.flatMap((x) => x.middlewares),
-          context,
-          onErrorHandlers,
-          async () => {
-            let res = await this.renderReact({ request, context, reactRoutes: resolved.reactRoutes })
-            if (shouldSsr && renderSsr && res.headers.get('content-type')?.startsWith('text/x-component')) {
-              res = this.tracer
-                ? await withSpan(this.tracer, 'ssr.render', {}, () => renderSsr!(res, request))
-                : await renderSsr(res, request)
-            }
-            return res
-          },
-        )
-
-        const result = finalizeResponse(response, shouldStripHeadBody)
-        finalizeRequestSpan(rootSpan, result, reactRoute)
-        return result
-      }
-
-      const { route } = resolved
-      const isRealRoute = route?.route?.handler !== notFoundHandler
-      const routeTemplate = isRealRoute ? route?.route?.path : undefined
-      if (rootSpan && routeTemplate) rootSpan.updateName(`${request.method} ${routeTemplate}`)
-
-      const appsInScope = this.getAppsInScope(route.app)
+      const appsInScope = this.getAppsInScope(resolved.fallbackApp)
       onErrorHandlers = appsInScope.flatMap((x) => x.onErrorHandlers)
 
-      if (route?.route?.validateBody && request instanceof SpiceflowRequest) {
-        request.validateBody = route?.route?.validateBody
-      }
-      context['params'] = route.params
-
-      const scopedMiddlewares = appsInScope.flatMap((x) => x.middlewares)
-      const middlewares = scopedMiddlewares.filter((x) => !isStaticMiddleware(x))
-      const staticMiddlewares = scopedMiddlewares.filter((x) => isStaticMiddleware(x))
-      const shouldTryStatic = routeShouldYieldToStatic(route.route)
-      const middlewareChain = shouldTryStatic
-        ? [...middlewares, ...staticMiddlewares]
-        : middlewares
-
+      const shouldSsr = !!renderSsr && !isRscRequest(u)
       let response = await this.runMiddlewareChain(
-        middlewareChain,
+        appsInScope.flatMap((x) => x.middlewares),
         context,
         onErrorHandlers,
         async () => {
-          context.query = await runValidation(context.query, route?.route?.validateQuery)
-          context.params = await runValidation(context.params, route?.route?.validateParams)
-
-          if (!this.tracer) {
-            const res = await route?.route?.handler.call(this, context)
-            // Returning an Error from a handler is treated the same as throwing it:
-            // routes through errorToResponse → onError handlers → status extraction.
-            if (res instanceof Error) {
-              throw res
-            }
-            if (isAsyncIterable(res)) {
-              return this.handleStream({
-                generator: res,
-                request,
-                onErrorHandlers,
-                route: route?.route,
-                context,
-              })
-            }
-            return this.turnHandlerResultIntoResponse(res, route?.route, request)
+          let res = await this.renderReact({
+            request,
+            context,
+            reactRoutes: resolved.reactRoutes,
+          })
+          if (
+            shouldSsr &&
+            renderSsr &&
+            res.headers.get('content-type')?.startsWith('text/x-component')
+          ) {
+            res = this.tracer
+              ? await withSpan(this.tracer, 'ssr.render', {}, () =>
+                  renderSsr!(res, request),
+                )
+              : await renderSsr(res, request)
           }
-          return withSpan(this.tracer, `handler - ${route?.route?.path || path}`, {}, async (handlerSpan) => {
+          return res
+        },
+      )
+
+      const result = finalizeResponse(response, shouldStripHeadBody)
+      finalizeRequestSpan(rootSpan, result, reactRoute)
+      return result
+    }
+
+    const { route } = resolved
+    const isRealRoute = route?.route?.handler !== notFoundHandler
+    const routeTemplate = isRealRoute ? route?.route?.path : undefined
+    if (rootSpan && routeTemplate)
+      rootSpan.updateName(`${request.method} ${routeTemplate}`)
+
+    const appsInScope = this.getAppsInScope(route.app)
+    onErrorHandlers = appsInScope.flatMap((x) => x.onErrorHandlers)
+
+    if (route?.route?.validateBody && request instanceof SpiceflowRequest) {
+      request.validateBody = route?.route?.validateBody
+    }
+    context['params'] = route.params
+
+    const scopedMiddlewares = appsInScope.flatMap((x) => x.middlewares)
+    const middlewares = scopedMiddlewares.filter((x) => !isStaticMiddleware(x))
+    const staticMiddlewares = scopedMiddlewares.filter((x) =>
+      isStaticMiddleware(x),
+    )
+    const shouldTryStatic = routeShouldYieldToStatic(route.route)
+    const middlewareChain = shouldTryStatic
+      ? [...middlewares, ...staticMiddlewares]
+      : middlewares
+
+    let response = await this.runMiddlewareChain(
+      middlewareChain,
+      context,
+      onErrorHandlers,
+      async () => {
+        context.query = await runValidation(
+          context.query,
+          route?.route?.validateQuery,
+        )
+        context.params = await runValidation(
+          context.params,
+          route?.route?.validateParams,
+        )
+
+        if (!this.tracer) {
+          const res = await route?.route?.handler.call(this, context)
+          // Returning an Error from a handler is treated the same as throwing it:
+          // routes through errorToResponse → onError handlers → status extraction.
+          if (res instanceof Error) {
+            throw res
+          }
+          if (isAsyncIterable(res)) {
+            return this.handleStream({
+              generator: res,
+              request,
+              onErrorHandlers,
+              route: route?.route,
+              context,
+            })
+          }
+          return this.turnHandlerResultIntoResponse(res, route?.route, request)
+        }
+        return withSpan(
+          this.tracer,
+          `handler - ${route?.route?.path || path}`,
+          {},
+          async (handlerSpan) => {
             const prevSpan = context.span
             if (handlerSpan) context.span = handlerSpan
             try {
@@ -1857,54 +1987,76 @@ export class Spiceflow<
                   context,
                 })
               }
-              return this.turnHandlerResultIntoResponse(res, route?.route, request)
+              return this.turnHandlerResultIntoResponse(
+                res,
+                route?.route,
+                request,
+              )
             } finally {
               context.span = prevSpan
             }
-          })
-        },
-        route?.route,
-      )
+          },
+        )
+      },
+      route?.route,
+    )
 
-      response = mergeHeadersIntoResponse({
-        response,
-        source: contextResponse?.headers,
+    response = mergeHeadersIntoResponse({
+      response,
+      source: contextResponse?.headers,
+    })
+
+    // Respect context.response.status for plain-object/JSON handlers, but do
+    // not override explicit statuses from returned/thrown Response objects.
+    if (
+      contextResponse?.status &&
+      contextResponse.status !== 200 &&
+      response.status === 200
+    ) {
+      response = new Response(response.body, {
+        status: contextResponse.status,
+        statusText: response.statusText,
+        headers: response.headers,
       })
+    }
 
-      // Respect context.response.status for plain-object/JSON handlers, but do
-      // not override explicit statuses from returned/thrown Response objects.
-      if (contextResponse?.status && contextResponse.status !== 200 && response.status === 200) {
-        response = new Response(response.body, {
-          status: contextResponse.status,
-          statusText: response.statusText,
-          headers: response.headers,
-        })
-      }
-
-      const result = finalizeResponse(response, shouldStripHeadBody)
-      finalizeRequestSpan(rootSpan, result, routeTemplate)
-      return result
+    const result = finalizeResponse(response, shouldStripHeadBody)
+    finalizeRequestSpan(rootSpan, result, routeTemplate)
+    return result
   }
 
   private resolveRoutes(
     request: Request,
     routes: MatchedRoute[],
-  ): { react: true; reactRoutes: ReactMatchedRoute[]; fallbackApp: AnySpiceflow }
+  ):
+    | {
+        react: true
+        reactRoutes: ReactMatchedRoute[]
+        fallbackApp: AnySpiceflow
+      }
     | { react: false; route: MatchedRoute } {
-    const [nonReactRoutes, reactRoutes] = partition(routes, (x) => !x.route.kind)
+    const [nonReactRoutes, reactRoutes] = partition(
+      routes,
+      (x) => !x.route.kind,
+    )
     const typedReactRoutes = reactRoutes.filter(isReactMatchedRoute)
 
     const isSafeMethod = request.method === 'GET' || request.method === 'HEAD'
     const isBrowserNavigation =
-      isDocumentRequest(request) || request.headers.get('accept')?.includes('text/html')
+      isDocumentRequest(request) ||
+      request.headers.get('accept')?.includes('text/html')
     const isUnmatchedRoute =
       nonReactRoutes.length === 1 &&
       nonReactRoutes[0]?.route?.handler === notFoundHandler
-    const appHasReactPages =
-      this.getAllRoutes().some((r) => r.kind === 'page' || r.kind === 'staticPage')
+    const appHasReactPages = this.getAllRoutes().some(
+      (r) => r.kind === 'page' || r.kind === 'staticPage',
+    )
     const shouldRenderReact404 =
-      isUnmatchedRoute && !reactRoutes.length && appHasReactPages &&
-      isSafeMethod && isBrowserNavigation
+      isUnmatchedRoute &&
+      !reactRoutes.length &&
+      appHasReactPages &&
+      isSafeMethod &&
+      isBrowserNavigation
     const hasPageMatch = typedReactRoutes.some(
       (x) => x.route.kind === 'page' || x.route.kind === 'staticPage',
     )
@@ -1943,15 +2095,20 @@ export class Spiceflow<
           const middleware = middlewares[index]
           index++
           const result = this.tracer
-            ? await withSpan(this.tracer, `middleware - ${middleware.name || 'anonymous'}`, {}, async (mwSpan) => {
-                const prevSpan = context.span
-                if (mwSpan) context.span = mwSpan
-                try {
-                  return await middleware(context, next)
-                } finally {
-                  context.span = prevSpan
-                }
-              })
+            ? await withSpan(
+                this.tracer,
+                `middleware - ${middleware.name || 'anonymous'}`,
+                {},
+                async (mwSpan) => {
+                  const prevSpan = context.span
+                  if (mwSpan) context.span = mwSpan
+                  try {
+                    return await middleware(context, next)
+                  } finally {
+                    context.span = prevSpan
+                  }
+                },
+              )
             : await middleware(context, next)
           if (isResponse(result)) {
             handlerResponse = result
@@ -1960,7 +2117,11 @@ export class Spiceflow<
             return await next()
           }
           if (result) {
-            return this.turnHandlerResultIntoResponse(result, route, context.request)
+            return this.turnHandlerResultIntoResponse(
+              result,
+              route,
+              context.request,
+            )
           }
         }
         if (handlerResponse) {
@@ -1969,7 +2130,11 @@ export class Spiceflow<
         handlerResponse = await finalHandler()
         return handlerResponse
       } catch (err) {
-        handlerResponse = await this.errorToResponse(err, context, onErrorHandlers)
+        handlerResponse = await this.errorToResponse(
+          err,
+          context,
+          onErrorHandlers,
+        )
         return await next()
       }
     }
@@ -2008,15 +2173,23 @@ export class Spiceflow<
       status = 500
     }
     return new Response(
-      this.superjsonSerialize({
-        ...err,
-        message: err?.message || 'Internal Server Error',
-      }, false, request),
+      this.superjsonSerialize(
+        {
+          ...err,
+          message: err?.message || 'Internal Server Error',
+        },
+        false,
+        request,
+      ),
       { status, headers: { 'content-type': 'application/json' } },
     )
   }
 
-  private finalizeHeadResponse(response: Response, stripBody: boolean, isHead: boolean) {
+  private finalizeHeadResponse(
+    response: Response,
+    stripBody: boolean,
+    isHead: boolean,
+  ) {
     // per HTTP spec, HEAD responses must never include a body
     if (!stripBody && !isHead) return response
     return new Response(null, {
@@ -2026,8 +2199,13 @@ export class Spiceflow<
     })
   }
 
-  protected superjsonSerialize(value: any, indent = false, request?: Request): string {
-    const isRpcRequest = request?.headers.get('x-spiceflow-agent') === 'spiceflow-client'
+  protected superjsonSerialize(
+    value: any,
+    indent = false,
+    request?: Request,
+  ): string {
+    const isRpcRequest =
+      request?.headers.get('x-spiceflow-agent') === 'spiceflow-client'
 
     // If flag is set and this is not an RPC request, use regular JSON
     if (this.disableSuperJsonUnlessRpc && !isRpcRequest) {
@@ -2224,7 +2402,8 @@ export class Spiceflow<
     // During prerender, skip server startup — we only need the app instance.
     // Uses globalThis instead of process.env because bundlers replace
     // process.env.X with its build-time value (undefined), dead-code eliminating the check.
-    if ((globalThis as any).__SPICEFLOW_PRERENDER) return createNoopListenResult()
+    if ((globalThis as any).__SPICEFLOW_PRERENDER)
+      return createNoopListenResult()
     const handler = this.handle.bind(this)
     if (typeof Bun !== 'undefined') {
       const app = this
@@ -2493,8 +2672,6 @@ export class Spiceflow<
   }
 }
 
-
-
 /**
  * Create a standalone type-safe path builder. Pass your app instance for automatic
  * type inference, or call with explicit type params. The app value is not used at runtime.
@@ -2509,14 +2686,13 @@ export class Spiceflow<
  */
 export function createHref<
   T extends { _types: { RoutePaths: string; RouteQuerySchemas: object } },
->(
-  _app?: T,
-) {
+>(_app?: T) {
   type Paths = T['_types']['RoutePaths']
   type QS = T['_types']['RouteQuerySchemas']
   return <
     const Path extends Paths,
-    const Params extends ExtractParamsFromPath<Path> = ExtractParamsFromPath<Path>,
+    const Params extends
+      ExtractParamsFromPath<Path> = ExtractParamsFromPath<Path>,
   >(
     path: Path,
     ...rest: HrefArgs<Paths, QS, Path, Params>
@@ -2524,8 +2700,6 @@ export function createHref<
     return buildHref(path, rest[0] as Record<string, any> | undefined)
   }
 }
-
-
 
 const METHODS = [
   'ALL',
@@ -2560,7 +2734,6 @@ function bfsFind<T>(
   }
   return
 }
-
 
 export class SpiceflowRequest<T = any> extends Request {
   validateBody?: ValidationFunction
@@ -2605,24 +2778,23 @@ export function bfs(tree: AnySpiceflow) {
   return nodes
 }
 
-type RouteResult = {
-  ok: true
-  value: React.ReactNode
-  headers?: Headers
-  status?: number
-} | {
-  ok: false
-  error: unknown
-  headers?: Headers
-  status?: number
-}
+type RouteResult =
+  | {
+      ok: true
+      value: React.ReactNode
+      headers?: Headers
+      status?: number
+    }
+  | {
+      ok: false
+      error: unknown
+      headers?: Headers
+      status?: number
+    }
 
 type ReactRoute = InternalRoute & {
   kind: 'page' | 'staticPage' | 'layout' | 'loader'
-  handler: (
-    this: AnySpiceflow,
-    context: SpiceflowContext<any, any, any>,
-  ) => any
+  handler: (this: AnySpiceflow, context: SpiceflowContext<any, any, any>) => any
 }
 
 type ReactMatchedRoute = {
@@ -2635,9 +2807,9 @@ type ReactActionState = {
   actionError: Error | undefined
   returnValue: unknown | undefined
   formState: ReactFormState | undefined
-  temporaryReferences: ReturnType<
-    typeof import('#rsc-runtime')['createTemporaryReferenceSet']
-  > | undefined
+  temporaryReferences:
+    | ReturnType<(typeof import('#rsc-runtime'))['createTemporaryReferenceSet']>
+    | undefined
 }
 
 function isReactMatchedRoute(route: {
@@ -2757,7 +2929,8 @@ export function extractWildcardParam(
   }
 
   const suffixLength = patternParts.length - wildcardIndex - 1
-  const endIndex = suffixLength > 0 ? urlParts.length - suffixLength : urlParts.length
+  const endIndex =
+    suffixLength > 0 ? urlParts.length - suffixLength : urlParts.length
   const wildcardSegments = urlParts.slice(wildcardIndex, endIndex)
   if (!wildcardSegments.length) {
     return null
@@ -2780,7 +2953,8 @@ function getRouteSpecificity(route: InternalRoute) {
   const namedParamCount = parts.filter(
     (p) => p.startsWith(':') && !/^:[^{}]+\{.+\}$/.test(p),
   ).length
-  const staticSegmentCount = parts.length - wildcardCount - regexParamCount - namedParamCount
+  const staticSegmentCount =
+    parts.length - wildcardCount - regexParamCount - namedParamCount
   const segmentCount = parts.length
   return {
     wildcardCount,
@@ -2791,7 +2965,9 @@ function getRouteSpecificity(route: InternalRoute) {
   }
 }
 
-function pickBestRoute<T extends { route: InternalRoute; app?: AnySpiceflow }>(routes: T[]): T {
+function pickBestRoute<T extends { route: InternalRoute; app?: AnySpiceflow }>(
+  routes: T[],
+): T {
   if (routes.length <= 1) return routes[0]
   let best = routes[0]
   let bestSpec = getRouteSpecificity(best.route)
@@ -2844,7 +3020,11 @@ function pickBestRoute<T extends { route: InternalRoute; app?: AnySpiceflow }>(r
 }
 
 function routeShouldYieldToStatic(route: InternalRoute) {
-  return route.handler === notFoundHandler || route.path === '/*' || route.path === '*'
+  return (
+    route.handler === notFoundHandler ||
+    route.path === '/*' ||
+    route.path === '*'
+  )
 }
 
 function partition<T>(arr: T[], predicate: (item: T) => boolean): [T[], T[]] {
@@ -2860,17 +3040,24 @@ function partition<T>(arr: T[], predicate: (item: T) => boolean): [T[], T[]] {
 // Sort comparator: least specific first, most specific last.
 // Uses the same specificity logic as pickBestRoute so merge ordering
 // is consistent: Object.assign spreads least-specific first, most-specific wins.
-function compareRouteSpecificity(a: { route: InternalRoute }, b: { route: InternalRoute }): number {
+function compareRouteSpecificity(
+  a: { route: InternalRoute },
+  b: { route: InternalRoute },
+): number {
   const sa = getRouteSpecificity(a.route)
   const sb = getRouteSpecificity(b.route)
   // More wildcards = less specific (sort first)
-  if (sa.wildcardCount !== sb.wildcardCount) return sb.wildcardCount - sa.wildcardCount
+  if (sa.wildcardCount !== sb.wildcardCount)
+    return sb.wildcardCount - sa.wildcardCount
   // Fewer static segments = less specific
-  if (sa.staticSegmentCount !== sb.staticSegmentCount) return sa.staticSegmentCount - sb.staticSegmentCount
+  if (sa.staticSegmentCount !== sb.staticSegmentCount)
+    return sa.staticSegmentCount - sb.staticSegmentCount
   // Fewer regex params = less specific
-  if (sa.regexParamCount !== sb.regexParamCount) return sa.regexParamCount - sb.regexParamCount
+  if (sa.regexParamCount !== sb.regexParamCount)
+    return sa.regexParamCount - sb.regexParamCount
   // More named params = less specific
-  if (sa.namedParamCount !== sb.namedParamCount) return sb.namedParamCount - sa.namedParamCount
+  if (sa.namedParamCount !== sb.namedParamCount)
+    return sb.namedParamCount - sa.namedParamCount
   // Fewer segments = less specific
   return sa.segmentCount - sb.segmentCount
 }

@@ -74,9 +74,12 @@ test('static file beats root catch-all route', async () => {
 })
 
 test('relative static root serves nested asset paths', async () => {
-  const root = await createStaticRoot({
-    'assets/logo.txt': 'from static',
-  }, process.cwd())
+  const root = await createStaticRoot(
+    {
+      'assets/logo.txt': 'from static',
+    },
+    process.cwd(),
+  )
 
   const relativeRoot = basename(root)
 
@@ -85,7 +88,9 @@ test('relative static root serves nested asset paths', async () => {
       .use(serveStatic({ root: relativeRoot }))
       .get('/*', () => ({ route: 'catch-all' }))
 
-    const res = await app.handle(new Request('http://localhost/assets/logo.txt'))
+    const res = await app.handle(
+      new Request('http://localhost/assets/logo.txt'),
+    )
 
     expect(res.status).toBe(200)
     expect(await res.text()).toMatchInlineSnapshot(`"from static"`)
@@ -136,9 +141,12 @@ test('HEAD serves static headers without a body', async () => {
 })
 
 test('static response includes mime type headers', async () => {
-  const root = await createStaticRoot({
-    'assets/app.js': 'console.log("ok")',
-  }, process.cwd())
+  const root = await createStaticRoot(
+    {
+      'assets/app.js': 'console.log("ok")',
+    },
+    process.cwd(),
+  )
 
   try {
     const app = new Spiceflow().use(serveStatic({ root: basename(root) }))
@@ -146,7 +154,9 @@ test('static response includes mime type headers', async () => {
     const res = await app.handle(new Request('http://localhost/assets/app.js'))
 
     expect(res.status).toBe(200)
-    expect(res.headers.get('content-type')).toBe('text/javascript; charset=utf-8')
+    expect(res.headers.get('content-type')).toBe(
+      'text/javascript; charset=utf-8',
+    )
   } finally {
     await rm(root, { recursive: true, force: true })
   }

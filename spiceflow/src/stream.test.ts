@@ -216,14 +216,16 @@ describe('Stream', () => {
     })
 
     // Import the client functions
-    const { createSpiceflowClient, streamSSEResponse } = await import('./client/index.ts')
-    
+    const { createSpiceflowClient, streamSSEResponse } = await import(
+      './client/index.ts'
+    )
+
     // Create a client using the app instance
     const client = createSpiceflowClient(app)
 
     // Call the streaming endpoint
     const { data: stream, error } = await client.stream.get()
-    
+
     expect(error).toBeNull()
     expect(stream).toBeDefined()
 
@@ -244,7 +246,7 @@ describe('Stream', () => {
 
     // Verify we received the values before the error
     expect(values).toEqual(['first', 'second'])
-    
+
     // Verify the error was caught
     expect(streamError).toBeDefined()
     expect(streamError?.message).toContain('Stream error after yielding')
@@ -255,7 +257,7 @@ describe('Stream', () => {
       .onError(({ error }) => {
         return new Response(JSON.stringify({ message: error.message }), {
           status: 500,
-          headers: { 'content-type': 'application/json' }
+          headers: { 'content-type': 'application/json' },
         })
       })
       .get('/stream', async function* () {
@@ -264,13 +266,13 @@ describe('Stream', () => {
 
     // Import the client functions
     const { createSpiceflowClient } = await import('./client/index.ts')
-    
+
     // Create a client using the app instance
     const client = createSpiceflowClient(app)
 
     // Call the streaming endpoint
     const { data, error } = await client.stream.get()
-    
+
     // When error happens before yield, it should be caught by error handler
     expect(data).toBeNull()
     expect(error).toBeDefined()
@@ -415,7 +417,7 @@ describe('Stream', () => {
 
     // Import the client functions
     const { createSpiceflowClient } = await import('./client/index.ts')
-    
+
     // Create a client using the app instance
     const client = createSpiceflowClient(app)
 
@@ -426,12 +428,12 @@ describe('Stream', () => {
     const response = await app.handle(
       new Request('http://e.ly/stream', {
         signal: controller.signal,
-      })
+      }),
     )
 
     // Simulate client-side SSE parsing
     const { streamSSEResponse } = await import('./client/index.ts')
-    
+
     // Abort after first value
     setTimeout(() => controller.abort(), 50)
 
@@ -450,7 +452,7 @@ describe('Stream', () => {
     // Should have received at least the first value
     expect(values.length).toBeGreaterThanOrEqual(1)
     expect(values[0]).toBe('"first"')
-    
+
     // Should not throw an error for abort
     expect(streamError).toBeUndefined()
   })

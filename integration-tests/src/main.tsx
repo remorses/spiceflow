@@ -39,7 +39,10 @@ import {
 	LayoutClientContextValue,
 } from "./app/client-context";
 import { LoaderDataDisplay, LoaderNavLinks } from "./app/loader-test-client";
-import { GlobalLoaderDisplay, SubscribeDataReader } from "./app/loader-global-client";
+import {
+	GlobalLoaderDisplay,
+	SubscribeDataReader,
+} from "./app/loader-global-client";
 import { ServerGuardTestClient } from "./app/server-guard-test-client";
 
 // Increments on every RSC render of the home page. Used by e2e tests to detect
@@ -48,7 +51,10 @@ let serverRenderCount = 0;
 
 // In-memory page cache for e2e testing of the README caching middleware pattern.
 // Key = pathname+search (naturally separates HTML and RSC responses).
-const pageCache = new Map<string, { body: string; status: number; headers: [string, string][] }>();
+const pageCache = new Map<
+	string,
+	{ body: string; status: number; headers: [string, string][] }
+>();
 let cachedPageRenderCount = 0;
 
 function notFound() {
@@ -62,7 +68,10 @@ export const app = new Spiceflow()
 		state.middleware1 = "state set by middleware1";
 		const res = await next();
 		res.headers.set("x-middleware-1", "ok");
-		res.headers.set("x-middleware-response-type", res.headers.get("content-type") || "");
+		res.headers.set(
+			"x-middleware-response-type",
+			res.headers.get("content-type") || "",
+		);
 
 		return res;
 	})
@@ -174,7 +183,10 @@ export const app = new Spiceflow()
 		return <div data-testid="response-headers-page">response headers page</div>;
 	})
 	.page("/response-headers/redirect", async ({ response }) => {
-		response.headers.append("set-cookie", "before-redirect=1; Path=/; HttpOnly");
+		response.headers.append(
+			"set-cookie",
+			"before-redirect=1; Path=/; HttpOnly",
+		);
 		throw redirect("/response-target");
 	})
 	.page("/response-target", async () => {
@@ -252,7 +264,7 @@ export const app = new Spiceflow()
 				throw new Error("userId not set");
 			}
 
-			return
+			return;
 		}
 
 		return (
@@ -374,7 +386,10 @@ export const app = new Spiceflow()
 				<h1>CSS Test Page</h1>
 				<CssTestServer />
 				<CssTestClient />
-				<div data-testid="css-test-tailwind" className="text-green-600 border-2 border-green-600 p-2">
+				<div
+					data-testid="css-test-tailwind"
+					className="text-green-600 border-2 border-green-600 p-2"
+				>
 					Tailwind styled element
 				</div>
 			</div>
@@ -402,7 +417,11 @@ export const app = new Spiceflow()
 		const body = await response.text();
 		const headers = new Headers(response.headers);
 		headers.set("x-cache", "MISS");
-		pageCache.set(cacheKey, { body, status: response.status, headers: [...headers.entries()] });
+		pageCache.set(cacheKey, {
+			body,
+			status: response.status,
+			headers: [...headers.entries()],
+		});
 		return new Response(body, { status: response.status, headers });
 	})
 	.page("/cached-page", async () => {
@@ -435,36 +454,37 @@ export const app = new Spiceflow()
 		cachedPageRenderCount = 0;
 		return { cleared: true };
 	})
-	.page(
-		"/static/:id",
-		function StaticComponent({ params: { id } }) {
-			return <StaticPage id={id} />;
-		},
-	)
+	.page("/static/:id", function StaticComponent({ params: { id } }) {
+		return <StaticPage id={id} />;
+	})
 	.page("/prerender-nav", async () => {
 		return (
 			<div>
-				<Link href="/static/one" data-testid="link-static-one">Go to static one</Link>
-				<Link href="/static/two" data-testid="link-static-two">Go to static two</Link>
+				<Link href="/static/one" data-testid="link-static-one">
+					Go to static one
+				</Link>
+				<Link href="/static/two" data-testid="link-static-two">
+					Go to static two
+				</Link>
 			</div>
 		);
 	})
 	.page("/meta", async ({ request }) => {
 		return (
 			<div className="">
-			<Head>
-				<Head.Title>Spiceflow Example</Head.Title>
-				<Head.Meta name="test" content="value" />
-				<Head.Meta name="test" content="value" />
-				<Head.Meta property="og:title" content="Spiceflow Example" />
-				<Head.Meta
-					property="og:description"
-					content="An example application built with Spiceflow"
-				/>
-				<Head.Meta property="og:type" content="website" />
-				<Head.Meta property="og:image" content="/og-image.jpg" />
-				<Head.Meta property="og:url" content="https://example.com" />
-			</Head>
+				<Head>
+					<Head.Title>Spiceflow Example</Head.Title>
+					<Head.Meta name="test" content="value" />
+					<Head.Meta name="test" content="value" />
+					<Head.Meta property="og:title" content="Spiceflow Example" />
+					<Head.Meta
+						property="og:description"
+						content="An example application built with Spiceflow"
+					/>
+					<Head.Meta property="og:type" content="website" />
+					<Head.Meta property="og:image" content="/og-image.jpg" />
+					<Head.Meta property="og:url" content="https://example.com" />
+				</Head>
 			</div>
 		);
 	})
@@ -624,8 +644,7 @@ export const app = new Spiceflow()
 	})
 	.page("/loader-error", async () => {
 		return <div>should not render</div>;
-	})
-;
+	});
 
 const somePaths = ["/static/one", "/static/two"];
 for (const path of somePaths) {
@@ -651,4 +670,4 @@ function UseStateInServerComponent() {
 	return <div>count: {count}</div>;
 }
 
-app.listen(Number(process.env.PORT || 3000))
+app.listen(Number(process.env.PORT || 3000));

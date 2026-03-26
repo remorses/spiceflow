@@ -34,7 +34,9 @@ const rscStream = new ReadableStream<Uint8Array>({
     if (typeof window === 'undefined') return
     const encoder = new TextEncoder()
     const enqueue = (chunk: string | Uint8Array) => {
-      controller.enqueue(typeof chunk === 'string' ? encoder.encode(chunk) : chunk)
+      controller.enqueue(
+        typeof chunk === 'string' ? encoder.encode(chunk) : chunk,
+      )
     }
 
     const w = window as any
@@ -148,9 +150,11 @@ async function main() {
   // resolves for top-level await in client modules.
   // Wrap in Promise.resolve because createFromReadableStream returns a thenable
   // (not a full Promise), so .then() doesn't return something with .catch().
-  Promise.resolve(initialPayload).then((payload) => {
-    router.__setLoaderData(payload.root?.loaderData)
-  }).catch(() => {})
+  Promise.resolve(initialPayload)
+    .then((payload) => {
+      router.__setLoaderData(payload.root?.loaderData)
+    })
+    .catch(() => {})
 
   let navVersion = 0
 
@@ -171,15 +175,21 @@ async function main() {
         const url = new URL(window.location.href)
         url.searchParams.set('__rsc', '')
         const payload = createFromFetch<ServerPayload>(
-          fetchFlightResponse({ url, kind: 'navigation', init: { signal: navigationAbort.signal } }),
+          fetchFlightResponse({
+            url,
+            kind: 'navigation',
+            init: { signal: navigationAbort.signal },
+          }),
         )
         if (navigationAbort.signal.aborted) return
         setPayload(payload)
         const version = ++navVersion
-        Promise.resolve(payload).then((resolved) => {
-          if (version !== navVersion) return
-          router.__setLoaderData(resolved.root?.loaderData)
-        }).catch(() => {})
+        Promise.resolve(payload)
+          .then((resolved) => {
+            if (version !== navVersion) return
+            router.__setLoaderData(resolved.root?.loaderData)
+          })
+          .catch(() => {})
       })
     }, [])
 

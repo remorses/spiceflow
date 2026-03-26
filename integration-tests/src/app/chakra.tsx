@@ -13,9 +13,7 @@ export function Chakra() {
 			<Alert.Root status="error">
 				<Alert.Indicator />
 				<AlertTitle>Your browser!</AlertTitle>
-				<AlertDescription>
-					Your Chakra experience!
-				</AlertDescription>
+				<AlertDescription>Your Chakra experience!</AlertDescription>
 			</Alert.Root>
 		</ChakraProvider>
 	);

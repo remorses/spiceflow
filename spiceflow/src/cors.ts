@@ -129,7 +129,7 @@ export const cors = (options?: CORSOptions): MiddlewareHandler => {
         statusText: response.statusText,
       })
     }
-    
+
     return response
   }
 }

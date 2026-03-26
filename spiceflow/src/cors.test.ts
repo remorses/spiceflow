@@ -98,9 +98,7 @@ test('CORS headers are set when an error is thrown in middleware', async () => {
 })
 
 test('CORS preserves headers on HEAD responses without adding a body', async () => {
-  const app = new Spiceflow()
-    .use(cors())
-    .get('/hello', () => ({ ok: true }))
+  const app = new Spiceflow().use(cors()).get('/hello', () => ({ ok: true }))
 
   const res = await app.handle(request('hello', 'HEAD'))
 

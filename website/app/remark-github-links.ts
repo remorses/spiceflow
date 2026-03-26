@@ -9,7 +9,8 @@ const GITHUB_BLOB = `${GITHUB_REPO}/blob/main/`
 function isRelativeUrl(url: string): boolean {
   if (!url) return false
   if (url.startsWith('http://') || url.startsWith('https://')) return false
-  if (url.startsWith('#') || url.startsWith('/') || url.startsWith('mailto:')) return false
+  if (url.startsWith('#') || url.startsWith('/') || url.startsWith('mailto:'))
+    return false
   return true
 }
 

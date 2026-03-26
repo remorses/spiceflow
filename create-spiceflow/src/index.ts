@@ -43,12 +43,14 @@ cli
   .action(async (dir: string | undefined, options: { template?: string }) => {
     intro('create-spiceflow')
 
-    const projectDir = dir || await askDir()
+    const projectDir = dir || (await askDir())
     const validTemplates = new Set<string>(['node', 'cloudflare', 'bun'])
     function isTemplate(v: string | undefined): v is Template {
       return v != null && validTemplates.has(v)
     }
-    const template = isTemplate(options.template) ? options.template : await askTemplate()
+    const template = isTemplate(options.template)
+      ? options.template
+      : await askTemplate()
 
     const resolved = path.resolve(projectDir)
     if (fs.existsSync(resolved) && fs.readdirSync(resolved).length > 0) {
@@ -132,7 +134,9 @@ async function downloadTemplate({
   const tarUrl = `https://github.com/${REPO}/archive/${BRANCH}.tar.gz`
   const res = await fetch(tarUrl)
   if (!res.ok) {
-    throw new Error(`Failed to download template: ${res.status} ${res.statusText}`)
+    throw new Error(
+      `Failed to download template: ${res.status} ${res.statusText}`,
+    )
   }
 
   const prefix = TEMPLATE_DIRS[template]

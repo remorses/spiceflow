@@ -51,9 +51,10 @@ function createTestTracer() {
           return span
         },
         recordException(exception) {
-          const err = exception instanceof Error
-            ? { name: exception.name, message: exception.message }
-            : { name: 'Error', message: String(exception) }
+          const err =
+            exception instanceof Error
+              ? { name: exception.name, message: exception.message }
+              : { name: 'Error', message: String(exception) }
           testSpan.errors.push(err)
         },
         updateName(n) {
@@ -126,7 +127,9 @@ describe('instrumentation', () => {
 
   test('middleware spans are children of root', async () => {
     const { tracer, spans } = createTestTracer()
-    function authMiddleware(_ctx: any, next: any) { return next() }
+    function authMiddleware(_ctx: any, next: any) {
+      return next()
+    }
     const app = new Spiceflow({ tracer })
       .use(authMiddleware)
       .get('/hello', () => 'world')
@@ -134,7 +137,9 @@ describe('instrumentation', () => {
     await app.handle(new Request('http://localhost/hello'))
 
     const root = spans.find((s) => !s.parent)!
-    const mw = root.children.find((s) => s.name === 'middleware - authMiddleware')
+    const mw = root.children.find(
+      (s) => s.name === 'middleware - authMiddleware',
+    )
     expect(mw).toBeDefined()
     expect(mw!.ended).toBe(true)
   })
@@ -155,7 +160,9 @@ describe('instrumentation', () => {
   test('error in handler records exception on handler span', async () => {
     const { tracer, spans } = createTestTracer()
     const app = new Spiceflow({ tracer })
-      .get('/fail', () => { throw new Error('boom') })
+      .get('/fail', () => {
+        throw new Error('boom')
+      })
       .onError(({ error }) => new Response(error.message, { status: 500 }))
 
     const res = await app.handle(new Request('http://localhost/fail'))
@@ -184,7 +191,9 @@ describe('instrumentation', () => {
     }
 
     const app = new Spiceflow({ tracer })
-      .get('/fail', () => { throw new TaggedError() })
+      .get('/fail', () => {
+        throw new TaggedError()
+      })
       .onError(({ error }) => new Response(error.message, { status: 500 }))
 
     await app.handle(new Request('http://localhost/fail'))
@@ -198,8 +207,12 @@ describe('instrumentation', () => {
 
   test('full API span tree', async () => {
     const { tracer, spans } = createTestTracer()
-    function cors(_ctx: any, next: any) { return next() }
-    function auth(_ctx: any, next: any) { return next() }
+    function cors(_ctx: any, next: any) {
+      return next()
+    }
+    function auth(_ctx: any, next: any) {
+      return next()
+    }
 
     const app = new Spiceflow({ tracer })
       .use(cors)
@@ -262,8 +275,9 @@ describe('instrumentation', () => {
 
   test('POST request span', async () => {
     const { tracer, spans } = createTestTracer()
-    const app = new Spiceflow({ tracer })
-      .post('/items', () => ({ created: true }))
+    const app = new Spiceflow({ tracer }).post('/items', () => ({
+      created: true,
+    }))
 
     await app.handle(new Request('http://localhost/items', { method: 'POST' }))
 
@@ -292,8 +306,9 @@ describe('instrumentation', () => {
     const { tracer, spans } = createTestTracer()
     const { redirect } = await import('./react/errors.js')
 
-    const app = new Spiceflow({ tracer })
-      .get('/old', () => { throw redirect('/new') })
+    const app = new Spiceflow({ tracer }).get('/old', () => {
+      throw redirect('/new')
+    })
 
     const res = await app.handle(new Request('http://localhost/old'))
     expect(res.status).toBe(307)
@@ -307,7 +322,9 @@ describe('instrumentation', () => {
   test('non-Error throw records exception on span', async () => {
     const { tracer, spans } = createTestTracer()
     const app = new Spiceflow({ tracer })
-      .get('/fail', () => { throw 'string error' })
+      .get('/fail', () => {
+        throw 'string error'
+      })
       .onError(() => new Response('handled', { status: 500 }))
 
     await app.handle(new Request('http://localhost/fail'))
@@ -320,7 +337,9 @@ describe('instrumentation', () => {
 
   test('middleware that returns early creates span', async () => {
     const { tracer, spans } = createTestTracer()
-    function earlyReturn() { return new Response('blocked', { status: 403 }) }
+    function earlyReturn() {
+      return new Response('blocked', { status: 403 })
+    }
 
     const app = new Spiceflow({ tracer })
       .use(earlyReturn)

@@ -1,11 +1,14 @@
-<div align='center' className='w-full'>
-    <br/>
-    <br/>
-    <br/>
-    <h1>spiceflow</h1>
-    <p>type safe API and React Server Components framework for Node, Bun, and Cloudflare</p>
-    <br/>
-    <br/>
+<div align="center" className="w-full">
+  <br />
+  <br />
+  <br />
+  <h1>spiceflow</h1>
+  <p>
+    type safe API and React Server Components framework for Node, Bun, and
+    Cloudflare
+  </p>
+  <br />
+  <br />
 </div>
 
 Spiceflow is a type-safe API framework and full-stack React RSC framework focused on absolute simplicity. It works across all JavaScript runtimes: Node.js, Bun, and Cloudflare Workers. Read the source code on [GitHub](https://github.com/remorses/spiceflow).
@@ -195,7 +198,10 @@ import type { App } from './server'
 const safeFetch = createSpiceflowFetch<App>('http://localhost:3000')
 
 // Path params are type-safe — TypeScript requires { id: string }
-const user = await safeFetch('/users/:id', { params: { id: '123' }, query: { q: 'something'} })
+const user = await safeFetch('/users/:id', {
+  params: { id: '123' },
+  query: { q: 'something' },
+})
 if (user instanceof Error) {
   console.error('Error:', user.message)
   return
@@ -900,7 +906,12 @@ async function handleErrors() {
 
   const unauthorizedResult = await safeFetch('/unauthorized')
   if (unauthorizedResult instanceof Error) {
-    console.error('Unauthorized:', unauthorizedResult.message, 'Status:', unauthorizedResult.status)
+    console.error(
+      'Unauthorized:',
+      unauthorizedResult.message,
+      'Status:',
+      unauthorizedResult.status,
+    )
   }
 
   const successResult = await safeFetch('/success')
@@ -999,7 +1010,10 @@ const app = new Spiceflow()
     const cached = await env.PAGE_CACHE.get(cacheKey)
     if (cached) {
       return new Response(cached, {
-        headers: { 'content-type': 'text/html; charset=utf-8', 'x-cache': 'HIT' },
+        headers: {
+          'content-type': 'text/html; charset=utf-8',
+          'x-cache': 'HIT',
+        },
       })
     }
 
@@ -1018,11 +1032,18 @@ const app = new Spiceflow()
 
     return new Response(html, {
       status: 200,
-      headers: { 'content-type': 'text/html; charset=utf-8', 'x-cache': 'MISS' },
+      headers: {
+        'content-type': 'text/html; charset=utf-8',
+        'x-cache': 'MISS',
+      },
     })
   })
   .page('/', async () => {
-    return <div><h1>Home</h1></div>
+    return (
+      <div>
+        <h1>Home</h1>
+      </div>
+    )
   })
 
 export default {
@@ -1737,10 +1758,12 @@ import './tracing' // must be imported first
 import { trace } from '@opentelemetry/api'
 import { Spiceflow } from 'spiceflow'
 
-const app = new Spiceflow({ tracer: trace.getTracer('my-app') })
-  .get('/api/users/:id', ({ params }) => {
+const app = new Spiceflow({ tracer: trace.getTracer('my-app') }).get(
+  '/api/users/:id',
+  ({ params }) => {
     return { id: params.id, name: 'Alice' }
-  })
+  },
+)
 ```
 
 ### What you get
@@ -1869,7 +1892,7 @@ For Cloudflare Workers, keep the worker-specific SSR output and child environmen
 ```jsonc
 // wrangler.jsonc
 {
-  "main": "spiceflow/cloudflare-entrypoint"
+  "main": "spiceflow/cloudflare-entrypoint",
 }
 ```
 
@@ -1898,10 +1921,9 @@ export default defineConfig({
 // app/main.tsx
 import { Spiceflow } from 'spiceflow'
 
-export const app = new Spiceflow()
-  .page('/', async () => {
-    return <div>Hello from Cloudflare RSC</div>
-  })
+export const app = new Spiceflow().page('/', async () => {
+  return <div>Hello from Cloudflare RSC</div>
+})
 
 export type App = typeof app
 
@@ -1965,7 +1987,11 @@ export const app = new Spiceflow()
     )
   })
   .page('/users/:id', async ({ params }) => {
-    return <div><h1>User {params.id}</h1></div>
+    return (
+      <div>
+        <h1>User {params.id}</h1>
+      </div>
+    )
   })
   // Object-style .page() with query schema — enables type-safe query params
   .page({
@@ -1976,7 +2002,9 @@ export const app = new Spiceflow()
       return (
         <div>
           <h1>Results for "{query.q}"</h1>
-          {results.map(r => <p key={r.id}>{r.title}</p>)}
+          {results.map((r) => (
+            <p key={r.id}>{r.title}</p>
+          ))}
         </div>
       )
     },
@@ -2058,7 +2086,11 @@ import { useLoaderData } from './router'
 export function Sidebar() {
   // Type-safe: path narrows the return type to the loaders matching '/dashboard'
   const { user, stats } = useLoaderData('/dashboard')
-  return <aside>{user.name} — {stats.totalViews} views</aside>
+  return (
+    <aside>
+      {user.name} — {stats.totalViews} views
+    </aside>
+  )
 }
 ```
 
@@ -2110,7 +2142,8 @@ Use `createRouter` with your app type for type-safe navigation, URL building, an
 import { createRouter } from 'spiceflow/react'
 import type { App } from '../main'
 
-export const { router, useRouterState, useLoaderData, getLoaderData, href } = createRouter<App>()
+export const { router, useRouterState, useLoaderData, getLoaderData, href } =
+  createRouter<App>()
 ```
 
 ```tsx
@@ -2163,7 +2196,9 @@ export function SearchFilters() {
 
   return (
     <div>
-      <p>Showing results for "{query}" — page {page}, sorted by {sort}</p>
+      <p>
+        Showing results for "{query}" — page {page}, sorted by {sort}
+      </p>
       <button onClick={() => setSort('date')}>Sort by Date</button>
       <button onClick={() => setPage(page + 1)}>Next Page</button>
     </div>
@@ -2286,11 +2321,15 @@ export { Table } from './table'
 // GOOD — each component is its own chunk
 // src/components/chart.tsx
 'use client'
-export function Chart() { /* ... */ }
+export function Chart() {
+  /* ... */
+}
 
 // src/components/map.tsx
-'use client'
-export function Map() { /* ... */ }
+;('use client')
+export function Map() {
+  /* ... */
+}
 
 // Re-export barrel has no directive, just passes through
 // src/components/index.tsx

@@ -1,6 +1,9 @@
 // Build a path string from a pattern and params.
 // Substitutes :param segments and appends remaining params as query string.
-export function buildHref(path: string, allParams: Record<string, any> | undefined): string {
+export function buildHref(
+  path: string,
+  allParams: Record<string, any> | undefined,
+): string {
   let result = path
   if (!allParams || typeof allParams !== 'object') return result
 

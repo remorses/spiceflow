@@ -3,7 +3,12 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { afterEach, describe, expect, test } from 'vitest'
 
-import { getPageSummary, runCommand, startServer, stopServer } from './test-server.js'
+import {
+  getPageSummary,
+  runCommand,
+  startServer,
+  stopServer,
+} from './test-server.js'
 
 const cwd = process.cwd()
 const spiceflowCwd = path.resolve(cwd, '../spiceflow')
@@ -17,7 +22,9 @@ const previewPort = 46274
 const runningServers: Array<Parameters<typeof stopServer>[0]> = []
 
 afterEach(async () => {
-  await Promise.all(runningServers.splice(0, runningServers.length).map(stopServer))
+  await Promise.all(
+    runningServers.splice(0, runningServers.length).map(stopServer),
+  )
 })
 
 describe('cloudflare example', () => {
@@ -36,7 +43,9 @@ describe('cloudflare example', () => {
     expect({
       hasRscSsrEntry: fs.existsSync(rscSsrEntry),
       hasSiblingSsrEntry: fs.existsSync(siblingSsrEntry),
-      usesCreateRequire: rscSsrSource.includes('createRequire(import.meta.url)'),
+      usesCreateRequire: rscSsrSource.includes(
+        'createRequire(import.meta.url)',
+      ),
     }).toMatchInlineSnapshot(`
       {
         "hasRscSsrEntry": true,
@@ -50,7 +59,15 @@ describe('cloudflare example', () => {
     await rebuildSpiceflow()
     const server = await startServer({
       command: 'pnpm',
-      args: ['exec', 'vite', 'dev', '--host', '127.0.0.1', '--port', String(devPort)],
+      args: [
+        'exec',
+        'vite',
+        'dev',
+        '--host',
+        '127.0.0.1',
+        '--port',
+        String(devPort),
+      ],
       cwd,
     })
     runningServers.push({ process: server.process })
@@ -82,7 +99,15 @@ describe('cloudflare example', () => {
 
     const server = await startServer({
       command: 'pnpm',
-      args: ['exec', 'vite', 'preview', '--host', '127.0.0.1', '--port', String(previewPort)],
+      args: [
+        'exec',
+        'vite',
+        'preview',
+        '--host',
+        '127.0.0.1',
+        '--port',
+        String(previewPort),
+      ],
       cwd,
     })
     runningServers.push({ process: server.process })

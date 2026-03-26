@@ -57,7 +57,9 @@ describe('injectRSCPayload', () => {
     }
 
     const result = decoder.decode(Buffer.concat(chunks))
-    expect(result).toContain('<script>(self.__FLIGHT_DATA||=[]).push("\\"flight\\"")</script>')
+    expect(result).toContain(
+      '<script>(self.__FLIGHT_DATA||=[]).push("\\"flight\\"")</script>',
+    )
     expect(result).not.toContain('</\\script>')
   })
 })

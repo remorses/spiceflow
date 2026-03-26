@@ -40,10 +40,16 @@ const STATUS_ERROR = 2
 // No-op implementations so context.span and context.tracer are always available
 // without undefined checks. V8 inlines these empty methods away.
 export const noopSpan: SpiceflowSpan = {
-  setAttribute() { return this },
-  setStatus() { return this },
+  setAttribute() {
+    return this
+  },
+  setStatus() {
+    return this
+  },
   recordException() {},
-  updateName() { return this },
+  updateName() {
+    return this
+  },
   end() {},
 }
 

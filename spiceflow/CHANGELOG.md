@@ -11,10 +11,12 @@
    import { trace } from '@opentelemetry/api'
    import { Spiceflow } from 'spiceflow'
 
-   const app = new Spiceflow({ tracer: trace.getTracer('my-app') })
-     .get('/api/users/:id', ({ params }) => {
+   const app = new Spiceflow({ tracer: trace.getTracer('my-app') }).get(
+     '/api/users/:id',
+     ({ params }) => {
        return { id: params.id, name: 'Alice' }
-     })
+     },
+   )
    ```
 
    For API routes you get:
@@ -104,9 +106,9 @@
    import { createRouter } from 'spiceflow/react'
    export const { router, useLoaderData, href } = createRouter<typeof app>()
 
-   router.push('/dashboard')                    // typed paths + params
+   router.push('/dashboard') // typed paths + params
    const { user } = useLoaderData('/dashboard') // typed, path inferred
-   href('/users/:id', { id: '123' })            // type-safe URL builder
+   href('/users/:id', { id: '123' }) // type-safe URL builder
    ```
 
 3. **`safePath` renamed to `href`** — `app.href()` and `createHref()` replace the old `safePath` API. The deprecated `createSafePath` and `buildSafePath` exports are removed.
@@ -138,7 +140,7 @@
    import { Link } from 'spiceflow/react'
 
    // prefetch prop is no longer accepted
-   <Link href="/dashboard">Dashboard</Link>
+   ;<Link href="/dashboard">Dashboard</Link>
    ```
 
 2. **More reliable dev mode detection** — switched from `import.meta.env.PROD/DEV` to `import.meta.hot` throughout the framework (`getDeploymentId`, `ErrorBoundary`, `entry.client`, `entry.ssr`). `import.meta.hot` is defined by Vite in dev/HMR mode and is always `undefined` in production builds, making it a more accurate and portable check.
@@ -184,7 +186,10 @@
 
    ```tsx
    app.page('/dashboard', async (props) => {
-     props.response.headers.set('cache-control', 's-maxage=60, stale-while-revalidate=300')
+     props.response.headers.set(
+       'cache-control',
+       's-maxage=60, stale-while-revalidate=300',
+     )
      props.response.headers.set('set-cookie', 'session=abc; Path=/')
      return <Dashboard />
    })
@@ -197,7 +202,7 @@
    ```tsx
    import { Head } from 'spiceflow/react'
 
-   <Head>
+   ;<Head>
      <Head.Title>My App</Head.Title>
      <Head.Meta name="description" content="My page" />
      <Head.Meta property="og:title" content="My page" />
@@ -342,6 +347,7 @@
 - initial rsc release
 - Updated dependencies
   - spiceflow@1.6.2-rsc.0
+
 ## 1.18.0
 
 ### Minor Changes

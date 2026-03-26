@@ -5,25 +5,33 @@ import { createEditor } from "./helper.js";
 test("client hmr @dev", async ({ page }) => {
 	await page.goto("/");
 	await page.getByText("[hydrated: 1]").click();
-	const clientCounter = page.getByTestId("client-counter").filter({ hasText: "Client counter" });
+	const clientCounter = page
+		.getByTestId("client-counter")
+		.filter({ hasText: "Client counter" });
 	// client +1
 	await clientCounter.getByRole("button", { name: "+" }).click();
 	await clientCounter.getByText("Client counter: 1").click();
 	// Record the server render count before the client edit
-	const renderCountBefore = await page.getByTestId("server-render-count").textContent();
+	const renderCountBefore = await page
+		.getByTestId("server-render-count")
+		.textContent();
 	// edit client — replace the default prop value in client.tsx.
 	// Client HMR should NOT trigger a server re-render. Only the client module
 	// should hot-update, preserving client state and avoiding an SSR page reload.
 	const file = createEditor("src/app/client.tsx");
 	try {
-		await file.edit((s) => s.replace('name = "Client"', 'name = "Client [EDIT]"'));
+		await file.edit((s) =>
+			s.replace('name = "Client"', 'name = "Client [EDIT]"'),
+		);
 		// Verify edited text appears with preserved state (counter stays at 1).
 		// If a full page reload happened, state would reset to 0.
 		await expect(page.getByText("Client [EDIT] counter: 1")).toBeVisible();
 		// Wait to ensure any delayed server re-render would have completed
 		await page.waitForTimeout(500);
 		// Server render count must not have changed — no server re-render happened
-		const renderCountAfter = await page.getByTestId("server-render-count").textContent();
+		const renderCountAfter = await page
+			.getByTestId("server-render-count")
+			.textContent();
 		expect(renderCountAfter).toBe(renderCountBefore);
 	} finally {
 		file[Symbol.dispose]();
@@ -54,17 +62,19 @@ test("server hmr @dev", async ({ page }) => {
 	);
 
 	// client +1
-	const clientCounter = page.getByTestId("client-counter").filter({ hasText: "Client counter" });
+	const clientCounter = page
+		.getByTestId("client-counter")
+		.filter({ hasText: "Client counter" });
 	await clientCounter.getByText("Client counter: 0").click();
-	await clientCounter
-		.getByRole("button", { name: "+" })
-		.click();
+	await clientCounter.getByRole("button", { name: "+" }).click();
 	await clientCounter.getByText("Client counter: 1").click();
 
 	const file = createEditor("src/app/index.tsx");
 	try {
 		// edit server
-		await file.edit((s) => s.replace("Server counter", "Server [EDIT] counter"));
+		await file.edit((s) =>
+			s.replace("Server counter", "Server [EDIT] counter"),
+		);
 		await expect(serverCounter).toContainText(
 			`Server [EDIT] counter: ${initialServerCount + 1}`,
 		);
@@ -88,18 +98,24 @@ test("main entry hmr does not trigger full reload @dev", async ({ page }) => {
 
 	// Set a sentinel on window — a full page reload would clear it
 	const sentinel = Math.random().toString(36).slice(2);
-	await page.evaluate((s) => { (window as any).__hmrSentinel = s }, sentinel);
+	await page.evaluate((s) => {
+		(window as any).__hmrSentinel = s;
+	}, sentinel);
 
 	const file = createEditor("src/main.tsx");
 	try {
 		// Modify the serverRandom computation so "server random:" text changes.
 		// This proves the RSC environment picked up the new code via HMR.
-		await file.edit((s) => s.replace(
-			'const serverRandom = Math.random()',
-			'const serverRandom = "EDITED-" + Math.random()',
-		));
+		await file.edit((s) =>
+			s.replace(
+				"const serverRandom = Math.random()",
+				'const serverRandom = "EDITED-" + Math.random()',
+			),
+		);
 		// Wait for RSC HMR to re-render
-		await expect(page.getByText("server random: EDITED-")).toBeVisible({ timeout: 10000 });
+		await expect(page.getByText("server random: EDITED-")).toBeVisible({
+			timeout: 10000,
+		});
 		// Sentinel must still be present — proves no full page reload happened
 		const value = await page.evaluate(() => (window as any).__hmrSentinel);
 		expect(value).toBe(sentinel);
@@ -114,7 +130,9 @@ test("CSS HMR updates styles without page reload @dev", async ({ page }) => {
 	await expect(serverEl).toBeVisible();
 
 	// Verify initial color
-	const initialColor = await serverEl.evaluate((el) => getComputedStyle(el).color);
+	const initialColor = await serverEl.evaluate(
+		(el) => getComputedStyle(el).color,
+	);
 	expect(initialColor).toBe("rgb(37, 99, 235)");
 
 	// Edit the server-styles.css to change color

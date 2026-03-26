@@ -5,11 +5,7 @@ import { Link } from "spiceflow/react";
 
 export function LoaderDataDisplay() {
 	const data = useLoaderData();
-	return (
-		<div data-testid="loader-data-client">
-			{JSON.stringify(data)}
-		</div>
-	);
+	return <div data-testid="loader-data-client">{JSON.stringify(data)}</div>;
 }
 
 export function LoaderNavLinks() {

@@ -53,9 +53,7 @@ export const processHeaders = (
         const key = value[0]
         if (typeof key === 'string')
           headers[key.toLowerCase()] = value[1] as string
-        else
-          for (const [k, value] of key)
-            headers[k.toLowerCase()] = value
+        else for (const [k, value] of key) headers[k.toLowerCase()] = value
       }
     return headers
   }
@@ -224,7 +222,12 @@ export function superjsonDeserialize(data: any) {
 }
 
 export function buildQueryString(
-  query: Record<string, string | string[] | number | boolean | object | undefined | null> | undefined,
+  query:
+    | Record<
+        string,
+        string | string[] | number | boolean | object | undefined | null
+      >
+    | undefined,
 ): string {
   if (!query) return ''
   let q = ''

@@ -21,7 +21,9 @@ export function Counter({ name = "Client" }) {
 	const [count, setCount] = React.useState(0);
 	return (
 		<div data-testid="client-counter" style={{ padding: "0.5rem" }}>
-			<div>{name} counter: {count}</div>
+			<div>
+				{name} counter: {count}
+			</div>
 			<div>
 				<button onClick={() => setCount((c) => c - 1)}>-</button>
 				<button onClick={() => setCount((c) => c + 1)}>+</button>
@@ -98,17 +100,11 @@ export function LayoutMountTracker() {
 	React.useEffect(() => {
 		setMountCount((c) => c + 1);
 	}, []);
-	return (
-		<div data-testid="layout-mount-count">{mountCount}</div>
-	);
+	return <div data-testid="layout-mount-count">{mountCount}</div>;
 }
 
 export function CssTestClient() {
-	return (
-		<div data-testid="css-test-client">
-			Client component with CSS
-		</div>
-	);
+	return <div data-testid="css-test-client">Client component with CSS</div>;
 }
 
 export function ClientFormWithError({

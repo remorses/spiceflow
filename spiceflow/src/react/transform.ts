@@ -43,9 +43,10 @@ export function injectRSCPayload({
   // which has a minimum ~1ms delay on Node.js.
   let buffered: Uint8Array[] = []
   let scheduled = false
-  const schedule = typeof setImmediate === 'function'
-    ? (fn: () => void) => setImmediate(fn)
-    : (fn: () => void) => setTimeout(fn, 0)
+  const schedule =
+    typeof setImmediate === 'function'
+      ? (fn: () => void) => setImmediate(fn)
+      : (fn: () => void) => setTimeout(fn, 0)
 
   function flushBufferedChunks(
     controller: TransformStreamDefaultController<Uint8Array>,
@@ -57,7 +58,9 @@ export function injectRSCPayload({
       }
 
       if (end > 0) {
-        controller.enqueue(end === chunk.length ? chunk : chunk.subarray(0, end))
+        controller.enqueue(
+          end === chunk.length ? chunk : chunk.subarray(0, end),
+        )
       }
     }
 

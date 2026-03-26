@@ -12,18 +12,18 @@ describe('waitUntil', () => {
     })
 
     const app = new Spiceflow({
-      waitUntil: mockWaitUntil
+      waitUntil: mockWaitUntil,
     }).route({
       method: 'GET',
       path: '/test',
       handler({ waitUntil }) {
         expect(typeof waitUntil).toBe('function')
-        
+
         const backgroundTask = Promise.resolve('background work done')
         waitUntil(backgroundTask)
-        
+
         return { success: true }
-      }
+      },
     })
 
     const response = await app.handle(new Request('http://localhost/test'))
@@ -41,12 +41,12 @@ describe('waitUntil', () => {
       path: '/test',
       handler({ waitUntil }) {
         expect(typeof waitUntil).toBe('function')
-        
+
         // Should not throw when called
         waitUntil(Promise.resolve('test'))
-        
+
         return { success: true }
-      }
+      },
     })
 
     const response = await app.handle(new Request('http://localhost/test'))
@@ -59,7 +59,7 @@ describe('waitUntil', () => {
     const mockWaitUntil = vi.fn()
 
     const app = new Spiceflow({
-      waitUntil: mockWaitUntil
+      waitUntil: mockWaitUntil,
     }).route({
       method: 'POST',
       path: '/multi',
@@ -67,14 +67,16 @@ describe('waitUntil', () => {
         waitUntil(Promise.resolve('task 1'))
         waitUntil(Promise.resolve('task 2'))
         waitUntil(Promise.resolve('task 3'))
-        
+
         return { taskCount: 3 }
-      }
+      },
     })
 
-    const response = await app.handle(new Request('http://localhost/multi', {
-      method: 'POST'
-    }))
+    const response = await app.handle(
+      new Request('http://localhost/multi', {
+        method: 'POST',
+      }),
+    )
     const data = await response.json()
 
     expect(data).toEqual({ taskCount: 3 })
@@ -85,7 +87,7 @@ describe('waitUntil', () => {
     const mockWaitUntil = vi.fn()
 
     const app = new Spiceflow({
-      waitUntil: mockWaitUntil
+      waitUntil: mockWaitUntil,
     })
       .use(({ waitUntil }, next) => {
         expect(typeof waitUntil).toBe('function')
@@ -98,10 +100,12 @@ describe('waitUntil', () => {
         handler({ waitUntil }) {
           waitUntil(Promise.resolve('handler task'))
           return { success: true }
-        }
+        },
       })
 
-    const response = await app.handle(new Request('http://localhost/middleware'))
+    const response = await app.handle(
+      new Request('http://localhost/middleware'),
+    )
     const data = await response.json()
 
     expect(data).toEqual({ success: true })
@@ -121,7 +125,7 @@ describe('waitUntil', () => {
         handler({ waitUntil }) {
           waitUntil(Promise.resolve('using global'))
           return { usingGlobal: true }
-        }
+        },
       })
 
       const response = await app.handle(new Request('http://localhost/global'))
@@ -144,14 +148,14 @@ describe('waitUntil', () => {
 
     try {
       const app = new Spiceflow({
-        waitUntil: mockCustomWaitUntil
+        waitUntil: mockCustomWaitUntil,
       }).route({
         method: 'GET',
         path: '/custom',
         handler({ waitUntil }) {
           waitUntil(Promise.resolve('using custom'))
           return { usingCustom: true }
-        }
+        },
       })
 
       const response = await app.handle(new Request('http://localhost/custom'))

@@ -1,6 +1,11 @@
 import React from 'react'
 
-type LinkRel = 'alternate' | 'apple-touch-icon' | 'canonical' | 'icon' | 'manifest'
+type LinkRel =
+  | 'alternate'
+  | 'apple-touch-icon'
+  | 'canonical'
+  | 'icon'
+  | 'manifest'
 
 const URL_META_PROPS = new Set([
   'og:image',
@@ -58,7 +63,11 @@ function processTag({
 
   const props = { ...(tag.props || undefined) } as Record<string, string>
   const identity = getMetaIdentity(props)
-  if (identity && URL_META_PROPS.has(identity.value) && props.content?.startsWith('/')) {
+  if (
+    identity &&
+    URL_META_PROPS.has(identity.value) &&
+    props.content?.startsWith('/')
+  ) {
     props.content = baseUrl + props.content
   }
 

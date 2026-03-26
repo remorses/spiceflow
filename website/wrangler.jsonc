@@ -3,5 +3,5 @@
   "name": "spiceflow-website-worker",
   "main": "spiceflow/cloudflare-entrypoint",
   "compatibility_date": "2026-03-15",
-  "compatibility_flags": ["nodejs_compat"]
+  "compatibility_flags": ["nodejs_compat"],
 }
