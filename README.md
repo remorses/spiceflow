@@ -1933,6 +1933,22 @@ export default {
 
 See [`cloudflare-example/`](cloudflare-example) for a complete working example.
 
+#### Deploying with wrangler environments
+
+The `@cloudflare/vite-plugin` resolves and flattens your `wrangler.json` config at **build time** and writes it into `dist/rsc/wrangler.json`. When `wrangler deploy` runs, it reads this generated config — not your top-level `wrangler.json`. This means `wrangler deploy --env preview` alone is not enough if the build was done without specifying the environment.
+
+Set the `CLOUDFLARE_ENV` env var during `vite build` so the plugin resolves the correct environment section:
+
+```bash
+# Build for preview environment
+CLOUDFLARE_ENV=preview vite build && wrangler deploy --env preview
+
+# Build for production (default, no env var needed)
+vite build && wrangler deploy
+```
+
+Without `CLOUDFLARE_ENV=preview`, the generated `dist/rsc/wrangler.json` will contain the top-level config (production name, routes, KV namespaces, etc.) and `--env preview` will be ignored at deploy time.
+
 ### App Entry (Server Component)
 
 The entry file defines your routes using `.page()` for pages and `.layout()` for layouts. This file runs in the RSC environment on the server.
