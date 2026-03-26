@@ -3,7 +3,6 @@
 const encoder = new TextEncoder()
 const latin1Decoder = new TextDecoder('latin1')
 const trailerBodyBytes = encoder.encode('</body></html>')
-const closeHeadBytes = encoder.encode('</head>')
 const flightScriptPrefix = '(self.__FLIGHT_DATA||=[]).push('
 
 function encodeBinaryChunkToBase64(chunk: Uint8Array): string {
@@ -26,39 +25,16 @@ function endsWithSequence(haystack: Uint8Array, needle: Uint8Array) {
   return true
 }
 
-function indexOfSequence(haystack: Uint8Array, needle: Uint8Array) {
-  const limit = haystack.length - needle.length
-  for (let start = 0; start <= limit; start++) {
-    let matched = true
-    for (let i = 0; i < needle.length; i++) {
-      if (haystack[start + i] !== needle[i]) {
-        matched = false
-        break
-      }
-    }
-    if (matched) {
-      return start
-    }
-  }
-  return -1
-}
-
 export function injectRSCPayload({
   rscStream,
-  appendToHead,
 }: {
   rscStream?: ReadableStream<Uint8Array>
-  appendToHead?: string
 }) {
   let resolveFlightDataPromise: (value: void) => void
   let flightDataPromise = new Promise<void>(
     (resolve) => (resolveFlightDataPromise = resolve),
   )
   let startedRSC = false
-  let addedHead = false
-  const appendToHeadBytes = appendToHead
-    ? encoder.encode(`${appendToHead}\n`)
-    : undefined
 
   // Buffer all HTML chunks enqueued during the current tick of the event loop
   // and write them to the output stream all at once. This ensures that we don't
@@ -78,25 +54,6 @@ export function injectRSCPayload({
       let end = chunk.length
       if (endsWithSequence(chunk, trailerBodyBytes)) {
         end -= trailerBodyBytes.length
-      }
-
-      if (!addedHead && appendToHeadBytes) {
-        const headIndex = indexOfSequence(chunk, closeHeadBytes)
-        if (headIndex !== -1 && headIndex < end) {
-          if (headIndex > 0) {
-            controller.enqueue(chunk.subarray(0, headIndex))
-          }
-          controller.enqueue(appendToHeadBytes)
-          controller.enqueue(closeHeadBytes)
-
-          const afterHeadIndex = headIndex + closeHeadBytes.length
-          if (afterHeadIndex < end) {
-            controller.enqueue(chunk.subarray(afterHeadIndex, end))
-          }
-
-          addedHead = true
-          continue
-        }
       }
 
       if (end > 0) {
