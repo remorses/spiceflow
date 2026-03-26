@@ -5,6 +5,7 @@ import superjson from 'superjson'
 import * as errore from 'errore'
 
 import { SpiceflowFetchError } from './client/errors.js'
+import { coerceQueryWithSchema } from './query-coerce.js'
 import { ValidationError } from './error.js'
 import {
   ComposeSpiceflowResponse,
@@ -1945,7 +1946,7 @@ export class Spiceflow<
       onErrorHandlers,
       async () => {
         context.query = await runValidation(
-          context.query,
+          coerceQueryWithSchema(context.query, route?.route?.hooks?.query),
           route?.route?.validateQuery,
         )
         context.params = await runValidation(

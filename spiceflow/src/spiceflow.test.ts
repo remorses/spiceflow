@@ -546,6 +546,269 @@ test('GET with repeated empty query values preserves all values', async () => {
   expect(await res.json()).toEqual(['', 'two'])
 })
 
+test('query coercion: z.number() without z.coerce', async () => {
+  const res = await new Spiceflow()
+    .get('/query', ({ query }) => query, {
+      query: z.object({
+        page: z.number(),
+      }),
+    })
+    .handle(new Request('http://localhost/query?page=42', { method: 'GET' }))
+  expect(res.status).toBe(200)
+  expect(await res.json()).toEqual({ page: 42 })
+})
+
+test('query coercion: z.number().optional() without z.coerce', async () => {
+  const res = await new Spiceflow()
+    .get('/query', ({ query }) => query, {
+      query: z.object({
+        page: z.number().optional(),
+      }),
+    })
+    .handle(new Request('http://localhost/query?page=7', { method: 'GET' }))
+  expect(res.status).toBe(200)
+  expect(await res.json()).toEqual({ page: 7 })
+})
+
+test('query coercion: z.boolean()', async () => {
+  const res = await new Spiceflow()
+    .get('/query', ({ query }) => query, {
+      query: z.object({
+        active: z.boolean(),
+      }),
+    })
+    .handle(
+      new Request('http://localhost/query?active=true', { method: 'GET' }),
+    )
+  expect(res.status).toBe(200)
+  expect(await res.json()).toEqual({ active: true })
+})
+
+test('query coercion: z.array(z.string()) with single value', async () => {
+  const res = await new Spiceflow()
+    .get('/query', ({ query }) => query, {
+      query: z.object({
+        tag: z.array(z.string()),
+      }),
+    })
+    .handle(
+      new Request('http://localhost/query?tag=react', { method: 'GET' }),
+    )
+  expect(res.status).toBe(200)
+  expect(await res.json()).toEqual({ tag: ['react'] })
+})
+
+test('query coercion: z.array(z.string()) with multiple values', async () => {
+  const res = await new Spiceflow()
+    .get('/query', ({ query }) => query, {
+      query: z.object({
+        tag: z.array(z.string()),
+      }),
+    })
+    .handle(
+      new Request('http://localhost/query?tag=react&tag=typescript', {
+        method: 'GET',
+      }),
+    )
+  expect(res.status).toBe(200)
+  expect(await res.json()).toEqual({ tag: ['react', 'typescript'] })
+})
+
+test('query coercion: z.array(z.number()) coerces each item', async () => {
+  const res = await new Spiceflow()
+    .get('/query', ({ query }) => query, {
+      query: z.object({
+        ids: z.array(z.number()),
+      }),
+    })
+    .handle(
+      new Request('http://localhost/query?ids=1&ids=2&ids=3', {
+        method: 'GET',
+      }),
+    )
+  expect(res.status).toBe(200)
+  expect(await res.json()).toEqual({ ids: [1, 2, 3] })
+})
+
+test('query coercion: z.string() still works unchanged', async () => {
+  const res = await new Spiceflow()
+    .get('/query', ({ query }) => query, {
+      query: z.object({
+        name: z.string(),
+      }),
+    })
+    .handle(
+      new Request('http://localhost/query?name=hello', { method: 'GET' }),
+    )
+  expect(res.status).toBe(200)
+  expect(await res.json()).toEqual({ name: 'hello' })
+})
+
+test('query coercion: z.coerce.number() still works (regression)', async () => {
+  const res = await new Spiceflow()
+    .get('/query', ({ query }) => query, {
+      query: z.object({
+        page: z.coerce.number(),
+      }),
+    })
+    .handle(new Request('http://localhost/query?page=5', { method: 'GET' }))
+  expect(res.status).toBe(200)
+  expect(await res.json()).toEqual({ page: 5 })
+})
+
+test('query coercion: invalid number stays string and fails validation', async () => {
+  const res = await new Spiceflow()
+    .get('/query', ({ query }) => query, {
+      query: z.object({
+        page: z.number(),
+      }),
+    })
+    .handle(
+      new Request('http://localhost/query?page=abc', { method: 'GET' }),
+    )
+  expect(res.status).toBe(422)
+})
+
+test('query coercion: invalid boolean stays string and fails validation', async () => {
+  const res = await new Spiceflow()
+    .get('/query', ({ query }) => query, {
+      query: z.object({
+        active: z.boolean(),
+      }),
+    })
+    .handle(
+      new Request('http://localhost/query?active=yes', { method: 'GET' }),
+    )
+  expect(res.status).toBe(422)
+})
+
+test('query coercion: missing required query param fails validation', async () => {
+  const res = await new Spiceflow()
+    .get('/query', ({ query }) => query, {
+      query: z.object({
+        page: z.number(),
+      }),
+    })
+    .handle(new Request('http://localhost/query', { method: 'GET' }))
+  expect(res.status).toBe(422)
+})
+
+test('query coercion: repeated scalar key fails validation', async () => {
+  const res = await new Spiceflow()
+    .get('/query', ({ query }) => query, {
+      query: z.object({
+        id: z.string(),
+      }),
+    })
+    .handle(
+      new Request('http://localhost/query?id=a&id=b', { method: 'GET' }),
+    )
+  expect(res.status).toBe(422)
+})
+
+test('query coercion: z.number().nullable() coerces number', async () => {
+  const res = await new Spiceflow()
+    .get('/query', ({ query }) => query, {
+      query: z.object({
+        page: z.number().nullable(),
+      }),
+    })
+    .handle(new Request('http://localhost/query?page=3', { method: 'GET' }))
+  expect(res.status).toBe(200)
+  expect(await res.json()).toEqual({ page: 3 })
+})
+
+test('query type safety: handler query is typed from schema', async () => {
+  new Spiceflow().get(
+    '/q',
+    ({ query }) => {
+      // number fields are typed as number
+      const page: number = query.page
+      // string fields are typed as string
+      const name: string = query.name
+      // optional fields are typed as optional
+      const limit: number | undefined = query.limit
+      // @ts-expect-error - unknown key
+      void query.unknown
+      // @ts-expect-error - page is number, not string
+      const bad: string = query.page
+      void page
+      void name
+      void limit
+      void bad
+    },
+    {
+      query: z.object({
+        page: z.number(),
+        name: z.string(),
+        limit: z.number().optional(),
+      }),
+    },
+  )
+})
+
+test('query type safety: array fields are typed as arrays', async () => {
+  new Spiceflow().get(
+    '/q',
+    ({ query }) => {
+      const tags: string[] = query.tags
+      const ids: number[] = query.ids
+      // @ts-expect-error - tags is string[], not string
+      const bad: string = query.tags
+      void tags
+      void ids
+      void bad
+    },
+    {
+      query: z.object({
+        tags: z.array(z.string()),
+        ids: z.array(z.number()),
+      }),
+    },
+  )
+})
+
+test('query type safety: route object API query is typed', async () => {
+  new Spiceflow().route({
+    method: 'GET',
+    path: '/q',
+    query: z.object({
+      q: z.string(),
+      page: z.number().optional(),
+      active: z.boolean(),
+    }),
+    handler({ query }) {
+      const q: string = query.q
+      const page: number | undefined = query.page
+      const active: boolean = query.active
+      // @ts-expect-error - unknown key
+      void query.missing
+      void q
+      void page
+      void active
+    },
+  })
+})
+
+test('query type safety: page object API query is typed', async () => {
+  new Spiceflow().page({
+    path: '/search',
+    query: z.object({
+      q: z.string(),
+      sort: z.enum(['date', 'name']).optional(),
+    }),
+    handler: async ({ query }) => {
+      const q: string = query.q
+      const sort: 'date' | 'name' | undefined = query.sort
+      // @ts-expect-error - unknown key
+      void query.missing
+      void q
+      void sort
+      return null as any
+    },
+  })
+})
+
 test('GET dynamic route, params are typed', async () => {
   const res = await new Spiceflow()
     .get('/ids/:id', ({ params }) => {

@@ -2016,6 +2016,8 @@ export type App = typeof app
 
 ### SEO: Titles & Descriptions
 
+Always use `<Head>`, `<Head.Title>`, and `<Head.Meta>` from `spiceflow/react` instead of raw `<head>`, `<title>`, and `<meta>` tags. The `Head` components are type-safe, automatically deduplicated (page tags override layout tags with the same key), and correctly injected into the document head during SSR.
+
 Every page should always have a `<Head.Title>` and a `<Head.Meta name="description">`. These are the two most important tags for SEO — they control what appears in search engine results.
 
 **Title:** Keep titles under 60 characters so they don't get truncated in search results. Put the most important keywords first. Use a consistent format like `Page Name | Site Name`.
@@ -2056,6 +2058,103 @@ function PageHead({ title, description }: { title: string; description: string }
       <h1>About</h1>
     </div>
   )
+})
+```
+
+### Type-Safe Query Params
+
+Always define a `query` schema on routes and pages that accept query parameters — even when all params are optional. Use the object notation for `.page()` and `.route()` so the query requirements are documented in the route definition and accessible with full type safety in the handler:
+
+```tsx
+import { Spiceflow } from 'spiceflow'
+import { z } from 'zod'
+
+const app = new Spiceflow()
+  // Object notation gives you typed query access
+  .page({
+    path: '/products',
+    query: z.object({
+      category: z.string().optional(),
+      sort: z.enum(['price', 'name', 'date']).optional(),
+      page: z.coerce.number().optional(),
+    }),
+    handler: async ({ query }) => {
+      // query.category is string | undefined — fully typed
+      // query.sort is 'price' | 'name' | 'date' | undefined
+      // query.page is number | undefined
+      const products = await getProducts(query)
+      return (
+        <div>
+          <h1>Products</h1>
+          {products.map((p) => <p key={p.id}>{p.name}</p>)}
+        </div>
+      )
+    },
+  })
+```
+
+Without a query schema, `query` is `Record<string, string | undefined>` — you lose autocomplete, typos go unnoticed, and there's no documentation of what the page accepts.
+
+**Use `href()` to build links to these pages.** When a route has a query schema, `href` enforces the correct query keys at compile time. If you rename or remove a query param from the schema, every `href()` call that references it becomes a type error — no stale links:
+
+```tsx
+'use client'
+import { Link } from 'spiceflow/react'
+import { href } from './router'
+
+export function ProductFilters() {
+  return (
+    <nav>
+      {/* TypeScript validates these query keys against the schema */}
+      <Link href={href('/products', { category: 'shoes', sort: 'price' })}>
+        Shoes by Price
+      </Link>
+      <Link href={href('/products', { sort: 'date', page: 2 })}>
+        Page 2, newest first
+      </Link>
+
+      {/* @ts-expect-error — 'color' is not in the query schema */}
+      <Link href={href('/products', { color: 'red' })}>Red</Link>
+    </nav>
+  )
+}
+```
+
+The same pattern works for API routes with `.route()`. Query params are automatically coerced from strings to match the schema type — you don't need `z.coerce.number()`, just use `z.number()` directly:
+
+```tsx
+const app = new Spiceflow()
+  .route({
+    method: 'GET',
+    path: '/api/search',
+    query: z.object({
+      q: z.string(),
+      limit: z.number().optional(),
+      offset: z.number().optional(),
+    }),
+    handler({ query }) {
+      // query.q is string, query.limit is number | undefined
+      return searchDatabase(query.q, query.limit, query.offset)
+    },
+  })
+```
+
+**Array query params** use repeated keys in the URL: `?tag=a&tag=b` (not comma-separated). Single values are automatically wrapped into arrays when the schema expects `z.array()`:
+
+```tsx
+// URL: /api/posts?tag=react or /api/posts?tag=react&tag=typescript
+const app = new Spiceflow().route({
+  method: 'GET',
+  path: '/api/posts',
+  query: z.object({
+    tag: z.array(z.string()),
+    limit: z.number().optional(),
+  }),
+  handler({ query }) {
+    // query.tag is always string[], even with a single ?tag=react
+    // query.limit is number | undefined, coerced from the string automatically
+    return getPostsByTags(query.tag)
+  },
 })
 ```
 
