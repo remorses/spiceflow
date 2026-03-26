@@ -147,6 +147,17 @@ export function spiceflowPlugin({ entry }: { entry: string }): PluginOption {
           plugin.name.startsWith('vite-plugin-cloudflare:'),
         )
       },
+      // Preserve all entry point exports in the RSC environment so user-defined
+      // named exports (Durable Objects, Workflows, Queue consumers, etc.)
+      // survive Rollup's tree-shaking and appear in the built Worker output.
+      configEnvironment(name, config) {
+        if (name === 'rsc') {
+          config.build ??= {}
+          config.build.rollupOptions ??= {}
+          config.build.rollupOptions.preserveEntrySignatures =
+            'allow-extension'
+        }
+      },
     },
     // Point optimizeDeps.entries at the user's app entry and spiceflow's own entries
     // so Vite crawls the full import graph upfront instead of discovering deps late
@@ -278,7 +289,8 @@ export function spiceflowPlugin({ entry }: { entry: string }): PluginOption {
       return `export default ${JSON.stringify(buildTimestamp)}`
     }),
     // Resolves to user's app entry module.
-    // Re-exports `app` (named) and `default` (for Cloudflare Workers default export).
+    // Re-exports all named exports (for Cloudflare Durable Objects, etc.)
+    // and `default` (for Cloudflare Workers default export).
     createVirtualPlugin('virtual:app-entry', () => {
       const resolvedEntryPath = path.resolve(entry)
       const resolvedEntry = url.pathToFileURL(resolvedEntryPath).href
@@ -305,7 +317,12 @@ export function spiceflowPlugin({ entry }: { entry: string }): PluginOption {
           `}`,
         )
       }
-      lines.push(`export const app = entry.app`, `export default entry.default`)
+      // Re-export everything from the user entry so named exports like
+      // Durable Objects, Workflows, etc. survive the build.
+      lines.push(
+        `export * from '${resolvedEntry}'`,
+        `export default entry.default`,
+      )
       return lines.join('\n')
     }),
   ]

@@ -16,4 +16,20 @@
       "preview_id": "b75a9c5aedfc4b50b3375739075f51db",
     },
   ],
+
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "MY_DURABLE_OBJECT",
+        "class_name": "MyDurableObject",
+      },
+    ],
+  },
+
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_classes": ["MyDurableObject"],
+    },
+  ],
 }

@@ -1,5 +1,36 @@
 # spiceflow
 
+## 1.18.0-rsc.16
+
+1. **Auto-coerce query parameters to schema types** — `z.number()`, `z.boolean()`, and `z.array(z.string())` now work directly without `z.coerce.number()` or `z.preprocess()`. Single values are automatically wrapped into arrays when the schema expects an array, and string values are coerced to numbers or booleans when declared as such. Works with any Standard Schema-compatible library (Zod, Valibot, ArkType):
+
+   ```ts
+   .get('/search', ({ query }) => query, {
+     query: z.object({
+       page: z.number().optional(),   // "42" → 42
+       active: z.boolean().optional(), // "true" → true
+       tag: z.array(z.string()),       // "react" → ["react"]
+     }),
+   })
+   ```
+
+2. **Server action error messages preserved in production** — thrown errors inside server actions now show the actual message in production builds instead of a generic "Application Error". Error messages are forwarded via the flight payload so error boundaries receive `error.digest` with the real message.
+
+3. **Named exports from entry file are preserved in Cloudflare Workers builds** — Durable Objects, Workflows, Queue consumers, and any other named class/function exports from your entry file now survive the Vite RSC build. Previously only `default` and `app` were kept; everything else was tree-shaken away. Define non-React exports in a separate file (without CSS imports) and re-export them from your entry:
+
+   ```ts
+   // durable-object.ts — no CSS imports here
+   export class MyDurableObject implements DurableObject {
+     constructor(private state: DurableObjectState) {}
+     async fetch(request: Request) { ... }
+   }
+
+   // main.tsx
+   export { MyDurableObject } from './durable-object'
+   export const app = new Spiceflow().page('/', () => <Home />)
+   export default { fetch: (req) => app.handle(req) }
+   ```
+
 ## 1.18.0-rsc.15
 
 1. **Fixed `Head.Title` and `Head.Meta` rendering** — metadata is now correctly emitted in the document head and stays available after hydration. Duplicate tags inside a single `Head` subtree are deduplicated, matching expected behavior for layouts and pages.

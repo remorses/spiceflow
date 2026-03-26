@@ -157,6 +157,8 @@ function RootLayout({ children }: { children: React.ReactNode }) {
   )
 }
 
+export { MyDurableObject } from './durable-object'
+
 export default {
   async fetch(request: Request) {
     return app.handle(request)
