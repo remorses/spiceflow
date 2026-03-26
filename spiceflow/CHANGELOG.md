@@ -1,5 +1,11 @@
 # spiceflow
 
+## 1.18.0-rsc.15
+
+1. **Fixed `Head.Title` and `Head.Meta` rendering** — metadata is now correctly emitted in the document head and stays available after hydration. Duplicate tags inside a single `Head` subtree are deduplicated, matching expected behavior for layouts and pages.
+
+2. **Fixed route priority for child apps** — specific routes in child apps now correctly take priority over parent wildcard routes. Previously a parent `/*` would incorrectly shadow more specific child routes. Thanks @johnpyp for #42!
+
 ## 1.18.0-rsc.14
 
 ### Minor Changes
