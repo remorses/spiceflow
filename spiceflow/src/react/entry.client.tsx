@@ -138,6 +138,13 @@ async function main() {
 
     if (payload.actionError) {
       console.log(getErrorContext(payload.actionError))
+      // React strips both error.message and error.digest for Error values
+      // serialized in the flight payload (not thrown during rendering).
+      // Restore digest from the separately-serialized plain string.
+      if (payload.actionErrorDigest) {
+        ;(payload.actionError as Error & { digest?: string }).digest =
+          payload.actionErrorDigest
+      }
       throw payload.actionError
     }
 

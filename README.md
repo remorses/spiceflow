@@ -2173,6 +2173,85 @@ export function Editor() {
 
 **Error handling**: if a loader throws a `redirect()` or `notFound()`, the entire request short-circuits — the page handler never runs. If a loader throws any other error, it renders through the nearest error boundary instead of showing a blank page.
 
+### Forms & Server Actions
+
+Forms use React 19's `<form action>` with server functions marked `"use server"`. They work before JavaScript loads (progressive enhancement). After a server action completes, all matching loaders re-run automatically — no manual revalidation needed.
+
+```tsx
+// src/app/submit-button.tsx
+'use client'
+import { useFormStatus } from 'react-dom'
+
+// useFormStatus must be in a component rendered inside the <form>
+export function SubmitButton() {
+  const { pending } = useFormStatus()
+  return (
+    <button type="submit" disabled={pending}>
+      {pending ? 'Submitting...' : 'Submit'}
+    </button>
+  )
+}
+```
+
+```tsx
+import { redirect } from 'spiceflow'
+import { SubmitButton } from './app/submit-button'
+
+.page('/subscribe', async () => {
+  async function subscribe(formData: FormData) {
+    'use server'
+    const email = formData.get('email') as string
+    await addSubscriber(email)
+    throw redirect('/thank-you')
+  }
+  return (
+    <form action={subscribe}>
+      <input name="email" type="email" required />
+      <SubmitButton />
+    </form>
+  )
+})
+```
+
+Use `useActionState` to display return values from the action. The action receives the previous state as its first argument and `FormData` as the second:
+
+```tsx
+// src/app/newsletter.tsx
+'use client'
+import { useActionState } from 'react'
+import { SubmitButton } from './submit-button'
+
+export function NewsletterForm({
+  action,
+}: {
+  action: (prev: string, formData: FormData) => Promise<string>
+}) {
+  const [message, formAction] = useActionState(action, '')
+  return (
+    <form action={formAction}>
+      <input name="email" type="email" required />
+      <SubmitButton />
+      {message && <p>{message}</p>}
+    </form>
+  )
+}
+```
+
+```tsx
+// In your server component page
+.page('/newsletter', async () => {
+  async function subscribe(prev: string, formData: FormData) {
+    'use server'
+    const email = formData.get('email') as string
+    await addSubscriber(email)
+    return `Subscribed ${email}!`
+  }
+  return <NewsletterForm action={subscribe} />
+})
+```
+
+If a server action throws, the error is caught by the nearest error boundary. The error message is preserved (sanitized to strip secrets) and displayed to the user in both development and production builds.
+
 ### Type-Safe Client Router
 
 Use `createRouter` with your app type for type-safe navigation, URL building, and loader data access in client components. Bind the app type once — all paths, params, query schemas, and loader data are inferred from arguments.

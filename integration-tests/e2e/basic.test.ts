@@ -1409,6 +1409,37 @@ test.describe("server actions", () => {
 		await page.getByTestId("call-redirect-action").click();
 		await expect(page).toHaveURL("/other", { timeout: 10000 });
 	});
+
+	test("form action with useActionState returns result to the page", async ({
+		page,
+	}) => {
+		await page.goto("/form-action-test");
+		await expect(page.getByTestId("layout-mount-count")).toHaveText("1", {
+			timeout: 10000,
+		});
+		await page.getByTestId("action-form-input").fill("hello world");
+		await page.getByTestId("action-form-submit").click();
+		await expect(page.getByTestId("action-form-result")).toHaveText(
+			"Received: hello world",
+			{ timeout: 10000 },
+		);
+	});
+
+	test("form action error preserves error message in error boundary", async ({
+		page,
+	}) => {
+		await page.goto("/form-action-error-test");
+		await expect(page.getByTestId("layout-mount-count")).toHaveText("1", {
+			timeout: 10000,
+		});
+		await page.getByTestId("action-form-input").fill("test");
+		await page.getByTestId("action-form-submit").click();
+		// The thrown error message must be visible on the page via the error boundary,
+		// not just a generic "Application Error"
+		await expect(
+			page.getByText("Action failed: invalid input", { exact: true }),
+		).toBeVisible({ timeout: 10000 });
+	});
 });
 
 test.describe("loaders", () => {

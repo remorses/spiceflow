@@ -1288,6 +1288,7 @@ export class Spiceflow<
   }): Promise<ReactActionState | Response> {
     const emptyState: ReactActionState = {
       actionError: undefined,
+      actionErrorDigest: undefined,
       returnValue: undefined,
       formState: undefined,
       temporaryReferences: undefined,
@@ -1333,6 +1334,7 @@ export class Spiceflow<
 
         return {
           actionError: undefined,
+          actionErrorDigest: undefined,
           returnValue: await action.apply(null, args),
           formState: undefined,
           temporaryReferences,
@@ -1347,6 +1349,7 @@ export class Spiceflow<
 
       return {
         actionError: undefined,
+        actionErrorDigest: undefined,
         returnValue: undefined,
         formState: await decodeFormState(await decodedAction(), formData),
         temporaryReferences: undefined,
@@ -1359,8 +1362,11 @@ export class Spiceflow<
       }
       console.log('action error', error)
 
+      const actionError =
+        error instanceof Error ? error : new Error(String(error))
       return {
-        actionError: error instanceof Error ? error : new Error(String(error)),
+        actionError,
+        actionErrorDigest: sanitizeErrorMessage(actionError.message),
         returnValue: undefined,
         formState: undefined,
         temporaryReferences: undefined,
@@ -1657,11 +1663,12 @@ export class Spiceflow<
       const payload =
         request.method === 'GET' || request.method === 'HEAD'
           ? ({ root } satisfies ServerPayload)
-          : ({
+           : ({
               root,
               returnValue: actionState.returnValue,
               formState: actionState.formState,
               actionError: actionState.actionError,
+              actionErrorDigest: actionState.actionErrorDigest,
             } satisfies ServerPayload)
       const buildRscResponse = async (serializeSpan?: SpiceflowSpan) => {
         const stream = renderToReadableStream<ServerPayload>(payload, {
@@ -2805,6 +2812,7 @@ type ReactMatchedRoute = {
 
 type ReactActionState = {
   actionError: Error | undefined
+  actionErrorDigest: string | undefined
   returnValue: unknown | undefined
   formState: ReactFormState | undefined
   temporaryReferences:
@@ -3067,4 +3075,5 @@ export interface ServerPayload {
   formState?: ReactFormState
   returnValue?: unknown
   actionError?: Error
+  actionErrorDigest?: string
 }

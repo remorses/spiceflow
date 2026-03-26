@@ -80,7 +80,7 @@ export type ActionResult = {
 }
 
 export interface ErrorPageProps {
-  error: Error
+  error: Error & { digest?: string }
   serverError?: ReactServerErrorContext
   reset: () => void
 }
@@ -162,8 +162,7 @@ function ErrorAutoReset(props: Pick<ErrorPageProps, 'reset'>) {
 export function DefaultGlobalErrorPage(props: ErrorPageProps) {
   // React strips error.message in production but preserves error.digest,
   // which contains the original message from the server's onError callback.
-  const digest = (props.error as any)?.digest as string | undefined
-  const detail = digest || props.error?.message
+  const detail = props.error?.digest || props.error?.message
   const heading = props.serverError ? 'Server Error' : 'Application Error'
   return (
     <html>
@@ -218,9 +217,12 @@ export function Link(props: React.ComponentPropsWithRef<'a'>) {
 // NOT render <html>/<body>, so the surrounding layout shell stays alive during
 // client-side navigation to a page that throws.
 function InlineErrorPage(props: ErrorPageProps) {
-  const message = props.serverError
-    ? 'Unknown Server Error (see server logs for the details)'
-    : 'Application Error (see browser console for the details)'
+  // React strips error.message in production but preserves error.digest,
+  // which contains the sanitized original message from the server's onError callback.
+  const detail = props.error?.digest || props.error?.message
+  const heading = props.serverError
+    ? 'Server Error'
+    : 'Application Error'
   return (
     <div
       style={{
@@ -236,7 +238,8 @@ function InlineErrorPage(props: ErrorPageProps) {
         lineHeight: '28px',
       }}
     >
-      <h2>{message}</h2>
+      <h2>{heading}</h2>
+      {detail && <p style={{ color: '#666', margin: 0 }}>{detail}</p>}
     </div>
   )
 }

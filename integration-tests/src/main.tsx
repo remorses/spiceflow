@@ -44,6 +44,7 @@ import {
 	SubscribeDataReader,
 } from "./app/loader-global-client";
 import { ServerGuardTestClient } from "./app/server-guard-test-client";
+import { ActionFormTest } from "./app/action-form-test";
 
 // Increments on every RSC render of the home page. Used by e2e tests to detect
 // unwanted server re-renders (e.g. client HMR should not trigger a server render).
@@ -562,6 +563,21 @@ export const app = new Spiceflow()
 				<div data-testid="inline-action-render-count">{renderCount}</div>
 			</form>
 		);
+	})
+	.page("/form-action-test", async () => {
+		async function handleSubmit(prev: string, formData: FormData) {
+			"use server";
+			const message = formData.get("message") as string;
+			return `Received: ${message}`;
+		}
+		return <ActionFormTest action={handleSubmit} />;
+	})
+	.page("/form-action-error-test", async () => {
+		async function handleSubmit(prev: string, formData: FormData) {
+			"use server";
+			throw new Error("Action failed: invalid input");
+		}
+		return <ActionFormTest action={handleSubmit} />;
 	})
 	// --- Loader tests ---
 	.loader("/loader-test/*", async () => {
