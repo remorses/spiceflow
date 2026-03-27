@@ -1,5 +1,26 @@
 # spiceflow
 
+## 1.18.0-rsc.17
+
+1. **Self-contained Node.js build output** — after `pnpm build`, the `dist/` folder now includes all runtime dependencies in `dist/node_modules/` traced by `@vercel/nft`. You can copy just `dist/` into a Docker container and run it with no install step:
+
+   ```dockerfile
+   FROM node:24-slim
+   WORKDIR /app
+   # IMPORTANT: Before building, install Linux native modules (both flags are
+   # additive — they keep your current platform and add the target):
+   #   pnpm install --os linux --cpu x64
+   #   bun install --os linux --cpu x64
+   COPY dist/ ./dist/
+   COPY public/ ./public/
+   EXPOSE 3000
+   CMD ["node", "dist/rsc/index.js"]
+   ```
+
+   Skipped automatically for Vercel and Cloudflare which have their own bundling.
+
+2. **Vercel deployment via Build Output API v3** — when `VERCEL=1` is set during build, spiceflow automatically generates `.vercel/output/` with static assets on CDN and a single serverless function for SSR/RSC. No config needed — just connect your repo to Vercel and deploy. Also exports `spiceflow/vercel` for manual plugin usage.
+
 ## 1.18.0-rsc.16
 
 1. **Auto-coerce query parameters to schema types** — `z.number()`, `z.boolean()`, and `z.array(z.string())` now work directly without `z.coerce.number()` or `z.preprocess()`. Single values are automatically wrapped into arrays when the schema expects an array, and string values are coerced to numbers or booleans when declared as such. Works with any Standard Schema-compatible library (Zod, Valibot, ArkType):

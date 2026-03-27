@@ -305,7 +305,7 @@ importers:
         specifier: ^0.34.5
         version: 0.34.5
       spiceflow:
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../spiceflow
       tailwindcss:
         specifier: ^4.0.5
