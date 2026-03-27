@@ -13,6 +13,7 @@
 	"scripts": {
 		"dev": "DEBUG_SPICEFLOW=1 vite",
 		"build": "DEBUG_SPICEFLOW=1 vite build --app",
+		"vercel-build": "cd ../spiceflow && pnpm tsc && cd ../integration-tests && DEBUG_SPICEFLOW=1 vite build --app",
 		"start": "DEBUG_SPICEFLOW=1 node dist/rsc/index.js",
 		"test-e2e": "DEBUG_SPICEFLOW=1 playwright test",
 		"pretest-e2e-start": "rm -rf dist *.tsbuildinfo && pnpm build",
