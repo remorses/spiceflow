@@ -71,6 +71,37 @@ const app = new Spiceflow()
 app.listen(3000)
 ```
 
+Always define a root `.layout('/*', ...)` and put the document shell with `<html>`, `<head>`, and `<body>` there. More specific layouts should not render another shell - they should only return shared parent UI like sidebars, nav, wrappers, or section chrome. If a nested layout also renders `<html>`, the shell repeats and you end up nesting full HTML documents inside each other. Only add scoped layouts when many pages share the same parent components. Wildcard layouts also match their base path, so `/app/*` wraps both `/app` and `/app/settings`, and `/docs/*` wraps both `/docs` and `/docs/getting-started`.
+
+```tsx
+const app = new Spiceflow()
+  .layout('/*', async ({ children }) => {
+    return (
+      <html>
+        <body>{children}</body>
+      </html>
+    )
+  })
+  .layout('/app/*', async ({ children }) => {
+    return <section className="app-shell">{children}</section>
+  })
+  .layout('/docs/*', async ({ children }) => {
+    return <section className="docs-shell">{children}</section>
+  })
+  .page('/app', async () => {
+    return <h1>App home</h1>
+  })
+  .page('/app/settings', async () => {
+    return <h1>App settings</h1>
+  })
+  .page('/docs', async () => {
+    return <h1>Docs home</h1>
+  })
+  .page('/docs/getting-started', async () => {
+    return <h1>Getting started</h1>
+  })
+```
+
 ```tsx
 // counter.tsx
 'use client'

@@ -182,6 +182,42 @@ test.describe("layout provided client context", () => {
 	});
 });
 
+test.describe("scoped wildcard layouts", () => {
+	test("/app/* and /docs/* also match their base paths", async ({ page }) => {
+		await page.goto("/app");
+		await expect(page.getByTestId("app-layout")).toBeVisible();
+		await expect(page.getByTestId("app-page")).toBeVisible();
+
+		await page.goto("/docs");
+		await expect(page.getByTestId("docs-layout")).toBeVisible();
+		await expect(page.getByTestId("docs-page")).toBeVisible();
+	});
+
+	test("nested scoped layouts reuse the root document shell", async () => {
+		const response = await fetch(`${baseURL}/app`, {
+			headers: { "sec-fetch-dest": "document" },
+		});
+
+		expect(response.status).toBe(200);
+		const html = await response.text();
+
+		expect(html).toContain('data-testid="app-layout"');
+		expect(html).toContain('data-testid="app-page"');
+		expect(html.match(/<html(?:\s|>)/g)).toHaveLength(1);
+		expect(html.match(/<body(?:\s|>)/g)).toHaveLength(1);
+	});
+
+	test("scoped wildcard layouts still wrap nested child routes", async ({ page }) => {
+		await page.goto("/app/settings");
+		await expect(page.getByTestId("app-layout")).toBeVisible();
+		await expect(page.getByTestId("app-settings-page")).toBeVisible();
+
+		await page.goto("/docs/getting-started");
+		await expect(page.getByTestId("docs-layout")).toBeVisible();
+		await expect(page.getByTestId("docs-getting-started-page")).toBeVisible();
+	});
+});
+
 test.describe("Head client components", () => {
 	test("document response includes Head.Title and deduplicated meta tags", async () => {
 		const response = await fetch(`${baseURL}/meta`, {

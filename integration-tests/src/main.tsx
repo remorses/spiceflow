@@ -224,6 +224,36 @@ export const app = new Spiceflow()
 			</div>
 		);
 	})
+	.layout("/app/*", async ({ children }) => {
+		return (
+			<section data-testid="app-layout">
+				<h1>App layout</h1>
+				{children}
+			</section>
+		);
+	})
+	.page("/app", async () => {
+		return <div data-testid="app-page">App index page</div>;
+	})
+	.page("/app/settings", async () => {
+		return <div data-testid="app-settings-page">App settings page</div>;
+	})
+	.layout("/docs/*", async ({ children }) => {
+		return (
+			<section data-testid="docs-layout">
+				<h1>Docs layout</h1>
+				{children}
+			</section>
+		);
+	})
+	.page("/docs", async () => {
+		return <div data-testid="docs-page">Docs index page</div>;
+	})
+	.page("/docs/getting-started", async () => {
+		return (
+			<div data-testid="docs-getting-started-page">Docs getting started page</div>
+		);
+	})
 	.layout("/page/*", async ({ request, children }) => {
 		return (
 			<div className="">
