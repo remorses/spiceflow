@@ -844,10 +844,12 @@ You can stack multiple static roots:
 ```ts
 const app = new Spiceflow()
   .use(serveStatic({ root: './public' }))
-  .use(serveStatic({ root: './dist/client' }))
+  .use(serveStatic({ root: './uploads' }))
 ```
 
-In this example, `./public/logo.png` wins over `./dist/client/logo.png` because `./public` is registered first.
+In this example, `./public/logo.png` wins over `./uploads/logo.png` because `./public` is registered first.
+
+> Vite client build assets (`dist/client`) are served automatically in production — no need to register a `serveStatic` middleware for them.
 
 ## How errors are handled in the fetch client
 
@@ -1965,7 +1967,6 @@ import { Nav } from './app/nav'
 
 export const app = new Spiceflow()
   .use(serveStatic({ root: './public' }))
-  .use(serveStatic({ root: './dist/client' })) // required to serve vite built static files
   .layout('/*', async ({ children }) => {
     return (
       <html>
