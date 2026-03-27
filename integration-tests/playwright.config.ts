@@ -11,10 +11,16 @@ function getFreePort(): Promise<number> {
 	});
 }
 
-const port = Number(process.env.E2E_PORT) || (await getFreePort());
+// When E2E_BASE_URL is set, tests run against an external deployment (e.g. Vercel)
+// and no local server is started.
+const externalBaseURL = process.env.E2E_BASE_URL;
+
+const port = externalBaseURL
+	? 0
+	: Number(process.env.E2E_PORT) || (await getFreePort());
 process.env.E2E_PORT = String(port);
 
-const isStart = Boolean(process.env.E2E_START);
+const isStart = Boolean(process.env.E2E_START) || Boolean(externalBaseURL);
 const command = isStart
 	? `PORT=${port} pnpm start`
 	: `pnpm dev --port ${port} --strict-port`;
@@ -22,7 +28,7 @@ const command = isStart
 export default defineConfig({
 	testDir: "e2e",
 	use: {
-		baseURL: `http://localhost:${port}`,
+		baseURL: externalBaseURL || `http://localhost:${port}`,
 		actionTimeout: 5000,
 		navigationTimeout: 5000,
 		trace: "on-first-retry",
@@ -39,12 +45,14 @@ export default defineConfig({
 			},
 		},
 	],
-	webServer: {
-		command,
-		stdout: "pipe",
-		stderr: "pipe",
-		port,
-	},
+	webServer: externalBaseURL
+		? undefined
+		: {
+				command,
+				stdout: "pipe",
+				stderr: "pipe",
+				port,
+			},
 	fullyParallel: false,
 	workers: 1,
 	grepInvert: isStart ? /@dev/ : /@build/,

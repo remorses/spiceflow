@@ -10,7 +10,8 @@
 		"start": "DEBUG_SPICEFLOW=1 node dist/rsc/index.js",
 		"test-e2e": "DEBUG_SPICEFLOW=1 playwright test",
 		"pretest-e2e-start": "rm -rf dist *.tsbuildinfo && pnpm build",
-		"test-e2e-start": "DEBUG_SPICEFLOW=1 E2E_START=1 playwright test"
+		"test-e2e-start": "DEBUG_SPICEFLOW=1 E2E_START=1 playwright test",
+		"test-e2e-vercel": "E2E_BASE_URL=https://integration-tests-three.vercel.app playwright test"
 	},
 	"keywords": [],
 	"author": "remorses <beats.by.morse@gmail.com>",

@@ -3,3 +3,4 @@ dist
 test-results
 *.tsbuildinfo
 debug
+.vercel

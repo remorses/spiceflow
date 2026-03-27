@@ -1,7 +1,8 @@
 import { expect, test } from "@playwright/test";
 
-const port = Number(process.env.E2E_PORT || 6174);
-const baseURL = `http://localhost:${port}`;
+const baseURL =
+	process.env.E2E_BASE_URL ||
+	`http://localhost:${Number(process.env.E2E_PORT || 6174)}`;
 
 test.describe("scroll restoration", () => {
 	test("scrolls to top on PUSH navigation", async ({ page }) => {

@@ -73,10 +73,6 @@
     "./cloudflare-entrypoint": {
       "default": "./dist/react/entry.rsc.js"
     },
-    "./vercel": {
-      "types": "./dist/vercel.d.ts",
-      "default": "./dist/vercel.js"
-    },
     "./dist/*": {
       "types": "./dist/*.d.ts",
       "default": "./dist/*.js"

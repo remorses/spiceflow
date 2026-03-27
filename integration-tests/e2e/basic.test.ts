@@ -5,9 +5,11 @@ import {
 	type APIRequestContext,
 } from "@playwright/test";
 
-const port = Number(process.env.E2E_PORT || 6174);
-const baseURL = `http://localhost:${port}`;
-const isStart = Boolean(process.env.E2E_START);
+const baseURL =
+	process.env.E2E_BASE_URL ||
+	`http://localhost:${Number(process.env.E2E_PORT || 6174)}`;
+const isStart = Boolean(process.env.E2E_START) || Boolean(process.env.E2E_BASE_URL);
+const isRemote = Boolean(process.env.E2E_BASE_URL);
 
 function getSetCookies(response: Response) {
 	const headers = response.headers as Headers & {
@@ -309,13 +311,17 @@ test("document SSR preinitializes client chunks for client references", async ({
 	expect(html).toContain('data-precedence="vite-rsc/client-reference"');
 });
 
+// testServerAction relies on module-scope counter persisting across full page
+// reloads — not guaranteed on stateless serverless functions.
 test("server reference in server @js", async ({ page }) => {
+	test.skip(isRemote, "stateless functions");
 	await testServerAction(page);
 });
 
 test.describe(() => {
 	test.use({ javaScriptEnabled: false });
 	test("server reference in server @nojs", async ({ page }) => {
+		test.skip(isRemote, "stateless functions");
 		await testServerAction(page);
 	});
 
@@ -949,9 +955,13 @@ test.describe("navigation abort controller", () => {
 		const slowRequest = rscRequests.find((r) => r.url.includes("/slow"));
 		expect(slowRequest!.aborted).toBe(true);
 
-		// The /other RSC fetch should have completed normally
+		// The /other RSC fetch should have completed normally (may take longer over network)
+		await expect
+			.poll(() => rscRequests.find((r) => r.url.includes("/other")), {
+				timeout: 5000,
+			})
+			.toBeTruthy();
 		const otherRequest = rscRequests.find((r) => r.url.includes("/other"));
-		expect(otherRequest).toBeTruthy();
 		expect(otherRequest!.aborted).toBe(false);
 	});
 });
@@ -1085,6 +1095,8 @@ test.describe("prerender @build", () => {
 });
 
 test.describe("middleware page cache", () => {
+	// In-memory page cache doesn't persist across serverless function instances
+	test.skip(() => isRemote, "skipped on remote deployments (stateless functions)");
 	// Clear cache before each test so they're isolated
 	test.beforeEach(async () => {
 		await fetch(`${baseURL}/api/cache-clear`);
@@ -1379,6 +1391,8 @@ test.describe("server actions", () => {
 	test("inline 'use server' with closure revalidates the page after submit", async ({
 		page,
 	}) => {
+		// Relies on module-scope inlineActionRenderCount persisting across requests
+		test.skip(isRemote, "stateless functions");
 		const errors: string[] = [];
 		page.on("pageerror", (err) => errors.push(err.message));
 		await page.goto("/inline-action-with-closure");
