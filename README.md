@@ -1959,13 +1959,14 @@ All routes registered with `.page()`, `.get()`, etc. are available in `app.href(
 
 ```tsx
 // src/main.tsx
-import { Spiceflow } from 'spiceflow'
+import { Spiceflow, serveStatic } from 'spiceflow'
 import { Head, Link } from 'spiceflow/react'
 import { z } from 'zod'
 import { Counter } from './app/counter'
 import { Nav } from './app/nav'
 
 export const app = new Spiceflow()
+  .use(serveStatic({ root: './public' }))
   .layout('/*', async ({ children }) => {
     return (
       <html>
