@@ -102,6 +102,7 @@
   "author": "Tommaso De Rossi, morse <beats.by.morse@gmail.com>",
   "license": "MIT",
   "dependencies": {
+    "@vercel/nft": "^1.5.0",
     "@vitejs/plugin-rsc": "^0.5.21",
     "errore": "^0.14.0",
     "eventsource-parser": "^3.0.2",
@@ -129,12 +130,12 @@
     "@types/react-dom": "^19.2.3",
     "ai": "^5.0.14",
     "esbuild": "^0.27.4",
-    "zod": "^4.3.6",
     "eventsource": "^3.0.5",
     "formdata-node": "^6.0.3",
     "js-base64": "^3.7.7",
     "js-yaml": "^4.1.0",
     "ps-tree": "^1.2.0",
-    "vite": "^8.0.0"
+    "vite": "^8.0.0",
+    "zod": "^4.3.6"
   }
 }

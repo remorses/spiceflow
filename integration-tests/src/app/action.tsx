@@ -1,16 +1,17 @@
 "use server";
 
-if (!("counter" in globalThis)) {
-	globalThis.counter = 0;
-}
+import {
+	getCounter as _getCounter,
+	incrementCounter,
+} from "#counter-store";
 
 export async function getCounter() {
-	return globalThis.counter;
+	return _getCounter();
 }
 
 export async function changeCounter(formData: FormData) {
 	const change = Number(formData.get("change"));
-	globalThis.counter += change;
+	await incrementCounter(change);
 }
 
 console.log("rerunning");

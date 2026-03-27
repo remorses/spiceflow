@@ -311,17 +311,13 @@ test("document SSR preinitializes client chunks for client references", async ({
 	expect(html).toContain('data-precedence="vite-rsc/client-reference"');
 });
 
-// testServerAction relies on module-scope counter persisting across full page
-// reloads — not guaranteed on stateless serverless functions.
 test("server reference in server @js", async ({ page }) => {
-	test.skip(isRemote, "stateless functions");
 	await testServerAction(page);
 });
 
 test.describe(() => {
 	test.use({ javaScriptEnabled: false });
 	test("server reference in server @nojs", async ({ page }) => {
-		test.skip(isRemote, "stateless functions");
 		await testServerAction(page);
 	});
 
@@ -342,19 +338,25 @@ test.describe(() => {
 
 async function testServerAction(page: Page) {
 	await page.goto("/");
-	await page.getByText("Server counter: 0").click();
+	// Read the current counter value (may not be 0 on serverless with persistent storage)
+	const counterText = await page
+		.getByTestId("server-counter")
+		.locator("div")
+		.filter({ hasText: /^Server counter:/ })
+		.textContent();
+	const initial = Number(counterText!.replace("Server counter: ", ""));
 	await page
 		.getByTestId("server-counter")
 		.getByRole("button", { name: "+" })
 		.click();
-	await page.getByText("Server counter: 1").click();
+	await page.getByText(`Server counter: ${initial + 1}`).click();
 	await page.goto("/");
-	await page.getByText("Server counter: 1").click();
+	await page.getByText(`Server counter: ${initial + 1}`).click();
 	await page
 		.getByTestId("server-counter")
 		.getByRole("button", { name: "-" })
 		.click();
-	await page.getByText("Server counter: 0").click();
+	await page.getByText(`Server counter: ${initial}`).click();
 }
 
 test("server reference in client @js", async ({ page }) => {

@@ -4,3 +4,4 @@ test-results
 *.tsbuildinfo
 debug
 .vercel
+.env*.local

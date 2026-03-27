@@ -8,9 +8,17 @@
 // - Build Output API configuration: https://vercel.com/docs/build-output-api/v3/configuration
 // - @vercel/hono adapter source:    https://github.com/vercel/vercel/tree/main/packages/hono/src
 // - SvelteKit adapter-vercel:       https://github.com/sveltejs/kit/tree/main/packages/adapter-vercel
+import {
+  copyFileSync,
+  mkdirSync,
+  realpathSync,
+  statSync,
+  symlinkSync,
+} from 'node:fs'
 import { access, cp, mkdir, rm, writeFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import path from 'node:path'
+import { nodeFileTrace } from '@vercel/nft'
 import type { Plugin } from 'vite'
 
 interface VercelConfig {
@@ -131,13 +139,20 @@ async function generateVercelOutput({
   //    which from funcDir/rsc/index.js = funcDir/client/
   await cp(clientDir, path.join(funcDir, 'client'), { recursive: true })
 
-  // 5. Write package.json so Node.js treats .js files as ESM inside the function
+  // 5. Trace and copy externalized node_modules dependencies.
+  //    Vite externalizes node packages by default in RSC/SSR builds. These
+  //    imports remain as bare specifiers (e.g. import "@upstash/redis") and
+  //    need node_modules available at runtime. We use @vercel/nft to find
+  //    exactly which files are needed and copy only those into the function.
+  await traceAndCopyDependencies(outDir, funcDir)
+
+  // 6. Write package.json so Node.js treats .js files as ESM inside the function
   await writeFile(
     path.join(funcDir, 'package.json'),
     JSON.stringify({ type: 'module' }),
   )
 
-  // 6. Write function config
+  // 7. Write function config
   const funcConfig: VercelFunctionConfig = {
     runtime: 'nodejs22.x',
     handler: 'rsc/index.js',
@@ -149,7 +164,7 @@ async function generateVercelOutput({
     JSON.stringify(funcConfig, null, 2),
   )
 
-  // 7. Write deployment config
+  // 8. Write deployment config
   const config: VercelConfig = {
     version: 3,
     routes: [
@@ -175,6 +190,89 @@ async function generateVercelOutput({
   )
 
   console.log('[spiceflow] Vercel Build Output generated at .vercel/output/')
+}
+
+// Trace externalized node_modules from the server bundles using @vercel/nft,
+// then copy only the files that are actually needed into the function directory.
+// Follows the same approach as SvelteKit's adapter-vercel: use filesystem root
+// as base, compute common ancestor, recreate pnpm symlinks with realpathSync.
+async function traceAndCopyDependencies(
+  outDir: string,
+  funcDir: string,
+) {
+  const rscEntry = path.resolve(outDir, 'rsc/index.js')
+  const ssrEntry = path.resolve(outDir, 'ssr/index.js')
+  const entries = [rscEntry]
+  if (await exists(ssrEntry)) entries.push(ssrEntry)
+
+  // Use filesystem root as base (same as SvelteKit) so all traced paths
+  // are absolute-relative, giving us full control over path manipulation.
+  let base = rscEntry
+  while (base !== (base = path.dirname(base)));
+
+  const { fileList } = await nodeFileTrace(entries, { base })
+
+  const nmFiles = [...fileList].filter((f) => f.includes('node_modules'))
+  if (nmFiles.length === 0) return
+
+  // The project root is the parent of outDir (e.g. integration-tests/).
+  // At runtime the handler lives at funcDir/rsc/index.js. Node.js module
+  // resolution walks up from there and looks for funcDir/node_modules/.
+  // So all traced node_modules paths must land under funcDir/node_modules/.
+  //
+  // For pnpm workspaces, files live in two places:
+  //   1. project/node_modules/@foo/bar (symlink) — relative to project root
+  //   2. workspace-root/node_modules/.pnpm/... (real files) — outside project root
+  //
+  // We handle both by extracting the path starting from the first
+  // "node_modules" segment, which works regardless of where the file
+  // physically lives.
+  let copied = 0
+  for (const file of nmFiles) {
+    const source = base + file
+
+    // Extract path from the first "node_modules" segment onwards.
+    // e.g. "/abs/workspace/node_modules/.pnpm/foo/index.js" -> "node_modules/.pnpm/foo/index.js"
+    const nmIdx = source.indexOf('node_modules')
+    if (nmIdx === -1) continue
+    const relFromNm = source.slice(nmIdx)
+    const dest = path.join(funcDir, relFromNm)
+
+    const stats = statSync(source, { throwIfNoEntry: false })
+    if (!stats) continue
+    const isDir = stats.isDirectory()
+
+    const realpath = realpathSync(source)
+
+    mkdirSync(path.dirname(dest), { recursive: true })
+
+    if (source !== realpath) {
+      // It's a symlink (common with pnpm) — recreate as a relative symlink
+      // so Node.js module resolution works correctly at runtime.
+      const realNmIdx = realpath.indexOf('node_modules')
+      if (realNmIdx === -1) continue
+      const realdest = path.join(funcDir, realpath.slice(realNmIdx))
+      mkdirSync(path.dirname(realdest), { recursive: true })
+      try {
+        symlinkSync(
+          path.relative(path.dirname(dest), realdest),
+          dest,
+          isDir ? 'dir' : 'file',
+        )
+      } catch {
+        // symlink already exists
+      }
+    } else if (!isDir) {
+      copyFileSync(source, dest)
+    }
+    copied++
+  }
+
+  if (copied > 0) {
+    console.log(
+      `[spiceflow] Traced and copied ${copied} dependency files into function`,
+    )
+  }
 }
 
 async function exists(p: string): Promise<boolean> {
