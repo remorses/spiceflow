@@ -686,4 +686,23 @@ function UseStateInServerComponent() {
 	return <div>count: {count}</div>;
 }
 
-app.listen(Number(process.env.PORT || 3000));
+app
+	.get("/api/sharp-test", async () => {
+		const sharp = (await import("sharp")).default;
+		const metadata = await sharp({
+			create: {
+				width: 10,
+				height: 10,
+				channels: 3,
+				background: { r: 255, g: 0, b: 0 },
+			},
+		})
+			.png()
+			.metadata();
+		return { format: metadata.format, width: metadata.width };
+	})
+	.get("/api/lodash-test", async () => {
+		const _ = (await import("lodash")).default;
+		return { result: _.chunk([1, 2, 3, 4, 5, 6], 2) };
+	})
+	.listen(Number(process.env.PORT || 3000));
