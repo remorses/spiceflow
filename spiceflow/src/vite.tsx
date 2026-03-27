@@ -15,6 +15,7 @@ import {
 } from 'vite'
 import { prerenderPlugin } from './react/prerender.js'
 import { serverFileGuardPlugin } from './server-file-guard.js'
+import { vercelPlugin } from './vercel.js'
 
 const require = createRequire(import.meta.url)
 const pluginRscRpcPath = require.resolve('@vitejs/plugin-rsc/utils/rpc')
@@ -49,6 +50,8 @@ export function spiceflowPlugin({ entry }: { entry: string }): PluginOption {
     rsc(rscOptions),
     prerenderPlugin(),
     serverFileGuardPlugin(),
+    // Automatically generate Vercel Build Output when VERCEL=1 is set
+    ...(process.env.VERCEL === '1' ? [vercelPlugin()] : []),
 
     // Rewrite optimizeDeps entries so @vitejs/plugin-rsc vendor CJS files
     // resolve through the spiceflow framework package (where the plugin is installed)
