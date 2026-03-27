@@ -15,6 +15,7 @@ import {
 } from 'vite'
 import { prerenderPlugin } from './react/prerender.js'
 import { serverFileGuardPlugin } from './server-file-guard.js'
+import { traceAndCopyDependencies } from './trace-dependencies.js'
 import { vercelPlugin } from './vercel.js'
 
 const require = createRequire(import.meta.url)
@@ -52,6 +53,10 @@ export function spiceflowPlugin({ entry }: { entry: string }): PluginOption {
     serverFileGuardPlugin(),
     // Automatically generate Vercel Build Output when VERCEL=1 is set
     ...(process.env.VERCEL === '1' ? [vercelPlugin()] : []),
+    // Trace runtime dependencies into dist/node_modules/ so the build output
+    // is self-contained (just copy dist/ into Docker and run it).
+    // Skipped for Vercel (has its own tracing) and Cloudflare (bundles everything).
+    standaloneTracePlugin(),
 
     // Rewrite optimizeDeps entries so @vitejs/plugin-rsc vendor CJS files
     // resolve through the spiceflow framework package (where the plugin is installed)
@@ -374,6 +379,40 @@ function addNoExternal(
       ? [existing]
       : []
   config.resolve.noExternal = Array.from(new Set([...arr, pkg]))
+}
+
+function standaloneTracePlugin(): Plugin {
+  let outDir = 'dist'
+  let skip = false
+
+  return {
+    name: 'spiceflow:standalone-trace',
+    apply: 'build',
+
+    configResolved(config) {
+      outDir = config.build.outDir
+      const isVercel = process.env.VERCEL === '1'
+      const isCloudflare = config.plugins.some((p) =>
+        p.name.startsWith('vite-plugin-cloudflare'),
+      )
+      skip = isVercel || isCloudflare
+    },
+
+    buildApp: {
+      order: 'post' as const,
+      async handler() {
+        if (skip) return
+        await traceAndCopyDependencies(outDir, outDir)
+        // Write package.json so Node.js treats .js files as ESM
+        const { writeFile } = await import('node:fs/promises')
+        const { default: path } = await import('node:path')
+        await writeFile(
+          path.join(outDir, 'package.json'),
+          JSON.stringify({ type: 'module' }),
+        )
+      },
+    },
+  }
 }
 
 function createVirtualPlugin(
