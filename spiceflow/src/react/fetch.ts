@@ -7,10 +7,12 @@ export function createRequest(
 ): Request {
   const abortController = new AbortController()
   // Abort when the client disconnects before the response is fully sent.
-  // req.close fires when the underlying connection closes; checking
-  // res.writableFinished distinguishes "client disconnected" from
-  // "response sent normally".
-  req.once('close', () => {
+  // res.close fires when the underlying connection closes or the response
+  // finishes. Checking res.writableFinished distinguishes "client disconnected"
+  // from "response sent normally". We listen on res (not req) because
+  // req.close can fire before the response is written for normal POST requests,
+  // causing false aborts.
+  res.once('close', () => {
     if (!res.writableFinished) {
       abortController.abort()
     }
