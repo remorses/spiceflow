@@ -189,10 +189,41 @@ export function DefaultGlobalErrorPage(props: ErrorPageProps) {
   )
 }
 
-export function Link(props: React.ComponentPropsWithRef<'a'>) {
+declare const __SPICEFLOW_BASE__: string | undefined
+
+function getBase(): string {
+  return typeof __SPICEFLOW_BASE__ !== 'undefined' ? __SPICEFLOW_BASE__ : ''
+}
+
+// Check if a path already has the base prefix (handles /, ?, # boundaries)
+function hasBasePrefix(path: string, base: string): boolean {
+  if (path === base) return true
+  const next = path.charAt(base.length)
+  return path.startsWith(base) && (next === '/' || next === '?' || next === '#')
+}
+
+// Prepend base path to an href if it's a local absolute path that doesn't
+// already include the base prefix. External URLs, anchors, and protocol-relative
+// URLs (//cdn.com) are left as-is.
+function withBase(href: string | undefined): string | undefined {
+  if (!href) return href
+  const base = getBase()
+  if (!base) return href
+  // Only rewrite local absolute paths (starts with / but not //)
+  if (!href.startsWith('/') || href.startsWith('//')) return href
+  if (hasBasePrefix(href, base)) return href
+  return base + href
+}
+
+export function Link(
+  props: React.ComponentPropsWithRef<'a'> & { rawHref?: boolean },
+) {
+  const { rawHref, ...rest } = props
+  const href = rawHref ? props.href : withBase(props.href)
   return (
     <a
-      {...props}
+      {...rest}
+      href={href}
       onClick={(e) => {
         if (
           e.metaKey ||

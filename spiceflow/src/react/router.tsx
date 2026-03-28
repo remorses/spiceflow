@@ -1,7 +1,12 @@
 import { createBrowserHistory, createMemoryHistory, Location } from 'history'
 import { useMemo, useSyncExternalStore } from 'react'
 
+declare const __SPICEFLOW_BASE__: string | undefined
+
 const isBrowser = typeof window !== 'undefined'
+
+const basePath =
+  typeof __SPICEFLOW_BASE__ !== 'undefined' ? __SPICEFLOW_BASE__ : ''
 
 const history = !isBrowser ? createMemoryHistory() : createBrowserHistory({})
 
@@ -215,21 +220,55 @@ const loaderDataReady = new Promise<Record<string, unknown>>((resolve) => {
   loaderDataResolve = resolve
 })
 
+function hasBasePrefix(path: string, base: string): boolean {
+  if (path === base) return true
+  const next = path.charAt(base.length)
+  return path.startsWith(base) && (next === '/' || next === '?' || next === '#')
+}
+
+function stripBase(pathname: string): string {
+  if (!basePath) return pathname
+  if (hasBasePrefix(pathname, basePath)) {
+    return pathname.slice(basePath.length) || '/'
+  }
+  return pathname
+}
+
+function prependBase(to: string | Partial<{ pathname: string }>): typeof to {
+  if (!basePath) return to
+  if (typeof to === 'string') {
+    if (to.startsWith('/') && !to.startsWith('//') && !hasBasePrefix(to, basePath))
+      return basePath + to
+    return to
+  }
+  if (
+    to.pathname &&
+    to.pathname.startsWith('/') &&
+    !to.pathname.startsWith('//') &&
+    !hasBasePrefix(to.pathname, basePath)
+  ) {
+    return { ...to, pathname: basePath + to.pathname }
+  }
+  return to
+}
+
 export const router = {
   get location() {
     return history.location
   },
   get pathname() {
-    return history.location.pathname
+    return stripBase(history.location.pathname)
   },
   get searchParams(): ReadonlyURLSearchParams {
     return new URLSearchParams(history.location.search)
   },
   push(...args: Parameters<typeof history.push>) {
+    args[0] = prependBase(args[0]) as typeof args[0]
     requestNavigation('push')
     history.push(...args)
   },
   replace(...args: Parameters<typeof history.replace>) {
+    args[0] = prependBase(args[0]) as typeof args[0]
     requestNavigation('replace')
     history.replace(...args)
   },

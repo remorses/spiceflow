@@ -23,10 +23,30 @@ export function contextToHeaders(ctx: ReactServerErrorContext): Headers {
   return new Headers(ctx.headers as HeadersInit)
 }
 
+declare const __SPICEFLOW_BASE__: string | undefined
+
+function hasBasePrefix(path: string, base: string): boolean {
+  if (path === base) return true
+  const next = path.charAt(base.length)
+  return path.startsWith(base) && (next === '/' || next === '?' || next === '#')
+}
+
 export function redirect(
   location: string,
   options?: { status?: number; headers?: Record<string, string> },
 ) {
+  const base =
+    typeof __SPICEFLOW_BASE__ !== 'undefined' ? __SPICEFLOW_BASE__ : ''
+  // Auto-prepend base path to absolute redirect targets so user code
+  // can write redirect("/dashboard") without worrying about base config.
+  if (
+    base &&
+    location.startsWith('/') &&
+    !location.startsWith('//') &&
+    !hasBasePrefix(location, base)
+  ) {
+    location = base + location
+  }
   return new Response(null, {
     status: options?.status ?? 307,
     headers: {

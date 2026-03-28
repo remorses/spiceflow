@@ -27,6 +27,7 @@ const buildTimestamp = Date.now().toString(36)
 export function spiceflowPlugin({ entry }: { entry: string }): PluginOption {
   let server: ViteDevServer
   let resolvedOutDir = 'dist'
+  let resolvedBase = ''
   let isCloudflareRuntime = false
   const rscOptions: RscPluginOptions = {
     entries: {
@@ -48,6 +49,28 @@ export function spiceflowPlugin({ entry }: { entry: string }): PluginOption {
   }
 
   return [
+    // Must run BEFORE rsc() — strips the base path from plugin-rsc's internal
+    // RPC requests. plugin-rsc's loadModuleDevProxy builds endpoint URLs using
+    // origin+base (from server.resolvedUrls) but its middleware matches only
+    // the pathname without base. Without this, every RPC call 404s when base != '/'.
+    {
+      name: 'spiceflow:rsc-rpc-base-fix',
+      configureServer(server) {
+        if (!resolvedBase) return
+        server.middlewares.use((req, res, next) => {
+          if (req.url?.includes('__vite_rsc_load_module_dev_proxy')) {
+            // The RPC endpoint URL is origin+base+"__vite_rsc..." (no slash
+            // separator) so we can't just strip a base prefix. Instead,
+            // rewrite to start from /__vite_rsc... so the pathname matches.
+            const idx = req.url.indexOf('__vite_rsc_load_module_dev_proxy')
+            if (idx > 0) {
+              req.url = '/' + req.url.slice(idx)
+            }
+          }
+          next()
+        })
+      },
+    },
     rsc(rscOptions),
     prerenderPlugin(),
     serverFileGuardPlugin(),
@@ -88,6 +111,17 @@ export function spiceflowPlugin({ entry }: { entry: string }): PluginOption {
     {
       name: 'spiceflow:config',
       config(userConfig, env) {
+        // Capture base early — Vite normalizes it to '/' by default, but the
+        // raw user value is available here before configResolved runs.
+        const rawBase = userConfig.base || '/'
+        if (rawBase !== '/' && !rawBase.startsWith('/')) {
+          throw new Error(
+            `[spiceflow] config.base must be an absolute path starting with "/", got "${rawBase}". ` +
+              `CDN URLs (https://...) and relative paths (./) are not supported. ` +
+              `Use base: "/my-app" instead.`,
+          )
+        }
+        resolvedBase = rawBase.replace(/\/$/, '')
         const userOnWarn = userConfig.build?.rollupOptions?.onwarn
         const isCloudflare = hasPluginNamed(
           userConfig.plugins,
@@ -122,14 +156,15 @@ export function spiceflowPlugin({ entry }: { entry: string }): PluginOption {
           // bundle. Without this, the built output contains runtime checks like
           // `"production" !== process.env.NODE_ENV` that always evaluate to the dev
           // path, adding ~28% CPU overhead from debug stack traces and fake call sites.
-          define:
-            env.command === 'build'
+          define: {
+            ...(env.command === 'build'
               ? {
                   'process.env.NODE_ENV': JSON.stringify(
                     process.env.NODE_ENV || 'production',
                   ),
                 }
-              : undefined,
+              : {}),
+          },
           build: {
             rollupOptions: {
               onwarn(warning, defaultHandler) {
@@ -154,6 +189,7 @@ export function spiceflowPlugin({ entry }: { entry: string }): PluginOption {
       },
       configResolved(config) {
         resolvedOutDir = config.build.outDir
+        resolvedBase = (config.base || '/').replace(/\/$/, '')
         isCloudflareRuntime = config.plugins.some((plugin) =>
           plugin.name.startsWith('vite-plugin-cloudflare:'),
         )
@@ -170,6 +206,17 @@ export function spiceflowPlugin({ entry }: { entry: string }): PluginOption {
         }
       },
     },
+    // Inject __SPICEFLOW_BASE__ into all environments so client/SSR/RSC code
+    // can read the base path at runtime. Uses configEnvironment instead of
+    // top-level define because the resolved base isn't available until configResolved.
+    {
+      name: 'spiceflow:base-define',
+      configEnvironment(_name, config) {
+        config.define ??= {}
+        config.define.__SPICEFLOW_BASE__ = JSON.stringify(resolvedBase)
+      },
+    },
+
     // Point optimizeDeps.entries at the user's app entry and spiceflow's own entries
     // so Vite crawls the full import graph upfront instead of discovering deps late
     // (which triggers re-optimization rounds + page reloads during dev).
@@ -252,6 +299,18 @@ export function spiceflowPlugin({ entry }: { entry: string }): PluginOption {
         return () => {
           server.middlewares.use(async (req, res, next) => {
             if (req.url?.includes('__inspect')) return next()
+            // Skip internal plugin-rsc dev proxy RPC requests — these must
+            // be handled by the plugin's own middleware, not our SSR handler.
+            // Without this guard, RPC requests fall through to fetchHandler
+            // which triggers loadModule() again → infinite recursion.
+            if (req.url?.includes('__vite_rsc_load_module_dev_proxy'))
+              return next()
+            // Vite's base middleware strips config.base from req.url, but
+            // Spiceflow needs the full URL (including base) so its basePath
+            // matching works consistently across dev/preview/production.
+            if (resolvedBase && req.url && !req.url.startsWith(resolvedBase)) {
+              req.url = resolvedBase + req.url
+            }
             try {
               const resolvedEntry =
                 await server.environments.ssr.pluginContainer.resolveId(
@@ -282,6 +341,10 @@ export function spiceflowPlugin({ entry }: { entry: string }): PluginOption {
         const { createRequest, sendResponse } = await import('./react/fetch.js')
         return () => {
           previewServer.middlewares.use(async (req, res, next) => {
+            // Re-add Vite's stripped base prefix (see configureServer comment)
+            if (resolvedBase && req.url && !req.url.startsWith(resolvedBase)) {
+              req.url = resolvedBase + req.url
+            }
             try {
               const request = createRequest(req, res)
               const response = await mod.fetchHandler(request)
@@ -310,21 +373,37 @@ export function spiceflowPlugin({ entry }: { entry: string }): PluginOption {
         path.join(resolvedOutDir, 'client'),
       )
 
+      const escapedBase = resolvedBase.replace(/'/g, "\\'")
       const lines = [
         `import * as entry from '${resolvedEntry}'`,
         `if (!entry.app) throw new Error('[spiceflow] Your entry file must export a Spiceflow instance as "app". Example:\\n\\n  export const app = new Spiceflow()\\n    .page("/", async () => <Home />)\\n    .listen(3000)\\n')`,
       ]
+      // Set basePath from Vite's config.base on the root app instance.
+      // Error if the user already set a conflicting basePath in the constructor.
+      if (resolvedBase) {
+        lines.push(
+          `if (entry.app.basePath && entry.app.basePath !== '${escapedBase}') throw new Error('[spiceflow] Base path must be configured via Vite config.base only, not the Spiceflow constructor. Remove basePath from new Spiceflow({ basePath }) and set base: "${escapedBase}" in vite.config.ts instead.')`,
+          `entry.app.basePath = '${escapedBase}'`,
+        )
+      }
       // Auto-inject serveStatic for client build output in production.
       // In dev, import.meta.hot is truthy so this is skipped — Vite serves
       // client assets from source. Cloudflare Workers handle static files
       // via their own runtime.
       if (!isCloudflareRuntime) {
+        const baseLen = resolvedBase.length
         lines.push(
           `import { serveStatic as __serveStatic } from 'spiceflow'`,
           `import { resolve as __resolve, dirname as __dirname } from 'node:path'`,
           `if (!import.meta.hot) {`,
           `  const __clientDir = __resolve(__dirname(import.meta.filename), '${clientRelative}')`,
-          `  entry.app.use(__serveStatic({ root: __clientDir }))`,
+          // Strip base path prefix from request paths so serveStatic can find
+          // files on disk (e.g. /base/assets/style.css → /assets/style.css)
+          ...(resolvedBase
+            ? [
+                `  entry.app.use(__serveStatic({ root: __clientDir, rewriteRequestPath: (p) => p.startsWith('${escapedBase}') ? p.slice(${baseLen}) || '/' : p }))`,
+              ]
+            : [`  entry.app.use(__serveStatic({ root: __clientDir }))`]),
           `}`,
         )
       }
