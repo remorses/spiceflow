@@ -1,5 +1,13 @@
 # spiceflow
 
+## 1.18.0-rsc.18
+
+1. **Restored `.rsc` path extension for client-side RSC navigation fetches** — the client now appends `.rsc` to the pathname when fetching RSC Flight data (e.g. `/about.rsc?__rsc=`). This gives each RSC payload a distinct URL from its HTML page, enabling CDN-friendly caching of Flight data separately from HTML responses. The root `/` page uses `/index.rsc`. The `__rsc` query param is still included for backwards compatibility. Server-side route matching strips the `.rsc` suffix before matching so dynamic params work correctly.
+
+2. **`staticPage()` now writes `.html` files to disk at build time** — prerendering no longer only produces `.rsc` Flight data files. The build now also writes a fully SSR-rendered `.html` file for each static route, making them suitable for direct CDN hosting. The prerender manifest (`__prerender.json`) now includes both `html` and `data` paths per entry. The root `/` route writes `index.rsc` and `index.html`.
+
+3. **`vite build` now builds all environments without `--app`** — the spiceflow Vite plugin sets `builder: {}` automatically, so `vite build` builds all environments (client + SSR + RSC) without needing the `--app` CLI flag. Update your build scripts from `vite build --app` to `vite build`.
+
 ## 1.18.0-rsc.17
 
 1. **Self-contained Node.js build output** — after `pnpm build`, the `dist/` folder now includes all runtime dependencies in `dist/node_modules/` traced by `@vercel/nft`. You can copy just `dist/` into a Docker container and run it with no install step:
