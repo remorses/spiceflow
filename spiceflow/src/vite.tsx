@@ -101,6 +101,9 @@ export function spiceflowPlugin({ entry }: { entry: string }): PluginOption {
         }
         const outDir = userConfig.build?.outDir ?? 'dist'
         return {
+          // Enable app build mode so `vite build` builds all environments
+          // (client + SSR + RSC) without requiring the --app CLI flag.
+          builder: {},
           // Disable Vite's built-in SPA fallback middleware so it doesn't
           // intercept unmatched paths with a 200 before our middleware runs.
           appType: 'custom' as const,

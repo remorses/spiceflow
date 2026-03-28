@@ -186,7 +186,7 @@ function patchForBun(filePath: string, content: string): string {
     const pkg = JSON.parse(content)
     pkg.scripts = {
       dev: 'bunx --bun vite dev',
-      build: 'bunx --bun vite build --app',
+      build: 'bunx --bun vite build',
       start: 'bun dist/rsc/index.js',
     }
     return JSON.stringify(pkg, null, 2) + '\n'
