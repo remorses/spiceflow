@@ -6,8 +6,12 @@ export function createRequest(
   res: ServerResponse,
 ): Request {
   const abortController = new AbortController()
-  res.once('close', () => {
-    if (req.destroyed) {
+  // Abort when the client disconnects before the response is fully sent.
+  // req.close fires when the underlying connection closes; checking
+  // res.writableFinished distinguishes "client disconnected" from
+  // "response sent normally".
+  req.once('close', () => {
+    if (!res.writableFinished) {
       abortController.abort()
     }
   })
