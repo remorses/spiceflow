@@ -25,6 +25,7 @@ import {
   isDeploymentMismatchResponse,
 } from './deployment.js'
 import { getErrorContext } from './errors.js'
+import { actionAbortControllers } from './action-abort.js'
 
 // Reads the RSC flight payload that the server injected as <script> tags via
 // transform.ts. Chunks already pushed before this module runs are drained,
@@ -118,37 +119,55 @@ async function main() {
     // Temporary references track non-serializable values (DOM nodes, React elements) passed
     // as action args. Same set is shared with createFromFetch so they round-trip correctly.
     const temporaryReferences = createTemporaryReferenceSet()
-    const url = new URL(window.location.href)
-    url.searchParams.set('__rsc', id)
-    const payloadPromise = createFromFetch<ServerPayload>(
-      fetchFlightResponse({
+    const actionAbort = new AbortController()
+    actionAbortControllers.set(id, actionAbort)
+
+    try {
+      const url = new URL(window.location.href)
+      url.searchParams.set('__rsc', id)
+
+      // Await the fetch here so abort errors propagate before we touch React state.
+      // fetchFlightResponse already awaits fetch() internally, so there's no streaming
+      // loss — the response body still streams through createFromFetch.
+      const response = await fetchFlightResponse({
         url,
         kind: 'action',
         init: {
           method: 'POST',
           body: await encodeReply(args, { temporaryReferences }),
+          signal: actionAbort.signal,
         },
-      }),
-      { temporaryReferences },
-    )
+      })
 
-    setPayload(payloadPromise)
-    const payload = await payloadPromise
-    router.__setLoaderData(payload.root?.loaderData)
+      const payloadPromise = createFromFetch<ServerPayload>(
+        Promise.resolve(response),
+        { temporaryReferences },
+      )
 
-    if (payload.actionError) {
-      console.log(getErrorContext(payload.actionError))
-      // React strips both error.message and error.digest for Error values
-      // serialized in the flight payload (not thrown during rendering).
-      // Restore digest from the separately-serialized plain string.
-      if (payload.actionErrorDigest) {
-        ;(payload.actionError as Error & { digest?: string }).digest =
-          payload.actionErrorDigest
+      setPayload(payloadPromise)
+      const payload = await payloadPromise
+      router.__setLoaderData(payload.root?.loaderData)
+
+      if (payload.actionError) {
+        console.log(getErrorContext(payload.actionError))
+        // React strips both error.message and error.digest for Error values
+        // serialized in the flight payload (not thrown during rendering).
+        // Restore digest from the separately-serialized plain string.
+        if (payload.actionErrorDigest) {
+          ;(payload.actionError as Error & { digest?: string }).digest =
+            payload.actionErrorDigest
+        }
+        throw payload.actionError
       }
-      throw payload.actionError
-    }
 
-    return payload.returnValue
+      return payload.returnValue
+    } finally {
+      // Only clean up if this call's controller is still the active one.
+      // A newer concurrent call to the same action may have overwritten it.
+      if (actionAbortControllers.get(id) === actionAbort) {
+        actionAbortControllers.delete(id)
+      }
+    }
   }
   setServerCallback(callServer)
 

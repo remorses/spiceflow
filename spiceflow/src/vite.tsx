@@ -72,6 +72,50 @@ export function spiceflowPlugin({ entry }: { entry: string }): PluginOption {
       },
     },
     rsc(rscOptions),
+    // Inject $$id on server reference functions so getActionAbortController()
+    // can map a function back to its action ID.
+    //
+    // WHY: React's client-side createServerReference() stores the action ID
+    // in a private WeakMap (knownServerReferences) — not as a property on the
+    // function. There's no public API to read it back. We need the ID to look
+    // up the AbortController for an in-flight action call.
+    //
+    // HOW: @vitejs/plugin-rsc transforms "use server" files into client proxy
+    // modules with a stable output format. This post-transform wraps each
+    // createServerReference() call to set $$id on the returned function.
+    //
+    // BEFORE (plugin-rsc output):
+    //   export const myAction = $$ReactClient.createServerReference(
+    //     "/src/actions.tsx#myAction", $$ReactClient.callServer, undefined,
+    //     $$ReactClient.findSourceMapURL, "myAction"
+    //   )
+    //
+    // AFTER (our transform):
+    //   export const myAction = (($__sr) => ($__sr.$$id = "/src/actions.tsx#myAction", $__sr))(
+    //     $$ReactClient.createServerReference(
+    //       "/src/actions.tsx#myAction", $$ReactClient.callServer, undefined,
+    //       $$ReactClient.findSourceMapURL, "myAction"
+    //     )
+    //   )
+    //
+    // The regex relies on the plugin-rsc output format: $$ReactClient.createServerReference("ID", ...simple args).
+    // Arguments are always strings, identifiers, or `undefined` — no nested parentheses.
+    // @vitejs/plugin-rsc is pinned in package.json so this doesn't silently
+    // break on a minor update. When upgrading, verify the output format still matches.
+    //
+    // NOTE: In JS replacement strings, $$ is an escape for a literal $.
+    // So $$$$id in the replacement produces $$id in the output.
+    {
+      name: 'spiceflow:server-ref-id',
+      enforce: 'post' as const,
+      transform(code) {
+        if (!code.includes('createServerReference(')) return
+        return code.replace(
+          /(\$\$ReactClient\.createServerReference\(("[^"]*"),([^)]*)\))/g,
+          '(($__sr) => ($__sr.$$$$id = $2, $__sr))($1)',
+        )
+      },
+    },
     prerenderPlugin(),
     serverFileGuardPlugin(),
     // Automatically generate Vercel Build Output when VERCEL=1 is set
