@@ -744,6 +744,8 @@ const mainApp = new Spiceflow()
 
 ## Base Path
 
+For standalone API servers (without Vite), set the base path in the constructor:
+
 ```ts
 import { Spiceflow } from 'spiceflow'
 
@@ -756,6 +758,41 @@ app.route({
   },
 }) // Accessible at /api/v1/hello
 ```
+
+### Base Path with Vite (RSC apps)
+
+When using Spiceflow as a full-stack RSC framework with Vite, configure the base path via Vite's `base` option instead of the constructor:
+
+```ts
+// vite.config.ts
+import { defineConfig } from 'vite'
+import { spiceflowPlugin } from 'spiceflow/vite'
+
+export default defineConfig({
+  base: '/my-app',
+  plugins: [spiceflowPlugin({ entry: 'src/main.tsx' })],
+})
+```
+
+The base path must be an absolute path starting with `/`. CDN URLs and relative paths are not supported.
+
+Do not set `basePath` in the Spiceflow constructor when using Vite — Spiceflow will throw an error if both are set. The Vite `base` option is the single source of truth.
+
+**What gets the base path auto-prepended:**
+
+- `Link` component `href` — `<Link href="/dashboard" />` automatically renders as `<a href="/my-app/dashboard">`. If the href already includes the base prefix, it is not added again (`<Link href="/my-app/dashboard" />` stays as-is). To disable auto-prepending entirely, use the `rawHref` prop: `<Link rawHref href="/docs/docs" />` — useful when your path legitimately starts with the same string as the base
+- `redirect()` Location header — `redirect("/login")` sends `Location: /my-app/login`
+- `router.push()` and `router.replace()` — `router.push("/settings")` navigates to `/my-app/settings`
+- `router.pathname` — returns the path **without** the base prefix (e.g. `/dashboard`, not `/my-app/dashboard`)
+- Static asset URLs (`<script>`, `<link>` CSS tags) — handled automatically by Vite
+- `serveStatic` file resolution — strips the base prefix before looking up files on disk
+
+**What does NOT get auto-prepended:**
+
+- Raw `<a href="/path">` tags (not using the `Link` component) — use `Link` instead
+- External URLs and protocol-relative URLs (`//cdn.com/...`) — left as-is
+- `fetch()` calls inside your app code — you need to construct the URL yourself
+- `request.url` in middleware — contains the full URL including the base prefix
 
 ## Async Generators (Streaming)
 

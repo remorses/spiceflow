@@ -68,6 +68,19 @@ pnpm test-e2e-start
 
 Tests tagged `@dev` are skipped during start runs; tests tagged `@build` are skipped during dev runs (controlled by `grepInvert` in `integration-tests/playwright.config.ts`).
 
+## base path testing
+
+Run the same e2e suite with a non-root base path to validate base path support:
+
+```bash
+cd integration-tests
+pnpm test-e2e-basepath
+```
+
+This sets `BASEPATH=/test-base` which `vite.config.ts` reads as `base: '/test-base'`. All e2e test helpers use a `url()` function and `basePath` variable to prepend this prefix to `page.goto`, `fetch`, and assertion calls.
+
+When writing new tests, always use `url("/path")` for `page.goto` and `toHaveURL`, and `${basePath}/path` inside template literals for `fetch` URLs and `Location` header assertions. This ensures tests work identically with and without the base path.
+
 ## rebuild dist before testing
 
 The Vite SSR middleware imports from `spiceflow/dist/` (the compiled package), NOT from source. If you modify files in `spiceflow/src/`, you must rebuild before e2e tests will pick up the changes:
