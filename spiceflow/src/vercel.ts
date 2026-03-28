@@ -19,6 +19,7 @@ interface VercelConfig {
   routes?: VercelRoute[]
   overrides?: Record<string, { path?: string; contentType?: string }>
   cache?: string[]
+  trailingSlash?: boolean
   framework?: { slug: string; version?: string }
 }
 
@@ -55,6 +56,9 @@ interface VercelFunctionConfig {
 export function vercelPlugin(): Plugin[] {
   let outDir = 'dist'
   let root = process.cwd()
+  let base = ''
+  let assetsDir = 'assets'
+  let publicDir = 'public'
   let spiceflowVersion: string | undefined
 
   return [
@@ -65,6 +69,11 @@ export function vercelPlugin(): Plugin[] {
       configResolved(config) {
         outDir = config.build.outDir
         root = config.root
+        base = config.base?.replace(/\/$/, '') ?? ''
+        assetsDir = config.build.assetsDir ?? 'assets'
+        publicDir = config.publicDir
+          ? path.relative(config.root, config.publicDir)
+          : 'public'
         try {
           const require = createRequire(import.meta.url)
           const pkg = require('spiceflow/package.json')
@@ -80,7 +89,14 @@ export function vercelPlugin(): Plugin[] {
       buildApp: {
         order: 'post' as const,
         async handler() {
-          await generateVercelOutput({ outDir, root, spiceflowVersion })
+          await generateVercelOutput({
+            outDir,
+            root,
+            base,
+            assetsDir,
+            publicDir,
+            spiceflowVersion,
+          })
         },
       },
     },
@@ -90,10 +106,16 @@ export function vercelPlugin(): Plugin[] {
 async function generateVercelOutput({
   outDir,
   root,
+  base,
+  assetsDir,
+  publicDir,
   spiceflowVersion,
 }: {
   outDir: string
   root: string
+  base: string
+  assetsDir: string
+  publicDir: string
   spiceflowVersion: string | undefined
 }) {
   console.log('\n[spiceflow] Generating Vercel Build Output...')
@@ -114,10 +136,12 @@ async function generateVercelOutput({
   // 1. Copy client assets to static (served by Vercel CDN)
   await cp(clientDir, staticDir, { recursive: true })
 
-  // 2. Copy user's public/ directory to static (if it exists)
-  const publicDir = path.resolve(root, 'public')
-  if (await exists(publicDir)) {
-    await cp(publicDir, staticDir, { recursive: true })
+  // 2. Copy user's public directory to static (if it exists).
+  //    Vite already copies publicDir contents into dist/client/ during build,
+  //    but we also copy the source dir in case Vite's copy was filtered.
+  const resolvedPublicDir = path.resolve(root, publicDir)
+  if (await exists(resolvedPublicDir)) {
+    await cp(resolvedPublicDir, staticDir, { recursive: true })
   }
 
   // 3. Copy server bundles into the function directory.
@@ -160,10 +184,12 @@ async function generateVercelOutput({
   // 8. Write deployment config
   const config: VercelConfig = {
     version: 3,
+    trailingSlash: false,
     routes: [
-      // Vite hashed assets are immutable — cache forever at the edge
+      // Vite hashed assets are immutable — cache forever at the edge.
+      // Uses base path + assetsDir from Vite resolved config.
       {
-        src: '/assets/.+',
+        src: `${base}/${assetsDir}/.+`,
         headers: { 'cache-control': 'public, immutable, max-age=31536000' },
         continue: true,
       },
