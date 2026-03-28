@@ -2604,6 +2604,76 @@ export async function submitForm(formData: FormData) {
 }
 ```
 
+### Streaming UI from Server Actions
+
+Server actions can return JSX directly — including via async generators that stream React elements to the client incrementally. The RSC flight protocol serializes each yielded element as it arrives, and the client deserializes them into real React elements you can render.
+
+This is useful for AI chat interfaces where the model generates structured output with tool calls. Instead of streaming raw text, you stream rendered UI:
+
+```tsx
+// src/app/actions.tsx
+'use server'
+
+import { WeatherCard } from './weather-card'
+import { StockChart } from './stock-chart'
+
+export async function* chat(
+  messages: { role: string; content: string }[],
+): AsyncGenerator<React.ReactElement> {
+  const stream = await callLLM(messages)
+
+  for await (const event of stream) {
+    if (event.type === 'text') {
+      yield <p>{event.content}</p>
+    }
+    if (event.type === 'tool_call' && event.name === 'get_weather') {
+      const weather = await fetchWeather(event.args.city)
+      yield <WeatherCard city={event.args.city} weather={weather} />
+    }
+    if (event.type === 'tool_call' && event.name === 'get_stock') {
+      const data = await fetchStock(event.args.symbol)
+      yield <StockChart symbol={event.args.symbol} data={data} />
+    }
+  }
+}
+```
+
+```tsx
+// src/app/chat.tsx
+'use client'
+
+import { useState, useTransition, type ReactNode } from 'react'
+import { chat } from './actions'
+
+export function Chat() {
+  const [parts, setParts] = useState<ReactNode[]>([])
+  const [isPending, startTransition] = useTransition()
+
+  function send(formData: FormData) {
+    const message = formData.get('message') as string
+    setParts([])
+    startTransition(async () => {
+      const stream = await chat([{ role: 'user', content: message }])
+      for await (const jsx of stream) {
+        setParts((prev) => [...prev, jsx])
+      }
+    })
+  }
+
+  return (
+    <div>
+      <div>{parts.map((part, i) => <div key={i}>{part}</div>)}</div>
+      <form action={send}>
+        <input name="message" placeholder="Ask something..." />
+        <button type="submit" disabled={isPending}>Send</button>
+      </form>
+    </div>
+  )
+}
+```
+
+Each yielded element — whether a text paragraph, a weather card, or a stock chart — arrives as a fully rendered React component. The client doesn't need to know how to render tool calls; it just accumulates whatever JSX the server sends.
+
 ### Redirects and Not Found
 
 Use `redirect()` and `response.status` inside `.page()` and `.layout()` handlers to control navigation and HTTP status codes:
