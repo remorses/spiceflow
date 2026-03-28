@@ -19,6 +19,14 @@ import { access } from 'node:fs/promises'
 import path from 'node:path'
 import { nodeFileTrace } from '@vercel/nft'
 
+const isWin = process.platform === 'win32'
+
+// Normalize backslashes to forward slashes so path comparisons and
+// indexOf('node_modules') work consistently on Windows.
+function toSlash(p: string): string {
+  return isWin ? p.replace(/\\/g, '/') : p
+}
+
 export async function traceAndCopyDependencies(
   outDir: string,
   targetDir: string,
@@ -30,8 +38,9 @@ export async function traceAndCopyDependencies(
 
   // Use filesystem root as base (same as SvelteKit) so all traced paths
   // are absolute-relative, giving us full control over path manipulation.
-  let base = rscEntry
-  while (base !== (base = path.dirname(base)));
+  // Normalize to forward slashes so base + file (nft uses '/') is consistent.
+  let base = toSlash(rscEntry)
+  while (base !== (base = toSlash(path.dirname(base))));
 
   const { fileList } = await nodeFileTrace(entries, { base })
 
@@ -51,7 +60,7 @@ export async function traceAndCopyDependencies(
   // physically lives.
   let copied = 0
   for (const file of nmFiles) {
-    const source = base + file
+    const source = toSlash(base + file)
 
     // Extract path from the first "node_modules" segment onwards.
     // e.g. "/abs/workspace/node_modules/.pnpm/foo/index.js" -> "node_modules/.pnpm/foo/index.js"
@@ -64,13 +73,20 @@ export async function traceAndCopyDependencies(
     if (!stats) continue
     const isDir = stats.isDirectory()
 
-    const realpath = realpathSync(source)
+    const realpath = toSlash(realpathSync(source))
 
     mkdirSync(path.dirname(dest), { recursive: true })
 
-    if (source !== realpath) {
+    // Windows can return different casing for the same path (C: vs c:),
+    // so compare case-insensitively to avoid false symlink detection.
+    const isSymlink = isWin
+      ? source.toLowerCase() !== realpath.toLowerCase()
+      : source !== realpath
+    if (isSymlink) {
       // It's a symlink (common with pnpm) — recreate as a relative symlink
       // so Node.js module resolution works correctly at runtime.
+      // On Windows use junctions for directories — they don't require
+      // admin privileges or Developer Mode, unlike 'dir' symlinks.
       const realNmIdx = realpath.indexOf('node_modules')
       if (realNmIdx === -1) continue
       const realdest = path.join(targetDir, realpath.slice(realNmIdx))
@@ -79,7 +95,7 @@ export async function traceAndCopyDependencies(
         symlinkSync(
           path.relative(path.dirname(dest), realdest),
           dest,
-          isDir ? 'dir' : 'file',
+          isDir ? (isWin ? 'junction' : 'dir') : 'file',
         )
       } catch {
         // symlink already exists
