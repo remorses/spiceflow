@@ -18,9 +18,11 @@ export async function handler(request: Request) {
   prevAbort?.abort()
   const abort = new AbortController()
   abortControllersByUrl.set(request.url, abort)
-  // Attach our abort signal to the request so downstream code (handle-ssr.rsc.ts)
-  // can detect when this render has been superseded by a newer HMR update.
-  const signaled = new Request(request, { signal: abort.signal })
+  // Combine the original request signal (fires on client disconnect/abort) with
+  // our HMR signal (fires when a newer render supersedes this one). This way
+  // server actions can detect both client abort and HMR invalidation.
+  const combinedSignal = AbortSignal.any([request.signal, abort.signal])
+  const signaled = new Request(request, { signal: combinedSignal })
   try {
     return await app.handle(signaled)
   } finally {

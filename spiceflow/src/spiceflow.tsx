@@ -5,6 +5,7 @@ import superjson from 'superjson'
 import * as errore from 'errore'
 
 import { SpiceflowFetchError } from './client/errors.js'
+import { actionRequestStorage } from './action-context.js'
 import { coerceQueryWithSchema } from './query-coerce.js'
 import { ValidationError } from './error.js'
 import {
@@ -1336,7 +1337,9 @@ export class Spiceflow<
         return {
           actionError: undefined,
           actionErrorDigest: undefined,
-          returnValue: await action.apply(null, args),
+          returnValue: await actionRequestStorage.run(request, () =>
+            action.apply(null, args),
+          ),
           formState: undefined,
           temporaryReferences,
         }
@@ -1352,7 +1355,10 @@ export class Spiceflow<
         actionError: undefined,
         actionErrorDigest: undefined,
         returnValue: undefined,
-        formState: await decodeFormState(await decodedAction(), formData),
+        formState: await decodeFormState(
+          await actionRequestStorage.run(request, () => decodedAction()),
+          formData,
+        ),
         temporaryReferences: undefined,
       }
     } catch (error) {

@@ -16,6 +16,7 @@ export type { SpiceflowTracer, SpiceflowSpan } from './instrumentation.js'
 export { withSpan, noopSpan, noopTracer } from './instrumentation.js'
 export { preventProcessExitIfBusy } from './prevent-process-exit-if-busy.js'
 export { getDeploymentId } from '#deployment-id'
+export { getActionRequest } from './action-context.js'
 
 // utility Response to be used in Cloudflare Workers to shut up the TypeScript errors (cloudflare Response is different than normal Response type)
 class Response extends globalThis.Response {}
