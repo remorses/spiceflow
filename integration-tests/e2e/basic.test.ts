@@ -1377,6 +1377,64 @@ test.describe("server actions", () => {
 		await expect(items.nth(2)).toHaveText("chunk-3");
 	});
 
+	test("server action returning JSX renders on the client", async ({
+		page,
+	}) => {
+		await page.goto(url("/server-action-jsx"));
+		await expect(page.getByTestId("layout-mount-count")).toHaveText("1", {
+			timeout: 10000,
+		});
+		await page.getByTestId("call-jsx-action").click();
+		const result = page.getByTestId("server-jsx-result");
+		await expect(result).toBeVisible({ timeout: 10000 });
+		await expect(result.locator("h1")).toHaveText("Hello Tommy");
+		await expect(result.locator("p")).toHaveText("Rendered on the server");
+	});
+
+	test("server action returning async generator of JSX streams elements", async ({
+		page,
+	}) => {
+		await page.goto(url("/server-action-jsx-streaming"));
+		await expect(page.getByTestId("layout-mount-count")).toHaveText("1", {
+			timeout: 10000,
+		});
+		await page.getByTestId("start-jsx-streaming").click();
+		// First chunk should appear before generator completes
+		const firstChunk = page.getByTestId("jsx-stream-chunk").first();
+		await expect(firstChunk).toBeVisible({ timeout: 10000 });
+		await expect(firstChunk).toHaveText("chunk-jsx-1");
+		// Wait for completion
+		await expect(page.getByTestId("jsx-stream-done")).toBeVisible({
+			timeout: 10000,
+		});
+		const chunks = page.getByTestId("jsx-stream-chunk");
+		await expect(chunks).toHaveCount(3);
+		await expect(chunks.nth(0)).toHaveText("chunk-jsx-1");
+		await expect(chunks.nth(1)).toHaveText("chunk-jsx-2 bold");
+		await expect(chunks.nth(2)).toHaveText("chunk-jsx-3");
+		// Verify the second chunk has the bold element
+		await expect(chunks.nth(1).locator("strong")).toHaveText("bold");
+	});
+
+	test("server action async generator that throws propagates error to client with message", async ({
+		page,
+	}) => {
+		await page.goto(url("/server-action-throwing-streaming"));
+		await expect(page.getByTestId("layout-mount-count")).toHaveText("1", {
+			timeout: 10000,
+		});
+		await page.getByTestId("start-throwing-streaming").click();
+		// Should receive the item yielded before the error
+		const items = page.getByTestId("throwing-stream-item");
+		await expect(items.first()).toHaveText("before-error", {
+			timeout: 10000,
+		});
+		// Error should propagate with the original message
+		const errorEl = page.getByTestId("throwing-stream-error");
+		await expect(errorEl).toBeVisible({ timeout: 10000 });
+		await expect(errorEl).toHaveText("generator exploded");
+	});
+
 	test("form action with useActionState submits and returns result", async ({
 		page,
 	}) => {

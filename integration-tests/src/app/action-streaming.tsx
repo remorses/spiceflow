@@ -22,3 +22,32 @@ export async function simpleAction(message: string): Promise<string> {
 export async function redirectAction(): Promise<never> {
 	throw redirect("/other");
 }
+
+export async function jsxAction(name: string) {
+	return (
+		<div data-testid="server-jsx-result">
+			<h1>Hello {name}</h1>
+			<p>Rendered on the server</p>
+		</div>
+	);
+}
+
+export async function* throwingStreamingAction(): AsyncGenerator<string> {
+	yield "before-error";
+	await sleep(50);
+	throw new Error("generator exploded");
+}
+
+export async function* jsxStreamingAction(): AsyncGenerator<
+	React.ReactElement
+> {
+	yield <div data-testid="jsx-stream-chunk">chunk-jsx-1</div>;
+	await sleep(50);
+	yield (
+		<div data-testid="jsx-stream-chunk">
+			chunk-jsx-2 <strong>bold</strong>
+		</div>
+	);
+	await sleep(50);
+	yield <div data-testid="jsx-stream-chunk">chunk-jsx-3</div>;
+}

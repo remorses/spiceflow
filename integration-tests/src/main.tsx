@@ -27,6 +27,9 @@ import {
 	StreamingActionTest,
 	SimpleActionTest,
 	RedirectActionTest,
+	JsxActionTest,
+	JsxStreamingActionTest,
+	ThrowingStreamingActionTest,
 } from "./app/action-test-client";
 
 let inlineActionRenderCount = 0;
@@ -580,6 +583,15 @@ export const app = new Spiceflow()
 	})
 	.page("/server-action-redirect", async () => {
 		return <RedirectActionTest />;
+	})
+	.page("/server-action-jsx", async () => {
+		return <JsxActionTest />;
+	})
+	.page("/server-action-jsx-streaming", async () => {
+		return <JsxStreamingActionTest />;
+	})
+	.page("/server-action-throwing-streaming", async () => {
+		return <ThrowingStreamingActionTest />;
 	})
 	.page("/inline-action-with-closure", async () => {
 		let renderCount = inlineActionRenderCount++;
