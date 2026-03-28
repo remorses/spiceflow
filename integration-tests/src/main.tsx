@@ -3,6 +3,7 @@ import { Suspense, useActionState, useState } from "react";
 import { Spiceflow, serveStatic, redirect } from "spiceflow";
 import { IndexPage } from "./app/index";
 import { getCounter } from "./app/action";
+
 import { Layout } from "./app/layout";
 import { StaticPage } from "./app/static-page";
 import "./styles.css";
@@ -48,6 +49,10 @@ import {
 } from "./app/loader-global-client";
 import { ServerGuardTestClient } from "./app/server-guard-test-client";
 import { ActionFormTest } from "./app/action-form-test";
+import {
+	AbortActionTest,
+	InspectRequestActionTest,
+} from "./app/abort-test-client";
 import testContentRaw from "./test-content.md?raw";
 
 // Increments on every RSC render of the home page. Used by e2e tests to detect
@@ -592,6 +597,12 @@ export const app = new Spiceflow()
 	})
 	.page("/server-action-throwing-streaming", async () => {
 		return <ThrowingStreamingActionTest />;
+	})
+	.page("/server-action-abort", async () => {
+		return <AbortActionTest />;
+	})
+	.page("/server-action-inspect-request", async () => {
+		return <InspectRequestActionTest />;
 	})
 	.page("/inline-action-with-closure", async () => {
 		let renderCount = inlineActionRenderCount++;

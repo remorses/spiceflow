@@ -1579,6 +1579,53 @@ test.describe("server actions", () => {
 			page.getByText("Action failed: invalid input", { exact: true }),
 		).toBeVisible({ timeout: 10000 });
 	});
+
+	test("getActionAbortController aborts an in-flight server action", async ({
+		page,
+	}) => {
+		await page.goto(url("/server-action-abort"));
+		await expect(page.getByTestId("layout-mount-count")).toHaveText("1", {
+			timeout: 10000,
+		});
+		// Initial state
+		await expect(page.getByTestId("action-state")).toHaveText("idle");
+		await expect(page.getByTestId("action-pending")).toHaveText("false");
+		// Start the slow action (sleeps 100s on server)
+		await page.getByTestId("start-slow-action").click();
+		// Wait for pending state
+		await expect(page.getByTestId("action-pending")).toHaveText("true", {
+			timeout: 5000,
+		});
+		// Abort it via getActionAbortController
+		await page.getByTestId("abort-slow-action").click();
+		// The useActionState wrapper catches AbortError and returns "aborted"
+		await expect(page.getByTestId("action-state")).toHaveText("aborted", {
+			timeout: 10000,
+		});
+		// Pending should go back to false
+		await expect(page.getByTestId("action-pending")).toHaveText("false", {
+			timeout: 10000,
+		});
+	});
+
+	test("getActionRequest returns request with url, method, and signal inside server action", async ({
+		page,
+	}) => {
+		await page.goto(url("/server-action-inspect-request"));
+		await expect(page.getByTestId("layout-mount-count")).toHaveText("1", {
+			timeout: 10000,
+		});
+		await page.getByTestId("call-inspect-request").click();
+		await expect(page.getByTestId("inspect-request-state")).not.toHaveText(
+			"idle",
+			{ timeout: 10000 },
+		);
+		const raw = await page.getByTestId("inspect-request-state").textContent();
+		const result = JSON.parse(raw!);
+		expect(result.method).toBe("POST");
+		expect(result.hasSignal).toBe(true);
+		expect(result.url).toContain("__rsc=");
+	});
 });
 
 test.describe("loaders", () => {
