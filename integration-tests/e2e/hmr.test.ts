@@ -2,8 +2,13 @@
 import { expect, test } from "@playwright/test";
 import { createEditor } from "./helper.js";
 
+const basePath = process.env.BASEPATH || "";
+function url(path: string): string {
+	return basePath + path;
+}
+
 test("client hmr @dev", async ({ page }) => {
-	await page.goto("/");
+	await page.goto(url("/"));
 	await page.getByText("[hydrated: 1]").click();
 	const clientCounter = page
 		.getByTestId("client-counter")
@@ -39,7 +44,7 @@ test("client hmr @dev", async ({ page }) => {
 });
 
 test("server hmr @dev", async ({ page }) => {
-	await page.goto("/");
+	await page.goto(url("/"));
 	await page.getByText("[hydrated: 1]").click();
 
 	const serverCounter = page.getByTestId("server-counter");
@@ -93,7 +98,7 @@ test("server hmr @dev", async ({ page }) => {
 });
 
 test("main entry hmr does not trigger full reload @dev", async ({ page }) => {
-	await page.goto("/");
+	await page.goto(url("/"));
 	await page.getByText("[hydrated: 1]").click();
 
 	// Set a sentinel on window — a full page reload would clear it
@@ -125,7 +130,7 @@ test("main entry hmr does not trigger full reload @dev", async ({ page }) => {
 });
 
 test("CSS HMR updates styles without page reload @dev", async ({ page }) => {
-	await page.goto("/css-test");
+	await page.goto(url("/css-test"));
 	const serverEl = page.getByTestId("css-test-server");
 	await expect(serverEl).toBeVisible();
 

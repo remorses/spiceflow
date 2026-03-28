@@ -1,12 +1,17 @@
 import { expect, test } from "@playwright/test";
 
+const basePath = process.env.BASEPATH || "";
 const baseURL =
 	process.env.E2E_BASE_URL ||
 	`http://localhost:${Number(process.env.E2E_PORT || 6174)}`;
 
+function url(path: string): string {
+	return basePath + path;
+}
+
 test.describe("scroll restoration", () => {
 	test("scrolls to top on PUSH navigation", async ({ page }) => {
-		await page.goto("/");
+		await page.goto(url("/"));
 		await page.getByText("[hydrated: 1]").click();
 
 		// Navigate to page A using layout link
@@ -31,7 +36,7 @@ test.describe("scroll restoration", () => {
 		page,
 	}) => {
 		// Start from home to ensure proper hydration and SPA navigation
-		await page.goto("/");
+		await page.goto(url("/"));
 		await page.getByText("[hydrated: 1]").click();
 
 		// Navigate to page A via layout Link
@@ -60,7 +65,7 @@ test.describe("scroll restoration", () => {
 	});
 
 	test("scrolls to hash element on navigation", async ({ page }) => {
-		await page.goto("/scroll-restoration/page-a#bottom");
+		await page.goto(url("/scroll-restoration/page-a#bottom"));
 		await expect(page.getByTestId("scroll-test-page")).toBeVisible();
 
 		// The #bottom element is at top: 2800px, hash in initial load should scroll to it
@@ -72,7 +77,7 @@ test.describe("scroll restoration", () => {
 	});
 
 	test("SSR HTML contains scroll restoration inline script", async () => {
-		const response = await fetch(`${baseURL}/scroll-restoration/page-a`);
+		const response = await fetch(`${baseURL}${basePath}/scroll-restoration/page-a`);
 		const html = await response.text();
 		expect(html).toContain("spiceflow-scroll-positions");
 		expect(html).toContain("scrollRestoration");

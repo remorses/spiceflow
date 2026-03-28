@@ -5,11 +5,18 @@ import {
 	type APIRequestContext,
 } from "@playwright/test";
 
+const basePath = process.env.BASEPATH || "";
 const baseURL =
 	process.env.E2E_BASE_URL ||
 	`http://localhost:${Number(process.env.E2E_PORT || 6174)}`;
 const isStart = Boolean(process.env.E2E_START) || Boolean(process.env.E2E_BASE_URL);
 const isRemote = Boolean(process.env.E2E_BASE_URL);
+
+// Prepend base path to a route path for page.goto and fetch calls.
+// Allows tests to work identically with and without BASEPATH.
+function url(path: string): string {
+	return basePath + path;
+}
 
 function getSetCookies(response: Response) {
 	const headers = response.headers as Headers & {
@@ -20,13 +27,13 @@ function getSetCookies(response: Response) {
 
 test.describe("not found", () => {
 	test("not found in outer route scope", async ({ page }) => {
-		await page.goto("/not-found");
+		await page.goto(url("/not-found"));
 		await expect(page.getByText("404")).toBeVisible();
 		await expect(page.getByText("This page could not be found.")).toBeVisible();
 	});
 
 	test("not found in RSC inside suspense", async ({ page }) => {
-		await page.goto("/not-found-in-suspense");
+		await page.goto(url("/not-found-in-suspense"));
 		await expect(page.getByText("404")).toBeVisible();
 		await expect(page.getByText("This page could not be found.")).toBeVisible();
 	});
@@ -34,14 +41,14 @@ test.describe("not found", () => {
 	test("unmatched route renders React 404 page for browser requests", async ({
 		page,
 	}) => {
-		const response = await page.goto("/a/b/does-not-exist");
+		const response = await page.goto(url("/a/b/does-not-exist"));
 		expect(response?.status()).toBe(404);
 		await expect(page.getByText("404")).toBeVisible();
 		await expect(page.getByText("This page could not be found.")).toBeVisible();
 	});
 
 	test("unmatched route returns plain text for non-browser requests", async () => {
-		const response = await fetch(`${baseURL}/a/b/does-not-exist`);
+		const response = await fetch(`${baseURL}${basePath}/a/b/does-not-exist`);
 		expect(response.status).toBe(404);
 		const text = await response.text();
 		expect(text).toBe("Not Found");
@@ -51,14 +58,14 @@ test.describe("API route priority over layout-only matches", () => {
 	// layout("/*") matches /api/hello but there's no page for it — the .get()
 	// handler should execute instead of entering the React rendering path.
 	test("GET /api/hello returns API response, not React 404", async () => {
-		const response = await fetch(`${baseURL}/api/hello`);
+		const response = await fetch(`${baseURL}${basePath}/api/hello`);
 		expect(response.status).toBe(200);
 		const text = await response.text();
 		expect(text).toContain("Hello from API!");
 	});
 
 	test("POST /api/echo returns API response when layout matches", async () => {
-		const response = await fetch(`${baseURL}/api/echo`, {
+		const response = await fetch(`${baseURL}${basePath}/api/echo`, {
 			method: "POST",
 			headers: { "content-type": "application/json" },
 			body: JSON.stringify({ test: true }),
@@ -71,7 +78,7 @@ test.describe("API route priority over layout-only matches", () => {
 	test("GET /api/hello via browser returns API response, not React 404", async ({
 		page,
 	}) => {
-		const response = await page.goto("/api/hello");
+		const response = await page.goto(url("/api/hello"));
 		expect(response?.status()).toBe(200);
 		const text = await page.textContent("body");
 		expect(text).toContain("Hello from API!");
@@ -80,15 +87,15 @@ test.describe("API route priority over layout-only matches", () => {
 
 test.describe("middleware with use()", () => {
 	test("middleware sets response header", async ({ page }) => {
-		const response = await page.goto("/");
+		const response = await page.goto(url("/"));
 		expect(response?.headers()["x-middleware-1"]).toBe("ok");
 	});
 	test("middleware sets state", async ({ page }) => {
-		await page.goto("/state");
+		await page.goto(url("/state"));
 		await expect(page.getByText("state set by middleware1")).toBeVisible();
 	});
 	test("middleware receives SSR HTML response for browser requests", async () => {
-		const response = await fetch(`${baseURL}/`, {
+		const response = await fetch(`${baseURL}${basePath}/`, {
 			headers: { "sec-fetch-dest": "document" },
 		});
 		expect(response.headers.get("x-middleware-response-type")).toBe(
@@ -96,7 +103,7 @@ test.describe("middleware with use()", () => {
 		);
 	});
 	test("middleware receives RSC flight response for RSC requests", async () => {
-		const response = await fetch(`${baseURL}/?__rsc=1`, {
+		const response = await fetch(`${baseURL}${basePath}/?__rsc=1`, {
 			headers: { accept: "text/x-component" },
 		});
 		expect(response.headers.get("x-middleware-response-type")).toBe(
@@ -104,7 +111,7 @@ test.describe("middleware with use()", () => {
 		);
 	});
 	test("api routes can set response headers through context.response", async () => {
-		const response = await fetch(`${baseURL}/api/response-headers`);
+		const response = await fetch(`${baseURL}${basePath}/api/response-headers`);
 		expect(response.status).toBe(200);
 		expect(response.headers.get("x-api-header")).toBe("ok");
 		expect(getSetCookies(response).join("\n")).toContain("api-cookie=1");
@@ -114,7 +121,7 @@ test.describe("middleware with use()", () => {
 
 test.describe("response headers from page and layout handlers", () => {
 	test("document response includes page and layout headers", async () => {
-		const response = await fetch(`${baseURL}/response-headers`, {
+		const response = await fetch(`${baseURL}${basePath}/response-headers`, {
 			headers: { "sec-fetch-dest": "document" },
 		});
 
@@ -126,7 +133,7 @@ test.describe("response headers from page and layout handlers", () => {
 	});
 
 	test("rsc response includes page and layout headers", async () => {
-		const response = await fetch(`${baseURL}/response-headers?__rsc=1`, {
+		const response = await fetch(`${baseURL}${basePath}/response-headers?__rsc=1`, {
 			headers: { accept: "text/x-component" },
 		});
 
@@ -138,13 +145,13 @@ test.describe("response headers from page and layout handlers", () => {
 	});
 
 	test("redirect response keeps cookies from route headers", async () => {
-		const response = await fetch(`${baseURL}/response-headers/redirect`, {
+		const response = await fetch(`${baseURL}${basePath}/response-headers/redirect`, {
 			redirect: "manual",
 			headers: { "sec-fetch-dest": "document" },
 		});
 
 		expect(response.status).toBe(307);
-		expect(response.headers.get("location")).toBe("/response-target");
+		expect(response.headers.get("location")).toBe(url("/response-target"));
 		expect(response.headers.get("x-layout-header")).toBe("layout");
 		expect(getSetCookies(response).join("\n")).toContain("before-redirect=1");
 	});
@@ -152,7 +159,7 @@ test.describe("response headers from page and layout handlers", () => {
 	test("client-side navigation applies cookies from the rsc response", async ({
 		page,
 	}) => {
-		await page.goto("/response-nav");
+		await page.goto(url("/response-nav"));
 		await page.getByTestId("response-nav-link").click();
 		await expect(page.getByTestId("response-headers-page")).toBeVisible();
 
@@ -163,7 +170,7 @@ test.describe("response headers from page and layout handlers", () => {
 
 test.describe("layout provided client context", () => {
 	test("client context value is present in the SSR html", async () => {
-		const response = await fetch(`${baseURL}/layout-client-context`, {
+		const response = await fetch(`${baseURL}${basePath}/layout-client-context`, {
 			headers: { "sec-fetch-dest": "document" },
 		});
 
@@ -174,7 +181,7 @@ test.describe("layout provided client context", () => {
 	test("client context value is available after client navigation", async ({
 		page,
 	}) => {
-		await page.goto("/layout-client-context-nav");
+		await page.goto(url("/layout-client-context-nav"));
 		await page.getByTestId("layout-client-context-nav-link").click();
 		await expect(page.getByTestId("layout-client-context-value")).toHaveText(
 			"from-layout-client-provider",
@@ -184,17 +191,17 @@ test.describe("layout provided client context", () => {
 
 test.describe("scoped wildcard layouts", () => {
 	test("/app/* and /docs/* also match their base paths", async ({ page }) => {
-		await page.goto("/app");
+		await page.goto(url("/app"));
 		await expect(page.getByTestId("app-layout")).toBeVisible();
 		await expect(page.getByTestId("app-page")).toBeVisible();
 
-		await page.goto("/docs");
+		await page.goto(url("/docs"));
 		await expect(page.getByTestId("docs-layout")).toBeVisible();
 		await expect(page.getByTestId("docs-page")).toBeVisible();
 	});
 
 	test("nested scoped layouts reuse the root document shell", async () => {
-		const response = await fetch(`${baseURL}/app`, {
+		const response = await fetch(`${baseURL}${basePath}/app`, {
 			headers: { "sec-fetch-dest": "document" },
 		});
 
@@ -208,11 +215,11 @@ test.describe("scoped wildcard layouts", () => {
 	});
 
 	test("scoped wildcard layouts still wrap nested child routes", async ({ page }) => {
-		await page.goto("/app/settings");
+		await page.goto(url("/app/settings"));
 		await expect(page.getByTestId("app-layout")).toBeVisible();
 		await expect(page.getByTestId("app-settings-page")).toBeVisible();
 
-		await page.goto("/docs/getting-started");
+		await page.goto(url("/docs/getting-started"));
 		await expect(page.getByTestId("docs-layout")).toBeVisible();
 		await expect(page.getByTestId("docs-getting-started-page")).toBeVisible();
 	});
@@ -220,7 +227,7 @@ test.describe("scoped wildcard layouts", () => {
 
 test.describe("Head client components", () => {
 	test("document response includes Head.Title and deduplicated meta tags", async () => {
-		const response = await fetch(`${baseURL}/meta`, {
+		const response = await fetch(`${baseURL}${basePath}/meta`, {
 			headers: { "sec-fetch-dest": "document" },
 		});
 
@@ -238,7 +245,7 @@ test.describe("Head client components", () => {
 	test("browser document title and meta tags are available after hydration", async ({
 		page,
 	}) => {
-		await page.goto("/meta");
+		await page.goto(url("/meta"));
 
 		await expect(page).toHaveTitle("Spiceflow Example");
 		await expect(page.locator('head meta[name="test"]')).toHaveCount(1);
@@ -251,7 +258,7 @@ test.describe("Head client components", () => {
 	});
 
 	test("page Head overrides layout title and meta tags by key", async () => {
-		const response = await fetch(`${baseURL}/meta-override`, {
+		const response = await fetch(`${baseURL}${basePath}/meta-override`, {
 			headers: { "sec-fetch-dest": "document" },
 		});
 
@@ -280,7 +287,7 @@ test.describe("Head client components", () => {
 	test("browser head keeps only page overrides after hydration", async ({
 		page,
 	}) => {
-		await page.goto("/meta-override");
+		await page.goto(url("/meta-override"));
 
 		await expect(page).toHaveTitle("Page title");
 		await expect(page.locator("head title")).toHaveCount(1);
@@ -298,33 +305,33 @@ test.describe("Head client components", () => {
 
 test.describe("redirect", () => {
 	test("redirect in outer route scope", async ({ page }) => {
-		await page.goto("/top-level-redirect");
-		await expect(page).toHaveURL("/");
+		await page.goto(url("/top-level-redirect"));
+		await expect(page).toHaveURL(url("/"));
 		await page.getByText("[hydrated: 1]").click();
 	});
 	test("redirect in RSC", async ({ page }) => {
-		await page.goto("/redirect-in-rsc");
-		await expect(page).toHaveURL("/");
+		await page.goto(url("/redirect-in-rsc"));
+		await expect(page).toHaveURL(url("/"));
 		await page.getByText("[hydrated: 1]").click();
 	});
 	test("redirect in RSC, slow (meaning not first rsc chunk)", async ({
 		page,
 	}) => {
-		await page.goto("/slow-redirect");
-		await expect(page).toHaveURL("/");
+		await page.goto(url("/slow-redirect"));
+		await expect(page).toHaveURL(url("/"));
 		await page.getByText("[hydrated: 1]").click();
 	});
 	test("redirect in RSC inside suspense, redirect made by client", async ({
 		page,
 	}) => {
-		await page.goto("/redirect-in-rsc-suspense");
-		await expect(page).toHaveURL("/");
+		await page.goto(url("/redirect-in-rsc-suspense"));
+		await expect(page).toHaveURL(url("/"));
 		await page.getByText("[hydrated: 1]").click();
 	});
 });
 
 test("client reference", async ({ page }) => {
-	await page.goto("/");
+	await page.goto(url("/"));
 	await page.getByText("[hydrated: 1]").click();
 	const clientCounter = page
 		.getByTestId("client-counter")
@@ -360,7 +367,7 @@ test.describe(() => {
 	test("progressive enhancement POST preserves client reference hints", async ({
 		page,
 	}) => {
-		await page.goto("/");
+		await page.goto(url("/"));
 		await page
 			.getByTestId("server-counter")
 			.getByRole("button", { name: "+" })
@@ -373,7 +380,7 @@ test.describe(() => {
 });
 
 async function testServerAction(page: Page) {
-	await page.goto("/");
+	await page.goto(url("/"));
 	// Read the current counter value (may not be 0 on serverless with persistent storage)
 	const counterText = await page
 		.getByTestId("server-counter")
@@ -386,7 +393,7 @@ async function testServerAction(page: Page) {
 		.getByRole("button", { name: "+" })
 		.click();
 	await page.getByText(`Server counter: ${initial + 1}`).click();
-	await page.goto("/");
+	await page.goto(url("/"));
 	await page.getByText(`Server counter: ${initial + 1}`).click();
 	await page
 		.getByTestId("server-counter")
@@ -407,7 +414,7 @@ test.describe(() => {
 });
 
 async function testServerAction2(page: Page, options: { js: boolean }) {
-	await page.goto("/");
+	await page.goto(url("/"));
 	if (options.js) {
 		await page.getByText("[hydrated: 1]").click();
 	}
@@ -432,7 +439,7 @@ async function testServerAction2(page: Page, options: { js: boolean }) {
 
 test.describe("SSR error fallback (__NO_HYDRATE)", () => {
 	test("recovers via CSR when SSR fails", async ({ page }) => {
-		await page.goto("/ssr-error-fallback");
+		await page.goto(url("/ssr-error-fallback"));
 		// The client component throws during SSR, so the server renders an error shell
 		// with self.__NO_HYDRATE=1. The browser detects this and uses createRoot instead
 		// of hydrateRoot, allowing the component to render successfully via CSR.
@@ -442,7 +449,7 @@ test.describe("SSR error fallback (__NO_HYDRATE)", () => {
 	});
 
 	test("sets __NO_HYDRATE flag on globalThis", async ({ page }) => {
-		await page.goto("/ssr-error-fallback");
+		await page.goto(url("/ssr-error-fallback"));
 		// Wait for CSR recovery first — this confirms the bootstrap script ran
 		await expect(page.getByTestId("ssr-recovered")).toBeVisible();
 		// The bootstrap script set self.__NO_HYDRATE=1, which persists on globalThis
@@ -462,7 +469,7 @@ test.describe("SSR error fallback (__NO_HYDRATE)", () => {
 
 test.describe("RSC client-only API errors @dev", () => {
 	test("useState in server component shows actionable error message", async () => {
-		const response = await fetch(`${baseURL}/usestate-in-rsc`, {
+		const response = await fetch(`${baseURL}${basePath}/usestate-in-rsc`, {
 			headers: { accept: "text/html" },
 		});
 		expect(response.status).toBe(500);
@@ -474,7 +481,7 @@ test.describe("RSC client-only API errors @dev", () => {
 
 test.describe("server component throws error", () => {
 	test("returns 500 with __NO_HYDRATE and error in flight data", async () => {
-		const response = await fetch(`${baseURL}/rsc-error`, {
+		const response = await fetch(`${baseURL}${basePath}/rsc-error`, {
 			headers: { accept: "text/html" },
 		});
 		expect(response.status).toBe(500);
@@ -489,7 +496,7 @@ test.describe("server component throws error", () => {
 	test("dev shows vite error overlay with error message @dev", async ({
 		page,
 	}) => {
-		await page.goto("/rsc-error");
+		await page.goto(url("/rsc-error"));
 		const hasFlag = await page.evaluate(() => "__NO_HYDRATE" in globalThis);
 		expect(hasFlag).toBe(true);
 		// In dev, ErrorBoundary rethrows → window.onerror → vite-error-overlay
@@ -506,7 +513,7 @@ test.describe("client component throws during render (SSR)", () => {
 	test("returns 500 with __NO_HYDRATE", async () => {
 		// ClientComponentThrows throws unconditionally. RSC succeeds (it's a client
 		// reference), but SSR fails when rendering the component on the server.
-		const response = await fetch(`${baseURL}/client-error`, {
+		const response = await fetch(`${baseURL}${basePath}/client-error`, {
 			headers: { accept: "text/html" },
 		});
 		expect(response.status).toBe(500);
@@ -520,7 +527,7 @@ test.describe("client component throws during render (SSR)", () => {
 	test("dev shows vite error overlay with error message @dev", async ({
 		page,
 	}) => {
-		await page.goto("/client-error");
+		await page.goto(url("/client-error"));
 		const overlay = page.locator("vite-error-overlay");
 		await expect(overlay).toBeAttached();
 		const overlayText = await overlay.evaluate(
@@ -535,7 +542,7 @@ test.describe("client component throws during render (SSR)", () => {
 		// ThrowsDuringSSR only throws on the server (typeof window === 'undefined').
 		// The __NO_HYDRATE fallback uses createRoot, so the component renders
 		// successfully in the browser without hydration mismatch.
-		await page.goto("/ssr-error-fallback");
+		await page.goto(url("/ssr-error-fallback"));
 		await expect(page.getByTestId("ssr-recovered")).toContainText(
 			"Recovered via CSR",
 		);
@@ -549,14 +556,14 @@ test.describe("client component throws during render (SSR)", () => {
 
 test.describe("route handler returns Error (not throws)", () => {
 	test("API route returning Error behaves like throwing it (500)", async () => {
-		const response = await fetch(`${baseURL}/api/returns-error`);
+		const response = await fetch(`${baseURL}${basePath}/api/returns-error`);
 		expect(response.status).toBe(500);
 		const body = await response.json();
 		expect(body.message).toBe("api handler returned an error");
 	});
 
 	test("API route returning Error with status property uses that status", async () => {
-		const response = await fetch(`${baseURL}/api/returns-error-with-status`);
+		const response = await fetch(`${baseURL}${basePath}/api/returns-error-with-status`);
 		expect(response.status).toBe(400);
 		const body = await response.json();
 		expect(body.message).toBe("bad request");
@@ -564,7 +571,7 @@ test.describe("route handler returns Error (not throws)", () => {
 	});
 
 	test("page handler returning Error shows error shell like thrown errors", async () => {
-		const response = await fetch(`${baseURL}/page-returns-error`, {
+		const response = await fetch(`${baseURL}${basePath}/page-returns-error`, {
 			headers: { accept: "text/html" },
 		});
 		expect(response.status).toBe(500);
@@ -579,7 +586,7 @@ test.describe("CSRF protection", () => {
 	test("cross-origin POST to action endpoint returns 403", async () => {
 		// Use Node.js fetch directly — browser fetch cannot override the Origin header
 		// (it's a forbidden header). Node.js fetch has no such restriction.
-		const response = await fetch(`${baseURL}/?__rsc=fake-action-id`, {
+		const response = await fetch(`${baseURL}${basePath}/?__rsc=fake-action-id`, {
 			method: "POST",
 			headers: { Origin: "https://evil.com" },
 			body: "",
@@ -589,7 +596,7 @@ test.describe("CSRF protection", () => {
 	});
 
 	test("same-origin POST to action endpoint is not blocked by CSRF", async () => {
-		const response = await fetch(`${baseURL}/?__rsc=fake-action-id`, {
+		const response = await fetch(`${baseURL}${basePath}/?__rsc=fake-action-id`, {
 			method: "POST",
 			headers: { Origin: baseURL },
 			body: "",
@@ -602,22 +609,22 @@ test.describe("CSRF protection", () => {
 
 test.describe("status codes", () => {
 	test("sync redirect returns correct status and Location header", async () => {
-		const response = await fetch(`${baseURL}/top-level-redirect`, {
+		const response = await fetch(`${baseURL}${basePath}/top-level-redirect`, {
 			redirect: "manual",
 		});
 		expect(response.status).toBe(307);
-		expect(response.headers.get("location")).toBe("/");
+		expect(response.headers.get("location")).toBe(url("/"));
 	});
 
 	test("sync not-found returns 404 status", async () => {
-		const response = await fetch(`${baseURL}/not-found`);
+		const response = await fetch(`${baseURL}${basePath}/not-found`);
 		expect(response.status).toBe(404);
 	});
 });
 
 test.describe("CSS loading", () => {
 	test("global tailwind CSS is applied", async ({ page }) => {
-		await page.goto("/css-test");
+		await page.goto(url("/css-test"));
 		const twEl = page.getByTestId("css-test-tailwind");
 		await expect(twEl).toBeVisible();
 		// Tailwind v4 uses oklch color space. Verify the computed color is not the default black.
@@ -628,7 +635,7 @@ test.describe("CSS loading", () => {
 	});
 
 	test("server component CSS is applied", async ({ page }) => {
-		await page.goto("/css-test");
+		await page.goto(url("/css-test"));
 		const serverEl = page.getByTestId("css-test-server");
 		await expect(serverEl).toBeVisible();
 		const color = await serverEl.evaluate((el) => getComputedStyle(el).color);
@@ -640,7 +647,7 @@ test.describe("CSS loading", () => {
 	});
 
 	test("client component CSS is applied", async ({ page }) => {
-		await page.goto("/css-test");
+		await page.goto(url("/css-test"));
 		const clientEl = page.getByTestId("css-test-client");
 		await expect(clientEl).toBeVisible();
 		// In dev, client component CSS loads async via Vite's HMR style injection
@@ -651,7 +658,7 @@ test.describe("CSS loading", () => {
 	});
 
 	test("CSS is present in SSR HTML (no FOUC)", async () => {
-		const response = await fetch(`${baseURL}/css-test`);
+		const response = await fetch(`${baseURL}${basePath}/css-test`);
 		const html = await response.text();
 		// The HTML should contain stylesheet link tags
 		expect(html).toContain('rel="stylesheet"');
@@ -662,7 +669,7 @@ test.describe("layout stability during navigation", () => {
 	test("layout client component is not remounted on navigation", async ({
 		page,
 	}) => {
-		await page.goto("/");
+		await page.goto(url("/"));
 		await page.getByText("[hydrated: 1]").click();
 		// Layout useEffect ran once on mount
 		await expect(page.getByTestId("layout-mount-count")).toHaveText("1");
@@ -674,14 +681,14 @@ test.describe("layout stability during navigation", () => {
 		await layoutCounter.getByText("Layout counter: 1").click();
 		// Navigate to another page via client-side Link
 		await page.getByRole("link", { name: "Other" }).click();
-		await expect(page).toHaveURL("/other");
+		await expect(page).toHaveURL(url("/other"));
 		// Layout mount count should still be 1 (useEffect did not re-run)
 		await expect(page.getByTestId("layout-mount-count")).toHaveText("1");
 		// Layout counter state should be preserved (component was not remounted)
 		await expect(layoutCounter.getByText("Layout counter: 1")).toBeVisible();
 		// Navigate back to home
 		await page.getByRole("link", { name: "Home" }).click();
-		await expect(page).toHaveURL("/");
+		await expect(page).toHaveURL(url("/"));
 		// Still no remount
 		await expect(page.getByTestId("layout-mount-count")).toHaveText("1");
 		await expect(layoutCounter.getByText("Layout counter: 1")).toBeVisible();
@@ -693,7 +700,7 @@ test.describe("streaming async generator", () => {
 		page,
 	}) => {
 		// Use waitUntil:'commit' so Playwright doesn't wait for the full streaming response
-		await page.goto("/streaming", { waitUntil: "commit" });
+		await page.goto(url("/streaming"), { waitUntil: "commit" });
 		// First item should appear while the generator is still yielding
 		const firstItem = page.getByTestId("stream-item").first();
 		await expect(firstItem).toBeVisible({ timeout: 10000 });
@@ -712,56 +719,56 @@ test.describe("streaming async generator", () => {
 
 test.describe("throw response status codes", () => {
 	test("throw redirect in page returns 307 and Location header", async () => {
-		const response = await fetch(`${baseURL}/throw-redirect-in-page`, {
+		const response = await fetch(`${baseURL}${basePath}/throw-redirect-in-page`, {
 			redirect: "manual",
 		});
 		expect(response.status).toBe(307);
-		expect(response.headers.get("location")).toBe("/other");
+		expect(response.headers.get("location")).toBe(url("/other"));
 	});
 
 	test("throw redirect in layout returns 307 and Location header", async () => {
-		const response = await fetch(`${baseURL}/throw-redirect-in-layout`, {
+		const response = await fetch(`${baseURL}${basePath}/throw-redirect-in-layout`, {
 			redirect: "manual",
 		});
 		expect(response.status).toBe(307);
-		expect(response.headers.get("location")).toBe("/other");
+		expect(response.headers.get("location")).toBe(url("/other"));
 	});
 
 	test("throw redirect after async operation returns 307 and Location header", async () => {
-		const response = await fetch(`${baseURL}/slow-redirect`, {
+		const response = await fetch(`${baseURL}${basePath}/slow-redirect`, {
 			redirect: "manual",
 		});
 		expect(response.status).toBe(307);
-		expect(response.headers.get("location")).toBe("/");
+		expect(response.headers.get("location")).toBe(url("/"));
 	});
 
 	test("throw redirect in layout child route returns 307", async () => {
-		const response = await fetch(`${baseURL}/throw-redirect-in-layout/nested`, {
+		const response = await fetch(`${baseURL}${basePath}/throw-redirect-in-layout/nested`, {
 			redirect: "manual",
 		});
 		expect(response.status).toBe(307);
-		expect(response.headers.get("location")).toBe("/other");
+		expect(response.headers.get("location")).toBe(url("/other"));
 	});
 
 	test("throw notFound in layout child route returns 404", async () => {
-		const response = await fetch(`${baseURL}/throw-notfound-in-layout/nested`);
+		const response = await fetch(`${baseURL}${basePath}/throw-notfound-in-layout/nested`);
 		expect(response.status).toBe(404);
 	});
 
 	test("throw notFound in page returns 404", async () => {
-		const response = await fetch(`${baseURL}/throw-notfound-in-page`);
+		const response = await fetch(`${baseURL}${basePath}/throw-notfound-in-page`);
 		expect(response.status).toBe(404);
 	});
 
 	test("throw notFound in layout returns 404", async () => {
-		const response = await fetch(`${baseURL}/throw-notfound-in-layout`);
+		const response = await fetch(`${baseURL}${basePath}/throw-notfound-in-layout`);
 		expect(response.status).toBe(404);
 	});
 
 	test("throw notFound in page renders 404 page for browser request", async ({
 		page,
 	}) => {
-		const response = await page.goto("/throw-notfound-in-page");
+		const response = await page.goto(url("/throw-notfound-in-page"));
 		expect(response?.status()).toBe(404);
 		await expect(page.getByText("404")).toBeVisible();
 		await expect(page.getByText("This page could not be found.")).toBeVisible();
@@ -770,7 +777,7 @@ test.describe("throw response status codes", () => {
 	test("throw notFound in layout renders 404 page for browser request", async ({
 		page,
 	}) => {
-		const response = await page.goto("/throw-notfound-in-layout");
+		const response = await page.goto(url("/throw-notfound-in-layout"));
 		expect(response?.status()).toBe(404);
 		await expect(page.getByText("404")).toBeVisible();
 		await expect(page.getByText("This page could not be found.")).toBeVisible();
@@ -779,45 +786,45 @@ test.describe("throw response status codes", () => {
 
 test.describe("client-side navigation with throw response", () => {
 	test("throw redirect in page navigates to target", async ({ page }) => {
-		await page.goto("/");
+		await page.goto(url("/"));
 		await page.getByText("[hydrated: 1]").click();
 		await page.getByTestId("link-throw-redirect-page").click();
-		await expect(page).toHaveURL("/other");
+		await expect(page).toHaveURL(url("/other"));
 	});
 
 	test("throw redirect in layout navigates to target", async ({ page }) => {
-		await page.goto("/");
+		await page.goto(url("/"));
 		await page.getByText("[hydrated: 1]").click();
 		await page.getByTestId("link-throw-redirect-layout").click();
-		await expect(page).toHaveURL("/other");
+		await expect(page).toHaveURL(url("/other"));
 	});
 
 	test("throw notFound in page renders 404 page and preserves URL", async ({
 		page,
 	}) => {
-		await page.goto("/");
+		await page.goto(url("/"));
 		await page.getByText("[hydrated: 1]").click();
 		await page.getByTestId("link-throw-notfound-page").click();
 		await expect(page.getByText("404")).toBeVisible();
 		await expect(page.getByText("This page could not be found.")).toBeVisible();
-		await expect(page).toHaveURL("/throw-notfound-in-page");
+		await expect(page).toHaveURL(url("/throw-notfound-in-page"));
 	});
 
 	test("throw notFound in layout renders 404 page and preserves URL", async ({
 		page,
 	}) => {
-		await page.goto("/");
+		await page.goto(url("/"));
 		await page.getByText("[hydrated: 1]").click();
 		await page.getByTestId("link-throw-notfound-layout").click();
 		await expect(page.getByText("404")).toBeVisible();
 		await expect(page.getByText("This page could not be found.")).toBeVisible();
-		await expect(page).toHaveURL("/throw-notfound-in-layout");
+		await expect(page).toHaveURL(url("/throw-notfound-in-layout"));
 	});
 
 	test("layout state is preserved after client-side redirect from page", async ({
 		page,
 	}) => {
-		await page.goto("/");
+		await page.goto(url("/"));
 		await page.getByText("[hydrated: 1]").click();
 		const layoutCounter = page
 			.getByTestId("client-counter")
@@ -825,14 +832,14 @@ test.describe("client-side navigation with throw response", () => {
 		await layoutCounter.getByRole("button", { name: "+" }).click();
 		await expect(layoutCounter.getByText("Layout counter: 1")).toBeVisible();
 		await page.getByTestId("link-throw-redirect-page").click();
-		await expect(page).toHaveURL("/other");
+		await expect(page).toHaveURL(url("/other"));
 		await expect(layoutCounter.getByText("Layout counter: 1")).toBeVisible();
 	});
 
 	test("layout state is preserved after client-side redirect from layout", async ({
 		page,
 	}) => {
-		await page.goto("/");
+		await page.goto(url("/"));
 		await page.getByText("[hydrated: 1]").click();
 		const layoutCounter = page
 			.getByTestId("client-counter")
@@ -840,7 +847,7 @@ test.describe("client-side navigation with throw response", () => {
 		await layoutCounter.getByRole("button", { name: "+" }).click();
 		await expect(layoutCounter.getByText("Layout counter: 1")).toBeVisible();
 		await page.getByTestId("link-throw-redirect-layout").click();
-		await expect(page).toHaveURL("/other");
+		await expect(page).toHaveURL(url("/other"));
 		await expect(layoutCounter.getByText("Layout counter: 1")).toBeVisible();
 	});
 });
@@ -849,19 +856,19 @@ test.describe("slow throw response (>50ms) still works via client-side fallback"
 	test("slow redirect navigates to target via client-side", async ({
 		page,
 	}) => {
-		await page.goto("/");
+		await page.goto(url("/"));
 		await page.getByText("[hydrated: 1]").click();
 		await page.getByTestId("link-slow-redirect").click();
-		await expect(page).toHaveURL("/");
+		await expect(page).toHaveURL(url("/"));
 	});
 
 	test("slow notFound renders 404 page via client-side", async ({ page }) => {
-		await page.goto("/");
+		await page.goto(url("/"));
 		await page.getByText("[hydrated: 1]").click();
 		await page.getByTestId("link-slow-notfound").click();
 		await expect(page.getByText("404")).toBeVisible();
 		await expect(page.getByText("This page could not be found.")).toBeVisible();
-		await expect(page).toHaveURL("/slow-notfound");
+		await expect(page).toHaveURL(url("/slow-notfound"));
 	});
 });
 
@@ -869,7 +876,7 @@ test.describe("soft 404 during client-side navigation (no hard reload)", () => {
 	test("layout state is preserved when navigating to a 404 page", async ({
 		page,
 	}) => {
-		await page.goto("/");
+		await page.goto(url("/"));
 		await page.getByText("[hydrated: 1]").click();
 
 		// Create layout state we can track
@@ -902,7 +909,7 @@ test.describe("soft 404 during client-side navigation (no hard reload)", () => {
 	test("can navigate away from 404 page back to a working page", async ({
 		page,
 	}) => {
-		await page.goto("/");
+		await page.goto(url("/"));
 		await page.getByText("[hydrated: 1]").click();
 
 		// Navigate to 404 page
@@ -911,7 +918,7 @@ test.describe("soft 404 during client-side navigation (no hard reload)", () => {
 
 		// Navigate back to home — should work without a hard reload
 		await page.getByRole("link", { name: "Home" }).click();
-		await expect(page).toHaveURL("/");
+		await expect(page).toHaveURL(url("/"));
 		await expect(page.getByText("Server counter:")).toBeVisible();
 	});
 });
@@ -920,7 +927,7 @@ test.describe("soft server error during client-side navigation", () => {
 	test("layout state is preserved when navigating to a page with server error @build", async ({
 		page,
 	}) => {
-		await page.goto("/");
+		await page.goto(url("/"));
 		await page.getByText("[hydrated: 1]").click();
 
 		// Create layout state we can track
@@ -958,7 +965,7 @@ test.describe("soft server error during client-side navigation", () => {
 
 test.describe("navigation abort controller", () => {
 	test("rapid navigation aborts the stale RSC fetch", async ({ page }) => {
-		await page.goto("/");
+		await page.goto(url("/"));
 		await page.getByText("[hydrated: 1]").click();
 
 		// Track RSC requests and their outcomes
@@ -982,7 +989,7 @@ test.describe("navigation abort controller", () => {
 		await page.getByRole("link", { name: "Other" }).click();
 
 		// Should land on /other
-		await expect(page).toHaveURL("/other");
+		await expect(page).toHaveURL(url("/other"));
 
 		// The slow page RSC fetch should have been aborted (poll until abort is recorded)
 		await expect
@@ -1008,7 +1015,7 @@ test.describe("error boundary auto-reset on navigation", () => {
 	test("error boundary clears when navigating to a new page @build", async ({
 		page,
 	}) => {
-		await page.goto("/");
+		await page.goto(url("/"));
 		await page.getByText("[hydrated: 1]").click();
 
 		// Navigate to a page with a server error to trigger the error boundary
@@ -1019,7 +1026,7 @@ test.describe("error boundary auto-reset on navigation", () => {
 
 		// Navigate back to home — error boundary should auto-reset
 		await page.getByRole("link", { name: "Home" }).click();
-		await expect(page).toHaveURL("/");
+		await expect(page).toHaveURL(url("/"));
 
 		// The error should be gone and normal content should appear
 		await expect(page.getByText("Application Error")).not.toBeVisible();
@@ -1047,7 +1054,7 @@ function stabilize(content: string) {
 
 test.describe("prerender", () => {
 	test("staticPage renders correctly", async ({ page }) => {
-		await page.goto("/static/one");
+		await page.goto(url("/static/one"));
 		await expect(page.getByTestId("static-page")).toBeVisible();
 		await expect(
 			page.getByText("This is a static page with id one"),
@@ -1055,7 +1062,7 @@ test.describe("prerender", () => {
 	});
 
 	test("staticPage renders with different id", async ({ page }) => {
-		await page.goto("/static/two");
+		await page.goto(url("/static/two"));
 		await expect(page.getByTestId("static-page")).toBeVisible();
 		await expect(
 			page.getByText("This is a static page with id two"),
@@ -1063,7 +1070,7 @@ test.describe("prerender", () => {
 	});
 
 	test("client navigation to staticPage works", async ({ page }) => {
-		await page.goto("/prerender-nav");
+		await page.goto(url("/prerender-nav"));
 		await page.getByTestId("link-static-one").click();
 		await expect(page.getByTestId("static-page")).toBeVisible();
 		await expect(
@@ -1074,7 +1081,7 @@ test.describe("prerender", () => {
 
 test.describe("prerender css", () => {
 	test("prerendered page has imported CSS applied", async ({ page }) => {
-		await page.goto("/static/one");
+		await page.goto(url("/static/one"));
 		const el = page.getByTestId("static-page");
 		await expect(el).toBeVisible();
 		await expect(el).toHaveCSS("color", "rgb(22, 163, 74)");
@@ -1085,10 +1092,10 @@ test.describe("prerender css", () => {
 	test("CSS is applied after client navigation to prerendered page", async ({
 		page,
 	}) => {
-		await page.goto("/");
+		await page.goto(url("/"));
 		await expect(page.getByText("Server counter:")).toBeVisible();
 		// Navigate to a prerendered page via client-side link
-		await page.goto("/prerender-nav");
+		await page.goto(url("/prerender-nav"));
 		await page.getByTestId("link-static-one").click();
 		const el = page.getByTestId("static-page");
 		await expect(el).toBeVisible();
@@ -1159,18 +1166,18 @@ test.describe("middleware page cache", () => {
 	test.skip(() => isRemote, "skipped on remote deployments (stateless functions)");
 	// Clear cache before each test so they're isolated
 	test.beforeEach(async () => {
-		await fetch(`${baseURL}/api/cache-clear`);
+		await fetch(`${baseURL}${basePath}/api/cache-clear`);
 	});
 
 	test("first HTML request is MISS, second is HIT with identical content", async () => {
-		const first = await fetch(`${baseURL}/cached-page`, {
+		const first = await fetch(`${baseURL}${basePath}/cached-page`, {
 			headers: { "sec-fetch-dest": "document" },
 		});
 		expect(first.status).toBe(200);
 		expect(first.headers.get("x-cache")).toBe("MISS");
 		const firstHtml = await first.text();
 
-		const second = await fetch(`${baseURL}/cached-page`, {
+		const second = await fetch(`${baseURL}${basePath}/cached-page`, {
 			headers: { "sec-fetch-dest": "document" },
 		});
 		expect(second.status).toBe(200);
@@ -1181,14 +1188,14 @@ test.describe("middleware page cache", () => {
 	});
 
 	test("first RSC request is MISS, second is HIT with identical payload", async () => {
-		const first = await fetch(`${baseURL}/cached-page?__rsc=1`, {
+		const first = await fetch(`${baseURL}${basePath}/cached-page?__rsc=1`, {
 			headers: { accept: "text/x-component" },
 		});
 		expect(first.status).toBe(200);
 		expect(first.headers.get("x-cache")).toBe("MISS");
 		const firstPayload = await first.text();
 
-		const second = await fetch(`${baseURL}/cached-page?__rsc=1`, {
+		const second = await fetch(`${baseURL}${basePath}/cached-page?__rsc=1`, {
 			headers: { accept: "text/x-component" },
 		});
 		expect(second.status).toBe(200);
@@ -1199,29 +1206,29 @@ test.describe("middleware page cache", () => {
 	});
 
 	test("HTML and RSC caches are separate (different cache keys)", async () => {
-		const html = await fetch(`${baseURL}/cached-page`, {
+		const html = await fetch(`${baseURL}${basePath}/cached-page`, {
 			headers: { "sec-fetch-dest": "document" },
 		});
 		expect(html.headers.get("x-cache")).toBe("MISS");
 
-		const rsc = await fetch(`${baseURL}/cached-page?__rsc=1`, {
+		const rsc = await fetch(`${baseURL}${basePath}/cached-page?__rsc=1`, {
 			headers: { accept: "text/x-component" },
 		});
 		expect(rsc.headers.get("x-cache")).toBe("MISS");
 
-		const htmlAgain = await fetch(`${baseURL}/cached-page`, {
+		const htmlAgain = await fetch(`${baseURL}${basePath}/cached-page`, {
 			headers: { "sec-fetch-dest": "document" },
 		});
 		expect(htmlAgain.headers.get("x-cache")).toBe("HIT");
 
-		const rscAgain = await fetch(`${baseURL}/cached-page?__rsc=1`, {
+		const rscAgain = await fetch(`${baseURL}${basePath}/cached-page?__rsc=1`, {
 			headers: { accept: "text/x-component" },
 		});
 		expect(rscAgain.headers.get("x-cache")).toBe("HIT");
 	});
 
 	test("cached page renders correctly in browser", async ({ page }) => {
-		await page.goto("/cached-page");
+		await page.goto(url("/cached-page"));
 		await expect(page.getByTestId("cached-page")).toBeVisible();
 		await expect(
 			page.getByRole("heading", { name: "Cached Page" }),
@@ -1232,7 +1239,7 @@ test.describe("middleware page cache", () => {
 	test("cached page serves same content on reload (render count stays 1)", async ({
 		page,
 	}) => {
-		await page.goto("/cached-page");
+		await page.goto(url("/cached-page"));
 		await expect(page.getByTestId("cached-render-count")).toHaveText("1");
 		const firstRandom = await page.getByTestId("cached-random").textContent();
 
@@ -1246,7 +1253,7 @@ test.describe("middleware page cache", () => {
 		page,
 	}) => {
 		// Start on home — has [hydrated: 1] marker for confirming JS is ready
-		await page.goto("/");
+		await page.goto(url("/"));
 		await page.getByText("[hydrated: 1]").click();
 
 		// First client-side nav to cached page — should be MISS (primes RSC cache)
@@ -1261,7 +1268,7 @@ test.describe("middleware page cache", () => {
 
 		// Navigate back home
 		await page.getByTestId("cached-page-home-link").click();
-		await expect(page).toHaveURL("/");
+		await expect(page).toHaveURL(url("/"));
 
 		// Second client-side nav — should be HIT
 		rscResponsePromise = page.waitForResponse(
@@ -1281,7 +1288,7 @@ test.describe("middleware page cache", () => {
 		page,
 	}) => {
 		// Start on home page
-		await page.goto("/");
+		await page.goto(url("/"));
 		await page.getByText("[hydrated: 1]").click();
 
 		// First client-side nav — primes RSC cache (MISS)
@@ -1295,7 +1302,7 @@ test.describe("middleware page cache", () => {
 
 		// Navigate back home
 		await page.getByRole("link", { name: "Home", exact: true }).click();
-		await expect(page).toHaveURL("/");
+		await expect(page).toHaveURL(url("/"));
 
 		// Second nav — should be HIT
 		rscResponsePromise = page.waitForResponse(
@@ -1335,7 +1342,7 @@ test.describe("server actions", () => {
 	test("simple server action called from client returns value", async ({
 		page,
 	}) => {
-		await page.goto("/server-action-simple");
+		await page.goto(url("/server-action-simple"));
 		// Wait for hydration (layout mount tracker increments from 0 to 1)
 		await expect(page.getByTestId("layout-mount-count")).toHaveText("1", {
 			timeout: 10000,
@@ -1350,7 +1357,7 @@ test.describe("server actions", () => {
 	test("server action returning async generator streams items incrementally", async ({
 		page,
 	}) => {
-		await page.goto("/server-action-streaming");
+		await page.goto(url("/server-action-streaming"));
 		await expect(page.getByTestId("layout-mount-count")).toHaveText("1", {
 			timeout: 10000,
 		});
@@ -1373,7 +1380,7 @@ test.describe("server actions", () => {
 	test("form action with useActionState submits and returns result", async ({
 		page,
 	}) => {
-		await page.goto("/form");
+		await page.goto(url("/form"));
 		await expect(page.getByTestId("layout-mount-count")).toHaveText("1", {
 			timeout: 10000,
 		});
@@ -1387,7 +1394,7 @@ test.describe("server actions", () => {
 	test("server action called directly preserves client component state", async ({
 		page,
 	}) => {
-		await page.goto("/server-action-simple");
+		await page.goto(url("/server-action-simple"));
 		await expect(page.getByTestId("layout-mount-count")).toHaveText("1", {
 			timeout: 10000,
 		});
@@ -1410,13 +1417,13 @@ test.describe("server actions", () => {
 	test("throw redirect() in server action navigates to target", async ({
 		page,
 	}) => {
-		await page.goto("/form-redirect");
+		await page.goto(url("/form-redirect"));
 		await expect(page.getByTestId("layout-mount-count")).toHaveText("1", {
 			timeout: 10000,
 		});
 		await page.locator('input[name="name"]').fill("test");
 		await page.getByRole("button", { name: "Submit" }).click();
-		await expect(page).toHaveURL("/", { timeout: 10000 });
+		await expect(page).toHaveURL(url("/"), { timeout: 10000 });
 	});
 
 	test("throw Error in server action propagates to client", async ({
@@ -1424,7 +1431,7 @@ test.describe("server actions", () => {
 	}) => {
 		const errors: string[] = [];
 		page.on("pageerror", (err) => errors.push(err.message));
-		await page.goto("/form-error");
+		await page.goto(url("/form-error"));
 		await expect(page.getByTestId("layout-mount-count")).toHaveText("1", {
 			timeout: 10000,
 		});
@@ -1455,7 +1462,7 @@ test.describe("server actions", () => {
 		test.skip(isRemote, "stateless functions");
 		const errors: string[] = [];
 		page.on("pageerror", (err) => errors.push(err.message));
-		await page.goto("/inline-action-with-closure");
+		await page.goto(url("/inline-action-with-closure"));
 		await expect(page.getByTestId("layout-mount-count")).toHaveText("1", {
 			timeout: 10000,
 		});
@@ -1476,18 +1483,18 @@ test.describe("server actions", () => {
 	test("direct server action throwing redirect navigates to target", async ({
 		page,
 	}) => {
-		await page.goto("/server-action-redirect");
+		await page.goto(url("/server-action-redirect"));
 		await expect(page.getByTestId("layout-mount-count")).toHaveText("1", {
 			timeout: 10000,
 		});
 		await page.getByTestId("call-redirect-action").click();
-		await expect(page).toHaveURL("/other", { timeout: 10000 });
+		await expect(page).toHaveURL(url("/other"), { timeout: 10000 });
 	});
 
 	test("form action with useActionState returns result to the page", async ({
 		page,
 	}) => {
-		await page.goto("/form-action-test");
+		await page.goto(url("/form-action-test"));
 		await expect(page.getByTestId("layout-mount-count")).toHaveText("1", {
 			timeout: 10000,
 		});
@@ -1502,7 +1509,7 @@ test.describe("server actions", () => {
 	test("form action error preserves error message in error boundary", async ({
 		page,
 	}) => {
-		await page.goto("/form-action-error-test");
+		await page.goto(url("/form-action-error-test"));
 		await expect(page.getByTestId("layout-mount-count")).toHaveText("1", {
 			timeout: 10000,
 		});
@@ -1520,7 +1527,7 @@ test.describe("loaders", () => {
 	test("wildcard loader data is passed to page via ctx.loaderData (SSR)", async ({
 		page,
 	}) => {
-		await page.goto("/loader-test");
+		await page.goto(url("/loader-test"));
 		const serverData = await page
 			.getByTestId("loader-data-server")
 			.textContent();
@@ -1531,7 +1538,7 @@ test.describe("loaders", () => {
 	test("wildcard + exact loaders merge for nested page (SSR)", async ({
 		page,
 	}) => {
-		await page.goto("/loader-test/nested");
+		await page.goto(url("/loader-test/nested"));
 		const serverData = await page
 			.getByTestId("loader-data-server")
 			.textContent();
@@ -1543,7 +1550,7 @@ test.describe("loaders", () => {
 	test("only wildcard loader matches for pages without exact loader (SSR)", async ({
 		page,
 	}) => {
-		await page.goto("/loader-test/other");
+		await page.goto(url("/loader-test/other"));
 		const serverData = await page
 			.getByTestId("loader-data-server")
 			.textContent();
@@ -1555,7 +1562,7 @@ test.describe("loaders", () => {
 	test("useLoaderData hook renders loader data on client after hydration", async ({
 		page,
 	}) => {
-		await page.goto("/loader-test");
+		await page.goto(url("/loader-test"));
 		await expect(page.getByTestId("loader-data-client")).toBeVisible({
 			timeout: 10000,
 		});
@@ -1569,7 +1576,7 @@ test.describe("loaders", () => {
 	test("useLoaderData shows merged data for nested page after hydration", async ({
 		page,
 	}) => {
-		await page.goto("/loader-test/nested");
+		await page.goto(url("/loader-test/nested"));
 		await expect(page.getByTestId("loader-data-client")).toBeVisible({
 			timeout: 10000,
 		});
@@ -1582,7 +1589,7 @@ test.describe("loaders", () => {
 	});
 
 	test("client-side navigation updates loader data", async ({ page }) => {
-		await page.goto("/loader-nav-start");
+		await page.goto(url("/loader-nav-start"));
 		// Wait for hydration
 		await expect(page.getByTestId("link-loader-nested")).toBeVisible({
 			timeout: 10000,
@@ -1590,7 +1597,7 @@ test.describe("loaders", () => {
 
 		// Navigate to nested (has wildcard + exact loaders)
 		await page.getByTestId("link-loader-nested").click();
-		await expect(page).toHaveURL("/loader-test/nested", { timeout: 10000 });
+		await expect(page).toHaveURL(url("/loader-test/nested"), { timeout: 10000 });
 		await expect(page.getByTestId("loader-data-client")).toBeVisible({
 			timeout: 10000,
 		});
@@ -1603,7 +1610,7 @@ test.describe("loaders", () => {
 
 		// Navigate to /loader-test/other (only wildcard loader)
 		await page.getByTestId("link-loader-other").click();
-		await expect(page).toHaveURL("/loader-test/other", { timeout: 10000 });
+		await expect(page).toHaveURL(url("/loader-test/other"), { timeout: 10000 });
 		// Wait for server data to update (confirms we got new page render)
 		await expect(page.getByTestId("loader-data-server")).toContainText(
 			"from-wildcard-loader",
@@ -1623,13 +1630,13 @@ test.describe("loaders", () => {
 	test("client-side navigation from non-loader page to loader page gets data", async ({
 		page,
 	}) => {
-		await page.goto("/loader-nav-start");
+		await page.goto(url("/loader-nav-start"));
 		await expect(page.getByTestId("link-loader-test")).toBeVisible({
 			timeout: 10000,
 		});
 
 		await page.getByTestId("link-loader-test").click();
-		await expect(page).toHaveURL("/loader-test", { timeout: 10000 });
+		await expect(page).toHaveURL(url("/loader-test"), { timeout: 10000 });
 		await expect(page.getByTestId("loader-data-client")).toBeVisible({
 			timeout: 10000,
 		});
@@ -1641,7 +1648,7 @@ test.describe("loaders", () => {
 	test("server and client loader data match on initial load", async ({
 		page,
 	}) => {
-		await page.goto("/loader-test/nested");
+		await page.goto(url("/loader-test/nested"));
 		await expect(page.getByTestId("loader-data-client")).toBeVisible({
 			timeout: 10000,
 		});
@@ -1656,43 +1663,43 @@ test.describe("loaders", () => {
 	});
 
 	test("throw redirect in loader returns 307 and Location header", async () => {
-		const response = await fetch(`${baseURL}/loader-redirect`, {
+		const response = await fetch(`${baseURL}${basePath}/loader-redirect`, {
 			redirect: "manual",
 		});
 		expect(response.status).toBe(307);
-		expect(response.headers.get("location")).toBe("/other");
+		expect(response.headers.get("location")).toBe(url("/other"));
 	});
 
 	test("return redirect in loader returns 307 and Location header", async () => {
-		const response = await fetch(`${baseURL}/loader-redirect-return`, {
+		const response = await fetch(`${baseURL}${basePath}/loader-redirect-return`, {
 			redirect: "manual",
 		});
 		expect(response.status).toBe(307);
-		expect(response.headers.get("location")).toBe("/other");
+		expect(response.headers.get("location")).toBe(url("/other"));
 	});
 
 	test("throw notFound in loader returns 404", async () => {
-		const response = await fetch(`${baseURL}/loader-notfound`);
+		const response = await fetch(`${baseURL}${basePath}/loader-notfound`);
 		expect(response.status).toBe(404);
 	});
 
 	test("return notFound in loader returns 404", async () => {
-		const response = await fetch(`${baseURL}/loader-notfound-return`);
+		const response = await fetch(`${baseURL}${basePath}/loader-notfound-return`);
 		expect(response.status).toBe(404);
 	});
 
 	test("throw redirect in loader navigates via browser", async ({ page }) => {
-		const response = await page.goto("/loader-redirect");
+		const response = await page.goto(url("/loader-redirect"));
 		expect(page.url()).toContain("/other");
 	});
 
 	test("throw notFound in loader returns 404 in browser", async ({ page }) => {
-		const response = await page.goto("/loader-notfound");
+		const response = await page.goto(url("/loader-notfound"));
 		expect(response?.status()).toBe(404);
 	});
 
 	test("throw error in loader renders error boundary", async ({ page }) => {
-		const response = await page.goto("/loader-error");
+		const response = await page.goto(url("/loader-error"));
 		expect(response?.status()).toBe(500);
 		// Error boundary should catch the loader error and render an error UI
 		// instead of a blank page or raw 500. The page content "should not render"
@@ -1704,7 +1711,7 @@ test.describe("loaders", () => {
 	test("getLoaderData resolves with correct data after hydration", async ({
 		page,
 	}) => {
-		await page.goto("/loader-test/global");
+		await page.goto(url("/loader-test/global"));
 		await expect(page.getByTestId("read-loader-data")).toBeVisible({
 			timeout: 10000,
 		});
@@ -1724,14 +1731,14 @@ test.describe("loaders", () => {
 		page,
 	}) => {
 		// Start on a page with loader data, expose getLoaderData on window
-		await page.goto("/loader-test/global");
+		await page.goto(url("/loader-test/global"));
 		await expect(page.getByTestId("link-global-nested")).toBeVisible({
 			timeout: 10000,
 		});
 
 		// Navigate to nested page (has wildcard + exact loaders)
 		await page.getByTestId("link-global-nested").click();
-		await expect(page).toHaveURL("/loader-test/nested", { timeout: 10000 });
+		await expect(page).toHaveURL(url("/loader-test/nested"), { timeout: 10000 });
 
 		// The subscribe callback in loader-global-client.tsx stores updated data.
 		// After navigation, check the useLoaderData hook (React path) which reads

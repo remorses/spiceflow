@@ -6,6 +6,7 @@ import tailwindcss from "@tailwindcss/vite";
 import inspect from "vite-plugin-inspect";
 
 const isVercel = process.env.VERCEL === "1";
+const basePath = process.env.BASEPATH || "";
 
 // Activate the "vercel" condition so #counter-store resolves to the
 // Upstash Redis implementation instead of the globalThis default.
@@ -14,6 +15,7 @@ const extraConditions = isVercel ? ["vercel"] : [];
 
 export default defineConfig({
 	clearScreen: false,
+	base: basePath || "/",
 	resolve: {
 		conditions: extraConditions,
 	},
