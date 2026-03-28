@@ -45,6 +45,7 @@ import {
 } from "./app/loader-global-client";
 import { ServerGuardTestClient } from "./app/server-guard-test-client";
 import { ActionFormTest } from "./app/action-form-test";
+import testContentRaw from "./test-content.md?raw";
 
 // Increments on every RSC render of the home page. Used by e2e tests to detect
 // unwanted server re-renders (e.g. client HMR should not trigger a server render).
@@ -603,6 +604,13 @@ export const app = new Spiceflow()
 			return `Received: ${message}`;
 		}
 		return <ActionFormTest action={handleSubmit} />;
+	})
+	.page("/raw-import-test", async () => {
+		return (
+			<div data-testid="raw-import-content">
+				<pre>{testContentRaw}</pre>
+			</div>
+		);
 	})
 	.page("/form-action-error-test", async () => {
 		async function handleSubmit(prev: string, formData: FormData) {

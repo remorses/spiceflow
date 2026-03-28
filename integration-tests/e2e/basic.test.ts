@@ -1757,11 +1757,40 @@ test.describe("loaders", () => {
 	});
 });
 
+// TODO: fix upstream — URLSearchParams normalizes ?raw to ?raw= which breaks
+// Vite's rawRE = /(\?|&)raw(?:&|$)/ asset plugin filter. The load hook never
+// fires, so import-analysis tries to parse the raw .md as JS and fails.
+// See: https://github.com/vitejs/vite/issues/XXXXX
+test.describe("?raw import", () => {
+	test.fixme("page with ?raw .md import renders content without error overlay", async ({
+		page,
+	}) => {
+		await page.goto(url("/raw-import-test"));
+		await expect(page.getByTestId("raw-import-content")).toContainText(
+			"# Test Content",
+		);
+		await expect(page.getByTestId("raw-import-content")).toContainText(
+			"This is a **markdown** file",
+		);
+		// No Vite error overlay should appear
+		const overlay = page.locator("vite-error-overlay");
+		await expect(overlay).not.toBeAttached({ timeout: 2000 });
+	});
+
+	test.fixme("?raw import returns correct content via fetch", async () => {
+		const res = await fetch(`${baseURL}${basePath}/raw-import-test`);
+		expect(res.status).toBe(200);
+		const html = await res.text();
+		expect(html).toContain("# Test Content");
+		expect(html).toContain("This is a **markdown** file");
+	});
+});
+
 test.describe(".server.ts file guard", () => {
 	test("page renders normally when .server.ts is not imported from client @dev", async ({
 		page,
 	}) => {
-		await page.goto("/server-guard-test");
+		await page.goto(url("/server-guard-test"));
 		await expect(page.getByTestId("server-guard-test")).toContainText(
 			"server guard ok",
 		);
@@ -1774,13 +1803,15 @@ test.describe(".server.ts file guard", () => {
 		// the bad module. The resolveId hook throws during import analysis in
 		// the client environment. The terminal shows "Server-only module
 		// referenced by client"; the browser overlay shows the module fetch failure.
-		await page.goto("/server-guard-test");
+		await page.goto(url("/server-guard-test"));
 		await expect(page.getByTestId("server-guard-test")).toContainText(
 			"server guard ok",
 		);
-		// Trigger client-env resolution by importing the module from the browser
+		// Trigger client-env resolution by importing the module from the browser.
+		// Must include basePath so the import resolves under Vite's base URL.
+		const importPath = `${basePath}/src/app/bad-server-import-client.tsx`;
 		page
-			.evaluate(() => import("/src/app/bad-server-import-client.tsx"))
+			.evaluate((p) => import(/* @vite-ignore */ p), importPath)
 			.catch(() => {});
 		const overlay = page.locator("vite-error-overlay");
 		await expect(overlay).toBeAttached({ timeout: 10000 });
