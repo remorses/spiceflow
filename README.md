@@ -2020,7 +2020,7 @@ You can add a convenience script in `package.json` so you don't forget this step
 Example Dockerfile using `node:24-slim`:
 
 ```dockerfile
-FROM node:24-slim
+FROM --platform=linux/amd64 node:24-slim
 
 WORKDIR /app
 
@@ -2037,7 +2037,7 @@ CMD ["node", "dist/rsc/index.js"]
 ```
 
 ```bash
-docker build -t my-app .
+docker build --platform linux/amd64 -t my-app .
 docker run -p 3000:3000 my-app
 ```
 

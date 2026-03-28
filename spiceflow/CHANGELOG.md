@@ -13,7 +13,7 @@
 1. **Self-contained Node.js build output** — after `pnpm build`, the `dist/` folder now includes all runtime dependencies in `dist/node_modules/` traced by `@vercel/nft`. You can copy just `dist/` into a Docker container and run it with no install step:
 
    ```dockerfile
-   FROM node:24-slim
+   FROM --platform=linux/amd64 node:24-slim
    WORKDIR /app
    # IMPORTANT: Before building, install Linux native modules (both flags are
    # additive — they keep your current platform and add the target):
