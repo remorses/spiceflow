@@ -428,7 +428,9 @@ export const app = new Spiceflow()
 	})
 	.use(async ({ request }, next) => {
 		const url = new URL(request.url);
-		if (!url.pathname.startsWith("/cached-page")) {
+		const segments = url.pathname.split("/");
+		const lastSegment = segments[segments.length - 1];
+		if (lastSegment !== "cached-page" && lastSegment !== "cached-page.rsc") {
 			return next();
 		}
 		if (request.method !== "GET") {
