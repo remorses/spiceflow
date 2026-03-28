@@ -13,7 +13,7 @@ describe('getDocumentLocationFromResponse', () => {
           'x-spiceflow-reload': 'https://example.com/dashboard?tab=settings',
         },
       }),
-      requestUrl: new URL('https://example.com/dashboard?__rsc='),
+      requestUrl: new URL('https://example.com/dashboard.rsc?__rsc='),
     })
 
     expect(location).toBe('/dashboard?tab=settings')
@@ -27,7 +27,9 @@ describe('getDocumentLocationFromResponse', () => {
           'x-spiceflow-reload': 'https://evil.example/phish',
         },
       }),
-      requestUrl: new URL('https://example.com/dashboard?__rsc=&tab=settings'),
+      requestUrl: new URL(
+        'https://example.com/dashboard.rsc?__rsc=&tab=settings',
+      ),
     })
 
     expect(location).toBe('/dashboard?tab=settings')

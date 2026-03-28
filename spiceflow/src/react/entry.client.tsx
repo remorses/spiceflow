@@ -180,6 +180,8 @@ async function main() {
         navigationAbort.abort()
         navigationAbort = new AbortController()
         const url = new URL(window.location.href)
+        url.pathname =
+          url.pathname === '/' ? '/index.rsc' : url.pathname + '.rsc'
         url.searchParams.set('__rsc', '')
         const payload = createFromFetch<ServerPayload>(
           fetchFlightResponse({

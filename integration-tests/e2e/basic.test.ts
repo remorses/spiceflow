@@ -964,7 +964,7 @@ test.describe("navigation abort controller", () => {
 		// Track RSC requests and their outcomes
 		const rscRequests: { url: string; aborted: boolean }[] = [];
 		page.on("requestfailed", (req) => {
-			if (req.url().includes("__rsc")) {
+			if (req.url().includes(".rsc")) {
 				rscRequests.push({
 					url: req.url(),
 					aborted: req.failure()?.errorText === "net::ERR_ABORTED",
@@ -972,7 +972,7 @@ test.describe("navigation abort controller", () => {
 			}
 		});
 		page.on("requestfinished", (req) => {
-			if (req.url().includes("__rsc")) {
+			if (req.url().includes(".rsc")) {
 				rscRequests.push({ url: req.url(), aborted: false });
 			}
 		});
@@ -1100,7 +1100,7 @@ test.describe("prerender css", () => {
 
 test.describe("prerender @build", () => {
 	test("prerendered RSC data is served for staticPage", async () => {
-		const response = await fetch(baseURL + "/static/one?__rsc=");
+		const response = await fetch(baseURL + "/static/one.rsc?__rsc=");
 		expect(response.status).toBe(200);
 		const contentType = response.headers.get("content-type") ?? "";
 		expect(contentType).toContain("text/x-component");
@@ -1129,6 +1129,28 @@ test.describe("prerender @build", () => {
 		fs.writeFileSync("test-results/prerendered-page-html.txt", stabilize(html));
 		expect(html).toContain("static page with id");
 		expect(html).toContain("</html>");
+	});
+
+	test("prerendered .html files exist on disk", async () => {
+		const fs = await import("node:fs");
+		expect(fs.existsSync("dist/client/static/one.html")).toBe(true);
+		expect(fs.existsSync("dist/client/static/two.html")).toBe(true);
+		const html = fs.readFileSync("dist/client/static/one.html", "utf-8");
+		expect(html).toContain("static page with id");
+		expect(html).toContain("</html>");
+	});
+
+	test("prerender manifest includes html paths", async () => {
+		const fs = await import("node:fs");
+		const manifest = JSON.parse(
+			fs.readFileSync("dist/client/__prerender.json", "utf-8"),
+		);
+		const one = manifest.entries.find(
+			(e: { route: string }) => e.route === "/static/one",
+		);
+		expect(one).toBeTruthy();
+		expect(one.html).toBe("/static/one.html");
+		expect(one.data).toBe("/static/one.rsc");
 	});
 });
 

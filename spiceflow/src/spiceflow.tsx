@@ -1741,6 +1741,13 @@ export class Spiceflow<
     const u = request.parsedUrl
 
     let path = u.pathname
+    // Strip .rsc suffix before route matching — the client appends it for RSC
+    // data fetches, but routes are registered without it.
+    if (path.endsWith('/index.rsc')) {
+      path = path.slice(0, -9)
+    } else if (path.endsWith('.rsc')) {
+      path = path.slice(0, -4)
+    }
 
     if (!this.tracer) return this.executeRequest(request, u, path, customState)
 

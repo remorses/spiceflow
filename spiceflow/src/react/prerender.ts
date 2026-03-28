@@ -98,15 +98,17 @@ async function processPrerender(dirs: {
     }
     for (const route of routes) {
       console.log(`  • ${route.path}`)
-      const url = new URL(route.path, 'https://prerender.local')
-      // Set __rsc so fetchHandler returns the raw Flight stream without SSR
-      url.searchParams.set('__rsc', '')
-      const request = new Request(url, {
-        headers: {
-          'x-react-server-render-mode': 'prerender',
-        },
-      })
-      const rscResponse = await entry.fetchHandler(request)
+      const prerenderHeaders = {
+        'x-react-server-render-mode': 'prerender',
+      }
+
+      // Fetch RSC Flight data — __rsc makes fetchHandler return the raw
+      // Flight stream without SSR rendering.
+      const rscUrl = new URL(route.path, 'https://prerender.local')
+      rscUrl.searchParams.set('__rsc', '')
+      const rscResponse = await entry.fetchHandler(
+        new Request(rscUrl, { headers: prerenderHeaders }),
+      )
       if (!rscResponse.ok) {
         console.error(`  • Failed to prerender ${route.path}`)
         throw new Error(
@@ -114,13 +116,28 @@ async function processPrerender(dirs: {
         )
       }
 
-      const dataFile = route.path + '.rsc'
+      // Fetch full HTML — without __rsc, fetchHandler SSR-renders the
+      // Flight stream into a complete HTML document.
+      const htmlUrl = new URL(route.path, 'https://prerender.local')
+      const htmlResponse = await entry.fetchHandler(
+        new Request(htmlUrl, { headers: prerenderHeaders }),
+      )
+
+      const isRoot = route.path === '/'
+      const dataFile = isRoot ? '/index.rsc' : route.path + '.rsc'
+      const htmlFile = isRoot ? '/index.html' : route.path + '.html'
+
       const dataPath = path.join(dirs.clientOutDir, dataFile)
       await mkdir(path.dirname(dataPath), { recursive: true })
       await writeFile(dataPath, await rscResponse.text())
+
+      const htmlPath = path.join(dirs.clientOutDir, htmlFile)
+      await mkdir(path.dirname(htmlPath), { recursive: true })
+      await writeFile(htmlPath, await htmlResponse.text())
+
       manifest.entries.push({
         route: route.path,
-        html: '',
+        html: htmlFile,
         data: dataFile,
       })
     }
