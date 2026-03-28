@@ -2598,11 +2598,18 @@ Use `"use server"` to define functions that run on the server but can be called 
 // src/app/actions.tsx
 'use server'
 
+import { getActionRequest } from 'spiceflow'
+
 export async function submitForm(formData: FormData) {
+  const { signal } = getActionRequest()
   const name = formData.get('name')
-  await saveToDatabase(name)
+  // signal is aborted when the client disconnects or cancels —
+  // pass it to any downstream work so it cancels automatically
+  await saveToDatabase(name, { signal })
 }
 ```
+
+On the client, `getActionAbortController()` returns the `AbortController` for the most recent in-flight call to a server action, or `undefined` if nothing is in-flight. Call `.abort()` to cancel the fetch.
 
 ### Streaming UI from Server Actions
 
@@ -2614,13 +2621,17 @@ This is useful for AI chat interfaces where the model generates structured outpu
 // src/app/actions.tsx
 'use server'
 
+import { getActionRequest } from 'spiceflow'
 import { WeatherCard } from './weather-card'
 import { StockChart } from './stock-chart'
 
 export async function* chat(
   messages: { role: string; content: string }[],
 ): AsyncGenerator<React.ReactElement> {
-  const stream = await callLLM(messages)
+  // Pass the request signal to downstream work so the LLM call
+  // is cancelled when the client aborts (e.g. clicks "Stop")
+  const { signal } = getActionRequest()
+  const stream = await callLLM(messages, { signal })
 
   for await (const event of stream) {
     if (event.type === 'text') {
@@ -2643,6 +2654,7 @@ export async function* chat(
 'use client'
 
 import { useState, useTransition, type ReactNode } from 'react'
+import { getActionAbortController } from 'spiceflow/react'
 import { chat } from './actions'
 
 export function Chat() {
@@ -2666,6 +2678,11 @@ export function Chat() {
       <form action={send}>
         <input name="message" placeholder="Ask something..." />
         <button type="submit" disabled={isPending}>Send</button>
+        {isPending && (
+          <button type="button" onClick={() => getActionAbortController(chat)?.abort()}>
+            Stop
+          </button>
+        )}
       </form>
     </div>
   )
