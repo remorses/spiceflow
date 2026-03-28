@@ -26,8 +26,11 @@ export async function handler(request: Request) {
   try {
     return await app.handle(signaled)
   } finally {
-    // Clean up after handling the request
-    abortControllersByUrl.delete(request.url)
+    // Only clean up if this request's controller is still the active one.
+    // A newer concurrent request for the same URL may have overwritten it.
+    if (abortControllersByUrl.get(request.url) === abort) {
+      abortControllersByUrl.delete(request.url)
+    }
   }
 }
 
