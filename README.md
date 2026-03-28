@@ -45,7 +45,7 @@ API routes return JSON automatically. React pages use `.page()` and `.layout()` 
 import { Spiceflow } from 'spiceflow'
 import { Counter } from './counter'
 
-const app = new Spiceflow()
+export const app = new Spiceflow()
   .get('/api/hello', () => {
     return { message: 'Hello, World!' }
   })
@@ -74,7 +74,7 @@ app.listen(3000)
 Always define a root `.layout('/*', ...)` and put the document shell with `<html>`, `<head>`, and `<body>` there. More specific layouts should not render another shell - they should only return shared parent UI like sidebars, nav, wrappers, or section chrome. If a nested layout also renders `<html>`, the shell repeats and you end up nesting full HTML documents inside each other. Only add scoped layouts when many pages share the same parent components. Wildcard layouts also match their base path, so `/app/*` wraps both `/app` and `/app/settings`, and `/docs/*` wraps both `/docs` and `/docs/getting-started`.
 
 ```tsx
-const app = new Spiceflow()
+export const app = new Spiceflow()
   .layout('/*', async ({ children }) => {
     return (
       <html>
@@ -136,7 +136,7 @@ Spiceflow automatically serializes objects returned from handlers to JSON, so yo
 ```ts
 import { Spiceflow } from 'spiceflow'
 
-const app = new Spiceflow()
+export const app = new Spiceflow()
   .get('/user', () => {
     // Return object directly - no need for new Response()
     return { id: 1, name: 'John', email: 'john@example.com' }
@@ -160,7 +160,7 @@ To maintain type safety when using the fetch client, **throw Response objects fo
 import { Spiceflow } from 'spiceflow'
 import { z } from 'zod'
 
-const app = new Spiceflow()
+export const app = new Spiceflow()
   .route({
     method: 'GET',
     path: '/users/:id',
@@ -332,7 +332,7 @@ Export the app type from your server code:
 import { Spiceflow } from 'spiceflow'
 import { z } from 'zod'
 
-const app = new Spiceflow()
+export const app = new Spiceflow()
   .route({
     method: 'GET',
     path: '/hello',
@@ -457,7 +457,7 @@ Use `/*` as a catch-all route to handle 404 errors. More specific routes always 
 ```ts
 import { Spiceflow } from 'spiceflow'
 
-const app = new Spiceflow()
+export const app = new Spiceflow()
   .route({
     method: 'GET',
     path: '/users',
@@ -507,7 +507,7 @@ Never declare app and add routes separately — that way you lose the type safet
 import { Spiceflow } from 'spiceflow'
 
 // DO NOT declare the app separately and add routes later
-const app = new Spiceflow()
+export const app = new Spiceflow()
 
 // Do NOT do this! Defining routes separately will lose type safety
 app.get('/hello', () => {
@@ -575,7 +575,7 @@ The `href` method provides a type-safe way to build URLs with parameters. It hel
 ```ts
 import { Spiceflow } from 'spiceflow'
 
-const app = new Spiceflow()
+export const app = new Spiceflow()
   .route({
     method: 'GET',
     path: '/users/:id',
@@ -608,7 +608,7 @@ const userPostPath = app.href('/users/:id/posts/:postId', {
 When a route has a `query` schema, `href` accepts query parameters alongside path parameters in the same flat object. Query parameters are appended as a query string, and unknown keys are rejected at the type level:
 
 ```ts
-const app = new Spiceflow()
+export const app = new Spiceflow()
   .route({
     method: 'GET',
     path: '/search',
@@ -662,7 +662,7 @@ The `href` method is particularly useful when building callback URLs for OAuth f
 ```ts
 import { Spiceflow } from 'spiceflow'
 
-const app = new Spiceflow()
+export const app = new Spiceflow()
   .route({
     method: 'GET',
     path: '/auth/callback/:provider/:userId',
@@ -749,7 +749,7 @@ For standalone API servers (without Vite), set the base path in the constructor:
 ```ts
 import { Spiceflow } from 'spiceflow'
 
-const app = new Spiceflow({ basePath: '/api/v1' })
+export const app = new Spiceflow({ basePath: '/api/v1' })
 app.route({
   method: 'GET',
   path: '/hello',
@@ -868,7 +868,7 @@ Use `serveStatic()` to serve files from a directory:
 ```ts
 import { Spiceflow, serveStatic } from 'spiceflow'
 
-const app = new Spiceflow()
+export const app = new Spiceflow()
   .use(serveStatic({ root: './public' }))
   .route({
     method: 'GET',
@@ -910,7 +910,7 @@ Directory requests without an `index.html` fall through instead of throwing file
 You can stack multiple static roots:
 
 ```ts
-const app = new Spiceflow()
+export const app = new Spiceflow()
   .use(serveStatic({ root: './public' }))
   .use(serveStatic({ root: './uploads' }))
 ```
@@ -997,7 +997,7 @@ import { createSpiceflowFetch } from 'spiceflow/client'
 import { openapi } from 'spiceflow/openapi'
 import { writeFile } from 'node:fs/promises'
 
-const app = new Spiceflow()
+export const app = new Spiceflow()
   .use(openapi({ path: '/openapi' }))
   .route({
     method: 'GET',
@@ -1064,7 +1064,7 @@ This example uses `import { env } from 'cloudflare:workers'` to access KV bindin
 import { Spiceflow, getDeploymentId } from 'spiceflow'
 import { env } from 'cloudflare:workers'
 
-const app = new Spiceflow()
+export const app = new Spiceflow()
   .use(async ({ request, waitUntil }, next) => {
     if (request.method !== 'GET') {
       return next()
@@ -1129,7 +1129,7 @@ import { openapi } from 'spiceflow/openapi'
 import { Spiceflow } from 'spiceflow'
 import { z } from 'zod'
 
-const app = new Spiceflow()
+export const app = new Spiceflow()
   .use(openapi({ path: '/openapi.json' }))
   .route({
     method: 'GET',
@@ -1166,7 +1166,7 @@ const openapiSchema = await (
 import { cors } from 'spiceflow/cors'
 import { Spiceflow } from 'spiceflow'
 
-const app = new Spiceflow().use(cors()).route({
+export const app = new Spiceflow().use(cors()).route({
   method: 'GET',
   path: '/hello',
   handler() {
@@ -1181,7 +1181,7 @@ const app = new Spiceflow().use(cors()).route({
 import { Spiceflow } from 'spiceflow'
 import type { MiddlewareHandler } from 'spiceflow'
 
-const app = new Spiceflow()
+export const app = new Spiceflow()
 
 function createProxyMiddleware({
   target,
@@ -1353,7 +1353,7 @@ import {
 } from '@modelcontextprotocol/sdk/types.js'
 
 // Create a new app with some example routes
-const app = new Spiceflow()
+export const app = new Spiceflow()
   // Mount the MCP plugin at /mcp (default path)
   .use(mcp())
   // These routes will be available as tools
@@ -1435,7 +1435,7 @@ const existingServer = new Server(
 )
 
 // Your Spiceflow app
-const app = new Spiceflow()
+export const app = new Spiceflow()
   .use(mcp()) // Required for MCP configuration
   .route({
     method: 'GET',
@@ -1469,7 +1469,7 @@ interface Env {
   SECRET: string
 }
 
-const app = new Spiceflow()
+export const app = new Spiceflow()
   .state('env', {} as Env)
   .route({
     method: 'GET',
@@ -1507,7 +1507,7 @@ Spiceflow works with standard Request and Response objects, so you can use any c
 import { Spiceflow } from 'spiceflow'
 import { parse, serialize } from 'cookie'
 
-const app = new Spiceflow()
+export const app = new Spiceflow()
   .route({
     method: 'GET',
     path: '/set-cookie',
@@ -1594,7 +1594,7 @@ You can also use cookies in middleware for authentication or session handling:
 import { Spiceflow } from 'spiceflow'
 import { parse, serialize } from 'cookie'
 
-const app = new Spiceflow()
+export const app = new Spiceflow()
   .state('userId', null as string | null)
   .use(async ({ request, state }, next) => {
     // Parse cookies from incoming request
@@ -1646,7 +1646,7 @@ Spiceflow provides a `waitUntil` function in the handler context that allows you
 ```ts
 import { Spiceflow } from 'spiceflow'
 
-const app = new Spiceflow().route({
+export const app = new Spiceflow().route({
   method: 'POST',
   path: '/process',
   async handler({ request, waitUntil }) {
@@ -1673,7 +1673,7 @@ In Cloudflare Workers, `waitUntil` is automatically detected from the global con
 ```ts
 import { Spiceflow } from 'spiceflow'
 
-const app = new Spiceflow().route({
+export const app = new Spiceflow().route({
   method: 'POST',
   path: '/webhook',
   async handler({ request, waitUntil }) {
@@ -1733,7 +1733,7 @@ You can also provide your own `waitUntil` implementation:
 ```ts
 import { Spiceflow } from 'spiceflow'
 
-const app = new Spiceflow({
+export const app = new Spiceflow({
   waitUntil: (promise) => {
     // Custom implementation for non-Cloudflare environments
     promise.catch((err) => console.error('Background task failed:', err))
@@ -1764,7 +1764,7 @@ The `preventProcessExitIfBusy` middleware prevents platforms like Fly.io from ki
 ```ts
 import { Spiceflow, preventProcessExitIfBusy } from 'spiceflow'
 
-const app = new Spiceflow()
+export const app = new Spiceflow()
   .use(
     preventProcessExitIfBusy({
       maxWaitSeconds: 300, // 5 minutes max wait (default: 300)
@@ -1825,7 +1825,7 @@ import './tracing' // must be imported first
 import { trace } from '@opentelemetry/api'
 import { Spiceflow } from 'spiceflow'
 
-const app = new Spiceflow({ tracer: trace.getTracer('my-app') }).get(
+export const app = new Spiceflow({ tracer: trace.getTracer('my-app') }).get(
   '/api/users/:id',
   ({ params }) => {
     return { id: params.id, name: 'Alice' }
@@ -2213,7 +2213,7 @@ Always define a `query` schema on routes and pages that accept query parameters 
 import { Spiceflow } from 'spiceflow'
 import { z } from 'zod'
 
-const app = new Spiceflow()
+export const app = new Spiceflow()
   // Object notation gives you typed query access
   .page({
     path: '/products',
@@ -2267,7 +2267,7 @@ export function ProductFilters() {
 The same pattern works for API routes with `.route()`. Query params are automatically coerced from strings to match the schema type — you don't need `z.coerce.number()`, just use `z.number()` directly:
 
 ```tsx
-const app = new Spiceflow()
+export const app = new Spiceflow()
   .route({
     method: 'GET',
     path: '/api/search',
@@ -2287,7 +2287,7 @@ const app = new Spiceflow()
 
 ```tsx
 // URL: /api/posts?tag=react or /api/posts?tag=react&tag=typescript
-const app = new Spiceflow().route({
+export const app = new Spiceflow().route({
   method: 'GET',
   path: '/api/posts',
   query: z.object({
@@ -2328,7 +2328,7 @@ export function Counter() {
 Loaders run on the server before page and layout handlers. They solve a common problem: when you need the same data in both server components and client components, or in both a layout and a page, without prop drilling or React context.
 
 ```tsx
-const app = new Spiceflow()
+export const app = new Spiceflow()
   // Auth loader for all routes — wildcard pattern matches everything
   .loader('/*', async ({ request }) => {
     const user = await getUser(request.headers.get('cookie'))
@@ -2800,7 +2800,7 @@ In user-facing code, you should almost never convert a Node.js `req`/`res` pair 
 import { Spiceflow } from 'spiceflow'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 
-const app = new Spiceflow().get('/hello', () => {
+export const app = new Spiceflow().get('/hello', () => {
   return { hello: 'world' }
 })
 
