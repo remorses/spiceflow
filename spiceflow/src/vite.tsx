@@ -24,7 +24,17 @@ const pluginRscRpcPath = require.resolve('@vitejs/plugin-rsc/utils/rpc')
 // Module-level so the timestamp is stable even if spiceflowPlugin() is called more than once
 const buildTimestamp = Date.now().toString(36)
 
-export function spiceflowPlugin({ entry }: { entry: string }): PluginOption {
+interface FederationOptions {
+  role: 'host' | 'remote'
+}
+
+export function spiceflowPlugin({
+  entry,
+  federation,
+}: {
+  entry: string
+  federation?: FederationOptions
+}): PluginOption {
   let server: ViteDevServer
   let resolvedOutDir = 'dist'
   let resolvedBase = ''
@@ -37,6 +47,20 @@ export function spiceflowPlugin({ entry }: { entry: string }): PluginOption {
     },
     serverHandler: false as const,
     loadModuleDevProxy: true,
+    // Federation remote mode: separate framework client components from user
+    // client components so user components don't pull in the framework runtime
+    ...(federation?.role === 'remote'
+      ? {
+          clientChunks(meta: { id: string; normalizedId: string }) {
+            // Framework components (from spiceflow package) go in their own group
+            if (meta.id.includes('spiceflow/') || meta.id.includes('spiceflow\\')) {
+              return 'spiceflow-framework'
+            }
+            // User components get their own group
+            return 'user-components'
+          },
+        }
+      : {}),
 
     // Use RSC_ENCRYPTION_KEY env var when set (stable across deploys), otherwise
     // let the plugin generate a random key (fine for dev and single-deploy setups).
@@ -459,7 +483,101 @@ export function spiceflowPlugin({ entry }: { entry: string }): PluginOption {
       )
       return lines.join('\n')
     }),
+    // Federation plugins
+    ...(federation ? federationPlugins(federation, resolvedOutDir) : []),
   ]
+}
+
+const REACT_EXTERNALS = [
+  'react',
+  'react-dom',
+  'react-dom/client',
+  'react/jsx-runtime',
+  'react/jsx-dev-runtime',
+]
+
+function federationPlugins(
+  federation: FederationOptions,
+  resolvedOutDir: string,
+): Plugin[] {
+  if (federation.role === 'remote') {
+    return [
+      {
+        name: 'spiceflow:federation-remote',
+        configEnvironment(name, config) {
+          if (name !== 'client') return
+          config.build ??= {}
+          config.build.rollupOptions ??= {}
+          config.build.rollupOptions.external = REACT_EXTERNALS
+        },
+      },
+    ]
+  }
+
+  if (federation.role === 'host') {
+    // Shared React re-export modules — Vite builds them as separate entry chunks
+    // so they can be referenced by the import map.
+    const sharedDir = path.resolve(
+      path.dirname(url.fileURLToPath(import.meta.url)),
+      'federation/shared',
+    )
+
+    const sharedEntries: Record<string, string> = {
+      'federation-react': path.join(sharedDir, 'react.js'),
+      'federation-react-dom': path.join(sharedDir, 'react-dom.js'),
+      'federation-react-dom-client': path.join(sharedDir, 'react-dom-client.js'),
+      'federation-jsx-runtime': path.join(sharedDir, 'react-jsx-runtime.js'),
+    }
+
+    const specifierMap: Record<string, string[]> = {
+      'federation-react': ['react'],
+      'federation-react-dom': ['react-dom'],
+      'federation-react-dom-client': ['react-dom/client'],
+      'federation-jsx-runtime': ['react/jsx-runtime', 'react/jsx-dev-runtime'],
+    }
+
+    return [
+      {
+        name: 'spiceflow:federation-host',
+        apply: 'build',
+        configEnvironment(name, config) {
+          if (name !== 'client') return
+          config.build ??= {}
+          config.build.rollupOptions ??= {}
+
+          // Merge shared entries with vite-rsc's input
+          const existing = config.build.rollupOptions.input
+          config.build.rollupOptions.input =
+            typeof existing === 'object' && !Array.isArray(existing)
+              ? { ...existing, ...sharedEntries }
+              : sharedEntries
+
+          // Preserve exports in entry chunks so shared React modules
+          // have all named exports (not tree-shaken)
+          config.build.rollupOptions.preserveEntrySignatures = 'allow-extension'
+        },
+        writeBundle(options, bundle) {
+          const imports: Record<string, string> = {}
+          for (const [fileName, chunk] of Object.entries(bundle)) {
+            if (chunk.type !== 'chunk' || !chunk.isEntry) continue
+            const specifiers = specifierMap[chunk.name]
+            if (specifiers) {
+              for (const spec of specifiers) {
+                imports[spec] = '/' + fileName
+              }
+            }
+          }
+          if (Object.keys(imports).length > 0) {
+            const outDir = options.dir || path.join(resolvedOutDir, 'client')
+            const mapPath = path.resolve(outDir, 'federation-import-map.json')
+            fs.writeFileSync(mapPath, JSON.stringify({ imports }, null, 2))
+          }
+        },
+      },
+    ]
+  }
+
+  return []
 }
 
 function hasPluginNamed(

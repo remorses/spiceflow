@@ -67,6 +67,11 @@
       "types": "./dist/openapi.d.ts",
       "default": "./dist/openapi.js"
     },
+    "./federation": {
+      "types": "./dist/federation.rsc.d.ts",
+      "react-server": "./dist/federation.rsc.js",
+      "default": "./dist/federation.default.js"
+    },
     "./src/*": {
       "default": "./src/*.ts"
     },

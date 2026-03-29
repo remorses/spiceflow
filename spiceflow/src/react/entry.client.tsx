@@ -112,6 +112,11 @@ async function fetchFlightResponse(args: {
   return response
 }
 
+// Expose createFromReadableStream globally for federation RemoteIsland components
+// that need to decode Flight payloads from remote servers in the browser.
+;(globalThis as any).__spiceflow_createFromReadableStream =
+  createFromReadableStream
+
 async function main() {
   let setPayload: (v: Promise<ServerPayload>) => void = () => undefined
 
