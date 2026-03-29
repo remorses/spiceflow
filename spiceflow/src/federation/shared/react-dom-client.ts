@@ -1,3 +1,1 @@
-import ReactDOMClient from 'react-dom/client'
-export default ReactDOMClient
-export const { createRoot, hydrateRoot } = ReactDOMClient
+export { default, createRoot, hydrateRoot } from 'react-dom/client'

@@ -25,16 +25,35 @@ function endsWithSequence(haystack: Uint8Array, needle: Uint8Array) {
   return true
 }
 
+function findSequence(haystack: Uint8Array, needle: Uint8Array): number {
+  const limit = haystack.length - needle.length
+  outer: for (let i = 0; i <= limit; i++) {
+    for (let j = 0; j < needle.length; j++) {
+      if (haystack[i + j] !== needle[j]) continue outer
+    }
+    return i
+  }
+  return -1
+}
+
+// Inject import map right after <head> — before modulepreload links.
+// Browsers need the import map parsed before any module preloads that
+// reference bare specifiers like "react".
+const headOpenBytes = encoder.encode('<head>')
+
 export function injectRSCPayload({
   rscStream,
+  importMapJson,
 }: {
   rscStream?: ReadableStream<Uint8Array>
+  importMapJson?: string
 }) {
   let resolveFlightDataPromise: (value: void) => void
   let flightDataPromise = new Promise<void>(
     (resolve) => (resolveFlightDataPromise = resolve),
   )
   let startedRSC = false
+  let importMapInjected = !importMapJson
 
   // Buffer all HTML chunks enqueued during the current tick of the event loop
   // and write them to the output stream all at once. This ensures that we don't
@@ -55,6 +74,25 @@ export function injectRSCPayload({
       let end = chunk.length
       if (endsWithSequence(chunk, trailerBodyBytes)) {
         end -= trailerBodyBytes.length
+      }
+
+      // Inject import map right after <head>, before modulepreload links.
+      // Browsers need the import map parsed before any module preloads
+      // that reference bare specifiers like "react".
+      if (!importMapInjected && end > 0) {
+        const slice = end === chunk.length ? chunk : chunk.subarray(0, end)
+        const headIdx = findSequence(slice, headOpenBytes)
+        if (headIdx >= 0) {
+          importMapInjected = true
+          const afterHead = headIdx + headOpenBytes.length
+          const importMapScript = encoder.encode(
+            `<script type="importmap">${importMapJson}</script>`,
+          )
+          controller.enqueue(slice.subarray(0, afterHead))
+          controller.enqueue(importMapScript)
+          controller.enqueue(slice.subarray(afterHead))
+          continue
+        }
       }
 
       if (end > 0) {

@@ -24,21 +24,20 @@ const pluginRscRpcPath = require.resolve('@vitejs/plugin-rsc/utils/rpc')
 // Module-level so the timestamp is stable even if spiceflowPlugin() is called more than once
 const buildTimestamp = Date.now().toString(36)
 
-interface FederationOptions {
-  role: 'host' | 'remote'
-}
-
 export function spiceflowPlugin({
   entry,
-  federation,
+  remote,
 }: {
   entry: string
-  federation?: FederationOptions
+  remote?: boolean
 }): PluginOption {
   let server: ViteDevServer
   let resolvedOutDir = 'dist'
   let resolvedBase = ''
   let isCloudflareRuntime = false
+  // Import map JSON built during client environment build, consumed by the
+  // virtual:spiceflow-import-map module in the SSR environment build.
+  let importMapJson = ''
   const rscOptions: RscPluginOptions = {
     entries: {
       rsc: 'spiceflow/dist/react/entry.rsc',
@@ -47,16 +46,14 @@ export function spiceflowPlugin({
     },
     serverHandler: false as const,
     loadModuleDevProxy: true,
-    // Federation remote mode: separate framework client components from user
-    // client components so user components don't pull in the framework runtime
-    ...(federation?.role === 'remote'
+    // Remote mode: separate framework client components from user client
+    // components so renderComponentPayload can return only user chunks.
+    ...(remote
       ? {
           clientChunks(meta: { id: string; normalizedId: string }) {
-            // Framework components (from spiceflow package) go in their own group
             if (meta.id.includes('spiceflow/') || meta.id.includes('spiceflow\\')) {
               return 'spiceflow-framework'
             }
-            // User components get their own group
             return 'user-components'
           },
         }
@@ -483,8 +480,32 @@ export function spiceflowPlugin({
       )
       return lines.join('\n')
     }),
-    // Federation plugins
-    ...(federation ? federationPlugins(federation, resolvedOutDir) : []),
+    // Federation: shared React re-export chunks + import map (always-on).
+    // Every app can act as a federation host by embedding <RemoteComponent>.
+    federationSharedPlugin(importMapJson, (json) => { importMapJson = json }),
+    // Virtual module exporting the import map JSON for SSR injection.
+    // The client build populates importMapJson, then the SSR build (which
+    // runs after client) reads it here.
+    createVirtualPlugin('virtual:spiceflow-import-map', () => {
+      return `export default ${JSON.stringify(importMapJson)}`
+    }),
+    // Federation remote: externalize React so remote chunks use bare specifiers
+    // resolved by the host's import map. Can't be always-on because React is a
+    // CJS package — Rolldown's CJS interop generates runtime require() calls
+    // that fail in browsers when shared chunks bundle React directly.
+    ...(remote
+      ? [
+          {
+            name: 'spiceflow:federation-remote',
+            configEnvironment(name: string, config: any) {
+              if (name !== 'client') return
+              config.build ??= {}
+              config.build.rollupOptions ??= {}
+              config.build.rollupOptions.external = REACT_EXTERNALS
+            },
+          } satisfies Plugin,
+        ]
+      : []),
   ]
 }
 
@@ -496,88 +517,67 @@ const REACT_EXTERNALS = [
   'react/jsx-dev-runtime',
 ]
 
-function federationPlugins(
-  federation: FederationOptions,
-  resolvedOutDir: string,
-): Plugin[] {
-  if (federation.role === 'remote') {
-    return [
-      {
-        name: 'spiceflow:federation-remote',
-        configEnvironment(name, config) {
-          if (name !== 'client') return
-          config.build ??= {}
-          config.build.rollupOptions ??= {}
-          config.build.rollupOptions.external = REACT_EXTERNALS
-        },
-      },
-    ]
-  }
+// Shared React re-export modules for federation import maps.
+const sharedDir = path.resolve(
+  path.dirname(url.fileURLToPath(import.meta.url)),
+  'federation/shared',
+)
 
-  if (federation.role === 'host') {
-    // Shared React re-export modules — Vite builds them as separate entry chunks
-    // so they can be referenced by the import map.
-    const sharedDir = path.resolve(
-      path.dirname(url.fileURLToPath(import.meta.url)),
-      'federation/shared',
-    )
+const SHARED_ENTRIES: Record<string, string> = {
+  'federation-react': path.join(sharedDir, 'react.js'),
+  'federation-react-dom': path.join(sharedDir, 'react-dom.js'),
+  'federation-react-dom-client': path.join(sharedDir, 'react-dom-client.js'),
+  'federation-jsx-runtime': path.join(sharedDir, 'react-jsx-runtime.js'),
+}
 
-    const sharedEntries: Record<string, string> = {
-      'federation-react': path.join(sharedDir, 'react.js'),
-      'federation-react-dom': path.join(sharedDir, 'react-dom.js'),
-      'federation-react-dom-client': path.join(sharedDir, 'react-dom-client.js'),
-      'federation-jsx-runtime': path.join(sharedDir, 'react-jsx-runtime.js'),
-    }
+const SPECIFIER_MAP: Record<string, string[]> = {
+  'federation-react': ['react'],
+  'federation-react-dom': ['react-dom'],
+  'federation-react-dom-client': ['react-dom/client'],
+  'federation-jsx-runtime': ['react/jsx-runtime', 'react/jsx-dev-runtime'],
+}
 
-    const specifierMap: Record<string, string[]> = {
-      'federation-react': ['react'],
-      'federation-react-dom': ['react-dom'],
-      'federation-react-dom-client': ['react-dom/client'],
-      'federation-jsx-runtime': ['react/jsx-runtime', 'react/jsx-dev-runtime'],
-    }
+// Emits shared React re-export chunks during the client build and builds
+// the import map JSON. Every spiceflow app gets these chunks so any app
+// can act as a federation host.
+function federationSharedPlugin(
+  _importMapJson: string,
+  setImportMapJson: (json: string) => void,
+): Plugin {
+  const chunkRefs = new Map<string, string>()
 
-    return [
-      {
-        name: 'spiceflow:federation-host',
-        apply: 'build',
-        configEnvironment(name, config) {
-          if (name !== 'client') return
-          config.build ??= {}
-          config.build.rollupOptions ??= {}
+  return {
+    name: 'spiceflow:federation-shared',
+    apply: 'build',
 
-          // Merge shared entries with vite-rsc's input
-          const existing = config.build.rollupOptions.input
-          config.build.rollupOptions.input =
-            typeof existing === 'object' && !Array.isArray(existing)
-              ? { ...existing, ...sharedEntries }
-              : sharedEntries
+    buildStart() {
+      if (this.environment?.name !== 'client') return
+      for (const [name, filePath] of Object.entries(SHARED_ENTRIES)) {
+        const ref = this.emitFile({
+          type: 'chunk',
+          id: filePath,
+          name,
+          preserveSignature: 'strict',
+        })
+        chunkRefs.set(name, ref)
+      }
+    },
 
-          // Preserve exports in entry chunks so shared React modules
-          // have all named exports (not tree-shaken)
-          config.build.rollupOptions.preserveEntrySignatures = 'allow-extension'
-        },
-        writeBundle(options, bundle) {
-          const imports: Record<string, string> = {}
-          for (const [fileName, chunk] of Object.entries(bundle)) {
-            if (chunk.type !== 'chunk' || !chunk.isEntry) continue
-            const specifiers = specifierMap[chunk.name]
-            if (specifiers) {
-              for (const spec of specifiers) {
-                imports[spec] = '/' + fileName
-              }
-            }
+    generateBundle() {
+      if (this.environment?.name !== 'client') return
+      const imports: Record<string, string> = {}
+      for (const [name, ref] of chunkRefs) {
+        const fileName = this.getFileName(ref)
+        const specifiers = SPECIFIER_MAP[name]
+        if (specifiers) {
+          for (const spec of specifiers) {
+            imports[spec] = '/' + fileName
           }
-          if (Object.keys(imports).length > 0) {
-            const outDir = options.dir || path.join(resolvedOutDir, 'client')
-            const mapPath = path.resolve(outDir, 'federation-import-map.json')
-            fs.writeFileSync(mapPath, JSON.stringify({ imports }, null, 2))
-          }
-        },
-      },
-    ]
+        }
+      }
+      setImportMapJson(JSON.stringify({ imports }, null, 2))
+    },
   }
-
-  return []
 }
 
 function hasPluginNamed(

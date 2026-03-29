@@ -39,11 +39,12 @@ export async function renderComponentPayload(element: React.ReactElement): Promi
     undefined, // options
     {
       onClientReference(metadata: { id: string; name: string; deps: { js: string[]; css: string[] } }) {
-        // Only include user-component chunks, not the entry bootstrap or
-        // framework runtime. The host app provides its own runtime — loading
-        // the remote's entry chunk would double-hydrate and conflict.
+        // Only include user-component chunks. The clientChunks callback in the
+        // Vite plugin groups user components under 'user-components' — everything
+        // else (entry bootstrap, framework runtime, shared Rollup helpers) is
+        // excluded. The host provides its own runtime.
         const userChunks = metadata.deps.js.filter(
-          (js) => !js.includes('index-') && !js.includes('spiceflow-framework'),
+          (js) => js.includes('user-components'),
         )
         if (userChunks.length > 0) {
           clientModules[metadata.id] = { chunks: userChunks }

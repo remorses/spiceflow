@@ -22,3 +22,8 @@ declare module 'virtual:spiceflow-deployment-id' {
   const deploymentId: string | undefined
   export default deploymentId
 }
+
+declare module 'virtual:spiceflow-import-map' {
+  const importMapJson: string
+  export default importMapJson
+}

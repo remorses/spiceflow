@@ -7,7 +7,7 @@ export default defineConfig({
   plugins: [
     spiceflowPlugin({
       entry: './app/main.tsx',
-      federation: { role: 'remote' },
+      remote: true,
     }),
     react(),
   ],

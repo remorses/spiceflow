@@ -21,6 +21,14 @@ import { formatServerError } from './format-server-error.js'
 import { sanitizeErrorMessage } from './sanitize-error.js'
 import { injectRSCPayload } from './transform.js'
 
+// Import map JSON loaded once at startup. The virtual module is a static string
+// baked into the SSR bundle at build time. In dev it's empty.
+const importMapJsonPromise: Promise<string> = import.meta.hot
+  ? Promise.resolve('')
+  : import('virtual:spiceflow-import-map')
+      .then((m) => m.default || '')
+      .catch(() => '')
+
 let bootstrapScriptContentPromise: Promise<string> | undefined
 
 function getBootstrapScriptContent() {
@@ -81,7 +89,10 @@ export async function renderHtml({
     ? flightForSsrOrForm.tee()
     : [undefined, flightForSsrOrForm]
 
-  const bootstrapScriptContent = await getBootstrapScriptContent()
+  const [bootstrapScriptContent, importMapJson] = await Promise.all([
+    getBootstrapScriptContent(),
+    importMapJsonPromise,
+  ])
 
   // Keep the first SSR-side createFromReadableStream call inside ReactDOMServer
   // render context so React can register preinit/preload hints for client refs.
@@ -223,6 +234,7 @@ export async function renderHtml({
     htmlStream.pipeThrough(
       injectRSCPayload({
         rscStream: flightStream2,
+        importMapJson,
       }),
     ),
     {

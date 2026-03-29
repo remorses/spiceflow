@@ -1,6 +1,5 @@
-import ReactDOM from 'react-dom'
-export default ReactDOM
-export const {
+export {
+  default,
   flushSync, createPortal, version, preconnect, prefetchDNS,
   preload, preinit, preinitModule, preloadModule, requestFormReset,
-} = ReactDOM
+} from 'react-dom'
