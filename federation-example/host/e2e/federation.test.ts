@@ -121,13 +121,20 @@ test.describe('federation', () => {
     await expect(counter.getByText('counter: 1')).toBeVisible()
   })
 
-  test('host import map is present in HTML', async () => {
+  test('remote component reads host router URL', async ({ page }) => {
+    await page.goto('/')
+    const remoteUrl = page.getByTestId('remote-url')
+    await expect(remoteUrl).toBeVisible({ timeout: 10000 })
+    await expect(remoteUrl).toHaveText('url: /')
+  })
+
+  test('host import map contains spiceflow/react', async () => {
     const response = await fetch(`${baseURL}/`)
     const html = await response.text()
 
     expect(html).toContain('type="importmap"')
     expect(html).toContain('react/jsx-runtime')
-    expect(html).toContain('federation-react')
+    expect(html).toContain('"spiceflow/react"')
   })
 
   test('no React errors during hydration', async ({ page }) => {

@@ -518,6 +518,7 @@ const REACT_EXTERNALS = [
   'react-dom/client',
   'react/jsx-runtime',
   'react/jsx-dev-runtime',
+  'spiceflow/react',
 ]
 
 const sharedDir = path.resolve(
@@ -530,6 +531,7 @@ const SHARED_ENTRIES: Record<string, string> = {
   'federation-react-dom': path.join(sharedDir, 'react-dom.js'),
   'federation-react-dom-client': path.join(sharedDir, 'react-dom-client.js'),
   'federation-jsx-runtime': path.join(sharedDir, 'react-jsx-runtime.js'),
+  'federation-spiceflow-react': path.join(sharedDir, 'spiceflow-react.js'),
 }
 
 const SPECIFIER_MAP: Record<string, string[]> = {
@@ -537,6 +539,7 @@ const SPECIFIER_MAP: Record<string, string[]> = {
   'federation-react-dom': ['react-dom'],
   'federation-react-dom-client': ['react-dom/client'],
   'federation-jsx-runtime': ['react/jsx-runtime', 'react/jsx-dev-runtime'],
+  'federation-spiceflow-react': ['spiceflow/react'],
 }
 
 function federationSharedPlugin(
