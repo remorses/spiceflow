@@ -639,6 +639,7 @@ export type NodeKind =
   | 'loader'
   | 'staticPage'
   | 'staticPageWithoutHandler'
+  | 'staticGet'
 
 export type AddPrefix<Prefix extends string, T> = {
   [K in keyof T as Prefix extends string ? `${Prefix}${K & string}` : K]: T[K]

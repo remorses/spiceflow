@@ -1,6 +1,7 @@
 // Prerender plugin: generates .rsc Flight data files at build time for
-// staticPage() routes. Uses buildApp with order:"post" so it runs AFTER
-// @vitejs/plugin-rsc writes the real assets manifest — no stub needed.
+// staticPage() routes, and plain response files for staticGet() routes.
+// Uses buildApp with order:"post" so it runs AFTER @vitejs/plugin-rsc
+// writes the real assets manifest — no stub needed.
 import fs from 'node:fs'
 import { mkdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
@@ -16,8 +17,9 @@ export type PrerenderManifest = {
 
 type PrerenderEntry = {
   route: string
-  html: string
-  data: string
+  html?: string
+  data?: string
+  file?: string
 }
 
 export function prerenderPlugin(): Plugin[] {
@@ -100,6 +102,33 @@ async function processPrerender(dirs: {
       console.log(`  • ${route.path}`)
       const prerenderHeaders = {
         'x-react-server-render-mode': 'prerender',
+      }
+
+      if (route.kind === 'staticGet') {
+        // staticGet: run the handler and write the raw response body to disk.
+        // The route path should include a file extension (e.g. /api/data.json)
+        // so serveStatic can resolve the MIME type.
+        const url = new URL(route.path, 'https://prerender.local')
+        const response = await entry.fetchHandler(
+          new Request(url, { headers: prerenderHeaders }),
+        )
+        if (!response.ok) {
+          console.error(`  • Failed to prerender ${route.path}`)
+          throw new Error(
+            `Failed to prerender ${route.path}: ${response.status} ${response.statusText}`,
+          )
+        }
+        const outFile = route.path
+        const outPath = path.join(dirs.clientOutDir, outFile)
+        await mkdir(path.dirname(outPath), { recursive: true })
+        const buf = Buffer.from(await response.arrayBuffer())
+        await writeFile(outPath, buf)
+
+        manifest.entries.push({
+          route: route.path,
+          file: outFile,
+        })
+        continue
       }
 
       // Fetch RSC Flight data — __rsc makes fetchHandler return the raw

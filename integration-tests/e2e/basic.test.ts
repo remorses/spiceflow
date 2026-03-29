@@ -85,6 +85,18 @@ test.describe("API route priority over layout-only matches", () => {
 	});
 });
 
+test.describe("staticGet runtime", () => {
+	test("staticGet route responds with JSON at runtime", async () => {
+		const response = await fetch(
+			`${baseURL}${basePath}/api/manifest.json`,
+		);
+		expect(response.status).toBe(200);
+		const json = await response.json();
+		expect(json.name).toBe("integration-tests");
+		expect(json.features).toContain("static-get");
+	});
+});
+
 test.describe("middleware with use()", () => {
 	test("middleware sets response header", async ({ page }) => {
 		const response = await page.goto(url("/"));
@@ -1158,6 +1170,46 @@ test.describe("prerender @build", () => {
 		expect(one).toBeTruthy();
 		expect(one.html).toBe("/static/one.html");
 		expect(one.data).toBe("/static/one.rsc");
+	});
+});
+
+test.describe("staticGet @build", () => {
+	test("staticGet .json file exists on disk after build", async () => {
+		const fs = await import("node:fs");
+		expect(fs.existsSync("dist/client/api/manifest.json")).toBe(true);
+		const content = JSON.parse(
+			fs.readFileSync("dist/client/api/manifest.json", "utf-8"),
+		);
+		expect(content).toEqual({
+			name: "integration-tests",
+			version: "1.0.0",
+			features: ["rsc", "streaming", "static-get"],
+		});
+	});
+
+	test("staticGet route is served as static file", async () => {
+		const response = await fetch(
+			`${baseURL}${basePath}/api/manifest.json`,
+		);
+		expect(response.status).toBe(200);
+		const json = await response.json();
+		expect(json).toEqual({
+			name: "integration-tests",
+			version: "1.0.0",
+			features: ["rsc", "streaming", "static-get"],
+		});
+	});
+
+	test("prerender manifest includes staticGet entry", async () => {
+		const fs = await import("node:fs");
+		const manifest = JSON.parse(
+			fs.readFileSync("dist/client/__prerender.json", "utf-8"),
+		);
+		const entry = manifest.entries.find(
+			(e: { route: string }) => e.route === "/api/manifest.json",
+		);
+		expect(entry).toBeTruthy();
+		expect(entry.file).toBe("/api/manifest.json");
 	});
 });
 

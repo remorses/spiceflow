@@ -1155,6 +1155,48 @@ export class Spiceflow<
     return this as any
   }
 
+  staticGet<
+    const Path extends string,
+    const LocalSchema extends InputSchema<keyof Definitions['type'] & string>,
+    const Schema extends UnwrapRoute<LocalSchema, Definitions['type']>,
+    const Macro extends Metadata['macro'],
+    const Handle extends InlineHandler<
+      this,
+      Schema,
+      Singleton,
+      JoinPath<BasePath, Path>
+    >,
+  >(
+    path: Path,
+    handler: Handle,
+    hook?: LocalHook<
+      LocalSchema,
+      Schema,
+      Singleton,
+      Definitions['error'],
+      Macro,
+      JoinPath<BasePath, Path>
+    >,
+  ): Spiceflow<
+    BasePath,
+    Scoped,
+    Singleton,
+    Definitions,
+    Metadata,
+    ClientRoutes,
+    RoutePaths | JoinPath<BasePath, Path>,
+    RouteQuerySchemas & Record<JoinPath<BasePath, Path>, Schema['query']>
+  > {
+    this.add({
+      method: 'GET',
+      path,
+      handler: handler,
+      hooks: hook,
+      kind: 'staticGet',
+    })
+    return this as any
+  }
+
   layout<
     const Path extends string,
     const LocalSchema extends InputSchema<keyof Definitions['type'] & string>,
@@ -2058,7 +2100,7 @@ export class Spiceflow<
     | { react: false; route: MatchedRoute } {
     const [nonReactRoutes, reactRoutes] = partition(
       routes,
-      (x) => !x.route.kind,
+      (x) => !x.route.kind || x.route.kind === 'staticGet',
     )
     const typedReactRoutes = reactRoutes.filter(isReactMatchedRoute)
 

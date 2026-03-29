@@ -730,6 +730,12 @@ for (const path of somePaths) {
 	app.staticPage(path);
 }
 
+app.staticGet("/api/manifest.json", () => ({
+	name: "integration-tests",
+	version: "1.0.0",
+	features: ["rsc", "streaming", "static-get"],
+}));
+
 async function Redirects() {
 	await sleep(10);
 	throw redirect("/");

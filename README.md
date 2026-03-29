@@ -281,6 +281,26 @@ In this example, `./public/logo.png` wins over `./uploads/logo.png` because `./p
 
 > Vite client build assets (`dist/client`) are served automatically in production — no need to register a `serveStatic` middleware for them.
 
+### Static Routes (Pre-rendered)
+
+Use `.staticGet()` to define API routes that are **pre-rendered at build time** and served as static files. The handler runs once during `vite build`, and the response body is written to `dist/client/` so it can be served directly without hitting the server at runtime:
+
+```ts
+export const app = new Spiceflow()
+  .staticGet('/api/manifest.json', () => ({
+    name: 'my-app',
+    version: '1.0.0',
+    features: ['rsc', 'streaming'],
+  }))
+  .staticGet('/robots.txt', () =>
+    new Response('User-agent: *\nAllow: /', {
+      headers: { 'content-type': 'text/plain' },
+    }),
+  )
+```
+
+In development, `staticGet` routes behave like normal `.get()` handlers — the handler runs on every request. At build time, Spiceflow calls each handler and writes the output to disk. The route path should include a file extension (`.json`, `.xml`, `.txt`) so the static file server can detect the correct MIME type.
+
 ### Authorization
 
 You can handle authorization in a middleware. The example below checks if the user is logged in and uses `.state()` to track the session across handlers:

@@ -19,6 +19,36 @@ test('works', async () => {
   expect(await res.json()).toEqual('hi')
 })
 
+test('staticGet() works as a normal GET handler at runtime', async () => {
+  const app = new Spiceflow().staticGet('/api/manifest.json', () => ({
+    name: 'my-app',
+    version: '1.0.0',
+  }))
+
+  const res = await app.handle(
+    new Request('http://localhost/api/manifest.json'),
+  )
+  expect(res.status).toBe(200)
+  expect(await res.json()).toMatchInlineSnapshot(`
+    {
+      "name": "my-app",
+      "version": "1.0.0",
+    }
+  `)
+})
+
+test('staticGet() returns string response', async () => {
+  const app = new Spiceflow().staticGet('/robots.txt', () =>
+    new Response('User-agent: *\nDisallow:', {
+      headers: { 'content-type': 'text/plain' },
+    }),
+  )
+
+  const res = await app.handle(new Request('http://localhost/robots.txt'))
+  expect(res.status).toBe(200)
+  expect(await res.text()).toBe('User-agent: *\nDisallow:')
+})
+
 test('listen() returns stop() that shuts down the server', async () => {
   const listener = await new Spiceflow()
     .get('/hello', () => 'Hello, World!')
@@ -3722,6 +3752,17 @@ describe('use preserves type safety', () => {
     app.href('/docs/nonexistent')
   })
 
+  test('href works with .staticGet() routes', () => {
+    const app = new Spiceflow()
+      .staticGet('/api/manifest.json', () => ({ name: 'app' }))
+      .staticGet('/sitemap.xml', () => '<sitemap/>')
+
+    expect(app.href('/api/manifest.json')).toBe('/api/manifest.json')
+    expect(app.href('/sitemap.xml')).toBe('/sitemap.xml')
+    // @ts-expect-error - invalid path
+    app.href('/nonexistent')
+  })
+
   test('createHref works with mounted subapps', () => {
     const child = new Spiceflow({ basePath: '/api' })
       .get('/users', () => [])
@@ -3904,6 +3945,21 @@ describe('use preserves type safety', () => {
     client.docs.intro
   })
 
+  test('staticGet routes excluded from proxy client types', () => {
+    const child = new Spiceflow({ basePath: '/docs' })
+      .staticGet('/data', () => ({ name: 'app' }))
+      .get('/api/users', () => [])
+
+    const app = new Spiceflow().use(child)
+    const client = createSpiceflowClient(app)
+
+    // API route is accessible
+    client.docs.api.users.get()
+
+    // @ts-expect-error - staticGet route not in ClientRoutes
+    client.docs.data
+  })
+
   test('page routes excluded from fetch client ClientRoutes', () => {
     const child = new Spiceflow({ basePath: '/app' })
       .page('/dashboard', async () => 'Dashboard')
@@ -4000,6 +4056,25 @@ describe('.use() with page and layout routes', () => {
       [
         "/admin/dashboard",
         "/admin/settings",
+      ]
+    `)
+  })
+
+  test('getAllRoutes includes staticGet routes from sub-app with basePath', () => {
+    const subApp = new Spiceflow({ basePath: '/api' })
+      .staticGet('/manifest.json', () => ({ name: 'app' }))
+      .staticGet('/config.json', () => ({ debug: false }))
+
+    const app = new Spiceflow().use(subApp)
+
+    const allRoutes = app.getAllRoutes()
+    const staticGetRoutes = allRoutes.filter((r) => r.kind === 'staticGet')
+    const paths = [...new Set(staticGetRoutes.map((r) => r.path))].sort()
+
+    expect(paths).toMatchInlineSnapshot(`
+      [
+        "/api/config.json",
+        "/api/manifest.json",
       ]
     `)
   })
