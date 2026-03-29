@@ -24,12 +24,14 @@ async function streamToString(stream: ReadableStream<Uint8Array>): Promise<strin
 export async function renderComponentPayload(element: React.ReactElement): Promise<{
   remoteId: string
   flightPayload: string
-  clientModules: Record<string, { chunks: string[] }>
+  clientModules: Record<string, { chunks: string[]; css: string[] }>
+  cssLinks: string[]
   ssrHtml: string
 }> {
   const remoteId = 'r_' + Math.random().toString(36).slice(2, 10)
 
-  const clientModules: Record<string, { chunks: string[] }> = {}
+  const clientModules: Record<string, { chunks: string[]; css: string[] }> = {}
+  const cssLinksSet = new Set<string>()
 
   const flightStream = renderToReadableStream(
     element,
@@ -39,13 +41,18 @@ export async function renderComponentPayload(element: React.ReactElement): Promi
         const userChunks = metadata.deps.js.filter(
           (js) => js.includes('user-components'),
         )
+        for (const css of metadata.deps.css) {
+          cssLinksSet.add(css)
+        }
         if (userChunks.length > 0) {
-          clientModules[metadata.id] = { chunks: userChunks }
+          clientModules[metadata.id] = { chunks: userChunks, css: metadata.deps.css }
         }
       },
     },
   )
   const flightPayload = await streamToString(flightStream)
+
+  const cssLinks = [...cssLinksSet]
 
   // Render SSR HTML by decoding the Flight payload in the SSR environment.
   // Uses the same cross-environment call pattern as handle-ssr.rsc.ts.
@@ -60,5 +67,5 @@ export async function renderComponentPayload(element: React.ReactElement): Promi
     // still works, the user just sees a brief flash of empty content).
   }
 
-  return { remoteId, flightPayload, clientModules, ssrHtml }
+  return { remoteId, flightPayload, clientModules, cssLinks, ssrHtml }
 }

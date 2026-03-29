@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import './counter.css'
 
 export function Counter({ label = 'Remote' }: { label?: string }) {
   const [count, setCount] = useState(0)

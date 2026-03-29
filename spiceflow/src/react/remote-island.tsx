@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react'
 
 interface ClientModules {
-  [id: string]: { chunks: string[] }
+  [id: string]: { chunks: string[]; css?: string[] }
 }
 
 // Module-level registry: maps clean module IDs → module namespace objects.
@@ -49,6 +49,11 @@ function getOrCreateTree({
   return promise
 }
 
+function resolveUrl(path: string, origin: string): string {
+  if (path.startsWith('http://') || path.startsWith('https://')) return path
+  return origin + path
+}
+
 async function decodeRemoteTree({
   flightPayload,
   remoteOrigin,
@@ -58,12 +63,25 @@ async function decodeRemoteTree({
   remoteOrigin: string
   clientModules: ClientModules
 }): Promise<React.ReactNode> {
+  // Inject CSS <link> tags for remote stylesheets before rendering.
+  for (const [, info] of Object.entries(clientModules)) {
+    for (const cssPath of info.css ?? []) {
+      const href = resolveUrl(cssPath, remoteOrigin)
+      if (!document.querySelector(`link[href="${CSS.escape(href)}"]`)) {
+        const link = document.createElement('link')
+        link.rel = 'stylesheet'
+        link.href = href
+        document.head.appendChild(link)
+      }
+    }
+  }
+
   // Load all remote client component chunks and register their exports
   // before decoding the Flight payload, so the Flight decoder can
   // resolve client references synchronously.
   for (const [moduleId, info] of Object.entries(clientModules)) {
     for (const chunkPath of info.chunks) {
-      const chunkUrl = remoteOrigin + chunkPath
+      const chunkUrl = resolveUrl(chunkPath, remoteOrigin)
       const mod = await import(/* @vite-ignore */ chunkUrl)
       const exportName = 'export_' + moduleId
       if (mod[exportName]) {

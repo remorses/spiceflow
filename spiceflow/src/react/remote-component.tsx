@@ -1,3 +1,4 @@
+import ReactDOM from 'react-dom'
 import { RemoteIsland } from './remote-island.js'
 
 export async function RemoteComponent({
@@ -18,6 +19,14 @@ export async function RemoteComponent({
   }
 
   const data = await response.json()
+
+  // Inject CSS links via React's preinit API so Fizz emits <link> tags
+  // in the host's streamed HTML. Paths are already absolute when the
+  // remote sets Vite base to its own URL.
+  for (const cssHref of data.cssLinks ?? []) {
+    const href = cssHref.startsWith('http') ? cssHref : url.origin + cssHref
+    ReactDOM.preinit(href, { as: 'style', precedence: 'spiceflow-federation' })
+  }
 
   return (
     <RemoteIsland

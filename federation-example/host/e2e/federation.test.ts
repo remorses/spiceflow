@@ -27,7 +27,7 @@ test.describe('federation', () => {
     // clientModules should only contain user-component chunks, not index/framework
     for (const [, info] of Object.entries(data.clientModules) as [
       string,
-      { chunks: string[] },
+      { chunks: string[]; css: string[] },
     ][]) {
       for (const chunk of info.chunks) {
         expect(chunk).toContain('user-components')
@@ -35,6 +35,20 @@ test.describe('federation', () => {
         expect(chunk).not.toContain('spiceflow-framework')
       }
     }
+
+    // CSS links are included in the payload
+    expect(data.cssLinks).toBeTruthy()
+    expect(data.cssLinks.length).toBeGreaterThan(0)
+    for (const cssLink of data.cssLinks) {
+      expect(cssLink).toContain(remoteURL)
+      expect(cssLink).toMatch(/\.css$/)
+    }
+
+    // clientModules entries include css arrays
+    const modulesWithCss = Object.values(data.clientModules).filter(
+      (info: any) => info.css && info.css.length > 0,
+    )
+    expect(modulesWithCss.length).toBeGreaterThan(0)
   })
 
   test('remote component is SSR-rendered in the host HTML', async () => {
@@ -57,6 +71,36 @@ test.describe('federation', () => {
     // Remote client component (Counter) initial state is SSR-rendered
     expect(visible).toContain('data-testid="remote-counter"')
     expect(visible).toContain('counter:')
+  })
+
+  test('remote CSS is injected in host HTML via preinit', async () => {
+    const response = await fetch(`${baseURL}/`)
+    const html = await response.text()
+
+    // ReactDOM.preinit emits <link rel="stylesheet"> tags with the
+    // remote's absolute CSS URL in the host HTML.
+    const cssLinkRegex = new RegExp(
+      `<link[^>]*rel="stylesheet"[^>]*href="${remoteURL.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[^"]*\\.css"`,
+    )
+    expect(html).toMatch(cssLinkRegex)
+  })
+
+  test('remote chunk URLs are absolute (use remote base)', async () => {
+    const response = await fetch(
+      `${remoteURL}/api/chart?dataSource=revenue`,
+    )
+    const data = await response.json()
+
+    // JS chunk paths should be absolute with remote origin
+    for (const [, info] of Object.entries(data.clientModules) as [
+      string,
+      { chunks: string[]; css: string[] },
+    ][]) {
+      for (const chunk of info.chunks) {
+        expect(chunk).toMatch(/^https?:\/\//)
+        expect(chunk).toContain(remoteURL)
+      }
+    }
   })
 
   test('remote client component hydrates and is interactive', async ({

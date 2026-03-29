@@ -175,14 +175,17 @@ export function spiceflowPlugin({
         // Capture base early — Vite normalizes it to '/' by default, but the
         // raw user value is available here before configResolved runs.
         const rawBase = userConfig.base || '/'
-        if (rawBase !== '/' && !rawBase.startsWith('/')) {
+        const isAbsoluteUrl = rawBase.startsWith('http://') || rawBase.startsWith('https://')
+        if (rawBase !== '/' && !rawBase.startsWith('/') && !isAbsoluteUrl) {
           throw new Error(
             `[spiceflow] config.base must be an absolute path starting with "/", got "${rawBase}". ` +
               `CDN URLs (https://...) and relative paths (./) are not supported. ` +
               `Use base: "/my-app" instead.`,
           )
         }
-        resolvedBase = rawBase.replace(/\/$/, '')
+        // For federation remotes using absolute URL base, don't strip — keep
+        // it as-is so asset paths resolve to the remote origin.
+        resolvedBase = isAbsoluteUrl ? '' : rawBase.replace(/\/$/, '')
         const userOnWarn = userConfig.build?.rollupOptions?.onwarn
         const isCloudflare = hasPluginNamed(
           userConfig.plugins,
@@ -250,7 +253,12 @@ export function spiceflowPlugin({
       },
       configResolved(config) {
         resolvedOutDir = config.build.outDir
-        resolvedBase = (config.base || '/').replace(/\/$/, '')
+        const base = config.base || '/'
+        // For absolute URL bases (federation remotes), don't use the URL as a
+        // route prefix — it would break route matching. Asset paths already
+        // include the full URL via Vite's base handling.
+        const isAbsUrl = base.startsWith('http://') || base.startsWith('https://')
+        resolvedBase = isAbsUrl ? '' : base.replace(/\/$/, '')
         isCloudflareRuntime = config.plugins.some((plugin) =>
           plugin.name.startsWith('vite-plugin-cloudflare:'),
         )
@@ -531,10 +539,15 @@ function federationSharedPlugin(
   setImportMapJson: (json: string) => void,
 ): Plugin {
   const chunkRefs = new Map<string, string>()
+  let base = '/'
 
   return {
     name: 'spiceflow:federation-shared',
     apply: 'build',
+
+    configResolved(config) {
+      base = config.base || '/'
+    },
 
     buildStart() {
       if (this.environment?.name !== 'client') return
@@ -552,12 +565,14 @@ function federationSharedPlugin(
     generateBundle() {
       if (this.environment?.name !== 'client') return
       const imports: Record<string, string> = {}
+      // Use the Vite base so paths are absolute when base is a full URL
+      const prefix = base.endsWith('/') ? base : base + '/'
       for (const [name, ref] of chunkRefs) {
         const fileName = this.getFileName(ref)
         const specifiers = SPECIFIER_MAP[name]
         if (specifiers) {
           for (const spec of specifiers) {
-            imports[spec] = '/' + fileName
+            imports[spec] = prefix + fileName
           }
         }
       }
