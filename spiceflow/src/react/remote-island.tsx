@@ -28,6 +28,8 @@ function ensureRequirePatched() {
 }
 
 // Cache decoded React trees by remoteId so re-renders don't re-decode.
+// Bounded to prevent unbounded memory growth in long-lived sessions.
+const MAX_TREE_CACHE = 100
 const treeCache = new Map<string, Promise<React.ReactNode>>()
 
 function getOrCreateTree({
@@ -44,14 +46,18 @@ function getOrCreateTree({
   const cached = treeCache.get(remoteId)
   if (cached) return cached
 
+  if (treeCache.size >= MAX_TREE_CACHE) {
+    const oldest = treeCache.keys().next().value
+    if (oldest) treeCache.delete(oldest)
+  }
+
   const promise = decodeRemoteTree({ flightPayload, remoteOrigin, clientModules })
   treeCache.set(remoteId, promise)
   return promise
 }
 
 function resolveUrl(path: string, origin: string): string {
-  if (path.startsWith('http://') || path.startsWith('https://')) return path
-  return origin + path
+  return new URL(path, origin).toString()
 }
 
 async function decodeRemoteTree({

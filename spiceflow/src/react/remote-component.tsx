@@ -24,7 +24,7 @@ export async function RemoteComponent({
   // in the host's streamed HTML. Paths are already absolute when the
   // remote sets Vite base to its own URL.
   for (const cssHref of data.cssLinks ?? []) {
-    const href = cssHref.startsWith('http') ? cssHref : url.origin + cssHref
+    const href = new URL(cssHref, url.origin).toString()
     ReactDOM.preinit(href, { as: 'style', precedence: 'spiceflow-federation' })
   }
 

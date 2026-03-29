@@ -24,6 +24,18 @@ const pluginRscRpcPath = require.resolve('@vitejs/plugin-rsc/utils/rpc')
 // Module-level so the timestamp is stable even if spiceflowPlugin() is called more than once
 const buildTimestamp = Date.now().toString(36)
 
+// For absolute URL bases (e.g. federation remotes using
+// `base: 'https://remote.example.com/app/'`), extract just the pathname
+// so route matching and serveStatic work correctly. Asset URLs already
+// include the full origin via Vite's built-in base handling.
+function extractBasePathname(base: string): string {
+  if (base.startsWith('http://') || base.startsWith('https://')) {
+    const pathname = new URL(base).pathname.replace(/\/$/, '')
+    return pathname || ''
+  }
+  return base === '/' ? '' : base.replace(/\/$/, '')
+}
+
 export function spiceflowPlugin({
   entry,
   remote,
@@ -183,9 +195,7 @@ export function spiceflowPlugin({
               `Use base: "/my-app" instead.`,
           )
         }
-        // For federation remotes using absolute URL base, don't strip — keep
-        // it as-is so asset paths resolve to the remote origin.
-        resolvedBase = isAbsoluteUrl ? '' : rawBase.replace(/\/$/, '')
+        resolvedBase = extractBasePathname(rawBase)
         const userOnWarn = userConfig.build?.rollupOptions?.onwarn
         const isCloudflare = hasPluginNamed(
           userConfig.plugins,
@@ -253,12 +263,7 @@ export function spiceflowPlugin({
       },
       configResolved(config) {
         resolvedOutDir = config.build.outDir
-        const base = config.base || '/'
-        // For absolute URL bases (federation remotes), don't use the URL as a
-        // route prefix — it would break route matching. Asset paths already
-        // include the full URL via Vite's base handling.
-        const isAbsUrl = base.startsWith('http://') || base.startsWith('https://')
-        resolvedBase = isAbsUrl ? '' : base.replace(/\/$/, '')
+        resolvedBase = extractBasePathname(config.base || '/')
         isCloudflareRuntime = config.plugins.some((plugin) =>
           plugin.name.startsWith('vite-plugin-cloudflare:'),
         )
