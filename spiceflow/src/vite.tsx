@@ -35,8 +35,6 @@ export function spiceflowPlugin({
   let resolvedOutDir = 'dist'
   let resolvedBase = ''
   let isCloudflareRuntime = false
-  // Import map JSON built during client environment build, consumed by the
-  // virtual:spiceflow-import-map module in the SSR environment build.
   let importMapJson = ''
   const rscOptions: RscPluginOptions = {
     entries: {
@@ -46,8 +44,6 @@ export function spiceflowPlugin({
     },
     serverHandler: false as const,
     loadModuleDevProxy: true,
-    // Remote mode: separate framework client components from user client
-    // components so renderComponentPayload can return only user chunks.
     ...(remote
       ? {
           clientChunks(meta: { id: string; normalizedId: string }) {
@@ -480,19 +476,13 @@ export function spiceflowPlugin({
       )
       return lines.join('\n')
     }),
-    // Federation: shared React re-export chunks + import map (always-on).
-    // Every app can act as a federation host by embedding <RemoteComponent>.
     federationSharedPlugin(importMapJson, (json) => { importMapJson = json }),
-    // Virtual module exporting the import map JSON for SSR injection.
-    // The client build populates importMapJson, then the SSR build (which
-    // runs after client) reads it here.
     createVirtualPlugin('virtual:spiceflow-import-map', () => {
       return `export default ${JSON.stringify(importMapJson)}`
     }),
-    // Federation remote: externalize React so remote chunks use bare specifiers
-    // resolved by the host's import map. Can't be always-on because React is a
-    // CJS package — Rolldown's CJS interop generates runtime require() calls
-    // that fail in browsers when shared chunks bundle React directly.
+    // Externalize React for remote apps so bare specifiers are resolved
+    // by the host's import map. Can't be always-on because React is CJS
+    // and Rolldown's interop generates require() that fails in browsers.
     ...(remote
       ? [
           {
@@ -517,7 +507,6 @@ const REACT_EXTERNALS = [
   'react/jsx-dev-runtime',
 ]
 
-// Shared React re-export modules for federation import maps.
 const sharedDir = path.resolve(
   path.dirname(url.fileURLToPath(import.meta.url)),
   'federation/shared',
@@ -537,9 +526,6 @@ const SPECIFIER_MAP: Record<string, string[]> = {
   'federation-jsx-runtime': ['react/jsx-runtime', 'react/jsx-dev-runtime'],
 }
 
-// Emits shared React re-export chunks during the client build and builds
-// the import map JSON. Every spiceflow app gets these chunks so any app
-// can act as a federation host.
 function federationSharedPlugin(
   _importMapJson: string,
   setImportMapJson: (json: string) => void,

@@ -114,8 +114,7 @@ async function fetchFlightResponse(args: {
 
 // Expose createFromReadableStream globally for federation RemoteIsland components
 // that need to decode Flight payloads from remote servers in the browser.
-;(globalThis as any).__spiceflow_createFromReadableStream =
-  createFromReadableStream
+globalThis.__spiceflow_createFromReadableStream = createFromReadableStream
 
 // React prod replaces error.message with a generic string for security but
 // keeps error.digest (set by our onError callback). Restore the original

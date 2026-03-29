@@ -27,3 +27,9 @@ declare module 'virtual:spiceflow-import-map' {
   const importMapJson: string
   export default importMapJson
 }
+
+// Federation: Flight decoder exposed globally by entry.client.tsx
+// so RemoteIsland can decode remote Flight payloads in the browser.
+declare var __spiceflow_createFromReadableStream: (<T>(
+  stream: ReadableStream<Uint8Array>,
+) => PromiseLike<T>) | undefined

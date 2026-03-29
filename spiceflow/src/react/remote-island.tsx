@@ -1,77 +1,84 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import React, { useEffect, useState } from 'react'
 
 interface ClientModules {
   [id: string]: { chunks: string[] }
 }
 
-export function RemoteIsland({
+// Module-level registry: maps clean module IDs → module namespace objects.
+// Populated by decodeRemoteTree, read by the patched __vite_rsc_client_require__.
+const remoteRegistry = new Map<string, Record<string, any>>()
+
+// One-time idempotent patch of the global client require function.
+// Wraps only once — concurrent RemoteIslands all share the same registry.
+let requirePatched = false
+function ensureRequirePatched() {
+  if (requirePatched) return
+  requirePatched = true
+  const g = globalThis as any
+  const orig = g.__vite_rsc_client_require__
+  if (!orig) return
+  g.__vite_rsc_client_require__ = (id: string) => {
+    const cleanId = id.split('$$cache=')[0]
+    const mod = remoteRegistry.get(cleanId)
+    if (mod) return mod
+    return orig(id)
+  }
+}
+
+// Cache decoded React trees by remoteId so re-renders don't re-decode.
+const treeCache = new Map<string, Promise<React.ReactNode>>()
+
+function getOrCreateTree({
+  remoteId,
   flightPayload,
   remoteOrigin,
-  remoteId,
+  clientModules,
+}: {
+  remoteId: string
+  flightPayload: string
+  remoteOrigin: string
+  clientModules: ClientModules
+}): Promise<React.ReactNode> {
+  const cached = treeCache.get(remoteId)
+  if (cached) return cached
+
+  const promise = decodeRemoteTree({ flightPayload, remoteOrigin, clientModules })
+  treeCache.set(remoteId, promise)
+  return promise
+}
+
+async function decodeRemoteTree({
+  flightPayload,
+  remoteOrigin,
   clientModules,
 }: {
   flightPayload: string
   remoteOrigin: string
-  remoteId: string
   clientModules: ClientModules
-}) {
-  const ref = useRef<HTMLDivElement>(null)
-  const hydrated = useRef(false)
-
-  useEffect(() => {
-    if (hydrated.current || !ref.current) return
-    hydrated.current = true
-    hydrateRemote(ref.current, flightPayload, remoteOrigin, clientModules)
-  }, [flightPayload, remoteOrigin])
-
-  return <div ref={ref} data-remote-id={remoteId} />
-}
-
-async function hydrateRemote(
-  container: HTMLElement,
-  flightPayload: string,
-  remoteOrigin: string,
-  clientModules: ClientModules,
-) {
-  const { createRoot } = await import('react-dom/client')
-  const g = globalThis as any
-
-  // Pre-load all remote chunks and extract exports.
-  // Keys are module IDs, values are module namespace objects (e.g. { Counter: fn }).
-  const remoteExports: Record<string, any> = {}
+}): Promise<React.ReactNode> {
+  // Load all remote client component chunks and register their exports
+  // before decoding the Flight payload, so the Flight decoder can
+  // resolve client references synchronously.
   for (const [moduleId, info] of Object.entries(clientModules)) {
     for (const chunkPath of info.chunks) {
       const chunkUrl = remoteOrigin + chunkPath
-      console.log('[RemoteIsland] loading chunk:', chunkUrl)
       const mod = await import(/* @vite-ignore */ chunkUrl)
       const exportName = 'export_' + moduleId
       if (mod[exportName]) {
-        remoteExports[moduleId] = mod[exportName]
+        remoteRegistry.set(moduleId, mod[exportName])
       }
     }
   }
 
-  // Patch client require to resolve remote module IDs.
-  // The Flight decoder's `d()` function calls `__vite_rsc_require__` → `__vite_rsc_client_require__`
-  // and accesses named exports directly on the return value (e.g. result["Counter"]).
-  // For non-async modules it does NOT unwrap thenables, so we must return
-  // the module namespace object directly — NOT wrapped in Promise.resolve().
-  const origRequire = g.__vite_rsc_client_require__
-  if (origRequire) {
-    g.__vite_rsc_client_require__ = (id: string) => {
-      const cleanId = id.split('$$cache=')[0]
-      if (remoteExports[cleanId]) return remoteExports[cleanId]
-      return origRequire(id)
-    }
-  }
+  ensureRequirePatched()
 
-  // Decode the Flight payload using host's global decoder
-  const createFromReadableStream = g.__spiceflow_createFromReadableStream
+  const createFromReadableStream = globalThis.__spiceflow_createFromReadableStream
   if (!createFromReadableStream) {
-    console.error('[RemoteIsland] Flight decoder not available')
-    return
+    throw new Error(
+      '[RemoteIsland] Flight decoder not available — ensure the host app is a spiceflow RSC app',
+    )
   }
 
   const stream = new ReadableStream({
@@ -81,7 +88,55 @@ async function hydrateRemote(
     },
   })
 
-  const tree = await (createFromReadableStream(stream) as Promise<any>)
-  const root = createRoot(container)
-  root.render(tree)
+  return createFromReadableStream(stream) as Promise<React.ReactNode>
+}
+
+// Renders the decoded remote tree inline in the host React tree instead of
+// in a separate createRoot. Remote client components share host context,
+// appear in React DevTools, and benefit from shared React instance.
+//
+// During SSR, renders the pre-rendered HTML from the remote server via
+// dangerouslySetInnerHTML so the content is visible without JavaScript.
+// After client hydration, the Flight payload is decoded and the static
+// HTML is replaced with the interactive React tree.
+export function RemoteIsland({
+  flightPayload,
+  remoteOrigin,
+  remoteId,
+  clientModules,
+  ssrHtml,
+}: {
+  flightPayload: string
+  remoteOrigin: string
+  remoteId: string
+  clientModules: ClientModules
+  ssrHtml?: string
+}) {
+  const [tree, setTree] = useState<React.ReactNode>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    getOrCreateTree({ remoteId, flightPayload, remoteOrigin, clientModules }).then(
+      (decoded) => {
+        if (!cancelled) setTree(decoded)
+      },
+    )
+    return () => {
+      cancelled = true
+    }
+  }, [remoteId, flightPayload, remoteOrigin])
+
+  // Before Flight decoding completes, show the pre-rendered SSR HTML.
+  // This matches both SSR output and initial client render (no hydration mismatch).
+  // Once the Flight tree is decoded, switch to the interactive React tree.
+  if (!tree && ssrHtml) {
+    return (
+      <div
+        data-remote-id={remoteId}
+        dangerouslySetInnerHTML={{ __html: ssrHtml }}
+      />
+    )
+  }
+
+  return <div data-remote-id={remoteId}>{tree}</div>
 }

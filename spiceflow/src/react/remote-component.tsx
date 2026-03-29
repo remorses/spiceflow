@@ -25,6 +25,7 @@ export async function RemoteComponent({
       remoteOrigin={url.origin}
       remoteId={data.remoteId}
       clientModules={data.clientModules || {}}
+      ssrHtml={data.ssrHtml || ''}
     />
   )
 }

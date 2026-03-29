@@ -1,6 +1,3 @@
-// Federation utilities for the RSC environment.
-// Resolved via package.json exports under the "react-server" condition.
-
 import { renderToReadableStream } from '#rsc-runtime'
 
 export { renderToReadableStream }
@@ -28,10 +25,10 @@ export async function renderComponentPayload(element: React.ReactElement): Promi
   remoteId: string
   flightPayload: string
   clientModules: Record<string, { chunks: string[] }>
+  ssrHtml: string
 }> {
   const remoteId = 'r_' + Math.random().toString(36).slice(2, 10)
 
-  // Collect client references during rendering
   const clientModules: Record<string, { chunks: string[] }> = {}
 
   const flightStream = renderToReadableStream(
@@ -39,10 +36,6 @@ export async function renderComponentPayload(element: React.ReactElement): Promi
     undefined, // options
     {
       onClientReference(metadata: { id: string; name: string; deps: { js: string[]; css: string[] } }) {
-        // Only include user-component chunks. The clientChunks callback in the
-        // Vite plugin groups user components under 'user-components' — everything
-        // else (entry bootstrap, framework runtime, shared Rollup helpers) is
-        // excluded. The host provides its own runtime.
         const userChunks = metadata.deps.js.filter(
           (js) => js.includes('user-components'),
         )
@@ -54,5 +47,18 @@ export async function renderComponentPayload(element: React.ReactElement): Promi
   )
   const flightPayload = await streamToString(flightStream)
 
-  return { remoteId, flightPayload, clientModules }
+  // Render SSR HTML by decoding the Flight payload in the SSR environment.
+  // Uses the same cross-environment call pattern as handle-ssr.rsc.ts.
+  let ssrHtml = ''
+  try {
+    const ssrModule = await import.meta.viteRsc.loadModule<
+      typeof import('./react/entry.ssr.js')
+    >('ssr', 'index')
+    ssrHtml = await ssrModule.renderFlightToHtml(flightPayload)
+  } catch {
+    // SSR HTML is best-effort — degrade to empty string (client decoding
+    // still works, the user just sees a brief flash of empty content).
+  }
+
+  return { remoteId, flightPayload, clientModules, ssrHtml }
 }

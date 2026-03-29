@@ -21,8 +21,6 @@ import { formatServerError } from './format-server-error.js'
 import { sanitizeErrorMessage } from './sanitize-error.js'
 import { injectRSCPayload } from './transform.js'
 
-// Import map JSON loaded once at startup. The virtual module is a static string
-// baked into the SSR bundle at build time. In dev it's empty.
 const importMapJsonPromise: Promise<string> = import.meta.hot
   ? Promise.resolve('')
   : import('virtual:spiceflow-import-map')
@@ -267,4 +265,41 @@ export async function getPrerenderRoutes() {
         route.kind === 'staticPageWithoutHandler',
     )
     .filter((x) => x.method === 'GET')
+}
+
+// Federation: decode a Flight payload and render it to an HTML string.
+// Called from the RSC environment via loadModule('ssr', 'index').
+export async function renderFlightToHtml(
+  flightPayload: string,
+): Promise<string> {
+  const stream = new ReadableStream({
+    start(controller) {
+      controller.enqueue(new TextEncoder().encode(flightPayload))
+      controller.close()
+    },
+  })
+
+  const tree = await (createFromReadableStream(stream) as Promise<React.ReactNode>)
+  const htmlStream = await ReactDOMServer.renderToReadableStream(
+    React.createElement(React.Fragment, null, tree),
+  )
+  await htmlStream.allReady
+
+  const reader = htmlStream.getReader()
+  const decoder = new TextDecoder()
+  let html = ''
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+    html += decoder.decode(value, { stream: true })
+  }
+  html += decoder.decode()
+
+  // Strip Float resource hints (modulepreload links, preinit scripts) that
+  // React SSR emits for client references. These URLs are relative to the
+  // remote server — when embedded in the host HTML they'd 404.
+  html = html.replace(/<link[^>]*rel=["']modulepreload["'][^>]*\/?>/gi, '')
+  html = html.replace(/<script[^>]*(?:src=["'][^"']*["'])[^>]*>\s*<\/script>/gi, '')
+
+  return html
 }

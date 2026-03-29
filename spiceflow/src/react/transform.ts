@@ -36,9 +36,7 @@ function findSequence(haystack: Uint8Array, needle: Uint8Array): number {
   return -1
 }
 
-// Inject import map right after <head> — before modulepreload links.
-// Browsers need the import map parsed before any module preloads that
-// reference bare specifiers like "react".
+// Must be injected before modulepreload links that use bare specifiers.
 const headOpenBytes = encoder.encode('<head>')
 
 export function injectRSCPayload({
@@ -76,9 +74,6 @@ export function injectRSCPayload({
         end -= trailerBodyBytes.length
       }
 
-      // Inject import map right after <head>, before modulepreload links.
-      // Browsers need the import map parsed before any module preloads
-      // that reference bare specifiers like "react".
       if (!importMapInjected && end > 0) {
         const slice = end === chunk.length ? chunk : chunk.subarray(0, end)
         const headIdx = findSequence(slice, headOpenBytes)

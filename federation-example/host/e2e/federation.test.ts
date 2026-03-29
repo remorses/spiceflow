@@ -18,6 +18,12 @@ test.describe('federation', () => {
     expect(data.flightPayload).toContain('Counter')
     expect(data.clientModules).toBeTruthy()
 
+    // ssrHtml contains pre-rendered HTML for the component
+    expect(data.ssrHtml).toContain('data-testid="remote-chart"')
+    expect(data.ssrHtml).toContain('revenue')
+    expect(data.ssrHtml).toContain('data-testid="remote-counter"')
+    expect(data.ssrHtml).toContain('counter:')
+
     // clientModules should only contain user-component chunks, not index/framework
     for (const [, info] of Object.entries(data.clientModules) as [
       string,
@@ -31,27 +37,26 @@ test.describe('federation', () => {
     }
   })
 
-  test('host SSR includes remote flight payload', async () => {
+  test('remote component is SSR-rendered in the host HTML', async () => {
     const response = await fetch(`${baseURL}/`)
     expect(response.ok).toBe(true)
     const html = await response.text()
 
-    expect(html).toContain('Federation Host App')
-    expect(html).toContain('data-remote-id')
-    // The remote content is embedded as a Flight payload prop on RemoteIsland,
-    // not directly SSR-rendered. Verify the payload data is in the HTML.
-    expect(html).toContain('remote-chart')
-    expect(html).toContain('user-components')
-  })
+    // Strip <script> tags so we only check visible HTML, not Flight payload
+    // data embedded in inline scripts.
+    const visible = html.replace(/<script[\s\S]*?<\/script>/gi, '')
 
-  test('host page renders remote server component data', async ({ page }) => {
-    await page.goto('/')
-    await expect(page.getByTestId('host-title')).toHaveText(
-      'Federation Host App',
-    )
-    await expect(page.getByText('Chart: revenue')).toBeVisible()
-    await expect(page.getByText('Point 1: 10')).toBeVisible()
-    await expect(page.getByText('Point 5: 20')).toBeVisible()
+    expect(visible).toContain('Federation Host App')
+    expect(visible).toContain('data-remote-id')
+
+    // Remote server component data is SSR-rendered as visible HTML
+    expect(visible).toContain('data-testid="remote-chart"')
+    expect(visible).toContain('revenue')
+    expect(visible).toContain('Point')
+
+    // Remote client component (Counter) initial state is SSR-rendered
+    expect(visible).toContain('data-testid="remote-counter"')
+    expect(visible).toContain('counter:')
   })
 
   test('remote client component hydrates and is interactive', async ({
