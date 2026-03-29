@@ -295,11 +295,5 @@ export async function renderFlightToHtml(
   }
   html += decoder.decode()
 
-  // Strip Float resource hints (modulepreload links, preinit scripts) that
-  // React SSR emits for client references. These URLs are relative to the
-  // remote server — when embedded in the host HTML they'd 404.
-  html = html.replace(/<link[^>]*rel=["']modulepreload["'][^>]*\/?>/gi, '')
-  html = html.replace(/<script[^>]*(?:src=["'][^"']*["'])[^>]*>\s*<\/script>/gi, '')
-
   return html
 }

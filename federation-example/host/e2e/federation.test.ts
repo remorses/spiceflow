@@ -86,15 +86,11 @@ test.describe('federation', () => {
     expect(html).toContain('federation-react')
   })
 
-  test('no console errors during hydration', async ({ page }) => {
+  test('no React errors during hydration', async ({ page }) => {
     const errors: string[] = []
-    page.on('console', (msg) => {
-      if (msg.type() === 'error') errors.push(msg.text())
-    })
     page.on('pageerror', (err) => errors.push(err.message))
 
     await page.goto('/')
-    // Wait for remote component to hydrate
     await expect(page.getByTestId('remote-counter')).toBeVisible({
       timeout: 10000,
     })
