@@ -181,8 +181,12 @@ new Spiceflow().route({
 })
 ```
 
-> Notice that to get the body of the request, you need to call `request.json()` to parse the body as JSON.
-> Spiceflow does not parse the Body automatically, there is no body field in the Spiceflow route argument, instead you call either `request.json()` or `request.formData()` to get the body and validate it at the same time. This works by wrapping the request in a `SpiceflowRequest` instance, which has a `json()` and `formData()` method that parse the body and validate it. The returned data will have the correct schema type instead of `any`.
+<details>
+<summary>How body parsing works</summary>
+
+To get the body of the request, call `request.json()` to parse the body as JSON. Spiceflow does not parse the body automatically — there is no `body` field in the route argument. Instead you call either `request.json()` or `request.formData()` to get the body and validate it at the same time. This works by wrapping the request in a `SpiceflowRequest` instance, which has `json()` and `formData()` methods that parse and validate. The returned data will have the correct schema type instead of `any`.
+
+</details>
 
 ### Response Schema
 
@@ -318,7 +322,8 @@ export const app = new Spiceflow()
 
 Static middleware only serves `GET` and `HEAD` requests. It checks the exact file path first, and if the request points to a directory it tries `index.html` inside that directory.
 
-Priority rules:
+<details>
+<summary>Priority rules</summary>
 
 - Concrete routes win over static files. A route like `/health` is handled by the route even if `public/health` exists.
 - Static files win over root catch-all routes like `/*` and `*`. This is useful for SPA fallbacks and custom 404 routes.
@@ -336,6 +341,8 @@ request /logo.png
 ```
 
 Directory requests without an `index.html` fall through instead of throwing filesystem errors like `EISDIR`.
+
+</details>
 
 You can stack multiple static roots:
 
@@ -2406,17 +2413,27 @@ throw redirect('/login', {
 })
 ```
 
+<details>
+<summary>Response status, headers, and HTTP behavior</summary>
+
 **`response.status` and `response.headers`** — every page and layout handler receives a mutable `response` object on the context. Set `response.status` to control the HTTP status code (defaults to 200). Set `response.headers` to add custom headers like `cache-control` or `set-cookie`.
 
 **Correct HTTP status codes.** Unlike Next.js, where redirects always return a 200 status with client-side handling, Spiceflow returns the actual HTTP status code in the response — `307` for redirects (with a `Location` header) and whatever you set via `response.status` for pages. This works even when the throw happens after an `await`, because the SSR layer intercepts the error from the RSC stream before flushing the HTML response. Search engines see correct status codes, and `fetch()` calls with `redirect: "manual"` get the real `307` response.
 
 **Client-side navigation.** When a user clicks a `<Link>` that navigates to a page throwing `redirect()`, the router performs the redirect client-side without a full page reload.
 
+</details>
+
 ### Code Splitting
 
 Code splitting of client components is **automatic** — you don't need `React.lazy()` or dynamic `import()`. Each `"use client"` file becomes a separate chunk, and the browser only loads the chunks needed for the current page.
 
-**How it works:** when the RSC flight stream is sent to the browser, it contains references to client component chunks rather than the actual code. The browser resolves and loads only the chunks referenced on the current page. If route `/about` uses `<Map />` and route `/dashboard` uses `<Chart />`, visiting `/about` will never download the Chart component's JavaScript.
+<details>
+<summary>How it works</summary>
+
+When the RSC flight stream is sent to the browser, it contains references to client component chunks rather than the actual code. The browser resolves and loads only the chunks referenced on the current page. If route `/about` uses `<Map />` and route `/dashboard` uses `<Chart />`, visiting `/about` will never download the Chart component's JavaScript.
+
+</details>
 
 <details>
 <summary>Barrel file pitfall</summary>
