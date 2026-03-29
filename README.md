@@ -71,42 +71,6 @@ export const app = new Spiceflow()
 app.listen(3000)
 ```
 
-<details>
-<summary>Layout nesting rules</summary>
-
-Always define a root `.layout('/*', ...)` and put the document shell with `<html>`, `<head>`, and `<body>` there. More specific layouts should not render another shell - they should only return shared parent UI like sidebars, nav, wrappers, or section chrome. If a nested layout also renders `<html>`, the shell repeats and you end up nesting full HTML documents inside each other. Only add scoped layouts when many pages share the same parent components. Wildcard layouts also match their base path, so `/app/*` wraps both `/app` and `/app/settings`, and `/docs/*` wraps both `/docs` and `/docs/getting-started`.
-
-</details>
-
-```tsx
-export const app = new Spiceflow()
-  .layout('/*', async ({ children }) => {
-    return (
-      <html>
-        <body>{children}</body>
-      </html>
-    )
-  })
-  .layout('/app/*', async ({ children }) => {
-    return <section className="app-shell">{children}</section>
-  })
-  .layout('/docs/*', async ({ children }) => {
-    return <section className="docs-shell">{children}</section>
-  })
-  .page('/app', async () => {
-    return <h1>App home</h1>
-  })
-  .page('/app/settings', async () => {
-    return <h1>App settings</h1>
-  })
-  .page('/docs', async () => {
-    return <h1>Docs home</h1>
-  })
-  .page('/docs/getting-started', async () => {
-    return <h1>Getting started</h1>
-  })
-```
-
 ```tsx
 // counter.tsx
 'use client'
@@ -1811,6 +1775,46 @@ export type App = typeof app
 ```
 
 `app.href()` gives you **type-safe links** — TypeScript validates that the path exists, params are correct, and query values match the schema. Invalid paths or missing params are caught at compile time. The closure over `app` sees all routes, including ones defined later in the chain.
+
+### Layouts
+
+Define a root `.layout('/*', ...)` with the document shell (`<html>`, `<head>`, `<body>`). More specific layouts should only return shared parent UI like sidebars, nav, or section chrome — not another `<html>` shell. Wildcard layouts also match their base path, so `/app/*` wraps both `/app` and `/app/settings`.
+
+```tsx
+export const app = new Spiceflow()
+  .layout('/*', async ({ children }) => {
+    return (
+      <html>
+        <body>{children}</body>
+      </html>
+    )
+  })
+  .layout('/app/*', async ({ children }) => {
+    return <section className="app-shell">{children}</section>
+  })
+  .layout('/docs/*', async ({ children }) => {
+    return <section className="docs-shell">{children}</section>
+  })
+  .page('/app', async () => {
+    return <h1>App home</h1>
+  })
+  .page('/app/settings', async () => {
+    return <h1>App settings</h1>
+  })
+  .page('/docs', async () => {
+    return <h1>Docs home</h1>
+  })
+  .page('/docs/getting-started', async () => {
+    return <h1>Getting started</h1>
+  })
+```
+
+<details>
+<summary>Nesting rules</summary>
+
+Only the root layout should render the full HTML document shell. If a nested layout also renders `<html>`, the shell repeats and you end up nesting full HTML documents inside each other. Only add scoped layouts when many pages share the same parent components.
+
+</details>
 
 ### SEO
 
