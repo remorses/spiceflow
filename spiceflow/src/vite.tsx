@@ -38,11 +38,13 @@ function extractBasePathname(base: string): string {
 
 export function spiceflowPlugin({
   entry,
-  remote,
+  federation,
 }: {
   entry: string
-  remote?: boolean
+  /** Set to `'remote'` when this app is a federation remote that exposes components to a host. */
+  federation?: 'remote'
 }): PluginOption {
+  const isRemote = federation === 'remote'
   let server: ViteDevServer
   let resolvedOutDir = 'dist'
   let resolvedBase = ''
@@ -56,7 +58,7 @@ export function spiceflowPlugin({
     },
     serverHandler: false as const,
     loadModuleDevProxy: true,
-    ...(remote
+    ...(isRemote
       ? {
           clientChunks(meta: { id: string; normalizedId: string }) {
             if (meta.id.includes('spiceflow/') || meta.id.includes('spiceflow\\')) {
@@ -496,7 +498,7 @@ export function spiceflowPlugin({
     // Externalize React for remote apps so bare specifiers are resolved
     // by the host's import map. Can't be always-on because React is CJS
     // and Rolldown's interop generates require() that fails in browsers.
-    ...(remote
+    ...(isRemote
       ? [
           {
             name: 'spiceflow:federation-remote',
