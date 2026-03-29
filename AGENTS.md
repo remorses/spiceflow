@@ -8,6 +8,16 @@ The root `README.md` is the single source of truth. These files are generated fr
 
 Always edit the root `README.md` and then rebuild to propagate changes.
 
+# README content guidelines
+
+When adding or editing content in the root `README.md`, follow these rules:
+
+- **Progressive disclosure.** Early sections introduce the framework to new users with simple examples. Advanced topics, edge cases, and platform-specific patterns go later in the document.
+- **Prescriptive rules in toggles.** Paragraphs that say ALWAYS, MUST, Never, or prescribe strict rules for agents/developers should be wrapped in `<details><summary>descriptive title</summary>...</details>` toggles so they don't dominate the reading flow.
+- **Short headings.** Keep section headings concise (3-5 words). Move explanatory content into the opening paragraph below the heading.
+- **Extend existing examples.** For new APIs, prefer adding them to an existing section's code examples rather than creating a new section. Only add a new `##` section for a genuinely new core API or concept.
+- **Think about placement.** Before adding content, review the overall section hierarchy and choose the best location. Don't just append at the end — find the section where the topic fits logically.
+
 # package manager: pnpm with workspace
 
 This project uses pnpm workspaces to manage dependencies. Important scripts are in the root package.json or various packages package.json
