@@ -82,7 +82,12 @@ export function Counter() {
 }
 ```
 
-> Use `.route()` instead of `.get()`/`.post()` when you want to pass Zod schemas for validation — it accepts `request`, `response`, `query`, and `params` schemas.
+<details>
+<summary>When to use .route() vs .get()/.post()</summary>
+
+Use `.route()` instead of `.get()`/`.post()` when you want to pass Zod schemas for validation — it accepts `request`, `response`, `query`, and `params` schemas.
+
+</details>
 
 ## Two Ways to Use Spiceflow
 
