@@ -112,6 +112,70 @@ async function fetchFlightResponse(args: {
   return response
 }
 
+// Expose createFromReadableStream globally for federation RemoteIsland components
+// that need to decode Flight payloads from remote servers in the browser.
+;(globalThis as any).__spiceflow_createFromReadableStream =
+  createFromReadableStream
+
+// React prod replaces error.message with a generic string for security but
+// keeps error.digest (set by our onError callback). Restore the original
+// message so user code can read it. Works for errors thrown mid-stream
+// (async generators) and for directly thrown action errors.
+function restoreErrorDigest(err: unknown): never {
+  if (
+    err instanceof Error &&
+    typeof (err as any).digest === 'string' &&
+    (err as any).digest
+  ) {
+    err.message = (err as any).digest
+  }
+  throw err
+}
+
+// Wraps async generator return values so errors thrown mid-stream get their
+// message restored from digest before reaching user code.
+function wrapReturnValueErrors(value: unknown): unknown {
+  if (
+    value != null &&
+    typeof value === 'object' &&
+    Symbol.asyncIterator in value
+  ) {
+    const orig = value as AsyncIterable<unknown>
+    return {
+      [Symbol.asyncIterator]() {
+        const it = orig[Symbol.asyncIterator]()
+        const wrapped = {
+          async next() {
+            try {
+              return await it.next()
+            } catch (err) {
+              restoreErrorDigest(err)
+            }
+          },
+          async return(v?: unknown) {
+            try {
+              return await (it.return?.(v) ?? { done: true, value: undefined })
+            } catch (err) {
+              restoreErrorDigest(err)
+            }
+          },
+          async throw(e?: unknown) {
+            try {
+              return await (it.throw?.(e) ?? Promise.reject(e))
+            } catch (err) {
+              restoreErrorDigest(err)
+            }
+          },
+          [Symbol.asyncIterator]() {
+            return this
+          },
+        }
+        return wrapped
+      },
+    }
+  }
+  return value
+}
 async function main() {
   let setPayload: (v: Promise<ServerPayload>) => void = () => undefined
 
@@ -150,17 +214,18 @@ async function main() {
 
       if (payload.actionError) {
         console.log(getErrorContext(payload.actionError))
-        // React strips both error.message and error.digest for Error values
+        // React prod strips both error.message and error.digest for Error values
         // serialized in the flight payload (not thrown during rendering).
-        // Restore digest from the separately-serialized plain string.
+        // Restore both from the separately-serialized plain string.
         if (payload.actionErrorDigest) {
-          ;(payload.actionError as Error & { digest?: string }).digest =
-            payload.actionErrorDigest
+          const err = payload.actionError as Error & { digest?: string }
+          err.digest = payload.actionErrorDigest
+          err.message = payload.actionErrorDigest
         }
         throw payload.actionError
       }
 
-      return payload.returnValue
+      return wrapReturnValueErrors(payload.returnValue)
     } finally {
       // Only clean up if this call's controller is still the active one.
       // A newer concurrent call to the same action may have overwritten it.
