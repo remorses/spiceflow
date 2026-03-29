@@ -379,6 +379,56 @@ new Spiceflow()
   })
 ```
 
+### Proxy
+
+```ts
+import { Spiceflow } from 'spiceflow'
+import type { MiddlewareHandler } from 'spiceflow'
+
+export const app = new Spiceflow()
+
+function createProxyMiddleware({
+  target,
+  changeOrigin = false,
+}): MiddlewareHandler {
+  return async ({ request }) => {
+    const url = new URL(request.url)
+
+    const proxyReq = new Request(
+      new URL(url.pathname + url.search, target),
+      request,
+    )
+
+    if (changeOrigin) {
+      proxyReq.headers.set('origin', new URL(target).origin || '')
+    }
+    console.log('proxying', proxyReq.url)
+    const res = await fetch(proxyReq)
+
+    return res
+  }
+}
+
+app.use(
+  createProxyMiddleware({
+    target: 'https://api.openai.com',
+    changeOrigin: true,
+  }),
+)
+
+// or with a basePath
+app.use(
+  new Spiceflow({ basePath: '/v1/completions' }).use(
+    createProxyMiddleware({
+      target: 'https://api.openai.com',
+      changeOrigin: true,
+    }),
+  ),
+)
+
+app.listen(3030)
+```
+
 ### Non-Blocking Auth
 
 Sometimes authentication is only required for specific routes, and you don't want to block public routes while waiting for authentication. You can use `Promise.withResolvers()` to start fetching user data in parallel, allowing public routes to respond immediately while protected routes wait for authentication to complete.
@@ -435,56 +485,6 @@ async function getUser(sessionKey: string) {
     ? { id: '123', email: 'user@example.com' }
     : null
 }
-```
-
-### Proxy
-
-```ts
-import { Spiceflow } from 'spiceflow'
-import type { MiddlewareHandler } from 'spiceflow'
-
-export const app = new Spiceflow()
-
-function createProxyMiddleware({
-  target,
-  changeOrigin = false,
-}): MiddlewareHandler {
-  return async ({ request }) => {
-    const url = new URL(request.url)
-
-    const proxyReq = new Request(
-      new URL(url.pathname + url.search, target),
-      request,
-    )
-
-    if (changeOrigin) {
-      proxyReq.headers.set('origin', new URL(target).origin || '')
-    }
-    console.log('proxying', proxyReq.url)
-    const res = await fetch(proxyReq)
-
-    return res
-  }
-}
-
-app.use(
-  createProxyMiddleware({
-    target: 'https://api.openai.com',
-    changeOrigin: true,
-  }),
-)
-
-// or with a basePath
-app.use(
-  new Spiceflow({ basePath: '/v1/completions' }).use(
-    createProxyMiddleware({
-      target: 'https://api.openai.com',
-      changeOrigin: true,
-    }),
-  ),
-)
-
-app.listen(3030)
 ```
 
 ## Error Handling
