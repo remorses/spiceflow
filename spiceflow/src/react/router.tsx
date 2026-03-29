@@ -10,6 +10,20 @@ const basePath =
 
 const history = !isBrowser ? createMemoryHistory() : createBrowserHistory({})
 
+// Cached scroll position updated by a passive scroll listener to avoid
+// forced reflows when reading window.scrollY after DOM mutations.
+let cachedScrollY = 0
+
+if (isBrowser) {
+  window.addEventListener(
+    'scroll',
+    () => {
+      cachedScrollY = window.scrollY
+    },
+    { passive: true },
+  )
+}
+
 const MAX_NAVIGATION_EVENTS = 100
 const DEFAULT_MAX_SCROLL_ENTRIES = 200
 
@@ -141,7 +155,7 @@ function requestNavigation(method: NavigationMethod) {
     requestId: ++nextRequestId,
     method,
     location: cloneLocation(history.location),
-    scrollY: window.scrollY,
+    scrollY: cachedScrollY,
   })
 }
 
@@ -200,7 +214,7 @@ if (isBrowser) {
       location: cloneLocation(location),
       previousLocation,
       previousScrollY:
-        action === 'POP' ? window.scrollY : (pendingRequest?.scrollY ?? 0),
+        action === 'POP' ? cachedScrollY : (pendingRequest?.scrollY ?? 0),
       source: pendingRequest?.method === 'refresh' ? 'refresh' : 'navigate',
     })
 
@@ -309,7 +323,7 @@ export const router = {
       action: 'LOADER_DATA',
       location,
       previousLocation: location,
-      previousScrollY: isBrowser ? window.scrollY : 0,
+      previousScrollY: cachedScrollY,
       source: 'navigate',
     }
     for (const cb of subscribers) {
