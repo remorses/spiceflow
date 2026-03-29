@@ -82,20 +82,6 @@ export function Counter() {
 }
 ```
 
-If you need to shut the server down later, `listen()` always returns an object with `port`, `server`, and `stop()`:
-
-```ts
-const listener = await app.listen(3000)
-
-console.log(`Listening on port ${listener.port}`)
-
-await listener.stop()
-```
-
-> In Vite dev and during prerender, Spiceflow skips starting a real server. `listen()` still returns an object, but `port` and `server` are `undefined` and `stop()` is a noop, so cleanup code can stay unconditional.
-
-> React pages require Vite and the spiceflow Vite plugin. See [nodejs-example/vite.config.ts](nodejs-example/vite.config.ts) for setup. API-only apps don't need Vite.
-
 > Use `.route()` instead of `.get()`/`.post()` when you want to pass Zod schemas for validation — it accepts `request`, `response`, `query`, and `params` schemas.
 
 ## Two Ways to Use Spiceflow
@@ -1474,6 +1460,20 @@ async function trackPageView(path: string) {
 ```
 
 **Note:** In non-Cloudflare environments, if no custom `waitUntil` function is provided, the default implementation is a no-op function that doesn't wait for the promises to complete.
+
+## Server Lifecycle
+
+`listen()` returns an object with `port`, `server`, and `stop()` for programmatic control:
+
+```ts
+const listener = await app.listen(3000)
+
+console.log(`Listening on port ${listener.port}`)
+
+await listener.stop()
+```
+
+> In Vite dev and during prerender, Spiceflow skips starting a real server. `listen()` still returns an object, but `port` and `server` are `undefined` and `stop()` is a noop, so cleanup code can stay unconditional.
 
 ## Graceful Shutdown
 
