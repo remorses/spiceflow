@@ -88,7 +88,7 @@ test.describe("API route priority over layout-only matches", () => {
 test.describe("staticGet runtime", () => {
 	test("staticGet route responds with JSON at runtime", async () => {
 		const response = await fetch(
-			`${baseURL}${basePath}/api/manifest.json`,
+			`${baseURL}${basePath}/api/staticfile.json`,
 		);
 		expect(response.status).toBe(200);
 		const json = await response.json();
@@ -1176,9 +1176,9 @@ test.describe("prerender @build", () => {
 test.describe("staticGet @build", () => {
 	test("staticGet .json file exists on disk after build", async () => {
 		const fs = await import("node:fs");
-		expect(fs.existsSync("dist/client/api/manifest.json")).toBe(true);
+		expect(fs.existsSync("dist/client/api/staticfile.json")).toBe(true);
 		const content = JSON.parse(
-			fs.readFileSync("dist/client/api/manifest.json", "utf-8"),
+			fs.readFileSync("dist/client/api/staticfile.json", "utf-8"),
 		);
 		expect(content).toEqual({
 			name: "integration-tests",
@@ -1189,7 +1189,7 @@ test.describe("staticGet @build", () => {
 
 	test("staticGet route is served as static file", async () => {
 		const response = await fetch(
-			`${baseURL}${basePath}/api/manifest.json`,
+			`${baseURL}${basePath}/api/staticfile.json`,
 		);
 		expect(response.status).toBe(200);
 		const json = await response.json();
@@ -1206,10 +1206,10 @@ test.describe("staticGet @build", () => {
 			fs.readFileSync("dist/client/__prerender.json", "utf-8"),
 		);
 		const entry = manifest.entries.find(
-			(e: { route: string }) => e.route === "/api/manifest.json",
+			(e: { route: string }) => e.route === "/api/staticfile.json",
 		);
 		expect(entry).toBeTruthy();
-		expect(entry.file).toBe("/api/manifest.json");
+		expect(entry.file).toBe("/api/staticfile.json");
 	});
 });
 
