@@ -37,33 +37,6 @@ To let your AI coding agent know how to use spiceflow, run:
 npx -y skills add remorses/spiceflow
 ```
 
-## Two Ways to Use Spiceflow
-
-Spiceflow works as a **standalone API framework** or as a **full-stack React framework** — same router, same type safety, same code.
-
-**API only** — no Vite, no React. Just install `spiceflow` and build type-safe APIs with Zod validation, streaming, OpenAPI, and a type-safe fetch client:
-
-```ts
-import { Spiceflow } from 'spiceflow'
-
-const app = new Spiceflow()
-  .get('/hello', () => ({ message: 'Hello!' }))
-
-app.listen(3000)
-```
-
-**Full-stack React (RSC)** — add the Vite plugin to get server components, client components, layouts, server actions, and automatic code splitting. All API features still work alongside React pages:
-
-```ts
-// vite.config.ts
-import { defineConfig } from 'vite'
-import { spiceflowPlugin } from 'spiceflow/vite'
-
-export default defineConfig({
-  plugins: [spiceflowPlugin({ entry: './src/main.tsx' })],
-})
-```
-
 ## Basic Usage
 
 API routes return JSON automatically. React pages use `.page()` and `.layout()` for server-rendered UI with client interactivity:
@@ -124,6 +97,33 @@ await listener.stop()
 > React pages require Vite and the spiceflow Vite plugin. See [nodejs-example/vite.config.ts](nodejs-example/vite.config.ts) for setup. API-only apps don't need Vite.
 
 > Use `.route()` instead of `.get()`/`.post()` when you want to pass Zod schemas for validation — it accepts `request`, `response`, `query`, and `params` schemas.
+
+## Two Ways to Use Spiceflow
+
+Spiceflow works as a **standalone API framework** or as a **full-stack React framework** — same router, same type safety, same code.
+
+**API only** — no Vite, no React. Just install `spiceflow` and build type-safe APIs with Zod validation, streaming, OpenAPI, and a type-safe fetch client:
+
+```ts
+import { Spiceflow } from 'spiceflow'
+
+const app = new Spiceflow()
+  .get('/hello', () => ({ message: 'Hello!' }))
+
+app.listen(3000)
+```
+
+**Full-stack React (RSC)** — add the Vite plugin to get server components, client components, layouts, server actions, and automatic code splitting. All API features still work alongside React pages:
+
+```ts
+// vite.config.ts
+import { defineConfig } from 'vite'
+import { spiceflowPlugin } from 'spiceflow/vite'
+
+export default defineConfig({
+  plugins: [spiceflowPlugin({ entry: './src/main.tsx' })],
+})
+```
 
 ## Returning JSON
 
