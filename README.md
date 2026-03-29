@@ -71,17 +71,6 @@ export const app = new Spiceflow()
 app.listen(3000)
 ```
 
-```tsx
-// counter.tsx
-'use client'
-import { useState } from 'react'
-
-export function Counter() {
-  const [count, setCount] = useState(0)
-  return <button onClick={() => setCount(count + 1)}>Count: {count}</button>
-}
-```
-
 <details>
 <summary>When to use .route() vs .get()/.post()</summary>
 
@@ -192,53 +181,6 @@ new Spiceflow().route({
     return { id: Number(params.id), name: typedJson.name }
   },
 })
-```
-
-## Not Found Handler
-
-Use `/*` as a catch-all route to handle 404 errors. More specific routes always take precedence regardless of registration order:
-
-```ts
-import { Spiceflow } from 'spiceflow'
-
-export const app = new Spiceflow()
-  .route({
-    method: 'GET',
-    path: '/users',
-    handler() {
-      return { users: [] }
-    },
-  })
-  .route({
-    method: 'GET',
-    path: '/users/:id',
-    handler({ params }) {
-      return { id: params.id }
-    },
-  })
-  // Catch-all for unmatched GET requests
-  .route({
-    method: 'GET',
-    path: '/*',
-    handler() {
-      return new Response('Page not found', { status: 404 })
-    },
-  })
-  // Or use .all() to catch any method
-  .route({
-    method: '*',
-    path: '/*',
-    handler({ request }) {
-      return new Response(`Cannot ${request.method} ${request.url}`, {
-        status: 404,
-      })
-    },
-  })
-
-// Specific routes work as expected
-// GET /users returns { users: [] }
-// GET /users/123 returns { id: '123' }
-// GET /unknown returns 'Page not found' with 404 status
 ```
 
 ## Middleware
@@ -542,6 +484,53 @@ async function fetchStream() {
 }
 
 fetchStream()
+```
+
+## Not Found Handler
+
+Use `/*` as a catch-all route to handle 404 errors. More specific routes always take precedence regardless of registration order:
+
+```ts
+import { Spiceflow } from 'spiceflow'
+
+export const app = new Spiceflow()
+  .route({
+    method: 'GET',
+    path: '/users',
+    handler() {
+      return { users: [] }
+    },
+  })
+  .route({
+    method: 'GET',
+    path: '/users/:id',
+    handler({ params }) {
+      return { id: params.id }
+    },
+  })
+  // Catch-all for unmatched GET requests
+  .route({
+    method: 'GET',
+    path: '/*',
+    handler() {
+      return new Response('Page not found', { status: 404 })
+    },
+  })
+  // Or use .all() to catch any method
+  .route({
+    method: '*',
+    path: '/*',
+    handler({ request }) {
+      return new Response(`Cannot ${request.method} ${request.url}`, {
+        status: 404,
+      })
+    },
+  })
+
+// Specific routes work as expected
+// GET /users returns { users: [] }
+// GET /users/123 returns { id: '123' }
+// GET /unknown returns 'Page not found' with 404 status
 ```
 
 ## Mounting Sub-Apps
@@ -1074,7 +1063,8 @@ href('/search', { q: 'hello', page: 1 })
 
 The returned function has the same type safety as `app.href` — it infers paths, params, and query schemas from the app type. The app argument is optional and not used at runtime, so you can call `createHref<App>()` without passing any value.
 
-### OAuth Callback Example
+<details>
+<summary>OAuth callback example</summary>
 
 The `href` method is particularly useful when building callback URLs for OAuth flows, where you need to construct URLs dynamically based on user data or session information:
 
@@ -1089,7 +1079,6 @@ export const app = new Spiceflow()
       const { provider, userId } = params
       const { code, state } = query
 
-      // Handle OAuth callback logic here
       return {
         provider,
         userId,
@@ -1105,7 +1094,6 @@ export const app = new Spiceflow()
       const userId = '12345'
       const provider = 'google'
 
-      // Build the OAuth callback URL safely
       const callbackUrl = new URL(
         app.href('/auth/callback/:provider/:userId', {
           provider,
@@ -1114,7 +1102,6 @@ export const app = new Spiceflow()
         'https://myapp.com',
       ).toString()
 
-      // Redirect to OAuth provider with callback URL
       const oauthUrl =
         `https://accounts.google.com/oauth/authorize?` +
         `client_id=your-client-id&` +
@@ -1127,11 +1114,7 @@ export const app = new Spiceflow()
   })
 ```
 
-In this example:
-
-- The callback URL is built safely using `href` with type checking
-- Required parameters like `provider` and `userId` must be provided
-- The resulting URL is guaranteed to be properly formatted
+</details>
 
 ## State & Bindings
 
@@ -1177,9 +1160,12 @@ export default {
 
 > **Alternative:** On Cloudflare Workers you can also `import { env } from 'cloudflare:workers'` to access bindings directly from anywhere in your code, without threading env through `.state()`. See the [KV caching example](#kv-page-caching) above for this approach.
 
-## Working with Cookies
+## Cookies
 
-Spiceflow works with standard Request and Response objects, so you can use any cookie library like the `cookie` npm package to handle cookies:
+Spiceflow works with standard Request and Response objects, so you can use any cookie library like the `cookie` npm package to handle cookies.
+
+<details>
+<summary>Full set/get/clear cookie example</summary>
 
 ```ts
 import { Spiceflow } from 'spiceflow'
@@ -1190,30 +1176,23 @@ export const app = new Spiceflow()
     method: 'GET',
     path: '/set-cookie',
     handler({ request }) {
-      // Read existing cookies from the request
       const cookies = parse(request.headers.get('Cookie') || '')
 
-      // Create response with a new cookie
       const response = new Response(
         JSON.stringify({
           message: 'Cookie set!',
           existingCookies: cookies,
         }),
-        {
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        },
+        { headers: { 'Content-Type': 'application/json' } },
       )
 
-      // Set a new cookie
       response.headers.set(
         'Set-Cookie',
         serialize('session', 'abc123', {
           httpOnly: true,
           secure: true,
           sameSite: 'strict',
-          maxAge: 60 * 60 * 24 * 7, // 7 days
+          maxAge: 60 * 60 * 24 * 7,
           path: '/',
         }),
       )
@@ -1225,13 +1204,8 @@ export const app = new Spiceflow()
     method: 'GET',
     path: '/get-cookie',
     handler({ request }) {
-      // Parse cookies from the request
       const cookies = parse(request.headers.get('Cookie') || '')
-
-      return {
-        sessionId: cookies.session || null,
-        allCookies: cookies,
-      }
+      return { sessionId: cookies.session || null, allCookies: cookies }
     },
   })
   .route({
@@ -1240,14 +1214,9 @@ export const app = new Spiceflow()
     handler({ request }) {
       const response = new Response(
         JSON.stringify({ message: 'Cookie cleared!' }),
-        {
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        },
+        { headers: { 'Content-Type': 'application/json' } },
       )
 
-      // Clear a cookie by setting it with an expired date
       response.headers.set(
         'Set-Cookie',
         serialize('session', '', {
@@ -1265,6 +1234,8 @@ export const app = new Spiceflow()
 
 app.listen(3000)
 ```
+
+</details>
 
 You can also use cookies in middleware for authentication or session handling:
 
@@ -1368,9 +1339,9 @@ export const app = new Spiceflow().use(cors()).route({
 })
 ```
 
-## Background Tasks (waitUntil)
+## Background Tasks (`waitUntil`)
 
-Spiceflow provides a `waitUntil` function in the handler context that allows you to schedule tasks in the background in a cross platform way. It will use the Cloudflare workers waitUntil if present. It's currently a no op in Node.js.
+Spiceflow provides a `waitUntil` function in the handler context that allows you to schedule tasks in the background in a cross platform way. It will use the Cloudflare Workers `waitUntil` if present. It's currently a no-op in Node.js.
 
 ### Basic Usage
 
@@ -1435,7 +1406,7 @@ export default {
 }
 ```
 
-### Custom waitUntil Function
+### Custom `waitUntil` Function
 
 You can also provide your own `waitUntil` implementation:
 
@@ -1464,7 +1435,7 @@ async function trackPageView(path: string) {
 }
 ```
 
-**Note:** In non-Cloudflare environments, if no custom `waitUntil` function is provided, the default implementation is a no-op function that doesn't wait for the promises to complete.
+**Note:** In non-Cloudflare environments, if no custom `waitUntil` function is provided, the default implementation is a no-op that doesn't wait for the promises to complete.
 
 ## Server Lifecycle
 
