@@ -730,6 +730,16 @@ for (const path of somePaths) {
 	app.staticPage(path);
 }
 
+if (process.env.STATIC_PAGE_ERROR) {
+	app.staticPage("/static-error", async () => {
+		return <StaticPageThrows />;
+	});
+}
+
+async function StaticPageThrows() {
+	throw new Error("static page build error");
+}
+
 app.staticGet("/api/staticfile.json", () => ({
 	name: "integration-tests",
 	version: "1.0.0",

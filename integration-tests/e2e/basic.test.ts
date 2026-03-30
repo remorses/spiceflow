@@ -1213,6 +1213,32 @@ test.describe("staticGet @build", () => {
 	});
 });
 
+test.describe("prerender error @build", () => {
+	test("build fails with exit code 1 when a static page throws", async () => {
+		const { execSync } = await import("node:child_process");
+		let stdout = "";
+		let stderr = "";
+		let exitCode = 0;
+		try {
+			const output = execSync("pnpm build", {
+				cwd: process.cwd(),
+				env: { ...process.env, STATIC_PAGE_ERROR: "1" },
+				encoding: "utf-8",
+				stdio: ["pipe", "pipe", "pipe"],
+				timeout: 120_000,
+			});
+			stdout = output;
+		} catch (err: any) {
+			exitCode = err.status ?? 1;
+			stdout = err.stdout ?? "";
+			stderr = err.stderr ?? "";
+		}
+		const combined = stdout + "\n" + stderr;
+		expect(exitCode).not.toBe(0);
+		expect(combined).toContain("static page build error");
+	});
+});
+
 test.describe("middleware page cache", () => {
 	// In-memory page cache doesn't persist across serverless function instances
 	test.skip(() => isRemote, "skipped on remote deployments (stateless functions)");

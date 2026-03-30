@@ -151,6 +151,12 @@ async function processPrerender(dirs: {
       const htmlResponse = await entry.fetchHandler(
         new Request(htmlUrl, { headers: prerenderHeaders }),
       )
+      if (!htmlResponse.ok) {
+        console.error(`  • Failed to prerender ${route.path}`)
+        throw new Error(
+          `Failed to prerender ${route.path}: ${htmlResponse.status} ${htmlResponse.statusText}`,
+        )
+      }
 
       const isRoot = route.path === '/'
       const dataFile = isRoot ? '/index.rsc' : route.path + '.rsc'

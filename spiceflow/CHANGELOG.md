@@ -1,5 +1,9 @@
 # spiceflow
 
+## 1.18.0-rsc.21
+
+1. **Fixed build silently succeeding when a server component throws during static page prerendering** — previously the prerender step checked the RSC flight response status (which is always 200, even on error) but not the HTML SSR response status (which is 500 when a component throws). The build would complete with broken prerendered files and no error. Now the HTML response status is also checked and the build fails with exit code 1 and shows the full stack trace.
+
 ## 1.18.0-rsc.20
 
 1. **`.staticGet()` — pre-render API routes at build time** — works like `.get()` but the handler runs once during `vite build` and the response body is written to `dist/client/` as a static file. Useful for federation component payloads, manifests, sitemaps, or any endpoint that can be fully resolved at build time and served from S3 or a CDN with no server running:
