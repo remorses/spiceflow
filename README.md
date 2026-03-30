@@ -2482,6 +2482,158 @@ export { Map } from './map'
 
 </details>
 
+### Remote Components
+
+Embed components from other spiceflow servers or load client-only components from any ESM URL (like [esm.sh](https://esm.sh) or [Framer](https://framer.com)). `RemoteComponent` is an async server component that detects the response type automatically — JSON for federation, JavaScript for ESM modules.
+
+```tsx
+import { Suspense } from 'react'
+import { RemoteComponent } from 'spiceflow/react'
+
+// From another spiceflow server (federation)
+<Suspense fallback={<div>Loading...</div>}>
+  <RemoteComponent src="https://my-remote.com/api/chart" props={{ dataSource: 'revenue' }} />
+</Suspense>
+
+// From esm.sh
+<Suspense fallback={<div>Loading...</div>}>
+  <RemoteComponent src="https://esm.sh/some-chart-component" />
+</Suspense>
+
+// From Framer
+<Suspense fallback={<div>Loading...</div>}>
+  <RemoteComponent src="https://framer.com/m/IOKnob-DT0M.js@eZsKjfnRtnN8np5uwoAx" />
+</Suspense>
+```
+
+`RemoteComponent` must be wrapped in `<Suspense>` — the fallback shows while the remote server responds (federation) or while the module loads (ESM).
+
+#### Federation
+
+Federation lets you compose multiple spiceflow apps at the React Server Component level. A **remote** app exposes components, and a **host** app embeds them — with full SSR, hydration, and client interactivity.
+
+**Remote app** — exposes a component via `renderComponentPayload`:
+
+```tsx
+// remote/vite.config.ts
+import { spiceflowPlugin } from 'spiceflow/vite'
+
+export default defineConfig({
+  base: process.env.REMOTE_ORIGIN || 'http://localhost:3001',
+  plugins: [
+    spiceflowPlugin({
+      entry: './app/main.tsx',
+      federation: 'remote',
+    }),
+  ],
+})
+```
+
+```tsx
+// remote/app/main.tsx
+import { Spiceflow } from 'spiceflow'
+import { cors } from 'spiceflow/cors'
+import { renderComponentPayload } from 'spiceflow/federation'
+import { Chart } from './chart'
+
+export const app = new Spiceflow()
+  .use(cors({ origin: '*' }))
+  .get('/api/chart', async ({ request }) => {
+    const url = new URL(request.url)
+    const props = JSON.parse(url.searchParams.get('props') || '{}')
+    const payload = await renderComponentPayload(<Chart {...props} />)
+    return Response.json(payload)
+  })
+```
+
+**Host app** — embeds the remote component:
+
+```tsx
+// host/app/main.tsx
+import { Suspense } from 'react'
+import { Spiceflow } from 'spiceflow'
+import { RemoteComponent } from 'spiceflow/react'
+
+const REMOTE = process.env.REMOTE_ORIGIN || 'http://localhost:3001'
+
+export const app = new Spiceflow()
+  .page('/', async () => (
+    <Suspense fallback={<div>Loading chart...</div>}>
+      <RemoteComponent
+        src={`${REMOTE}/api/chart`}
+        props={{ dataSource: 'revenue' }}
+      />
+    </Suspense>
+  ))
+```
+
+The remote component is SSR-rendered in the host's HTML stream, then hydrated on the client with full interactivity. CSS from the remote is automatically injected.
+
+<details>
+<summary>How federation works under the hood</summary>
+
+The remote's `renderComponentPayload` produces a JSON response containing:
+- **flightPayload** — the RSC Flight stream (serialized React tree)
+- **ssrHtml** — pre-rendered HTML for instant display
+- **clientModules** — chunk URLs for client components
+- **cssLinks** — stylesheet URLs
+
+The host fetches this JSON, SSR-renders the `ssrHtml` via `dangerouslySetInnerHTML`, then hydrates using `hydrateRoot` to patch the existing DOM in-place (no flash). An auto-generated import map ensures host and remote share the same React instance:
+
+```
+react, react-dom, react-dom/client, react/jsx-runtime, spiceflow/react
+```
+
+This means remote client components can use `useRouterState` from the host and read host-provided React contexts (via `useContextBridge` from [its-fine](https://github.com/pmndrs/its-fine)).
+
+</details>
+
+#### External ESM Components
+
+`RemoteComponent` also works with plain JavaScript modules — any URL that returns `content-type: text/javascript`. The module is dynamically imported in the browser, and its default export (or first function export) is rendered as a React component.
+
+This is useful for loading components from Framer, esm.sh, or any CDN that serves ES modules. ESM components are **client-only** — they render `null` during SSR and load after hydration.
+
+Framer components import bare specifiers like `framer` and `framer-motion`. These need to be in the browser's import map so the dynamic `import()` can resolve them. Use the `importMap` option in your Vite config to point these specifiers to local re-export files — this way the browser uses the same bundled instance as your host app (deduplication):
+
+```ts
+// vite.config.ts
+import { spiceflowPlugin } from 'spiceflow/vite'
+
+export default defineConfig({
+  plugins: [
+    spiceflowPlugin({
+      entry: './app/main.tsx',
+      importMap: {
+        'framer-motion': './app/shared/framer-motion.ts',
+        'framer': './app/shared/framer.ts',
+      },
+    }),
+  ],
+})
+```
+
+```ts
+// app/shared/framer-motion.ts
+export * from 'framer-motion'
+```
+
+```ts
+// app/shared/framer.ts
+export * from 'framer'
+```
+
+Each local file is built into a hashed chunk — the same pattern spiceflow uses internally for React and `spiceflow/react`. If you prefer loading from a CDN instead, pass a URL:
+
+```ts
+importMap: {
+  'framer-motion': 'https://esm.sh/framer-motion?external=react',
+  'framer': 'https://esm.sh/unframer@latest/esm/framer.js?external=react',
+}
+```
+
+These entries are merged into the auto-generated import map that spiceflow already injects for `react`, `react-dom`, `react/jsx-runtime`, and `spiceflow/react`.
+
 ## Model Context Protocol (MCP)
 
 Spiceflow includes a Model Context Protocol (MCP) plugin that exposes your API routes as tools and resources that can be used by AI language models like Claude. The MCP plugin makes it easy to let AI assistants interact with your API endpoints in a controlled way.

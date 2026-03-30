@@ -39,10 +39,15 @@ function extractBasePathname(base: string): string {
 export function spiceflowPlugin({
   entry,
   federation,
+  importMap,
 }: {
   entry: string
   /** Set to `'remote'` when this app is a federation remote that exposes components to a host. */
   federation?: 'remote'
+  /** Additional import map entries merged into the auto-generated map.
+   *  Useful for ESM components that import bare specifiers like `framer` or `framer-motion`.
+   *  Example: `{ 'framer-motion': 'https://esm.sh/framer-motion?external=react' }` */
+  importMap?: Record<string, string>
 }): PluginOption {
   const isRemote = federation === 'remote'
   let server: ViteDevServer
@@ -492,6 +497,9 @@ export function spiceflowPlugin({
       return lines.join('\n')
     }),
     federationSharedPlugin(importMapJson, (json) => { importMapJson = json }),
+    ...(importMap
+      ? [userImportMapPlugin(importMap, () => importMapJson, (json) => { importMapJson = json })]
+      : []),
     createVirtualPlugin('virtual:spiceflow-import-map', () => {
       return `export default ${JSON.stringify(importMapJson)}`
     }),
@@ -587,6 +595,60 @@ function federationSharedPlugin(
         }
       }
       setImportMapJson(JSON.stringify({ imports }, null, 2))
+    },
+  }
+}
+
+// Merges user-provided import map entries into the auto-generated one.
+// Values starting with http:// or https:// are used as-is (external URLs).
+// All other values are treated as local file paths — Vite builds them into
+// hashed chunks so the browser loads the same bundled instance as the host
+// app (deduplication). This is the same pattern used for React shared entries.
+function userImportMapPlugin(
+  userEntries: Record<string, string>,
+  getImportMapJson: () => string,
+  setImportMapJson: (json: string) => void,
+): Plugin {
+  const chunkRefs = new Map<string, string>()
+  let base = '/'
+
+  return {
+    name: 'spiceflow:user-import-map',
+    apply: 'build',
+
+    configResolved(config) {
+      base = config.base || '/'
+    },
+
+    buildStart() {
+      if (this.environment?.name !== 'client') return
+      for (const [specifier, value] of Object.entries(userEntries)) {
+        if (value.startsWith('http://') || value.startsWith('https://')) continue
+        const ref = this.emitFile({
+          type: 'chunk',
+          id: value,
+          name: `importmap-${specifier.replace(/[^a-zA-Z0-9-]/g, '-')}`,
+          preserveSignature: 'strict',
+        })
+        chunkRefs.set(specifier, ref)
+      }
+    },
+
+    generateBundle() {
+      if (this.environment?.name !== 'client') return
+      const current = JSON.parse(getImportMapJson() || '{"imports":{}}')
+      const prefix = base.endsWith('/') ? base : base + '/'
+      for (const [specifier, value] of Object.entries(userEntries)) {
+        if (value.startsWith('http://') || value.startsWith('https://')) {
+          current.imports[specifier] = value
+          continue
+        }
+        const ref = chunkRefs.get(specifier)
+        if (ref) {
+          current.imports[specifier] = prefix + this.getFileName(ref)
+        }
+      }
+      setImportMapJson(JSON.stringify(current, null, 2))
     },
   }
 }

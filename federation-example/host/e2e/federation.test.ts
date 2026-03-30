@@ -151,6 +151,22 @@ test.describe('federation', () => {
     expect(errors).toEqual([])
   })
 
+  test('ESM component endpoint returns JavaScript', async () => {
+    const response = await fetch(`${remoteURL}/api/esm-component.js`)
+    expect(response.ok).toBe(true)
+    const contentType = response.headers.get('content-type') || ''
+    expect(contentType).toContain('text/javascript')
+    const text = await response.text()
+    expect(text).toContain('EsmGreeting')
+  })
+
+  test('ESM component renders after hydration', async ({ page }) => {
+    await page.goto('/')
+    const greeting = page.getByTestId('esm-greeting')
+    await expect(greeting).toBeVisible({ timeout: 10000 })
+    await expect(greeting).toHaveText('Hello from ESM: Spiceflow')
+  })
+
   test('flight payload lines are valid Flight format', async () => {
     const propsParam = encodeURIComponent(JSON.stringify({ dataSource: 'test' }))
     const response = await fetch(

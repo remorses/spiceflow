@@ -38,6 +38,22 @@ export const app = new Spiceflow()
             />
           </Suspense>
         </div>
+
+        <div data-testid="esm-section">
+          <h2>ESM Component:</h2>
+          <Suspense
+            fallback={
+              <div data-testid="esm-loading">
+                Loading ESM component...
+              </div>
+            }
+          >
+            <RemoteComponent
+              src={`${REMOTE_ORIGIN}/api/esm-component.js`}
+              props={{ name: 'Spiceflow' }}
+            />
+          </Suspense>
+        </div>
       </div>
     )
   })
