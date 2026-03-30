@@ -2555,18 +2555,31 @@ import { Spiceflow } from 'spiceflow'
 import { cors } from 'spiceflow/cors'
 import { renderComponentPayload } from 'spiceflow/federation'
 import { Chart } from './chart'
+import { Table } from './table'
+import { db } from './db'
 
 export const app = new Spiceflow()
   .use(cors({ origin: '*' }))
+  // Dynamic: fetch data at request time, render the component, return the payload
   .get('/api/chart', async ({ request }) => {
     const url = new URL(request.url)
     const props = JSON.parse(url.searchParams.get('props') || '{}')
-    const payload = await renderComponentPayload(<Chart {...props} />)
+    const rows = await db.query('SELECT month, revenue FROM sales WHERE year = 2025')
+    const payload = await renderComponentPayload(<Chart data={rows} {...props} />)
+    return Response.json(payload)
+  })
+  // Static: pre-rendered at build time and written to disk as a JSON file.
+  // Serve it from S3, a CDN, or any static host — no server needed at runtime.
+  .staticGet('/api/table', async () => {
+    const rows = await db.query('SELECT name, role, department FROM employees')
+    const payload = await renderComponentPayload(<Table rows={rows} />)
     return Response.json(payload)
   })
 ```
 
-**Host app** — embeds the remote component:
+The `.staticGet` route runs at build time and writes the JSON response to disk. You can upload the output to S3 or any static host — the host app fetches it like any other URL, and `RemoteComponent` renders it with full SSR and hydration. No server running for the remote at runtime.
+
+**Host app** — embeds the remote components:
 
 ```tsx
 // host/app/main.tsx
@@ -2578,16 +2591,18 @@ const REMOTE = process.env.REMOTE_ORIGIN || 'http://localhost:3001'
 
 export const app = new Spiceflow()
   .page('/', async () => (
-    <Suspense fallback={<div>Loading chart...</div>}>
-      <RemoteComponent
-        src={`${REMOTE}/api/chart`}
-        props={{ dataSource: 'revenue' }}
-      />
-    </Suspense>
+    <div>
+      <Suspense fallback={<div>Loading chart...</div>}>
+        <RemoteComponent src={`${REMOTE}/api/chart`} />
+      </Suspense>
+      <Suspense fallback={<div>Loading table...</div>}>
+        <RemoteComponent src={`${REMOTE}/api/table`} />
+      </Suspense>
+    </div>
   ))
 ```
 
-The remote component is SSR-rendered in the host's HTML stream, then hydrated on the client with full interactivity. CSS from the remote is automatically injected.
+The remote components are SSR-rendered in the host's HTML stream, then hydrated on the client with full interactivity. CSS from the remote is automatically injected.
 
 <details>
 <summary>How federation works under the hood</summary>

@@ -1,5 +1,22 @@
 # spiceflow
 
+## 1.18.0-rsc.20
+
+1. **`.staticGet()` — pre-render API routes at build time** — works like `.get()` but the handler runs once during `vite build` and the response body is written to `dist/client/` as a static file. Useful for federation component payloads, manifests, sitemaps, or any endpoint that can be fully resolved at build time and served from S3 or a CDN with no server running:
+
+   ```ts
+   import { renderComponentPayload } from 'spiceflow/federation'
+
+   export const app = new Spiceflow()
+     .staticGet('/api/table', async () => {
+       const rows = await db.query('SELECT name, role FROM employees')
+       const payload = await renderComponentPayload(<Table rows={rows} />)
+       return Response.json(payload)
+     })
+   ```
+
+   In development the handler runs normally on every request. At build time the output file is written to `dist/client/api/table` and served as a static asset.
+
 ## 1.18.0-rsc.18
 
 1. **Restored `.rsc` path extension for client-side RSC navigation fetches** — the client now appends `.rsc` to the pathname when fetching RSC Flight data (e.g. `/about.rsc?__rsc=`). This gives each RSC payload a distinct URL from its HTML page, enabling CDN-friendly caching of Flight data separately from HTML responses. The root `/` page uses `/index.rsc`. The `__rsc` query param is still included for backwards compatibility. Server-side route matching strips the `.rsc` suffix before matching so dynamic params work correctly.
