@@ -2004,3 +2004,21 @@ test.describe(".server.ts file guard", () => {
 		expect(overlayText).toContain("bad-server-import-client.tsx");
 	});
 });
+
+test.describe("spiceflow dirs", () => {
+	test("publicDir and distDir resolve to correct paths in dev @dev", async ({
+		page,
+	}) => {
+		await page.goto(url("/spiceflow-dirs"));
+		await expect(page.getByTestId("public-dir")).toHaveText("public");
+		await expect(page.getByTestId("dist-dir")).toHaveText(".");
+	});
+
+	test("publicDir and distDir resolve to correct paths in prod @build", async ({
+		page,
+	}) => {
+		await page.goto(url("/spiceflow-dirs"));
+		await expect(page.getByTestId("public-dir")).toHaveText("dist/client");
+		await expect(page.getByTestId("dist-dir")).toHaveText("dist");
+	});
+});

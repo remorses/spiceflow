@@ -445,17 +445,26 @@ export function spiceflowPlugin({
     }),
     // Resolved directory paths for RSC runtime filesystem access.
     // In dev: publicDir = <cwd>/public, distDir = <cwd>.
-    // In prod: relative from rsc/index.js to sibling client/ and parent dist/.
+    // In prod: resolved from the rsc/ directory (sibling of client/).
+    // This virtual module gets code-split into rsc/assets/ (not rsc/index.js),
+    // so we detect the assets/ nesting at runtime and walk up to rsc/.
+    // On Cloudflare Workers, import.meta.filename is undefined (no filesystem),
+    // so both exports fall back to empty strings.
     createVirtualPlugin('virtual:spiceflow-dirs', () => {
-      const rscDir = path.join(resolvedOutDir, 'rsc')
-      const clientDir = path.join(resolvedOutDir, 'client')
-      const publicDirRelative = path.relative(rscDir, clientDir)
-      const distDirRelative = path.relative(rscDir, resolvedOutDir)
       return [
-        `import { resolve, dirname } from 'node:path'`,
-        `const base = import.meta.hot ? '' : dirname(import.meta.filename)`,
-        `export const publicDir = import.meta.hot ? resolve(process.cwd(), 'public') : resolve(base, ${JSON.stringify(publicDirRelative)})`,
-        `export const distDir = import.meta.hot ? process.cwd() : resolve(base, ${JSON.stringify(distDirRelative)})`,
+        `import { resolve, dirname, basename } from 'node:path'`,
+        `let publicDir = ''`,
+        `let distDir = ''`,
+        `if (import.meta.hot) {`,
+        `  publicDir = resolve(process.cwd(), 'public')`,
+        `  distDir = process.cwd()`,
+        `} else if (typeof import.meta.filename === 'string') {`,
+        `  const thisDir = dirname(import.meta.filename)`,
+        `  const rscDir = basename(thisDir) === 'assets' ? dirname(thisDir) : thisDir`,
+        `  publicDir = resolve(rscDir, '../client')`,
+        `  distDir = dirname(rscDir)`,
+        `}`,
+        `export { publicDir, distDir }`,
       ].join('\n')
     }),
     // Resolves to user's app entry module.

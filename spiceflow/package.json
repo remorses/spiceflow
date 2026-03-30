@@ -18,6 +18,7 @@
     },
     "#spiceflow-dirs": {
       "types": "./dist/react/spiceflow-dirs.d.ts",
+      "workerd": "./dist/react/spiceflow-dirs.js",
       "react-server": "./dist/react/spiceflow-dirs.rsc.js",
       "default": "./dist/react/spiceflow-dirs.js"
     },

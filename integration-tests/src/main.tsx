@@ -54,6 +54,7 @@ import {
 	InspectRequestActionTest,
 } from "./app/abort-test-client";
 import testContentRaw from "./test-content.md?raw";
+import { publicDir, distDir } from "spiceflow";
 
 // Increments on every RSC render of the home page. Used by e2e tests to detect
 // unwanted server re-renders (e.g. client HMR should not trigger a server render).
@@ -627,6 +628,16 @@ export const app = new Spiceflow()
 			return `Received: ${message}`;
 		}
 		return <ActionFormTest action={handleSubmit} />;
+	})
+	.page("/spiceflow-dirs", async () => {
+		const path = await import("node:path");
+		const cwd = process.cwd();
+		return (
+			<div data-testid="spiceflow-dirs">
+				<span data-testid="public-dir">{path.relative(cwd, publicDir) || "."}</span>
+				<span data-testid="dist-dir">{path.relative(cwd, distDir) || "."}</span>
+			</div>
+		);
 	})
 	.page("/raw-import-test", async () => {
 		return (
