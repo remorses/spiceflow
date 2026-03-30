@@ -148,4 +148,39 @@ test.describe('federation', () => {
 
     expect(errors).toEqual([])
   })
+
+  test('flight payload lines are valid Flight format', async () => {
+    const response = await fetch(
+      `${remoteURL}/api/chart?dataSource=test`,
+    )
+    const data = await response.json()
+
+    const lines = (data.flightPayload as string)
+      .split('\n')
+      .filter(Boolean)
+    expect(lines.length).toBeGreaterThan(0)
+
+    // Each line should match Flight format: <rowId>:<data>
+    for (const line of lines) {
+      expect(line).toMatch(/^[0-9a-f]*:/)
+    }
+  })
+
+  test('flight payload has client refs and model rows', async () => {
+    const response = await fetch(
+      `${remoteURL}/api/chart?dataSource=test`,
+    )
+    const data = await response.json()
+
+    const lines = (data.flightPayload as string)
+      .split('\n')
+      .filter(Boolean)
+
+    const clientRefs = lines.filter((l) => l.match(/^[0-9a-f]+:I\[/))
+    const modelRows = lines.filter((l) => l.match(/^[0-9a-f]+:\["\$"/))
+
+    expect(clientRefs.length).toBeGreaterThan(0)
+    expect(modelRows.length).toBeGreaterThan(0)
+  })
+
 })

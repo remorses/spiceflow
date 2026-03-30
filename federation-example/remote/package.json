@@ -5,8 +5,7 @@
   "scripts": {
     "dev": "vite dev",
     "build": "vite build",
-    "start": "node dist/rsc/index.js",
-    "test": "vitest --run"
+    "start": "node dist/rsc/index.js"
   },
   "dependencies": {
     "@types/react": "19.2.14",
@@ -18,7 +17,6 @@
     "vite": "^8.0.0"
   },
   "devDependencies": {
-    "@vitejs/plugin-react": "^6.0.1",
-    "vitest": "^4.1.0"
+    "@vitejs/plugin-react": "^6.0.1"
   }
 }

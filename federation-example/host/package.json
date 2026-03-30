@@ -6,7 +6,6 @@
     "dev": "vite dev",
     "build": "vite build",
     "start": "node dist/rsc/index.js",
-    "test": "vitest --run",
     "test-e2e": "playwright test"
   },
   "dependencies": {
@@ -21,7 +20,6 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.52.0",
-    "@vitejs/plugin-react": "^6.0.1",
-    "vitest": "^4.1.0"
+    "@vitejs/plugin-react": "^6.0.1"
   }
 }
