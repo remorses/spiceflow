@@ -1,5 +1,22 @@
 # spiceflow
 
+## 1.18.0-rsc.22
+
+1. **Added `publicDir` and `distDir` exports for RSC apps** -- server components can now locate the built `public/` and `dist/` directories without guessing from `import.meta.dirname`, which breaks on platforms like Vercel where the runtime directory differs from the build directory. Available from both `spiceflow` and `spiceflow/react`:
+
+   ```ts
+   import { publicDir, distDir } from 'spiceflow'
+   import { readFile, writeFile } from 'node:fs/promises'
+   import path from 'node:path'
+
+   const template = await readFile(path.join(publicDir, 'og-template.png'))
+   await writeFile(path.join(distDir, 'cache', 'post-1.png'), template)
+   ```
+
+   In development these resolve to `<cwd>/public` and `<cwd>`. In production they resolve to the built Vite output so the same code works after deployment.
+
+2. **Fixed `publicDir` and `distDir` resolution for code-split builds and Cloudflare Workers** -- the virtual module now resolves the correct parent directory even when Vite emits it under `dist/rsc/assets/`, and Cloudflare Workers fall back cleanly instead of trying to read filesystem paths that do not exist.
+
 ## 1.18.0-rsc.21
 
 1. **Fixed build silently succeeding when a server component throws during static page prerendering** — previously the prerender step checked the RSC flight response status (which is always 200, even on error) but not the HTML SSR response status (which is 500 when a component throws). The build would complete with broken prerendered files and no error. Now the HTML response status is also checked and the build fails with exit code 1 and shows the full stack trace.
