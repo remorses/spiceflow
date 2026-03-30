@@ -174,6 +174,13 @@ export function RemoteIsland({
   // can read host-provided React contexts (theme, auth, i18n, etc.).
   const Bridge = useContextBridgeSafe()
 
+  // Start decoding immediately during render so chunk loading and Flight
+  // decoding overlap with React's commit phase instead of waiting for it.
+  // treeCache deduplicates, so the useLayoutEffect below awaits the same promise.
+  if (isBrowser) {
+    getOrCreateTree({ remoteId, flightPayload, remoteOrigin, clientModules })
+  }
+
   useLayoutEffect(() => {
     const container = containerRef.current
     if (!container) return
