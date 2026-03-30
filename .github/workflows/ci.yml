@@ -41,6 +41,8 @@ jobs:
       - run: pnpm install --frozen-lockfile=false
       - run: pnpm build
         working-directory: spiceflow
+      - run: pnpm build
+        working-directory: cloudflare-example
       - uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
