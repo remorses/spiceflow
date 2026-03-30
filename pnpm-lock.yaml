@@ -257,6 +257,68 @@ importers:
         specifier: ^4.1.0
         version: 4.1.0
 
+  federation-example/host:
+    dependencies:
+      '@types/react':
+        specifier: 19.2.14
+        version: 19.2.14
+      '@types/react-dom':
+        specifier: 19.2.3
+        version: 19.2.3(@types/react@19.2.14)
+      importmap-vite-plugin:
+        specifier: ^0.1.0
+        version: 0.1.0(vite@8.0.0(@types/node@24.0.15)(esbuild@0.27.4)(jiti@2.6.1)(terser@5.46.1)(tsx@4.20.6)(yaml@2.7.0))
+      react:
+        specifier: 19.2.4
+        version: 19.2.4
+      react-dom:
+        specifier: 19.2.4
+        version: 19.2.4(react@19.2.4)
+      spiceflow:
+        specifier: workspace:*
+        version: link:../../spiceflow
+      typescript:
+        specifier: 5.7.3
+        version: 5.7.3
+      vite:
+        specifier: ^8.0.0
+        version: 8.0.0(@types/node@24.0.15)(esbuild@0.27.4)(jiti@2.6.1)(terser@5.46.1)(tsx@4.20.6)(yaml@2.7.0)
+    devDependencies:
+      '@playwright/test':
+        specifier: ^1.52.0
+        version: 1.58.2
+      '@vitejs/plugin-react':
+        specifier: ^6.0.1
+        version: 6.0.1(vite@8.0.0(@types/node@24.0.15)(esbuild@0.27.4)(jiti@2.6.1)(terser@5.46.1)(tsx@4.20.6)(yaml@2.7.0))
+
+  federation-example/remote:
+    dependencies:
+      '@types/react':
+        specifier: 19.2.14
+        version: 19.2.14
+      '@types/react-dom':
+        specifier: 19.2.3
+        version: 19.2.3(@types/react@19.2.14)
+      react:
+        specifier: 19.2.4
+        version: 19.2.4
+      react-dom:
+        specifier: 19.2.4
+        version: 19.2.4(react@19.2.4)
+      spiceflow:
+        specifier: workspace:*
+        version: link:../../spiceflow
+      typescript:
+        specifier: 5.7.3
+        version: 5.7.3
+      vite:
+        specifier: ^8.0.0
+        version: 8.0.0(@types/node@24.0.15)(esbuild@0.27.4)(jiti@2.6.1)(terser@5.46.1)(tsx@4.20.6)(yaml@2.7.0)
+    devDependencies:
+      '@vitejs/plugin-react':
+        specifier: ^6.0.1
+        version: 6.0.1(vite@8.0.0(@types/node@24.0.15)(esbuild@0.27.4)(jiti@2.6.1)(terser@5.46.1)(tsx@4.20.6)(yaml@2.7.0))
+
   integration-tests:
     dependencies:
       '@chakra-ui/react':
@@ -372,6 +434,9 @@ importers:
       isbot:
         specifier: ^4.1.0
         version: 4.4.0
+      its-fine:
+        specifier: ^2.0.0
+        version: 2.0.0(@types/react@19.2.14)(react@19.2.4)
       openapi-types:
         specifier: ^12.1.3
         version: 12.1.3
@@ -2781,6 +2846,11 @@ packages:
     peerDependencies:
       '@types/react': ^19.2.0
 
+  '@types/react-reconciler@0.28.9':
+    resolution: {integrity: sha512-HHM3nxyUZ3zAylX8ZEyrDNd2XZOnQ0D5XfunJF5FLQnZbHHYq4UWvW1QfelQNXv1ICNkwYhfxjwfnqivYB6bFg==}
+    peerDependencies:
+      '@types/react': '*'
+
   '@types/react-transition-group@4.4.12':
     resolution: {integrity: sha512-8TV6R3h2j7a91c+1DXdJi3Syo69zzIZbz7Lg5tORM5LEJG7X/E6a1V3drRyBRZq7/utz7A+c4OgYLiLcYGHG6w==}
     peerDependencies:
@@ -4426,6 +4496,11 @@ packages:
     resolution: {integrity: sha512-TR3KfrTZTYLPB6jUjfx6MF9WcWrHL9su5TObK4ZkYgBdWKPOFoSoQIdEuTuR82pmtxH2spWG9h6etwfr1pLBqQ==}
     engines: {node: '>=6'}
 
+  importmap-vite-plugin@0.1.0:
+    resolution: {integrity: sha512-x7UVXY9ri92+jrr5mIaHwpGzBRZ72SkvG6lgV/EjWO/ZhSe/Js/qZ7UDmRxCnHBSBElwvWBJvM2fCDpNMJ5PMQ==}
+    peerDependencies:
+      vite: '*'
+
   imurmurhash@0.1.4:
     resolution: {integrity: sha512-JmXMZ6wuvDmLiHEml9ykzqO6lwFbof0GG4IkcGaENdCRDDmMVnny7s5HsIgHCbaq0w2MyPhDqkhTUgS2LU2PHA==}
     engines: {node: '>=0.8.19'}
@@ -4641,6 +4716,11 @@ packages:
   iterator.prototype@1.1.5:
     resolution: {integrity: sha512-H0dkQoCa3b2VEeKQBOxFph+JAbcrQdE7KC0UkqwpLmv2EC4P41QXP+rqo9wYodACiG5/WM5s9oDApTU8utwj9g==}
     engines: {node: '>= 0.4'}
+
+  its-fine@2.0.0:
+    resolution: {integrity: sha512-KLViCmWx94zOvpLwSlsx6yOCeMhZYaxrJV87Po5k/FoZzcPSahvK5qJ7fYhS61sZi5ikmh2S3Hz55A2l3U69ng==}
+    peerDependencies:
+      react: ^19.0.0
 
   jackspeak@3.4.3:
     resolution: {integrity: sha512-OGlZQpz2yfahA/Rd1Y8Cd9SIEsqvXkLVoSw/cgwhnhFMDbsQFeZYoJJ7bIZBS9BcamUW96asq/npPWugM+RQBw==}
@@ -8846,6 +8926,10 @@ snapshots:
     dependencies:
       '@types/react': 19.2.14
 
+  '@types/react-reconciler@0.28.9(@types/react@19.2.14)':
+    dependencies:
+      '@types/react': 19.2.14
+
   '@types/react-transition-group@4.4.12(@types/react@19.2.14)':
     dependencies:
       '@types/react': 19.2.14
@@ -11220,6 +11304,10 @@ snapshots:
       parent-module: 1.0.1
       resolve-from: 4.0.0
 
+  importmap-vite-plugin@0.1.0(vite@8.0.0(@types/node@24.0.15)(esbuild@0.27.4)(jiti@2.6.1)(terser@5.46.1)(tsx@4.20.6)(yaml@2.7.0)):
+    dependencies:
+      vite: 8.0.0(@types/node@24.0.15)(esbuild@0.27.4)(jiti@2.6.1)(terser@5.46.1)(tsx@4.20.6)(yaml@2.7.0)
+
   imurmurhash@0.1.4: {}
 
   inflight@1.0.6:
@@ -11423,6 +11511,13 @@ snapshots:
       get-proto: 1.0.1
       has-symbols: 1.1.0
       set-function-name: 2.0.2
+
+  its-fine@2.0.0(@types/react@19.2.14)(react@19.2.4):
+    dependencies:
+      '@types/react-reconciler': 0.28.9(@types/react@19.2.14)
+      react: 19.2.4
+    transitivePeerDependencies:
+      - '@types/react'
 
   jackspeak@3.4.3:
     dependencies:

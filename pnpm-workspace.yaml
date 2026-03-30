@@ -1,4 +1,5 @@
 packages:
   - ./*
   - ./experiments/*
+  - ./federation-example/*
 neverBuiltDependencies: []

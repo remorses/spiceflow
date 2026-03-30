@@ -91,6 +91,30 @@ This sets `BASEPATH=/test-base` which `vite.config.ts` reads as `base: '/test-ba
 
 When writing new tests, always use `url("/path")` for `page.goto` and `toHaveURL`, and `${basePath}/path` inside template literals for `fetch` URLs and `Location` header assertions. This ensures tests work identically with and without the base path.
 
+## federation testing
+
+Federation e2e tests live in `federation-example/host/e2e/` and use Playwright. They require both the remote and host apps to be built first, since tests run against production builds.
+
+```bash
+# 1. rebuild spiceflow dist (if you changed spiceflow/src/)
+cd spiceflow
+pnpm tsc
+
+# 2. build remote first (host fetches from it at runtime)
+cd federation-example/remote
+pnpm build
+
+# 3. build host
+cd federation-example/host
+pnpm build
+
+# 4. run federation e2e tests
+cd federation-example/host
+pnpm test-e2e
+```
+
+Both remote and host servers start automatically via `webServer` in the host's `playwright.config.ts`. Always rebuild both after changing `spiceflow/src/` — stale dist files are the most common cause of federation test failures.
+
 ## rebuild dist before testing
 
 The Vite SSR middleware imports from `spiceflow/dist/` (the compiled package), NOT from source. If you modify files in `spiceflow/src/`, you must rebuild before e2e tests will pick up the changes:
