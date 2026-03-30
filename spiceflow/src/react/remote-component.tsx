@@ -3,14 +3,14 @@ import { RemoteIsland } from './remote-island.js'
 
 export async function RemoteComponent({
   src,
-  ...props
+  props,
 }: {
   src: string
-  [key: string]: unknown
+  props?: Record<string, unknown>
 }) {
   const url = new URL(src)
-  for (const [k, v] of Object.entries(props)) {
-    if (k !== 'src') url.searchParams.set(k, String(v))
+  if (props) {
+    url.searchParams.set('props', JSON.stringify(props))
   }
 
   const response = await fetch(url.toString())

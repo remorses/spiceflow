@@ -7,8 +7,9 @@ const remoteURL = `http://localhost:${remotePort}`
 
 test.describe('federation', () => {
   test('remote API returns flight payload with client modules', async () => {
+    const propsParam = encodeURIComponent(JSON.stringify({ dataSource: 'revenue' }))
     const response = await fetch(
-      `${remoteURL}/api/chart?dataSource=revenue`,
+      `${remoteURL}/api/chart?props=${propsParam}`,
     )
     expect(response.ok).toBe(true)
     const data = await response.json()
@@ -86,8 +87,9 @@ test.describe('federation', () => {
   })
 
   test('remote chunk URLs are absolute (use remote base)', async () => {
+    const propsParam = encodeURIComponent(JSON.stringify({ dataSource: 'revenue' }))
     const response = await fetch(
-      `${remoteURL}/api/chart?dataSource=revenue`,
+      `${remoteURL}/api/chart?props=${propsParam}`,
     )
     const data = await response.json()
 
@@ -150,8 +152,9 @@ test.describe('federation', () => {
   })
 
   test('flight payload lines are valid Flight format', async () => {
+    const propsParam = encodeURIComponent(JSON.stringify({ dataSource: 'test' }))
     const response = await fetch(
-      `${remoteURL}/api/chart?dataSource=test`,
+      `${remoteURL}/api/chart?props=${propsParam}`,
     )
     const data = await response.json()
 
@@ -167,8 +170,9 @@ test.describe('federation', () => {
   })
 
   test('flight payload has client refs and model rows', async () => {
+    const propsParam = encodeURIComponent(JSON.stringify({ dataSource: 'test' }))
     const response = await fetch(
-      `${remoteURL}/api/chart?dataSource=test`,
+      `${remoteURL}/api/chart?props=${propsParam}`,
     )
     const data = await response.json()
 

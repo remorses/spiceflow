@@ -7,10 +7,15 @@ export const app = new Spiceflow()
   .use(cors({ origin: '*' }))
   .get('/api/chart', async ({ request }) => {
     const url = new URL(request.url)
-    const dataSource = url.searchParams.get('dataSource') || 'default'
+    let props: Record<string, unknown> = {}
+    try {
+      props = JSON.parse(url.searchParams.get('props') || '{}')
+    } catch {
+      // invalid JSON, use empty props
+    }
 
     const payload = await renderComponentPayload(
-      <Chart dataSource={dataSource} />,
+      <Chart {...props} />,
     )
 
     return new Response(JSON.stringify(payload), {

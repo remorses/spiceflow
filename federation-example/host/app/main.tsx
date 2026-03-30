@@ -34,7 +34,7 @@ export const app = new Spiceflow()
           >
             <RemoteComponent
               src={`${REMOTE_ORIGIN}/api/chart`}
-              dataSource="revenue"
+              props={{ dataSource: 'revenue' }}
             />
           </Suspense>
         </div>
