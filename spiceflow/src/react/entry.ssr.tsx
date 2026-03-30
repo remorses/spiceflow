@@ -21,6 +21,12 @@ import { formatServerError } from './format-server-error.js'
 import { sanitizeErrorMessage } from './sanitize-error.js'
 import { injectRSCPayload } from './transform.js'
 
+const importMapJsonPromise: Promise<string> = import.meta.hot
+  ? Promise.resolve('')
+  : import('virtual:spiceflow-import-map')
+      .then((m) => m.default || '')
+      .catch(() => '')
+
 let bootstrapScriptContentPromise: Promise<string> | undefined
 
 function getBootstrapScriptContent() {
@@ -81,7 +87,10 @@ export async function renderHtml({
     ? flightForSsrOrForm.tee()
     : [undefined, flightForSsrOrForm]
 
-  const bootstrapScriptContent = await getBootstrapScriptContent()
+  const [bootstrapScriptContent, importMapJson] = await Promise.all([
+    getBootstrapScriptContent(),
+    importMapJsonPromise,
+  ])
 
   // Keep the first SSR-side createFromReadableStream call inside ReactDOMServer
   // render context so React can register preinit/preload hints for client refs.
@@ -223,6 +232,7 @@ export async function renderHtml({
     htmlStream.pipeThrough(
       injectRSCPayload({
         rscStream: flightStream2,
+        importMapJson,
       }),
     ),
     {
@@ -255,4 +265,35 @@ export async function getPrerenderRoutes() {
         route.kind === 'staticPageWithoutHandler',
     )
     .filter((x) => x.method === 'GET')
+}
+
+// Federation: decode a Flight payload and render it to an HTML string.
+// Called from the RSC environment via loadModule('ssr', 'index').
+export async function renderFlightToHtml(
+  flightPayload: string,
+): Promise<string> {
+  const stream = new ReadableStream({
+    start(controller) {
+      controller.enqueue(new TextEncoder().encode(flightPayload))
+      controller.close()
+    },
+  })
+
+  const tree = await (createFromReadableStream(stream) as Promise<React.ReactNode>)
+  const htmlStream = await ReactDOMServer.renderToReadableStream(
+    React.createElement(React.Fragment, null, tree),
+  )
+  await htmlStream.allReady
+
+  const reader = htmlStream.getReader()
+  const decoder = new TextDecoder()
+  let html = ''
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+    html += decoder.decode(value, { stream: true })
+  }
+  html += decoder.decode()
+
+  return html
 }

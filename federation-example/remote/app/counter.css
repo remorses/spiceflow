@@ -1,0 +1,19 @@
+[data-testid="remote-counter"] {
+  padding: 8px;
+  border: 2px solid #3b82f6;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: system-ui, sans-serif;
+}
+
+[data-testid="remote-counter"] button {
+  background: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 4px 12px;
+  cursor: pointer;
+  font-size: 16px;
+}

@@ -24,11 +24,32 @@ const pluginRscRpcPath = require.resolve('@vitejs/plugin-rsc/utils/rpc')
 // Module-level so the timestamp is stable even if spiceflowPlugin() is called more than once
 const buildTimestamp = Date.now().toString(36)
 
-export function spiceflowPlugin({ entry }: { entry: string }): PluginOption {
+// For absolute URL bases (e.g. federation remotes using
+// `base: 'https://remote.example.com/app/'`), extract just the pathname
+// so route matching and serveStatic work correctly. Asset URLs already
+// include the full origin via Vite's built-in base handling.
+function extractBasePathname(base: string): string {
+  if (base.startsWith('http://') || base.startsWith('https://')) {
+    const pathname = new URL(base).pathname.replace(/\/$/, '')
+    return pathname || ''
+  }
+  return base === '/' ? '' : base.replace(/\/$/, '')
+}
+
+export function spiceflowPlugin({
+  entry,
+  federation,
+}: {
+  entry: string
+  /** Set to `'remote'` when this app is a federation remote that exposes components to a host. */
+  federation?: 'remote'
+}): PluginOption {
+  const isRemote = federation === 'remote'
   let server: ViteDevServer
   let resolvedOutDir = 'dist'
   let resolvedBase = ''
   let isCloudflareRuntime = false
+  let importMapJson = ''
   const rscOptions: RscPluginOptions = {
     entries: {
       rsc: 'spiceflow/dist/react/entry.rsc',
@@ -37,6 +58,16 @@ export function spiceflowPlugin({ entry }: { entry: string }): PluginOption {
     },
     serverHandler: false as const,
     loadModuleDevProxy: true,
+    ...(isRemote
+      ? {
+          clientChunks(meta: { id: string; normalizedId: string }) {
+            if (meta.id.includes('spiceflow/') || meta.id.includes('spiceflow\\')) {
+              return 'spiceflow-framework'
+            }
+            return 'user-components'
+          },
+        }
+      : {}),
 
     // Use RSC_ENCRYPTION_KEY env var when set (stable across deploys), otherwise
     // let the plugin generate a random key (fine for dev and single-deploy setups).
@@ -158,14 +189,15 @@ export function spiceflowPlugin({ entry }: { entry: string }): PluginOption {
         // Capture base early — Vite normalizes it to '/' by default, but the
         // raw user value is available here before configResolved runs.
         const rawBase = userConfig.base || '/'
-        if (rawBase !== '/' && !rawBase.startsWith('/')) {
+        const isAbsoluteUrl = rawBase.startsWith('http://') || rawBase.startsWith('https://')
+        if (rawBase !== '/' && !rawBase.startsWith('/') && !isAbsoluteUrl) {
           throw new Error(
             `[spiceflow] config.base must be an absolute path starting with "/", got "${rawBase}". ` +
               `CDN URLs (https://...) and relative paths (./) are not supported. ` +
               `Use base: "/my-app" instead.`,
           )
         }
-        resolvedBase = rawBase.replace(/\/$/, '')
+        resolvedBase = extractBasePathname(rawBase)
         const userOnWarn = userConfig.build?.rollupOptions?.onwarn
         const isCloudflare = hasPluginNamed(
           userConfig.plugins,
@@ -233,7 +265,7 @@ export function spiceflowPlugin({ entry }: { entry: string }): PluginOption {
       },
       configResolved(config) {
         resolvedOutDir = config.build.outDir
-        resolvedBase = (config.base || '/').replace(/\/$/, '')
+        resolvedBase = extractBasePathname(config.base || '/')
         isCloudflareRuntime = config.plugins.some((plugin) =>
           plugin.name.startsWith('vite-plugin-cloudflare:'),
         )
@@ -459,7 +491,104 @@ export function spiceflowPlugin({ entry }: { entry: string }): PluginOption {
       )
       return lines.join('\n')
     }),
+    federationSharedPlugin(importMapJson, (json) => { importMapJson = json }),
+    createVirtualPlugin('virtual:spiceflow-import-map', () => {
+      return `export default ${JSON.stringify(importMapJson)}`
+    }),
+    // Externalize React for remote apps so bare specifiers are resolved
+    // by the host's import map. Can't be always-on because React is CJS
+    // and Rolldown's interop generates require() that fails in browsers.
+    ...(isRemote
+      ? [
+          {
+            name: 'spiceflow:federation-remote',
+            configEnvironment(name: string, config: any) {
+              if (name !== 'client') return
+              config.build ??= {}
+              config.build.rollupOptions ??= {}
+              config.build.rollupOptions.external = REACT_EXTERNALS
+            },
+          } satisfies Plugin,
+        ]
+      : []),
   ]
+}
+
+const REACT_EXTERNALS = [
+  'react',
+  'react-dom',
+  'react-dom/client',
+  'react/jsx-runtime',
+  'react/jsx-dev-runtime',
+  'spiceflow/react',
+]
+
+const sharedDir = path.resolve(
+  path.dirname(url.fileURLToPath(import.meta.url)),
+  'federation/shared',
+)
+
+const SHARED_ENTRIES: Record<string, string> = {
+  'federation-react': path.join(sharedDir, 'react.js'),
+  'federation-react-dom': path.join(sharedDir, 'react-dom.js'),
+  'federation-react-dom-client': path.join(sharedDir, 'react-dom-client.js'),
+  'federation-jsx-runtime': path.join(sharedDir, 'react-jsx-runtime.js'),
+  'federation-spiceflow-react': path.join(sharedDir, 'spiceflow-react.js'),
+}
+
+const SPECIFIER_MAP: Record<string, string[]> = {
+  'federation-react': ['react'],
+  'federation-react-dom': ['react-dom'],
+  'federation-react-dom-client': ['react-dom/client'],
+  'federation-jsx-runtime': ['react/jsx-runtime', 'react/jsx-dev-runtime'],
+  'federation-spiceflow-react': ['spiceflow/react'],
+}
+
+function federationSharedPlugin(
+  _importMapJson: string,
+  setImportMapJson: (json: string) => void,
+): Plugin {
+  const chunkRefs = new Map<string, string>()
+  let base = '/'
+
+  return {
+    name: 'spiceflow:federation-shared',
+    apply: 'build',
+
+    configResolved(config) {
+      base = config.base || '/'
+    },
+
+    buildStart() {
+      if (this.environment?.name !== 'client') return
+      for (const [name, filePath] of Object.entries(SHARED_ENTRIES)) {
+        const ref = this.emitFile({
+          type: 'chunk',
+          id: filePath,
+          name,
+          preserveSignature: 'strict',
+        })
+        chunkRefs.set(name, ref)
+      }
+    },
+
+    generateBundle() {
+      if (this.environment?.name !== 'client') return
+      const imports: Record<string, string> = {}
+      // Use the Vite base so paths are absolute when base is a full URL
+      const prefix = base.endsWith('/') ? base : base + '/'
+      for (const [name, ref] of chunkRefs) {
+        const fileName = this.getFileName(ref)
+        const specifiers = SPECIFIER_MAP[name]
+        if (specifiers) {
+          for (const spec of specifiers) {
+            imports[spec] = prefix + fileName
+          }
+        }
+      }
+      setImportMapJson(JSON.stringify({ imports }, null, 2))
+    },
+  }
 }
 
 function hasPluginNamed(
