@@ -193,7 +193,9 @@ export function RemoteIsland({
         if (!hasHydratedRef.current && ssrHtml) {
           // First mount with SSR HTML: hydrate existing DOM nodes — no clearing.
           hasHydratedRef.current = true
-          rootRef.current = hydrateRoot(container, tree)
+          rootRef.current = hydrateRoot(container, tree, {
+            onRecoverableError() {},
+          })
         } else {
           // No SSR HTML or re-mount after remoteId change: replace stale DOM.
           const r = createRoot(container)
@@ -214,6 +216,7 @@ export function RemoteIsland({
     <div
       ref={containerRef}
       data-remote-id={remoteId}
+      suppressHydrationWarning
       dangerouslySetInnerHTML={{ __html: ssrHtml ?? '' }}
     />
   )
