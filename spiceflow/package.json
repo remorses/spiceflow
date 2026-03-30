@@ -16,6 +16,11 @@
       "react-server": "./dist/react/deployment-id.rsc.js",
       "default": "./dist/react/deployment-id.js"
     },
+    "#spiceflow-dirs": {
+      "types": "./dist/react/spiceflow-dirs.d.ts",
+      "react-server": "./dist/react/spiceflow-dirs.rsc.js",
+      "default": "./dist/react/spiceflow-dirs.js"
+    },
     "#handle-ssr": {
       "types": "./dist/react/handle-ssr.d.ts",
       "react-server": "./dist/react/handle-ssr.rsc.js",

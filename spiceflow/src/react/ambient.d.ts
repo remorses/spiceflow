@@ -23,6 +23,11 @@ declare module 'virtual:spiceflow-deployment-id' {
   export default deploymentId
 }
 
+declare module 'virtual:spiceflow-dirs' {
+  export const publicDir: string
+  export const distDir: string
+}
+
 declare module 'virtual:spiceflow-import-map' {
   const importMapJson: string
   export default importMapJson

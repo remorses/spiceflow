@@ -443,6 +443,21 @@ export function spiceflowPlugin({
     createVirtualPlugin('virtual:spiceflow-deployment-id', () => {
       return `export default ${JSON.stringify(buildTimestamp)}`
     }),
+    // Resolved directory paths for RSC runtime filesystem access.
+    // In dev: publicDir = <cwd>/public, distDir = <cwd>.
+    // In prod: relative from rsc/index.js to sibling client/ and parent dist/.
+    createVirtualPlugin('virtual:spiceflow-dirs', () => {
+      const rscDir = path.join(resolvedOutDir, 'rsc')
+      const clientDir = path.join(resolvedOutDir, 'client')
+      const publicDirRelative = path.relative(rscDir, clientDir)
+      const distDirRelative = path.relative(rscDir, resolvedOutDir)
+      return [
+        `import { resolve, dirname } from 'node:path'`,
+        `const base = import.meta.hot ? '' : dirname(import.meta.filename)`,
+        `export const publicDir = import.meta.hot ? resolve(process.cwd(), 'public') : resolve(base, ${JSON.stringify(publicDirRelative)})`,
+        `export const distDir = import.meta.hot ? process.cwd() : resolve(base, ${JSON.stringify(distDirRelative)})`,
+      ].join('\n')
+    }),
     // Resolves to user's app entry module.
     // Re-exports all named exports (for Cloudflare Durable Objects, etc.)
     // and `default` (for Cloudflare Workers default export).

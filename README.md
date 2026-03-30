@@ -2502,6 +2502,31 @@ export { Map } from './map'
 
 </details>
 
+### Directory Paths
+
+> Only available when using the Vite plugin.
+
+Server components sometimes need to read files from the filesystem at runtime — for example, reading images from `public/` to generate Open Graph images, or writing cached files to disk. Using `import.meta.dirname` breaks on platforms like Vercel where the function runs from a different directory than where you built.
+
+`publicDir` and `distDir` resolve to the correct absolute paths in every environment:
+
+```tsx
+import { publicDir, distDir } from 'spiceflow'
+import { readFile, writeFile } from 'node:fs/promises'
+import path from 'node:path'
+
+export async function generateOgImage(slug: string) {
+  const template = await readFile(path.join(publicDir, 'og-template.png'))
+  // ... generate image
+  await writeFile(path.join(distDir, 'cache', `${slug}.png`), result)
+}
+```
+
+| | `publicDir` | `distDir` |
+|---|---|---|
+| **Dev** | `<cwd>/public` | `<cwd>` |
+| **Production** | `<outDir>/client` (where Vite copies public/ contents) | `<outDir>` |
+
 ### Remote Components
 
 Embed components from other spiceflow servers or load client-only components from any ESM URL (like [esm.sh](https://esm.sh) or [Framer](https://framer.com)). `RemoteComponent` is an async server component that detects the response type automatically — JSON for federation, JavaScript for ESM modules.
