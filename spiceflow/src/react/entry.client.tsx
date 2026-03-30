@@ -9,6 +9,7 @@ import {
   encodeReply,
   setServerCallback,
 } from '@vitejs/plugin-rsc/browser'
+import { FiberProvider } from 'its-fine'
 import { router } from './router.js'
 import {
   DefaultGlobalErrorPage,
@@ -114,8 +115,7 @@ async function fetchFlightResponse(args: {
 
 // Expose createFromReadableStream globally for federation RemoteIsland components
 // that need to decode Flight payloads from remote servers in the browser.
-;(globalThis as any).__spiceflow_createFromReadableStream =
-  createFromReadableStream
+globalThis.__spiceflow_createFromReadableStream = createFromReadableStream
 
 // React prod replaces error.message with a generic string for security but
 // keeps error.digest (set by our onError callback). Restore the original
@@ -176,6 +176,7 @@ function wrapReturnValueErrors(value: unknown): unknown {
   }
   return value
 }
+
 async function main() {
   let setPayload: (v: Promise<ServerPayload>) => void = () => undefined
 
@@ -287,13 +288,15 @@ async function main() {
     }, [])
 
     return (
-      <ErrorBoundary errorComponent={DefaultGlobalErrorPage}>
-        <NotFoundBoundary component={DefaultNotFoundPage}>
-          <FlightDataContext.Provider value={payload}>
-            <LayoutContent />
-          </FlightDataContext.Provider>
-        </NotFoundBoundary>
-      </ErrorBoundary>
+      <FiberProvider>
+        <ErrorBoundary errorComponent={DefaultGlobalErrorPage}>
+          <NotFoundBoundary component={DefaultNotFoundPage}>
+            <FlightDataContext.Provider value={payload}>
+              <LayoutContent />
+            </FlightDataContext.Provider>
+          </NotFoundBoundary>
+        </ErrorBoundary>
+      </FiberProvider>
     )
   }
 
