@@ -1,5 +1,76 @@
 # spiceflow
 
+## 1.18.0-rsc.19
+
+1. **RSC federation — embed components from other spiceflow servers** — `RemoteComponent` fetches a remote spiceflow app's RSC payload and renders it inline with full SSR, hydration, and client interactivity. The remote component is pre-rendered in the host's HTML stream and hydrated using `hydrateRoot` to patch the existing DOM in-place (no flash). Remote client components share the host's React context, router state, and `useRouterState` hook:
+
+   ```tsx
+   // remote app — expose a component
+   import { renderComponentPayload } from 'spiceflow/federation'
+   .get('/api/chart', async () => {
+     const payload = await renderComponentPayload(<Chart dataSource="revenue" />)
+     return Response.json(payload)
+   })
+
+   // host app — embed it
+   import { RemoteComponent } from 'spiceflow/react'
+   <Suspense fallback={<div>Loading...</div>}>
+     <RemoteComponent src="https://my-remote.com/api/chart" props={{ dataSource: 'revenue' }} />
+   </Suspense>
+   ```
+
+   Set `federation: 'remote'` in `spiceflowPlugin` for the remote app and set `base` to the remote's public URL so asset paths are absolute.
+
+2. **External ESM components — embed components from esm.sh or Framer** — `RemoteComponent` now also accepts plain JavaScript URLs. If the response `content-type` is `text/javascript`, the module is dynamically imported in the browser and its default (or first function) export is rendered as a React component. ESM components render `null` during SSR and load after hydration:
+
+   ```tsx
+   // From esm.sh
+   <RemoteComponent src="https://esm.sh/some-chart-component" />
+
+   // From Framer
+   <RemoteComponent src="https://framer.com/m/IOKnob-DT0M.js@eZsKjfnRtnN8np5uwoAx" />
+   ```
+
+3. **`importMap` option on `spiceflowPlugin`** — extend the auto-generated browser import map with additional specifiers. Supports both local files (built as hashed chunks for deduplication) and external URLs. Use this to share modules like `framer-motion` between the host app and external ESM components:
+
+   ```ts
+   spiceflowPlugin({
+     entry: './app/main.tsx',
+     importMap: {
+       // Local file — built as a chunk, deduplicated with the host app
+       'framer-motion': './app/shared/framer-motion.ts',
+       // External URL
+       'framer': 'https://esm.sh/unframer@latest/esm/framer.js?external=react',
+     },
+   })
+   ```
+
+4. **`getActionAbortController` — cancel in-flight server actions from the client** — returns the `AbortController` for the most recent in-flight call to a given server action. Call `.abort()` to cancel the fetch:
+
+   ```tsx
+   import { getActionAbortController } from 'spiceflow/react'
+   import { myAction } from './actions'
+
+   myAction(args)
+   getActionAbortController(myAction)?.abort()
+   ```
+
+5. **`getActionRequest` — server-side request context for server actions** — returns the `Request` for the currently executing server action via `AsyncLocalStorage`. The request's `signal` is aborted when the client disconnects:
+
+   ```ts
+   "use server"
+   import { getActionRequest } from 'spiceflow'
+
+   export async function myAction() {
+     const request = getActionRequest()
+     await fetch('https://api.example.com/slow', { signal: request.signal })
+   }
+   ```
+
+6. **Fixed scroll reflow during navigation** — the router now caches scroll position via a passive listener instead of reading `window.scrollY` synchronously, avoiding layout thrashing during RSC payload processing.
+
+7. **Fixed Windows support for dependency tracing** — path normalization and junction symlinks fix the standalone build output on Windows.
+
 ## 1.18.0-rsc.18
 
 1. **Restored `.rsc` path extension for client-side RSC navigation fetches** — the client now appends `.rsc` to the pathname when fetching RSC Flight data (e.g. `/about.rsc?__rsc=`). This gives each RSC payload a distinct URL from its HTML page, enabling CDN-friendly caching of Flight data separately from HTML responses. The root `/` page uses `/index.rsc`. The `__rsc` query param is still included for backwards compatibility. Server-side route matching strips the `.rsc` suffix before matching so dynamic params work correctly.
