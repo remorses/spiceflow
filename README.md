@@ -2578,13 +2578,17 @@ The remote's `renderComponentPayload` produces a JSON response containing:
 - **clientModules** — chunk URLs for client components
 - **cssLinks** — stylesheet URLs
 
-The host fetches this JSON, SSR-renders the `ssrHtml` via `dangerouslySetInnerHTML`, then hydrates using `hydrateRoot` to patch the existing DOM in-place (no flash). An auto-generated import map ensures host and remote share the same React instance:
+The host fetches this JSON, SSR-renders the `ssrHtml` via `dangerouslySetInnerHTML`, then hydrates using `hydrateRoot` to patch the existing DOM in-place (no flash).
+
+**Import map and module deduplication.** Spiceflow automatically injects a `<script type="importmap">` into the HTML with entries for shared modules:
 
 ```
 react, react-dom, react-dom/client, react/jsx-runtime, spiceflow/react
 ```
 
-This means remote client components can use `useRouterState` from the host and read host-provided React contexts (via `useContextBridge` from [its-fine](https://github.com/pmndrs/its-fine)).
+Each entry points to a hashed chunk built from the host app's own dependencies. When a remote component's client code does `import React from 'react'`, the browser resolves it through the import map to the **host's React chunk** — not a separate copy. This is how federation avoids duplicate React instances (which would break hooks and context). The same deduplication works for any module you add via the `importMap` plugin option: if a Framer component does `import { motion } from 'framer-motion'`, and you've mapped `framer-motion` to a local re-export file, the browser loads the host's bundled copy.
+
+This means remote client components can use `useRouterState` from the host and read host-provided React contexts (via `useContextBridge` from [its-fine](https://github.com/pmndrs/its-fine)). External ESM components from esm.sh or Framer also benefit — as long as they externalize `react` (e.g. `https://esm.sh/some-lib?external=react`), the import map resolves the bare specifier to the host's instance and everything just works.
 
 </details>
 
