@@ -1,6 +1,22 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import React, { useLayoutEffect, useRef } from 'react'
+import { createRoot, hydrateRoot } from 'react-dom/client'
+import { type ContextBridge, useContextBridge } from 'its-fine'
+
+const isBrowser = typeof window !== 'undefined'
+
+// During SSR, useContextBridge throws because FiberProvider doesn't exist in
+// the server render tree. Context bridging is only meaningful on the client
+// anyway (server has no interactive contexts to bridge), so return a
+// passthrough wrapper on the server.
+const PassthroughBridge: ContextBridge = ({ children }) =>
+  children as React.ReactElement
+
+function useContextBridgeSafe(): ContextBridge {
+  if (!isBrowser) return PassthroughBridge
+  return useContextBridge()
+}
 
 interface ClientModules {
   [id: string]: { chunks: string[]; css?: string[] }
@@ -119,14 +135,25 @@ async function decodeRemoteTree({
   return createFromReadableStream(stream) as Promise<React.ReactNode>
 }
 
-// Renders the decoded remote tree inline in the host React tree instead of
-// in a separate createRoot. Remote client components share host context,
-// appear in React DevTools, and benefit from shared React instance.
+// Renders the decoded remote tree using hydrateRoot so React patches the
+// existing SSR DOM nodes instead of clearing and remounting them.
 //
-// During SSR, renders the pre-rendered HTML from the remote server via
-// dangerouslySetInnerHTML so the content is visible without JavaScript.
-// After client hydration, the Flight payload is decoded and the static
-// HTML is replaced with the interactive React tree.
+// The host React tree always renders dangerouslySetInnerHTML. React only
+// re-applies innerHTML when __html changes (string comparison in reconciler),
+// so after hydrateRoot/createRoot takes ownership the host never overwrites it.
+//
+// useContextBridge (from its-fine) collects all React contexts from the host
+// fiber tree and re-provides them inside the remote root. This means remote
+// client components can read host-provided contexts (theme, auth, i18n, etc.)
+// even though they live in a separate React root.
+//
+// useRouterState also works because it uses a module-level history singleton
+// (useSyncExternalStore), not React context — the shared spiceflow/react
+// module via import map makes it accessible across roots.
+//
+// First mount: hydrateRoot patches the SSR HTML DOM (no clearing).
+// On remoteId change: ssrHtml changes → React updates innerHTML first (new
+// content visible immediately), then createRoot re-mounts the new tree.
 export function RemoteIsland({
   flightPayload,
   remoteOrigin,
@@ -140,31 +167,47 @@ export function RemoteIsland({
   clientModules: ClientModules
   ssrHtml?: string
 }) {
-  const [tree, setTree] = useState<React.ReactNode>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const rootRef = useRef<ReturnType<typeof hydrateRoot> | ReturnType<typeof createRoot> | null>(null)
+  const hasHydratedRef = useRef(false)
+  // Bridge all host contexts into the remote root so remote client components
+  // can read host-provided React contexts (theme, auth, i18n, etc.).
+  const Bridge = useContextBridgeSafe()
 
-  useEffect(() => {
-    let cancelled = false
+  useLayoutEffect(() => {
+    const container = containerRef.current
+    if (!container) return
+
+    let isMounted = true
     getOrCreateTree({ remoteId, flightPayload, remoteOrigin, clientModules }).then(
       (decoded) => {
-        if (!cancelled) setTree(decoded)
+        if (!isMounted) return
+        const tree = <Bridge>{decoded as React.ReactElement}</Bridge>
+        if (!hasHydratedRef.current && ssrHtml) {
+          // First mount with SSR HTML: hydrate existing DOM nodes — no clearing.
+          hasHydratedRef.current = true
+          rootRef.current = hydrateRoot(container, tree)
+        } else {
+          // No SSR HTML or re-mount after remoteId change: replace stale DOM.
+          const r = createRoot(container)
+          r.render(tree)
+          rootRef.current = r
+        }
       },
     )
+
     return () => {
-      cancelled = true
+      isMounted = false
+      rootRef.current?.unmount()
+      rootRef.current = null
     }
   }, [remoteId, flightPayload, remoteOrigin])
 
-  // Before Flight decoding completes, show the pre-rendered SSR HTML.
-  // This matches both SSR output and initial client render (no hydration mismatch).
-  // Once the Flight tree is decoded, switch to the interactive React tree.
-  if (!tree && ssrHtml) {
-    return (
-      <div
-        data-remote-id={remoteId}
-        dangerouslySetInnerHTML={{ __html: ssrHtml }}
-      />
-    )
-  }
-
-  return <div data-remote-id={remoteId}>{tree}</div>
+  return (
+    <div
+      ref={containerRef}
+      data-remote-id={remoteId}
+      dangerouslySetInnerHTML={{ __html: ssrHtml ?? '' }}
+    />
+  )
 }

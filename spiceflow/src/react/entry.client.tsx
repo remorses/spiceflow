@@ -9,6 +9,7 @@ import {
   encodeReply,
   setServerCallback,
 } from '@vitejs/plugin-rsc/browser'
+import { FiberProvider } from 'its-fine'
 import { router } from './router.js'
 import {
   DefaultGlobalErrorPage,
@@ -287,13 +288,15 @@ async function main() {
     }, [])
 
     return (
-      <ErrorBoundary errorComponent={DefaultGlobalErrorPage}>
-        <NotFoundBoundary component={DefaultNotFoundPage}>
-          <FlightDataContext.Provider value={payload}>
-            <LayoutContent />
-          </FlightDataContext.Provider>
-        </NotFoundBoundary>
-      </ErrorBoundary>
+      <FiberProvider>
+        <ErrorBoundary errorComponent={DefaultGlobalErrorPage}>
+          <NotFoundBoundary component={DefaultNotFoundPage}>
+            <FlightDataContext.Provider value={payload}>
+              <LayoutContent />
+            </FlightDataContext.Provider>
+          </NotFoundBoundary>
+        </ErrorBoundary>
+      </FiberProvider>
     )
   }
 
