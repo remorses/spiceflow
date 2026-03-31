@@ -1,6 +1,6 @@
 import { Suspense } from 'react'
 import { Spiceflow } from 'spiceflow'
-import { Head, RemoteComponent } from 'spiceflow/react'
+import { Head, Link, RemoteComponent } from 'spiceflow/react'
 
 const REMOTE_ORIGIN = process.env.REMOTE_ORIGIN || 'http://localhost:3051'
 
@@ -39,6 +39,25 @@ export const app = new Spiceflow()
           </Suspense>
         </div>
 
+        <div data-testid="isolated-remote-section">
+          <h2>Remote Chart Component (Shadow DOM isolated):</h2>
+          <Suspense
+            fallback={
+              <div data-testid="isolated-remote-loading">
+                Loading isolated remote component...
+              </div>
+            }
+          >
+            <RemoteComponent
+              src={`${REMOTE_ORIGIN}/api/chart`}
+              props={{ dataSource: 'isolated' }}
+              isolateStyles
+            />
+          </Suspense>
+        </div>
+
+        <Link href="/isolated-nav" data-testid="nav-to-isolated">Go to isolated nav page</Link>
+
         <div data-testid="esm-section">
           <h2>ESM Component:</h2>
           <Suspense
@@ -51,6 +70,63 @@ export const app = new Spiceflow()
             <RemoteComponent
               src={`${REMOTE_ORIGIN}/api/esm-component.js`}
               props={{ name: 'Spiceflow' }}
+            />
+          </Suspense>
+        </div>
+      </div>
+    )
+  })
+
+  .page('/no-remote', async () => {
+    return (
+      <div>
+        <h1 data-testid="no-remote-title">Page Without Remote Components</h1>
+        <Link href="/isolated-nav" data-testid="nav-to-isolated">Go to isolated</Link>
+        <Link href="/plain-nav" data-testid="nav-to-plain">Go to plain remote</Link>
+      </div>
+    )
+  })
+
+  .page('/isolated-nav', async () => {
+    return (
+      <div>
+        <h1 data-testid="nav-page-title">Client Navigation Target</h1>
+        <Link href="/" data-testid="back-link">Back to home</Link>
+        <div data-testid="nav-isolated-section">
+          <Suspense
+            fallback={
+              <div data-testid="nav-isolated-loading">
+                Loading isolated remote...
+              </div>
+            }
+          >
+            <RemoteComponent
+              src={`${REMOTE_ORIGIN}/api/chart`}
+              props={{ dataSource: 'nav-isolated' }}
+              isolateStyles
+            />
+          </Suspense>
+        </div>
+      </div>
+    )
+  })
+
+  .page('/plain-nav', async () => {
+    return (
+      <div>
+        <h1 data-testid="plain-nav-title">Plain Remote (No Isolation)</h1>
+        <Link href="/no-remote" data-testid="back-to-no-remote">Back</Link>
+        <div data-testid="nav-plain-section">
+          <Suspense
+            fallback={
+              <div data-testid="nav-plain-loading">
+                Loading plain remote...
+              </div>
+            }
+          >
+            <RemoteComponent
+              src={`${REMOTE_ORIGIN}/api/chart`}
+              props={{ dataSource: 'nav-plain' }}
             />
           </Suspense>
         </div>

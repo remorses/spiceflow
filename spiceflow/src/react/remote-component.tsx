@@ -16,9 +16,13 @@ function isJavaScriptContentType(contentType: string): boolean {
 export async function RemoteComponent({
   src,
   props,
+  isolateStyles,
 }: {
   src: string
   props?: Record<string, unknown>
+  /** Render remote content inside a Shadow DOM to prevent CSS from leaking
+   *  between host and remote. Uses Declarative Shadow DOM for SSR. */
+  isolateStyles?: boolean
 }) {
   const url = new URL(src)
   if (props) {
@@ -48,12 +52,23 @@ export async function RemoteComponent({
     )
   }
 
-  // Inject CSS links via React's preinit API so Fizz emits <link> tags
-  // in the host's streamed HTML. Paths are already absolute when the
-  // remote sets Vite base to its own URL.
-  for (const cssHref of data.cssLinks ?? []) {
-    const href = new URL(cssHref, url.origin).toString()
-    ReactDOM.preinit(href, { as: 'style', precedence: 'spiceflow-federation' })
+  const cssLinks: string[] = data.cssLinks ?? []
+
+  if (isolateStyles) {
+    // Preload CSS early (browser starts fetching) but don't apply globally —
+    // the actual <link> tags go inside the shadow root.
+    for (const cssHref of cssLinks) {
+      const href = new URL(cssHref, url.origin).toString()
+      ReactDOM.preload(href, { as: 'style' })
+    }
+  } else {
+    // Inject CSS links via React's preinit API so Fizz emits <link> tags
+    // in the host's streamed HTML. Paths are already absolute when the
+    // remote sets Vite base to its own URL.
+    for (const cssHref of cssLinks) {
+      const href = new URL(cssHref, url.origin).toString()
+      ReactDOM.preinit(href, { as: 'style', precedence: 'spiceflow-federation' })
+    }
   }
 
   return (
@@ -63,6 +78,8 @@ export async function RemoteComponent({
       remoteId={data.remoteId}
       clientModules={data.clientModules || {}}
       ssrHtml={data.ssrHtml || ''}
+      cssLinks={cssLinks}
+      isolateStyles={isolateStyles}
     />
   )
 }
