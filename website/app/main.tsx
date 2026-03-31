@@ -47,6 +47,10 @@ export const app = new Spiceflow()
         headers: { 'Content-Type': 'text/plain' },
       })
     }
+
+    if (url.pathname === '/gh') {
+      return Response.redirect('https://github.com/remorses/spiceflow', 302)
+    }
   })
   .layout('/*', ({ children }) => {
     return (
