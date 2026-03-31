@@ -1,5 +1,30 @@
 # spiceflow
 
+## 1.18.0-rsc.23
+
+1. **`isolateStyles` prop on `RemoteComponent` for Shadow DOM style isolation** — remote content renders inside a shadow root using Declarative Shadow DOM for SSR, preventing CSS from leaking between host and remote apps. CSS links are injected inside the shadow root instead of `document.head`, and host page styles cannot penetrate the shadow boundary. CSS custom properties (variables) still work across the boundary for theming:
+
+   ```tsx
+   <RemoteComponent
+     src="https://remote.example.com/api/widget"
+     props={{ theme: 'dark' }}
+     isolateStyles
+   />
+   ```
+
+2. **Federation response format changed from JSON to SSE** — `renderComponentPayload()` now returns a `Response` with `text/event-stream` content-type instead of a plain JSON object. Remote handlers simplify to just returning the response directly:
+
+   ```ts
+   // before
+   const payload = await renderComponentPayload(<Chart />)
+   return new Response(JSON.stringify(payload), { headers: { 'content-type': 'application/json' } })
+
+   // after
+   return await renderComponentPayload(<Chart />)
+   ```
+
+   The SSE wire format emits `metadata`, `ssr`, `flight` (one event per Flight row), and `done` events. This is a preparatory change — streaming support can be added later by emitting `flight` events incrementally as async components resolve, without changing the protocol.
+
 ## 1.18.0-rsc.22
 
 1. **Added `publicDir` and `distDir` exports for RSC apps** -- server components can now locate the built `public/` and `dist/` directories without guessing from `import.meta.dirname`, which breaks on platforms like Vercel where the runtime directory differs from the build directory. Available from both `spiceflow` and `spiceflow/react`:
