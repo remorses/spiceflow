@@ -1,8 +1,9 @@
 // Async server component that renders a remote component from a URL.
 // Supports two modes based on the response content-type:
-// - JSON (spiceflow federation): decodes Flight payload via RemoteIsland
+// - SSE (spiceflow federation): parses metadata/ssr/flight events via RemoteIsland
 // - JavaScript (ESM module): dynamically imports and renders via EsmIsland
 import ReactDOM from 'react-dom'
+import { streamSSEResponse, type SSEEvent } from '../client/shared.js'
 import { EsmIsland } from './esm-island.js'
 import { RemoteIsland } from './remote-island.js'
 
@@ -42,29 +43,46 @@ export async function RemoteComponent({
     return <EsmIsland src={url.toString()} props={props} />
   }
 
-  const text = await response.text()
-  let data: any
-  try {
-    data = JSON.parse(text)
-  } catch {
-    throw new Error(
-      `[RemoteComponent] Failed to parse JSON from ${url} (content-type: ${contentType}): ${text.slice(0, 300)}`,
-    )
+  let metadata: {
+    remoteId: string
+    clientModules: Record<string, { chunks: string[]; css: string[] }>
+    cssLinks: string[]
+  } | undefined
+  let ssrHtml = ''
+  const flightRows: string[] = []
+
+  for await (const event of streamSSEResponse({ response, map: (x: SSEEvent) => x })) {
+    switch (event.event) {
+      case 'metadata':
+        metadata = JSON.parse(event.data)
+        break
+      case 'ssr':
+        ssrHtml = JSON.parse(event.data).html
+        break
+      case 'flight':
+        flightRows.push(event.data)
+        break
+    }
   }
 
-  const cssLinks: string[] = data.cssLinks ?? []
+  if (!metadata) {
+    throw new Error('[RemoteComponent] No metadata event in federation response')
+  }
+
+  // Reassemble Flight rows with newline delimiters — the Flight protocol
+  // parser expects rows separated by \n.
+  const flightPayload = flightRows.length > 0
+    ? flightRows.join('\n') + '\n'
+    : ''
+
+  const cssLinks: string[] = metadata.cssLinks ?? []
 
   if (isolateStyles) {
-    // Preload CSS early (browser starts fetching) but don't apply globally —
-    // the actual <link> tags go inside the shadow root.
     for (const cssHref of cssLinks) {
       const href = new URL(cssHref, url.origin).toString()
       ReactDOM.preload(href, { as: 'style' })
     }
   } else {
-    // Inject CSS links via React's preinit API so Fizz emits <link> tags
-    // in the host's streamed HTML. Paths are already absolute when the
-    // remote sets Vite base to its own URL.
     for (const cssHref of cssLinks) {
       const href = new URL(cssHref, url.origin).toString()
       ReactDOM.preinit(href, { as: 'style', precedence: 'spiceflow-federation' })
@@ -73,11 +91,11 @@ export async function RemoteComponent({
 
   return (
     <RemoteIsland
-      flightPayload={data.flightPayload}
+      flightPayload={flightPayload}
       remoteOrigin={url.origin}
-      remoteId={data.remoteId}
-      clientModules={data.clientModules || {}}
-      ssrHtml={data.ssrHtml || ''}
+      remoteId={metadata.remoteId}
+      clientModules={metadata.clientModules || {}}
+      ssrHtml={ssrHtml || ''}
       cssLinks={cssLinks}
       isolateStyles={isolateStyles}
     />

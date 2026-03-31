@@ -31,16 +31,7 @@ export const app = new Spiceflow()
       // invalid JSON, use empty props
     }
 
-    const payload = await renderComponentPayload(
-      <Chart {...props} />,
-    )
-
-    return new Response(JSON.stringify(payload), {
-      headers: {
-        'content-type': 'application/json',
-        'access-control-allow-origin': '*',
-      },
-    })
+    return await renderComponentPayload(<Chart {...props} />)
   })
 
 app.listen(Number(process.env.PORT || 3001))

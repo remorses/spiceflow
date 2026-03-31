@@ -1,3 +1,7 @@
+// Federation RSC entry point. Renders a React element to an SSE-formatted
+// Response containing metadata, SSR HTML, and Flight payload rows. The SSE
+// format is designed so that streaming can be added later (multiple flight
+// events arriving incrementally) without a breaking change.
 import { renderToReadableStream } from '#rsc-runtime'
 
 export { renderToReadableStream }
@@ -15,19 +19,23 @@ async function streamToString(stream: ReadableStream<Uint8Array>): Promise<strin
   return result
 }
 
+function formatSSEEvent(event: string, data: string): string {
+  return `event: ${event}\ndata: ${data}\n\n`
+}
+
 /**
- * Renders a React element to a federation payload containing the RSC Flight stream
- * and a client module manifest mapping module IDs to chunk URLs.
+ * Renders a React element to a federation Response in SSE format.
+ *
+ * The response contains these events in order:
+ * - `metadata` — remoteId, clientModules map, cssLinks
+ * - `ssr` — pre-rendered HTML for immediate display
+ * - `flight` (one or more) — RSC Flight payload rows
+ * - `done` — signals the end of the payload
  *
  * Call this from a route handler to expose a component for federation.
+ * The returned Response has the correct content-type and CORS headers.
  */
-export async function renderComponentPayload(element: React.ReactElement): Promise<{
-  remoteId: string
-  flightPayload: string
-  clientModules: Record<string, { chunks: string[]; css: string[] }>
-  cssLinks: string[]
-  ssrHtml: string
-}> {
+export async function renderComponentPayload(element: React.ReactElement): Promise<Response> {
   const remoteId = 'r_' + Math.random().toString(36).slice(2, 10)
 
   const clientModules: Record<string, { chunks: string[]; css: string[] }> = {}
@@ -67,5 +75,25 @@ export async function renderComponentPayload(element: React.ReactElement): Promi
     // still works, the user just sees a brief flash of empty content).
   }
 
-  return { remoteId, flightPayload, clientModules, cssLinks, ssrHtml }
+  let body = ''
+  body += formatSSEEvent('metadata', JSON.stringify({ remoteId, clientModules, cssLinks }))
+  body += formatSSEEvent('ssr', JSON.stringify({ html: ssrHtml }))
+
+  // Split Flight payload into individual rows and emit each as a separate
+  // flight event. Flight rows are newline-delimited — each row becomes its
+  // own event so that streaming can later emit them incrementally.
+  const flightRows = flightPayload.split('\n').filter(Boolean)
+  for (const row of flightRows) {
+    body += formatSSEEvent('flight', row)
+  }
+
+  body += formatSSEEvent('done', '')
+
+  return new Response(body, {
+    headers: {
+      'content-type': 'text/event-stream',
+      'cache-control': 'no-cache',
+      'access-control-allow-origin': '*',
+    },
+  })
 }

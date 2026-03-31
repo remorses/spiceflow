@@ -2529,7 +2529,7 @@ export async function generateOgImage(slug: string) {
 
 ### Remote Components
 
-Embed components from other spiceflow servers or load client-only components from any ESM URL (like [esm.sh](https://esm.sh) or [Framer](https://framer.com)). `RemoteComponent` is an async server component that detects the response type automatically — JSON for federation, JavaScript for ESM modules.
+Embed components from other spiceflow servers or load client-only components from any ESM URL (like [esm.sh](https://esm.sh) or [Framer](https://framer.com)). `RemoteComponent` is an async server component that detects the response type automatically — SSE for federation, JavaScript for ESM modules.
 
 ```tsx
 import { Suspense } from 'react'
@@ -2585,24 +2585,22 @@ import { db } from './db'
 
 export const app = new Spiceflow()
   .use(cors({ origin: '*' }))
-  // Dynamic: fetch data at request time, render the component, return the payload
+  // Dynamic: fetch data at request time, render the component, return the SSE response
   .get('/api/chart', async ({ request }) => {
     const url = new URL(request.url)
     const props = JSON.parse(url.searchParams.get('props') || '{}')
     const rows = await db.query('SELECT month, revenue FROM sales WHERE year = 2025')
-    const payload = await renderComponentPayload(<Chart data={rows} {...props} />)
-    return Response.json(payload)
+    return await renderComponentPayload(<Chart data={rows} {...props} />)
   })
-  // Static: pre-rendered at build time and written to disk as a JSON file.
+  // Static: pre-rendered at build time and written to disk.
   // Serve it from S3, a CDN, or any static host — no server needed at runtime.
   .staticGet('/api/table', async () => {
     const rows = await db.query('SELECT name, role, department FROM employees')
-    const payload = await renderComponentPayload(<Table rows={rows} />)
-    return Response.json(payload)
+    return await renderComponentPayload(<Table rows={rows} />)
   })
 ```
 
-The `.staticGet` route runs at build time and writes the JSON response to disk. You can upload the output to S3 or any static host — the host app fetches it like any other URL, and `RemoteComponent` renders it with full SSR and hydration. No server running for the remote at runtime.
+The `.staticGet` route runs at build time and writes the response to disk. You can upload the output to S3 or any static host — the host app fetches it like any other URL, and `RemoteComponent` renders it with full SSR and hydration. No server running for the remote at runtime.
 
 **Host app** — embeds the remote components:
 
@@ -2632,13 +2630,15 @@ The remote components are SSR-rendered in the host's HTML stream, then hydrated 
 <details>
 <summary>How federation works under the hood</summary>
 
-The remote's `renderComponentPayload` produces a JSON response containing:
-- **flightPayload** — the RSC Flight stream (serialized React tree)
-- **ssrHtml** — pre-rendered HTML for instant display
-- **clientModules** — chunk URLs for client components
-- **cssLinks** — stylesheet URLs
+The remote's `renderComponentPayload` returns a `Response` in SSE (`text/event-stream`) format with these events:
+- **metadata** — remoteId, client module chunk URLs, stylesheet URLs
+- **ssr** — pre-rendered HTML for instant display
+- **flight** (one per row) — RSC Flight stream rows (serialized React tree)
+- **done** — signals end of payload
 
-The host fetches this JSON, SSR-renders the `ssrHtml` via `dangerouslySetInnerHTML`, then hydrates using `hydrateRoot` to patch the existing DOM in-place (no flash).
+The SSE format allows future streaming support — flight events can arrive incrementally as async data resolves, without changing the wire protocol.
+
+The host fetches this SSE response, SSR-renders the HTML via `dangerouslySetInnerHTML`, then hydrates using `hydrateRoot` to patch the existing DOM in-place (no flash).
 
 **Import map and module deduplication.** Spiceflow automatically injects a `<script type="importmap">` into the HTML with entries for shared modules:
 

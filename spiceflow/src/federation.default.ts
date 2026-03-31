@@ -9,4 +9,4 @@ function unavailable(): never {
 }
 
 export const renderToReadableStream: any = unavailable
-export const renderComponentPayload: any = unavailable
+export const renderComponentPayload: (...args: any[]) => Promise<Response> = unavailable

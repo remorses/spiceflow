@@ -5,28 +5,63 @@ const remotePort = 3051
 const baseURL = `http://localhost:${hostPort}`
 const remoteURL = `http://localhost:${remotePort}`
 
+// Parse an SSE response body into typed events.
+// Returns { metadata, ssrHtml, flightRows } for easy assertions.
+async function parseFederationSSE(response: Response) {
+  const text = await response.text()
+  const events: { event: string; data: string }[] = []
+
+  // Split on double-newline to get individual SSE events
+  for (const block of text.split('\n\n')) {
+    const trimmed = block.trim()
+    if (!trimmed) continue
+    let event = ''
+    let data = ''
+    for (const line of trimmed.split('\n')) {
+      if (line.startsWith('event: ')) event = line.slice(7)
+      else if (line.startsWith('data: ')) data = line.slice(6)
+      else if (line === 'data:') data = ''
+    }
+    if (event) events.push({ event, data })
+  }
+
+  const metadataEvent = events.find((e) => e.event === 'metadata')
+  const ssrEvent = events.find((e) => e.event === 'ssr')
+  const flightEvents = events.filter((e) => e.event === 'flight')
+
+  const metadata = metadataEvent ? JSON.parse(metadataEvent.data) : {}
+  const ssrHtml = ssrEvent ? JSON.parse(ssrEvent.data).html : ''
+  const flightRows = flightEvents.map((e) => e.data)
+
+  return { metadata, ssrHtml, flightRows }
+}
+
 test.describe('federation', () => {
-  test('remote API returns flight payload with client modules', async () => {
+  test('remote API returns SSE with flight payload and client modules', async () => {
     const propsParam = encodeURIComponent(JSON.stringify({ dataSource: 'revenue' }))
     const response = await fetch(
       `${remoteURL}/api/chart?props=${propsParam}`,
     )
     expect(response.ok).toBe(true)
-    const data = await response.json()
+    expect(response.headers.get('content-type')).toContain('text/event-stream')
 
-    expect(data.remoteId).toBeTruthy()
-    expect(data.flightPayload).toContain('remote-chart')
-    expect(data.flightPayload).toContain('Counter')
-    expect(data.clientModules).toBeTruthy()
+    const { metadata, ssrHtml, flightRows } = await parseFederationSSE(response)
+
+    expect(metadata.remoteId).toBeTruthy()
+    expect(metadata.clientModules).toBeTruthy()
+
+    const flightPayload = flightRows.join('\n')
+    expect(flightPayload).toContain('remote-chart')
+    expect(flightPayload).toContain('Counter')
 
     // ssrHtml contains pre-rendered HTML for the component
-    expect(data.ssrHtml).toContain('data-testid="remote-chart"')
-    expect(data.ssrHtml).toContain('revenue')
-    expect(data.ssrHtml).toContain('data-testid="remote-counter"')
-    expect(data.ssrHtml).toContain('counter:')
+    expect(ssrHtml).toContain('data-testid="remote-chart"')
+    expect(ssrHtml).toContain('revenue')
+    expect(ssrHtml).toContain('data-testid="remote-counter"')
+    expect(ssrHtml).toContain('counter:')
 
     // clientModules should only contain user-component chunks, not index/framework
-    for (const [, info] of Object.entries(data.clientModules) as [
+    for (const [, info] of Object.entries(metadata.clientModules) as [
       string,
       { chunks: string[]; css: string[] },
     ][]) {
@@ -38,15 +73,15 @@ test.describe('federation', () => {
     }
 
     // CSS links are included in the payload
-    expect(data.cssLinks).toBeTruthy()
-    expect(data.cssLinks.length).toBeGreaterThan(0)
-    for (const cssLink of data.cssLinks) {
+    expect(metadata.cssLinks).toBeTruthy()
+    expect(metadata.cssLinks.length).toBeGreaterThan(0)
+    for (const cssLink of metadata.cssLinks) {
       expect(cssLink).toContain(remoteURL)
       expect(cssLink).toMatch(/\.css$/)
     }
 
     // clientModules entries include css arrays
-    const modulesWithCss = Object.values(data.clientModules).filter(
+    const modulesWithCss = Object.values(metadata.clientModules).filter(
       (info: any) => info.css && info.css.length > 0,
     )
     expect(modulesWithCss.length).toBeGreaterThan(0)
@@ -91,10 +126,10 @@ test.describe('federation', () => {
     const response = await fetch(
       `${remoteURL}/api/chart?props=${propsParam}`,
     )
-    const data = await response.json()
+    const { metadata } = await parseFederationSSE(response)
 
     // JS chunk paths should be absolute with remote origin
-    for (const [, info] of Object.entries(data.clientModules) as [
+    for (const [, info] of Object.entries(metadata.clientModules) as [
       string,
       { chunks: string[]; css: string[] },
     ][]) {
@@ -476,37 +511,29 @@ test.describe('federation', () => {
     await expect(greeting).toHaveText('Hello from ESM: Spiceflow')
   })
 
-  test('flight payload lines are valid Flight format', async () => {
+  test('flight events are valid Flight format', async () => {
     const propsParam = encodeURIComponent(JSON.stringify({ dataSource: 'test' }))
     const response = await fetch(
       `${remoteURL}/api/chart?props=${propsParam}`,
     )
-    const data = await response.json()
+    const { flightRows } = await parseFederationSSE(response)
+    expect(flightRows.length).toBeGreaterThan(0)
 
-    const lines = (data.flightPayload as string)
-      .split('\n')
-      .filter(Boolean)
-    expect(lines.length).toBeGreaterThan(0)
-
-    // Each line should match Flight format: <rowId>:<data>
-    for (const line of lines) {
-      expect(line).toMatch(/^[0-9a-f]*:/)
+    // Each flight event data should match Flight format: <rowId>:<data>
+    for (const row of flightRows) {
+      expect(row).toMatch(/^[0-9a-f]*:/)
     }
   })
 
-  test('flight payload has client refs and model rows', async () => {
+  test('flight events have client refs and model rows', async () => {
     const propsParam = encodeURIComponent(JSON.stringify({ dataSource: 'test' }))
     const response = await fetch(
       `${remoteURL}/api/chart?props=${propsParam}`,
     )
-    const data = await response.json()
+    const { flightRows } = await parseFederationSSE(response)
 
-    const lines = (data.flightPayload as string)
-      .split('\n')
-      .filter(Boolean)
-
-    const clientRefs = lines.filter((l) => l.match(/^[0-9a-f]+:I\[/))
-    const modelRows = lines.filter((l) => l.match(/^[0-9a-f]+:\["\$"/))
+    const clientRefs = flightRows.filter((l) => l.match(/^[0-9a-f]+:I\[/))
+    const modelRows = flightRows.filter((l) => l.match(/^[0-9a-f]+:\["\$"/))
 
     expect(clientRefs.length).toBeGreaterThan(0)
     expect(modelRows.length).toBeGreaterThan(0)
