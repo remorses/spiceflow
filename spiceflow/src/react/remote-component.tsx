@@ -14,23 +14,39 @@ function isJavaScriptContentType(contentType: string): boolean {
   )
 }
 
+// Detect URLs that are likely ES modules from the path alone, so we can skip
+// the server-side fetch entirely. Node.js can't import() remote URLs, and the
+// fetch can crash the process if the browser disconnects mid-stream.
+// Matches .js, .mjs, .jsx, .ts, .tsx — including Framer's .js@hash pattern.
+function isLikelyEsmUrl(url: URL): boolean {
+  return /\.(?:mjs|js|jsx|ts|tsx)(?:$|@)/i.test(url.pathname)
+}
+
 export async function RemoteComponent({
   src,
   props,
   isolateStyles,
+  signal,
 }: {
   src: string
   props?: Record<string, unknown>
   /** Render remote content inside a Shadow DOM to prevent CSS from leaking
    *  between host and remote. Uses Declarative Shadow DOM for SSR. */
   isolateStyles?: boolean
+  /** Abort signal forwarded to the federation fetch. Pass `request.signal`
+   *  so the fetch is cancelled when the browser disconnects. */
+  signal?: AbortSignal
 }) {
   const url = new URL(src)
   if (props) {
     url.searchParams.set('props', JSON.stringify(props))
   }
 
-  const response = await fetch(url.toString())
+  if (isLikelyEsmUrl(url)) {
+    return <EsmIsland src={url.toString()} props={props} />
+  }
+
+  const response = await fetch(url.toString(), { signal })
   if (!response.ok) {
     throw new Error(
       `[RemoteComponent] Failed to fetch from ${url}: ${response.status}`,

@@ -524,7 +524,44 @@ export function spiceflowPlugin({
     ...(importMap
       ? [userImportMapPlugin(importMap, () => importMapJson, (json) => { importMapJson = json })]
       : []),
-    createVirtualPlugin('virtual:spiceflow-import-map', () => {
+    createVirtualPlugin('virtual:spiceflow-import-map', function () {
+      // In dev mode, generate import map using Vite's ?url imports so that
+      // the shared entry re-export files resolve to dev-server URLs that
+      // browsers can load. In build mode, return the pre-built JSON string
+      // populated by federationSharedPlugin and userImportMapPlugin.
+      if (this.environment?.config.command === 'serve') {
+        const importStatements: string[] = []
+        const mapEntries: string[] = []
+        let idx = 0
+
+        for (const [name, specifiers] of Object.entries(SPECIFIER_MAP)) {
+          const filePath = SHARED_ENTRIES[name]
+          if (!filePath) continue
+          const varName = `__url_${idx++}`
+          importStatements.push(`import ${varName} from ${JSON.stringify(filePath + '?url')}`)
+          for (const spec of specifiers) {
+            mapEntries.push(`${JSON.stringify(spec)}: ${varName}`)
+          }
+        }
+
+        if (importMap) {
+          for (const [spec, value] of Object.entries(importMap)) {
+            if (value.startsWith('http://') || value.startsWith('https://')) {
+              mapEntries.push(`${JSON.stringify(spec)}: ${JSON.stringify(value)}`)
+            } else {
+              const varName = `__url_${idx++}`
+              importStatements.push(`import ${varName} from ${JSON.stringify(value + '?url')}`)
+              mapEntries.push(`${JSON.stringify(spec)}: ${varName}`)
+            }
+          }
+        }
+
+        return [
+          ...importStatements,
+          `export default JSON.stringify({ imports: { ${mapEntries.join(', ')} } })`,
+        ].join('\n')
+      }
+
       return `export default ${JSON.stringify(importMapJson)}`
     }),
     // Externalize React for remote apps so bare specifiers are resolved

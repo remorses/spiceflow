@@ -73,6 +73,21 @@ export const app = new Spiceflow()
             />
           </Suspense>
         </div>
+
+        <div data-testid="framer-section">
+          <h2>Framer Component (IOKnob):</h2>
+          <Suspense
+            fallback={
+              <div data-testid="framer-loading">
+                Loading Framer component...
+              </div>
+            }
+          >
+            <RemoteComponent
+              src="https://framer.com/m/IOKnob-DT0M.js@eZsKjfnRtnN8np5uwoAx"
+            />
+          </Suspense>
+        </div>
       </div>
     )
   })

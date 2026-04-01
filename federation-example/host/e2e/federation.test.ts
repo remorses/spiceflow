@@ -37,7 +37,7 @@ async function parseFederationSSE(response: Response) {
 }
 
 test.describe('federation', () => {
-  test('remote API returns SSE with flight payload and client modules', async () => {
+  test('remote API returns SSE with flight payload and client modules @build', async () => {
     const propsParam = encodeURIComponent(JSON.stringify({ dataSource: 'revenue' }))
     const response = await fetch(
       `${remoteURL}/api/chart?props=${propsParam}`,
@@ -109,7 +109,7 @@ test.describe('federation', () => {
     expect(visible).toContain('counter:')
   })
 
-  test('remote CSS is injected in host HTML via preinit', async () => {
+  test('remote CSS is injected in host HTML via preinit @build', async () => {
     const response = await fetch(`${baseURL}/`)
     const html = await response.text()
 
@@ -121,7 +121,7 @@ test.describe('federation', () => {
     expect(html).toMatch(cssLinkRegex)
   })
 
-  test('remote chunk URLs are absolute (use remote base)', async () => {
+  test('remote chunk URLs are absolute (use remote base) @build', async () => {
     const propsParam = encodeURIComponent(JSON.stringify({ dataSource: 'revenue' }))
     const response = await fetch(
       `${remoteURL}/api/chart?props=${propsParam}`,
@@ -140,7 +140,7 @@ test.describe('federation', () => {
     }
   })
 
-  test('remote client component hydrates and is interactive', async ({
+  test('remote client component hydrates and is interactive @build', async ({
     page,
   }) => {
     await page.goto('/')
@@ -159,7 +159,7 @@ test.describe('federation', () => {
     await expect(counter.getByText('counter: 1')).toBeVisible()
   })
 
-  test('remote component reads host router URL', async ({ page }) => {
+  test('remote component reads host router URL @build', async ({ page }) => {
     await page.goto('/')
     const section = page.getByTestId('remote-section')
     const remoteUrl = section.getByTestId('remote-url')
@@ -176,7 +176,7 @@ test.describe('federation', () => {
     expect(html).toContain('"spiceflow/react"')
   })
 
-  test('no React errors during hydration', async ({ page }) => {
+  test('no React errors during hydration @build', async ({ page }) => {
     const errors: string[] = []
     page.on('pageerror', (err) => errors.push(err.message))
 
@@ -201,7 +201,7 @@ test.describe('federation', () => {
     expect(html).toContain('isolated')
   })
 
-  test('isolateStyles: isolated CSS is inside shadow root, not leaked to document.head', async ({
+  test('isolateStyles: isolated CSS is inside shadow root, not leaked to document.head @build', async ({
     page,
   }) => {
     // Use the /isolated-nav page which ONLY has an isolated component —
@@ -237,7 +237,7 @@ test.describe('federation', () => {
     expect(remoteCssInHead).toEqual([])
   })
 
-  test('isolateStyles: shadow root contains CSS links and content', async ({
+  test('isolateStyles: shadow root contains CSS links and content @build', async ({
     page,
   }) => {
     await page.goto('/')
@@ -267,7 +267,7 @@ test.describe('federation', () => {
     expect(hasMountContent).toBe(true)
   })
 
-  test('isolateStyles: remote client component hydrates inside shadow DOM', async ({
+  test('isolateStyles: remote client component hydrates inside shadow DOM @build', async ({
     page,
   }) => {
     await page.goto('/')
@@ -306,7 +306,7 @@ test.describe('federation', () => {
     }, { timeout: 5000 })
   })
 
-  test('isolateStyles: host styles do not affect shadow DOM content', async ({
+  test('isolateStyles: host styles do not affect shadow DOM content @build', async ({
     page,
   }) => {
     await page.goto('/')
@@ -338,7 +338,7 @@ test.describe('federation', () => {
     expect(isVisible).toBe(true)
   })
 
-  test('isolateStyles: no React errors during hydration', async ({ page }) => {
+  test('isolateStyles: no React errors during hydration @build', async ({ page }) => {
     const errors: string[] = []
     page.on('pageerror', (err) => errors.push(err.message))
 
@@ -353,7 +353,7 @@ test.describe('federation', () => {
     expect(errors).toEqual([])
   })
 
-  test('client-nav: isolated remote renders after navigating from page without remotes', async ({
+  test('client-nav: isolated remote renders after navigating from page without remotes @build', async ({
     page,
   }) => {
     const errors: string[] = []
@@ -397,7 +397,7 @@ test.describe('federation', () => {
     expect(errors).toEqual([])
   })
 
-  test('client-nav: non-isolated remote renders after navigating from page without remotes', async ({
+  test('client-nav: non-isolated remote renders after navigating from page without remotes @build', async ({
     page,
   }) => {
     const errors: string[] = []
@@ -422,7 +422,7 @@ test.describe('federation', () => {
     expect(errors).toEqual([])
   })
 
-  test('client-nav: isolated remote CSS does not leak to head after navigation', async ({
+  test('client-nav: isolated remote CSS does not leak to head after navigation @build', async ({
     page,
   }) => {
     // Start on a page with no remotes — document.head has no remote CSS
@@ -457,7 +457,7 @@ test.describe('federation', () => {
     expect(headRemoteCss).toEqual([])
   })
 
-  test('client-nav: navigate away and back preserves isolation', async ({
+  test('client-nav: navigate away and back preserves isolation @build', async ({
     page,
   }) => {
     const errors: string[] = []
@@ -509,6 +509,21 @@ test.describe('federation', () => {
     const greeting = page.getByTestId('esm-greeting')
     await expect(greeting).toBeVisible({ timeout: 10000 })
     await expect(greeting).toHaveText('Hello from ESM: Spiceflow')
+  })
+
+  test('Framer IOKnob renders after hydration', async ({ page }) => {
+    await page.goto('/')
+    const section = page.getByTestId('framer-section')
+    await expect(section).toBeVisible({ timeout: 10000 })
+
+    // Wait for the Framer component to render (not just the heading)
+    await expect.poll(async () => {
+      return page.evaluate(() => {
+        const el = document.querySelector('[data-testid="framer-section"]')
+        if (!el) return 0
+        return Array.from(el.children).filter((c) => c.tagName !== 'H2').length
+      })
+    }, { timeout: 15000 }).toBeGreaterThan(0)
   })
 
   test('flight events are valid Flight format', async () => {

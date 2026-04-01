@@ -10,6 +10,9 @@ const remoteOrigin = process.env.REMOTE_ORIGIN || 'http://localhost:3051'
 export default defineConfig({
   base: remoteOrigin,
   clearScreen: false,
+  server: {
+    cors: true,
+  },
   plugins: [
     spiceflowPlugin({
       entry: './app/main.tsx',

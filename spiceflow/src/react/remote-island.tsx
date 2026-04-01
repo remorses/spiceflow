@@ -135,13 +135,14 @@ async function decodeRemoteTree({
     for (const chunkPath of info.chunks) {
       const chunkUrl = resolveUrl(chunkPath, remoteOrigin)
       const mod = await import(/* @vite-ignore */ chunkUrl)
-      // TODO: fragile — relies on vite-plugin-rsc emitting named exports as
-      // `export_<moduleId>` in client chunks. If the plugin changes its export
-      // naming convention this lookup will silently fail and remote client
-      // components won't hydrate.
+      // In production, vite-plugin-rsc bundles client component exports as
+      // `export_<moduleId>`. In dev, the module has raw named exports.
+      // Try the production convention first, fall back to the full module.
       const exportName = 'export_' + moduleId
       if (mod[exportName]) {
         remoteRegistry.set(moduleId, mod[exportName])
+      } else {
+        remoteRegistry.set(moduleId, mod)
       }
     }
   }

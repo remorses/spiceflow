@@ -46,14 +46,16 @@ export async function renderComponentPayload(element: React.ReactElement): Promi
     undefined, // options
     {
       onClientReference(metadata: { id: string; name: string; deps: { js: string[]; css: string[] } }) {
-        const userChunks = metadata.deps.js.filter(
-          (js) => js.includes('user-components'),
-        )
         for (const css of metadata.deps.css) {
           cssLinksSet.add(css)
         }
-        if (userChunks.length > 0) {
-          clientModules[metadata.id] = { chunks: userChunks, css: metadata.deps.css }
+        // In dev, deps.js is empty — use the module id as the chunk path.
+        // In production, filter to only user-component chunks.
+        const chunks = metadata.deps.js.length > 0
+          ? metadata.deps.js.filter((js) => js.includes('user-components'))
+          : [metadata.id]
+        if (chunks.length > 0) {
+          clientModules[metadata.id] = { chunks, css: metadata.deps.css }
         }
       },
     },

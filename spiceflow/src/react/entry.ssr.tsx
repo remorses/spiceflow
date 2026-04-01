@@ -21,11 +21,9 @@ import { formatServerError } from './format-server-error.js'
 import { sanitizeErrorMessage } from './sanitize-error.js'
 import { injectRSCPayload } from './transform.js'
 
-const importMapJsonPromise: Promise<string> = import.meta.hot
-  ? Promise.resolve('')
-  : import('virtual:spiceflow-import-map')
-      .then((m) => m.default || '')
-      .catch(() => '')
+const importMapJsonPromise: Promise<string> = import('virtual:spiceflow-import-map')
+  .then((m) => m.default || '')
+  .catch(() => '')
 
 let bootstrapScriptContentPromise: Promise<string> | undefined
 
