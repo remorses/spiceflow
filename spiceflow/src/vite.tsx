@@ -21,6 +21,28 @@ import { vercelPlugin } from './vercel.js'
 const require = createRequire(import.meta.url)
 const pluginRscRpcPath = require.resolve('@vitejs/plugin-rsc/utils/rpc')
 
+// Self-resolve entry paths from spiceflow's own location so they work even
+// when spiceflow is a transitive dependency (e.g. installed inside a wrapper
+// plugin's node_modules and not directly accessible from the consumer's root).
+const __spiceflowDir = path.dirname(url.fileURLToPath(import.meta.url))
+const spiceflowEntries = {
+  rsc: path.resolve(__spiceflowDir, 'react/entry.rsc'),
+  ssr: path.resolve(__spiceflowDir, 'react/entry.ssr'),
+  client: path.resolve(__spiceflowDir, 'react/entry.client'),
+}
+
+// Resolve a dependency from spiceflow's own node_modules. Returns the resolved
+// path or undefined if the package isn't installed (optional dep). Used for
+// optimizeDeps.include entries so Vite can find transitive deps even when
+// spiceflow is nested inside a wrapper plugin's node_modules.
+function tryResolve(specifier: string): string | undefined {
+  try {
+    return require.resolve(specifier)
+  } catch {
+    return undefined
+  }
+}
+
 // Module-level so the timestamp is stable even if spiceflowPlugin() is called more than once
 const buildTimestamp = Date.now().toString(36)
 
@@ -56,11 +78,7 @@ export function spiceflowPlugin({
   let isCloudflareRuntime = false
   let importMapJson = ''
   const rscOptions: RscPluginOptions = {
-    entries: {
-      rsc: 'spiceflow/dist/react/entry.rsc',
-      ssr: 'spiceflow/dist/react/entry.ssr',
-      client: 'spiceflow/dist/react/entry.client',
-    },
+    entries: spiceflowEntries,
     serverHandler: false as const,
     loadModuleDevProxy: true,
     ...(isRemote
@@ -161,21 +179,22 @@ export function spiceflowPlugin({
     // Skipped for Vercel (has its own tracing) and Cloudflare (bundles everything).
     standaloneTracePlugin(),
 
-    // Rewrite optimizeDeps entries so @vitejs/plugin-rsc vendor CJS files
-    // resolve through the spiceflow framework package (where the plugin is installed)
-    // rather than from the app root where the plugin isn't a direct dependency.
+    // Resolve @vitejs/plugin-rsc vendor CJS entries to absolute paths so they
+    // work even when spiceflow is a transitive dep not directly in the consumer's
+    // node_modules. Previously used `spiceflow > @vitejs/plugin-rsc/...` syntax
+    // which requires `spiceflow` itself to be resolvable from the project root.
     {
       name: 'spiceflow:optimize-deps-rewrite',
       configEnvironment(_name, config) {
         if (!config.optimizeDeps?.include) return
-        config.optimizeDeps.include = config.optimizeDeps.include.map(
-          (entry) => {
+        config.optimizeDeps.include = config.optimizeDeps.include
+          .map((entry) => {
             if (entry.startsWith('@vitejs/plugin-rsc')) {
-              return `spiceflow > ${entry}`
+              return tryResolve(entry)
             }
             return entry
-          },
-        )
+          })
+          .filter(Boolean) as string[]
       },
     },
 
@@ -344,9 +363,12 @@ export function spiceflowPlugin({
               'react/jsx-dev-runtime',
               'react-dom',
               'react-dom/client',
-              'spiceflow > superjson',
-              'spiceflow > history',
-            ],
+              // Resolve transitive deps from spiceflow's own node_modules so
+              // they work even when spiceflow isn't directly in the consumer's
+              // node_modules (e.g. pnpm strict hoisting with wrapper plugins).
+              tryResolve('superjson'),
+              tryResolve('history'),
+            ].filter(Boolean) as string[],
           )
         }
 
@@ -354,7 +376,10 @@ export function spiceflowPlugin({
           addNoExternal(config, 'spiceflow')
           config.optimizeDeps.include = mergeUnique(
             config.optimizeDeps.include,
-            ['spiceflow > superjson', 'spiceflow > history'],
+            [
+              tryResolve('superjson'),
+              tryResolve('history'),
+            ].filter(Boolean) as string[],
           )
         }
 
@@ -363,11 +388,11 @@ export function spiceflowPlugin({
           config.optimizeDeps.include = mergeUnique(
             config.optimizeDeps.include,
             [
-              'spiceflow > isbot',
-              'spiceflow > history',
+              tryResolve('isbot'),
+              tryResolve('history'),
               'react-dom/server',
               'react-dom/server.edge',
-            ],
+            ].filter(Boolean) as string[],
           )
         }
       },
@@ -400,10 +425,10 @@ export function spiceflowPlugin({
             try {
               const resolvedEntry =
                 await server.environments.ssr.pluginContainer.resolveId(
-                  'spiceflow/dist/react/entry.ssr',
+                  spiceflowEntries.ssr,
                 )
               if (!resolvedEntry) {
-                throw new Error('Failed to resolve spiceflow SSR entry')
+                throw new Error(`Failed to resolve spiceflow SSR entry: ${spiceflowEntries.ssr}`)
               }
               const mod: any = await (
                 server.environments.ssr as RunnableDevEnvironment
