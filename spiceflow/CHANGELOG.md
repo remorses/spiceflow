@@ -1,5 +1,26 @@
 # spiceflow
 
+## 1.18.0-rsc.24
+
+1. **Import map in dev mode** — `virtual:spiceflow-import-map` now generates a real import map during Vite dev using `?url` imports. Previously it returned an empty string in dev, which meant ESM components from external URLs (like Framer) couldn't resolve bare specifiers like `react` or `react/jsx-runtime`. Shared federation entries (`react`, `react-dom`, `react/jsx-runtime`, `spiceflow/react`) are now included with their dev-server URLs. User `importMap` entries are also included — external URLs pass through as-is, local files use `?url`.
+
+2. **`signal` prop on `RemoteComponent`** — forwarded to the federation `fetch()` call so the request cancels when the browser disconnects. Pass `request.signal` from the route handler to avoid Node process crashes from orphaned requests:
+
+   ```tsx
+   export async function Page({ request }: { request: Request }) {
+     return (
+       <RemoteComponent
+         src="https://remote.example.com/api/widget"
+         signal={request.signal}
+       />
+     )
+   }
+   ```
+
+3. **Skip SSR fetch for ESM URLs** — added `isLikelyEsmUrl()` heuristic that detects URLs with `.js`, `.mjs`, `.jsx`, `.ts`, `.tsx` extensions (including Framer's `.js@hash` pattern) and returns `<EsmIsland>` immediately without a server-side `fetch()`. This prevents the Node process crash caused by slow external fetches when the browser disconnects mid-stream (`ERR_INVALID_STATE: Unable to enqueue`).
+
+4. **Fixed React unmount warning on `RemoteIsland` cleanup** — deferred `root.unmount()` to `queueMicrotask` to avoid `Attempted to synchronously unmount a root while React was already rendering`. The cleanup runs during React's commit phase — unmounting synchronously conflicted with the ongoing render.
+
 ## 1.18.0-rsc.23
 
 1. **`isolateStyles` prop on `RemoteComponent` for Shadow DOM style isolation** — remote content renders inside a shadow root using Declarative Shadow DOM for SSR, preventing CSS from leaking between host and remote apps. CSS links are injected inside the shadow root instead of `document.head`, and host page styles cannot penetrate the shadow boundary. CSS custom properties (variables) still work across the boundary for theming:
