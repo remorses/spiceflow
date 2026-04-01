@@ -310,8 +310,15 @@ export function RemoteIsland({
 
     return () => {
       isMounted = false
-      rootRef.current?.unmount()
+      // Defer unmount to the next microtask to avoid "Attempted to
+      // synchronously unmount a root while React was already rendering".
+      // queueMicrotask runs before setTimeout(0), so the old root unmounts
+      // before the new effect's render starts.
+      const root = rootRef.current
       rootRef.current = null
+      if (root) {
+        queueMicrotask(() => root.unmount())
+      }
     }
   }, [remoteId, flightPayload, remoteOrigin, isolateStyles])
 

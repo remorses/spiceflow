@@ -5,9 +5,10 @@ const hostPort = 3052
 
 const isStart = Boolean(process.env.E2E_START)
 
-const remoteCommand = isStart
-  ? `PORT=${remotePort} node dist/rsc/index.js`
-  : `pnpm dev --port ${remotePort} --strict-port`
+// Remote always runs as production build — federation remotes externalize
+// React so the host's import map provides the shared instance. This avoids
+// dual-React issues when the host is in dev mode.
+const remoteCommand = `PORT=${remotePort} node dist/rsc/index.js`
 
 const hostCommand = isStart
   ? `REMOTE_ORIGIN=http://localhost:${remotePort} PORT=${hostPort} node dist/rsc/index.js`

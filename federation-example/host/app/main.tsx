@@ -1,8 +1,11 @@
 import { Suspense } from 'react'
 import { Spiceflow } from 'spiceflow'
+import { renderComponentPayload } from 'spiceflow/federation'
 import { Head, Link, RemoteComponent } from 'spiceflow/react'
+import { LocalCounter } from './local-counter'
 
 const REMOTE_ORIGIN = process.env.REMOTE_ORIGIN || 'http://localhost:3051'
+const HOST_ORIGIN = `http://localhost:${process.env.PORT || 3052}`
 
 export const app = new Spiceflow()
   .layout('/*', async ({ children }) => {
@@ -70,6 +73,22 @@ export const app = new Spiceflow()
             <RemoteComponent
               src={`${REMOTE_ORIGIN}/api/esm-component.js`}
               props={{ name: 'Spiceflow' }}
+            />
+          </Suspense>
+        </div>
+
+        <div data-testid="local-remote-section">
+          <h2>Local Remote Component:</h2>
+          <Suspense
+            fallback={
+              <div data-testid="local-remote-loading">
+                Loading local remote component...
+              </div>
+            }
+          >
+            <RemoteComponent
+              src={`${HOST_ORIGIN}/api/local-widget`}
+              props={{ label: 'Self-hosted' }}
             />
           </Suspense>
         </div>
@@ -147,6 +166,15 @@ export const app = new Spiceflow()
         </div>
       </div>
     )
+  })
+
+  .get('/api/local-widget', async ({ request }) => {
+    const url = new URL(request.url)
+    let props: Record<string, unknown> = {}
+    try {
+      props = JSON.parse(url.searchParams.get('props') || '{}')
+    } catch {}
+    return await renderComponentPayload(<LocalCounter {...props} />)
   })
 
 app.listen(Number(process.env.PORT || 3002))

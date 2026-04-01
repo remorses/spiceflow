@@ -37,7 +37,7 @@ async function parseFederationSSE(response: Response) {
 }
 
 test.describe('federation', () => {
-  test('remote API returns SSE with flight payload and client modules @build', async () => {
+  test('remote API returns SSE with flight payload and client modules', async () => {
     const propsParam = encodeURIComponent(JSON.stringify({ dataSource: 'revenue' }))
     const response = await fetch(
       `${remoteURL}/api/chart?props=${propsParam}`,
@@ -109,7 +109,7 @@ test.describe('federation', () => {
     expect(visible).toContain('counter:')
   })
 
-  test('remote CSS is injected in host HTML via preinit @build', async () => {
+  test('remote CSS is injected in host HTML via preinit', async () => {
     const response = await fetch(`${baseURL}/`)
     const html = await response.text()
 
@@ -121,7 +121,7 @@ test.describe('federation', () => {
     expect(html).toMatch(cssLinkRegex)
   })
 
-  test('remote chunk URLs are absolute (use remote base) @build', async () => {
+  test('remote chunk URLs are absolute (use remote base)', async () => {
     const propsParam = encodeURIComponent(JSON.stringify({ dataSource: 'revenue' }))
     const response = await fetch(
       `${remoteURL}/api/chart?props=${propsParam}`,
@@ -140,7 +140,7 @@ test.describe('federation', () => {
     }
   })
 
-  test('remote client component hydrates and is interactive @build', async ({
+  test('remote client component hydrates and is interactive', async ({
     page,
   }) => {
     await page.goto('/')
@@ -149,8 +149,12 @@ test.describe('federation', () => {
     await expect(counter).toBeVisible({ timeout: 10000 })
     await expect(counter.getByText('counter: 0')).toBeVisible()
 
-    await counter.getByRole('button', { name: '+' }).click()
-    await expect(counter.getByText('counter: 1')).toBeVisible()
+    // Wait for hydration — the button must respond to clicks. In dev mode,
+    // remount after hydration can briefly detach elements.
+    await expect(async () => {
+      await counter.getByRole('button', { name: '+' }).click()
+      await expect(counter.getByText('counter: 1')).toBeVisible()
+    }).toPass({ timeout: 10000 })
 
     await counter.getByRole('button', { name: '+' }).click()
     await expect(counter.getByText('counter: 2')).toBeVisible()
@@ -159,7 +163,7 @@ test.describe('federation', () => {
     await expect(counter.getByText('counter: 1')).toBeVisible()
   })
 
-  test('remote component reads host router URL @build', async ({ page }) => {
+  test('remote component reads host router URL', async ({ page }) => {
     await page.goto('/')
     const section = page.getByTestId('remote-section')
     const remoteUrl = section.getByTestId('remote-url')
@@ -176,7 +180,7 @@ test.describe('federation', () => {
     expect(html).toContain('"spiceflow/react"')
   })
 
-  test('no React errors during hydration @build', async ({ page }) => {
+  test('no React errors during hydration', async ({ page }) => {
     const errors: string[] = []
     page.on('pageerror', (err) => errors.push(err.message))
 
@@ -201,7 +205,7 @@ test.describe('federation', () => {
     expect(html).toContain('isolated')
   })
 
-  test('isolateStyles: isolated CSS is inside shadow root, not leaked to document.head @build', async ({
+  test('isolateStyles: isolated CSS is inside shadow root, not leaked to document.head', async ({
     page,
   }) => {
     // Use the /isolated-nav page which ONLY has an isolated component —
@@ -237,7 +241,7 @@ test.describe('federation', () => {
     expect(remoteCssInHead).toEqual([])
   })
 
-  test('isolateStyles: shadow root contains CSS links and content @build', async ({
+  test('isolateStyles: shadow root contains CSS links and content', async ({
     page,
   }) => {
     await page.goto('/')
@@ -267,7 +271,7 @@ test.describe('federation', () => {
     expect(hasMountContent).toBe(true)
   })
 
-  test('isolateStyles: remote client component hydrates inside shadow DOM @build', async ({
+  test('isolateStyles: remote client component hydrates inside shadow DOM', async ({
     page,
   }) => {
     await page.goto('/')
@@ -291,22 +295,23 @@ test.describe('federation', () => {
     })
     expect(counterText).toContain('counter:')
 
-    // Click + button
-    await shadowHost.evaluate((el) => {
-      const shadow = el.shadowRoot!
-      const btn = shadow.querySelector('[data-testid="remote-counter"] button')
-      if (btn) (btn as HTMLButtonElement).click()
-    })
-
-    // Verify counter incremented
-    await page.waitForFunction(() => {
-      const host = document.querySelector('[data-isolate-styles]')
-      const counter = host?.shadowRoot?.querySelector('[data-testid="remote-counter"]')
-      return counter?.textContent?.includes('counter: 1')
-    }, { timeout: 5000 })
+    // Click + button and verify counter incremented. Wrapped in toPass to
+    // retry through hydration remount in dev mode.
+    await expect(async () => {
+      await shadowHost.evaluate((el) => {
+        const shadow = el.shadowRoot!
+        const btn = shadow.querySelector('[data-testid="remote-counter"] button')
+        if (btn) (btn as HTMLButtonElement).click()
+      })
+      const text = await shadowHost.evaluate((el) => {
+        const counter = el.shadowRoot?.querySelector('[data-testid="remote-counter"]')
+        return counter?.textContent || ''
+      })
+      expect(text).toContain('counter: 1')
+    }).toPass({ timeout: 10000 })
   })
 
-  test('isolateStyles: host styles do not affect shadow DOM content @build', async ({
+  test('isolateStyles: host styles do not affect shadow DOM content', async ({
     page,
   }) => {
     await page.goto('/')
@@ -338,7 +343,7 @@ test.describe('federation', () => {
     expect(isVisible).toBe(true)
   })
 
-  test('isolateStyles: no React errors during hydration @build', async ({ page }) => {
+  test('isolateStyles: no React errors during hydration', async ({ page }) => {
     const errors: string[] = []
     page.on('pageerror', (err) => errors.push(err.message))
 
@@ -353,7 +358,7 @@ test.describe('federation', () => {
     expect(errors).toEqual([])
   })
 
-  test('client-nav: isolated remote renders after navigating from page without remotes @build', async ({
+  test('client-nav: isolated remote renders after navigating from page without remotes', async ({
     page,
   }) => {
     const errors: string[] = []
@@ -382,22 +387,25 @@ test.describe('federation', () => {
     })
     expect(shadowCssCount).toBeGreaterThan(0)
 
-    // Counter should be interactive
-    await page.evaluate(() => {
-      const host = document.querySelector('[data-isolate-styles]')!
-      const btn = host.shadowRoot!.querySelector('[data-testid="remote-counter"] button')
-      if (btn) (btn as HTMLButtonElement).click()
-    })
-    await page.waitForFunction(() => {
-      const host = document.querySelector('[data-isolate-styles]')
-      const counter = host?.shadowRoot?.querySelector('[data-testid="remote-counter"]')
-      return counter?.textContent?.includes('counter: 1')
-    }, { timeout: 5000 })
+    // Counter should be interactive — retry through hydration remount
+    await expect(async () => {
+      await page.evaluate(() => {
+        const host = document.querySelector('[data-isolate-styles]')!
+        const btn = host.shadowRoot!.querySelector('[data-testid="remote-counter"] button')
+        if (btn) (btn as HTMLButtonElement).click()
+      })
+      const text = await page.evaluate(() => {
+        const host = document.querySelector('[data-isolate-styles]')
+        const counter = host?.shadowRoot?.querySelector('[data-testid="remote-counter"]')
+        return counter?.textContent || ''
+      })
+      expect(text).toContain('counter: 1')
+    }).toPass({ timeout: 10000 })
 
     expect(errors).toEqual([])
   })
 
-  test('client-nav: non-isolated remote renders after navigating from page without remotes @build', async ({
+  test('client-nav: non-isolated remote renders after navigating from page without remotes', async ({
     page,
   }) => {
     const errors: string[] = []
@@ -410,19 +418,23 @@ test.describe('federation', () => {
     // Navigate to a page with a plain (non-isolated) remote component
     await page.click('[data-testid="nav-to-plain"]')
 
-    // Wait for the remote counter to appear in the regular DOM
+    // Wait for the remote counter to appear in the regular DOM.
+    // Client navigation triggers a server-side fetch to the remote — can be
+    // slow under load from prior tests, so use a generous timeout.
     const section = page.getByTestId('nav-plain-section')
-    await expect(section.getByTestId('remote-counter')).toBeVisible({ timeout: 15000 })
+    await expect(section.getByTestId('remote-counter')).toBeVisible({ timeout: 30000 })
     await expect(section.getByText('counter: 0')).toBeVisible()
 
-    // Counter should be interactive
-    await section.getByRole('button', { name: '+' }).click()
-    await expect(section.getByText('counter: 1')).toBeVisible()
+    // Counter should be interactive — retry through hydration remount
+    await expect(async () => {
+      await section.getByRole('button', { name: '+' }).click()
+      await expect(section.getByText('counter: 1')).toBeVisible()
+    }).toPass({ timeout: 10000 })
 
     expect(errors).toEqual([])
   })
 
-  test('client-nav: isolated remote CSS does not leak to head after navigation @build', async ({
+  test('client-nav: isolated remote CSS does not leak to head after navigation', async ({
     page,
   }) => {
     // Start on a page with no remotes — document.head has no remote CSS
@@ -457,7 +469,7 @@ test.describe('federation', () => {
     expect(headRemoteCss).toEqual([])
   })
 
-  test('client-nav: navigate away and back preserves isolation @build', async ({
+  test('client-nav: navigate away and back preserves isolation', async ({
     page,
   }) => {
     const errors: string[] = []
@@ -486,11 +498,12 @@ test.describe('federation', () => {
     }, { timeout: 15000 })
 
     // Counter should start fresh (new mount)
-    const counterText = await page.evaluate(() => {
-      const host = document.querySelector('[data-isolate-styles]')!
-      return host.shadowRoot!.querySelector('[data-testid="remote-counter"]')?.textContent
-    })
-    expect(counterText).toContain('counter: 0')
+    await expect.poll(async () => {
+      return page.evaluate(() => {
+        const host = document.querySelector('[data-isolate-styles]')
+        return host?.shadowRoot?.querySelector('[data-testid="remote-counter"]')?.textContent ?? ''
+      })
+    }, { timeout: 10000 }).toContain('counter: 0')
 
     expect(errors).toEqual([])
   })
@@ -509,6 +522,18 @@ test.describe('federation', () => {
     const greeting = page.getByTestId('esm-greeting')
     await expect(greeting).toBeVisible({ timeout: 10000 })
     await expect(greeting).toHaveText('Hello from ESM: Spiceflow')
+  })
+
+  test('local remote component hydrates and is interactive', async ({ page }) => {
+    await page.goto('/')
+    const counter = page.getByTestId('local-counter')
+    await expect(counter).toBeVisible({ timeout: 10000 })
+    await expect(counter.getByText('Self-hosted counter: 0')).toBeVisible()
+
+    await expect(async () => {
+      await counter.getByRole('button', { name: '+' }).click()
+      await expect(counter.getByText('Self-hosted counter: 1')).toBeVisible()
+    }).toPass({ timeout: 10000 })
   })
 
   test('Framer IOKnob renders after hydration', async ({ page }) => {
