@@ -27,6 +27,7 @@ export async function RemoteComponent({
   props,
   isolateStyles,
   signal,
+  fetch: customFetch,
 }: {
   src: string
   props?: Record<string, unknown>
@@ -36,17 +37,29 @@ export async function RemoteComponent({
   /** Abort signal forwarded to the federation fetch. Pass `request.signal`
    *  so the fetch is cancelled when the browser disconnects. */
   signal?: AbortSignal
+  /** Custom fetch function for local federation. Pass `app.handle` to call
+   *  a same-process endpoint without a network round-trip. When provided,
+   *  `src` can be a relative path like `/api/widget`. */
+  fetch?: (request: Request) => Response | Promise<Response>
 }) {
-  const url = new URL(src)
+  // When customFetch is provided and src is relative, construct a URL with
+  // a placeholder origin — the local handler only routes on the pathname.
+  const url = customFetch && !src.startsWith('http')
+    ? new URL(src, 'http://localhost')
+    : new URL(src)
   if (props) {
     url.searchParams.set('props', JSON.stringify(props))
   }
 
-  if (isLikelyEsmUrl(url)) {
+  // Skip ESM heuristic when custom fetch is provided — the user explicitly
+  // wants to call a local handler, not load an ESM module.
+  if (!customFetch && isLikelyEsmUrl(url)) {
     return <EsmIsland src={url.toString()} props={props} />
   }
 
-  const response = await fetch(url.toString(), { signal })
+  const response = customFetch
+    ? await customFetch(new Request(url.toString(), { signal }))
+    : await fetch(url.toString(), { signal })
   if (!response.ok) {
     throw new Error(
       `[RemoteComponent] Failed to fetch from ${url}: ${response.status}`,
