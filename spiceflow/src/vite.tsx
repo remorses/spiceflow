@@ -310,16 +310,21 @@ export function spiceflowPlugin({
     {
       name: 'spiceflow:optimize-deps',
       configEnvironment(name, config) {
-        const entryGlob = entry.replace(
-          /\.[cm]?[jt]sx?$/,
-          '.{js,jsx,ts,tsx,mjs,mts,cjs,cts}',
-        )
-
         config.optimizeDeps ??= {}
-        config.optimizeDeps.entries = mergeUnique(
-          toArray(config.optimizeDeps.entries),
-          [entryGlob],
-        )
+
+        // Only add filesystem entries to optimizeDeps — virtual modules and
+        // bare specifiers aren't files so they can't be used as globs.
+        const looksLikeFilePath = /\.[cm]?[jt]sx?$/.test(entry)
+        if (looksLikeFilePath) {
+          const entryGlob = entry.replace(
+            /\.[cm]?[jt]sx?$/,
+            '.{js,jsx,ts,tsx,mjs,mts,cjs,cts}',
+          )
+          config.optimizeDeps.entries = mergeUnique(
+            toArray(config.optimizeDeps.entries),
+            [entryGlob],
+          )
+        }
 
         // Each environment runs its own independent optimizer, so deps discovered
         // late by the rsc/ssr optimizer still cause reloads even if the client
@@ -470,9 +475,22 @@ export function spiceflowPlugin({
     // Resolves to user's app entry module.
     // Re-exports all named exports (for Cloudflare Durable Objects, etc.)
     // and `default` (for Cloudflare Workers default export).
-    createVirtualPlugin('virtual:app-entry', () => {
-      const resolvedEntryPath = path.resolve(entry)
-      const resolvedEntry = url.pathToFileURL(resolvedEntryPath).href
+    createVirtualPlugin('virtual:app-entry', async function () {
+      // Resolve the entry through Vite's plugin pipeline so both filesystem
+      // paths (./src/main.tsx) and virtual modules (virtual:holocron-app)
+      // are handled uniformly without manual path.resolve / pathToFileURL.
+      const resolved = await this.resolve(entry)
+      if (!resolved) {
+        throw new Error(
+          `[spiceflow] Could not resolve entry "${entry}". ` +
+            `Make sure the file exists or the virtual module is registered by a plugin.`,
+        )
+      }
+      // Strip the \0 prefix that Vite adds to virtual module IDs — import
+      // statements use the unprefixed form and Vite re-resolves them.
+      const resolvedEntry = resolved.id.startsWith('\0')
+        ? resolved.id.slice(1)
+        : resolved.id
       const clientRelative = path.relative(
         path.join(resolvedOutDir, 'rsc'),
         path.join(resolvedOutDir, 'client'),
@@ -793,19 +811,26 @@ function standaloneTracePlugin(): Plugin {
   }
 }
 
+/** Subset of Rollup/Vite PluginContext used by virtual module load callbacks. */
+type VirtualLoadContext = {
+  resolve: (source: string, importer?: string) => Promise<{ id: string } | null>
+  environment?: { config: { command: string } }
+}
+
 function createVirtualPlugin(
   virtualName: string,
-  load: Plugin['load'],
+  loadFn: (this: VirtualLoadContext, id: string, options?: { ssr?: boolean }) => string | void | Promise<string | void>,
 ): Plugin {
   const shortName = virtualName.replace('virtual:', '')
+  const resolvedId = '\0' + virtualName
   return {
     name: `spiceflow:virtual-${shortName}`,
     resolveId(source) {
-      return source === virtualName ? '\0' + virtualName : undefined
+      return source === virtualName ? resolvedId : undefined
     },
     load(id, options) {
-      if (id === '\0' + virtualName) {
-        return (load as Function).apply(this, [id, options])
+      if (id === resolvedId) {
+        return loadFn.call(this, id, options)
       }
     },
   }
