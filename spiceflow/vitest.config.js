@@ -15,7 +15,6 @@ export default defineConfig({
   test: {
     exclude: ['**/dist/**', '**/esm/**', '**/node_modules/**', '**/e2e/**'],
     pool: 'threads',
-    isolate: false,
     fileParallelism: false,
     execArgv,
   },
