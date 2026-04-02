@@ -1,0 +1,322 @@
+// Tests for renderReact internals (headers, status, concurrency).
+// Isolated in its own file with a hoisted vi.mock for #rsc-runtime so
+// the mock is registered before any import — avoids flaky dynamic
+// import cache races that occurred when these lived in spiceflow.test.ts.
+import { test, expect, vi } from 'vitest'
+
+let lastPayload: any
+
+vi.mock('#rsc-runtime', () => ({
+  renderToReadableStream(value: any) {
+    lastPayload = value
+    return new ReadableStream({
+      start(controller) {
+        controller.close()
+      },
+    })
+  },
+  createTemporaryReferenceSet: () => ({}),
+  decodeReply: async () => null,
+  decodeAction: async () => () => null,
+  decodeFormState: async () => undefined,
+  loadServerAction: async () => undefined,
+}))
+
+import { Spiceflow } from './spiceflow.tsx'
+
+function makeContext() {
+  return {
+    request: undefined,
+    state: {},
+    query: {},
+    params: {},
+    path: '/',
+    response: new Response(null),
+  }
+}
+
+test('renderReact passes layout params to layouts instead of page params', async () => {
+  let pageProps: any
+  let layoutProps: any
+
+  const app = new Spiceflow()
+  const Page = (props: any) => {
+    pageProps = props
+    return null
+  }
+  const Layout = (props: any) => {
+    layoutProps = props
+    return null
+  }
+
+  await (app as any).renderReact({
+    request: new Request('http://localhost/layouts/parent/pages/child', {
+      method: 'GET',
+    }),
+    context: makeContext(),
+    reactRoutes: [
+      {
+        app,
+        params: { pageId: 'child' },
+        route: {
+          id: 'page',
+          kind: 'page',
+          handler: Page,
+        },
+      },
+      {
+        app,
+        params: { layoutId: 'parent' },
+        route: {
+          id: 'layout',
+          kind: 'layout',
+          handler: Layout,
+        },
+      },
+    ],
+  })
+
+  expect(lastPayload.root.page).toBeNull()
+  expect(lastPayload.root.layouts[0]?.element).toBeNull()
+  expect(pageProps.params).toEqual({ pageId: 'child' })
+  expect(layoutProps.params).toEqual({
+    layoutId: 'parent',
+  })
+  expect(pageProps.response).toHaveProperty('headers')
+  expect(pageProps.response).toHaveProperty('status', 200)
+  expect(layoutProps.response).toHaveProperty('headers')
+  expect(layoutProps.response).toHaveProperty('status', 200)
+  expect(layoutProps.response).not.toBe(pageProps.response)
+})
+
+test('renderReact merges page response headers into the flight response', async () => {
+  const app = new Spiceflow()
+  const response = await (app as any).renderReact({
+    request: new Request('http://localhost/headers', { method: 'GET' }),
+    context: makeContext(),
+    reactRoutes: [
+      {
+        app,
+        params: {},
+        route: {
+          id: 'page',
+          kind: 'page',
+          handler: ({ response }: any) => {
+            response.headers.set('cache-control', 'private, max-age=60')
+            response.headers.append('set-cookie', 'a=1; Path=/')
+            response.headers.append('set-cookie', 'b=2; Path=/')
+            return null
+          },
+        },
+      },
+    ],
+  })
+
+  expect(response.headers.get('cache-control')).toBe('private, max-age=60')
+  const getSetCookie = (
+    response.headers as Headers & { getSetCookie?: () => string[] }
+  ).getSetCookie
+  expect(getSetCookie?.call(response.headers)).toEqual([
+    'a=1; Path=/',
+    'b=2; Path=/',
+  ])
+})
+
+test('renderReact merges layout and page headers in route order', async () => {
+  const app = new Spiceflow()
+  const response = await (app as any).renderReact({
+    request: new Request('http://localhost/headers', { method: 'GET' }),
+    context: makeContext(),
+    reactRoutes: [
+      {
+        app,
+        params: { layoutId: 'outer' },
+        route: {
+          id: 'layout',
+          kind: 'layout',
+          handler: ({ children, response }: any) => {
+            response.headers.set('cache-control', 'layout')
+            response.headers.append('set-cookie', 'layout=1; Path=/')
+            return children
+          },
+        },
+      },
+      {
+        app,
+        params: {},
+        route: {
+          id: 'page',
+          kind: 'page',
+          handler: ({ response }: any) => {
+            response.headers.set('cache-control', 'page')
+            response.headers.append('set-cookie', 'page=1; Path=/')
+            return null
+          },
+        },
+      },
+    ],
+  })
+
+  expect(response.headers.get('cache-control')).toBe('page')
+  const getSetCookie = (
+    response.headers as Headers & { getSetCookie?: () => string[] }
+  ).getSetCookie
+  expect(getSetCookie?.call(response.headers)).toEqual([
+    'layout=1; Path=/',
+    'page=1; Path=/',
+  ])
+})
+
+test('renderReact uses page response.status over layout response.status', async () => {
+  const app = new Spiceflow()
+  const response = await (app as any).renderReact({
+    request: new Request('http://localhost/status-precedence', {
+      method: 'GET',
+    }),
+    context: makeContext(),
+    reactRoutes: [
+      {
+        app,
+        params: {},
+        route: {
+          id: 'layout',
+          kind: 'layout',
+          handler: ({ children, response }: any) => {
+            response.status = 418
+            return children
+          },
+        },
+      },
+      {
+        app,
+        params: {},
+        route: {
+          id: 'page',
+          kind: 'page',
+          handler: ({ response }: any) => {
+            response.status = 202
+            return null
+          },
+        },
+      },
+    ],
+  })
+
+  expect(response.status).toBe(202)
+})
+
+test('renderReact falls back to nearest layout response.status when page does not set status', async () => {
+  const app = new Spiceflow()
+  const response = await (app as any).renderReact({
+    request: new Request('http://localhost/layout-status', { method: 'GET' }),
+    context: makeContext(),
+    reactRoutes: [
+      {
+        app,
+        params: {},
+        route: {
+          id: 'outer-layout',
+          kind: 'layout',
+          handler: ({ children, response }: any) => {
+            response.status = 451
+            return children
+          },
+        },
+      },
+      {
+        app,
+        params: {},
+        route: {
+          id: 'inner-layout',
+          kind: 'layout',
+          handler: ({ children, response }: any) => {
+            response.status = 429
+            return children
+          },
+        },
+      },
+      {
+        app,
+        params: {},
+        route: {
+          id: 'page',
+          kind: 'page',
+          handler: () => null,
+        },
+      },
+    ],
+  })
+
+  // Nearest layout wins (last matched layout in render order)
+  expect(response.status).toBe(429)
+})
+
+test('renderReact starts layouts and page concurrently', async () => {
+  const app = new Spiceflow()
+  const events: string[] = []
+
+  const createDeferred = () => {
+    let resolve!: () => void
+    const promise = new Promise<void>((r) => {
+      resolve = r
+    })
+    return { promise, resolve }
+  }
+
+  const layoutDeferred = createDeferred()
+  const pageDeferred = createDeferred()
+
+  const renderPromise = (app as any).renderReact({
+    request: new Request('http://localhost/concurrent', { method: 'GET' }),
+    context: makeContext(),
+    reactRoutes: [
+      {
+        app,
+        params: { layoutId: 'outer' },
+        route: {
+          id: 'layout',
+          kind: 'layout',
+          handler: async ({ children }: any) => {
+            events.push('layout:start')
+            await layoutDeferred.promise
+            events.push('layout:end')
+            return children
+          },
+        },
+      },
+      {
+        app,
+        params: {},
+        route: {
+          id: 'page',
+          kind: 'page',
+          handler: async () => {
+            events.push('page:start')
+            await pageDeferred.promise
+            events.push('page:end')
+            throw new Response(null, { status: 204 })
+          },
+        },
+      },
+    ],
+  })
+
+  await vi.waitFor(() => {
+    expect(events).toEqual(['layout:start', 'page:start'])
+  })
+
+  layoutDeferred.resolve()
+  await Promise.resolve()
+  expect(events).toEqual(['layout:start', 'page:start', 'layout:end'])
+
+  pageDeferred.resolve()
+  const response = await renderPromise
+  expect(events).toEqual([
+    'layout:start',
+    'page:start',
+    'layout:end',
+    'page:end',
+  ])
+  expect(response).toBeInstanceOf(Response)
+  expect(response.status).toMatchInlineSnapshot(`200`)
+})
