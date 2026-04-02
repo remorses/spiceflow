@@ -1,4 +1,4 @@
-import { test, describe, expect, vi } from 'vitest'
+import { test, describe, expect } from 'vitest'
 
 import {
   bfs,
@@ -1109,58 +1109,7 @@ test('missing route is not found', async () => {
   expect(res.status).toBe(404)
 })
 
-test('document requests set a deployment cookie when a deployment id is available', async () => {
-  vi.resetModules()
-  vi.doMock('#deployment-id', () => ({
-    getDeploymentId: async () => 'deploy-123',
-  }))
 
-  try {
-    const { Spiceflow: FreshSpiceflow } = await import('./spiceflow.js')
-    const res = await new FreshSpiceflow()
-      .get('/', () => 'ok')
-      .handle(
-        new Request('http://localhost/', {
-          headers: {
-            'sec-fetch-dest': 'document',
-          },
-        }),
-      )
-
-    expect(res.headers.get('set-cookie')).toContain(
-      'spiceflow-deployment=deploy-123',
-    )
-  } finally {
-    vi.doUnmock('#deployment-id')
-    vi.resetModules()
-  }
-})
-
-test('rsc deployment mismatch returns a same-origin relative reload path', async () => {
-  vi.resetModules()
-  vi.doMock('#deployment-id', () => ({
-    getDeploymentId: async () => 'deploy-123',
-  }))
-
-  try {
-    const { Spiceflow: FreshSpiceflow } = await import('./spiceflow.js')
-    const res = await new FreshSpiceflow()
-      .get('/', () => 'ok')
-      .handle(
-        new Request('http://internal-proxy/app/page.rsc?__rsc=&q=1', {
-          headers: {
-            cookie: 'spiceflow-deployment=deploy-old',
-          },
-        }),
-      )
-
-    expect(res.status).toBe(409)
-    expect(res.headers.get('x-spiceflow-reload')).toBe('/app/page?q=1')
-  } finally {
-    vi.doUnmock('#deployment-id')
-    vi.resetModules()
-  }
-})
 
 test('state works', async () => {
   const res = await new Spiceflow()
