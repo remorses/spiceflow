@@ -37,10 +37,37 @@ const spiceflowEntries = {
 // spiceflow is nested inside a wrapper plugin's node_modules.
 function tryResolve(specifier: string): string | undefined {
   try {
-    return require.resolve(specifier)
+    const resolved = require.resolve(specifier)
+    return unpnpmPath(resolved) ?? resolved
   } catch {
     return undefined
   }
+}
+
+// pnpm stores scoped packages under `.pnpm/@scope+pkg@version/` — the `+`
+// is pnpm's separator for scope and name. Vite 8's `flattenId` does not
+// escape `+`, but rolldown replaces `+` with `_` in chunk filenames,
+// producing a key mismatch that crashes the dep optimizer with
+// "Cannot destructure property 'exportsData'...". Rewrite the resolved
+// path to go through the symlink inside spiceflow's own node_modules
+// so the returned path never contains `+`.
+function unpnpmPath(resolved: string): string | undefined {
+  const marker = `${path.sep}.pnpm${path.sep}`
+  const idx = resolved.lastIndexOf(marker)
+  if (idx === -1) return undefined
+  const innerNM = `${path.sep}node_modules${path.sep}`
+  const after = resolved.slice(idx + marker.length)
+  const innerIdx = after.indexOf(innerNM)
+  if (innerIdx === -1) return undefined
+  const subpath = after.slice(innerIdx + innerNM.length)
+  const candidate = path.resolve(
+    __spiceflowDir,
+    '..',
+    'node_modules',
+    subpath,
+  )
+  if (!fs.existsSync(candidate)) return undefined
+  return candidate
 }
 
 // Module-level so the timestamp is stable even if spiceflowPlugin() is called more than once
