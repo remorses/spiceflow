@@ -70,7 +70,13 @@ export const Head = Object.assign(
 
 export function CollectedHead({ baseUrl }: { baseUrl?: string }) {
   const reversed = [...getHeadStore().tags].reverse()
-  const titleTag = reversed.find((t) => t.type === 'title')
+  const processedTags = getProcessedHeadTagElements({ tags: reversed, baseUrl })
+  // Read the title from the deduplicated output so DocumentTitle's useEffect
+  // sets document.title to the same value that CollectedHead rendered into the
+  // server <title> tag. Using reversed.find() here would return a different
+  // entry than the Map-based dedup in getProcessedHeadTagElements, causing the
+  // layout title to overwrite the page title during hydration.
+  const titleTag = processedTags.find((t) => t.type === 'title')
   const title = titleTag
     ? stringifyChildren(
         (titleTag.props as { children?: React.ReactNode }).children,
@@ -78,7 +84,7 @@ export function CollectedHead({ baseUrl }: { baseUrl?: string }) {
     : undefined
   return (
     <>
-      {getProcessedHeadTagElements({ tags: reversed, baseUrl })}
+      {processedTags}
       {title !== undefined && <DocumentTitle title={title} />}
     </>
   )

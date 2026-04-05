@@ -314,6 +314,19 @@ test.describe("Head client components", () => {
 		).toHaveAttribute("content", "Page og:title");
 	});
 
+	test("page title is not overridden by layout title after hydration", async ({
+		page,
+	}) => {
+		await page.goto(url("/meta-override"));
+		// Wait for hydration to complete so DocumentTitle's useEffect has fired.
+		// layout-mount-count goes from 0 to 1 after the layout client component mounts.
+		await expect(page.getByTestId("layout-mount-count")).toHaveText("1");
+		// document.title must still be the page's title, not the layout's.
+		// DocumentTitle runs client-side via useEffect and must receive the same
+		// deduped title value that CollectedHead rendered server-side.
+		expect(await page.title()).toBe("Page title");
+	});
+
 	test("document.title updates on client-side navigation", async ({ page }) => {
 		await page.goto(url("/title-nav-a"));
 		await expect(page).toHaveTitle("Title A");

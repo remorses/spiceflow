@@ -123,6 +123,27 @@ const rewriteSpiceflowNestedIds: Plugin = {
 Plugin order in the returned array matters — spiceflowPlugin must come first
 so its `'spiceflow > X'` entries are already present when we rewrite.
 
+## CollectedHead: derive DocumentTitle from deduped tags, not reversed.find
+
+`CollectedHead` in `spiceflow/src/react/head.tsx` used to pick the title in two
+independent ways: the SSR `<title>` went through `getProcessedHeadTagElements`
+(Map-based dedup, last `.set()` wins), while `DocumentTitle`'s `title` prop came
+from `reversed.find((t) => t.type === 'title')` (first match wins). For input
+store `[page, layout]` those two code paths disagree: the Map picks `page`
+(layout set first, then page overwrites), the `find` picks `layout` (first in
+the reversed array). Result: SSR HTML shows `<title>Page title</title>`, then
+hydration runs `DocumentTitle.useEffect` which sets `document.title = "Layout
+title"` and the tab silently flips.
+
+Fix: call `getProcessedHeadTagElements` first, then read the title from the
+deduped output via `processedTags.find((t) => t.type === 'title')`. One source
+of truth, so SSR and client stay in sync regardless of push order.
+
+Testing lesson: `toHaveTitle` retry assertions can give false positives for
+race conditions — they pass as soon as the title matches once. To catch
+hydration overrides, first wait for a post-hydration signal (e.g.
+`layout-mount-count` going from 0 to 1) and then assert with a plain `expect`.
+
 ## Git safety
 
 During this session I tried to revert a recently-committed local change and
