@@ -313,6 +313,19 @@ test.describe("Head client components", () => {
 			page.locator('head meta[property="og:title"]'),
 		).toHaveAttribute("content", "Page og:title");
 	});
+
+	test("document.title updates on client-side navigation", async ({ page }) => {
+		await page.goto(url("/title-nav-a"));
+		await expect(page).toHaveTitle("Title A");
+
+		await page.getByTestId("title-nav-link").click();
+		await expect(page).toHaveURL(url("/title-nav-b"));
+		await expect(page).toHaveTitle("Title B");
+
+		await page.getByTestId("title-nav-link").click();
+		await expect(page).toHaveURL(url("/title-nav-a"));
+		await expect(page).toHaveTitle("Title A");
+	});
 });
 
 test.describe("redirect", () => {

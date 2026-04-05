@@ -554,6 +554,30 @@ export const app = new Spiceflow()
 			</div>
 		);
 	})
+	.page("/title-nav-a", async () => {
+		return (
+			<div>
+				<Head>
+					<Head.Title>Title A</Head.Title>
+				</Head>
+				<Link data-testid="title-nav-link" href="/title-nav-b">
+					Go to B
+				</Link>
+			</div>
+		);
+	})
+	.page("/title-nav-b", async () => {
+		return (
+			<div>
+				<Head>
+					<Head.Title>Title B</Head.Title>
+				</Head>
+				<Link data-testid="title-nav-link" href="/title-nav-a">
+					Go to A
+				</Link>
+			</div>
+		);
+	})
 
 	.page("/server-guard-test", async () => {
 		return <ServerGuardTestClient />;

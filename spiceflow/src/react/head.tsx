@@ -1,5 +1,6 @@
 import React from 'react'
 import { getProcessedHeadTagElements } from './head-processing.js'
+import { DocumentTitle } from './document-title.js'
 import type {
   MetaProps,
   TitleProps,
@@ -68,14 +69,26 @@ export const Head = Object.assign(
 )
 
 export function CollectedHead({ baseUrl }: { baseUrl?: string }) {
+  const reversed = [...getHeadStore().tags].reverse()
+  const titleTag = reversed.find((t) => t.type === 'title')
+  const title = titleTag
+    ? stringifyChildren(
+        (titleTag.props as { children?: React.ReactNode }).children,
+      )
+    : undefined
   return (
     <>
-      {getProcessedHeadTagElements({
-        tags: [...getHeadStore().tags].reverse(),
-        baseUrl,
-      })}
+      {getProcessedHeadTagElements({ tags: reversed, baseUrl })}
+      {title !== undefined && <DocumentTitle title={title} />}
     </>
   )
+}
+
+function stringifyChildren(node: React.ReactNode): string {
+  if (typeof node === 'string') return node
+  if (typeof node === 'number') return String(node)
+  if (Array.isArray(node)) return node.map(stringifyChildren).join('')
+  return ''
 }
 
 const VALID_TAGS = new Set(['title', 'meta', 'link', 'base', 'style', 'script'])
