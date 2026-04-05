@@ -1,6 +1,5 @@
 // Spiceflow Vite plugin: integrates @vitejs/plugin-rsc for RSC support,
 // provides SSR middleware, virtual modules, and prerender support.
-import fs from 'node:fs'
 import { createRequire } from 'node:module'
 import path from 'node:path'
 import url from 'node:url'
@@ -29,45 +28,6 @@ const spiceflowEntries = {
   rsc: path.resolve(__spiceflowDir, 'react/entry.rsc'),
   ssr: path.resolve(__spiceflowDir, 'react/entry.ssr'),
   client: path.resolve(__spiceflowDir, 'react/entry.client'),
-}
-
-// Resolve a dependency from spiceflow's own node_modules. Returns the resolved
-// path or undefined if the package isn't installed (optional dep). Used for
-// optimizeDeps.include entries so Vite can find transitive deps even when
-// spiceflow is nested inside a wrapper plugin's node_modules.
-function tryResolve(specifier: string): string | undefined {
-  try {
-    const resolved = require.resolve(specifier)
-    return unpnpmPath(resolved) ?? resolved
-  } catch {
-    return undefined
-  }
-}
-
-// pnpm stores scoped packages under `.pnpm/@scope+pkg@version/` — the `+`
-// is pnpm's separator for scope and name. Vite 8's `flattenId` does not
-// escape `+`, but rolldown replaces `+` with `_` in chunk filenames,
-// producing a key mismatch that crashes the dep optimizer with
-// "Cannot destructure property 'exportsData'...". Rewrite the resolved
-// path to go through the symlink inside spiceflow's own node_modules
-// so the returned path never contains `+`.
-function unpnpmPath(resolved: string): string | undefined {
-  const marker = `${path.sep}.pnpm${path.sep}`
-  const idx = resolved.lastIndexOf(marker)
-  if (idx === -1) return undefined
-  const innerNM = `${path.sep}node_modules${path.sep}`
-  const after = resolved.slice(idx + marker.length)
-  const innerIdx = after.indexOf(innerNM)
-  if (innerIdx === -1) return undefined
-  const subpath = after.slice(innerIdx + innerNM.length)
-  const candidate = path.resolve(
-    __spiceflowDir,
-    '..',
-    'node_modules',
-    subpath,
-  )
-  if (!fs.existsSync(candidate)) return undefined
-  return candidate
 }
 
 // Module-level so the timestamp is stable even if spiceflowPlugin() is called more than once
@@ -206,22 +166,21 @@ export function spiceflowPlugin({
     // Skipped for Vercel (has its own tracing) and Cloudflare (bundles everything).
     standaloneTracePlugin(),
 
-    // Resolve @vitejs/plugin-rsc vendor CJS entries to absolute paths so they
-    // work even when spiceflow is a transitive dep not directly in the consumer's
-    // node_modules. Previously used `spiceflow > @vitejs/plugin-rsc/...` syntax
-    // which requires `spiceflow` itself to be resolvable from the project root.
+    // Rewrite optimizeDeps entries so @vitejs/plugin-rsc vendor CJS files
+    // resolve through the spiceflow framework package (where the plugin is installed)
+    // rather than from the app root where the plugin isn't a direct dependency.
     {
       name: 'spiceflow:optimize-deps-rewrite',
       configEnvironment(_name, config) {
         if (!config.optimizeDeps?.include) return
-        config.optimizeDeps.include = config.optimizeDeps.include
-          .map((entry) => {
+        config.optimizeDeps.include = config.optimizeDeps.include.map(
+          (entry) => {
             if (entry.startsWith('@vitejs/plugin-rsc')) {
-              return tryResolve(entry)
+              return `spiceflow > ${entry}`
             }
             return entry
-          })
-          .filter(Boolean) as string[]
+          },
+        )
       },
     },
 
@@ -390,12 +349,9 @@ export function spiceflowPlugin({
               'react/jsx-dev-runtime',
               'react-dom',
               'react-dom/client',
-              // Resolve transitive deps from spiceflow's own node_modules so
-              // they work even when spiceflow isn't directly in the consumer's
-              // node_modules (e.g. pnpm strict hoisting with wrapper plugins).
-              tryResolve('superjson'),
-              tryResolve('history'),
-            ].filter(Boolean) as string[],
+              'spiceflow > superjson',
+              'spiceflow > history',
+            ],
           )
         }
 
@@ -403,10 +359,7 @@ export function spiceflowPlugin({
           addNoExternal(config, 'spiceflow')
           config.optimizeDeps.include = mergeUnique(
             config.optimizeDeps.include,
-            [
-              tryResolve('superjson'),
-              tryResolve('history'),
-            ].filter(Boolean) as string[],
+            ['spiceflow > superjson', 'spiceflow > history'],
           )
         }
 
@@ -415,11 +368,11 @@ export function spiceflowPlugin({
           config.optimizeDeps.include = mergeUnique(
             config.optimizeDeps.include,
             [
-              tryResolve('isbot'),
-              tryResolve('history'),
+              'spiceflow > isbot',
+              'spiceflow > history',
               'react-dom/server',
               'react-dom/server.edge',
-            ].filter(Boolean) as string[],
+            ],
           )
         }
       },
