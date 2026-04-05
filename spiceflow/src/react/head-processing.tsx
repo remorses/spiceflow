@@ -147,10 +147,12 @@ function getLinkKey({
   if (rel === 'alternate') {
     const hrefLang = props.hrefLang ?? ''
     const type = props.type ?? ''
-    return `link:${rel}:${hrefLang}:${type}`
+    const media = props.media ?? ''
+    return `link:${rel}:${hrefLang}:${type}:${media}`
   }
 
   const sizes = props.sizes ?? ''
   const type = props.type ?? ''
-  return `link:${rel}:${sizes}:${type}`
+  const media = props.media ?? ''
+  return `link:${rel}:${sizes}:${type}:${media}`
 }

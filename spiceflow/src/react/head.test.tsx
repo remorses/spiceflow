@@ -26,4 +26,28 @@ describe('Head', () => {
       '"<title>Nested title</title><meta name=\"description\" content=\"Nested description\"/><meta property=\"og:image\" content=\"/nested-image.png\"/>"',
     )
   })
+
+  test('preserves icons with different media queries', () => {
+    const tags = collectHeadElements(
+      <>
+        <Head.Link
+          rel="icon"
+          href="/icon-light.png"
+          media="(prefers-color-scheme: light)"
+        />
+        <Head.Link
+          rel="icon"
+          href="/icon-dark.png"
+          media="(prefers-color-scheme: dark)"
+        />
+      </>,
+    )
+    const html = ReactDOMServer.renderToStaticMarkup(
+      <>{getProcessedHeadTagElements({ tags })}</>,
+    )
+
+    expect(html).toMatchInlineSnapshot(
+      '"<link rel=\"icon\" href=\"/icon-light.png\" media=\"(prefers-color-scheme: light)\"/><link rel=\"icon\" href=\"/icon-dark.png\" media=\"(prefers-color-scheme: dark)\"/>"',
+    )
+  })
 })
