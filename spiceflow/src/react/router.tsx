@@ -266,6 +266,25 @@ function prependBase(to: string | Partial<{ pathname: string }>): typeof to {
   return to
 }
 
+// history.pushState / replaceState don't trigger the browser's native
+// hash-scroll behaviour. When the new URL contains a #hash, manually
+// scroll to the target element after a frame so React can commit any
+// pending state updates first (needed for cross-page hash links where
+// the target element doesn't exist yet at push time).
+function scrollToHashElement() {
+  if (!isBrowser) return
+  const hash = history.location.hash
+  if (!hash) return
+  requestAnimationFrame(() => {
+    try {
+      const id = decodeURIComponent(hash.slice(1))
+      document.getElementById(id)?.scrollIntoView()
+    } catch {
+      // bad hash encoding — ignore
+    }
+  })
+}
+
 export const router = {
   get location() {
     return history.location
@@ -280,11 +299,13 @@ export const router = {
     args[0] = prependBase(args[0]) as typeof args[0]
     requestNavigation('push')
     history.push(...args)
+    scrollToHashElement()
   },
   replace(...args: Parameters<typeof history.replace>) {
     args[0] = prependBase(args[0]) as typeof args[0]
     requestNavigation('replace')
     history.replace(...args)
+    scrollToHashElement()
   },
   go: history.go,
   back: history.back,
