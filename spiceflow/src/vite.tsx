@@ -355,8 +355,26 @@ export function spiceflowPlugin({
           )
         }
 
-        if (name === 'rsc') {
+        if (name === 'rsc' || name === 'ssr') {
           addNoExternal(config, 'spiceflow')
+          // Force React packages to resolve from the project root so the
+          // vendored react-server-dom CJS inside @vitejs/plugin-rsc shares
+          // the same React instance as user code. Without this, the vendor's
+          // require("react") can resolve to a separate module instance
+          // (especially under pnpm's strict isolation), causing
+          // ReactSharedInternals.A (the cache dispatcher) to be set on one
+          // instance while user code reads from another — breaking
+          // React.cache() in server components.
+          config.resolve ??= {}
+          config.resolve.dedupe = mergeUnique(config.resolve.dedupe, [
+            'react',
+            'react-dom',
+            'react/jsx-runtime',
+            'react/jsx-dev-runtime',
+          ])
+        }
+
+        if (name === 'rsc') {
           config.optimizeDeps.include = mergeUnique(
             config.optimizeDeps.include,
             ['spiceflow > superjson', 'spiceflow > history'],
@@ -364,7 +382,6 @@ export function spiceflowPlugin({
         }
 
         if (name === 'ssr') {
-          addNoExternal(config, 'spiceflow')
           config.optimizeDeps.include = mergeUnique(
             config.optimizeDeps.include,
             [

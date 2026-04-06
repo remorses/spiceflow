@@ -144,6 +144,23 @@ race conditions — they pass as soon as the title matches once. To catch
 hydration overrides, first wait for a post-hydration signal (e.g.
 `layout-mount-count` going from 0 to 1) and then assert with a plain `expect`.
 
+## React.cache() dual instance: use resolve.dedupe, not custom dispatchers
+
+`@vitejs/plugin-rsc` vendors `react-server-dom-webpack` as CJS files that do
+`require("react")`. Under pnpm's strict module isolation, this `require` can
+resolve to a different React instance than user code's `import React from 'react'`.
+The vendor's `renderToReadableStream` sets `ReactSharedInternals.A` (cache dispatcher)
+on its React, but user code reads `A` from a different instance → `React.cache()`
+returns fresh objects every call → Head/CollectedHead tag collection breaks.
+
+**Fix:** `resolve.dedupe: ['react', 'react-dom', ...]` in RSC and SSR environments.
+This forces Vite to resolve all React imports from the project root regardless of
+where the importer lives. One line in `configEnvironment`, no custom dispatchers needed.
+
+**Wrong fix:** Custom `AsyncLocalStorage`-backed cache dispatcher wired into
+`ReactSharedInternals.A` (commit `eb96e01`). Works but reimplements React internals
+and doesn't address the root cause.
+
 ## Git safety
 
 During this session I tried to revert a recently-committed local change and
