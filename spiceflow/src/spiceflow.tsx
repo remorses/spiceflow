@@ -50,6 +50,7 @@ import {
   LayoutContent,
 } from './react/components.js'
 import { CollectedHead } from './react/head.js'
+import { runWithRequestCache } from './react/wire-cache-dispatcher.js'
 import {
   getErrorContext,
   isNotFoundError,
@@ -1693,7 +1694,7 @@ export class Spiceflow<
         baseUrl = baseUrl.slice(0, -1)
       }
 
-      const hasLoaderData = Object.keys(mergedLoaderData).length > 0
+       const hasLoaderData = Object.keys(mergedLoaderData).length > 0
       let root: FlightData = {
         page,
         layouts,
@@ -1765,8 +1766,15 @@ export class Spiceflow<
 
         return new Response(stream, { status, headers })
       }
-      if (!this.tracer) return buildRscResponse()
-      return withSpan(this.tracer, 'rsc.serialize', {}, buildRscResponse)
+      // Wrap in runWithRequestCache so React.cache() calls in user server
+      // components (e.g. Head/CollectedHead) share the same per-request cache.
+      // The vendored react-server-dom sets the cache dispatcher on its own
+      // bundled React, not on the user's React — runWithRequestCache provides
+      // the missing per-request cache via AsyncLocalStorage.
+      if (!this.tracer) return runWithRequestCache(buildRscResponse)
+      return runWithRequestCache(() =>
+        withSpan(this.tracer!, 'rsc.serialize', {}, buildRscResponse),
+      )
     } catch (error) {
       if (error instanceof Response) {
         return mergeHeadersIntoResponse({
