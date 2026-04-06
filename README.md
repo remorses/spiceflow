@@ -362,7 +362,7 @@ fetchStream()
 
 ## Not Found Handler
 
-Use `/*` as a catch-all route to handle 404 errors. More specific routes always take precedence regardless of registration order:
+For API routes (`.route()`, `.get()`, etc.), use `/*` as a catch-all to handle unmatched requests. For React pages, use `children === null` in a layout instead (see [Redirects and Not Found](#redirects-and-not-found)). More specific routes always take precedence regardless of registration order:
 
 ```ts
 import { Spiceflow } from 'spiceflow'

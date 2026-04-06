@@ -812,6 +812,26 @@ test.describe("throw response status codes", () => {
 		expect(response.headers.get("location")).toBe(url("/other"));
 	});
 
+	test("throw redirect in layout on unmatched route still redirects", async () => {
+		const response = await fetch(
+			`${baseURL}${basePath}/throw-redirect-in-layout/does-not-exist`,
+			{
+				redirect: "manual",
+				headers: { "sec-fetch-dest": "document" },
+			},
+		);
+		expect(response.status).toBe(307);
+		expect(response.headers.get("location")).toBe(url("/other"));
+	});
+
+	test("throw notFound in layout on unmatched route still returns 404", async () => {
+		const response = await fetch(
+			`${baseURL}${basePath}/throw-notfound-in-layout/does-not-exist`,
+			{ headers: { "sec-fetch-dest": "document" } },
+		);
+		expect(response.status).toBe(404);
+	});
+
 	test("throw notFound in layout child route returns 404", async () => {
 		const response = await fetch(`${baseURL}${basePath}/throw-notfound-in-layout/nested`);
 		expect(response.status).toBe(404);

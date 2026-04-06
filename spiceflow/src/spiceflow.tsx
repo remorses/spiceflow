@@ -1697,6 +1697,25 @@ export class Spiceflow<
         throw firstError.error
       }
 
+      // When isNotFound, all layouts get null children so their
+      // ThrowResponse elements would be orphaned (root layout doesn't
+      // include LayoutContent). Promote layout Response throws
+      // (redirect/notFound) so they still take effect.
+      if (isNotFound) {
+        const layoutResponse = [...layoutResults]
+          .reverse()
+          .find(
+            (r): r is typeof r & { ok: false; error: Response } =>
+              !r.ok && r.error instanceof Response,
+          )
+        if (layoutResponse) {
+          return mergeHeadersIntoResponse({
+            response: layoutResponse.error,
+            source: routeHeaders,
+          })
+        }
+      }
+
       const layouts = layoutResults.map((layout) => ({
         id: layout.id,
         element: layout.ok ? (
