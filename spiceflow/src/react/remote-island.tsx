@@ -44,9 +44,7 @@ function getOrCreateTree({
     if (oldest) treeCache.delete(oldest)
   }
 
-  const promise = decodeParsedFederationPayload<React.ReactNode>(parsed).then(
-    (decoded) => decoded.value,
-  )
+  const promise = decodeParsedFederationPayload<React.ReactNode>(parsed)
   treeCache.set(parsed.metadata.remoteId, promise)
   return promise
 }

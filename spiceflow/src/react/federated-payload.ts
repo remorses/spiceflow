@@ -32,7 +32,7 @@ export type FederationPayloadEvent =
   | { type: 'flight'; payload: string }
   | { type: 'done' }
 
-export interface DecodedFederationPayloadResult<T = unknown> {
+interface DecodedFederationPayloadDetails<T = unknown> {
   value: T
   ssrHtml: string
   metadata: FederatedPayloadMetadata
@@ -224,7 +224,7 @@ async function getFlightClientBrowser() {
 
 export async function decodeParsedFederationPayload<T = unknown>(
   parsed: ParsedFederatedFlightPayload,
-): Promise<DecodedFederationPayloadResult<T>> {
+): Promise<T> {
   if (typeof window === 'undefined') {
     throw new Error(
       '[decodeFederationPayload] This API is only available in the browser',
@@ -256,23 +256,10 @@ export async function decodeParsedFederationPayload<T = unknown>(
     ),
   ) as PromiseLike<T>)
 
-  return {
-    value,
-    ssrHtml: parsed.ssrHtml,
-    metadata: parsed.metadata,
-    remoteOrigin: parsed.remoteOrigin,
-  }
+  return value
 }
 
-export async function decodeFederationPayload<T = unknown>(
-  response: Response,
-): Promise<DecodedFederationPayloadResult<T>> {
-  if (typeof window === 'undefined') {
-    throw new Error(
-      '[decodeFederationPayload] This API is only available in the browser',
-    )
-  }
-
+async function readFederationPrelude(response: Response) {
   const events = parseFederationPayload(response)
 
   const metadataEvent = await events.next()
@@ -282,9 +269,30 @@ export async function decodeFederationPayload<T = unknown>(
 
   const { payload: metadata, remoteOrigin } = metadataEvent.value
 
-  const ssrEvent = await events.next()
+  const nextEvent = await events.next()
   const ssrHtml =
-    ssrEvent.done || ssrEvent.value.type !== 'ssr' ? '' : ssrEvent.value.payload
+    nextEvent.done || nextEvent.value.type !== 'ssr' ? '' : nextEvent.value.payload
+
+  return {
+    events,
+    metadata,
+    remoteOrigin,
+    nextEvent: nextEvent.done ? null : nextEvent.value,
+    ssrHtml,
+  }
+}
+
+async function decodeFederationPayloadDetails<T = unknown>(
+  response: Response,
+): Promise<DecodedFederationPayloadDetails<T>> {
+  if (typeof window === 'undefined') {
+    throw new Error(
+      '[decodeFederationPayload] This API is only available in the browser',
+    )
+  }
+
+  const { events, metadata, nextEvent, remoteOrigin, ssrHtml } =
+    await readFederationPrelude(response)
 
   await loadFederatedClientModules({
     clientModules: metadata.clientModules,
@@ -301,8 +309,8 @@ export async function decodeFederationPayload<T = unknown>(
   })
 
   const pump = (async () => {
-    if (!ssrEvent.done && ssrEvent.value.type === 'flight') {
-      controllerRef?.enqueue(new TextEncoder().encode(ssrEvent.value.payload + '\n'))
+    if (nextEvent?.type === 'flight') {
+      controllerRef?.enqueue(new TextEncoder().encode(nextEvent.payload + '\n'))
     }
 
     for await (const event of events) {
@@ -339,6 +347,13 @@ export async function decodeFederationPayload<T = unknown>(
     metadata,
     remoteOrigin,
   }
+}
+
+export async function decodeFederationPayload<T = unknown>(
+  response: Response,
+): Promise<T> {
+  const decoded = await decodeFederationPayloadDetails<T>(response)
+  return decoded.value
 }
 
 export async function RenderFederatedPayload({

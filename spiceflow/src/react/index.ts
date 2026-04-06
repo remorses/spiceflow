@@ -18,7 +18,6 @@ export { createRouter } from './create-router.tsx'
 export { getActionAbortController } from './action-abort.tsx'
 export {
   decodeFederationPayload,
-  type DecodedFederationPayloadResult,
   RenderFederatedPayload,
 } from './federated-payload.ts'
 export { publicDir, distDir } from '#spiceflow-dirs'

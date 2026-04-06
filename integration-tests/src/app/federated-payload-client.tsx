@@ -48,7 +48,7 @@ export function FederatedPayloadDecodeTest() {
 			body: JSON.stringify({ label: "Imperative" }),
 		});
 		const decoded = await decodeFederationPayload<ImperativePayload>(response);
-		setPayload(decoded.value);
+		setPayload(decoded);
 	}
 
 	async function handleStreamClick() {
@@ -62,7 +62,7 @@ export function FederatedPayloadDecodeTest() {
 		});
 		try {
 			const decoded = await decodeFederationPayload<StreamEnvelope>(response);
-			for await (const item of decoded.value.stream) {
+			for await (const item of decoded.stream) {
 				setStreamItems((prev) => [...prev, item]);
 			}
 			setStreamDone(true);

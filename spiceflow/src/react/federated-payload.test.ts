@@ -40,7 +40,7 @@ describe('decodeFederationPayload', () => {
     const decoded = await decodeFederationPayload<AsyncIterable<string>>(response)
 
     const items: string[] = []
-    for await (const item of decoded.value) {
+    for await (const item of decoded) {
       items.push(item)
     }
 

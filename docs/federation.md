@@ -135,7 +135,7 @@ export function ChatButton() {
       content: React.ReactNode
     }>(response)
 
-    setParts((prev) => [...prev, <div key={prev.length}>{decoded.value.content}</div>])
+    setParts((prev) => [...prev, <div key={prev.length}>{decoded.content}</div>])
   }
 
   return <button onClick={handleClick}>Load</button>
