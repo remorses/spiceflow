@@ -4,33 +4,22 @@ import { app } from 'virtual:app-entry'
 export * from 'virtual:app-entry'
 import * as entry from 'virtual:app-entry'
 
-/**
- * Tracks the abort controllers for in-flight requests by URL so HMR can
- * cancel stale renders for the same URL before they resolve in a different request context.
- * This prevents the "hanging Promise was canceled" error on Cloudflare Workers
- * when rapid HMR events cause cross-request promise resolution.
- */
-const abortControllersByUrl = new Map<string, AbortController>()
+// Tracks all in-flight abort controllers so HMR can cancel stale renders.
+// Uses a Set (not a per-URL Map) so concurrent requests to the same URL
+// don't abort each other — only HMR module invalidation aborts in-flight renders.
+const inFlightAborts = new Set<AbortController>()
 
 export async function handler(request: Request) {
-  // Abort any previous in-flight request for the same URL
-  const prevAbort = abortControllersByUrl.get(request.url)
-  prevAbort?.abort()
   const abort = new AbortController()
-  abortControllersByUrl.set(request.url, abort)
+  inFlightAborts.add(abort)
   // Combine the original request signal (fires on client disconnect/abort) with
-  // our HMR signal (fires when a newer render supersedes this one). This way
-  // server actions can detect both client abort and HMR invalidation.
+  // our HMR signal (fires when module invalidation cancels this render).
   const combinedSignal = AbortSignal.any([request.signal, abort.signal])
   const signaled = new Request(request, { signal: combinedSignal })
   try {
     return await app.handle(signaled)
   } finally {
-    // Only clean up if this request's controller is still the active one.
-    // A newer concurrent request for the same URL may have overwritten it.
-    if (abortControllersByUrl.get(request.url) === abort) {
-      abortControllersByUrl.delete(request.url)
-    }
+    inFlightAborts.delete(abort)
   }
 }
 
@@ -40,10 +29,9 @@ export default entry.default ?? { fetch: handler }
 // re-render instead of a full page reload.
 if (import.meta.hot) {
   import.meta.hot.accept(() => {
-    // Abort all in-flight requests on HMR update
-    for (const abort of abortControllersByUrl.values()) {
+    for (const abort of inFlightAborts) {
       abort.abort()
     }
-    abortControllersByUrl.clear()
+    inFlightAborts.clear()
   })
 }
