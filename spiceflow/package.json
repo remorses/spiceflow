@@ -91,7 +91,7 @@
     }
   },
   "scripts": {
-    "build": "echo '<!-- DO NOT EDIT: This file is auto-generated from root README.md -->' > ./README.md && echo '' >> ./README.md && cat ../README.md >> ./README.md && rm -rf dist *.tsbuildinfo && pnpm tsc && pnpm check-entry",
+    "build": "echo '<!-- DO NOT EDIT: This file is auto-generated from root README.md -->' > ./README.md && echo '' >> ./README.md && cat ../README.md >> ./README.md && rimraf dist *.tsbuildinfo && pnpm tsc && pnpm check-entry",
     "prepublishOnly": "pnpm build",
     "typecheck": "pnpm build",
     "gen-openapi": "pnpm tsx scripts/openapi-fern.ts",
@@ -101,7 +101,7 @@
     "fern-docs": "pnpm run gen-openapi && fern generate --docs --force",
     "play-sdk:build": "pnpm vite build --config ./scripts/play-sdk.vite.ts",
     "check-entry": "esbuild src/index.ts --bundle --platform=node --format=esm --outfile=/dev/null",
-    "test": "pnpm vitest",
+    "test": "pnpm tsc && pnpm vitest",
     "lint": "lintcn lint --fix",
     "prepare": "# pnpm build",
     "watch": "tsc -w"
@@ -148,6 +148,7 @@
     "js-base64": "^3.7.7",
     "js-yaml": "^4.1.0",
     "ps-tree": "^1.2.0",
+    "rimraf": "^6.1.3",
     "vite": "^8.0.0",
     "zod": "^4.3.6"
   }
