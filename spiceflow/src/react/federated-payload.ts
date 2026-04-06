@@ -22,6 +22,16 @@ export interface ParsedFederatedFlightPayload {
   remoteOrigin: string
 }
 
+export type FederationPayloadEvent =
+  | {
+      type: 'metadata'
+      payload: FederatedPayloadMetadata
+      remoteOrigin: string
+    }
+  | { type: 'ssr'; payload: string }
+  | { type: 'flight'; payload: string }
+  | { type: 'done' }
+
 export interface DecodedFederationPayloadResult<T = unknown> {
   value: T
   ssrHtml: string
@@ -65,18 +75,16 @@ function getResponseContentType(response: Response): string {
   )
 }
 
-export async function parseFederationPayload(
+export async function* parseFederationPayload(
   response: Response,
-): Promise<ParsedFederatedFlightPayload> {
+): AsyncGenerator<FederationPayloadEvent> {
   if (!response.ok) {
     throw new Error(
       `[decodeFederationPayload] Failed to read payload: ${response.status}`,
     )
   }
 
-  let metadata: FederatedPayloadMetadata | null = null
-  let ssrHtml = ''
-  const flightRows: string[] = []
+  const remoteOrigin = getResponseOrigin(response)
 
   for await (const event of streamSSEResponse({
     response,
@@ -84,13 +92,47 @@ export async function parseFederationPayload(
   })) {
     switch (event.event) {
       case 'metadata':
-        metadata = JSON.parse(event.data) as FederatedPayloadMetadata
+        yield {
+          type: 'metadata',
+          payload: JSON.parse(event.data) as FederatedPayloadMetadata,
+          remoteOrigin,
+        }
         break
       case 'ssr':
-        ssrHtml = JSON.parse(event.data).html as string
+        yield {
+          type: 'ssr',
+          payload: JSON.parse(event.data).html as string,
+        }
         break
       case 'flight':
-        flightRows.push(event.data)
+        yield { type: 'flight', payload: event.data }
+        break
+      case 'done':
+        yield { type: 'done' }
+        break
+    }
+  }
+}
+
+async function collectFederationPayload(
+  response: Response,
+): Promise<ParsedFederatedFlightPayload> {
+  let metadata: FederatedPayloadMetadata | null = null
+  let ssrHtml = ''
+  let remoteOrigin = ''
+  const flightRows: string[] = []
+
+  for await (const event of parseFederationPayload(response)) {
+    switch (event.type) {
+      case 'metadata':
+        metadata = event.payload
+        remoteOrigin = event.remoteOrigin
+        break
+      case 'ssr':
+        ssrHtml = event.payload
+        break
+      case 'flight':
+        flightRows.push(event.payload)
         break
     }
   }
@@ -103,7 +145,7 @@ export async function parseFederationPayload(
     metadata,
     ssrHtml,
     flightPayload: flightRows.length > 0 ? flightRows.join('\n') + '\n' : '',
-    remoteOrigin: getResponseOrigin(response),
+    remoteOrigin,
   }
 }
 
@@ -151,14 +193,33 @@ async function loadFederatedClientModules({
   }
 }
 
-async function getCreateFromReadableStream() {
+async function getFlightClientBrowser() {
   const globalDecoder = globalThis.__spiceflow_createFromReadableStream
-  if (globalDecoder) return globalDecoder
+  if (globalDecoder && typeof document === 'undefined') {
+    return {
+      createFromReadableStream: globalDecoder,
+      createFromFetch: <T>(responsePromise: Promise<Response>) => {
+        return Promise.resolve(responsePromise).then(async (response) => {
+          if (!response.body) {
+            throw new Error(
+              '[decodeFederationPayload] Expected a response body for Flight decode',
+            )
+          }
+          return globalDecoder<T>(response.body) as PromiseLike<T>
+        })
+      },
+    }
+  }
 
   const rsc = await import('@vitejs/plugin-rsc/browser')
-  return rsc.createFromReadableStream as <T>(
-    stream: ReadableStream<Uint8Array>,
-  ) => PromiseLike<T>
+  return {
+    createFromReadableStream: rsc.createFromReadableStream as <T>(
+      stream: ReadableStream<Uint8Array>,
+    ) => PromiseLike<T>,
+    createFromFetch: rsc.createFromFetch as <T>(
+      response: Promise<Response>,
+    ) => PromiseLike<T>,
+  }
 }
 
 export async function decodeParsedFederationPayload<T = unknown>(
@@ -177,7 +238,7 @@ export async function decodeParsedFederationPayload<T = unknown>(
 
   ensureRequirePatched()
 
-  const createFromReadableStream = await getCreateFromReadableStream()
+  const { createFromFetch } = await getFlightClientBrowser()
   const stream = new ReadableStream<Uint8Array>({
     start(controller) {
       controller.enqueue(new TextEncoder().encode(parsed.flightPayload))
@@ -185,7 +246,15 @@ export async function decodeParsedFederationPayload<T = unknown>(
     },
   })
 
-  const value = await (createFromReadableStream<T>(stream) as PromiseLike<T>)
+  const value = await (createFromFetch<T>(
+    Promise.resolve(
+      new Response(stream, {
+        headers: {
+          'content-type': 'text/x-component;charset=utf-8',
+        },
+      }),
+    ),
+  ) as PromiseLike<T>)
 
   return {
     value,
@@ -198,8 +267,78 @@ export async function decodeParsedFederationPayload<T = unknown>(
 export async function decodeFederationPayload<T = unknown>(
   response: Response,
 ): Promise<DecodedFederationPayloadResult<T>> {
-  const parsed = await parseFederationPayload(response)
-  return decodeParsedFederationPayload<T>(parsed)
+  if (typeof window === 'undefined') {
+    throw new Error(
+      '[decodeFederationPayload] This API is only available in the browser',
+    )
+  }
+
+  const events = parseFederationPayload(response)
+
+  const metadataEvent = await events.next()
+  if (metadataEvent.done || metadataEvent.value.type !== 'metadata') {
+    throw new Error('[decodeFederationPayload] No metadata event in response')
+  }
+
+  const { payload: metadata, remoteOrigin } = metadataEvent.value
+
+  const ssrEvent = await events.next()
+  const ssrHtml =
+    ssrEvent.done || ssrEvent.value.type !== 'ssr' ? '' : ssrEvent.value.payload
+
+  await loadFederatedClientModules({
+    clientModules: metadata.clientModules,
+    remoteOrigin,
+  })
+
+  ensureRequirePatched()
+
+  let controllerRef: ReadableStreamDefaultController<Uint8Array> | undefined
+  const flightStream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      controllerRef = controller
+    },
+  })
+
+  const pump = (async () => {
+    if (!ssrEvent.done && ssrEvent.value.type === 'flight') {
+      controllerRef?.enqueue(new TextEncoder().encode(ssrEvent.value.payload + '\n'))
+    }
+
+    for await (const event of events) {
+      if (event.type === 'flight') {
+        controllerRef?.enqueue(new TextEncoder().encode(event.payload + '\n'))
+        continue
+      }
+      if (event.type === 'done') {
+        break
+      }
+    }
+
+    controllerRef?.close()
+  })().catch((error) => {
+    controllerRef?.error(error)
+  })
+
+  const { createFromFetch } = await getFlightClientBrowser()
+  const value = await (createFromFetch<T>(
+    Promise.resolve(
+      new Response(flightStream, {
+        headers: {
+          'content-type': 'text/x-component;charset=utf-8',
+        },
+      }),
+    ),
+  ) as PromiseLike<T>)
+
+  void pump
+
+  return {
+    value,
+    ssrHtml,
+    metadata,
+    remoteOrigin,
+  }
 }
 
 export async function RenderFederatedPayload({
@@ -215,7 +354,7 @@ export async function RenderFederatedPayload({
     return React.createElement(EsmIsland, { src })
   }
 
-  const parsed = await parseFederationPayload(response)
+  const parsed = await collectFederationPayload(response)
 
   const cssLinks = parsed.metadata.cssLinks ?? []
 

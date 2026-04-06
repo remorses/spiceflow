@@ -112,7 +112,7 @@ The remote components are SSR-rendered in the host's HTML stream, then hydrated 
 
 ## Imperative Decode
 
-Use `decodeFederationPayload(response)` when you want to fetch a route manually in a client event handler and use the decoded value yourself. This works for plain objects, JSX, or objects containing JSX.
+Use `decodeFederationPayload(response)` when you want to fetch a route manually in a client event handler and use the decoded value yourself. This works for plain objects, JSX, or objects containing JSX. Async iterables are supported when they are fields on an object payload, for example `{ stream }`.
 
 ```tsx
 'use client'

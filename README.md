@@ -1580,7 +1580,7 @@ export async function generateOgImage(slug: string) {
 
 ### Remote Components & Federation
 
-Expose any Flight-serializable value from a route with `encodeFederationPayload(...)`, then either render the fetched `Response` with `RenderFederatedPayload` or decode it imperatively with `decodeFederationPayload(response)`. This works for SSR'd remote components, plain objects, or objects containing JSX.
+Expose any Flight-serializable value from a route with `encodeFederationPayload(...)`, then either render the fetched `Response` with `RenderFederatedPayload` or decode it imperatively with `decodeFederationPayload(response)`. This works for SSR'd remote components, plain objects, or objects containing JSX. Async iterables are supported when they are fields on an object payload (for example `{ stream }`), so clients can `for await` the decoded field directly.
 
 ```tsx
 // remote app

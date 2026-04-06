@@ -8,6 +8,15 @@ type ImperativePayload = {
 	content: React.ReactNode;
 };
 
+type StreamPayload = {
+	id: string;
+	label: string;
+};
+
+type StreamEnvelope = {
+	stream: AsyncIterable<StreamPayload>;
+};
+
 function DecodedContent({
 	payload,
 }: {
@@ -26,6 +35,9 @@ function DecodedContent({
 export function FederatedPayloadDecodeTest() {
 	const [payload, setPayload] = useState<ImperativePayload | null>(null);
 	const [error, setError] = useState<string | null>(null);
+	const [streamItems, setStreamItems] = useState<StreamPayload[]>([]);
+	const [streamDone, setStreamDone] = useState(false);
+	const [streamError, setStreamError] = useState<string | null>(null);
 	const [isPending, startTransition] = useTransition();
 
 	async function handleClick() {
@@ -37,6 +49,26 @@ export function FederatedPayloadDecodeTest() {
 		});
 		const decoded = await decodeFederationPayload<ImperativePayload>(response);
 		setPayload(decoded.value);
+	}
+
+	async function handleStreamClick() {
+		setStreamItems([]);
+		setStreamDone(false);
+		setStreamError(null);
+		const response = await fetch("/api/federated-payload-stream", {
+			method: "POST",
+			headers: { "content-type": "application/json" },
+			body: JSON.stringify({ label: "Stream" }),
+		});
+		try {
+			const decoded = await decodeFederationPayload<StreamEnvelope>(response);
+			for await (const item of decoded.value.stream) {
+				setStreamItems((prev) => [...prev, item]);
+			}
+			setStreamDone(true);
+		} catch (err) {
+			setStreamError(err instanceof Error ? err.message : String(err));
+		}
 	}
 
 	return (
@@ -52,6 +84,27 @@ export function FederatedPayloadDecodeTest() {
 			<Suspense fallback={<div data-testid="decode-federated-loading">loading</div>}>
 				<DecodedContent payload={payload} />
 			</Suspense>
+			<button
+				data-testid="decode-federated-stream"
+				onClick={() => {
+					void handleStreamClick();
+				}}
+			>
+				Decode federated stream
+			</button>
+			{streamError && (
+				<div data-testid="decode-federated-stream-error">{streamError}</div>
+			)}
+			<ul data-testid="decoded-federated-stream">
+				{streamItems.map((item) => (
+					<li key={item.id} data-testid="decoded-federated-stream-item">
+						{item.label}
+					</li>
+				))}
+			</ul>
+			{streamDone && (
+				<div data-testid="decoded-federated-stream-done">done</div>
+			)}
 		</div>
 	);
 }

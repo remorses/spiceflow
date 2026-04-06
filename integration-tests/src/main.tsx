@@ -66,6 +66,18 @@ import { RenderFederatedPayload } from "spiceflow/react";
 // unwanted server re-renders (e.g. client HMR should not trigger a server render).
 let serverRenderCount = 0;
 
+async function* createFederatedPayloadStream({
+	label,
+}: {
+	label: string;
+}) {
+	yield { id: "1", label: `${label} item 1` };
+	await sleep(50);
+	yield { id: "2", label: `${label} item 2` };
+	await sleep(50);
+	yield { id: "3", label: `${label} item 3` };
+}
+
 // In-memory page cache for e2e testing of the README caching middleware pattern.
 // Key = pathname+search (naturally separates HTML and RSC responses).
 const pageCache = new Map<
@@ -616,6 +628,12 @@ export const app = new Spiceflow()
 		return await encodeFederationPayload({
 			message: "decoded via decodeFederationPayload",
 			content: <Counter name={body.label ?? "Imperative"} />,
+		});
+	})
+	.post("/api/federated-payload-stream", async ({ request }) => {
+		const body = (await request.json()) as { label?: string };
+		return await encodeFederationPayload({
+			stream: createFederatedPayloadStream({ label: body.label ?? "Stream" }),
 		});
 	})
 	.get("/api/federated-render", async ({ request }) => {

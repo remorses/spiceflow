@@ -7,7 +7,7 @@ afterEach(() => {
 })
 
 describe('decodeFederationPayload', () => {
-  test('decodes wrapped async generator payloads', async () => {
+  test('decodes async generator payloads', async () => {
     vi.stubGlobal('window', globalThis)
     vi.stubGlobal(
       '__spiceflow_createFromReadableStream',
