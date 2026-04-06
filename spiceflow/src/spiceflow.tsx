@@ -1612,11 +1612,17 @@ export class Spiceflow<
         }
       }
 
-      const layoutResultsPromise = layoutRoutes
-        .filter((layout) => layout.route.kind === 'layout')
-        .map(async (layout) => {
+      const filteredLayouts = layoutRoutes.filter(
+        (layout) => layout.route.kind === 'layout',
+      )
+      const layoutResultsPromise = filteredLayouts.map(
+        async (layout) => {
           const id = layout.route.id
-          const children = createElement(LayoutContent, { id })
+          // When no page matched, all layouts receive null children so any
+          // layout in the chain can detect 404 and render a custom not-found UI.
+          const children = isNotFound
+            ? null
+            : createElement(LayoutContent, { id })
           const result = !this.tracer
             ? await executeHandler(layout, { id, children })
             : await withSpan(
@@ -1636,7 +1642,8 @@ export class Spiceflow<
                 },
               )
           return { ...result, id }
-        })
+        },
+      )
 
       // Skip page handler when a loader failed — the error will be rendered
       // via <ThrowError> so the layout error boundary catches it.

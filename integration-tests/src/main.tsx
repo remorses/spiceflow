@@ -110,7 +110,12 @@ export const app = new Spiceflow()
 				<Head>
 					<Head.Title>title from layout</Head.Title>
 				</Head>
-				{children}
+				{children ?? (
+					<div data-testid="layout-not-found">
+						<h1>404</h1>
+						<p>This page could not be found.</p>
+					</div>
+				)}
 			</Layout>
 		);
 	})

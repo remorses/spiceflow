@@ -251,8 +251,8 @@ Static middleware only serves `GET` and `HEAD` requests. It checks the exact fil
 <summary>Priority rules</summary>
 
 - Concrete routes win over static files. A route like `/health` is handled by the route even if `public/health` exists.
-- Static files win over root catch-all routes like `/*` and `*`. This is useful for SPA fallbacks and custom 404 routes.
-- If static does not find a file, the request falls through to the next matching route, so a `/*` fallback still runs when the asset is missing.
+- Static files win over root catch-all routes like `/*` and `*`.
+- If static does not find a file, the request falls through to the next matching route.
 - When multiple static middlewares are registered, they are checked in registration order. The first middleware that finds a file wins.
 
 Example behavior:
@@ -1449,6 +1449,14 @@ Use `redirect()` and `response.status` inside `.page()` and `.layout()` handlers
 import { Spiceflow, redirect } from 'spiceflow'
 
 export const app = new Spiceflow()
+  .layout('/*', async ({ children, request }) => {
+    // When no page matches, children is null — render a custom 404
+    return (
+      <AppLayout>
+        {children ?? <NotFound />}
+      </AppLayout>
+    )
+  })
   .page('/dashboard', async ({ request }) => {
     const user = await getUser(request)
     if (!user) {
@@ -1463,12 +1471,6 @@ export const app = new Spiceflow()
       return <NotFound message={`Post ${params.id} not found`} />
     }
     return <Post post={post} />
-  })
-  // Catch-all page for any unmatched route — works as a custom 404 page.
-  // More specific routes always win over /* regardless of registration order.
-  .page('/*', async ({ response, params }) => {
-    response.status = 404
-    return <NotFound message={`Page not found: ${params['*']}`} />
   })
   // Layouts can throw redirect — useful for auth guards that protect
   // an entire section of your app

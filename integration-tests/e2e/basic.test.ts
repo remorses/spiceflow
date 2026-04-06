@@ -42,13 +42,33 @@ test.describe("not found", () => {
 		await expect(page.getByText("This page could not be found.")).toBeVisible();
 	});
 
-	test("unmatched route renders React 404 page for browser requests", async ({
+	test("unmatched route renders layout-based 404 for browser requests", async ({
 		page,
 	}) => {
 		const response = await page.goto(url("/a/b/does-not-exist"));
 		expect(response?.status()).toBe(404);
+		// The layout detects children=null and renders custom 404 inside the layout shell
+		await expect(page.getByTestId("layout-not-found")).toBeVisible();
 		await expect(page.getByText("404")).toBeVisible();
 		await expect(page.getByText("This page could not be found.")).toBeVisible();
+	});
+
+	test("unmatched route under nested /app/* layout renders root layout 404", async ({
+		page,
+	}) => {
+		const response = await page.goto(url("/app/does-not-exist"));
+		expect(response?.status()).toBe(404);
+		await expect(page.getByTestId("layout-not-found")).toBeVisible();
+		await expect(page.getByText("404")).toBeVisible();
+	});
+
+	test("unmatched route under nested /docs/* layout renders root layout 404", async ({
+		page,
+	}) => {
+		const response = await page.goto(url("/docs/does-not-exist"));
+		expect(response?.status()).toBe(404);
+		await expect(page.getByTestId("layout-not-found")).toBeVisible();
+		await expect(page.getByText("404")).toBeVisible();
 	});
 
 	test("unmatched route returns plain text for non-browser requests", async () => {

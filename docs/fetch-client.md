@@ -8,7 +8,7 @@ Advanced fetch client patterns including error handling, server-side usage, type
 
 - **Named parameters**: `:param` - Captures dynamic segments like `/users/:id` or `/api/:version/users/:userId`
 - **Wildcards**: `*` - Matches any remaining path segments like `/files/*` or `/proxy/*`. A wildcard route also matches the parent path without a trailing segment — `/files/*` matches both `/files/foo` and `/files`.
-- **Catch-all routes**: `/*` - Use as a not-found handler that catches any unmatched paths
+- **Catch-all routes**: `/*` - Matches any unmatched paths
 
 **Unsupported patterns:**
 
