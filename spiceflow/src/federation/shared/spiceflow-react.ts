@@ -8,7 +8,8 @@ export {
   redirect,
   useLoaderData,
   getLoaderData,
-  RemoteComponent,
+  RenderFederatedPayload,
+  decodeFederationPayload,
   getActionAbortController,
   createRouter,
 } from 'spiceflow/react'

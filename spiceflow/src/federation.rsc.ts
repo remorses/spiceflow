@@ -2,6 +2,7 @@
 // Response containing metadata, SSR HTML, and Flight payload rows. The SSE
 // format is designed so that streaming can be added later (multiple flight
 // events arriving incrementally) without a breaking change.
+import React from 'react'
 import { renderToReadableStream } from '#rsc-runtime'
 
 export { renderToReadableStream }
@@ -24,25 +25,25 @@ function formatSSEEvent(event: string, data: string): string {
 }
 
 /**
- * Renders a React element to a federation Response in SSE format.
+ * Renders any Flight-serializable value to a federation Response in SSE format.
  *
  * The response contains these events in order:
  * - `metadata` — remoteId, clientModules map, cssLinks
- * - `ssr` — pre-rendered HTML for immediate display
+ * - `ssr` — pre-rendered HTML for immediate display when the top-level payload is a React element
  * - `flight` (one or more) — RSC Flight payload rows
  * - `done` — signals the end of the payload
  *
- * Call this from a route handler to expose a component for federation.
+ * Call this from a route handler to expose a Flight payload for federation.
  * The returned Response has the correct content-type and CORS headers.
  */
-export async function renderComponentPayload(element: React.ReactElement): Promise<Response> {
+export async function encodeFederationPayload(value: unknown): Promise<Response> {
   const remoteId = 'r_' + Math.random().toString(36).slice(2, 10)
 
   const clientModules: Record<string, { chunks: string[]; css: string[] }> = {}
   const cssLinksSet = new Set<string>()
 
   const flightStream = renderToReadableStream(
-    element,
+    value,
     undefined, // options
     {
       onClientReference(metadata: { id: string; name: string; deps: { js: string[]; css: string[] } }) {
@@ -64,17 +65,17 @@ export async function renderComponentPayload(element: React.ReactElement): Promi
 
   const cssLinks = [...cssLinksSet]
 
-  // Render SSR HTML by decoding the Flight payload in the SSR environment.
-  // Uses the same cross-environment call pattern as handle-ssr.rsc.ts.
   let ssrHtml = ''
-  try {
-    const ssrModule = await import.meta.viteRsc.loadModule<
-      typeof import('./react/entry.ssr.js')
-    >('ssr', 'index')
-    ssrHtml = await ssrModule.renderFlightToHtml(flightPayload)
-  } catch {
-    // SSR HTML is best-effort — degrade to empty string (client decoding
-    // still works, the user just sees a brief flash of empty content).
+  if (React.isValidElement(value)) {
+    try {
+      const ssrModule = await import.meta.viteRsc.loadModule<
+        typeof import('./react/entry.ssr.js')
+      >('ssr', 'index')
+      ssrHtml = await ssrModule.renderFlightToHtml(flightPayload)
+    } catch {
+      // SSR HTML is best-effort — degrade to empty string (client decoding
+      // still works, the user just sees a brief flash of empty content).
+    }
   }
 
   let body = ''
@@ -99,3 +100,6 @@ export async function renderComponentPayload(element: React.ReactElement): Promi
     },
   })
 }
+
+export const renderFlightPayload = encodeFederationPayload
+export const renderComponentPayload = encodeFederationPayload

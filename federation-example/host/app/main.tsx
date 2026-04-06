@@ -1,11 +1,27 @@
 import { Suspense } from 'react'
 import { Spiceflow } from 'spiceflow'
-import { renderComponentPayload } from 'spiceflow/federation'
-import { Head, Link, RemoteComponent } from 'spiceflow/react'
+import { encodeFederationPayload } from 'spiceflow/federation'
+import { Head, Link, RenderFederatedPayload } from 'spiceflow/react'
 import { LocalCounter } from './local-counter'
 
 const REMOTE_ORIGIN = process.env.REMOTE_ORIGIN || 'http://localhost:3051'
 const HOST_ORIGIN = `http://localhost:${process.env.PORT || 3052}`
+
+function withProps(url: string, props?: Record<string, unknown>) {
+  const next = new URL(url)
+  if (props) {
+    next.searchParams.set('props', JSON.stringify(props))
+  }
+  return next.toString()
+}
+
+function fetchFederatedResponse(url: string, props?: Record<string, unknown>) {
+  return fetch(withProps(url, props))
+}
+
+function handleFederatedResponse(path: string, props?: Record<string, unknown>) {
+  return app.handle(new Request(withProps(new URL(path, HOST_ORIGIN).toString(), props)))
+}
 
 export const app = new Spiceflow()
   .layout('/*', async ({ children }) => {
@@ -28,16 +44,11 @@ export const app = new Spiceflow()
 
         <div data-testid="remote-section">
           <h2>Remote Chart Component:</h2>
-          <Suspense
-            fallback={
-              <div data-testid="remote-loading">
-                Loading remote component...
-              </div>
-            }
-          >
-            <RemoteComponent
-              src={`${REMOTE_ORIGIN}/api/chart`}
-              props={{ dataSource: 'revenue' }}
+          <Suspense fallback={<div data-testid="remote-loading">Loading remote component...</div>}>
+            <RenderFederatedPayload
+              response={await fetchFederatedResponse(`${REMOTE_ORIGIN}/api/chart`, {
+                dataSource: 'revenue',
+              })}
             />
           </Suspense>
         </div>
@@ -45,15 +56,12 @@ export const app = new Spiceflow()
         <div data-testid="isolated-remote-section">
           <h2>Remote Chart Component (Shadow DOM isolated):</h2>
           <Suspense
-            fallback={
-              <div data-testid="isolated-remote-loading">
-                Loading isolated remote component...
-              </div>
-            }
+            fallback={<div data-testid="isolated-remote-loading">Loading isolated remote component...</div>}
           >
-            <RemoteComponent
-              src={`${REMOTE_ORIGIN}/api/chart`}
-              props={{ dataSource: 'isolated' }}
+            <RenderFederatedPayload
+              response={await fetchFederatedResponse(`${REMOTE_ORIGIN}/api/chart`, {
+                dataSource: 'isolated',
+              })}
               isolateStyles
             />
           </Suspense>
@@ -63,16 +71,9 @@ export const app = new Spiceflow()
 
         <div data-testid="esm-section">
           <h2>ESM Component:</h2>
-          <Suspense
-            fallback={
-              <div data-testid="esm-loading">
-                Loading ESM component...
-              </div>
-            }
-          >
-            <RemoteComponent
-              src={`${REMOTE_ORIGIN}/api/esm-component.js`}
-              props={{ name: 'Spiceflow' }}
+          <Suspense fallback={<div data-testid="esm-loading">Loading ESM component...</div>}>
+            <RenderFederatedPayload
+              response={await fetch(`${REMOTE_ORIGIN}/api/esm-component.js`)}
             />
           </Suspense>
         </div>
@@ -80,30 +81,23 @@ export const app = new Spiceflow()
         <div data-testid="local-remote-section">
           <h2>Local Remote Component:</h2>
           <Suspense
-            fallback={
-              <div data-testid="local-remote-loading">
-                Loading local remote component...
-              </div>
-            }
+            fallback={<div data-testid="local-remote-loading">Loading local remote component...</div>}
           >
-            <RemoteComponent
-              src={`${HOST_ORIGIN}/api/local-widget`}
-              props={{ label: 'Self-hosted' }}
+            <RenderFederatedPayload
+              response={await handleFederatedResponse('/api/local-widget', {
+                label: 'Self-hosted',
+              })}
             />
           </Suspense>
         </div>
 
         <div data-testid="framer-section">
           <h2>Framer Component (IOKnob):</h2>
-          <Suspense
-            fallback={
-              <div data-testid="framer-loading">
-                Loading Framer component...
-              </div>
-            }
-          >
-            <RemoteComponent
-              src="https://framer.com/m/IOKnob-DT0M.js@eZsKjfnRtnN8np5uwoAx"
+          <Suspense fallback={<div data-testid="framer-loading">Loading Framer component...</div>}>
+            <RenderFederatedPayload
+              response={await fetch(
+                'https://framer.com/m/IOKnob-DT0M.js@eZsKjfnRtnN8np5uwoAx',
+              )}
             />
           </Suspense>
         </div>
@@ -128,15 +122,12 @@ export const app = new Spiceflow()
         <Link href="/" data-testid="back-link">Back to home</Link>
         <div data-testid="nav-isolated-section">
           <Suspense
-            fallback={
-              <div data-testid="nav-isolated-loading">
-                Loading isolated remote...
-              </div>
-            }
+            fallback={<div data-testid="nav-isolated-loading">Loading isolated remote...</div>}
           >
-            <RemoteComponent
-              src={`${REMOTE_ORIGIN}/api/chart`}
-              props={{ dataSource: 'nav-isolated' }}
+            <RenderFederatedPayload
+              response={await fetchFederatedResponse(`${REMOTE_ORIGIN}/api/chart`, {
+                dataSource: 'nav-isolated',
+              })}
               isolateStyles
             />
           </Suspense>
@@ -151,16 +142,11 @@ export const app = new Spiceflow()
         <h1 data-testid="plain-nav-title">Plain Remote (No Isolation)</h1>
         <Link href="/no-remote" data-testid="back-to-no-remote">Back</Link>
         <div data-testid="nav-plain-section">
-          <Suspense
-            fallback={
-              <div data-testid="nav-plain-loading">
-                Loading plain remote...
-              </div>
-            }
-          >
-            <RemoteComponent
-              src={`${REMOTE_ORIGIN}/api/chart`}
-              props={{ dataSource: 'nav-plain' }}
+          <Suspense fallback={<div data-testid="nav-plain-loading">Loading plain remote...</div>}>
+            <RenderFederatedPayload
+              response={await fetchFederatedResponse(`${REMOTE_ORIGIN}/api/chart`, {
+                dataSource: 'nav-plain',
+              })}
             />
           </Suspense>
         </div>
@@ -174,7 +160,7 @@ export const app = new Spiceflow()
     try {
       props = JSON.parse(url.searchParams.get('props') || '{}')
     } catch {}
-    return await renderComponentPayload(<LocalCounter {...props} />)
+    return await encodeFederationPayload(<LocalCounter {...props} />)
   })
 
 app.listen(Number(process.env.PORT || 3002))

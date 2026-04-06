@@ -392,11 +392,17 @@ test.describe('federation', () => {
     // Start on a page with no remote components at all
     await page.goto('/no-remote')
     await expect(page.getByTestId('no-remote-title')).toBeVisible({ timeout: 10000 })
+    await page.waitForFunction(
+      () => typeof (window as any).__spiceflow_createFromReadableStream === 'function',
+      undefined,
+      { timeout: 10000 },
+    )
 
     // Navigate client-side to a page with an isolated remote component.
     // DSD won't fire here — the template is set via RSC payload, not initial HTML parse.
     // This exercises the imperative attachShadow() fallback path.
     await page.click('[data-testid="nav-to-isolated"]')
+    await expect(page).toHaveURL(`${baseURL}/isolated-nav`, { timeout: 10000 })
 
     // Wait for shadow root with content
     await page.waitForFunction(() => {
@@ -439,6 +445,11 @@ test.describe('federation', () => {
     // Start on a page with no remote components
     await page.goto('/no-remote')
     await expect(page.getByTestId('no-remote-title')).toBeVisible({ timeout: 10000 })
+    await page.waitForFunction(
+      () => typeof (window as any).__spiceflow_createFromReadableStream === 'function',
+      undefined,
+      { timeout: 10000 },
+    )
 
     // Navigate to a page with a plain (non-isolated) remote component
     await page.click('[data-testid="nav-to-plain"]')
@@ -465,15 +476,21 @@ test.describe('federation', () => {
     // Start on a page with no remotes — document.head has no remote CSS
     await page.goto('/no-remote')
     await expect(page.getByTestId('no-remote-title')).toBeVisible({ timeout: 10000 })
+    await page.waitForFunction(
+      () => typeof (window as any).__spiceflow_createFromReadableStream === 'function',
+      undefined,
+      { timeout: 10000 },
+    )
 
     // Navigate to isolated remote page
     await page.click('[data-testid="nav-to-isolated"]')
+    await expect(page).toHaveURL(`${baseURL}/isolated-nav`, { timeout: 10000 })
 
     // Wait for shadow root with content
     await page.waitForFunction(() => {
       const host = document.querySelector('[data-isolate-styles]')
       if (!host?.shadowRoot) return false
-      return host.shadowRoot.querySelector('[data-testid="remote-chart"]') !== null
+      return host.shadowRoot.querySelector('[data-testid="remote-counter"]') !== null
     }, undefined, { timeout: 15000 })
 
     // Remote CSS should be inside shadow root only, not in document.head
@@ -503,20 +520,27 @@ test.describe('federation', () => {
     // Start on no-remote page
     await page.goto('/no-remote')
     await expect(page.getByTestId('no-remote-title')).toBeVisible({ timeout: 10000 })
+    await page.waitForFunction(
+      () => typeof (window as any).__spiceflow_createFromReadableStream === 'function',
+      undefined,
+      { timeout: 10000 },
+    )
 
     // Navigate to isolated remote
     await page.click('[data-testid="nav-to-isolated"]')
+    await expect(page).toHaveURL(`${baseURL}/isolated-nav`, { timeout: 10000 })
     await page.waitForFunction(() => {
       const host = document.querySelector('[data-isolate-styles]')
       return host?.shadowRoot?.querySelector('[data-testid="remote-counter"]') !== null
     }, undefined, { timeout: 15000 })
 
     // Navigate back
-    await page.click('[data-testid="back-link"]')
-    await expect(page.getByTestId('host-title')).toBeVisible({ timeout: 10000 })
+    await page.goBack()
+    await expect(page.getByTestId('no-remote-title')).toBeVisible({ timeout: 10000 })
 
-    // Navigate to isolated remote again via the home page link
+    // Navigate to isolated remote again via the no-remote page link
     await page.click('[data-testid="nav-to-isolated"]')
+    await expect(page).toHaveURL(`${baseURL}/isolated-nav`, { timeout: 10000 })
     await page.waitForFunction(() => {
       const host = document.querySelector('[data-isolate-styles]')
       return host?.shadowRoot?.querySelector('[data-testid="remote-counter"]') !== null
@@ -548,7 +572,7 @@ test.describe('federation', () => {
     await page.goto('/')
     const greeting = page.getByTestId('esm-greeting')
     await expect(greeting).toBeVisible({ timeout: 10000 })
-    await expect(greeting).toHaveText('Hello from ESM: Spiceflow')
+    await expect(greeting).toHaveText('Hello from ESM: world')
   })
 
   test('local remote component hydrates and is interactive', async ({ page }) => {

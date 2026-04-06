@@ -16,5 +16,9 @@ export { redirect } from './errors.tsx'
 export { useLoaderData, getLoaderData } from './components.tsx'
 export { createRouter } from './create-router.tsx'
 export { getActionAbortController } from './action-abort.tsx'
-export { RemoteComponent } from './remote-component.tsx'
+export {
+  decodeFederationPayload,
+  type DecodedFederationPayloadResult,
+  RenderFederatedPayload,
+} from './federated-payload.ts'
 export { publicDir, distDir } from '#spiceflow-dirs'

@@ -17,6 +17,7 @@ import { Chakra } from "./app/chakra";
 import {
 	ClientComponentThrows,
 	ClientFormWithError,
+	Counter,
 	ErrorInUseEffect,
 	ErrorRender,
 } from "./app/client";
@@ -53,8 +54,13 @@ import {
 	AbortActionTest,
 	InspectRequestActionTest,
 } from "./app/abort-test-client";
+import {
+	FederatedPayloadDecodeTest,
+} from "./app/federated-payload-client";
 import testContentRaw from "./test-content.md?raw";
 import { publicDir, distDir } from "spiceflow";
+import { encodeFederationPayload } from "spiceflow/federation";
+import { RenderFederatedPayload } from "spiceflow/react";
 
 // Increments on every RSC render of the home page. Used by e2e tests to detect
 // unwanted server re-renders (e.g. client HMR should not trigger a server render).
@@ -604,6 +610,35 @@ export const app = new Spiceflow()
 	.post("/api/echo", async ({ request }) => {
 		const body = await request.json();
 		return { echo: body };
+	})
+	.post("/api/federated-payload", async ({ request }) => {
+		const body = (await request.json()) as { label?: string };
+		return await encodeFederationPayload({
+			message: "decoded via decodeFederationPayload",
+			content: <Counter name={body.label ?? "Imperative"} />,
+		});
+	})
+	.get("/api/federated-render", async ({ request }) => {
+		const url = new URL(request.url);
+		const label = url.searchParams.get("label") ?? "SSR";
+		return await encodeFederationPayload(<Counter name={label} />);
+	})
+	.page("/federated-payload-decode", async () => {
+		return <FederatedPayloadDecodeTest />;
+	})
+	.page("/render-federated-payload", async ({ request }) => {
+		const response = await app.handle(
+			new Request(new URL("/api/federated-render?label=SSR", request.url)),
+		);
+		return (
+			<div data-testid="render-federated-payload-test">
+				<Suspense
+					fallback={<div data-testid="render-federated-loading">loading</div>}
+				>
+					<RenderFederatedPayload response={response} />
+				</Suspense>
+			</div>
+		);
 	})
 	.page("/server-action-streaming", async () => {
 		return <StreamingActionTest />;

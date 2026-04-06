@@ -1,9 +1,9 @@
 import { Spiceflow } from 'spiceflow'
 import { cors } from 'spiceflow/cors'
 import { Chart } from './chart'
-import { renderComponentPayload } from 'spiceflow/federation'
+import { encodeFederationPayload } from 'spiceflow/federation'
 
-// Minimal ESM module served as text/javascript for testing RemoteComponent
+// Minimal ESM module served as text/javascript for testing RenderFederatedPayload
 // with plain JS files (e.g. esm.sh, Framer components).
 const esmModuleSource = `
 import { jsx } from "react/jsx-runtime";
@@ -25,13 +25,13 @@ export const app = new Spiceflow()
   .get('/api/chart', async ({ request }) => {
     const url = new URL(request.url)
     let props: Record<string, unknown> = {}
-    try {
-      props = JSON.parse(url.searchParams.get('props') || '{}')
-    } catch {
-      // invalid JSON, use empty props
-    }
+	try {
+	  props = JSON.parse(url.searchParams.get('props') || '{}')
+	} catch {
+	  // invalid JSON, use empty props
+	}
 
-    return await renderComponentPayload(<Chart {...props} />)
+	return await encodeFederationPayload(<Chart {...props} />)
   })
 
 app.listen(Number(process.env.PORT || 3001))

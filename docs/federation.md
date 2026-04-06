@@ -4,33 +4,38 @@ Federation lets you compose multiple spiceflow apps at the React Server Componen
 
 ## Remote Components
 
-Embed components from other spiceflow servers or load client-only components from any ESM URL (like [esm.sh](https://esm.sh) or [Framer](https://framer.com)). `RemoteComponent` is an async server component that detects the response type automatically — SSE for federation, JavaScript for ESM modules.
+Federation lets you move React Server Component payloads across app boundaries. The producer returns `encodeFederationPayload(...)`, and the consumer either renders a fetched `Response` with `RenderFederatedPayload` or decodes it imperatively with `decodeFederationPayload`.
 
 ```tsx
 import { Suspense } from 'react'
-import { RemoteComponent } from 'spiceflow/react'
+import { RenderFederatedPayload } from 'spiceflow/react'
 
-// From another spiceflow server (federation)
+const response = await fetch('https://my-remote.com/api/chart?props=' + encodeURIComponent(JSON.stringify({
+  dataSource: 'revenue',
+})))
+
 <Suspense fallback={<div>Loading...</div>}>
-  <RemoteComponent src="https://my-remote.com/api/chart" props={{ dataSource: 'revenue' }} />
+  <RenderFederatedPayload response={response} />
 </Suspense>
 
-// From esm.sh
+const esmResponse = await fetch('https://esm.sh/some-chart-component')
+
 <Suspense fallback={<div>Loading...</div>}>
-  <RemoteComponent src="https://esm.sh/some-chart-component" />
+  <RenderFederatedPayload response={esmResponse} />
 </Suspense>
 
-// From Framer
+const framerResponse = await fetch('https://framer.com/m/IOKnob-DT0M.js@eZsKjfnRtnN8np5uwoAx')
+
 <Suspense fallback={<div>Loading...</div>}>
-  <RemoteComponent src="https://framer.com/m/IOKnob-DT0M.js@eZsKjfnRtnN8np5uwoAx" />
+  <RenderFederatedPayload response={framerResponse} />
 </Suspense>
 ```
 
-`RemoteComponent` must be wrapped in `<Suspense>` — the fallback shows while the remote server responds (federation) or while the module loads (ESM).
+`RenderFederatedPayload` must be wrapped in `<Suspense>` — the fallback shows while the server responds (federation) or while the module loads (ESM).
 
 ## Setting Up Federation
 
-**Remote app** — exposes a component via `renderComponentPayload`:
+**Remote app** — exposes a Flight payload via `encodeFederationPayload`:
 
 ```tsx
 // remote/vite.config.ts
@@ -51,7 +56,7 @@ export default defineConfig({
 // remote/app/main.tsx
 import { Spiceflow } from 'spiceflow'
 import { cors } from 'spiceflow/cors'
-import { renderComponentPayload } from 'spiceflow/federation'
+import { encodeFederationPayload } from 'spiceflow/federation'
 import { Chart } from './chart'
 import { Table } from './table'
 import { db } from './db'
@@ -63,49 +68,86 @@ export const app = new Spiceflow()
     const url = new URL(request.url)
     const props = JSON.parse(url.searchParams.get('props') || '{}')
     const rows = await db.query('SELECT month, revenue FROM sales WHERE year = 2025')
-    return await renderComponentPayload(<Chart data={rows} {...props} />)
+    return await encodeFederationPayload(<Chart data={rows} {...props} />)
   })
   // Static: pre-rendered at build time and written to disk.
   // Serve it from S3, a CDN, or any static host — no server needed at runtime.
   .staticGet('/api/table', async () => {
     const rows = await db.query('SELECT name, role, department FROM employees')
-    return await renderComponentPayload(<Table rows={rows} />)
+    return await encodeFederationPayload(<Table rows={rows} />)
   })
 ```
 
-The `.staticGet` route runs at build time and writes the response to disk. You can upload the output to S3 or any static host — the host app fetches it like any other URL, and `RemoteComponent` renders it with full SSR and hydration. No server running for the remote at runtime.
+The `.staticGet` route runs at build time and writes the response to disk. You can upload the output to S3 or any static host — the host app fetches it like any other URL, and `RenderFederatedPayload` renders it with full SSR and hydration. No server running for the remote at runtime.
 
-**Host app** — embeds the remote components:
+**Host app** — fetches the response and renders it:
 
 ```tsx
 // host/app/main.tsx
 import { Suspense } from 'react'
 import { Spiceflow } from 'spiceflow'
-import { RemoteComponent } from 'spiceflow/react'
+import { RenderFederatedPayload } from 'spiceflow/react'
 
 const REMOTE = process.env.REMOTE_ORIGIN || 'http://localhost:3001'
 
 export const app = new Spiceflow()
-  .page('/', async () => (
-    <div>
-      <Suspense fallback={<div>Loading chart...</div>}>
-        <RemoteComponent src={`${REMOTE}/api/chart`} />
-      </Suspense>
-      <Suspense fallback={<div>Loading table...</div>}>
-        <RemoteComponent src={`${REMOTE}/api/table`} />
-      </Suspense>
-    </div>
-  ))
+  .page('/', async () => {
+    const chart = await fetch(`${REMOTE}/api/chart`)
+    const table = await fetch(`${REMOTE}/api/table`)
+
+    return (
+      <div>
+        <Suspense fallback={<div>Loading chart...</div>}>
+          <RenderFederatedPayload response={chart} />
+        </Suspense>
+        <Suspense fallback={<div>Loading table...</div>}>
+          <RenderFederatedPayload response={table} />
+        </Suspense>
+      </div>
+    )
+  })
 ```
 
 The remote components are SSR-rendered in the host's HTML stream, then hydrated on the client with full interactivity. CSS from the remote is automatically injected.
 
+## Imperative Decode
+
+Use `decodeFederationPayload(response)` when you want to fetch a route manually in a client event handler and use the decoded value yourself. This works for plain objects, JSX, or objects containing JSX.
+
+```tsx
+'use client'
+
+import { useState } from 'react'
+import { decodeFederationPayload } from 'spiceflow/react'
+
+export function ChatButton() {
+  const [parts, setParts] = useState<React.ReactNode[]>([])
+
+  async function handleClick() {
+    const response = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ prompt: 'hello' }),
+    })
+
+    const decoded = await decodeFederationPayload<{
+      message: string
+      content: React.ReactNode
+    }>(response)
+
+    setParts((prev) => [...prev, <div key={prev.length}>{decoded.value.content}</div>])
+  }
+
+  return <button onClick={handleClick}>Load</button>
+}
+```
+
 <details>
 <summary>How federation works under the hood</summary>
 
-The remote's `renderComponentPayload` returns a `Response` in SSE (`text/event-stream`) format with these events:
+`encodeFederationPayload` returns a `Response` in SSE (`text/event-stream`) format with these events:
 - **metadata** — remoteId, client module chunk URLs, stylesheet URLs
-- **ssr** — pre-rendered HTML for instant display
+- **ssr** — pre-rendered HTML for instant display when the top-level payload is a React element
 - **flight** (one per row) — RSC Flight stream rows (serialized React tree)
 - **done** — signals end of payload
 
@@ -127,7 +169,7 @@ This means remote client components can use `useRouterState` from the host and r
 
 ## External ESM Components
 
-`RemoteComponent` also works with plain JavaScript modules — any URL that returns `content-type: text/javascript`. The module is dynamically imported in the browser, and its default export (or first function export) is rendered as a React component.
+`RenderFederatedPayload` also works with plain JavaScript modules — any URL that returns `content-type: text/javascript`. The module is dynamically imported in the browser, and its default export (or first function export) is rendered as a React component.
 
 This is useful for loading components from Framer, esm.sh, or any CDN that serves ES modules. ESM components are **client-only** — they render `null` during SSR and load after hydration.
 

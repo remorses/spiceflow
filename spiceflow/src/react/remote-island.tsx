@@ -3,6 +3,12 @@
 import React, { useLayoutEffect, useRef } from 'react'
 import { createRoot, hydrateRoot } from 'react-dom/client'
 import { type ContextBridge, useContextBridge } from 'its-fine'
+import {
+  decodeParsedFederationPayload,
+  resolveFederatedUrl,
+  type FederatedClientModuleInfo,
+  type ParsedFederatedFlightPayload,
+} from './federated-payload.js'
 
 const isBrowser = typeof window !== 'undefined'
 
@@ -18,30 +24,7 @@ function useContextBridgeSafe(): ContextBridge {
   return useContextBridge()
 }
 
-interface ClientModules {
-  [id: string]: { chunks: string[]; css?: string[] }
-}
-
-// Module-level registry: maps clean module IDs → module namespace objects.
-// Populated by decodeRemoteTree, read by the patched __vite_rsc_client_require__.
-const remoteRegistry = new Map<string, Record<string, any>>()
-
-// One-time idempotent patch of the global client require function.
-// Wraps only once — concurrent RemoteIslands all share the same registry.
-let requirePatched = false
-function ensureRequirePatched() {
-  if (requirePatched) return
-  requirePatched = true
-  const g = globalThis as any
-  const orig = g.__vite_rsc_client_require__
-  if (!orig) return
-  g.__vite_rsc_client_require__ = (id: string) => {
-    const cleanId = id.split('$$cache=')[0]
-    const mod = remoteRegistry.get(cleanId)
-    if (mod) return mod
-    return orig(id)
-  }
-}
+type ClientModules = Record<string, FederatedClientModuleInfo>
 
 // Cache decoded React trees by remoteId so re-renders don't re-decode.
 // Bounded to prevent unbounded memory growth in long-lived sessions.
@@ -49,17 +32,11 @@ const MAX_TREE_CACHE = 100
 const treeCache = new Map<string, Promise<React.ReactNode>>()
 
 function getOrCreateTree({
-  remoteId,
-  flightPayload,
-  remoteOrigin,
-  clientModules,
+  parsed,
 }: {
-  remoteId: string
-  flightPayload: string
-  remoteOrigin: string
-  clientModules: ClientModules
+  parsed: ParsedFederatedFlightPayload
 }): Promise<React.ReactNode> {
-  const cached = treeCache.get(remoteId)
+  const cached = treeCache.get(parsed.metadata.remoteId)
   if (cached) return cached
 
   if (treeCache.size >= MAX_TREE_CACHE) {
@@ -67,13 +44,11 @@ function getOrCreateTree({
     if (oldest) treeCache.delete(oldest)
   }
 
-  const promise = decodeRemoteTree({ flightPayload, remoteOrigin, clientModules })
-  treeCache.set(remoteId, promise)
+  const promise = decodeParsedFederationPayload<React.ReactNode>(parsed).then(
+    (decoded) => decoded.value,
+  )
+  treeCache.set(parsed.metadata.remoteId, promise)
   return promise
-}
-
-function resolveUrl(path: string, origin: string): string {
-  return new URL(path, origin).toString()
 }
 
 // Inject CSS <link> tags into a target root (document.head or a shadow root).
@@ -84,7 +59,7 @@ function injectCssLinks(
 ) {
   for (const [, info] of Object.entries(clientModules)) {
     for (const cssPath of info.css ?? []) {
-      const href = resolveUrl(cssPath, remoteOrigin)
+      const href = resolveFederatedUrl(cssPath, remoteOrigin)
       if (!target.querySelector(`link[href="${CSS.escape(href)}"]`)) {
         const link = document.createElement('link')
         link.rel = 'stylesheet'
@@ -106,7 +81,7 @@ function injectTopLevelCssLinks(
   remoteOrigin: string,
 ) {
   for (const cssHref of cssLinks) {
-    const href = new URL(cssHref, remoteOrigin).toString()
+    const href = resolveFederatedUrl(cssHref, remoteOrigin)
     if (!shadow.querySelector(`link[href="${CSS.escape(href)}"]`)) {
       const link = document.createElement('link')
       link.rel = 'stylesheet'
@@ -114,56 +89,6 @@ function injectTopLevelCssLinks(
       shadow.appendChild(link)
     }
   }
-}
-
-// Pure decode function: loads remote chunks and decodes the Flight payload.
-// No CSS side effects — CSS injection is handled in the mount effect where
-// the correct target (document.head or shadow root) is known.
-async function decodeRemoteTree({
-  flightPayload,
-  remoteOrigin,
-  clientModules,
-}: {
-  flightPayload: string
-  remoteOrigin: string
-  clientModules: ClientModules
-}): Promise<React.ReactNode> {
-  // Load all remote client component chunks and register their exports
-  // before decoding the Flight payload, so the Flight decoder can
-  // resolve client references synchronously.
-  for (const [moduleId, info] of Object.entries(clientModules)) {
-    for (const chunkPath of info.chunks) {
-      const chunkUrl = resolveUrl(chunkPath, remoteOrigin)
-      const mod = await import(/* @vite-ignore */ chunkUrl)
-      // In production, vite-plugin-rsc bundles client component exports as
-      // `export_<moduleId>`. In dev, the module has raw named exports.
-      // Try the production convention first, fall back to the full module.
-      const exportName = 'export_' + moduleId
-      if (mod[exportName]) {
-        remoteRegistry.set(moduleId, mod[exportName])
-      } else {
-        remoteRegistry.set(moduleId, mod)
-      }
-    }
-  }
-
-  ensureRequirePatched()
-
-  const createFromReadableStream = globalThis.__spiceflow_createFromReadableStream
-  if (!createFromReadableStream) {
-    throw new Error(
-      '[RemoteIsland] Flight decoder not available — ensure the host app is a spiceflow RSC app',
-    )
-  }
-
-  const stream = new ReadableStream({
-    start(controller) {
-      controller.enqueue(new TextEncoder().encode(flightPayload))
-      controller.close()
-    },
-  })
-
-  return createFromReadableStream(stream) as Promise<React.ReactNode>
 }
 
 // Renders the decoded remote tree using hydrateRoot so React patches the
@@ -197,22 +122,21 @@ async function decodeRemoteTree({
 // - Remote styles stay inside the shadow root, host styles stay outside.
 //   CSS custom properties (variables) still penetrate for theming.
 export function RemoteIsland({
-  flightPayload,
-  remoteOrigin,
-  remoteId,
-  clientModules,
-  ssrHtml,
-  cssLinks,
+  parsed,
   isolateStyles,
 }: {
-  flightPayload: string
-  remoteOrigin: string
-  remoteId: string
-  clientModules: ClientModules
-  ssrHtml?: string
-  cssLinks?: string[]
+  parsed: ParsedFederatedFlightPayload
   isolateStyles?: boolean
 }) {
+  const {
+    flightPayload,
+    remoteOrigin,
+    metadata,
+    ssrHtml,
+  } = parsed
+  const remoteId = metadata.remoteId
+  const clientModules = metadata.clientModules
+  const cssLinks = metadata.cssLinks
   const containerRef = useRef<HTMLDivElement>(null)
   const rootRef = useRef<ReturnType<typeof hydrateRoot> | ReturnType<typeof createRoot> | null>(null)
   // Track whether this island has been mounted (via hydrate or createRoot).
@@ -228,7 +152,7 @@ export function RemoteIsland({
   // decoding overlap with React's commit phase instead of waiting for it.
   // treeCache deduplicates, so the useLayoutEffect below awaits the same promise.
   if (isBrowser) {
-    getOrCreateTree({ remoteId, flightPayload, remoteOrigin, clientModules })
+    getOrCreateTree({ parsed })
   }
 
   useLayoutEffect(() => {
@@ -256,7 +180,7 @@ export function RemoteIsland({
         shadow.appendChild(mountPoint)
       }
 
-      getOrCreateTree({ remoteId, flightPayload, remoteOrigin, clientModules }).then(
+      getOrCreateTree({ parsed }).then(
         (decoded) => {
           if (!isMounted) return
           const tree = <Bridge>{decoded as React.ReactElement}</Bridge>
@@ -289,7 +213,7 @@ export function RemoteIsland({
       // Inject CSS into document.head (same timing as shadow path injects into shadow root).
       injectCssLinks(document, clientModules, remoteOrigin)
 
-      getOrCreateTree({ remoteId, flightPayload, remoteOrigin, clientModules }).then(
+      getOrCreateTree({ parsed }).then(
         (decoded) => {
           if (!isMounted) return
           const tree = <Bridge>{decoded as React.ReactElement}</Bridge>
@@ -320,7 +244,7 @@ export function RemoteIsland({
         queueMicrotask(() => root.unmount())
       }
     }
-  }, [remoteId, flightPayload, remoteOrigin, isolateStyles])
+  }, [remoteId, flightPayload, remoteOrigin, isolateStyles, parsed])
 
   // When isolating styles, wrap SSR HTML in a Declarative Shadow DOM template
   // so the browser creates the shadow root during initial HTML parsing (before JS).
@@ -328,7 +252,7 @@ export function RemoteIsland({
   if (isolateStyles) {
     const cssLinksHtml = (cssLinks ?? [])
       .map((href) => {
-        const abs = new URL(href, remoteOrigin).toString()
+        const abs = resolveFederatedUrl(href, remoteOrigin)
         return `<link rel="stylesheet" href="${abs}">`
       })
       .join('')

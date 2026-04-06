@@ -1752,6 +1752,59 @@ test.describe("server actions", () => {
 	});
 });
 
+test.describe("federated payloads", () => {
+	test("decodeFederationPayload decodes route response and hydrates client components", async ({
+		page,
+	}) => {
+		await page.goto(url("/federated-payload-decode"));
+		await expect(page.getByTestId("layout-mount-count")).toHaveText("1", {
+			timeout: 10000,
+		});
+
+		const layoutCounter = page
+			.getByTestId("client-counter")
+			.filter({ hasText: "Layout" });
+		await layoutCounter.getByRole("button", { name: "+" }).click();
+		await expect(layoutCounter).toContainText("Layout counter: 1");
+
+		await page.getByTestId("decode-federated-payload").click();
+
+		await expect(page.getByTestId("decoded-federated-message")).toHaveText(
+			"decoded via decodeFederationPayload",
+			{ timeout: 10000 },
+		);
+
+		const decodedCounter = page
+			.getByTestId("decoded-federated-content")
+			.getByTestId("client-counter");
+		await expect(decodedCounter).toContainText("Imperative counter: 0", {
+			timeout: 10000,
+		});
+		await decodedCounter.getByRole("button", { name: "+" }).click();
+		await expect(decodedCounter).toContainText("Imperative counter: 1");
+
+		await expect(layoutCounter).toContainText("Layout counter: 1");
+	});
+
+	test("RenderFederatedPayload renders same-process response and hydrates client components", async ({
+		page,
+	}) => {
+		await page.goto(url("/render-federated-payload"));
+		await expect(page.getByTestId("layout-mount-count")).toHaveText("1", {
+			timeout: 10000,
+		});
+
+		const counter = page
+			.getByTestId("render-federated-payload-test")
+			.getByTestId("client-counter");
+		await expect(counter).toContainText("SSR counter: 0", {
+			timeout: 10000,
+		});
+		await counter.getByRole("button", { name: "+" }).click();
+		await expect(counter).toContainText("SSR counter: 1");
+	});
+});
+
 test.describe("loaders", () => {
 	test("wildcard loader data is passed to page via ctx.loaderData (SSR)", async ({
 		page,

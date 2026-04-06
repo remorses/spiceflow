@@ -1580,7 +1580,31 @@ export async function generateOgImage(slug: string) {
 
 ### Remote Components & Federation
 
-Embed components from other spiceflow servers with full SSR and hydration, or load client-only components from any ESM URL (like [esm.sh](https://esm.sh) or [Framer](https://framer.com)). See [Federation docs](docs/federation.md) for setup, remote/host configuration, import map deduplication, and external ESM components.
+Expose any Flight-serializable value from a route with `encodeFederationPayload(...)`, then either render the fetched `Response` with `RenderFederatedPayload` or decode it imperatively with `decodeFederationPayload(response)`. This works for SSR'd remote components, plain objects, or objects containing JSX.
+
+```tsx
+// remote app
+import { encodeFederationPayload } from 'spiceflow/federation'
+
+.get('/api/chart', async () => {
+  return await encodeFederationPayload(<Chart dataSource="revenue" />)
+})
+
+// host app
+import { Suspense } from 'react'
+import { RenderFederatedPayload } from 'spiceflow/react'
+
+.page('/', async () => {
+  const response = await fetch('https://remote.example.com/api/chart')
+  return (
+    <Suspense fallback={<div>Loading chart...</div>}>
+      <RenderFederatedPayload response={response} />
+    </Suspense>
+  )
+})
+```
+
+See [Federation docs](docs/federation.md) for full setup, imperative decoding with `decodeFederationPayload`, import map deduplication, and external ESM components.
 
 ## Model Context Protocol (MCP)
 
