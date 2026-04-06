@@ -1,3 +1,7 @@
+import { execSync } from "node:child_process";
+import { cpSync, mkdtempSync, rmSync, symlinkSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import {
 	type Page,
 	expect,
@@ -1241,13 +1245,25 @@ test.describe("staticGet @build", () => {
 
 test.describe("prerender error @build", () => {
 	test("build fails with exit code 1 when a static page throws", async () => {
-		const { execSync } = await import("node:child_process");
+		const tempDir = mkdtempSync(join(tmpdir(), "spiceflow-prerender-error-"));
 		let stdout = "";
 		let stderr = "";
 		let exitCode = 0;
+
+		for (const entry of ["package.json", "tsconfig.json", "vite.config.ts", "src"]) {
+			cpSync(join(process.cwd(), entry), join(tempDir, entry), {
+				recursive: true,
+			});
+		}
+		symlinkSync(
+			join(process.cwd(), "node_modules"),
+			join(tempDir, "node_modules"),
+			"dir",
+		);
+
 		try {
-			const output = execSync("pnpm build", {
-				cwd: process.cwd(),
+			const output = execSync("./node_modules/.bin/vite build", {
+				cwd: tempDir,
 				env: { ...process.env, STATIC_PAGE_ERROR: "1" },
 				encoding: "utf-8",
 				stdio: ["pipe", "pipe", "pipe"],
@@ -1258,6 +1274,10 @@ test.describe("prerender error @build", () => {
 			exitCode = err.status ?? 1;
 			stdout = err.stdout ?? "";
 			stderr = err.stderr ?? "";
+		} finally {
+			// Run the negative build in a temp copy so it can't clobber the live
+			// dist/ artifacts used by the production-start server later in this suite.
+			rmSync(tempDir, { recursive: true, force: true });
 		}
 		const combined = stdout + "\n" + stderr;
 		expect(exitCode).not.toBe(0);
