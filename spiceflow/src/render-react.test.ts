@@ -320,3 +320,70 @@ test('renderReact starts layouts and page concurrently', async () => {
   expect(response).toBeInstanceOf(Response)
   expect(response.status).toMatchInlineSnapshot(`200`)
 })
+
+test('renderReact uses loader response.status when page and layout do not set status', async () => {
+  const app = new Spiceflow()
+  const response = await (app as any).renderReact({
+    request: new Request('http://localhost/loader-status', { method: 'GET' }),
+    context: makeContext(),
+    reactRoutes: [
+      {
+        app,
+        params: {},
+        route: {
+          id: 'loader',
+          kind: 'loader',
+          handler: ({ response }: any) => {
+            response.status = 404
+            return { notFound: true }
+          },
+        },
+      },
+      {
+        app,
+        params: {},
+        route: {
+          id: 'page',
+          kind: 'page',
+          handler: () => null,
+        },
+      },
+    ],
+  })
+  expect(response.status).toBe(404)
+})
+
+test('renderReact page response.status takes precedence over loader response.status', async () => {
+  const app = new Spiceflow()
+  const response = await (app as any).renderReact({
+    request: new Request('http://localhost/loader-vs-page', { method: 'GET' }),
+    context: makeContext(),
+    reactRoutes: [
+      {
+        app,
+        params: {},
+        route: {
+          id: 'loader',
+          kind: 'loader',
+          handler: ({ response }: any) => {
+            response.status = 404
+            return {}
+          },
+        },
+      },
+      {
+        app,
+        params: {},
+        route: {
+          id: 'page',
+          kind: 'page',
+          handler: ({ response }: any) => {
+            response.status = 202
+            return null
+          },
+        },
+      },
+    ],
+  })
+  expect(response.status).toBe(202)
+})

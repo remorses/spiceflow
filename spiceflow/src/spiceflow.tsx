@@ -1495,13 +1495,22 @@ export class Spiceflow<
                 loaderContext,
               )
               if (data instanceof Response) throw data
-              if (data == null) return null
+              if (data == null)
+                return {
+                  data: null,
+                  status: handlerResponse?.status,
+                  headers: handlerResponse?.headers,
+                }
               if (typeof data !== 'object' || Array.isArray(data)) {
                 throw new Error(
                   `Loader "${loader.route.path}" must return a plain object, got ${Array.isArray(data) ? 'array' : typeof data}`,
                 )
               }
-              return data
+              return {
+                data,
+                status: handlerResponse?.status,
+                headers: handlerResponse?.headers,
+              }
             }
             return await withSpan(
               this.tracer,
@@ -1514,13 +1523,22 @@ export class Spiceflow<
                   loaderContext,
                 )
                 if (data instanceof Response) throw data
-                if (data == null) return null
+                if (data == null)
+                  return {
+                    data: null,
+                    status: handlerResponse?.status,
+                    headers: handlerResponse?.headers,
+                  }
                 if (typeof data !== 'object' || Array.isArray(data)) {
                   throw new Error(
                     `Loader "${loader.route.path}" must return a plain object, got ${Array.isArray(data) ? 'array' : typeof data}`,
                   )
                 }
-                return data
+                return {
+                  data,
+                  status: handlerResponse?.status,
+                  headers: handlerResponse?.headers,
+                }
               },
             )
           } catch (error) {
@@ -1530,13 +1548,21 @@ export class Spiceflow<
             if (!loaderError)
               loaderError =
                 error instanceof Error ? error : new Error(String(error))
-            return null
+            return {
+              data: null,
+              status: handlerResponse?.status,
+              headers: handlerResponse?.headers,
+            }
           }
         }),
       )
       const mergedLoaderData: Record<string, unknown> = {}
-      for (const data of loaderResults) {
-        if (data != null) Object.assign(mergedLoaderData, data)
+      let loaderStatus: number | undefined
+      const loaderResponseHeaders = new Headers()
+      for (const result of loaderResults) {
+        if (result.data != null) Object.assign(mergedLoaderData, result.data)
+        if (result.status && result.status !== 200) loaderStatus = result.status
+        if (result.headers) appendHeaders(loaderResponseHeaders, result.headers)
       }
 
       const executeHandler = async (
@@ -1651,6 +1677,8 @@ export class Spiceflow<
       const allResults = [...layoutResults, pageResult]
 
       const routeHeaders = new Headers()
+      // Loader headers first (lowest priority), then layout/page headers override
+      appendHeaders(routeHeaders, loaderResponseHeaders)
       for (const result of allResults) {
         if (result.headers) appendHeaders(routeHeaders, result.headers)
       }
@@ -1761,7 +1789,7 @@ export class Spiceflow<
           .reverse()
           .find((layout) => layout.status && layout.status !== 200)?.status
         const status =
-          pageHandlerStatus ?? layoutHandlerStatus ?? (isNotFound ? 404 : 200)
+          pageHandlerStatus ?? layoutHandlerStatus ?? loaderStatus ?? (isNotFound ? 404 : 200)
 
         return new Response(stream, { status, headers })
       }
