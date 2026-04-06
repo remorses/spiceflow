@@ -36,12 +36,37 @@ async function parseFederationSSE(response: Response) {
   return { metadata, ssrHtml, flightRows }
 }
 
+async function fetchWithRetry({
+  url,
+  retries = 3,
+  delayMs = 200,
+}: {
+  url: string
+  retries?: number
+  delayMs?: number
+}) {
+  let lastError: unknown
+
+  for (let attempt = 0; attempt < retries; attempt++) {
+    try {
+      return await fetch(url)
+    } catch (error) {
+      lastError = error
+    }
+
+    if (attempt === retries - 1) break
+    await new Promise((resolve) => setTimeout(resolve, delayMs))
+  }
+
+  throw lastError
+}
+
 test.describe('federation', () => {
   test('remote API returns SSE with flight payload and client modules', async () => {
     const propsParam = encodeURIComponent(JSON.stringify({ dataSource: 'revenue' }))
-    const response = await fetch(
-      `${remoteURL}/api/chart?props=${propsParam}`,
-    )
+    const response = await fetchWithRetry({
+      url: `${remoteURL}/api/chart?props=${propsParam}`,
+    })
     expect(response.ok).toBe(true)
     expect(response.headers.get('content-type')).toContain('text/event-stream')
 
@@ -123,9 +148,9 @@ test.describe('federation', () => {
 
   test('remote chunk URLs are absolute (use remote base)', async () => {
     const propsParam = encodeURIComponent(JSON.stringify({ dataSource: 'revenue' }))
-    const response = await fetch(
-      `${remoteURL}/api/chart?props=${propsParam}`,
-    )
+    const response = await fetchWithRetry({
+      url: `${remoteURL}/api/chart?props=${propsParam}`,
+    })
     const { metadata } = await parseFederationSSE(response)
 
     // JS chunk paths should be absolute with remote origin
@@ -217,7 +242,7 @@ test.describe('federation', () => {
     await page.waitForFunction(() => {
       const host = document.querySelector('[data-isolate-styles]')
       return host?.shadowRoot?.querySelector('link[rel="stylesheet"]') !== null
-    }, { timeout: 10000 })
+    }, undefined, { timeout: 10000 })
 
     const { headCssHrefs, shadowCssHrefs } = await page.evaluate(() => {
       const headLinks = Array.from(document.head.querySelectorAll('link[rel="stylesheet"]'))
@@ -285,7 +310,7 @@ test.describe('federation', () => {
       if (!host?.shadowRoot) return false
       const counter = host.shadowRoot.querySelector('[data-testid="remote-counter"]')
       return counter !== null
-    }, { timeout: 10000 })
+    }, undefined, { timeout: 10000 })
 
     // Click the + button inside shadow DOM and verify state changes
     const counterText = await shadowHost.evaluate((el) => {
@@ -323,7 +348,7 @@ test.describe('federation', () => {
     await page.waitForFunction(() => {
       const host = document.querySelector('[data-isolate-styles]')
       return host?.shadowRoot?.querySelector('[data-testid="remote-chart"]') !== null
-    }, { timeout: 10000 })
+    }, undefined, { timeout: 10000 })
 
     // Inject a hostile global style that would hide the remote chart
     await page.evaluate(() => {
@@ -353,7 +378,7 @@ test.describe('federation', () => {
     await page.waitForFunction(() => {
       const host = document.querySelector('[data-isolate-styles]')
       return host?.shadowRoot?.querySelector('[data-testid="remote-counter"]') !== null
-    }, { timeout: 10000 })
+    }, undefined, { timeout: 10000 })
 
     expect(errors).toEqual([])
   })
@@ -378,7 +403,7 @@ test.describe('federation', () => {
       const host = document.querySelector('[data-isolate-styles]')
       if (!host?.shadowRoot) return false
       return host.shadowRoot.querySelector('[data-testid="remote-counter"]') !== null
-    }, { timeout: 15000 })
+    }, undefined, { timeout: 15000 })
 
     // CSS links should be inside shadow root
     const shadowCssCount = await page.evaluate(() => {
@@ -449,7 +474,7 @@ test.describe('federation', () => {
       const host = document.querySelector('[data-isolate-styles]')
       if (!host?.shadowRoot) return false
       return host.shadowRoot.querySelector('[data-testid="remote-chart"]') !== null
-    }, { timeout: 15000 })
+    }, undefined, { timeout: 15000 })
 
     // Remote CSS should be inside shadow root only, not in document.head
     const { headRemoteCss, shadowCss } = await page.evaluate(() => {
@@ -484,7 +509,7 @@ test.describe('federation', () => {
     await page.waitForFunction(() => {
       const host = document.querySelector('[data-isolate-styles]')
       return host?.shadowRoot?.querySelector('[data-testid="remote-counter"]') !== null
-    }, { timeout: 15000 })
+    }, undefined, { timeout: 15000 })
 
     // Navigate back
     await page.click('[data-testid="back-link"]')
@@ -495,7 +520,7 @@ test.describe('federation', () => {
     await page.waitForFunction(() => {
       const host = document.querySelector('[data-isolate-styles]')
       return host?.shadowRoot?.querySelector('[data-testid="remote-counter"]') !== null
-    }, { timeout: 15000 })
+    }, undefined, { timeout: 15000 })
 
     // Counter should start fresh (new mount)
     await expect.poll(async () => {
@@ -509,7 +534,9 @@ test.describe('federation', () => {
   })
 
   test('ESM component endpoint returns JavaScript', async () => {
-    const response = await fetch(`${remoteURL}/api/esm-component.js`)
+    const response = await fetchWithRetry({
+      url: `${remoteURL}/api/esm-component.js`,
+    })
     expect(response.ok).toBe(true)
     const contentType = response.headers.get('content-type') || ''
     expect(contentType).toContain('text/javascript')
@@ -553,9 +580,9 @@ test.describe('federation', () => {
 
   test('flight events are valid Flight format', async () => {
     const propsParam = encodeURIComponent(JSON.stringify({ dataSource: 'test' }))
-    const response = await fetch(
-      `${remoteURL}/api/chart?props=${propsParam}`,
-    )
+    const response = await fetchWithRetry({
+      url: `${remoteURL}/api/chart?props=${propsParam}`,
+    })
     const { flightRows } = await parseFederationSSE(response)
     expect(flightRows.length).toBeGreaterThan(0)
 
@@ -567,9 +594,9 @@ test.describe('federation', () => {
 
   test('flight events have client refs and model rows', async () => {
     const propsParam = encodeURIComponent(JSON.stringify({ dataSource: 'test' }))
-    const response = await fetch(
-      `${remoteURL}/api/chart?props=${propsParam}`,
-    )
+    const response = await fetchWithRetry({
+      url: `${remoteURL}/api/chart?props=${propsParam}`,
+    })
     const { flightRows } = await parseFederationSSE(response)
 
     const clientRefs = flightRows.filter((l) => l.match(/^[0-9a-f]+:I\[/))
