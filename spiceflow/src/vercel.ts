@@ -67,7 +67,7 @@ export function vercelPlugin(): Plugin[] {
       apply: 'build',
 
       configResolved(config) {
-        outDir = config.build.outDir
+        outDir = path.resolve(config.root, config.build.outDir)
         root = config.root
         base = config.base?.replace(/\/$/, '') ?? ''
         assetsDir = config.build.assetsDir ?? 'assets'

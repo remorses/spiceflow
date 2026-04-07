@@ -33,9 +33,14 @@ export function prerenderPlugin(): Plugin[] {
       enforce: 'post',
       apply: 'build',
       configResolved(config) {
-        ssrOutDir = config.environments.ssr?.build?.outDir ?? 'dist/ssr'
-        clientOutDir =
-          config.environments.client?.build?.outDir ?? 'dist/client'
+        ssrOutDir = path.resolve(
+          config.root,
+          config.environments.ssr?.build?.outDir ?? 'dist/ssr',
+        )
+        clientOutDir = path.resolve(
+          config.root,
+          config.environments.client?.build?.outDir ?? 'dist/client',
+        )
         isCloudflare = config.plugins.some((p: any) =>
           p.name?.startsWith('vite-plugin-cloudflare:'),
         )
