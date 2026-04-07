@@ -1,12 +1,10 @@
 import { createBrowserHistory, createMemoryHistory, Location } from 'history'
 import { useMemo, useSyncExternalStore } from 'react'
-
-declare const __SPICEFLOW_BASE__: string | undefined
+import { getBasePath } from '../base-path.js'
 
 const isBrowser = typeof window !== 'undefined'
 
-const basePath =
-  typeof __SPICEFLOW_BASE__ !== 'undefined' ? __SPICEFLOW_BASE__ : ''
+const basePath = getBasePath()
 
 const history = !isBrowser ? createMemoryHistory() : createBrowserHistory({})
 

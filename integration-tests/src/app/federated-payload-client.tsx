@@ -3,8 +3,6 @@
 import React, { Suspense, useState, useTransition } from "react";
 import { decodeFederationPayload } from "spiceflow/react";
 
-declare const __SPICEFLOW_BASE__: string | undefined;
-
 type ImperativePayload = {
 	message: string;
 	content: React.ReactNode;
@@ -21,7 +19,9 @@ type StreamEnvelope = {
 
 function withBase(path: string) {
 	const base =
-		typeof __SPICEFLOW_BASE__ !== "undefined" ? __SPICEFLOW_BASE__ : "";
+		import.meta.env.BASE_URL === "/"
+			? ""
+			: import.meta.env.BASE_URL.replace(/\/$/, "");
 	if (!base || !path.startsWith("/")) return path;
 	return `${base}${path}`;
 }

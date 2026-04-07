@@ -3,6 +3,7 @@
 import React, { startTransition, Suspense } from 'react'
 import type { ReactFormState } from 'react-dom/client'
 import { router } from './router.js'
+import { getBasePath } from '../base-path.js'
 import { ServerPayload } from '../spiceflow.js'
 import {
   isRedirectError,
@@ -189,10 +190,8 @@ export function DefaultGlobalErrorPage(props: ErrorPageProps) {
   )
 }
 
-declare const __SPICEFLOW_BASE__: string | undefined
-
 function getBase(): string {
-  return typeof __SPICEFLOW_BASE__ !== 'undefined' ? __SPICEFLOW_BASE__ : ''
+  return getBasePath()
 }
 
 // Check if a path already has the base prefix (handles /, ?, # boundaries)

@@ -1,3 +1,5 @@
+import { getBasePath } from '../base-path.js'
+
 export interface ReactServerErrorContext {
   status: number
   headers?: Record<string, string> | [string, string][]
@@ -23,8 +25,6 @@ export function contextToHeaders(ctx: ReactServerErrorContext): Headers {
   return new Headers(ctx.headers as HeadersInit)
 }
 
-declare const __SPICEFLOW_BASE__: string | undefined
-
 function hasBasePrefix(path: string, base: string): boolean {
   if (path === base) return true
   const next = path.charAt(base.length)
@@ -35,8 +35,7 @@ export function redirect(
   location: string,
   options?: { status?: number; headers?: Record<string, string> },
 ) {
-  const base =
-    typeof __SPICEFLOW_BASE__ !== 'undefined' ? __SPICEFLOW_BASE__ : ''
+  const base = getBasePath()
   // Auto-prepend base path to absolute redirect targets so user code
   // can write redirect("/dashboard") without worrying about base config.
   if (

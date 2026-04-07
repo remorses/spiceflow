@@ -294,17 +294,6 @@ export function spiceflowPlugin({
         }
       },
     },
-    // Inject __SPICEFLOW_BASE__ into all environments so client/SSR/RSC code
-    // can read the base path at runtime. Uses configEnvironment instead of
-    // top-level define because the resolved base isn't available until configResolved.
-    {
-      name: 'spiceflow:base-define',
-      configEnvironment(_name, config) {
-        config.define ??= {}
-        config.define.__SPICEFLOW_BASE__ = JSON.stringify(resolvedBase)
-      },
-    },
-
     // Point optimizeDeps.entries at the user's app entry and spiceflow's own entries
     // so Vite crawls the full import graph upfront instead of discovering deps late
     // (which triggers re-optimization rounds + page reloads during dev).

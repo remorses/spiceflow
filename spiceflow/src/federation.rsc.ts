@@ -5,6 +5,7 @@
 import React from 'react'
 import { renderToReadableStream } from '#rsc-runtime'
 import { bindAbortToReader } from './client/shared.js'
+import { getBasePath } from './base-path.js'
 
 export { renderToReadableStream }
 
@@ -97,11 +98,8 @@ type FederationPayloadEvent =
   | { type: 'flight'; payload: string }
   | { type: 'done' }
 
-declare const __SPICEFLOW_BASE__: string | undefined
-
 function withBase(path: string): string {
-  const base =
-    typeof __SPICEFLOW_BASE__ !== 'undefined' ? __SPICEFLOW_BASE__ : ''
+  const base = getBasePath()
   if (!base || !path.startsWith('/')) return path
   if (path === base) return path
   const next = path.charAt(base.length)
