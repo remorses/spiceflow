@@ -90,6 +90,11 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 export async function* parseFederationPayload(
   response: Response,
+  {
+    signal,
+  }: {
+    signal?: AbortSignal
+  } = {},
 ): AsyncGenerator<FederationPayloadEvent> {
   if (!response.ok) {
     throw new Error(
@@ -102,6 +107,7 @@ export async function* parseFederationPayload(
   for await (const event of streamSSEResponse({
     response,
     map: (x: SSEEvent) => x,
+    signal,
   })) {
     switch (event.event) {
       case 'metadata':
@@ -268,26 +274,38 @@ export async function decodeParsedFederationPayload<T = unknown>(
   return value
 }
 
-async function readFederationPrelude(response: Response) {
-  const events = parseFederationPayload(response)
+async function readFederationPrelude(
+  response: Response,
+  {
+    signal,
+  }: {
+    signal?: AbortSignal
+  } = {},
+) {
+  const events = parseFederationPayload(response, { signal })
 
-  const metadataEvent = await events.next()
-  if (metadataEvent.done || metadataEvent.value.type !== 'metadata') {
-    throw new Error('[decodeFederationPayload] No metadata event in response')
-  }
+  try {
+    const metadataEvent = await events.next()
+    if (metadataEvent.done || metadataEvent.value.type !== 'metadata') {
+      throw new Error('[decodeFederationPayload] No metadata event in response')
+    }
 
-  const { payload: metadata, remoteOrigin } = metadataEvent.value
+    const { payload: metadata, remoteOrigin } = metadataEvent.value
 
-  const nextEvent = await events.next()
-  const ssrHtml =
-    nextEvent.done || nextEvent.value.type !== 'ssr' ? '' : nextEvent.value.payload
+    const nextEvent = await events.next()
+    const ssrHtml =
+      nextEvent.done || nextEvent.value.type !== 'ssr' ? '' : nextEvent.value.payload
 
-  return {
-    events,
-    metadata,
-    remoteOrigin,
-    nextEvent: nextEvent.done ? null : nextEvent.value,
-    ssrHtml,
+    return {
+      events,
+      metadata,
+      remoteOrigin,
+      nextEvent: nextEvent.done ? null : nextEvent.value,
+      ssrHtml,
+    }
+  } catch (error) {
+    await events.return(undefined).catch(() => undefined)
+    throw error
   }
 }
 
@@ -300,95 +318,109 @@ async function decodeFederationPayloadDetails<T = unknown>(
     )
   }
 
+  const eventsAbortController = new AbortController()
   const { events, metadata, nextEvent, remoteOrigin, ssrHtml } =
-    await readFederationPrelude(response)
+    await readFederationPrelude(response, {
+      signal: eventsAbortController.signal,
+    })
 
-  await loadFederatedClientModules({
-    clientModules: metadata.clientModules,
-    remoteOrigin,
-  })
-
-  ensureRequirePatched()
-
-  let streamCancelled = false
+  let eventsStopped = false
   let controllerRef: ReadableStreamDefaultController<Uint8Array> | undefined
   const stopEvents = async () => {
-    if (streamCancelled) return
-    streamCancelled = true
+    if (eventsStopped) return
+    eventsStopped = true
+    eventsAbortController.abort()
     if (!events.return) return
     await events.return(undefined).catch(() => undefined)
   }
   const enqueueFlightRow = (row: string) => {
-    if (streamCancelled) return false
+    if (eventsStopped) return false
 
     try {
       controllerRef?.enqueue(encoder.encode(row + '\n'))
       return true
     } catch {
-      streamCancelled = true
       return false
     }
   }
 
-  const flightStream = new ReadableStream<Uint8Array>({
-    start(controller) {
-      controllerRef = controller
-    },
-    async cancel() {
+  try {
+    await loadFederatedClientModules({
+      clientModules: metadata.clientModules,
+      remoteOrigin,
+    })
+
+    ensureRequirePatched()
+
+    const flightStream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controllerRef = controller
+      },
+      async cancel() {
+        await stopEvents()
+      },
+    })
+
+    const pump = (async () => {
+      if (nextEvent?.type === 'flight') {
+        if (!enqueueFlightRow(nextEvent.payload)) {
+          await stopEvents()
+          return
+        }
+      }
+
+      for await (const event of events) {
+        if (eventsStopped) return
+
+        if (event.type === 'flight') {
+          if (!enqueueFlightRow(event.payload)) {
+            await stopEvents()
+            return
+          }
+          continue
+        }
+        if (event.type === 'done') {
+          break
+        }
+      }
+
+      if (eventsStopped) return
+
+      try {
+        controllerRef?.close()
+      } catch {}
+    })().catch(async (error) => {
+      if (eventsStopped) return
+
+      try {
+        controllerRef?.error(error)
+      } catch {}
+
       await stopEvents()
-    },
-  })
+    })
 
-  const pump = (async () => {
-    if (nextEvent?.type === 'flight') {
-      if (!enqueueFlightRow(nextEvent.payload)) return
+    const { createFromFetch } = await getFlightClientBrowser()
+    const value = await createFromFetch<T>(
+      Promise.resolve(
+        new Response(flightStream, {
+          headers: {
+            'content-type': 'text/x-component;charset=utf-8',
+          },
+        }),
+      ),
+    )
+
+    void pump
+
+    return {
+      value,
+      ssrHtml,
+      metadata,
+      remoteOrigin,
     }
-
-    for await (const event of events) {
-      if (streamCancelled) return
-
-      if (event.type === 'flight') {
-        if (!enqueueFlightRow(event.payload)) return
-        continue
-      }
-      if (event.type === 'done') {
-        break
-      }
-    }
-
-    if (streamCancelled) return
-
-    try {
-      controllerRef?.close()
-    } catch {}
-  })().catch(async (error) => {
-    if (streamCancelled) return
-
-    try {
-      controllerRef?.error(error)
-    } catch {}
-
+  } catch (error) {
     await stopEvents()
-  })
-
-  const { createFromFetch } = await getFlightClientBrowser()
-  const value = await createFromFetch<T>(
-    Promise.resolve(
-      new Response(flightStream, {
-        headers: {
-          'content-type': 'text/x-component;charset=utf-8',
-        },
-      }),
-    ),
-  )
-
-  void pump
-
-  return {
-    value,
-    ssrHtml,
-    metadata,
-    remoteOrigin,
+    throw error
   }
 }
 

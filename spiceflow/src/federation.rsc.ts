@@ -1,16 +1,24 @@
-// Federation RSC entry point. Renders a React element to an SSE-formatted
-// Response containing metadata, SSR HTML, and Flight payload rows. The SSE
-// format is designed so that streaming can be added later (multiple flight
-// events arriving incrementally) without a breaking change.
+// Federation RSC entry point. Renders a Flight-serializable value to an SSE
+// response containing metadata, optional SSR HTML, and streamed Flight rows.
+// Reader aborts are wired through so cancelling the outer response also stops
+// the underlying Flight stream instead of leaving it pending in the background.
 import React from 'react'
 import { renderToReadableStream } from '#rsc-runtime'
+import { bindAbortToReader } from './client/shared.js'
 
 export { renderToReadableStream }
 
 const encoder = new TextEncoder()
 
-async function streamToString(stream: ReadableStream<Uint8Array>): Promise<string> {
+async function streamToString({
+  stream,
+  signal,
+}: {
+  stream: ReadableStream<Uint8Array>
+  signal?: AbortSignal
+}): Promise<string> {
   const reader = stream.getReader()
+  const unbindAbort = bindAbortToReader({ reader, signal })
   const decoder = new TextDecoder()
   let result = ''
   try {
@@ -22,6 +30,7 @@ async function streamToString(stream: ReadableStream<Uint8Array>): Promise<strin
     result += decoder.decode()
     return result
   } finally {
+    unbindAbort()
     reader.releaseLock()
   }
 }
@@ -31,9 +40,16 @@ function formatSSEEvent(event: string, data: string): string {
 }
 
 async function* streamFlightRows(
-  stream: ReadableStream<Uint8Array>,
+  {
+    stream,
+    signal,
+  }: {
+    stream: ReadableStream<Uint8Array>
+    signal?: AbortSignal
+  },
 ): AsyncGenerator<string> {
   const reader = stream.getReader()
+  const unbindAbort = bindAbortToReader({ reader, signal })
   const decoder = new TextDecoder()
   let buffered = ''
   let finished = false
@@ -61,6 +77,7 @@ async function* streamFlightRows(
       yield buffered
     }
   } finally {
+    unbindAbort()
     if (!finished) {
       await reader.cancel().catch(() => undefined)
     }
@@ -82,8 +99,10 @@ type FederationPayloadEvent =
 
 async function* encodeFederationPayloadEvents({
   value,
+  signal,
 }: {
   value: unknown
+  signal?: AbortSignal
 }): AsyncGenerator<FederationPayloadEvent> {
   const remoteId = 'r_' + Math.random().toString(36).slice(2, 10)
 
@@ -114,7 +133,10 @@ async function* encodeFederationPayloadEvents({
   )
 
   if (React.isValidElement(value)) {
-    const flightPayload = await streamToString(flightStream)
+    const flightPayload = await streamToString({
+      stream: flightStream,
+      signal,
+    })
     let ssrHtml = ''
     try {
       const ssrModule = await import.meta.viteRsc.loadModule<
@@ -155,7 +177,10 @@ async function* encodeFederationPayloadEvents({
   }
   yield { type: 'ssr', payload: '' }
 
-  for await (const row of streamFlightRows(flightStream)) {
+  for await (const row of streamFlightRows({
+    stream: flightStream,
+    signal,
+  })) {
     yield { type: 'flight', payload: row }
   }
 
@@ -175,14 +200,17 @@ async function* encodeFederationPayloadEvents({
  * The returned Response has the correct content-type and CORS headers.
  */
 export async function encodeFederationPayload(value: unknown): Promise<Response> {
+  const abortController = new AbortController()
   const iterator = encodeFederationPayloadEvents({
     value,
+    signal: abortController.signal,
   })[Symbol.asyncIterator]()
   let closed = false
 
   const cleanup = async () => {
     if (closed) return
     closed = true
+    abortController.abort()
     if (!iterator.return) return
     await iterator.return(undefined).catch(() => undefined)
   }

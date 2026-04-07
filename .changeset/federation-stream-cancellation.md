@@ -2,4 +2,4 @@
 'spiceflow': patch
 ---
 
-Fix federated payload streaming cleanup so cancelling a streamed decode now propagates through both the SSE wrapper and the underlying Flight stream, and add streaming-safe SSE headers so chunked federation responses flush incrementally instead of being buffered by intermediaries.
+Fix federated RSC streaming cleanup so canceled or failed decodes stop reading the underlying SSE and Flight streams promptly. This prevents stalled readers from hanging around after browser-side decode failures and keeps streamed federation responses responsive to aborts.

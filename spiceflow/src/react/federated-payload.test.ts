@@ -99,4 +99,50 @@ describe('decodeFederationPayload', () => {
 
     expect(onCancel).toHaveBeenCalledTimes(1)
   })
+
+  test('cancels the SSE response body when the Flight decoder fails mid-stream', async () => {
+    vi.stubGlobal('window', globalThis)
+    vi.stubGlobal(
+      '__spiceflow_createFromReadableStream',
+      vi.fn(async () => {
+        throw new Error('decoder failed')
+      }),
+    )
+
+    const onCancel = vi.fn()
+    const response = new Response(
+      new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(
+            new TextEncoder().encode(
+              [
+                `event: metadata\ndata: ${JSON.stringify({
+                  remoteId: 'r_test',
+                  clientModules: {},
+                  cssLinks: [],
+                })}\n\n`,
+                'event: flight\ndata: 0:{}\n\n',
+              ].join(''),
+            ),
+          )
+        },
+        cancel() {
+          onCancel()
+        },
+      }),
+      {
+        headers: {
+          'content-type': 'text/event-stream',
+        },
+      },
+    )
+
+    await expect(decodeFederationPayload(response)).rejects.toThrow(
+      'decoder failed',
+    )
+
+    await vi.waitFor(() => {
+      expect(onCancel).toHaveBeenCalledTimes(1)
+    })
+  })
 })
