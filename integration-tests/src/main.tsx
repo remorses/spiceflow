@@ -54,6 +54,7 @@ import {
 	AbortActionTest,
 	InspectRequestActionTest,
 } from "./app/abort-test-client";
+import ImageResponse from "@takumi-rs/image-response";
 import {
 	FederatedPayloadDecodeTest,
 } from "./app/federated-payload-client";
@@ -859,6 +860,28 @@ function UseStateInServerComponent() {
 }
 
 app
+	.get("/api/takumi-image", () => {
+		return new ImageResponse(
+			<div
+				style={{
+					width: "100%",
+					height: "100%",
+					display: "flex",
+					backgroundColor: "#0f172a",
+					padding: 8,
+					gap: 8,
+				}}
+			>
+				<div style={{ flex: 1, borderRadius: 18, backgroundColor: "#14b8a6" }} />
+				<div style={{ flex: 1, borderRadius: 18, backgroundColor: "#f8fafc" }} />
+			</div>,
+			{
+				width: 120,
+				height: 60,
+				format: "png",
+			},
+		);
+	})
 	.get("/api/sharp-test", async () => {
 		const sharp = (await import("sharp")).default;
 		const metadata = await sharp({

@@ -171,3 +171,7 @@ not reset/amend. That's what `aebee8d` does on top of `7cdae0c`.
 ## Federation stream cancellation
 
 Federated RSC streaming needs cancellation wired through both layers: the outer SSE `Response` stream and the inner Flight stream/parser. If either side lacks `cancel()`/`return()` cleanup, aborted decodes keep reading in the background and streaming fixes look correct in happy-path tests while still leaking work.
+
+## Standalone test isolation
+
+`test-e2e-start` runs the built server from the app root, so Node can still fall back to source `node_modules` and hide missing `dist/node_modules` files. For standalone tracing regressions, copy `dist/` into a temp directory and boot `node dist/rsc/index.js` there so resolution only sees traced output.

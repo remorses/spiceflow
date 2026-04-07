@@ -11,20 +11,104 @@
 import {
   copyFileSync,
   mkdirSync,
+  readFileSync,
+  readdirSync,
   realpathSync,
   statSync,
   symlinkSync,
 } from 'node:fs'
 import { access } from 'node:fs/promises'
+import { createRequire } from 'node:module'
 import path from 'node:path'
 import { nodeFileTrace } from '@vercel/nft'
 
 const isWin = process.platform === 'win32'
+const require = createRequire(import.meta.url)
 
 // Normalize backslashes to forward slashes so path comparisons and
 // indexOf('node_modules') work consistently on Windows.
 function toSlash(p: string): string {
   return isWin ? p.replace(/\\/g, '/') : p
+}
+
+type PackageJson = {
+  optionalDependencies?: Record<string, string>
+}
+
+function getNodeModulesRelativePath(source: string): string | null {
+  const nmIdx = source.indexOf('node_modules')
+  if (nmIdx === -1) return null
+  return source.slice(nmIdx)
+}
+
+function getPackageRoot(source: string): string | null {
+  const marker = '/node_modules/'
+  const lastNodeModulesIdx = source.lastIndexOf(marker)
+  if (lastNodeModulesIdx === -1) return null
+
+  const packagePath = source.slice(lastNodeModulesIdx + marker.length)
+  const [first, second] = packagePath.split('/')
+  if (!first || first === '.pnpm') return null
+
+  const packageName = first.startsWith('@') ? second && `${first}/${second}` : first
+  if (!packageName) return null
+
+  return source.slice(0, lastNodeModulesIdx + marker.length + packageName.length)
+}
+
+function listPackageFiles(packageRoot: string): string[] {
+  const files: string[] = []
+  const queue = [packageRoot]
+
+  while (queue.length > 0) {
+    const current = queue.pop()
+    if (!current) continue
+
+    for (const entry of readdirSync(current, { withFileTypes: true })) {
+      const entryPath = toSlash(path.join(current, entry.name))
+      if (entry.isDirectory()) {
+        queue.push(entryPath)
+        continue
+      }
+      files.push(entryPath)
+    }
+  }
+
+  return files
+}
+
+function readPackageJson(packageRoot: string): PackageJson | null {
+  try {
+    return JSON.parse(
+      readFileSync(path.join(packageRoot, 'package.json'), 'utf8'),
+    ) as PackageJson
+  } catch {
+    return null
+  }
+}
+
+function collectOptionalDependencyFiles(packageRoots: Set<string>): Set<string> {
+  const optionalPackageRoots = new Set<string>()
+
+  for (const packageRoot of packageRoots) {
+    const packageJson = readPackageJson(packageRoot)
+    const optionalDeps = packageJson?.optionalDependencies
+    if (!optionalDeps) continue
+
+    for (const dependency of Object.keys(optionalDeps)) {
+      try {
+        const resolved = toSlash(require.resolve(dependency, { paths: [packageRoot] }))
+        const dependencyRoot = getPackageRoot(resolved)
+        if (dependencyRoot) optionalPackageRoots.add(dependencyRoot)
+      } catch {
+        // Optional deps are platform-specific by design, so unresolved ones are fine.
+      }
+    }
+  }
+
+  return new Set(
+    [...optionalPackageRoots].flatMap((packageRoot) => listPackageFiles(packageRoot)),
+  )
 }
 
 export async function traceAndCopyDependencies(
@@ -44,8 +128,23 @@ export async function traceAndCopyDependencies(
 
   const { fileList } = await nodeFileTrace(entries, { base })
 
-  const nmFiles = [...fileList].filter((f) => f.includes('node_modules'))
-  if (nmFiles.length === 0) return
+  const tracedNodeModuleFiles = new Set(
+    [...fileList]
+      .filter((file) => file.includes('node_modules'))
+      .map((file) => toSlash(base + file)),
+  )
+  if (tracedNodeModuleFiles.size === 0) return
+
+  const tracedPackageRoots = new Set(
+    [...tracedNodeModuleFiles]
+      .map((file) => getPackageRoot(file))
+      .filter((file): file is string => Boolean(file)),
+  )
+  const optionalDependencyFiles = collectOptionalDependencyFiles(tracedPackageRoots)
+  const filesToCopy = new Set([
+    ...tracedNodeModuleFiles,
+    ...optionalDependencyFiles,
+  ])
 
   // At runtime the handler lives at targetDir/rsc/index.js. Node.js module
   // resolution walks up from there and looks for targetDir/node_modules/.
@@ -59,14 +158,11 @@ export async function traceAndCopyDependencies(
   // "node_modules" segment, which works regardless of where the file
   // physically lives.
   let copied = 0
-  for (const file of nmFiles) {
-    const source = toSlash(base + file)
-
+  for (const source of filesToCopy) {
     // Extract path from the first "node_modules" segment onwards.
     // e.g. "/abs/workspace/node_modules/.pnpm/foo/index.js" -> "node_modules/.pnpm/foo/index.js"
-    const nmIdx = source.indexOf('node_modules')
-    if (nmIdx === -1) continue
-    const relFromNm = source.slice(nmIdx)
+    const relFromNm = getNodeModulesRelativePath(source)
+    if (!relFromNm) continue
     const dest = path.join(targetDir, relFromNm)
 
     const stats = statSync(source, { throwIfNoEntry: false })

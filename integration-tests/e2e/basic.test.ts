@@ -1,5 +1,7 @@
-import { execSync } from "node:child_process";
-import { cpSync, mkdtempSync, rmSync, symlinkSync } from "node:fs";
+import { execSync, spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
+import { createRequire } from "node:module";
+import { createServer, type AddressInfo } from "node:net";
+import { cpSync, existsSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -8,6 +10,8 @@ import {
 	test,
 	type APIRequestContext,
 } from "@playwright/test";
+
+const require = createRequire(import.meta.url);
 
 const basePath = process.env.BASEPATH || "";
 const baseURL =
@@ -27,6 +31,118 @@ function getSetCookies(response: Response) {
 		getSetCookie?: () => string[];
 	};
 	return headers.getSetCookie?.() ?? [];
+}
+
+function normalizePath(value: string): string {
+	return value.replaceAll("\\", "/");
+}
+
+function getPackageRoot(value: string): string {
+	const normalized = normalizePath(value);
+	const marker = "/node_modules/";
+	const lastNodeModulesIdx = normalized.lastIndexOf(marker);
+	if (lastNodeModulesIdx === -1) {
+		throw new Error(`Expected a node_modules path, got: ${value}`);
+	}
+	const packagePath = normalized.slice(lastNodeModulesIdx + marker.length);
+	const [first, second] = packagePath.split("/");
+	if (!first) {
+		throw new Error(`Failed to determine package root for: ${value}`);
+	}
+	const packageName = first.startsWith("@") ? `${first}/${second}` : first;
+	return normalized.slice(
+		0,
+		lastNodeModulesIdx + marker.length + packageName.length,
+	);
+}
+
+function getNodeModulesPath(value: string): string {
+	const normalized = normalizePath(value);
+	const marker = "/node_modules/";
+	const nodeModulesIdx = normalized.indexOf(marker);
+	if (nodeModulesIdx === -1) {
+		throw new Error(`Expected a node_modules path, got: ${value}`);
+	}
+	return normalized.slice(nodeModulesIdx + 1);
+}
+
+function getTakumiNativeRuntime() {
+	const coreEntry = normalizePath(realpathSync(require.resolve("@takumi-rs/core")));
+	const corePackageRoot = getPackageRoot(coreEntry);
+	const corePackageJson = JSON.parse(
+		readFileSync(join(corePackageRoot, "package.json"), "utf-8"),
+	) as {
+		optionalDependencies?: Record<string, string>;
+	};
+
+	for (const dependency of Object.keys(corePackageJson.optionalDependencies ?? {})) {
+		try {
+			const binaryPath = normalizePath(
+				realpathSync(require.resolve(dependency, { paths: [corePackageRoot] })),
+			);
+			return {
+				corePackageRoot: normalizePath(corePackageRoot),
+				packageName: dependency,
+				packageRoot: getPackageRoot(binaryPath),
+				binaryPath: normalizePath(binaryPath),
+			};
+		} catch {
+			// Only one platform package should be installed in this test environment.
+		}
+	}
+
+	throw new Error("No installed Takumi native runtime package was found");
+}
+
+async function getFreePort(): Promise<number> {
+	return new Promise((resolve) => {
+		const server = createServer();
+		server.listen(0, () => {
+			const port = (server.address() as AddressInfo).port;
+			server.close(() => resolve(port));
+		});
+	});
+}
+
+async function waitForServer({
+	child,
+	port,
+}: {
+	child: ChildProcessWithoutNullStreams;
+	port: number;
+}) {
+	const startedAt = Date.now();
+	while (Date.now() - startedAt < 10_000) {
+		if (child.exitCode !== null) {
+			throw new Error(`Standalone server exited early with code ${child.exitCode}`);
+		}
+
+		try {
+			const response = await fetch(`http://127.0.0.1:${port}/api/hello`);
+			if (response.ok) return;
+		} catch {
+			// Server is still starting.
+		}
+
+		await new Promise((resolve) => setTimeout(resolve, 100));
+	}
+
+	throw new Error(`Timed out waiting for standalone server on port ${port}`);
+}
+
+async function stopProcess({ child }: { child: ChildProcessWithoutNullStreams }) {
+	if (child.exitCode !== null) return;
+
+	child.kill("SIGTERM");
+	await Promise.race([
+		new Promise<void>((resolve) => child.once("exit", () => resolve())),
+		new Promise<void>((resolve) =>
+			setTimeout(() => {
+				if (child.exitCode === null) child.kill("SIGKILL");
+				resolve();
+			}, 1_000),
+		),
+	]);
 }
 
 test.describe("not found", () => {
@@ -1280,6 +1396,66 @@ test.describe("staticGet @build", () => {
 		);
 		expect(entry).toBeTruthy();
 		expect(entry.file).toBe("/api/staticfile.json");
+	});
+});
+
+test.describe("Takumi standalone tracing @build", () => {
+	test("Takumi runtime files are copied into dist/node_modules", () => {
+		const runtime = getTakumiNativeRuntime();
+
+		expect(
+			existsSync(
+				join("dist", getNodeModulesPath(runtime.corePackageRoot), "package.json"),
+			),
+		).toBe(true);
+		expect(
+			existsSync(join("dist", getNodeModulesPath(runtime.packageRoot), "package.json")),
+		).toBe(true);
+		expect(existsSync(join("dist", getNodeModulesPath(runtime.binaryPath)))).toBe(true);
+	});
+
+	test("isolated standalone output can render a Takumi image route", async () => {
+		const sharp = (await import("sharp")).default;
+		const port = await getFreePort();
+		const tempDir = mkdtempSync(join(tmpdir(), "spiceflow-takumi-standalone-"));
+		cpSync("dist", join(tempDir, "dist"), { recursive: true });
+
+		const child = spawn("node", ["dist/rsc/index.js"], {
+			cwd: tempDir,
+			env: { ...process.env, DEBUG_SPICEFLOW: "1", PORT: String(port) },
+			stdio: ["ignore", "pipe", "pipe"],
+		});
+
+		let stdout = "";
+		let stderr = "";
+		child.stdout.on("data", (chunk) => {
+			stdout += chunk.toString();
+		});
+		child.stderr.on("data", (chunk) => {
+			stderr += chunk.toString();
+		});
+
+		try {
+			await waitForServer({ child, port });
+
+			const response = await fetch(`http://127.0.0.1:${port}/api/takumi-image`);
+			expect(response.status).toBe(200);
+			expect(response.headers.get("content-type")).toBe("image/png");
+
+			const buffer = Buffer.from(await response.arrayBuffer());
+			const metadata = await sharp(buffer).metadata();
+			expect(metadata.format).toBe("png");
+			expect(metadata.width).toBe(120);
+			expect(metadata.height).toBe(60);
+		} catch (error) {
+			throw new Error(
+				`Isolated standalone Takumi render failed. stdout:\n${stdout}\n\nstderr:\n${stderr}`,
+				{ cause: error },
+			);
+		} finally {
+			await stopProcess({ child });
+			rmSync(tempDir, { recursive: true, force: true });
+		}
 	});
 });
 
