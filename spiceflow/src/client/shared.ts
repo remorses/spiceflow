@@ -147,12 +147,16 @@ export async function* streamSSEResponse({
       .pipeThrough(new TextDecoderStream())
       .pipeThrough(new EventSourceParserStream())
 
-    let reader = eventStream.getReader()
+    const reader = eventStream.getReader()
+    let finished = false
 
     try {
       while (true) {
         const { done, value: event } = await reader.read()
-        if (done) return
+        if (done) {
+          finished = true
+          return
+        }
 
         if (event?.event === 'error') {
           const error = superjsonDeserialize(event.data)
@@ -198,6 +202,11 @@ export async function* streamSSEResponse({
       } else {
         throw error
       }
+    } finally {
+      if (!finished) {
+        await reader.cancel().catch(() => undefined)
+      }
+      reader.releaseLock()
     }
   }
 }

@@ -13,13 +13,17 @@ async function streamToString(stream: ReadableStream<Uint8Array>): Promise<strin
   const reader = stream.getReader()
   const decoder = new TextDecoder()
   let result = ''
-  while (true) {
-    const { done, value } = await reader.read()
-    if (done) break
-    result += decoder.decode(value, { stream: true })
+  try {
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      result += decoder.decode(value, { stream: true })
+    }
+    result += decoder.decode()
+    return result
+  } finally {
+    reader.releaseLock()
   }
-  result += decoder.decode()
-  return result
 }
 
 function formatSSEEvent(event: string, data: string): string {
@@ -32,24 +36,35 @@ async function* streamFlightRows(
   const reader = stream.getReader()
   const decoder = new TextDecoder()
   let buffered = ''
+  let finished = false
 
-  while (true) {
-    const { done, value } = await reader.read()
-    if (done) break
+  try {
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) {
+        finished = true
+        break
+      }
 
-    buffered += decoder.decode(value, { stream: true })
-    const rows = buffered.split('\n')
-    buffered = rows.pop() ?? ''
+      buffered += decoder.decode(value, { stream: true })
+      const rows = buffered.split('\n')
+      buffered = rows.pop() ?? ''
 
-    for (const row of rows) {
-      if (!row) continue
-      yield row
+      for (const row of rows) {
+        if (!row) continue
+        yield row
+      }
     }
-  }
 
-  buffered += decoder.decode()
-  if (buffered) {
-    yield buffered
+    buffered += decoder.decode()
+    if (buffered) {
+      yield buffered
+    }
+  } finally {
+    if (!finished) {
+      await reader.cancel().catch(() => undefined)
+    }
+    reader.releaseLock()
   }
 }
 
@@ -160,36 +175,63 @@ async function* encodeFederationPayloadEvents({
  * The returned Response has the correct content-type and CORS headers.
  */
 export async function encodeFederationPayload(value: unknown): Promise<Response> {
+  const iterator = encodeFederationPayloadEvents({
+    value,
+  })[Symbol.asyncIterator]()
+  let closed = false
+
+  const cleanup = async () => {
+    if (closed) return
+    closed = true
+    if (!iterator.return) return
+    await iterator.return(undefined).catch(() => undefined)
+  }
+
   const body = new ReadableStream<Uint8Array>({
-    async start(controller) {
-      try {
-        for await (const event of encodeFederationPayloadEvents({ value })) {
-          const data = (() => {
-            switch (event.type) {
-              case 'metadata':
-                return JSON.stringify(event.payload)
-              case 'ssr':
-                return JSON.stringify({ html: event.payload })
-              case 'flight':
-                return event.payload
-              case 'done':
-                return ''
-            }
-          })()
-          controller.enqueue(
-            encoder.encode(formatSSEEvent(event.type, data)),
-          )
-        }
+    async pull(controller) {
+      if (closed) {
         controller.close()
+        return
+      }
+
+      try {
+        const next = await iterator.next()
+        if (next.done) {
+          await cleanup()
+          controller.close()
+          return
+        }
+
+        const data = (() => {
+          switch (next.value.type) {
+            case 'metadata':
+              return JSON.stringify(next.value.payload)
+            case 'ssr':
+              return JSON.stringify({ html: next.value.payload })
+            case 'flight':
+              return next.value.payload
+            case 'done':
+              return ''
+          }
+        })()
+
+        controller.enqueue(
+          encoder.encode(formatSSEEvent(next.value.type, data)),
+        )
       } catch (error) {
+        await cleanup()
         controller.error(error)
       }
+    },
+    async cancel() {
+      await cleanup()
     },
   })
 
   return new Response(body, {
     headers: {
-      'content-type': 'text/event-stream',
+      'content-type': 'text/event-stream; charset=utf-8',
+      'content-encoding': 'none',
       'cache-control': 'no-cache',
       'access-control-allow-origin': '*',
     },

@@ -4,6 +4,8 @@ import { streamSSEResponse, type SSEEvent } from '../client/shared.js'
 import { EsmIsland } from './esm-island.js'
 import { RemoteIsland } from './remote-island.js'
 
+const encoder = new TextEncoder()
+
 export interface FederatedClientModuleInfo {
   chunks: string[]
   css: string[]
@@ -37,6 +39,13 @@ interface DecodedFederationPayloadDetails<T = unknown> {
   ssrHtml: string
   metadata: FederatedPayloadMetadata
   remoteOrigin: string
+}
+
+interface FlightClientBrowser {
+  createFromReadableStream<T>(
+    stream: ReadableStream<Uint8Array>,
+  ): PromiseLike<T>
+  createFromFetch<T>(response: Promise<Response>): PromiseLike<T>
 }
 
 export function isJavaScriptContentType(contentType: string): boolean {
@@ -73,6 +82,10 @@ function getResponseContentType(response: Response): string {
     response.headers.get('Content-Type') ||
     ''
   )
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
 }
 
 export async function* parseFederationPayload(
@@ -156,9 +169,9 @@ let requirePatched = false
 function ensureRequirePatched() {
   if (requirePatched) return
   requirePatched = true
-  const g = globalThis as {
+  const g: typeof globalThis & {
     __vite_rsc_client_require__?: (id: string) => unknown
-  }
+  } = globalThis
   const orig = g.__vite_rsc_client_require__
   if (!orig) return
   g.__vite_rsc_client_require__ = (id: string) => {
@@ -179,13 +192,13 @@ async function loadFederatedClientModules({
   for (const [moduleId, info] of Object.entries(clientModules)) {
     for (const chunkPath of info.chunks) {
       const chunkUrl = resolveFederatedUrl(chunkPath, remoteOrigin)
-      const mod = (await import(
+      const mod: Record<string, unknown> = await import(
         /* @vite-ignore */ chunkUrl
-      )) as Record<string, unknown>
+      )
       const exportName = 'export_' + moduleId
       const exported = mod[exportName]
-      if (exported && typeof exported === 'object') {
-        remoteRegistry.set(moduleId, exported as Record<string, unknown>)
+      if (isRecord(exported)) {
+        remoteRegistry.set(moduleId, exported)
         continue
       }
       remoteRegistry.set(moduleId, mod)
@@ -193,7 +206,7 @@ async function loadFederatedClientModules({
   }
 }
 
-async function getFlightClientBrowser() {
+async function getFlightClientBrowser(): Promise<FlightClientBrowser> {
   const globalDecoder = globalThis.__spiceflow_createFromReadableStream
   if (globalDecoder && typeof document === 'undefined') {
     return {
@@ -205,7 +218,7 @@ async function getFlightClientBrowser() {
               '[decodeFederationPayload] Expected a response body for Flight decode',
             )
           }
-          return globalDecoder<T>(response.body) as PromiseLike<T>
+          return globalDecoder<T>(response.body)
         })
       },
     }
@@ -213,12 +226,8 @@ async function getFlightClientBrowser() {
 
   const rsc = await import('@vitejs/plugin-rsc/browser')
   return {
-    createFromReadableStream: rsc.createFromReadableStream as <T>(
-      stream: ReadableStream<Uint8Array>,
-    ) => PromiseLike<T>,
-    createFromFetch: rsc.createFromFetch as <T>(
-      response: Promise<Response>,
-    ) => PromiseLike<T>,
+    createFromReadableStream: rsc.createFromReadableStream,
+    createFromFetch: rsc.createFromFetch,
   }
 }
 
@@ -246,7 +255,7 @@ export async function decodeParsedFederationPayload<T = unknown>(
     },
   })
 
-  const value = await (createFromFetch<T>(
+  const value = await createFromFetch<T>(
     Promise.resolve(
       new Response(stream, {
         headers: {
@@ -254,7 +263,7 @@ export async function decodeParsedFederationPayload<T = unknown>(
         },
       }),
     ),
-  ) as PromiseLike<T>)
+  )
 
   return value
 }
@@ -301,21 +310,45 @@ async function decodeFederationPayloadDetails<T = unknown>(
 
   ensureRequirePatched()
 
+  let streamCancelled = false
   let controllerRef: ReadableStreamDefaultController<Uint8Array> | undefined
+  const stopEvents = async () => {
+    if (streamCancelled) return
+    streamCancelled = true
+    if (!events.return) return
+    await events.return(undefined).catch(() => undefined)
+  }
+  const enqueueFlightRow = (row: string) => {
+    if (streamCancelled) return false
+
+    try {
+      controllerRef?.enqueue(encoder.encode(row + '\n'))
+      return true
+    } catch {
+      streamCancelled = true
+      return false
+    }
+  }
+
   const flightStream = new ReadableStream<Uint8Array>({
     start(controller) {
       controllerRef = controller
+    },
+    async cancel() {
+      await stopEvents()
     },
   })
 
   const pump = (async () => {
     if (nextEvent?.type === 'flight') {
-      controllerRef?.enqueue(new TextEncoder().encode(nextEvent.payload + '\n'))
+      if (!enqueueFlightRow(nextEvent.payload)) return
     }
 
     for await (const event of events) {
+      if (streamCancelled) return
+
       if (event.type === 'flight') {
-        controllerRef?.enqueue(new TextEncoder().encode(event.payload + '\n'))
+        if (!enqueueFlightRow(event.payload)) return
         continue
       }
       if (event.type === 'done') {
@@ -323,13 +356,23 @@ async function decodeFederationPayloadDetails<T = unknown>(
       }
     }
 
-    controllerRef?.close()
-  })().catch((error) => {
-    controllerRef?.error(error)
+    if (streamCancelled) return
+
+    try {
+      controllerRef?.close()
+    } catch {}
+  })().catch(async (error) => {
+    if (streamCancelled) return
+
+    try {
+      controllerRef?.error(error)
+    } catch {}
+
+    await stopEvents()
   })
 
   const { createFromFetch } = await getFlightClientBrowser()
-  const value = await (createFromFetch<T>(
+  const value = await createFromFetch<T>(
     Promise.resolve(
       new Response(flightStream, {
         headers: {
@@ -337,7 +380,7 @@ async function decodeFederationPayloadDetails<T = unknown>(
         },
       }),
     ),
-  ) as PromiseLike<T>)
+  )
 
   void pump
 

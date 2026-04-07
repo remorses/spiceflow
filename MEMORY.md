@@ -167,3 +167,7 @@ During this session I tried to revert a recently-committed local change and
 got blocked by the instruction "NEVER rewrite git history / amend unless
 asked". Correct response: add a new follow-up commit that undoes/redoes, do
 not reset/amend. That's what `aebee8d` does on top of `7cdae0c`.
+
+## Federation stream cancellation
+
+Federated RSC streaming needs cancellation wired through both layers: the outer SSE `Response` stream and the inner Flight stream/parser. If either side lacks `cancel()`/`return()` cleanup, aborted decodes keep reading in the background and streaming fixes look correct in happy-path tests while still leaking work.

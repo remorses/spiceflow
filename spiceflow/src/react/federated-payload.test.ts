@@ -1,6 +1,9 @@
 import { afterEach, describe, expect, test, vi } from 'vitest'
 
-import { decodeFederationPayload } from './federated-payload.js'
+import {
+  decodeFederationPayload,
+  parseFederationPayload,
+} from './federated-payload.js'
 
 afterEach(() => {
   vi.unstubAllGlobals()
@@ -51,5 +54,49 @@ describe('decodeFederationPayload', () => {
         "stream-3",
       ]
     `)
+  })
+
+  test('cancels the SSE response body when parsing stops early', async () => {
+    const onCancel = vi.fn()
+    const response = new Response(
+      new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(
+            new TextEncoder().encode(
+              `event: metadata\ndata: ${JSON.stringify({
+                remoteId: 'r_test',
+                clientModules: {},
+                cssLinks: [],
+              })}\n\n`,
+            ),
+          )
+        },
+        cancel() {
+          onCancel()
+        },
+      }),
+      {
+        headers: {
+          'content-type': 'text/event-stream',
+        },
+      },
+    )
+
+    const events = parseFederationPayload(response)
+    const firstEvent = await events.next()
+
+    expect(firstEvent.done).toBe(false)
+    expect(firstEvent.value).toMatchObject({
+      type: 'metadata',
+      payload: {
+        remoteId: 'r_test',
+        clientModules: {},
+        cssLinks: [],
+      },
+    })
+
+    await events.return(undefined)
+
+    expect(onCancel).toHaveBeenCalledTimes(1)
   })
 })
