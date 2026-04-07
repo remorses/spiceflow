@@ -3,6 +3,8 @@
 import React, { Suspense, useState, useTransition } from "react";
 import { decodeFederationPayload } from "spiceflow/react";
 
+declare const __SPICEFLOW_BASE__: string | undefined;
+
 type ImperativePayload = {
 	message: string;
 	content: React.ReactNode;
@@ -16,6 +18,13 @@ type StreamPayload = {
 type StreamEnvelope = {
 	stream: AsyncIterable<StreamPayload>;
 };
+
+function withBase(path: string) {
+	const base =
+		typeof __SPICEFLOW_BASE__ !== "undefined" ? __SPICEFLOW_BASE__ : "";
+	if (!base || !path.startsWith("/")) return path;
+	return `${base}${path}`;
+}
 
 function DecodedContent({
 	payload,
@@ -42,7 +51,7 @@ export function FederatedPayloadDecodeTest() {
 
 	async function handleClick() {
 		setError(null);
-		const response = await fetch("/api/federated-payload", {
+		const response = await fetch(withBase("/api/federated-payload"), {
 			method: "POST",
 			headers: { "content-type": "application/json" },
 			body: JSON.stringify({ label: "Imperative" }),
@@ -55,7 +64,7 @@ export function FederatedPayloadDecodeTest() {
 		setStreamItems([]);
 		setStreamDone(false);
 		setStreamError(null);
-		const response = await fetch("/api/federated-payload-stream", {
+		const response = await fetch(withBase("/api/federated-payload-stream"), {
 			method: "POST",
 			headers: { "content-type": "application/json" },
 			body: JSON.stringify({ label: "Stream" }),

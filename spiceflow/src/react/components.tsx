@@ -238,7 +238,11 @@ export function Link(
         e.preventDefault()
 
         props.onClick?.(e)
-        router.push(e.currentTarget.href)
+        router.push(
+          e.currentTarget.pathname +
+            e.currentTarget.search +
+            e.currentTarget.hash,
+        )
       }}
     />
   )

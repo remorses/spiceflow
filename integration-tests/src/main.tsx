@@ -651,7 +651,7 @@ export const app = new Spiceflow()
 	})
 	.page("/render-federated-payload", async ({ request }) => {
 		const response = await app.handle(
-			new Request(new URL("/api/federated-render?label=SSR", request.url)),
+			new Request(new URL("./api/federated-render?label=SSR", request.url)),
 		);
 		return (
 			<div data-testid="render-federated-payload-test">

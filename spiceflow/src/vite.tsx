@@ -6,8 +6,10 @@ import url from 'node:url'
 
 import rsc, { RscPluginOptions } from '@vitejs/plugin-rsc'
 import {
+  type MinimalPluginContextWithoutEnvironment,
   type Plugin,
   type PluginOption,
+  type ResolvedConfig,
   type RunnableDevEnvironment,
   type UserConfig,
   type ViteDevServer,
@@ -800,6 +802,19 @@ function addNoExternal(
 }
 
 function standaloneTracePlugin(): Plugin {
+  type BuildOutDirConfig = Pick<ResolvedConfig, 'root' | 'build'>
+  type BuildAppContext = MinimalPluginContextWithoutEnvironment & {
+    environment?: {
+      config: BuildOutDirConfig
+    }
+  }
+
+  function resolveBuildOutDir(config: BuildOutDirConfig) {
+    return path.isAbsolute(config.build.outDir)
+      ? config.build.outDir
+      : path.resolve(config.root, config.build.outDir)
+  }
+
   let outDir = 'dist'
   let skip = false
 
@@ -808,7 +823,7 @@ function standaloneTracePlugin(): Plugin {
     apply: 'build',
 
     configResolved(config) {
-      outDir = config.build.outDir
+      outDir = resolveBuildOutDir(config)
       const isVercel = process.env.VERCEL === '1'
       const isCloudflare = config.plugins.some((p) =>
         p.name.startsWith('vite-plugin-cloudflare'),
@@ -818,14 +833,18 @@ function standaloneTracePlugin(): Plugin {
 
     buildApp: {
       order: 'post' as const,
-      async handler() {
+      async handler(this: BuildAppContext) {
         if (skip) return
-        await traceAndCopyDependencies(outDir, outDir)
+        const resolvedOutDir = this.environment?.config
+          ? resolveBuildOutDir(this.environment.config)
+          : outDir
+
+        await traceAndCopyDependencies(resolvedOutDir, resolvedOutDir)
+
         // Write package.json so Node.js treats .js files as ESM
         const { writeFile } = await import('node:fs/promises')
-        const { default: path } = await import('node:path')
         await writeFile(
-          path.join(outDir, 'package.json'),
+          path.join(resolvedOutDir, 'package.json'),
           JSON.stringify({ type: 'module' }),
         )
       },

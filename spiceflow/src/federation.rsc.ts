@@ -97,6 +97,20 @@ type FederationPayloadEvent =
   | { type: 'flight'; payload: string }
   | { type: 'done' }
 
+declare const __SPICEFLOW_BASE__: string | undefined
+
+function withBase(path: string): string {
+  const base =
+    typeof __SPICEFLOW_BASE__ !== 'undefined' ? __SPICEFLOW_BASE__ : ''
+  if (!base || !path.startsWith('/')) return path
+  if (path === base) return path
+  const next = path.charAt(base.length)
+  if (path.startsWith(base) && (next === '/' || next === '?' || next === '#')) {
+    return path
+  }
+  return base + path
+}
+
 async function* encodeFederationPayloadEvents({
   value,
   signal,
@@ -119,14 +133,19 @@ async function* encodeFederationPayloadEvents({
         deps: { js: string[]; css: string[] }
       }) {
         for (const css of metadata.deps.css) {
-          cssLinksSet.add(css)
+          cssLinksSet.add(withBase(css))
         }
 
         const chunks = metadata.deps.js.length > 0
-          ? metadata.deps.js.filter((js) => js.includes('user-components'))
-          : [metadata.id]
+          ? metadata.deps.js
+              .filter((js) => js.includes('user-components'))
+              .map(withBase)
+          : [withBase(metadata.id)]
         if (chunks.length > 0) {
-          clientModules[metadata.id] = { chunks, css: metadata.deps.css }
+          clientModules[metadata.id] = {
+            chunks,
+            css: metadata.deps.css.map(withBase),
+          }
         }
       },
     },
