@@ -998,18 +998,20 @@ type UnionToIntersection<U> = (U extends any ? (x: U) => void : never) extends (
 export type MergedLoaderData<
   LoaderMap extends object,
   Path extends string,
-> = UnionToIntersection<
-  {
-    [K in keyof LoaderMap & string]: LoaderMatchesPath<K, Path> extends true
-      ? LoaderMap[K]
-      : never
-  }[keyof LoaderMap & string]
->
+> = IsAny<LoaderMap> extends true
+  ? any
+  : UnionToIntersection<
+      {
+        [K in keyof LoaderMap & string]: LoaderMatchesPath<K, Path> extends true
+          ? LoaderMap[K]
+          : never
+      }[keyof LoaderMap & string]
+    >
 
 // Intersection of ALL loader return types (used when path is not a literal)
-export type AllLoaderData<LoaderMap extends object> = UnionToIntersection<
-  LoaderMap[keyof LoaderMap]
->
+export type AllLoaderData<LoaderMap extends object> = IsAny<LoaderMap> extends true
+  ? any
+  : UnionToIntersection<LoaderMap[keyof LoaderMap]>
 
 export type ExtractParamsFromPath<Path extends string> =
   Path extends `${string}:${infer Param}/${infer Rest}`

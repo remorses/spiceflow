@@ -14,8 +14,8 @@ export type {
 } from './head-tags.tsx'
 export { redirect } from './errors.tsx'
 export { useLoaderData, getLoaderData } from './components.tsx'
-export { createRouter } from './create-router.tsx'
-export { getActionAbortController } from './action-abort.tsx'
+export { createRouter } from './create-router.ts'
+export { getActionAbortController } from './action-abort.ts'
 export {
   decodeFederationPayload,
   RenderFederatedPayload,

@@ -2,7 +2,7 @@
 // Substitutes :param segments and appends remaining params as query string.
 export function buildHref(
   path: string,
-  allParams: Record<string, any> | undefined,
+  allParams: object | undefined,
 ): string {
   let result = path
   if (!allParams || typeof allParams !== 'object') return result

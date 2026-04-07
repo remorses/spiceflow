@@ -8,6 +8,7 @@ export type Prettify<T> = {
 } & {}
 
 export type IsNever<T> = [T] extends [never] ? true : false
+type IsAny<T> = 0 extends 1 & T ? true : false
 
 type Files = File | FileList
 
@@ -59,7 +60,9 @@ export namespace SpiceflowClient {
   export type Create<App extends AnySpiceflow> = App extends {
     _types: { ClientRoutes: infer Schema extends Record<string, any> }
   }
-    ? Prettify<Sign<Schema>>
+    ? IsAny<Schema> extends true
+      ? any
+      : Prettify<Sign<Schema>>
     : 'Install latest Spiceflow before using the client, make sure both client and server use the same version. Make sure you passed the App type generic if using createSpiceflowClient'
 
   export type Sign<in out Route extends Record<string, any>> = {
