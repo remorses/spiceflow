@@ -805,6 +805,7 @@ function standaloneTracePlugin(): Plugin {
   }
 
   let outDir = 'dist'
+  let rootDir = process.cwd()
   let skip = false
 
   return {
@@ -813,6 +814,7 @@ function standaloneTracePlugin(): Plugin {
 
     configResolved(config) {
       outDir = resolveBuildOutDir(config)
+      rootDir = config.root
       const isVercel = process.env.VERCEL === '1'
       const isCloudflare = config.plugins.some((p) =>
         p.name.startsWith('vite-plugin-cloudflare'),
@@ -828,7 +830,11 @@ function standaloneTracePlugin(): Plugin {
           ? resolveBuildOutDir(this.environment.config)
           : outDir
 
-        await traceAndCopyDependencies(resolvedOutDir, resolvedOutDir)
+        await traceAndCopyDependencies({
+          outDir: resolvedOutDir,
+          rootDir: this.environment?.config?.root ?? rootDir,
+          targetDir: resolvedOutDir,
+        })
 
         // Write package.json so Node.js treats .js files as ESM
         const { writeFile } = await import('node:fs/promises')

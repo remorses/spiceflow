@@ -3,15 +3,13 @@ import { createRequire } from "node:module";
 import { createServer, type AddressInfo } from "node:net";
 import { cpSync, existsSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import {
 	type Page,
 	expect,
 	test,
 	type APIRequestContext,
 } from "@playwright/test";
-
-const require = createRequire(import.meta.url);
 
 const basePath = process.env.BASEPATH || "";
 const baseURL =
@@ -37,61 +35,55 @@ function normalizePath(value: string): string {
 	return value.replaceAll("\\", "/");
 }
 
-function getPackageRoot(value: string): string {
-	const normalized = normalizePath(value);
-	const marker = "/node_modules/";
-	const lastNodeModulesIdx = normalized.lastIndexOf(marker);
-	if (lastNodeModulesIdx === -1) {
-		throw new Error(`Expected a node_modules path, got: ${value}`);
+function copyStandaloneDist() {
+	const tempDir = mkdtempSync(join(tmpdir(), "spiceflow-takumi-standalone-"));
+	cpSync("dist", join(tempDir, "dist"), { recursive: true });
+	return tempDir;
+}
+
+function findPackageRoot(modulePath: string): string {
+	let currentDir = dirname(modulePath);
+	while (true) {
+		const packageJsonPath = join(currentDir, "package.json");
+		if (existsSync(packageJsonPath)) return currentDir;
+
+		const parentDir = dirname(currentDir);
+		if (parentDir === currentDir) {
+			throw new Error(`Could not find package.json for module path: ${modulePath}`);
+		}
+		currentDir = parentDir;
 	}
-	const packagePath = normalized.slice(lastNodeModulesIdx + marker.length);
-	const [first, second] = packagePath.split("/");
-	if (!first) {
-		throw new Error(`Failed to determine package root for: ${value}`);
-	}
-	const packageName = first.startsWith("@") ? `${first}/${second}` : first;
-	return normalized.slice(
-		0,
-		lastNodeModulesIdx + marker.length + packageName.length,
+}
+
+function resolveTakumiRuntimeFromStandalone({ tempDir }: { tempDir: string }) {
+	const standaloneRequire = createRequire(join(tempDir, "dist/rsc/index.js"));
+	const coreEntryPath = normalizePath(realpathSync(standaloneRequire.resolve("@takumi-rs/core")));
+	const corePackageJsonPath = normalizePath(
+		join(findPackageRoot(coreEntryPath), "package.json"),
 	);
-}
-
-function getNodeModulesPath(value: string): string {
-	const normalized = normalizePath(value);
-	const marker = "/node_modules/";
-	const nodeModulesIdx = normalized.indexOf(marker);
-	if (nodeModulesIdx === -1) {
-		throw new Error(`Expected a node_modules path, got: ${value}`);
-	}
-	return normalized.slice(nodeModulesIdx + 1);
-}
-
-function getTakumiNativeRuntime() {
-	const coreEntry = normalizePath(realpathSync(require.resolve("@takumi-rs/core")));
-	const corePackageRoot = getPackageRoot(coreEntry);
-	const corePackageJson = JSON.parse(
-		readFileSync(join(corePackageRoot, "package.json"), "utf-8"),
-	) as {
+	const corePackageJson = JSON.parse(readFileSync(corePackageJsonPath, "utf-8")) as {
 		optionalDependencies?: Record<string, string>;
 	};
 
 	for (const dependency of Object.keys(corePackageJson.optionalDependencies ?? {})) {
 		try {
-			const binaryPath = normalizePath(
-				realpathSync(require.resolve(dependency, { paths: [corePackageRoot] })),
+			const nativeEntryPath = normalizePath(
+				realpathSync(standaloneRequire.resolve(dependency)),
+			);
+			const nativePackageJsonPath = normalizePath(
+				join(findPackageRoot(nativeEntryPath), "package.json"),
 			);
 			return {
-				corePackageRoot: normalizePath(corePackageRoot),
-				packageName: dependency,
-				packageRoot: getPackageRoot(binaryPath),
-				binaryPath: normalizePath(binaryPath),
+				corePackageJsonPath,
+				nativeBinaryPath: nativeEntryPath,
+				nativePackageJsonPath,
 			};
 		} catch {
-			// Only one platform package should be installed in this test environment.
+			// Only the active platform package should resolve in the standalone output.
 		}
 	}
 
-	throw new Error("No installed Takumi native runtime package was found");
+	throw new Error("No standalone Takumi native runtime package was found");
 }
 
 async function getFreePort(): Promise<number> {
@@ -1400,25 +1392,29 @@ test.describe("staticGet @build", () => {
 });
 
 test.describe("Takumi standalone tracing @build", () => {
-	test("Takumi runtime files are copied into dist/node_modules", () => {
-		const runtime = getTakumiNativeRuntime();
+		test("Takumi runtime files resolve from standalone dist/node_modules", () => {
+		const tempDir = copyStandaloneDist();
+		try {
+			const runtime = resolveTakumiRuntimeFromStandalone({ tempDir });
+			const distNodeModules = normalizePath(
+				realpathSync(join(tempDir, "dist", "node_modules")),
+			);
 
-		expect(
-			existsSync(
-				join("dist", getNodeModulesPath(runtime.corePackageRoot), "package.json"),
-			),
-		).toBe(true);
-		expect(
-			existsSync(join("dist", getNodeModulesPath(runtime.packageRoot), "package.json")),
-		).toBe(true);
-		expect(existsSync(join("dist", getNodeModulesPath(runtime.binaryPath)))).toBe(true);
+			expect(existsSync(runtime.corePackageJsonPath)).toBe(true);
+			expect(existsSync(runtime.nativePackageJsonPath)).toBe(true);
+			expect(existsSync(runtime.nativeBinaryPath)).toBe(true);
+			expect(runtime.corePackageJsonPath.startsWith(distNodeModules)).toBe(true);
+			expect(runtime.nativePackageJsonPath.startsWith(distNodeModules)).toBe(true);
+			expect(runtime.nativeBinaryPath.startsWith(distNodeModules)).toBe(true);
+		} finally {
+			rmSync(tempDir, { recursive: true, force: true });
+		}
 	});
 
 	test("isolated standalone output can render a Takumi image route", async () => {
 		const sharp = (await import("sharp")).default;
 		const port = await getFreePort();
-		const tempDir = mkdtempSync(join(tmpdir(), "spiceflow-takumi-standalone-"));
-		cpSync("dist", join(tempDir, "dist"), { recursive: true });
+		const tempDir = copyStandaloneDist();
 
 		const child = spawn("node", ["dist/rsc/index.js"], {
 			cwd: tempDir,
