@@ -1131,7 +1131,7 @@ export function Sidebar() {
 
 Loader data updates automatically on client-side navigation — when the user navigates to a new route, the server re-runs the matching loaders and the new data arrives atomically with the new page content via the RSC flight stream.
 
-**Reading loader data outside React** with `getLoaderData` is useful when you need data before React starts rendering, for example to initialize a ProseMirror editor, a canvas, or a WebGL scene. It reads synchronously from a global set by the server during SSR — available at module scope before any component mounts:
+**Reading loader data outside React** with `getLoaderData` is useful when you need data before React starts rendering, for example to initialize a ProseMirror editor, a canvas, or a WebGL scene. It returns a `Promise`, so the intended module-scope pattern is top-level `await`. On the initial load, Spiceflow seeds its loader-data store from the first RSC flight payload so the module can resume before any component mounts:
 
 ```tsx
 // src/app/editor.tsx
