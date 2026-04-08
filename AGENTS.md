@@ -265,6 +265,26 @@ If this check fails, it means a Vite-only dependency (like `@vitejs/plugin-rsc`)
 
 Existing examples: `#rsc-runtime`, `#deployment-id`.
 
+## conditions and environments
+
+Spiceflow runs code in three Vite environments with different resolution conditions:
+
+- `client` uses the normal browser/default path
+- `ssr` is the HTML render environment and must resolve server-only helpers through an explicit `ssr` condition
+- `rsc` is the React Server Components environment and resolves through `react-server`
+
+When code needs different implementations per environment, prefer package.json `imports` entries over ad-hoc runtime branching when the dependency itself is environment-specific. Use `default` for the browser-safe fallback, `ssr` for plain server rendering helpers, and `react-server` for RSC-only implementations.
+
+Current pattern:
+
+1. Create a default `.ts` file that is safe in the browser bundle
+2. Create an `.rsc.ts` file when logic is only valid in the RSC environment
+3. Create a server file for SSR-only logic when plain SSR needs the real implementation but the browser must not import it
+4. Add a package.json `imports` entry that maps `browser`/`default`, `ssr`, and `react-server` to the correct build outputs
+5. Make sure the spiceflow Vite plugin adds matching `resolve.conditions` for each environment so `client`, `ssr`, and `rsc` do not accidentally load the same file
+
+Use this for internal helpers like request-scoped stores, runtime bridges, and environment-specific filesystem or Node APIs. If the browser bundle ever tries to import a Node-only module, the fix is usually to move that dependency behind an env-specific `#import` and wire the condition in Vite, not to add more runtime guards after the import.
+
 ## vite-rsc
 
 the spiceflow vite plugin depends on vite-rsc plugin. you can read its source code with `opensrc vitejs/vite-plugin-react`. inside folder packages/plugin-rsc`. there are also examples there. inside examples folder

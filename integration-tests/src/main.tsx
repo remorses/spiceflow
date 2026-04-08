@@ -748,6 +748,7 @@ export const app = new Spiceflow()
 			<div>
 				<div data-testid="loader-data-server">{JSON.stringify(loaderData)}</div>
 				<LoaderDataDisplay />
+				<SubscribeDataReader />
 				<LoaderNavLinks />
 			</div>
 		);
@@ -757,6 +758,7 @@ export const app = new Spiceflow()
 			<div>
 				<div data-testid="loader-data-server">{JSON.stringify(loaderData)}</div>
 				<LoaderDataDisplay />
+				<SubscribeDataReader />
 				<LoaderNavLinks />
 			</div>
 		);
@@ -766,6 +768,7 @@ export const app = new Spiceflow()
 			<div>
 				<div data-testid="loader-data-server">{JSON.stringify(loaderData)}</div>
 				<LoaderDataDisplay />
+				<SubscribeDataReader />
 				<LoaderNavLinks />
 			</div>
 		);
@@ -777,7 +780,7 @@ export const app = new Spiceflow()
 			</div>
 		);
 	})
-	// --- getLoaderData (module scope) tests ---
+	// --- router.getLoaderData imperative tests ---
 	.page("/loader-test/global", async ({ loaderData }) => {
 		return (
 			<div>

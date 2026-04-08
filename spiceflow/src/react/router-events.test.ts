@@ -170,11 +170,13 @@ describe('router event selectors', () => {
 
     expect({
       called,
+      href: router.href('/server-only', { tab: 'profile' }),
       lastNavigationEvent: getLastNavigationEvent(),
       pathname: router.pathname,
     }).toMatchInlineSnapshot(`
       {
         "called": false,
+        "href": "/server-only?tab=profile",
         "lastNavigationEvent": null,
         "pathname": "/server-only",
       }

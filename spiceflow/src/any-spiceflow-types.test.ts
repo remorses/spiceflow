@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { expect, test } from 'vitest'
 
 import { createSpiceflowClient, createSpiceflowFetch } from './client/index.ts'
-import { createRouter } from './react/index.ts'
+import { getRouter, useLoaderData, useRouterState } from './react/index.ts'
 import { AnySpiceflow, createHref, Spiceflow } from './spiceflow.tsx'
 import type { IsAny } from './types.ts'
 
@@ -19,7 +19,7 @@ test('AnySpiceflow falls back to ergonomic any types', () => {
   const proxyClient = createSpiceflowClient<AnySpiceflow>('http://localhost:3000')
   const proxyClientFromApp = createSpiceflowClient(anyApp)
   const href = createHref<AnySpiceflow>()
-  const routerApi = createRouter<AnySpiceflow>()
+  const routerApi = getRouter<AnySpiceflow>()
 
   function assertFetchFallbackTypes() {
     const result = fetchClient('/runtime-route', {
@@ -84,7 +84,7 @@ test('AnySpiceflow falls back to ergonomic any types', () => {
   }
 
   function GlobalLoaderDataComponent() {
-    const data = routerApi.useLoaderData()
+    const data = useLoaderData<AnySpiceflow>()
     const dataIsAny: IsAny<typeof data> = true
     void dataIsAny
     data.session.user.name
@@ -92,10 +92,16 @@ test('AnySpiceflow falls back to ergonomic any types', () => {
   }
 
   function PathLoaderDataComponent() {
-    const data = routerApi.useLoaderData('/runtime-route')
+    const data = useLoaderData<AnySpiceflow>('/runtime-route')
     const dataIsAny: IsAny<typeof data> = true
     void dataIsAny
     data.session.user.name
+    return null
+  }
+
+  function UntypedRouterStateComponent() {
+    const state = useRouterState<AnySpiceflow>()
+    state.pathname.toUpperCase()
     return null
   }
 
@@ -119,6 +125,7 @@ test('AnySpiceflow falls back to ergonomic any types', () => {
   assertProxyClientFromAppFallbackTypes
   GlobalLoaderDataComponent
   PathLoaderDataComponent
+  UntypedRouterStateComponent
   assertGetLoaderDataFallbackTypes
   assertGetLoaderDataWithPathFallbackTypes
 
@@ -145,8 +152,8 @@ test('strict app router types stay narrow', () => {
     handler: async () => 'plain',
   })
 
-  const strictRouter = createRouter<typeof app>()
-  const noLoaderRouter = createRouter<typeof noLoaderApp>()
+  const strictRouter = getRouter<typeof app>()
+  const noLoaderRouter = getRouter<typeof noLoaderApp>()
 
   expect(strictRouter.href('/users/:id', { id: '1', tab: 'profile' })).toBe(
     '/users/1?tab=profile',
@@ -162,7 +169,7 @@ test('strict app router types stay narrow', () => {
   noLoaderRouter.href('/missing')
 
   function StrictLoaderDataComponent() {
-    const data = strictRouter.useLoaderData('/users/:id')
+    const data = useLoaderData<typeof app>('/users/:id')
     data.user.id
     // @ts-expect-error - typed loader data must not widen to any
     data.user.missing
@@ -170,9 +177,15 @@ test('strict app router types stay narrow', () => {
   }
 
   function NoLoaderDataComponent() {
-    const data = noLoaderRouter.useLoaderData('/plain')
+    const data = useLoaderData<typeof noLoaderApp>('/plain')
     // @ts-expect-error - no-loader routes must not widen to any
     data.anything
+    return null
+  }
+
+  function StrictRouterStateComponent() {
+    const state = useRouterState<typeof app>()
+    state.searchParams.get('tab')
     return null
   }
 
@@ -191,6 +204,7 @@ test('strict app router types stay narrow', () => {
 
   StrictLoaderDataComponent
   NoLoaderDataComponent
+  StrictRouterStateComponent
   assertStrictGetLoaderData
   assertNoLoaderGetLoaderData
 })

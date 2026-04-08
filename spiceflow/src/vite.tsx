@@ -306,6 +306,25 @@ export function spiceflowPlugin({
     {
       name: 'spiceflow:optimize-deps',
       configEnvironment(name, config) {
+        config.resolve ??= {}
+
+        // Package private `#imports` can target different runtime entry points
+        // than public `exports`. The RSC environment already resolves with the
+        // `react-server` condition, but the plain SSR environment uses the normal
+        // server conditions unless we add an explicit SSR-only condition here.
+        // This lets internal imports like `#router-context` resolve to the real
+        // AsyncLocalStorage implementation in SSR while the client environment
+        // still resolves to the browser-safe fallback.
+        if (name === 'ssr') {
+          config.resolve.conditions = mergeUnique(config.resolve.conditions, ['ssr'])
+        }
+
+        if (name === 'rsc') {
+          config.resolve.conditions = mergeUnique(config.resolve.conditions, [
+            'react-server',
+          ])
+        }
+
         config.optimizeDeps ??= {}
 
         // Only add filesystem entries to optimizeDeps — virtual modules and
@@ -819,7 +838,10 @@ function standaloneTracePlugin(): Plugin {
       const isCloudflare = config.plugins.some((p) =>
         p.name.startsWith('vite-plugin-cloudflare'),
       )
-      skip = isVercel || isCloudflare
+      skip =
+        isVercel ||
+        isCloudflare ||
+        process.env.SPICEFLOW_SKIP_STANDALONE_TRACE === '1'
     },
 
     buildApp: {
