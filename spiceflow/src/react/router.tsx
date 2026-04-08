@@ -135,10 +135,11 @@ export function coerceLoaderData<
   return data
 }
 
-type TypedRouter<App extends AnySpiceflow = AnySpiceflow> = Omit<
-  typeof router,
-  'href' | 'getLoaderData'
-> & {
+export type RouterBase<App extends AnySpiceflow = AnySpiceflow> = {
+  readonly location: Location
+  readonly pathname: string
+  readonly searchParams: ReadonlyURLSearchParams
+
   href<
     const Path extends RouterPaths<App>,
     const Params extends ExtractParamsFromPath<Path> = ExtractParamsFromPath<Path>,
@@ -146,12 +147,26 @@ type TypedRouter<App extends AnySpiceflow = AnySpiceflow> = Omit<
     path: Path,
     ...rest: RouterHrefArgs<App, Path, Params>
   ): string
+
+  push(...args: Parameters<typeof history.push>): void
+  replace(...args: Parameters<typeof history.replace>): void
+  go(...args: Parameters<typeof history.go>): void
+  back(...args: Parameters<typeof history.back>): void
+  forward(...args: Parameters<typeof history.forward>): void
+  block(...args: Parameters<typeof history.block>): ReturnType<typeof history.block>
+  refresh(): void
+  subscribe(cb: Subscriber): () => void
+
   getLoaderData<const Path extends RouterPathArg<App> = string>(
     path?: Path,
   ): Promise<LoaderDataForPath<App, Path>>
 }
 
 type Subscriber = (event: NavigationEvent) => void
+
+type RouterInternal = RouterBase & {
+  __setLoaderData(data: Record<string, unknown> | undefined): void
+}
 
 const subscribers = new Set<Subscriber>()
 const navigationEvents: RouterEvent[] = []
@@ -373,7 +388,7 @@ function scrollToHashElement() {
   })
 }
 
-export const router = {
+export const router: RouterInternal = {
   get location() {
     return getCurrentLocation()
   },
@@ -464,6 +479,6 @@ export function useRouterState<_App extends AnySpiceflow = AnySpiceflow>() {
   )
 }
 
-export function getRouter<App extends AnySpiceflow = AnySpiceflow>(): TypedRouter<App> {
-  return router as TypedRouter<App>
+export function getRouter<App extends AnySpiceflow = AnySpiceflow>(): RouterBase<App> {
+  return router as RouterBase<App>
 }

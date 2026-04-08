@@ -6,9 +6,8 @@ import { getRouterContext } from '#router-context'
 import { buildHref } from './loader-utils.js'
 import type {
   LoaderDataForPath,
-  RouterHrefArgs,
+  RouterBase,
   RouterPathArg,
-  RouterPaths,
 } from './router.js'
 
 const basePath = getBasePath()
@@ -48,23 +47,7 @@ function getCurrentLocation(): Location {
 
 const noop = () => undefined
 
-type TypedRouter<App extends AnySpiceflow = AnySpiceflow> = Omit<
-  typeof router,
-  'href' | 'getLoaderData'
-> & {
-  href<
-    const Path extends RouterPaths<App>,
-    const Params extends ExtractParamsFromPath<Path> = ExtractParamsFromPath<Path>,
-  >(
-    path: Path,
-    ...rest: RouterHrefArgs<App, Path, Params>
-  ): string
-  getLoaderData<const Path extends RouterPathArg<App> = string>(
-    path?: Path,
-  ): Promise<LoaderDataForPath<App, Path>>
-}
-
-export const router = {
+export const router: RouterBase = {
   get location() {
     return getCurrentLocation()
   },
@@ -74,12 +57,22 @@ export const router = {
   get searchParams(): ReadonlyURLSearchParams {
     return new URLSearchParams(getCurrentLocation().search)
   },
-  push: noop,
-  replace: noop,
-  go: noop,
-  back: noop,
-  forward: noop,
-  block() {
+  push(..._args) {
+    return undefined
+  },
+  replace(..._args) {
+    return undefined
+  },
+  go(..._args) {
+    return undefined
+  },
+  back(..._args) {
+    return undefined
+  },
+  forward(..._args) {
+    return undefined
+  },
+  block(..._args) {
     return noop
   },
   refresh: noop,
@@ -109,6 +102,6 @@ export function useLoaderData<
   return getRouterContext()?.loaderData as LoaderDataForPath<App, Path>
 }
 
-export function getRouter<App extends AnySpiceflow = AnySpiceflow>(): TypedRouter<App> {
-  return router as TypedRouter<App>
+export function getRouter<App extends AnySpiceflow = AnySpiceflow>(): RouterBase<App> {
+  return router as RouterBase<App>
 }
