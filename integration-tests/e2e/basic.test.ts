@@ -361,6 +361,20 @@ test.describe("scoped wildcard layouts", () => {
 		expect(html.match(/<body(?:\s|>)/g)).toHaveLength(1);
 	});
 
+	test("duplicate layouts on the same path both render in registration order", async ({
+		page,
+	}) => {
+		await page.goto(url("/duplicate-layout"));
+		await expect(page.getByTestId("duplicate-layout-a")).toBeVisible();
+		await expect(page.getByTestId("duplicate-layout-b")).toBeVisible();
+		await expect(page.getByTestId("duplicate-layout-page")).toBeVisible();
+		await expect(
+			page.locator(
+				'[data-testid="duplicate-layout-a"] [data-testid="duplicate-layout-b"] [data-testid="duplicate-layout-page"]',
+			),
+		).toBeVisible();
+	});
+
 	test("scoped wildcard layouts still wrap nested child routes", async ({ page }) => {
 		await page.goto(url("/app/settings"));
 		await expect(page.getByTestId("app-layout")).toBeVisible();

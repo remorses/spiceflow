@@ -220,3 +220,32 @@ test('strict app router types stay narrow', () => {
   assertNoLoaderGetLoaderData
   assertUntypedRouterStillAllowsArbitraryPaths
 })
+
+test('overlapping loaders merge into typed router data', () => {
+  const app = new Spiceflow()
+    .loader('/*', async () => ({ session: { user: { name: 'Ada' } } }))
+    .loader('/users/:id', async ({ params }) => ({ profile: { id: params.id } }))
+    .page('/users/:id', async () => 'user')
+
+  const router = getRouter<typeof app>()
+
+  function MergedLoaderDataComponent() {
+    const data = useLoaderData<typeof app>('/users/:id')
+    data.session.user.name
+    data.profile.id
+    // @ts-expect-error - merged loader data must stay narrow
+    data.profile.slug
+    return null
+  }
+
+  async function assertMergedGetLoaderData() {
+    const data = await router.getLoaderData('/users/:id')
+    data.session.user.name
+    data.profile.id
+    // @ts-expect-error - merged loader data must stay narrow
+    data.session.user.email
+  }
+
+  MergedLoaderDataComponent
+  assertMergedGetLoaderData
+})

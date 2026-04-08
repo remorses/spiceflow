@@ -280,6 +280,15 @@ export const app = new Spiceflow()
 			</section>
 		);
 	})
+	.layout("/duplicate-layout/*", async ({ children }) => {
+		return <section data-testid="duplicate-layout-a">{children}</section>;
+	})
+	.layout("/duplicate-layout/*", async ({ children }) => {
+		return <section data-testid="duplicate-layout-b">{children}</section>;
+	})
+	.page("/duplicate-layout", async () => {
+		return <div data-testid="duplicate-layout-page">Duplicate layout page</div>;
+	})
 	.page("/docs", async () => {
 		return <div data-testid="docs-page">Docs index page</div>;
 	})
