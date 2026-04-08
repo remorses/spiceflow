@@ -2245,19 +2245,14 @@ test.describe("loaders", () => {
 		await expect(page.getByTestId("read-loader-data")).toBeVisible({
 			timeout: 10000,
 		});
-		await expect
-			.poll(
-				() =>
-					page.evaluate(() => typeof (window as any).__test_getLoaderData),
-				{ timeout: 10000 },
-			)
-			.toBe("function");
-		const data = await page.evaluate(async () => {
-			return await (window as any).__test_getLoaderData();
-		});
-		expect(data).toMatchObject({
-			global: "from-wildcard-loader",
-		});
+		await expect(async () => {
+			await page.getByTestId("read-loader-data").click();
+			const data = await page.getByTestId("subscribe-data-live").textContent();
+			expect(data).toBeTruthy();
+			expect(JSON.parse(data!)).toMatchObject({
+				global: "from-wildcard-loader",
+			});
+		}).toPass({ timeout: 10000 });
 	});
 
 	test("router.getLoaderData updates after client-side navigation", async ({
@@ -2341,37 +2336,22 @@ test.describe(".server.ts file guard", () => {
 		// Trigger client-env resolution by importing the module from the browser.
 		// Must include basePath so the import resolves under Vite's base URL.
 		const importPath = `${basePath}/src/app/bad-server-import-client.tsx`;
-		await page.evaluate((p) => {
-			(window as any).__serverGuardImportError = null;
-			void import(/* @vite-ignore */ p).catch((error) => {
-				(window as any).__serverGuardImportError = String(
-					error instanceof Error ? error.message : error,
-				);
-			});
+		const importError = await page.evaluate(async (p) => {
+			try {
+				await import(/* @vite-ignore */ p);
+				return null;
+			} catch (error) {
+				return String(error instanceof Error ? error.message : error);
+			}
 		}, importPath);
-		const overlay = page.locator("vite-error-overlay");
-		const failureText = await expect
-			.poll(
-				async () => {
-					if ((await overlay.count()) > 0) {
-						return await overlay.evaluate(
-							(el: Element) => el.shadowRoot?.textContent ?? "",
-						);
-					}
 
-					return await page.evaluate(
-						() => (window as any).__serverGuardImportError,
-					);
-				},
-				{ timeout: 10000 },
-			)
-			.not.toBeNull();
-
-		if (typeof failureText === "string" && failureText.length > 0) {
-			expect(failureText).toContain("bad-server-import-client");
+		if (typeof importError === "string" && importError.length > 0) {
+			expect(importError).toContain("bad-server-import-client");
 			return;
 		}
 
+		const overlay = page.locator("vite-error-overlay");
+		await expect(overlay).toBeAttached({ timeout: 10000 });
 		const overlayText = await overlay.evaluate(
 			(el: Element) => el.shadowRoot?.textContent ?? "",
 		);

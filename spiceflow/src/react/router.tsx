@@ -54,16 +54,7 @@ function createLoaderDataState(): LoaderDataState {
   }
 }
 
-const loaderDataState = (() => {
-  if (!isBrowser) {
-    return createLoaderDataState()
-  }
-  const browserState = window as typeof window & {
-    __spiceflowLoaderDataState?: LoaderDataState
-  }
-  browserState.__spiceflowLoaderDataState ??= createLoaderDataState()
-  return browserState.__spiceflowLoaderDataState
-})()
+const loaderDataState = createLoaderDataState()
 
 type NavigationMethod = 'push' | 'replace' | 'refresh'
 
