@@ -1476,7 +1476,11 @@ test.describe("prerender error @build", () => {
 		try {
 			const output = execSync("./node_modules/.bin/vite build", {
 				cwd: tempDir,
-				env: { ...process.env, STATIC_PAGE_ERROR: "1" },
+				env: {
+					...process.env,
+					STATIC_PAGE_ERROR: "1",
+					SPICEFLOW_SKIP_STANDALONE_TRACE: "1",
+				},
 				encoding: "utf-8",
 				stdio: ["pipe", "pipe", "pipe"],
 				timeout: 120_000,

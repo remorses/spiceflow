@@ -819,7 +819,10 @@ function standaloneTracePlugin(): Plugin {
       const isCloudflare = config.plugins.some((p) =>
         p.name.startsWith('vite-plugin-cloudflare'),
       )
-      skip = isVercel || isCloudflare
+      skip =
+        isVercel ||
+        isCloudflare ||
+        process.env.SPICEFLOW_SKIP_STANDALONE_TRACE === '1'
     },
 
     buildApp: {
