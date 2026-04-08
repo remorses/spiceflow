@@ -1110,17 +1110,18 @@ When multiple loaders match a route (e.g. `/*` and `/dashboard` both match `/das
 
 **Serialization**: loader return values are serialized through the React RSC flight format, not JSON. You can return JSX (including server components and client component elements with their props), `Promise`, async iterators, `Map`, `Set`, `Date`, `BigInt`, typed arrays, and any client component reference — all deserialized faithfully on the client. This means a loader can return a fully rendered `<Sidebar user={user} />` element and another component can receive it as `loaderData.sidebar` and drop it into the tree.
 
-**Reading loader data in client components** uses the `useLoaderData` hook from `createRouter`:
+**Reading loader data in client components** uses the `useLoaderData` hook from `spiceflow/react`:
 
 ```tsx
 // src/app/sidebar.tsx
 'use client'
 
-import { useLoaderData } from './router'
+import { useLoaderData } from 'spiceflow/react'
+import type { App } from '../main'
 
 export function Sidebar() {
   // Type-safe: path narrows the return type to the loaders matching '/dashboard'
-  const { user, stats } = useLoaderData('/dashboard')
+  const { user, stats } = useLoaderData<App>('/dashboard')
   return (
     <aside>
       {user.name} — {stats.totalViews} views
@@ -1131,36 +1132,29 @@ export function Sidebar() {
 
 Loader data updates automatically on client-side navigation — when the user navigates to a new route, the server re-runs the matching loaders and the new data arrives atomically with the new page content via the RSC flight stream.
 
-**Reading loader data outside React** with `getLoaderData` is useful when you need data before React starts rendering, for example to initialize a ProseMirror editor, a canvas, or a WebGL scene. It returns a `Promise`, so the intended module-scope pattern is top-level `await`. On the initial load, Spiceflow seeds its loader-data store from the first RSC flight payload so the module can resume before any component mounts:
+**Reading loader data imperatively** uses `getRouter<App>()`. This works in client code outside React components and during active server render. Call it inside component scope, event handlers, or helper functions tied to the current render flow instead of binding request-sensitive access at module scope:
 
 ```tsx
-// src/app/editor.tsx
+// src/app/editor-toolbar.tsx
 'use client'
 
-import { useCallback } from 'react'
-import { getLoaderData, router } from './router'
-import { EditorState } from 'prosemirror-state'
-import { EditorView } from 'prosemirror-view'
+import { getRouter, useLoaderData } from 'spiceflow/react'
+import type { App } from '../main'
 
-// Top-level await — module pauses until loader data resolves from the RSC
-// flight payload. Supports Date, Map, Set etc (RSC encoding, not JSON).
-const { document } = await getLoaderData('/editor/:id')
-const state = EditorState.create({ doc: document.content })
-const view = new EditorView(null, { state })
+async function readCurrentDocument() {
+  return getRouter<App>().getLoaderData('/editor/:id')
+}
 
-// Update editor when loader data changes on navigation
-router.subscribe(async (event) => {
-  if (event.action !== 'LOADER_DATA') return
-  const { document } = await getLoaderData('/editor/:id')
-  view.updateState(EditorState.create({ doc: document.content }))
-})
+export function EditorToolbar() {
+  const router = getRouter<App>()
+  const { document } = useLoaderData<App>('/editor/:id')
 
-export function Editor() {
-  // Mount the existing EditorView into the DOM — no useEffect needed
-  const ref = useCallback((node: HTMLDivElement | null) => {
-    if (node && !node.firstChild) node.appendChild(view.dom)
-  }, [])
-  return <div ref={ref} />
+  async function refresh() {
+    const next = await readCurrentDocument()
+    console.log(next.document.title)
+  }
+
+  return <button onClick={refresh}>{document.title}</button>
 }
 ```
 
@@ -1247,33 +1241,24 @@ If a server action throws, the error is caught by the nearest error boundary. Th
 
 ### Client Router
 
-Use `createRouter` with your app type for type-safe navigation, URL building, and loader data access in client components. Bind the app type once — all paths, params, query schemas, and loader data are inferred from arguments.
-
-```tsx
-// src/app/router.ts
-'use client'
-
-import { createRouter } from 'spiceflow/react'
-import type { App } from '../main'
-
-export const { router, useRouterState, useLoaderData, getLoaderData, href } =
-  createRouter<App>()
-```
+Use `getRouter` with your app type for type-safe navigation, URL building, and imperative loader data access. `useLoaderData` and `useRouterState` are exported separately from `spiceflow/react`, and both accept the same optional app generic.
 
 ```tsx
 // src/app/nav.tsx
 'use client'
 
-import { Link } from 'spiceflow/react'
-import { href } from './router'
+import { getRouter, Link } from 'spiceflow/react'
+import type { App } from '../main'
 
 export function Nav() {
+  const router = getRouter<App>()
+
   return (
     <nav>
-      <Link href={href('/')}>Home</Link>
-      <Link href={href('/about')}>About</Link>
-      <Link href={href('/users/:id', { id: '1' })}>User 1</Link>
-      <Link href={href('/search', { q: 'docs', page: 1 })}>Search Docs</Link>
+      <Link href={router.href('/')}>Home</Link>
+      <Link href={router.href('/about')}>About</Link>
+      <Link href={router.href('/users/:id', { id: '1' })}>User 1</Link>
+      <Link href={router.href('/search', { q: 'docs', page: 1 })}>Search Docs</Link>
     </nav>
   )
 }
@@ -1281,16 +1266,19 @@ export function Nav() {
 
 ### Navigation & State
 
-The `router` object from `createRouter` handles type-safe client-side navigation. `router.push` and `router.replace` accept typed paths with autocomplete — params and query values are validated at compile time:
+The `router` object from `getRouter` handles type-safe client-side navigation. `router.push`, `router.replace`, and `router.href` accept typed paths with autocomplete — params and query values are validated at compile time:
 
 ```tsx
 // src/app/search-filters.tsx
 'use client'
 
-import { router, useRouterState } from './router'
+import { useRouterState } from 'spiceflow/react'
+import { getRouter } from 'spiceflow/react'
+import type { App } from '../main'
 
 export function SearchFilters() {
-  const { pathname, searchParams } = useRouterState()
+  const router = getRouter<App>()
+  const { pathname, searchParams } = useRouterState<App>()
 
   const query = searchParams.get('q') ?? ''
   const page = Number(searchParams.get('page') ?? '1')
@@ -1320,24 +1308,28 @@ export function SearchFilters() {
 }
 ```
 
-`useRouterState()` subscribes to navigation changes and re-renders the component when the URL changes. It returns the current `pathname`, `search`, `hash`, and a parsed `searchParams` (a read-only `URLSearchParams`).
+`useRouterState<App>()` subscribes to navigation changes and re-renders the component when the URL changes. It returns the current `pathname`, `search`, `hash`, and a parsed `searchParams` (a read-only `URLSearchParams`). If you omit `App`, the hook still works at runtime but skips route-type inference.
 
 You can also navigate to a different pathname with search params, or use `router.replace` to update without adding a history entry:
 
 ```tsx
-// Navigate to a new path with search params
-router.push({
-  pathname: '/search',
-  search: '?' + new URLSearchParams({ q: 'spiceflow' }),
-})
+function Example() {
+  const router = getRouter<App>()
 
-// Replace current history entry (back button skips this)
-router.replace({
-  search: '?' + new URLSearchParams({ tab: 'settings' }),
-})
+  // Navigate to a new path with search params
+  router.push({
+    pathname: '/search',
+    search: '?' + new URLSearchParams({ q: 'spiceflow' }),
+  })
 
-// Or just use a plain string
-router.push('/search?q=spiceflow&page=1')
+  // Replace current history entry (back button skips this)
+  router.replace({
+    search: '?' + new URLSearchParams({ tab: 'settings' }),
+  })
+
+  // Or just use a plain string
+  router.push('/search?q=spiceflow&page=1')
+}
 ```
 
 ### Server Actions

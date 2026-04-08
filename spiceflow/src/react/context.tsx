@@ -1,30 +1,52 @@
 import React from 'react'
+import type { AnySpiceflow } from '../spiceflow.js'
 import { ServerPayload } from '../spiceflow.js'
+import { FlightDataContext } from '#flight-data-context'
+import { getRouterContext } from '#router-context'
+import {
+  coerceLoaderData,
+  type LoaderDataForPath,
+  type RouterPathArg,
+} from './router.js'
 
-export const FlightDataContext = React.createContext<Promise<ServerPayload>>(
-  undefined!,
-)
+export { FlightDataContext }
 
-// Get $$id property that was set by registerClientReference
+function readFlightDataContext(): Promise<ServerPayload> | undefined {
+  if (!FlightDataContext) {
+    return undefined
+  }
+  return React.useContext(FlightDataContext)
+}
 
-export function useFlightData() {
-  const c = React.useContext(FlightDataContext)
-
-  if (!c) {
-    throw new Error(
-      '[spiceflow] FlightDataContext is missing. This usually means the ' +
-        'spiceflow module was loaded twice (e.g. one copy bundled by Vite dep ' +
-        'optimizer and another loaded raw from node_modules). Make sure ' +
-        '"spiceflow" is in optimizeDeps.exclude for the client environment.',
-    )
+export function assertFlightDataContext(
+  value: Promise<ServerPayload> | undefined,
+): Promise<ServerPayload> {
+  if (value) {
+    return value
   }
 
-  const payload = React.use(c)
+  throw new Error(
+    '[spiceflow] FlightDataContext is missing. This usually means the ' +
+      'spiceflow module was loaded twice (e.g. one copy bundled by Vite dep ' +
+      'optimizer and another loaded raw from node_modules). Make sure ' +
+      '"spiceflow" is in optimizeDeps.exclude for the client environment.',
+  )
+}
+
+export function useFlightData() {
+  const payload = React.use(assertFlightDataContext(readFlightDataContext()))
   return payload?.root
 }
 
-// Untyped loader data hook — for typed access use createRouter<App>().useLoaderData
-export function useLoaderData(): Record<string, unknown> {
-  const flightData = useFlightData()
-  return flightData?.loaderData ?? {}
+export function useLoaderData<
+  App extends AnySpiceflow = AnySpiceflow,
+  const Path extends RouterPathArg<App> = string,
+>(_path?: Path): LoaderDataForPath<App, Path> {
+  const payloadPromise = readFlightDataContext()
+  if (typeof window === 'undefined' && !payloadPromise) {
+    return coerceLoaderData<App, Path>(getRouterContext()?.loaderData ?? {})
+  }
+
+  const payload = React.use(assertFlightDataContext(payloadPromise))
+  return coerceLoaderData<App, Path>(payload?.root?.loaderData ?? {})
 }

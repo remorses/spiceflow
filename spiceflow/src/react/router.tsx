@@ -1,6 +1,16 @@
-import { createBrowserHistory, createMemoryHistory, Location } from 'history'
+import { createBrowserHistory, createMemoryHistory, type Location } from 'history'
 import { useMemo, useSyncExternalStore } from 'react'
 import { getBasePath } from '../base-path.js'
+import type { AnySpiceflow } from '../spiceflow.js'
+import type {
+  AllLoaderData,
+  ExtractParamsFromPath,
+  HrefArgs,
+  IsAny,
+  MergedLoaderData,
+} from '../types.js'
+import { getRouterContext } from '#router-context'
+import { buildHref } from './loader-utils.js'
 
 const isBrowser = typeof window !== 'undefined'
 
@@ -24,6 +34,27 @@ if (isBrowser) {
 
 const MAX_NAVIGATION_EVENTS = 100
 const DEFAULT_MAX_SCROLL_ENTRIES = 200
+
+type LoaderDataState = {
+  data: Record<string, unknown>
+  initialized: boolean
+  resolve: ((data: Record<string, unknown>) => void) | null
+  ready: Promise<Record<string, unknown>>
+}
+
+function createLoaderDataState(): LoaderDataState {
+  let resolve: ((data: Record<string, unknown>) => void) | null = null
+  return {
+    data: {},
+    initialized: false,
+    resolve,
+    ready: new Promise<Record<string, unknown>>((nextResolve) => {
+      resolve = nextResolve
+    }),
+  }
+}
+
+const loaderDataState = createLoaderDataState()
 
 type NavigationMethod = 'push' | 'replace' | 'refresh'
 
@@ -63,7 +94,79 @@ export type ReadonlyURLSearchParams = Omit<
   'append' | 'delete' | 'set' | 'sort'
 >
 
+type LoaderDataReturn<LD extends object, Path extends string> = IsAny<LD> extends true
+  ? any
+  : string extends Path
+    ? AllLoaderData<LD>
+    : MergedLoaderData<LD, Path>
+
+export type RouterPaths<App extends AnySpiceflow> = IsAny<
+  App['_types']['RoutePaths']
+> extends true
+  ? string
+  : App['_types']['RoutePaths']
+
+type RouterQuerySchemas<App extends AnySpiceflow> = IsAny<
+  App['_types']['RoutePaths']
+> extends true
+  ? Record<string, any>
+  : App['_types']['RouteQuerySchemas']
+
+export type LoaderDataForPath<
+  App extends AnySpiceflow,
+  Path extends string,
+> = IsAny<App['_types']['RoutePaths']> extends true
+  ? any
+  : LoaderDataReturn<App['_types']['Metadata']['loaderData'], Path>
+
+export type RouterPathArg<App extends AnySpiceflow> =
+  RouterPaths<App> | (string & {})
+
+export type RouterHrefArgs<
+  App extends AnySpiceflow,
+  Path extends RouterPaths<App>,
+  Params extends ExtractParamsFromPath<Path>,
+> = HrefArgs<RouterPaths<App>, RouterQuerySchemas<App>, Path, Params>
+
+export function coerceLoaderData<
+  App extends AnySpiceflow,
+  Path extends string,
+>(data: any): LoaderDataForPath<App, Path> {
+  return data
+}
+
+export type RouterBase<App extends AnySpiceflow = AnySpiceflow> = {
+  readonly location: Location
+  readonly pathname: string
+  readonly searchParams: ReadonlyURLSearchParams
+
+  href<
+    const Path extends RouterPaths<App>,
+    const Params extends ExtractParamsFromPath<Path> = ExtractParamsFromPath<Path>,
+  >(
+    path: Path,
+    ...rest: RouterHrefArgs<App, Path, Params>
+  ): string
+
+  push(...args: Parameters<typeof history.push>): void
+  replace(...args: Parameters<typeof history.replace>): void
+  go(...args: Parameters<typeof history.go>): void
+  back(...args: Parameters<typeof history.back>): void
+  forward(...args: Parameters<typeof history.forward>): void
+  block(...args: Parameters<typeof history.block>): ReturnType<typeof history.block>
+  refresh(): void
+  subscribe(cb: Subscriber): () => void
+
+  getLoaderData<const Path extends RouterPathArg<App> = string>(
+    path?: Path,
+  ): Promise<LoaderDataForPath<App, Path>>
+}
+
 type Subscriber = (event: NavigationEvent) => void
+
+type RouterInternal = RouterBase & {
+  __setLoaderData(data: Record<string, unknown> | undefined): void
+}
 
 const subscribers = new Set<Subscriber>()
 const navigationEvents: RouterEvent[] = []
@@ -222,15 +325,17 @@ if (isBrowser) {
   })
 }
 
-// Loader data store — seeded from the RSC flight payload on initial load
-// (via __setLoaderData called from entry.client.tsx before hydrateRoot),
-// updated on navigation when new payloads resolve.
-let loaderData: Record<string, unknown> = {}
-let loaderDataInitialized = false
-let loaderDataResolve: ((data: Record<string, unknown>) => void) | null = null
-const loaderDataReady = new Promise<Record<string, unknown>>((resolve) => {
-  loaderDataResolve = resolve
-})
+function getCurrentLocation(): Location {
+  const serverContext = !isBrowser ? getRouterContext() : undefined
+  if (serverContext) {
+    return serverContext.location
+  }
+  return history.location
+}
+
+function getServerSnapshot(): Location {
+  return cloneLocation(getCurrentLocation())
+}
 
 function hasBasePrefix(path: string, base: string): boolean {
   if (path === base) return true
@@ -283,15 +388,18 @@ function scrollToHashElement() {
   })
 }
 
-export const router = {
+export const router: RouterInternal = {
   get location() {
-    return history.location
+    return getCurrentLocation()
   },
   get pathname() {
-    return stripBase(history.location.pathname)
+    return stripBase(getCurrentLocation().pathname)
   },
   get searchParams(): ReadonlyURLSearchParams {
-    return new URLSearchParams(history.location.search)
+    return new URLSearchParams(getCurrentLocation().search)
+  },
+  href(path: string, allParams?: Record<string, any>) {
+    return buildHref(path, allParams)
   },
   push(...args: Parameters<typeof history.push>) {
     args[0] = prependBase(args[0]) as typeof args[0]
@@ -323,18 +431,21 @@ export const router = {
       subscribers.delete(cb)
     }
   },
-  getLoaderData(): Promise<Record<string, unknown>> {
-    if (!isBrowser) return Promise.resolve(loaderData)
-    if (loaderDataInitialized) return Promise.resolve(loaderData)
-    return loaderDataReady
+  getLoaderData(_path?: string): Promise<Record<string, unknown>> {
+    if (!isBrowser) {
+      const serverContext = getRouterContext()
+      return Promise.resolve(serverContext?.loaderData ?? loaderDataState.data)
+    }
+    if (loaderDataState.initialized) return Promise.resolve(loaderDataState.data)
+    return loaderDataState.ready
   },
   /** @internal */
   __setLoaderData(data: Record<string, unknown> | undefined) {
-    loaderData = data ?? {}
-    if (!loaderDataInitialized) {
-      loaderDataInitialized = true
-      loaderDataResolve?.(loaderData)
-      loaderDataResolve = null
+    loaderDataState.data = data ?? {}
+    if (!loaderDataState.initialized) {
+      loaderDataState.initialized = true
+      loaderDataState.resolve?.(loaderDataState.data)
+      loaderDataState.resolve = null
     }
     const location = history.location
     const event: NavigationEvent = {
@@ -351,11 +462,11 @@ export const router = {
   },
 }
 
-export function useRouterState() {
+export function useRouterState<_App extends AnySpiceflow = AnySpiceflow>() {
   const location = useSyncExternalStore(
     (cb) => router.subscribe(cb),
     () => history.location,
-    () => history.location,
+    getServerSnapshot,
   )
   return useMemo(
     () => ({
@@ -366,4 +477,8 @@ export function useRouterState() {
     }),
     [location],
   )
+}
+
+export function getRouter<App extends AnySpiceflow = AnySpiceflow>(): RouterBase<App> {
+  return router as RouterBase<App>
 }

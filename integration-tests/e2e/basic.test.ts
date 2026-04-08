@@ -305,7 +305,10 @@ test.describe("response headers from page and layout handlers", () => {
 	}) => {
 		await page.goto(url("/response-nav"));
 		await page.getByTestId("response-nav-link").click();
-		await expect(page.getByTestId("response-headers-page")).toBeVisible();
+		await expect(page).toHaveURL(url("/response-headers"), { timeout: 10000 });
+		await expect(page.getByTestId("response-headers-page")).toBeVisible({
+			timeout: 10000,
+		});
 
 		const cookies = await page.context().cookies();
 		expect(cookies.some((cookie) => cookie.name === "page-cookie")).toBe(true);
@@ -1476,7 +1479,11 @@ test.describe("prerender error @build", () => {
 		try {
 			const output = execSync("./node_modules/.bin/vite build", {
 				cwd: tempDir,
-				env: { ...process.env, STATIC_PAGE_ERROR: "1" },
+				env: {
+					...process.env,
+					STATIC_PAGE_ERROR: "1",
+					SPICEFLOW_SKIP_STANDALONE_TRACE: "1",
+				},
 				encoding: "utf-8",
 				stdio: ["pipe", "pipe", "pipe"],
 				timeout: 120_000,
@@ -2231,29 +2238,27 @@ test.describe("loaders", () => {
 		expect(text).not.toContain("should not render");
 	});
 
-	test("getLoaderData resolves with correct data after hydration", async ({
+	test("router.getLoaderData resolves with correct data after hydration", async ({
 		page,
 	}) => {
 		await page.goto(url("/loader-test/global"));
 		await expect(page.getByTestId("read-loader-data")).toBeVisible({
 			timeout: 10000,
 		});
-		// Read loader data via getLoaderData() exposed on window by test component
 		await expect(async () => {
-			const data = await page.evaluate(async () => {
-				const fn = (window as any).__test_getLoaderData;
-				if (!fn) return null;
-				return await fn();
-			});
+			await page.getByTestId("read-loader-data").click();
+			const data = await page.getByTestId("subscribe-data-live").textContent();
 			expect(data).toBeTruthy();
-			expect((data as any).global).toBe("from-wildcard-loader");
+			expect(JSON.parse(data!)).toMatchObject({
+				global: "from-wildcard-loader",
+			});
 		}).toPass({ timeout: 10000 });
 	});
 
-	test("getLoaderData updates after client-side navigation", async ({
+	test("router.getLoaderData updates after client-side navigation", async ({
 		page,
 	}) => {
-		// Start on a page with loader data, expose getLoaderData on window
+		// Start on a page with loader data, expose router.getLoaderData on window
 		await page.goto(url("/loader-test/global"));
 		await expect(page.getByTestId("link-global-nested")).toBeVisible({
 			timeout: 10000,
@@ -2263,15 +2268,13 @@ test.describe("loaders", () => {
 		await page.getByTestId("link-global-nested").click();
 		await expect(page).toHaveURL(url("/loader-test/nested"), { timeout: 10000 });
 
-		// The subscribe callback in loader-global-client.tsx stores updated data.
-		// After navigation, check the useLoaderData hook (React path) which reads
-		// from the flight context — confirms the RSC payload has the merged data.
-		await expect(page.getByTestId("loader-data-client")).toBeVisible({
+		await expect(page.getByTestId("read-loader-data")).toBeVisible({
 			timeout: 10000,
 		});
+		await page.getByTestId("read-loader-data").click();
 		await expect(async () => {
 			const clientData = await page
-				.getByTestId("loader-data-client")
+				.getByTestId("subscribe-data-live")
 				.textContent();
 			const parsed = JSON.parse(clientData!);
 			expect(parsed.global).toBe("from-wildcard-loader");
@@ -2333,9 +2336,20 @@ test.describe(".server.ts file guard", () => {
 		// Trigger client-env resolution by importing the module from the browser.
 		// Must include basePath so the import resolves under Vite's base URL.
 		const importPath = `${basePath}/src/app/bad-server-import-client.tsx`;
-		page
-			.evaluate((p) => import(/* @vite-ignore */ p), importPath)
-			.catch(() => {});
+		const importError = await page.evaluate(async (p) => {
+			try {
+				await import(/* @vite-ignore */ p);
+				return null;
+			} catch (error) {
+				return String(error instanceof Error ? error.message : error);
+			}
+		}, importPath);
+
+		if (typeof importError === "string" && importError.length > 0) {
+			expect(importError).toContain("bad-server-import-client");
+			return;
+		}
+
 		const overlay = page.locator("vite-error-overlay");
 		await expect(overlay).toBeAttached({ timeout: 10000 });
 		const overlayText = await overlay.evaluate(

@@ -6,6 +6,7 @@ import * as errore from 'errore'
 
 import { SpiceflowFetchError } from './client/errors.js'
 import { actionRequestStorage } from './action-context.js'
+import { createRouterContextData, routerContextStorage } from './router-context.js'
 import { coerceQueryWithSchema } from './query-coerce.js'
 import { ValidationError } from './error.js'
 import {
@@ -1471,17 +1472,20 @@ export class Spiceflow<
       return actionState
     }
 
-    try {
-      // Execute loaders and merge their data directly. The trie router already
-      // matched these loaders for this request — no need to re-match. Sort by
-      // specificity so more specific loaders override less specific ones.
-      loaderRoutes.sort(compareRouteSpecificity)
-      let loaderError: Error | null = null
-      const loaderResults = await Promise.all(
-        loaderRoutes.map(async (loader) => {
-          let handlerResponse: ContextResponse | undefined
-          const loaderContext: SpiceflowContext<any, any, any> = {
-            ...baseContext,
+      try {
+        return await routerContextStorage.run(
+          createRouterContextData(request),
+          async () => {
+          // Execute loaders and merge their data directly. The trie router already
+          // matched these loaders for this request — no need to re-match. Sort by
+          // specificity so more specific loaders override less specific ones.
+          loaderRoutes.sort(compareRouteSpecificity)
+          let loaderError: Error | null = null
+          const loaderResults = await Promise.all(
+            loaderRoutes.map(async (loader) => {
+              let handlerResponse: ContextResponse | undefined
+              const loaderContext: SpiceflowContext<any, any, any> = {
+                ...baseContext,
             params: loader.params,
             loaderData: {},
             get response() {
@@ -1554,63 +1558,67 @@ export class Spiceflow<
               headers: handlerResponse?.headers,
             }
           }
-        }),
-      )
-      const mergedLoaderData: Record<string, unknown> = {}
-      let loaderStatus: number | undefined
-      const loaderResponseHeaders = new Headers()
-      for (const result of loaderResults) {
-        if (result.data != null) Object.assign(mergedLoaderData, result.data)
-        if (result.status && result.status !== 200) loaderStatus = result.status
-        if (result.headers) appendHeaders(loaderResponseHeaders, result.headers)
-      }
-
-      const executeHandler = async (
-        route: ReactMatchedRoute,
-        extra?: { id: string; children: React.ReactNode },
-        activeSpan?: SpiceflowSpan,
-      ): Promise<RouteResult> => {
-        let handlerResponse: ContextResponse | undefined
-        const handlerContext: SpiceflowContext<any, any, any> = {
-          ...baseContext,
-          params: route.params,
-          loaderData: mergedLoaderData,
-          ...(extra && { children: extra.children }),
-          ...(activeSpan && { span: activeSpan }),
-          get response() {
-            return (handlerResponse ??= createContextResponse())
-          },
-        }
-        try {
-          const value = await route.route.handler.call(
-            route.app,
-            handlerContext,
+            }),
           )
-          if (value instanceof Error) {
-            // Wrap in a component that throws during RSC rendering so error
-            // boundaries can catch it and the __NO_HYDRATE shell renders.
-            return {
-              ok: true,
-              value: <ThrowError error={value} />,
-              headers: handlerResponse?.headers,
-              status: handlerResponse?.status,
+          const mergedLoaderData: Record<string, unknown> = {}
+          let loaderStatus: number | undefined
+          const loaderResponseHeaders = new Headers()
+          for (const result of loaderResults) {
+            if (result.data != null) Object.assign(mergedLoaderData, result.data)
+            if (result.status && result.status !== 200) loaderStatus = result.status
+            if (result.headers) appendHeaders(loaderResponseHeaders, result.headers)
+          }
+          const routerContext = routerContextStorage.getStore()
+          if (routerContext) {
+            routerContext.loaderData = mergedLoaderData
+          }
+
+          const executeHandler = async (
+            route: ReactMatchedRoute,
+            extra?: { id: string; children: React.ReactNode },
+            activeSpan?: SpiceflowSpan,
+          ): Promise<RouteResult> => {
+            let handlerResponse: ContextResponse | undefined
+            const handlerContext: SpiceflowContext<any, any, any> = {
+              ...baseContext,
+              params: route.params,
+              loaderData: mergedLoaderData,
+              ...(extra && { children: extra.children }),
+              ...(activeSpan && { span: activeSpan }),
+              get response() {
+                return (handlerResponse ??= createContextResponse())
+              },
+            }
+            try {
+              const value = await route.route.handler.call(
+                route.app,
+                handlerContext,
+              )
+              if (value instanceof Error) {
+                // Wrap in a component that throws during RSC rendering so error
+                // boundaries can catch it and the __NO_HYDRATE shell renders.
+                return {
+                  ok: true,
+                  value: <ThrowError error={value} />,
+                  headers: handlerResponse?.headers,
+                  status: handlerResponse?.status,
+                }
+              }
+              return {
+                ok: true,
+                value,
+                headers: handlerResponse?.headers,
+                status: handlerResponse?.status,
+              }
+            } catch (error) {
+              return {
+                ok: false,
+                error,
+                headers: handlerResponse?.headers,
+                status: handlerResponse?.status,
+              }
             }
           }
-          return {
-            ok: true,
-            value,
-            headers: handlerResponse?.headers,
-            status: handlerResponse?.status,
-          }
-        } catch (error) {
-          return {
-            ok: false,
-            error,
-            headers: handlerResponse?.headers,
-            status: handlerResponse?.status,
-          }
-        }
-      }
 
       const filteredLayouts = layoutRoutes.filter(
         (layout) => layout.route.kind === 'layout',
@@ -1819,8 +1827,10 @@ export class Spiceflow<
 
         return new Response(stream, { status, headers })
       }
-      if (!this.tracer) return buildRscResponse()
-      return withSpan(this.tracer, 'rsc.serialize', {}, buildRscResponse)
+          if (!this.tracer) return buildRscResponse()
+          return withSpan(this.tracer, 'rsc.serialize', {}, buildRscResponse)
+        },
+      )
     } catch (error) {
       if (error instanceof Response) {
         return mergeHeadersIntoResponse({
@@ -1970,176 +1980,178 @@ export class Spiceflow<
       })
     }
 
-    let routes = this.match(request.method, path)
-    if (
-      request.method === 'HEAD' &&
-      routes.length === 1 &&
-      routes[0]?.route?.handler === notFoundHandler
-    ) {
-      routes = this.match('GET', path)
-    }
-    const shouldStripHeadBody =
-      request.method === 'HEAD' &&
-      routes.every((matchedRoute) => matchedRoute.route.method !== 'HEAD')
+    return routerContextStorage.run(createRouterContextData(request), async () => {
+      let routes = this.match(request.method, path)
+      if (
+        request.method === 'HEAD' &&
+        routes.length === 1 &&
+        routes[0]?.route?.handler === notFoundHandler
+      ) {
+        routes = this.match('GET', path)
+      }
+      const shouldStripHeadBody =
+        request.method === 'HEAD' &&
+        routes.every((matchedRoute) => matchedRoute.route.method !== 'HEAD')
 
-    const resolved = this.resolveRoutes(request, routes)
+      const resolved = this.resolveRoutes(request, routes)
 
-    if (resolved.react) {
-      const reactRoute = resolved.reactRoutes.find(
-        (r) => r.route.kind === 'page' || r.route.kind === 'staticPage',
-      )?.route.path
-      if (rootSpan && reactRoute)
-        rootSpan.updateName(`${request.method} ${reactRoute}`)
+      if (resolved.react) {
+        const reactRoute = resolved.reactRoutes.find(
+          (r) => r.route.kind === 'page' || r.route.kind === 'staticPage',
+        )?.route.path
+        if (rootSpan && reactRoute)
+          rootSpan.updateName(`${request.method} ${reactRoute}`)
 
-      const appsInScope = this.getAppsInScope(resolved.fallbackApp)
+        const appsInScope = this.getAppsInScope(resolved.fallbackApp)
+        onErrorHandlers = appsInScope.flatMap((x) => x.onErrorHandlers)
+
+        const shouldSsr = !!renderSsr && !isRscRequest(u)
+        let response = await this.runMiddlewareChain(
+          appsInScope.flatMap((x) => x.middlewares),
+          context,
+          onErrorHandlers,
+          async () => {
+            let res = await this.renderReact({
+              request,
+              context,
+              reactRoutes: resolved.reactRoutes,
+            })
+            if (
+              shouldSsr &&
+              renderSsr &&
+              res.headers.get('content-type')?.startsWith('text/x-component')
+            ) {
+              res = this.tracer
+                ? await withSpan(this.tracer, 'ssr.render', {}, () =>
+                    renderSsr!(res, request),
+                  )
+                : await renderSsr(res, request)
+            }
+            return res
+          },
+        )
+
+        const result = finalizeResponse(response, shouldStripHeadBody)
+        finalizeRequestSpan(rootSpan, result, reactRoute)
+        return result
+      }
+
+      const { route } = resolved
+      const isRealRoute = route?.route?.handler !== notFoundHandler
+      const routeTemplate = isRealRoute ? route?.route?.path : undefined
+      if (rootSpan && routeTemplate)
+        rootSpan.updateName(`${request.method} ${routeTemplate}`)
+
+      const appsInScope = this.getAppsInScope(route.app)
       onErrorHandlers = appsInScope.flatMap((x) => x.onErrorHandlers)
 
-      const shouldSsr = !!renderSsr && !isRscRequest(u)
+      if (route?.route?.validateBody && request instanceof SpiceflowRequest) {
+        request.validateBody = route?.route?.validateBody
+      }
+      context['params'] = route.params
+
+      const scopedMiddlewares = appsInScope.flatMap((x) => x.middlewares)
+      const middlewares = scopedMiddlewares.filter((x) => !isStaticMiddleware(x))
+      const staticMiddlewares = scopedMiddlewares.filter((x) =>
+        isStaticMiddleware(x),
+      )
+      const shouldTryStatic = routeShouldYieldToStatic(route.route)
+      const middlewareChain = shouldTryStatic
+        ? [...middlewares, ...staticMiddlewares]
+        : middlewares
+
       let response = await this.runMiddlewareChain(
-        appsInScope.flatMap((x) => x.middlewares),
+        middlewareChain,
         context,
         onErrorHandlers,
         async () => {
-          let res = await this.renderReact({
-            request,
-            context,
-            reactRoutes: resolved.reactRoutes,
-          })
-          if (
-            shouldSsr &&
-            renderSsr &&
-            res.headers.get('content-type')?.startsWith('text/x-component')
-          ) {
-            res = this.tracer
-              ? await withSpan(this.tracer, 'ssr.render', {}, () =>
-                  renderSsr!(res, request),
-                )
-              : await renderSsr(res, request)
+          context.query = await runValidation(
+            coerceQueryWithSchema(context.query, route?.route?.hooks?.query),
+            route?.route?.validateQuery,
+          )
+          context.params = await runValidation(
+            context.params,
+            route?.route?.validateParams,
+          )
+
+          if (!this.tracer) {
+            const res = await route?.route?.handler.call(this, context)
+            // Returning an Error from a handler is treated the same as throwing it:
+            // routes through errorToResponse → onError handlers → status extraction.
+            if (res instanceof Error) {
+              throw res
+            }
+            if (isAsyncIterable(res)) {
+              return this.handleStream({
+                generator: res,
+                request,
+                onErrorHandlers,
+                route: route?.route,
+                context,
+              })
+            }
+            return this.turnHandlerResultIntoResponse(res, route?.route, request)
           }
-          return res
+          return withSpan(
+            this.tracer,
+            `handler - ${route?.route?.path || path}`,
+            {},
+            async (handlerSpan) => {
+              const prevSpan = context.span
+              if (handlerSpan) context.span = handlerSpan
+              try {
+                const res = await route?.route?.handler.call(this, context)
+                // Returning an Error from a handler is treated the same as throwing it:
+                // routes through errorToResponse → onError handlers → status extraction.
+                if (res instanceof Error) {
+                  throw res
+                }
+                if (isAsyncIterable(res)) {
+                  return this.handleStream({
+                    generator: res,
+                    request,
+                    onErrorHandlers,
+                    route: route?.route,
+                    context,
+                  })
+                }
+                return this.turnHandlerResultIntoResponse(
+                  res,
+                  route?.route,
+                  request,
+                )
+              } finally {
+                context.span = prevSpan
+              }
+            },
+          )
         },
+        route?.route,
       )
 
-      const result = finalizeResponse(response, shouldStripHeadBody)
-      finalizeRequestSpan(rootSpan, result, reactRoute)
-      return result
-    }
-
-    const { route } = resolved
-    const isRealRoute = route?.route?.handler !== notFoundHandler
-    const routeTemplate = isRealRoute ? route?.route?.path : undefined
-    if (rootSpan && routeTemplate)
-      rootSpan.updateName(`${request.method} ${routeTemplate}`)
-
-    const appsInScope = this.getAppsInScope(route.app)
-    onErrorHandlers = appsInScope.flatMap((x) => x.onErrorHandlers)
-
-    if (route?.route?.validateBody && request instanceof SpiceflowRequest) {
-      request.validateBody = route?.route?.validateBody
-    }
-    context['params'] = route.params
-
-    const scopedMiddlewares = appsInScope.flatMap((x) => x.middlewares)
-    const middlewares = scopedMiddlewares.filter((x) => !isStaticMiddleware(x))
-    const staticMiddlewares = scopedMiddlewares.filter((x) =>
-      isStaticMiddleware(x),
-    )
-    const shouldTryStatic = routeShouldYieldToStatic(route.route)
-    const middlewareChain = shouldTryStatic
-      ? [...middlewares, ...staticMiddlewares]
-      : middlewares
-
-    let response = await this.runMiddlewareChain(
-      middlewareChain,
-      context,
-      onErrorHandlers,
-      async () => {
-        context.query = await runValidation(
-          coerceQueryWithSchema(context.query, route?.route?.hooks?.query),
-          route?.route?.validateQuery,
-        )
-        context.params = await runValidation(
-          context.params,
-          route?.route?.validateParams,
-        )
-
-        if (!this.tracer) {
-          const res = await route?.route?.handler.call(this, context)
-          // Returning an Error from a handler is treated the same as throwing it:
-          // routes through errorToResponse → onError handlers → status extraction.
-          if (res instanceof Error) {
-            throw res
-          }
-          if (isAsyncIterable(res)) {
-            return this.handleStream({
-              generator: res,
-              request,
-              onErrorHandlers,
-              route: route?.route,
-              context,
-            })
-          }
-          return this.turnHandlerResultIntoResponse(res, route?.route, request)
-        }
-        return withSpan(
-          this.tracer,
-          `handler - ${route?.route?.path || path}`,
-          {},
-          async (handlerSpan) => {
-            const prevSpan = context.span
-            if (handlerSpan) context.span = handlerSpan
-            try {
-              const res = await route?.route?.handler.call(this, context)
-              // Returning an Error from a handler is treated the same as throwing it:
-              // routes through errorToResponse → onError handlers → status extraction.
-              if (res instanceof Error) {
-                throw res
-              }
-              if (isAsyncIterable(res)) {
-                return this.handleStream({
-                  generator: res,
-                  request,
-                  onErrorHandlers,
-                  route: route?.route,
-                  context,
-                })
-              }
-              return this.turnHandlerResultIntoResponse(
-                res,
-                route?.route,
-                request,
-              )
-            } finally {
-              context.span = prevSpan
-            }
-          },
-        )
-      },
-      route?.route,
-    )
-
-    response = mergeHeadersIntoResponse({
-      response,
-      source: contextResponse?.headers,
-    })
-
-    // Respect context.response.status for plain-object/JSON handlers, but do
-    // not override explicit statuses from returned/thrown Response objects.
-    if (
-      contextResponse?.status &&
-      contextResponse.status !== 200 &&
-      response.status === 200
-    ) {
-      response = new Response(response.body, {
-        status: contextResponse.status,
-        statusText: response.statusText,
-        headers: response.headers,
+      response = mergeHeadersIntoResponse({
+        response,
+        source: contextResponse?.headers,
       })
-    }
 
-    const result = finalizeResponse(response, shouldStripHeadBody)
-    finalizeRequestSpan(rootSpan, result, routeTemplate)
-    return result
+      // Respect context.response.status for plain-object/JSON handlers, but do
+      // not override explicit statuses from returned/thrown Response objects.
+      if (
+        contextResponse?.status &&
+        contextResponse.status !== 200 &&
+        response.status === 200
+      ) {
+        response = new Response(response.body, {
+          status: contextResponse.status,
+          statusText: response.statusText,
+          headers: response.headers,
+        })
+      }
+
+      const result = finalizeResponse(response, shouldStripHeadBody)
+      finalizeRequestSpan(rootSpan, result, routeTemplate)
+      return result
+    })
   }
 
   private resolveRoutes(

@@ -1,15 +1,11 @@
-// Client component that tests getLoaderData (imperative, non-React access)
-// and router.subscribe for LOADER_DATA updates.
+// Client component that tests router.getLoaderData() outside React render.
 "use client";
 
 import { useState, useCallback } from "react";
-import { getLoaderData, router } from "spiceflow/react";
+import { getRouter } from "spiceflow/react";
 import { Link } from "spiceflow/react";
 
-// Expose for e2e testing via page.evaluate
-if (typeof window !== "undefined") {
-	(window as any).__test_getLoaderData = getLoaderData;
-}
+const router = getRouter();
 
 export function GlobalLoaderDisplay() {
 	return (
@@ -27,8 +23,13 @@ export function GlobalLoaderDisplay() {
 export function SubscribeDataReader() {
 	const [data, setData] = useState<string>("");
 	const refresh = useCallback(async () => {
-		const d = await getLoaderData();
-		setData(JSON.stringify(d));
+		setData("loading");
+		try {
+			const d = await router.getLoaderData();
+			setData(JSON.stringify(d));
+		} catch (error) {
+			setData(error instanceof Error ? error.message : String(error));
+		}
 	}, []);
 	return (
 		<div>

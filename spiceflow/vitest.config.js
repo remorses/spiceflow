@@ -10,7 +10,7 @@ export default defineConfig({
     jsx: 'transform',
   },
   resolve: {
-    conditions: ['react-server'],
+    conditions: ['react-server', 'ssr'],
   },
   test: {
     exclude: ['**/dist/**', '**/esm/**', '**/node_modules/**', '**/e2e/**'],

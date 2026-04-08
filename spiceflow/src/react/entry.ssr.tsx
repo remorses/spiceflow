@@ -20,6 +20,7 @@ import {
 import { formatServerError } from './format-server-error.js'
 import { sanitizeErrorMessage } from './sanitize-error.js'
 import { injectRSCPayload } from './transform.js'
+import { createRouterContextData, routerContextStorage } from '../router-context.js'
 
 const importMapJsonPromise: Promise<string> = import('virtual:spiceflow-import-map')
   .then((m) => m.default || '')
@@ -97,6 +98,10 @@ export async function renderHtml({
   function SsrRoot() {
     payloadPromise ??= createFromReadableStream<ServerPayload>(flightForSsr)
     const payload = React.use(payloadPromise!)
+    const routerContext = routerContextStorage.getStore()
+    if (routerContext) {
+      routerContext.loaderData = payload.root?.loaderData ?? {}
+    }
     return (
       <FlightDataContext.Provider value={payloadPromise!}>
         <LayoutContent />
@@ -163,14 +168,22 @@ export async function renderHtml({
     if (flightForFormState) {
       const formStatePayload =
         await createFromReadableStream<ServerPayload>(flightForFormState)
-      htmlStream = await ReactDOMServer.renderToReadableStream(<SsrRoot />, {
-        ...renderOptions,
-        formState: formStatePayload.formState,
-      })
+      htmlStream = await routerContextStorage.run(
+        createRouterContextData(request),
+        () =>
+          ReactDOMServer.renderToReadableStream(<SsrRoot />, {
+            ...renderOptions,
+            formState: formStatePayload.formState,
+          }),
+      )
     } else {
-      htmlStream = await ReactDOMServer.renderToReadableStream(
-        <SsrRoot />,
-        renderOptions,
+      htmlStream = await routerContextStorage.run(
+        createRouterContextData(request),
+        () =>
+          ReactDOMServer.renderToReadableStream(
+            <SsrRoot />,
+            renderOptions,
+          ),
       )
     }
     if (prerender || isbot(request.headers.get('user-agent') || '')) {

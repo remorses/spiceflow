@@ -27,6 +27,20 @@
       "react-server": "./dist/react/handle-ssr.rsc.js",
       "default": "./dist/react/handle-ssr.js"
     },
+    "#flight-data-context": {
+      "types": "./dist/react/flight-data-context.d.ts",
+      "react-server": "./dist/react/flight-data-context.rsc.js",
+      "default": "./dist/react/flight-data-context.js"
+    },
+    "#router-context": {
+      "types": "./dist/router-context.default.d.ts",
+      "browser": "./dist/router-context.default.js",
+      "bun": "./dist/router-context.js",
+      "node": "./dist/router-context.js",
+      "ssr": "./dist/router-context.js",
+      "react-server": "./dist/router-context.js",
+      "default": "./dist/router-context.default.js"
+    },
     "#node-server": {
       "types": "./dist/_node-server.d.ts",
       "bun": "./dist/_node-server.js",
@@ -56,6 +70,7 @@
     },
     "./react": {
       "types": "./dist/react/index.d.ts",
+      "react-server": "./dist/react/index.rsc.js",
       "default": "./dist/react/index.js"
     },
     "./mcp": {
@@ -91,8 +106,8 @@
     }
   },
   "scripts": {
-    "build": "echo '<!-- DO NOT EDIT: This file is auto-generated from root README.md -->' > ./README.md && echo '' >> ./README.md && cat ../README.md >> ./README.md && rimraf dist *.tsbuildinfo && pnpm tsc && pnpm check-entry",
-    "prepublishOnly": "pnpm build",
+    "build": "rimraf dist *.tsbuildinfo && echo '<!-- DO NOT EDIT: This file is auto-generated from root README.md -->' > ./README.md && echo '' >> ./README.md && cat ../README.md >> ./README.md && pnpm tsc && pnpm check-entry",
+    "prepublishOnly": "rimraf dist *.tsbuildinfo && pnpm build",
     "typecheck": "pnpm build",
     "gen-openapi": "pnpm tsx scripts/openapi-fern.ts",
     "docs:dev": "pnpm run gen-openapi && fern docs dev",
