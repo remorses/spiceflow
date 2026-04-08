@@ -1,8 +1,8 @@
 import { describe, expect, test } from 'vitest'
 import React from 'react'
 import ReactDOMServer from 'react-dom/server.edge'
+import { createRouterContextData, routerContextStorage } from '#router-context'
 import { Spiceflow } from '../spiceflow.js'
-import { createRouterContextData, routerContextStorage } from '../router-context.js'
 import {
   getRouter,
   router,

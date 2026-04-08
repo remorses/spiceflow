@@ -35,6 +35,8 @@
     "#router-context": {
       "types": "./dist/router-context.default.d.ts",
       "browser": "./dist/router-context.default.js",
+      "bun": "./dist/router-context.js",
+      "node": "./dist/router-context.js",
       "ssr": "./dist/router-context.js",
       "react-server": "./dist/router-context.js",
       "default": "./dist/router-context.default.js"

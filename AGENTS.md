@@ -275,6 +275,10 @@ Spiceflow runs code in three Vite environments with different resolution conditi
 
 When code needs different implementations per environment, prefer package.json `imports` entries over ad-hoc runtime branching when the dependency itself is environment-specific. Use `default` for the browser-safe fallback, `ssr` for plain server rendering helpers, and `react-server` for RSC-only implementations.
 
+ALS means `AsyncLocalStorage` from `node:async_hooks`. We use it to store request-scoped router state (`location`, `loaderData`) during SSR and RSC renders so `getRouter()`, `useRouterState()`, and `useLoaderData()` can read the current request without threading props through every layer. The browser never has ALS, so browser-safe fallbacks must resolve to modules that do not import `node:async_hooks` at all.
+
+Keep the conditional imports split by concern. `#router-context` exists to choose between the real ALS-backed request store on the server and a noop browser fallback. `#flight-data-context` exists separately to choose between a real React context in normal environments and a `null` export in `react-server`, where `React.createContext` is not available. Do not merge these two imports: they vary on different axes and collapsing them makes the env matrix harder to reason about.
+
 Current pattern:
 
 1. Create a default `.ts` file that is safe in the browser bundle
@@ -282,6 +286,13 @@ Current pattern:
 3. Create a server file for SSR-only logic when plain SSR needs the real implementation but the browser must not import it
 4. Add a package.json `imports` entry that maps `browser`/`default`, `ssr`, and `react-server` to the correct build outputs
 5. Make sure the spiceflow Vite plugin adds matching `resolve.conditions` for each environment so `client`, `ssr`, and `rsc` do not accidentally load the same file
+
+Current examples:
+
+- `#rsc-runtime`: real RSC runtime in `react-server`, safe fallback elsewhere
+- `#deployment-id`: Vite virtual module behind a `react-server` split
+- `#flight-data-context`: real `React.createContext` by default, `null` in `react-server`
+- `#router-context`: real ALS store for `ssr`/`react-server`/direct Node-Bun tests, noop fallback in browser/default
 
 Use this for internal helpers like request-scoped stores, runtime bridges, and environment-specific filesystem or Node APIs. If the browser bundle ever tries to import a Node-only module, the fix is usually to move that dependency behind an env-specific `#import` and wire the condition in Vite, not to add more runtime guards after the import.
 
