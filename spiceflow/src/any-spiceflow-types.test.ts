@@ -162,6 +162,9 @@ test('strict app router types stay narrow', () => {
     '/plain?mode=preview',
   )
 
+  // @ts-expect-error - wrong route param key must stay rejected
+  strictRouter.href('/users/:id', { slug: '1' })
+
   // @ts-expect-error - invalid query key must stay rejected for typed routes
   noLoaderRouter.href('/plain', { wrong: 'x' })
 
@@ -186,6 +189,8 @@ test('strict app router types stay narrow', () => {
   function StrictRouterStateComponent() {
     const state = useRouterState<typeof app>()
     state.searchParams.get('tab')
+    // @ts-expect-error - router state searchParams must stay readonly
+    state.searchParams.set('tab', 'profile')
     return null
   }
 
@@ -202,9 +207,16 @@ test('strict app router types stay narrow', () => {
     data.anything
   }
 
+  function assertUntypedRouterStillAllowsArbitraryPaths() {
+    const untypedRouter = getRouter()
+    untypedRouter.href('/anything-at-runtime', { whatever: true })
+    void untypedRouter.getLoaderData('/anything-at-runtime')
+  }
+
   StrictLoaderDataComponent
   NoLoaderDataComponent
   StrictRouterStateComponent
   assertStrictGetLoaderData
   assertNoLoaderGetLoaderData
+  assertUntypedRouterStillAllowsArbitraryPaths
 })
