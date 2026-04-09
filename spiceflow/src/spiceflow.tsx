@@ -70,6 +70,14 @@ import {
   readDeploymentCookie,
 } from './react/deployment.js'
 import { getDeploymentId } from '#deployment-id'
+import {
+  createTemporaryReferenceSet,
+  decodeAction,
+  decodeFormState,
+  decodeReply,
+  loadServerAction,
+  renderToReadableStream,
+} from '#rsc-runtime'
 import { TrieRouter } from './trie-router/router.js'
 import { decodeURIComponent_ } from './trie-router/url.js'
 import { Result } from './trie-router/utils.js'
@@ -1342,14 +1350,6 @@ export class Spiceflow<
       return emptyState
     }
 
-    const {
-      createTemporaryReferenceSet,
-      decodeReply,
-      decodeAction,
-      decodeFormState,
-      loadServerAction,
-    } = await import('#rsc-runtime')
-
     const origin = request.headers.get('Origin')
     if (origin) {
       const requestUrl = new URL(request.url)
@@ -1433,10 +1433,6 @@ export class Spiceflow<
     context: SpiceflowContext<any, any, any>
     reactRoutes: ReactMatchedRoute[]
   }) {
-    // Import RSC runtime early — outside Vite RSC builds this throws a clear error
-    // before we touch import.meta.viteRsc.loadCss (which would give a confusing error).
-    const { renderToReadableStream } = await import('#rsc-runtime')
-
     const [pageRoutes, nonPageRoutes] = partition(
       reactRoutes,
       (x) => x.route.kind === 'page' || x.route.kind === 'staticPage',

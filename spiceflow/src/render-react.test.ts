@@ -1,7 +1,6 @@
 // Tests for renderReact internals (headers, status, concurrency).
 // Isolated in its own file with a hoisted vi.mock for #rsc-runtime so
-// the mock is registered before any import — avoids flaky dynamic
-// import cache races that occurred when these lived in spiceflow.test.ts.
+// the runtime shim is mocked before Spiceflow imports it at module scope.
 import { test, expect, vi } from 'vitest'
 
 let lastPayload: any
