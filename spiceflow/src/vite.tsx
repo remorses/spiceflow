@@ -47,6 +47,71 @@ function extractBasePathname(base: string): string {
   return base === '/' ? '' : base.replace(/\/$/, '')
 }
 
+type BuildOutDirConfig = Pick<ResolvedConfig, 'root' | 'build'>
+
+function resolveBuildOutDir(config: BuildOutDirConfig) {
+  return path.isAbsolute(config.build.outDir)
+    ? config.build.outDir
+    : path.resolve(config.root, config.build.outDir)
+}
+
+function normalizeEnvironmentOutDirs(userConfig: UserConfig): UserConfig {
+  const isCloudflare = hasPluginNamed(userConfig.plugins, 'vite-plugin-cloudflare')
+  const rootOutDir = userConfig.build?.outDir ?? 'dist'
+  const clientOutDir = path.join(rootOutDir, 'client')
+  const rscOutDir = path.join(rootOutDir, 'rsc')
+  const ssrOutDir = isCloudflare
+    ? path.join(rootOutDir, 'rsc/ssr')
+    : path.join(rootOutDir, 'ssr')
+  const rscOutput = userConfig.environments?.rsc?.build?.rollupOptions?.output
+  const ssrOutput = userConfig.environments?.ssr?.build?.rollupOptions?.output
+
+  return {
+    build: {
+      outDir: rootOutDir,
+    },
+    environments: {
+      client: {
+        build: {
+          outDir: userConfig.environments?.client?.build?.outDir ?? clientOutDir,
+        },
+      },
+      rsc: {
+        build: {
+          outDir: userConfig.environments?.rsc?.build?.outDir ?? rscOutDir,
+          rollupOptions: {
+            output: Array.isArray(rscOutput)
+              ? rscOutput.map((output) => ({
+                  ...output,
+                  entryFileNames: output.entryFileNames ?? '[name].js',
+                }))
+              : {
+                  ...(rscOutput ?? {}),
+                  entryFileNames: rscOutput?.entryFileNames ?? '[name].js',
+                },
+          },
+        },
+      },
+      ssr: {
+        build: {
+          outDir: userConfig.environments?.ssr?.build?.outDir ?? ssrOutDir,
+          rollupOptions: {
+            output: Array.isArray(ssrOutput)
+              ? ssrOutput.map((output) => ({
+                  ...output,
+                  entryFileNames: output.entryFileNames ?? '[name].js',
+                }))
+              : {
+                  ...(ssrOutput ?? {}),
+                  entryFileNames: ssrOutput?.entryFileNames ?? '[name].js',
+                },
+          },
+        },
+      },
+    },
+  }
+}
+
 export function spiceflowPlugin({
   entry,
   federation,
@@ -63,6 +128,9 @@ export function spiceflowPlugin({
   const isRemote = federation === 'remote'
   let server: ViteDevServer
   let resolvedOutDir = 'dist'
+  let resolvedClientOutDir = path.join(resolvedOutDir, 'client')
+  let resolvedRscOutDir = path.join(resolvedOutDir, 'rsc')
+  let resolvedSsrOutDir = path.join(resolvedOutDir, 'ssr')
   let resolvedBase = ''
   let isCloudflareRuntime = false
   let importMapJson = ''
@@ -92,6 +160,12 @@ export function spiceflowPlugin({
   }
 
   return [
+    {
+      name: 'spiceflow:normalize-environment-outdirs',
+      config(userConfig) {
+        return normalizeEnvironmentOutDirs(userConfig)
+      },
+    },
     // Must run BEFORE rsc() — strips the base path from plugin-rsc's internal
     // RPC requests. plugin-rsc's loadModuleDevProxy builds endpoint URLs using
     // origin+base (from server.resolvedUrls) but its middleware matches only
@@ -161,6 +235,7 @@ export function spiceflowPlugin({
     },
     prerenderPlugin(),
     serverFileGuardPlugin(),
+    outputModulePackagePlugin(),
     // Automatically generate Vercel Build Output when VERCEL=1 is set
     ...(process.env.VERCEL === '1' ? [vercelPlugin()] : []),
     // Trace runtime dependencies into dist/node_modules/ so the build output
@@ -221,7 +296,6 @@ export function spiceflowPlugin({
           // `.runner.import(...)` on a non-runnable CloudflareDevEnvironment.
           rscOptions.loadModuleDevProxy = false
         }
-        const outDir = userConfig.build?.outDir ?? 'dist'
         return {
           // Enable app build mode so `vite build` builds all environments
           // (client + SSR + RSC) without requiring the --app CLI flag.
@@ -229,17 +303,6 @@ export function spiceflowPlugin({
           // Disable Vite's built-in SPA fallback middleware so it doesn't
           // intercept unmatched paths with a 200 before our middleware runs.
           appType: 'custom' as const,
-          // SSR must live inside outDir/rsc/ because workerd only bundles files within the
-          // Worker's directory. The RSC code loads SSR via import.meta.viteRsc.loadModule
-          // which resolves to a relative import "../ssr/index.js" — if SSR is at outDir/ssr/
-          // (sibling), the Worker can't reach it at runtime.
-          ...(isCloudflare
-            ? {
-                environments: {
-                  ssr: { build: { outDir: path.join(outDir, 'rsc/ssr') } },
-                },
-              }
-            : {}),
           // Replace process.env.NODE_ENV at build time so React uses its production
           // bundle. Without this, the built output contains runtime checks like
           // `"production" !== process.env.NODE_ENV` that always evaluate to the dev
@@ -277,6 +340,9 @@ export function spiceflowPlugin({
       },
       configResolved(config) {
         resolvedOutDir = config.build.outDir
+        resolvedClientOutDir = config.environments.client.build.outDir
+        resolvedRscOutDir = config.environments.rsc.build.outDir
+        resolvedSsrOutDir = config.environments.ssr.build.outDir
         resolvedBase = extractBasePathname(config.base || '/')
         isCloudflareRuntime = config.plugins.some((plugin) =>
           plugin.name.startsWith('vite-plugin-cloudflare:'),
@@ -455,7 +521,7 @@ export function spiceflowPlugin({
       async configurePreviewServer(previewServer) {
         // Preview should also go through the built worker entry when Cloudflare owns the runtime.
         if (isCloudflareRuntime) return
-        const mod = await import(path.resolve(resolvedOutDir, 'ssr/index.js'))
+        const mod = await import(path.resolve(resolvedSsrOutDir, 'index.js'))
         const { createRequest, sendResponse } = await import('./react/fetch.js')
         return () => {
           previewServer.middlewares.use(async (req, res, next) => {
@@ -488,6 +554,8 @@ export function spiceflowPlugin({
     // On Cloudflare Workers, import.meta.filename is undefined (no filesystem),
     // so both exports fall back to empty strings.
     createVirtualPlugin('virtual:spiceflow-dirs', () => {
+      const clientRelativeFromRsc = path.relative(resolvedRscOutDir, resolvedClientOutDir)
+      const distRelativeFromRsc = path.relative(resolvedRscOutDir, resolvedOutDir)
       return [
         `import { resolve, dirname, basename } from 'node:path'`,
         `let publicDir = ''`,
@@ -498,8 +566,8 @@ export function spiceflowPlugin({
         `} else if (typeof import.meta.filename === 'string') {`,
         `  const thisDir = dirname(import.meta.filename)`,
         `  const rscDir = basename(thisDir) === 'assets' ? dirname(thisDir) : thisDir`,
-        `  publicDir = resolve(rscDir, '../client')`,
-        `  distDir = dirname(rscDir)`,
+        `  publicDir = resolve(rscDir, ${JSON.stringify(clientRelativeFromRsc)})`,
+        `  distDir = resolve(rscDir, ${JSON.stringify(distRelativeFromRsc)})`,
         `}`,
         `export { publicDir, distDir }`,
       ].join('\n')
@@ -523,10 +591,7 @@ export function spiceflowPlugin({
       const resolvedEntry = resolved.id.startsWith('\0')
         ? resolved.id.slice(1)
         : resolved.id
-      const clientRelative = path.relative(
-        path.join(resolvedOutDir, 'rsc'),
-        path.join(resolvedOutDir, 'client'),
-      )
+      const clientRelative = path.relative(resolvedRscOutDir, resolvedClientOutDir)
 
       const escapedBase = resolvedBase.replace(/'/g, "\\'")
       const lines = [
@@ -810,17 +875,10 @@ function addNoExternal(
 }
 
 function standaloneTracePlugin(): Plugin {
-  type BuildOutDirConfig = Pick<ResolvedConfig, 'root' | 'build'>
   type BuildAppContext = MinimalPluginContextWithoutEnvironment & {
     environment?: {
       config: BuildOutDirConfig
     }
-  }
-
-  function resolveBuildOutDir(config: BuildOutDirConfig) {
-    return path.isAbsolute(config.build.outDir)
-      ? config.build.outDir
-      : path.resolve(config.root, config.build.outDir)
   }
 
   let outDir = 'dist'
@@ -857,11 +915,27 @@ function standaloneTracePlugin(): Plugin {
           rootDir: this.environment?.config?.root ?? rootDir,
           targetDir: resolvedOutDir,
         })
+      },
+    },
+  }
+}
 
-        // Write package.json so Node.js treats .js files as ESM
-        const { writeFile } = await import('node:fs/promises')
+function outputModulePackagePlugin(): Plugin {
+  let outDir = 'dist'
+
+  return {
+    name: 'spiceflow:output-module-package',
+    apply: 'build',
+    configResolved(config) {
+      outDir = resolveBuildOutDir(config)
+    },
+    buildApp: {
+      order: 'post' as const,
+      async handler() {
+        const { mkdir, writeFile } = await import('node:fs/promises')
+        await mkdir(outDir, { recursive: true })
         await writeFile(
-          path.join(resolvedOutDir, 'package.json'),
+          path.join(outDir, 'package.json'),
           JSON.stringify({ type: 'module' }),
         )
       },

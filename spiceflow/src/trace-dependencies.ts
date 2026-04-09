@@ -13,10 +13,10 @@ export async function traceAndCopyDependencies({
   rootDir: string
   targetDir: string
 }) {
-  const rscEntry = path.resolve(outDir, 'rsc/index.js')
-  const ssrEntry = path.resolve(outDir, 'ssr/index.js')
+  const rscEntry = await resolveBuiltEntry(path.resolve(outDir, 'rsc'))
+  const ssrEntry = await resolveBuiltEntry(path.resolve(outDir, 'ssr'), true)
   const entries = [rscEntry]
-  if (await exists(ssrEntry)) entries.push(ssrEntry)
+  if (ssrEntry) entries.push(ssrEntry)
 
   await traceNodeModules(entries, {
     outDir: targetDir,
@@ -36,4 +36,22 @@ export async function exists(p: string): Promise<boolean> {
   } catch {
     return false
   }
+}
+
+export async function resolveBuiltEntry(dir: string): Promise<string>
+export async function resolveBuiltEntry(dir: string, optional: true): Promise<string | undefined>
+export async function resolveBuiltEntry(
+  dir: string,
+  optional = false,
+): Promise<string | undefined> {
+  for (const ext of ['js', 'mjs']) {
+    const entry = path.resolve(dir, `index.${ext}`)
+    if (await exists(entry)) return entry
+  }
+
+  if (optional) return undefined
+
+  throw new Error(
+    `[spiceflow] Expected a built server entry at ${path.join(dir, 'index.{js,mjs}')}`,
+  )
 }
