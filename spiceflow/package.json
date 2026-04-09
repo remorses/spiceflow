@@ -98,6 +98,11 @@
       "default": "./src/*.ts"
     },
     "./cloudflare-entrypoint": {
+      "types": "./dist/react/entry.rsc.d.ts",
+      "react-server": "./dist/react/entry.rsc.js",
+      "workerd": "./dist/react/entry.rsc.js",
+      "worker": "./dist/react/entry.rsc.js",
+      "import": "./dist/react/entry.rsc.js",
       "default": "./dist/react/entry.rsc.js"
     },
     "./dist/*": {

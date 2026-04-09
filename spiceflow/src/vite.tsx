@@ -448,6 +448,20 @@ export function spiceflowPlugin({
             'react/jsx-runtime',
             'react/jsx-dev-runtime',
           ])
+
+          // Keep React runtime packages inside the built server module graph.
+          // This avoids worker/attached-module runtime failures from bare
+          // specifiers and also keeps the server environments self-contained.
+          for (const pkg of [
+            'react',
+            'react-dom',
+            'react-dom/server',
+            'react-dom/server.edge',
+            'react/jsx-runtime',
+            'react/jsx-dev-runtime',
+          ]) {
+            addNoExternal(config, pkg)
+          }
         }
 
         if (name === 'rsc') {
@@ -841,7 +855,7 @@ function hasPluginNamed(
       if (hasPluginNamed(plugin, pluginName)) return true
       continue
     }
-    if ('name' in plugin && plugin.name === pluginName) {
+    if (Reflect.get(plugin, 'name') === pluginName) {
       return true
     }
   }
