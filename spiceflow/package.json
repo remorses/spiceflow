@@ -111,8 +111,8 @@
     }
   },
   "scripts": {
-    "build": "rimraf dist *.tsbuildinfo && echo '<!-- DO NOT EDIT: This file is auto-generated from root README.md -->' > ./README.md && echo '' >> ./README.md && cat ../README.md >> ./README.md && pnpm tsc && pnpm check-entry",
-    "prepublishOnly": "rimraf dist *.tsbuildinfo && pnpm build",
+    "build": "echo '<!-- DO NOT EDIT: This file is auto-generated from root README.md -->' > ./README.md && echo '' >> ./README.md && cat ../README.md >> ./README.md && pnpm tsc && pnpm check-entry",
+    "prepublishOnly": "rimraf dist \"*.tsbuildinfo\" && pnpm build",
     "typecheck": "pnpm build",
     "gen-openapi": "pnpm tsx scripts/openapi-fern.ts",
     "docs:dev": "pnpm run gen-openapi && fern docs dev",

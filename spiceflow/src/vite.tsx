@@ -132,6 +132,7 @@ export function spiceflowPlugin({
   let resolvedRscOutDir = path.join(resolvedOutDir, 'rsc')
   let resolvedSsrOutDir = path.join(resolvedOutDir, 'ssr')
   let resolvedBase = ''
+  let isCloudflareProject = false
   let isCloudflareRuntime = false
   let importMapJson = ''
   const rscOptions: RscPluginOptions = {
@@ -290,6 +291,7 @@ export function spiceflowPlugin({
           userConfig.plugins,
           'vite-plugin-cloudflare',
         )
+        isCloudflareProject = isCloudflare
         if (isCloudflare) {
           // Cloudflare child environments already expose worker-side module imports.
           // Using plugin-rsc's Node dev proxy here makes child `ssr` call
@@ -449,18 +451,8 @@ export function spiceflowPlugin({
             'react/jsx-dev-runtime',
           ])
 
-          // Keep React runtime packages inside the built server module graph.
-          // This avoids worker/attached-module runtime failures from bare
-          // specifiers and also keeps the server environments self-contained.
-          for (const pkg of [
-            'react',
-            'react-dom',
-            'react-dom/server',
-            'react-dom/server.edge',
-            'react/jsx-runtime',
-            'react/jsx-dev-runtime',
-          ]) {
-            addNoExternal(config, pkg)
+          if (isCloudflareProject) {
+            config.resolve.noExternal = true
           }
         }
 
