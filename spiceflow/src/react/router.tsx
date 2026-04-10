@@ -301,6 +301,18 @@ export function getLastNavigationEvent(): NavigationEvent | null {
   return getLastCommittedNavigationEvent(navigationEvents)
 }
 
+export function isHashOnlyLocationChange(args: {
+  previousLocation: Location
+  location: Location
+}): boolean {
+  const { previousLocation, location } = args
+  return (
+    previousLocation.pathname === location.pathname &&
+    previousLocation.search === location.search &&
+    previousLocation.hash !== location.hash
+  )
+}
+
 if (isBrowser) {
   history.listen(({ action, location }) => {
     const pendingRequest =

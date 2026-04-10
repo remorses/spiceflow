@@ -10,7 +10,7 @@ import {
   setServerCallback,
 } from '@vitejs/plugin-rsc/browser'
 import { FiberProvider } from 'its-fine'
-import { router } from './router.js'
+import { isHashOnlyLocationChange, router } from './router.js'
 import {
   DefaultGlobalErrorPage,
   DefaultNotFoundPage,
@@ -262,6 +262,14 @@ async function main() {
       let navigationAbort = new AbortController()
       return router.subscribe(async function onNavigation(event) {
         if (event.action === 'LOADER_DATA') return
+        if (
+          isHashOnlyLocationChange({
+            previousLocation: event.previousLocation,
+            location: event.location,
+          })
+        ) {
+          return
+        }
         navigationAbort.abort()
         navigationAbort = new AbortController()
         const url = new URL(window.location.href)

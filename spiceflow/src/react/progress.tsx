@@ -18,6 +18,10 @@ export interface ProgressBarProps {
   duration?: number
 }
 
+function getProgressShadow(color: string) {
+  return `0 4px 6px -1px color-mix(in srgb, ${color} 20%, transparent)`
+}
+
 export function ProgressBar({
   color = '#0ea5e9',
   duration = 300,
@@ -44,13 +48,13 @@ export function ProgressBar({
     <div
       style={{
         position: 'fixed',
-        zIndex: 50,
+        zIndex: 200,
         top: 0,
         left: 0,
         right: 0,
         height: '4px',
         backgroundColor: color,
-        boxShadow: `0 4px 6px -1px ${color}33`,
+        boxShadow: getProgressShadow(color),
         transition: progress.state === 'initial' ? '' : `all ${duration}ms`,
         width: `${progress.width}%`,
         opacity: isExiting ? 0 : 1,
