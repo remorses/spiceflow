@@ -1075,6 +1075,8 @@ export function Counter() {
 
 Loaders run on the server before page and layout handlers. They solve a common problem: when you need the same data in both server components and client components, or in both a layout and a page, without prop drilling or React context.
 
+Loaders only run for requests that also match a `.page()` or `.layout()`. They are not standalone endpoints. If you want to serve content without rendering a page or layout, use `.get()`, `.route()`, or another API handler instead.
+
 ```tsx
 export const app = new Spiceflow()
   // Auth loader for all routes — wildcard pattern matches everything

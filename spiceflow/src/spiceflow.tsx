@@ -1442,6 +1442,12 @@ export class Spiceflow<
       (x) => x.route.kind === 'loader',
     )
     const pageRoute = pickBestRoute(pageRoutes)
+    const hasLayoutRoute = layoutRoutes.some((x) => x.route.kind === 'layout')
+    const hasRenderableRoute = !!pageRoute || hasLayoutRoute
+
+    if (reactRoutes.length > 0 && !hasRenderableRoute) {
+      return new Response('Not Found', { status: 404 })
+    }
 
     // Only render the React 404 page for browser navigation requests (GET/HEAD
     // with sec-fetch-dest:document or Accept:text/html). API clients, curl, and
@@ -2185,13 +2191,12 @@ export class Spiceflow<
     const hasPageMatch = typedReactRoutes.some(
       (x) => x.route.kind === 'page' || x.route.kind === 'staticPage',
     )
+    const hasLayoutMatch = typedReactRoutes.some((x) => x.route.kind === 'layout')
     const hasRealApiRoute = nonReactRoutes.some(
       (x) => x.route.handler !== notFoundHandler,
     )
     const shouldEnterReact = !!(
-      hasPageMatch ||
-      (typedReactRoutes.length > 0 && !hasRealApiRoute) ||
-      shouldRenderReact404
+      hasPageMatch || (hasLayoutMatch && !hasRealApiRoute) || shouldRenderReact404
     )
 
     if (shouldEnterReact) {
@@ -2201,6 +2206,18 @@ export class Spiceflow<
         fallbackApp: reactRoutes[0]?.app || nonReactRoutes[0]?.app || this,
       }
     }
+
+    if (nonReactRoutes.length === 0) {
+      return {
+        react: false,
+        route: createNotFoundMatchedRoute({
+          app: reactRoutes[0]?.app || this,
+          method: request.method,
+          path: new URL(request.url).pathname,
+        }),
+      }
+    }
+
     return { react: false, route: pickBestRoute(nonReactRoutes) }
   }
 
@@ -2841,6 +2858,33 @@ const METHODS = [
 
 /** HTTP method string */
 export type Method = (typeof METHODS)[number]
+
+function isMethod(value: string): value is Method {
+  return METHODS.some((method) => method === value)
+}
+
+function createNotFoundMatchedRoute({
+  app,
+  method,
+  path,
+}: {
+  app: AnySpiceflow
+  method: string
+  path: string
+}): MatchedRoute {
+  return {
+    app,
+    route: {
+      id: `__not_found__:${method}:${path}`,
+      type: '',
+      method: isMethod(method) ? method : 'GET',
+      path,
+      handler: notFoundHandler,
+      hooks: {},
+    },
+    params: {},
+  }
+}
 
 function bfsFind<T>(
   tree: AnySpiceflow,

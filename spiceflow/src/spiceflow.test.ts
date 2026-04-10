@@ -3714,6 +3714,31 @@ describe('.use() with page and layout routes', () => {
     expect(text).toContain('RSC runtime is only available')
   })
 
+  test('loader without matching page or layout stays a 404 route', async () => {
+    let ranLoader = false
+
+    const subApp = new Spiceflow({ basePath: '/admin' }).loader(
+      '/reports/*',
+      async () => {
+        ranLoader = true
+        return { reports: [] }
+      },
+    )
+
+    const app = new Spiceflow().use(subApp)
+
+    const res = await app.handle(
+      new Request('http://localhost/admin/reports/monthly', {
+        method: 'GET',
+        headers: { accept: 'text/html' },
+      }),
+    )
+
+    expect(res.status).toBe(404)
+    expect(await res.text()).toBe('Not Found')
+    expect(ranLoader).toBe(false)
+  })
+
   test('multiple sub-apps with pages at different basePaths', async () => {
     const adminApp = new Spiceflow({ basePath: '/admin' }).page(
       '/dashboard',

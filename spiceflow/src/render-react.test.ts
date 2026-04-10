@@ -386,3 +386,34 @@ test('renderReact page response.status takes precedence over loader response.sta
   })
   expect(response.status).toBe(202)
 })
+
+test('renderReact does not execute loader-only route sets', async () => {
+  const app = new Spiceflow()
+  let ranLoader = false
+
+  const response = await (app as any).renderReact({
+    request: new Request('http://localhost/loader-only', {
+      method: 'GET',
+      headers: { accept: 'text/html' },
+    }),
+    context: makeContext(),
+    reactRoutes: [
+      {
+        app,
+        params: {},
+        route: {
+          id: 'loader',
+          kind: 'loader',
+          handler: () => {
+            ranLoader = true
+            return { ok: true }
+          },
+        },
+      },
+    ],
+  })
+
+  expect(response.status).toBe(404)
+  expect(await response.text()).toBe('Not Found')
+  expect(ranLoader).toBe(false)
+})
