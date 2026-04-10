@@ -1,5 +1,51 @@
 # spiceflow
 
+## 1.18.0-rsc.25
+
+1. **`fetch` prop on `RemoteComponent` for local federation** — pass `app.handle` to call a same-process endpoint directly without a network round-trip. `src` can be a relative path when `fetch` is provided:
+
+   ```tsx
+   <RemoteComponent
+     src="/api/local-widget"
+     fetch={app.handle}
+     props={{ label: 'Self-hosted' }}
+   />
+   ```
+
+2. **`document.title` updates on client-side navigation** — `<Head.Title>` changes now update the browser tab title after each RSC navigation. Previously the title only took effect in the initial SSR HTML and stayed stale after route transitions.
+
+3. **Layout-based 404 handling** — all matched layout handlers now receive `children` as `null` when no page route matches. Any layout can detect the not-found state and render a custom 404 UI with `{children ?? <NotFound />}`:
+
+   ```tsx
+   export default function Layout({ children }) {
+     return <main>{children ?? <NotFound />}</main>
+   }
+   ```
+
+4. **Loader response status and headers propagated** — `response.status` and `response.headers` set inside a loader are now forwarded to the flight and HTML responses. Previously status codes like 404 were silently discarded and responses always returned 200.
+
+5. **Loader route isolation** — loaders now only run when the request also matches a React page or layout. Previously a standalone `fetch("/loader-path")` could trigger loader logic unintentionally.
+
+6. **Generic federated Flight payload APIs** — added `encodeFederationPayload(...)`, `RenderFederatedPayload`, and `decodeFederationPayload(response)` so routes can return plain objects, JSX, or objects containing JSX (including async iterables inside fields) over the federation wire format.
+
+7. **`getRouter()` / `useLoaderData()` / `useRouterState()`** — redesigned router API with `getRouter()` as the main entry point. `href()` and `getLoaderData()` live on the returned router object. `useLoaderData()` and `useRouterState()` are now exported directly from `spiceflow/react` and work during SSR through request-scoped context.
+
+8. **Fixed `React.cache()` deduplication in server components** — adding `resolve.dedupe` for React packages ensures a single shared React instance across RSC and SSR environments under pnpm's strict module isolation. This fixes `Head.Title`, `Head.Meta`, and other tag collection that relies on `React.cache()`.
+
+9. **Fixed `<Head.Title>` layout override bug** — a page's `<Head.Title>` was being replaced by the layout's title immediately after hydration. `CollectedHead` now derives the title from the deduplicated tag map, so `document.title` matches the server-rendered `<title>` element.
+
+10. **Fixed `<Head.Link>` deduplication with `media` attribute** — `rel="icon"` tags with different `media` attributes (e.g. `media="(prefers-color-scheme: light)"` vs `dark`) are no longer collapsed into a single tag. Color-scheme-aware favicons and media-scoped alternates are preserved.
+
+11. **Fixed Vite 8 dev-server crash under pnpm scoped packages** — reverted `optimizeDeps.include` entries to the `'spiceflow > dep'` nested-id syntax, avoiding the `+` character that pnpm injects into paths and that triggers a key mismatch in Vite's optimizer. Wrapper plugins that nest spiceflow should prefix entries as `'@yourpkg/vite > spiceflow > ...'`.
+
+12. **Fixed federation stream cancellation** — canceled or failed federated RSC decodes now stop reading the underlying SSE and Flight streams promptly, preventing stalled readers from hanging after browser-side failures.
+
+13. **`AnySpiceflow` type fallbacks** — `createSpiceflowFetch`, `createSpiceflowClient`, `createRouter`, and `createHref` now degrade to ergonomic `any` types instead of leaking `unknown` or `never` when used with runtime-defined apps.
+
+14. **Standalone build improvements** — switched standalone dependency tracing to `nf3` so native runtime packages (including platform-specific optional deps) resolve from the built output without relying on pnpm-specific layout details. Fixed output directory resolution for prerender and Vercel builds.
+
+15. **Cloudflare Workers build support** — Cloudflare server environments are now bundled correctly, and local builds stay incremental.
+
 ## 1.18.0-rsc.24
 
 1. **Import map in dev mode** — `virtual:spiceflow-import-map` now generates a real import map during Vite dev using `?url` imports. Previously it returned an empty string in dev, which meant ESM components from external URLs (like Framer) couldn't resolve bare specifiers like `react` or `react/jsx-runtime`. Shared federation entries (`react`, `react-dom`, `react/jsx-runtime`, `spiceflow/react`) are now included with their dev-server URLs. User `importMap` entries are also included — external URLs pass through as-is, local files use `?url`.
