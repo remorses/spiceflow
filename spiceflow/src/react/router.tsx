@@ -38,19 +38,27 @@ const DEFAULT_MAX_SCROLL_ENTRIES = 200
 type LoaderDataState = {
   data: Record<string, unknown>
   initialized: boolean
+  locationSignature: string | null
   resolve: ((data: Record<string, unknown>) => void) | null
   ready: Promise<Record<string, unknown>>
 }
 
-function createLoaderDataState(): LoaderDataState {
+function createLoaderDataReady() {
   let resolve: ((data: Record<string, unknown>) => void) | null = null
+  const ready = new Promise<Record<string, unknown>>((nextResolve) => {
+    resolve = nextResolve
+  })
+  return { ready, resolve }
+}
+
+function createLoaderDataState(): LoaderDataState {
+  const { ready, resolve } = createLoaderDataReady()
   return {
     data: {},
     initialized: false,
+    locationSignature: null,
     resolve,
-    ready: new Promise<Record<string, unknown>>((nextResolve) => {
-      resolve = nextResolve
-    }),
+    ready,
   }
 }
 
@@ -182,6 +190,10 @@ function cloneLocation(location: Location): Location {
     state: location.state,
     key: location.key,
   }
+}
+
+function getLoaderDataLocationSignature(location: Pick<Location, 'pathname' | 'search'>) {
+  return `${location.pathname}${location.search}`
 }
 
 function appendNavigationEvent<TEvent extends RouterEvent>(
@@ -448,17 +460,27 @@ export const router: RouterInternal = {
       const serverContext = getRouterContext()
       return Promise.resolve(serverContext?.loaderData ?? loaderDataState.data)
     }
-    if (loaderDataState.initialized) return Promise.resolve(loaderDataState.data)
+    const locationSignature = getLoaderDataLocationSignature(history.location)
+    if (
+      loaderDataState.initialized &&
+      loaderDataState.locationSignature === locationSignature
+    ) {
+      return Promise.resolve(loaderDataState.data)
+    }
     return loaderDataState.ready
   },
   /** @internal */
   __setLoaderData(data: Record<string, unknown> | undefined) {
     loaderDataState.data = data ?? {}
-    if (!loaderDataState.initialized) {
-      loaderDataState.initialized = true
-      loaderDataState.resolve?.(loaderDataState.data)
-      loaderDataState.resolve = null
-    }
+    loaderDataState.initialized = true
+    loaderDataState.locationSignature = getLoaderDataLocationSignature(
+      history.location,
+    )
+    const resolve = loaderDataState.resolve
+    const nextReady = createLoaderDataReady()
+    loaderDataState.resolve = nextReady.resolve
+    loaderDataState.ready = nextReady.ready
+    resolve?.(loaderDataState.data)
     const location = history.location
     const event: NavigationEvent = {
       id: ++nextEventId,
