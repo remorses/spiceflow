@@ -181,8 +181,7 @@ function wrapReturnValueErrors(value: unknown): unknown {
 async function main() {
   let pendingPayload: Promise<ServerPayload> | undefined
   let setPayload: (v: Promise<ServerPayload>) => void = () => undefined
-  let navigationAbort = new AbortController()
-  let navVersion = 0
+  let currentNavigationAbort = new AbortController()
 
   const applyPayload = (payload: Promise<ServerPayload>) => {
     pendingPayload = payload
@@ -199,8 +198,9 @@ async function main() {
     ) {
       return
     }
-    navigationAbort.abort()
-    navigationAbort = new AbortController()
+    currentNavigationAbort.abort()
+    const navigationAbort = new AbortController()
+    currentNavigationAbort = navigationAbort
     const url = new URL(window.location.href)
     url.pathname = url.pathname === '/' ? '/index.rsc' : url.pathname + '.rsc'
     url.searchParams.set('__rsc', '')
@@ -213,10 +213,9 @@ async function main() {
     )
     if (navigationAbort.signal.aborted) return
     applyPayload(payload)
-    const version = ++navVersion
     Promise.resolve(payload)
       .then((resolved) => {
-        if (version !== navVersion) return
+        if (currentNavigationAbort !== navigationAbort) return
         router.__setLoaderData(resolved.root?.loaderData)
       })
       .catch(() => {})
