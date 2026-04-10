@@ -2,7 +2,7 @@
 import { useContext, useEffect, useRef, useState } from 'react'
 
 import { ReactNode } from 'react'
-import { router } from './router.js'
+import { isHashOnlyLocationChange, router } from './router.js'
 import { FlightDataContext } from './context.js'
 
 export interface ProgressBarProps {
@@ -100,6 +100,14 @@ function useProgress() {
   useEffect(() => {
     return router.subscribe((event) => {
       if (event.action === 'LOADER_DATA') return
+      if (
+        isHashOnlyLocationChange({
+          previousLocation: event.previousLocation,
+          location: event.location,
+        })
+      ) {
+        return
+      }
       start()
     })
   }, [])
