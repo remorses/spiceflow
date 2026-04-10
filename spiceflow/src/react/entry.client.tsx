@@ -10,6 +10,7 @@ import {
   setServerCallback,
 } from '@vitejs/plugin-rsc/browser'
 import { FiberProvider } from 'its-fine'
+import type { NavigationEvent } from './router.js'
 import { isHashOnlyLocationChange, router } from './router.js'
 import {
   DefaultGlobalErrorPage,
@@ -178,7 +179,52 @@ function wrapReturnValueErrors(value: unknown): unknown {
 }
 
 async function main() {
+  let pendingPayload: Promise<ServerPayload> | undefined
   let setPayload: (v: Promise<ServerPayload>) => void = () => undefined
+  let navigationAbort = new AbortController()
+  let navVersion = 0
+
+  const applyPayload = (payload: Promise<ServerPayload>) => {
+    pendingPayload = payload
+    setPayload(payload)
+  }
+
+  const handleNavigation = async (event: NavigationEvent) => {
+    if (event.action === 'LOADER_DATA') return
+    if (
+      isHashOnlyLocationChange({
+        previousLocation: event.previousLocation,
+        location: event.location,
+      })
+    ) {
+      return
+    }
+    navigationAbort.abort()
+    navigationAbort = new AbortController()
+    const url = new URL(window.location.href)
+    url.pathname = url.pathname === '/' ? '/index.rsc' : url.pathname + '.rsc'
+    url.searchParams.set('__rsc', '')
+    const payload = createFromFetch<ServerPayload>(
+      fetchFlightResponse({
+        url,
+        kind: 'navigation',
+        init: { signal: navigationAbort.signal },
+      }),
+    )
+    if (navigationAbort.signal.aborted) return
+    applyPayload(payload)
+    const version = ++navVersion
+    Promise.resolve(payload)
+      .then((resolved) => {
+        if (version !== navVersion) return
+        router.__setLoaderData(resolved.root?.loaderData)
+      })
+      .catch(() => {})
+  }
+
+  // Install the navigation subscription before hydration so an early Link click
+  // cannot update the URL without also fetching the next flight payload.
+  router.subscribe(handleNavigation)
 
   const callServer = async (id: string, args: unknown[]) => {
     // Temporary references track non-serializable values (DOM nodes, React elements) passed
@@ -248,52 +294,17 @@ async function main() {
     })
     .catch(() => {})
 
-  let navVersion = 0
-
   function BrowserRoot() {
     const [payload, setPayload_] = React.useState(initialPayload)
     const [_isPending, startTransition] = React.useTransition()
 
     React.useEffect(() => {
       setPayload = (v) => startTransition(() => setPayload_(v))
+      if (!pendingPayload) return
+      const nextPayload = pendingPayload
+      pendingPayload = undefined
+      setPayload(nextPayload)
     }, [startTransition, setPayload_])
-
-    React.useEffect(() => {
-      let navigationAbort = new AbortController()
-      return router.subscribe(async function onNavigation(event) {
-        if (event.action === 'LOADER_DATA') return
-        if (
-          isHashOnlyLocationChange({
-            previousLocation: event.previousLocation,
-            location: event.location,
-          })
-        ) {
-          return
-        }
-        navigationAbort.abort()
-        navigationAbort = new AbortController()
-        const url = new URL(window.location.href)
-        url.pathname =
-          url.pathname === '/' ? '/index.rsc' : url.pathname + '.rsc'
-        url.searchParams.set('__rsc', '')
-        const payload = createFromFetch<ServerPayload>(
-          fetchFlightResponse({
-            url,
-            kind: 'navigation',
-            init: { signal: navigationAbort.signal },
-          }),
-        )
-        if (navigationAbort.signal.aborted) return
-        setPayload(payload)
-        const version = ++navVersion
-        Promise.resolve(payload)
-          .then((resolved) => {
-            if (version !== navVersion) return
-            router.__setLoaderData(resolved.root?.loaderData)
-          })
-          .catch(() => {})
-      })
-    }, [])
 
     return (
       <FiberProvider>
