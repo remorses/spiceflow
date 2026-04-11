@@ -40,7 +40,7 @@ cli
     '-t, --template [template]',
     'Template to use: node, cloudflare, or bun',
   )
-  .action(async (dir: string | undefined, options: { template?: string }) => {
+  .action(async (dir: string | undefined, options: { template?: string | boolean }) => {
     intro('create-spiceflow')
 
     const projectDir = dir || (await askDir())
@@ -48,9 +48,10 @@ cli
     function isTemplate(v: string | undefined): v is Template {
       return v != null && validTemplates.has(v)
     }
-    const template = isTemplate(options.template)
-      ? options.template
-      : await askTemplate()
+    // Optional-value flag ([template]) can be boolean true when bare; coerce to string | undefined
+    const templateOpt =
+      typeof options.template === 'string' ? options.template : undefined
+    const template = isTemplate(templateOpt) ? templateOpt : await askTemplate()
 
     const resolved = path.resolve(projectDir)
     if (fs.existsSync(resolved) && fs.readdirSync(resolved).length > 0) {
