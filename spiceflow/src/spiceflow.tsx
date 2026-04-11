@@ -78,6 +78,8 @@ import {
   loadServerAction,
   renderToReadableStream,
 } from '#rsc-runtime'
+
+const verboseLogs = process.env.SPICEFLOW_VERBOSE === '1'
 import { TrieRouter } from './trie-router/router.js'
 import { decodeURIComponent_ } from './trie-router/url.js'
 import { Result } from './trie-router/utils.js'
@@ -1336,8 +1338,12 @@ export class Spiceflow<
 
   private async resolveReactActionState({
     request,
+    context,
+    onErrorHandlers,
   }: {
     request: Request
+    context: Partial<MiddlewareContext>
+    onErrorHandlers: OnError[]
   }): Promise<ReactActionState | Response> {
     const emptyState: ReactActionState = {
       actionError: undefined,
@@ -1410,10 +1416,20 @@ export class Spiceflow<
       if (error instanceof Response) {
         return error
       }
-      console.log('action error', error)
 
       const actionError =
         error instanceof Error ? error : new Error(String(error))
+
+      const handlerResponse = await this.runErrorHandlers({
+        context,
+        onErrorHandlers,
+        error: actionError,
+        request,
+      })
+      if (handlerResponse) {
+        return handlerResponse
+      }
+
       return {
         actionError,
         actionErrorDigest: sanitizeErrorMessage(actionError.message),
@@ -1469,7 +1485,12 @@ export class Spiceflow<
       },
     }
 
-    const actionState = await this.resolveReactActionState({ request })
+    const actionHandlers = reactRoutes.flatMap((matchedRoute) => matchedRoute.app.onErrorHandlers)
+    const actionState = await this.resolveReactActionState({
+      request,
+      context: baseContext,
+      onErrorHandlers: actionHandlers,
+    })
     if (actionState instanceof Response) {
       return actionState
     }
@@ -1786,9 +1807,6 @@ export class Spiceflow<
       const buildRscResponse = async (serializeSpan?: SpiceflowSpan) => {
         const stream = renderToReadableStream<ServerPayload>(payload, {
           temporaryReferences: actionState.temporaryReferences,
-          onPostpone(reason) {
-            console.log(`POSTPONE`, reason)
-          },
           onError(error) {
             // TODO: for error reporting (Sentry-like), we need an error.handled
             // attribute to distinguish breaking errors from error-boundary-caught ones.
@@ -1806,7 +1824,9 @@ export class Spiceflow<
               return `__REACT_SERVER_ERROR__:${JSON.stringify({ status: error.status, headers })}`
             }
             formatServerError(error)
-            console.error('[spiceflow:renderToReadableStream]', error)
+            if (verboseLogs) {
+              console.error('[spiceflow:renderToReadableStream]', error)
+            }
             return sanitizeErrorMessage(error?.digest || error?.message)
           },
           signal: request.signal,

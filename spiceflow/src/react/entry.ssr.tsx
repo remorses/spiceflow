@@ -22,6 +22,8 @@ import { sanitizeErrorMessage } from './sanitize-error.js'
 import { injectRSCPayload } from './transform.js'
 import { createRouterContextData, routerContextStorage } from '../router-context.js'
 
+const verboseLogs = process.env.SPICEFLOW_VERBOSE === '1'
+
 const importMapJsonPromise: Promise<string> = import('virtual:spiceflow-import-map')
   .then((m) => m.default || '')
   .catch(() => '')
@@ -151,7 +153,9 @@ export async function renderHtml({
           if (shouldReplaceCtx(ctx)) ssrErrorCtx = ctx
         } else {
           formatServerError(e)
-          console.error('[entry.ssr.tsx:renderToReadableStream]', e)
+          if (verboseLogs) {
+            console.error('[entry.ssr.tsx:renderToReadableStream]', e)
+          }
         }
         if (e && typeof e === 'object') {
           const digest = Reflect.get(e, 'digest')

@@ -1,7 +1,7 @@
 // Regression tests for Node request abort wiring in nodeToWebRequest.
 import { EventEmitter } from 'node:events'
 import { expect, test } from 'vitest'
-import { nodeToWebRequest } from './_node-server.js'
+import { nodeToWebRequest, shouldIgnoreRequestError } from './_node-server.js'
 
 function createFakeReqRes() {
   const req = new EventEmitter() as EventEmitter & {
@@ -50,4 +50,23 @@ test('nodeToWebRequest does not abort signal when response closes after finishin
   res.writableFinished = true
   res.emit('close')
   expect(request.signal.aborted).toBe(false)
+})
+
+test('shouldIgnoreRequestError suppresses abort errors', () => {
+  expect(shouldIgnoreRequestError(new DOMException('aborted', 'AbortError'))).toBe(
+    true,
+  )
+})
+
+test('shouldIgnoreRequestError suppresses expected stream close errors', () => {
+  expect(
+    shouldIgnoreRequestError({ code: 'ERR_STREAM_PREMATURE_CLOSE' }),
+  ).toBe(true)
+  expect(shouldIgnoreRequestError({ code: 'ERR_STREAM_UNABLE_TO_PIPE' })).toBe(
+    true,
+  )
+})
+
+test('shouldIgnoreRequestError keeps unexpected errors visible', () => {
+  expect(shouldIgnoreRequestError(new Error('boom'))).toBe(false)
 })

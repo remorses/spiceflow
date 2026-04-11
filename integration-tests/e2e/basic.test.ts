@@ -25,14 +25,21 @@ function url(path: string): string {
 }
 
 function getSetCookies(response: Response) {
-	const headers = response.headers as Headers & {
-		getSetCookie?: () => string[];
-	};
-	return headers.getSetCookie?.() ?? [];
+	const getSetCookie = Reflect.get(response.headers, "getSetCookie");
+	if (typeof getSetCookie !== "function") return [];
+	return getSetCookie.call(response.headers);
 }
 
 function normalizePath(value: string): string {
 	return value.replaceAll("\\", "/");
+}
+
+function getAddressInfo(server: ReturnType<typeof createServer>): AddressInfo {
+	const address = server.address();
+	if (!address || typeof address === "string") {
+		throw new Error("Expected test server to expose an AddressInfo");
+	}
+	return address;
 }
 
 function copyStandaloneDist() {
@@ -90,7 +97,7 @@ async function getFreePort(): Promise<number> {
 	return new Promise((resolve) => {
 		const server = createServer();
 		server.listen(0, () => {
-			const port = (server.address() as AddressInfo).port;
+			const port = getAddressInfo(server).port;
 			server.close(() => resolve(port));
 		});
 	});
@@ -640,7 +647,7 @@ test.describe("SSR error fallback (__NO_HYDRATE)", () => {
 		// Wait for CSR recovery first — this confirms the bootstrap script ran
 		await expect(page.getByTestId("ssr-recovered")).toBeVisible();
 		// The bootstrap script set self.__NO_HYDRATE=1, which persists on globalThis
-		const hasFlag = await page.evaluate(() => "__NO_HYDRATE" in globalThis);
+		const hasFlag = await page.evaluate(() => Reflect.has(globalThis, "__NO_HYDRATE"));
 		expect(hasFlag).toBe(true);
 	});
 
@@ -684,7 +691,7 @@ test.describe("server component throws error", () => {
 		page,
 	}) => {
 		await page.goto(url("/rsc-error"));
-		const hasFlag = await page.evaluate(() => "__NO_HYDRATE" in globalThis);
+		const hasFlag = await page.evaluate(() => Reflect.has(globalThis, "__NO_HYDRATE"));
 		expect(hasFlag).toBe(true);
 		// In dev, ErrorBoundary rethrows → window.onerror → vite-error-overlay
 		const overlay = page.locator("vite-error-overlay");
@@ -733,7 +740,7 @@ test.describe("client component throws during render (SSR)", () => {
 		await expect(page.getByTestId("ssr-recovered")).toContainText(
 			"Recovered via CSR",
 		);
-		const hasFlag = await page.evaluate(() => "__NO_HYDRATE" in globalThis);
+		const hasFlag = await page.evaluate(() => Reflect.has(globalThis, "__NO_HYDRATE"));
 		expect(hasFlag).toBe(true);
 		// The layout shell is fully rendered by the browser — proves CSR recovery works
 		await expect(page.getByRole("link", { name: "Home" })).toBeVisible();
@@ -1095,7 +1102,7 @@ test.describe("soft 404 during client-side navigation (no hard reload)", () => {
 
 		// Set a sentinel to detect full page reloads
 		await page.evaluate(() => {
-			(window as any).__softNavSentinel = true;
+			Reflect.set(window, "__softNavSentinel", true);
 		});
 
 		// Navigate to a route that throws notFound() — should be a soft navigation
@@ -1108,7 +1115,7 @@ test.describe("soft 404 during client-side navigation (no hard reload)", () => {
 
 		// Sentinel should still be present — proves no full page reload
 		const sentinel = await page.evaluate(
-			() => (window as any).__softNavSentinel,
+			() => Reflect.get(window, "__softNavSentinel"),
 		);
 		expect(sentinel).toBe(true);
 	});
@@ -1146,7 +1153,7 @@ test.describe("soft server error during client-side navigation", () => {
 
 		// Set a sentinel to detect full page reloads
 		await page.evaluate(() => {
-			(window as any).__softNavSentinel = true;
+			Reflect.set(window, "__softNavSentinel", true);
 		});
 
 		// Navigate to a page that throws a server error
@@ -1164,7 +1171,7 @@ test.describe("soft server error during client-side navigation", () => {
 
 		// Sentinel should still be present
 		const sentinel = await page.evaluate(
-			() => (window as any).__softNavSentinel,
+			() => Reflect.get(window, "__softNavSentinel"),
 		);
 		expect(sentinel).toBe(true);
 	});
@@ -1935,6 +1942,26 @@ test.describe("server actions", () => {
 		await expect(
 			page.getByText("Action failed: invalid input", { exact: true }),
 		).toBeVisible({ timeout: 10000 });
+	});
+
+	test("form action error triggers app onError once", async ({ page }) => {
+		const resetResponse = await fetch(`${baseURL}${basePath}/api/on-error-reset`);
+		expect(resetResponse.status).toBe(200);
+		expect(await resetResponse.json()).toEqual({ count: 0 });
+
+		await page.goto(url("/form-action-error-test"));
+		await expect(page.getByTestId("layout-mount-count")).toHaveText("1", {
+			timeout: 10000,
+		});
+		await page.getByTestId("action-form-input").fill("test");
+		await page.getByTestId("action-form-submit").click();
+		await expect(
+			page.getByText("Action failed: invalid input", { exact: true }),
+		).toBeVisible({ timeout: 10000 });
+
+		const countResponse = await fetch(`${baseURL}${basePath}/api/on-error-count`);
+		expect(countResponse.status).toBe(200);
+		expect(await countResponse.json()).toEqual({ count: 1 });
 	});
 
 	test("getActionAbortController aborts an in-flight server action", async ({

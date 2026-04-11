@@ -4,11 +4,10 @@ import { redirect } from "spiceflow";
 
 export async function action(
 	{ shouldRedirect, shouldError, result },
-	data: FormData,
+	_data: FormData,
 ) {
 	"use server";
 
-	console.log("action", data);
 	if (shouldRedirect) {
 		throw redirect("/");
 	}

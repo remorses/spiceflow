@@ -267,7 +267,6 @@ async function main() {
       router.__setLoaderData(payload.root?.loaderData)
 
       if (payload.actionError) {
-        console.log(getErrorContext(payload.actionError))
         // React prod strips both error.message and error.digest for Error values
         // serialized in the flight payload (not thrown during rendering).
         // Restore both from the separately-serialized plain string.

@@ -66,6 +66,14 @@ import { RenderFederatedPayload } from "spiceflow/react";
 // Increments on every RSC render of the home page. Used by e2e tests to detect
 // unwanted server re-renders (e.g. client HMR should not trigger a server render).
 let serverRenderCount = 0;
+let onErrorCount = 0;
+
+function getOptionalLabel(value: unknown): string | undefined {
+	if (!value || typeof value !== "object") return undefined;
+	const label = Reflect.get(value, "label");
+	if (typeof label !== "string") return undefined;
+	return label;
+}
 
 async function* createFederatedPayloadStream({
 	label,
@@ -92,6 +100,9 @@ function notFound() {
 }
 
 export const app = new Spiceflow()
+	.onError(() => {
+		onErrorCount++;
+	})
 	.use(serveStatic({ root: "./public" }))
 	.state("middleware1", "")
 	.use(async ({ request, state }, next) => {
@@ -530,6 +541,13 @@ export const app = new Spiceflow()
 		cachedPageRenderCount = 0;
 		return { cleared: true };
 	})
+	.get("/api/on-error-count", () => {
+		return { count: onErrorCount };
+	})
+	.get("/api/on-error-reset", () => {
+		onErrorCount = 0;
+		return { count: onErrorCount };
+	})
 	.page("/static/:id", function StaticComponent({ params: { id } }) {
 		return <StaticPage id={id} />;
 	})
@@ -639,16 +657,16 @@ export const app = new Spiceflow()
 		return { echo: body };
 	})
 	.post("/api/federated-payload", async ({ request }) => {
-		const body = (await request.json()) as { label?: string };
+		const label = getOptionalLabel(await request.json());
 		return await encodeFederationPayload({
 			message: "decoded via decodeFederationPayload",
-			content: <Counter name={body.label ?? "Imperative"} />,
+			content: <Counter name={label ?? "Imperative"} />,
 		});
 	})
 	.post("/api/federated-payload-stream", async ({ request }) => {
-		const body = (await request.json()) as { label?: string };
+		const label = getOptionalLabel(await request.json());
 		return await encodeFederationPayload({
-			stream: createFederatedPayloadStream({ label: body.label ?? "Stream" }),
+			stream: createFederatedPayloadStream({ label: label ?? "Stream" }),
 		});
 	})
 	.get("/api/federated-render", async ({ request }) => {
@@ -716,7 +734,10 @@ export const app = new Spiceflow()
 	.page("/form-action-test", async () => {
 		async function handleSubmit(prev: string, formData: FormData) {
 			"use server";
-			const message = formData.get("message") as string;
+			const message = formData.get("message");
+			if (typeof message !== "string") {
+				throw new Error("Expected form action message to be a string");
+			}
 			return `Received: ${message}`;
 		}
 		return <ActionFormTest action={handleSubmit} />;
@@ -871,7 +892,7 @@ function UseStateInServerComponent() {
 	return <div>count: {count}</div>;
 }
 
-app
+void app
 	.get("/api/takumi-image", () => {
 		return new ImageResponse(
 			<div
