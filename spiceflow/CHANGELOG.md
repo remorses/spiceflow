@@ -2,14 +2,19 @@
 
 ## 1.18.0-rsc.25
 
-1. **`fetch` prop on `RemoteComponent` for local federation** — pass `app.handle` to call a same-process endpoint directly without a network round-trip. `src` can be a relative path when `fetch` is provided:
+1. **Same-process federation with explicit `Response` rendering** — local federation now goes through the same `RenderFederatedPayload` and `decodeFederationPayload(response)` APIs as remote responses, so same-app flows can call `app.handle(new Request(...))` directly without a network round-trip:
 
    ```tsx
-   <RemoteComponent
-     src="/api/local-widget"
-     fetch={app.handle}
-     props={{ label: 'Self-hosted' }}
-   />
+   import { Suspense } from 'react'
+   import { RenderFederatedPayload } from 'spiceflow/react'
+
+   const response = await app.handle(
+     new Request('http://local/api/local-widget'),
+   )
+
+   <Suspense fallback={<div>Loading...</div>}>
+     <RenderFederatedPayload response={response} />
+   </Suspense>
    ```
 
 2. **`document.title` updates on client-side navigation** — `<Head.Title>` changes now update the browser tab title after each RSC navigation. Previously the title only took effect in the initial SSR HTML and stayed stale after route transitions.
@@ -26,7 +31,7 @@
 
 5. **Loader route isolation** — loaders now only run when the request also matches a React page or layout. Previously a standalone `fetch("/loader-path")` could trigger loader logic unintentionally.
 
-6. **Generic federated Flight payload APIs** — added `encodeFederationPayload(...)`, `RenderFederatedPayload`, and `decodeFederationPayload(response)` so routes can return plain objects, JSX, or objects containing JSX (including async iterables inside fields) over the federation wire format.
+6. **Generic federated Flight payload APIs** — added `encodeFederationPayload(...)`, `RenderFederatedPayload`, and `decodeFederationPayload(response)` so routes can return plain objects, JSX, or objects containing JSX (including async iterables inside fields) over the federation wire format. `decodeFederationPayload(response)` now returns the decoded value directly instead of transport metadata.
 
 7. **`getRouter()` / `useLoaderData()` / `useRouterState()`** — redesigned router API with `getRouter()` as the main entry point. `href()` and `getLoaderData()` live on the returned router object. `useLoaderData()` and `useRouterState()` are now exported directly from `spiceflow/react` and work during SSR through request-scoped context.
 
