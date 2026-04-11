@@ -153,13 +153,10 @@ export async function renderHtml({
           formatServerError(e)
           console.error('[entry.ssr.tsx:renderToReadableStream]', e)
         }
-        if (
-          e &&
-          typeof e === 'object' &&
-          'digest' in e &&
-          typeof e.digest === 'string'
-        )
-          return sanitizeErrorMessage(e.digest)
+        if (e && typeof e === 'object') {
+          const digest = Reflect.get(e, 'digest')
+          if (typeof digest === 'string') return sanitizeErrorMessage(digest)
+        }
         if (e instanceof Error) return sanitizeErrorMessage(e.message)
         return sanitizeErrorMessage(String(e))
       },
@@ -291,7 +288,7 @@ export async function renderFlightToHtml(
     },
   })
 
-  const tree = await (createFromReadableStream(stream) as Promise<React.ReactNode>)
+  const tree: React.ReactNode = await createFromReadableStream(stream)
   const htmlStream = await ReactDOMServer.renderToReadableStream(
     React.createElement(React.Fragment, null, tree),
   )

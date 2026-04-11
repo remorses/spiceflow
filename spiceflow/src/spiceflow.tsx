@@ -2571,7 +2571,7 @@ export class Spiceflow<
       }
 
       process.on('beforeExit', () => {
-        stop()
+        void stop()
       })
 
       const displayedHost =
@@ -2689,7 +2689,7 @@ export class Spiceflow<
         request?.signal?.removeEventListener('abort', onAbort)
         onAbort = undefined
       }
-      iterator.return?.()
+      void iterator.return?.()
     }
 
     return new Response(

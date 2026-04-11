@@ -58,7 +58,7 @@ export class SSEServerTransportSpiceflow implements Transport {
 
     // Obtain a writer from the writable end
     this._writableStream = writable.getWriter()
-    this._writableStream?.write(
+    void this._writableStream?.write(
       new TextEncoder().encode(
         `event: endpoint\ndata: ${encodeURI(this._endpoint)}?sessionId=${
           this._sessionId

@@ -17,7 +17,7 @@ const isBrowser = typeof window !== 'undefined'
 // anyway (server has no interactive contexts to bridge), so return a
 // passthrough wrapper on the server.
 const PassthroughBridge: ContextBridge = ({ children }) =>
-  children as React.ReactElement
+  <>{children}</>
 
 function useContextBridgeSafe(): ContextBridge {
   if (!isBrowser) return PassthroughBridge
@@ -150,7 +150,7 @@ export function RemoteIsland({
   // decoding overlap with React's commit phase instead of waiting for it.
   // treeCache deduplicates, so the useLayoutEffect below awaits the same promise.
   if (isBrowser) {
-    getOrCreateTree({ parsed })
+    void getOrCreateTree({ parsed })
   }
 
   useLayoutEffect(() => {
@@ -171,17 +171,17 @@ export function RemoteIsland({
       injectCssLinks(shadow, clientModules, remoteOrigin)
 
       // Find or create the mount point inside the shadow
-      let mountPoint = shadow.querySelector('[data-mount]') as HTMLDivElement | null
+      let mountPoint = shadow.querySelector<HTMLDivElement>('[data-mount]')
       if (!mountPoint) {
         mountPoint = document.createElement('div')
         mountPoint.setAttribute('data-mount', '')
         shadow.appendChild(mountPoint)
       }
 
-      getOrCreateTree({ parsed }).then(
+      void getOrCreateTree({ parsed }).then(
         (decoded) => {
           if (!isMounted) return
-          const tree = <Bridge>{decoded as React.ReactElement}</Bridge>
+          const tree = <Bridge>{decoded}</Bridge>
 
           // Can only hydrate on first mount when a parser-created shadow root
           // exists (DSD from SSR) AND the mount point has SSR content to patch.
@@ -211,10 +211,10 @@ export function RemoteIsland({
       // Inject CSS into document.head (same timing as shadow path injects into shadow root).
       injectCssLinks(document, clientModules, remoteOrigin)
 
-      getOrCreateTree({ parsed }).then(
+      void getOrCreateTree({ parsed }).then(
         (decoded) => {
           if (!isMounted) return
-          const tree = <Bridge>{decoded as React.ReactElement}</Bridge>
+          const tree = <Bridge>{decoded}</Bridge>
           if (!hasMountedRef.current && ssrHtml) {
             hasMountedRef.current = true
             rootRef.current = hydrateRoot(host, tree, {

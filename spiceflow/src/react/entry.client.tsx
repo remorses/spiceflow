@@ -42,10 +42,13 @@ const rscStream = new ReadableStream<Uint8Array>({
       )
     }
 
-    const w = window as any
-    w.__FLIGHT_DATA ||= []
-    w.__FLIGHT_DATA.forEach(enqueue)
-    w.__FLIGHT_DATA.push = enqueue
+    const flightData = Reflect.get(window, '__FLIGHT_DATA')
+    const chunks = Array.isArray(flightData) ? flightData : []
+    if (!Array.isArray(flightData)) {
+      Reflect.set(window, '__FLIGHT_DATA', chunks)
+    }
+    chunks.forEach(enqueue)
+    Reflect.set(chunks, 'push', enqueue)
 
     if (document.readyState !== 'loading') {
       controller.close()
@@ -118,17 +121,26 @@ async function fetchFlightResponse(args: {
 // that need to decode Flight payloads from remote servers in the browser.
 globalThis.__spiceflow_createFromReadableStream = createFromReadableStream
 
+function getErrorDigest(error: Error): string | undefined {
+  const digest = Reflect.get(error, 'digest')
+  if (typeof digest !== 'string') return undefined
+  if (!digest) return undefined
+  return digest
+}
+
+function isAsyncIterable(value: unknown): value is AsyncIterable<unknown> {
+  if (value == null || typeof value !== 'object') return false
+  return typeof Reflect.get(value, Symbol.asyncIterator) === 'function'
+}
+
 // React prod replaces error.message with a generic string for security but
 // keeps error.digest (set by our onError callback). Restore the original
 // message so user code can read it. Works for errors thrown mid-stream
 // (async generators) and for directly thrown action errors.
 function restoreErrorDigest(err: unknown): never {
-  if (
-    err instanceof Error &&
-    typeof (err as any).digest === 'string' &&
-    (err as any).digest
-  ) {
-    err.message = (err as any).digest
+  if (err instanceof Error) {
+    const digest = getErrorDigest(err)
+    if (digest) err.message = digest
   }
   throw err
 }
@@ -136,12 +148,8 @@ function restoreErrorDigest(err: unknown): never {
 // Wraps async generator return values so errors thrown mid-stream get their
 // message restored from digest before reaching user code.
 function wrapReturnValueErrors(value: unknown): unknown {
-  if (
-    value != null &&
-    typeof value === 'object' &&
-    Symbol.asyncIterator in value
-  ) {
-    const orig = value as AsyncIterable<unknown>
+  if (isAsyncIterable(value)) {
+    const orig = value
     return {
       [Symbol.asyncIterator]() {
         const it = orig[Symbol.asyncIterator]()
@@ -264,9 +272,10 @@ async function main() {
         // serialized in the flight payload (not thrown during rendering).
         // Restore both from the separately-serialized plain string.
         if (payload.actionErrorDigest) {
-          const err = payload.actionError as Error & { digest?: string }
-          err.digest = payload.actionErrorDigest
-          err.message = payload.actionErrorDigest
+          if (payload.actionError instanceof Error) {
+            Reflect.set(payload.actionError, 'digest', payload.actionErrorDigest)
+            payload.actionError.message = payload.actionErrorDigest
+          }
         }
         throw payload.actionError
       }
@@ -321,7 +330,7 @@ async function main() {
   // When SSR fails, the server injects self.__NO_HYDRATE=1 in the bootstrap script.
   // In that case use createRoot (CSR from scratch) instead of hydrateRoot which would
   // throw hydration mismatch errors against the error shell HTML.
-  if ('__NO_HYDRATE' in globalThis) {
+  if (Reflect.has(globalThis, '__NO_HYDRATE')) {
     ReactDomClient.createRoot(document).render(<BrowserRoot />)
   } else {
     ReactDomClient.hydrateRoot(document, <BrowserRoot />, {
@@ -347,9 +356,10 @@ if (import.meta.hot) {
   window.onerror = (_event, _source, _lineno, _colno, err) => {
     const ErrorOverlay = customElements.get('vite-error-overlay')
     if (!ErrorOverlay) return
-    const overlay = new (ErrorOverlay as any)(err)
+    const overlay = Reflect.construct(ErrorOverlay, [err])
+    if (!(overlay instanceof HTMLElement)) return
     document.body.appendChild(overlay)
   }
 }
 
-main()
+void main()

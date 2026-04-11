@@ -10,14 +10,55 @@ import {
 } from '@modelcontextprotocol/sdk/types.js'
 import { OpenAPIV3 } from 'openapi-types'
 
+function isReferenceObject(value: unknown): value is OpenAPIV3.ReferenceObject {
+  if (!value || typeof value !== 'object') return false
+  return typeof Reflect.get(value, '$ref') === 'string'
+}
+
+function isSchemaObject(
+  value: OpenAPIV3.ReferenceObject | OpenAPIV3.SchemaObject | undefined,
+): value is OpenAPIV3.SchemaObject {
+  return Boolean(value) && !isReferenceObject(value)
+}
+
+function isOperationObject(value: unknown): value is OpenAPIV3.OperationObject {
+  return Boolean(value) && typeof value === 'object' && !isReferenceObject(value)
+}
+
+function isParameterObject(
+  value: OpenAPIV3.ParameterObject | OpenAPIV3.ReferenceObject,
+): value is OpenAPIV3.ParameterObject {
+  return !isReferenceObject(value)
+}
+
+function isRequestBodyObject(
+  value: OpenAPIV3.ReferenceObject | OpenAPIV3.RequestBodyObject,
+): value is OpenAPIV3.RequestBodyObject {
+  return !isReferenceObject(value)
+}
+
+function isSecuritySchemeObject(
+  value: OpenAPIV3.ReferenceObject | OpenAPIV3.SecuritySchemeObject | undefined,
+): value is OpenAPIV3.SecuritySchemeObject {
+  return Boolean(value) && !isReferenceObject(value)
+}
+
+function isStringRecord(value: unknown): value is Record<string, string> {
+  if (!value || typeof value !== 'object') return false
+  return Object.values(value).every((entry) => typeof entry === 'string')
+}
+
 function getOperationRequestBody(
   operation: OpenAPIV3.OperationObject,
 ): OpenAPIV3.SchemaObject | undefined {
   if (!operation.requestBody) return undefined
 
-  const requestBody = operation.requestBody as OpenAPIV3.RequestBodyObject
+  if (!isRequestBodyObject(operation.requestBody)) return undefined
+
+  const requestBody = operation.requestBody
   const content = requestBody.content['application/json']
-  return content?.schema as OpenAPIV3.SchemaObject
+  if (!isSchemaObject(content?.schema)) return undefined
+  return content.schema
 }
 
 function getOperationParameters(operation: OpenAPIV3.OperationObject): {
@@ -38,20 +79,22 @@ function getOperationParameters(operation: OpenAPIV3.OperationObject): {
   const cookieRequired: string[] = []
 
   operation.parameters.forEach((param) => {
-    const paramObj = param as OpenAPIV3.ParameterObject
+    if (!isParameterObject(param)) return
+
+    const paramObj = param
+    if (!isSchemaObject(paramObj.schema)) return
+
     if (paramObj.in === 'query') {
-      queryProperties[paramObj.name] = paramObj.schema as OpenAPIV3.SchemaObject
+      queryProperties[paramObj.name] = paramObj.schema
       if (paramObj.required) queryRequired.push(paramObj.name)
     } else if (paramObj.in === 'path') {
-      pathProperties[paramObj.name] = paramObj.schema as OpenAPIV3.SchemaObject
+      pathProperties[paramObj.name] = paramObj.schema
       if (paramObj.required) pathRequired.push(paramObj.name)
     } else if (paramObj.in === 'header') {
-      headerProperties[paramObj.name] =
-        paramObj.schema as OpenAPIV3.SchemaObject
+      headerProperties[paramObj.name] = paramObj.schema
       if (paramObj.required) headerRequired.push(paramObj.name)
     } else if (paramObj.in === 'cookie') {
-      cookieProperties[paramObj.name] =
-        paramObj.schema as OpenAPIV3.SchemaObject
+      cookieProperties[paramObj.name] = paramObj.schema
       if (paramObj.required) cookieRequired.push(paramObj.name)
     }
   })
@@ -125,8 +168,8 @@ function getAuthHeaders(
 
     for (const schemeName of operationSchemeNames) {
       const scheme = securitySchemes[schemeName]
-      if (scheme) {
-        selectedScheme = scheme as OpenAPIV3.SecuritySchemeObject
+      if (isSecuritySchemeObject(scheme)) {
+        selectedScheme = scheme
         break
       }
     }
@@ -135,8 +178,9 @@ function getAuthHeaders(
   // If no operation-specific scheme found, use the first available scheme
   if (!selectedScheme) {
     const schemes = Object.values(securitySchemes)
-    if (schemes.length > 0) {
-      selectedScheme = schemes[0] as OpenAPIV3.SecuritySchemeObject
+    const firstScheme = schemes.find(isSecuritySchemeObject)
+    if (firstScheme) {
+      selectedScheme = firstScheme
     }
   }
 
@@ -238,7 +282,9 @@ export function createMCPServer({
       ...commonHeaders,
       ...(userHeaders || {}),
       ...authHeaders,
-      ...((options?.headers as Record<string, string>) || {}),
+      ...(options.headers
+        ? Object.fromEntries(new Headers(options.headers).entries())
+        : {}),
     }
 
     if (cookieHeader) {
@@ -266,23 +312,23 @@ export function createMCPServer({
       return true
     })
 
-    const tools = filteredPaths.flatMap(([path, pathObj]) =>
-      Object.entries(pathObj || {})
-        // .filter(([method]) => method !== 'parameters')
-        .map(([method, operation]) => {
+  const tools = filteredPaths.flatMap(([path, pathObj]) =>
+    Object.entries(pathObj || {})
+      // .filter(([method]) => method !== 'parameters')
+      .map(([method, operation]) => {
+        if (!isOperationObject(operation)) return undefined
+
           const properties: Record<string, any> = {}
           const required: string[] = []
 
-          const requestBody = getOperationRequestBody(
-            operation as OpenAPIV3.OperationObject,
-          )
+          const requestBody = getOperationRequestBody(operation)
           if (requestBody) {
             properties.body = requestBody
             required.push('body')
           }
 
           const { queryParams, pathParams, headerParams, cookieParams } =
-            getOperationParameters(operation as OpenAPIV3.OperationObject)
+            getOperationParameters(operation)
           if (queryParams) {
             properties.query = queryParams
           }
@@ -296,9 +342,7 @@ export function createMCPServer({
             properties.cookies = cookieParams
           }
           let description = `${method.toUpperCase()} route for ${baseUrl}${path}`
-          let moreDescription =
-            (operation as OpenAPIV3.OperationObject).description ||
-            (operation as OpenAPIV3.OperationObject).summary
+          let moreDescription = operation.description || operation.summary
           if (moreDescription) {
             description += '. '
             description += moreDescription
@@ -313,8 +357,9 @@ export function createMCPServer({
               required: required.length > 0 ? required : undefined,
             },
           }
-        }),
-    )
+        })
+        .filter((tool) => tool !== undefined),
+  )
 
     return { tools }
   })
@@ -324,7 +369,8 @@ export function createMCPServer({
     let { path, method } = getPathFromToolName(toolName)
 
     const pathObj = openapi.paths[path]
-    if (!pathObj || !pathObj[method.toLowerCase()]) {
+    const operation = pathObj?.[method.toLowerCase()]
+    if (!pathObj || !isOperationObject(operation)) {
       return {
         content: [{ type: 'text', text: `Tool ${toolName} not found` }],
         isError: true,
@@ -334,11 +380,8 @@ export function createMCPServer({
     try {
       const args = request.params.arguments || {}
       const { body, query, params } = args
-      const userHeaders = args.headers as Record<string, string> | undefined
-      const userCookies = args.cookies as Record<string, string> | undefined
-      const operation = pathObj[
-        method.toLowerCase()
-      ] as OpenAPIV3.OperationObject
+      const userHeaders = isStringRecord(args.headers) ? args.headers : undefined
+      const userCookies = isStringRecord(args.cookies) ? args.cookies : undefined
 
       if (params) {
         Object.entries(params).forEach(([key, value]) => {
@@ -402,8 +445,8 @@ export function createMCPServer({
       if (path.startsWith('/mcp')) {
         continue
       }
-      const getOperation = pathObj?.get as OpenAPIV3.OperationObject
-      if (getOperation && !path.includes('{')) {
+      const getOperation = pathObj?.get
+      if (isOperationObject(getOperation) && !path.includes('{')) {
         const { queryParams, headerParams, cookieParams } =
           getOperationParameters(getOperation)
         const hasRequiredQuery =

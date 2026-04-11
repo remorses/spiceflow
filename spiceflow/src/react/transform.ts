@@ -111,7 +111,7 @@ export function injectRSCPayload({
         flushBufferedChunks(controller)
         if (!startedRSC) {
           startedRSC = true
-          writeRSCStream(rscStream, controller)
+          void writeRSCStream(rscStream, controller)
             .catch((err) => controller.error(err))
             .then(() => resolveFlightDataPromise())
         }
@@ -135,7 +135,11 @@ async function writeRSCStream(
   if (!rscStream) {
     return
   }
-  for await (let chunk of rscStream as any) {
+  const reader = rscStream.getReader()
+  while (true) {
+    const { done, value: chunk } = await reader.read()
+    if (done) break
+
     // Try decoding the chunk to send as a string.
     // If that fails (e.g. binary data that is invalid unicode), write as base64.
     try {

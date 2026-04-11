@@ -77,10 +77,7 @@ test('listen() returns stop() that shuts down the server', async () => {
 })
 
 test('listen() returns noop stop() during prerender', async () => {
-  const globalThisWithPrerender = globalThis as typeof globalThis & {
-    __SPICEFLOW_PRERENDER?: boolean
-  }
-  globalThisWithPrerender.__SPICEFLOW_PRERENDER = true
+  Reflect.set(globalThis, '__SPICEFLOW_PRERENDER', true)
 
   try {
     const listener = await new Spiceflow()
@@ -98,7 +95,7 @@ test('listen() returns noop stop() during prerender', async () => {
 
     await stop()
   } finally {
-    delete globalThisWithPrerender.__SPICEFLOW_PRERENDER
+    Reflect.deleteProperty(globalThis, '__SPICEFLOW_PRERENDER')
   }
 })
 
@@ -1068,11 +1065,7 @@ test('api routes can set response headers through context.response', async () =>
 
   expect(response.headers.get('x-api-header')).toBe('ok')
   expect((await response.json())?.ok).toBe(true)
-  const getSetCookie = (
-    response.headers as Headers & {
-      getSetCookie?: () => string[]
-    }
-  ).getSetCookie
+  const getSetCookie = Reflect.get(response.headers, 'getSetCookie')
   expect(getSetCookie?.call(response.headers)).toEqual(['api-cookie=1; Path=/'])
 })
 
@@ -1498,8 +1491,8 @@ test('does not append subapp basePath if parent is prefix of subapp path', async
 })
 
 test('errors inside basPath works', async () => {
-  let onErrorTriggered = [] as string[]
-  let onReqTriggered = [] as string[]
+  let onErrorTriggered: string[] = []
+  let onReqTriggered: string[] = []
   let handlerCalledNTimes = 0
   const app = await new Spiceflow({ basePath: '/zero' })
     .onError(({ error }) => {
@@ -1639,7 +1632,7 @@ test('async generators handle non-ASCII characters correctly', async () => {
   expect(cyrillicText).toBe('ПриветΚόσμος')
 
   const { data: mixedData } = await client['mixed-scripts'].get()
-  const mixedResults = [] as any[]
+  const mixedResults: unknown[] = []
   for await (const chunk of mixedData!) {
     mixedResults.push(chunk)
   }
@@ -3340,14 +3333,14 @@ describe('use preserves type safety', () => {
     const f = createSpiceflowFetch(app)
 
     // Known routes are accepted
-    f('/health')
-    f('/users/:id', { params: { id: '1' } })
-    f('/items', { method: 'POST' })
+    void f('/health')
+    void f('/users/:id', { params: { id: '1' } })
+    void f('/items', { method: 'POST' })
 
     // @ts-expect-error - unknown path rejected
-    f('/nonexistent')
+    void f('/nonexistent')
     // @ts-expect-error - unknown path rejected
-    f('/users')
+    void f('/users')
   })
 
   test('fetch client rejects unknown paths from mounted subapp', () => {
@@ -3358,13 +3351,13 @@ describe('use preserves type safety', () => {
     const f = createSpiceflowFetch(app)
 
     // Known routes accepted
-    f('/health')
-    f('/api/data')
+    void f('/health')
+    void f('/api/data')
 
     // @ts-expect-error - unknown path rejected
-    f('/api/nonexistent')
+    void f('/api/nonexistent')
     // @ts-expect-error - unknown path rejected
-    f('/data')
+    void f('/data')
   })
 
   test('basePath alone is not a valid href when child has no root route', () => {
@@ -3405,7 +3398,7 @@ describe('use preserves type safety', () => {
     const client = createSpiceflowClient(app)
 
     // API route is accessible on client
-    client.app.api.data.get()
+    void client.app.api.data.get()
 
     // @ts-expect-error - page route not in ClientRoutes
     client.app.dashboard
@@ -3420,7 +3413,7 @@ describe('use preserves type safety', () => {
     const client = createSpiceflowClient(app)
 
     // API route is accessible
-    client.docs.api.versions.get()
+    void client.docs.api.versions.get()
 
     // @ts-expect-error - staticPage route not in ClientRoutes
     client.docs.intro
@@ -3435,7 +3428,7 @@ describe('use preserves type safety', () => {
     const client = createSpiceflowClient(app)
 
     // API route is accessible
-    client.docs.api.users.get()
+    void client.docs.api.users.get()
 
     // @ts-expect-error - staticGet route not in ClientRoutes
     client.docs.data
@@ -3450,7 +3443,7 @@ describe('use preserves type safety', () => {
     const f = createSpiceflowFetch(app)
 
     // API route works with typed result
-    f('/app/api/data')
+    void f('/app/api/data')
 
     // fetch client accepts any string path (falls back to untyped),
     // so page paths aren't rejected — but they resolve to fallback types,
@@ -3480,10 +3473,10 @@ describe('use preserves type safety', () => {
     const app = new Spiceflow().use(child)
 
     const client = createSpiceflowClient(app)
-    client.app.api.data.get()
+    void client.app.api.data.get()
 
     const f = createSpiceflowFetch(app)
-    f('/app/api/data')
+    void f('/app/api/data')
 
     // layout doesn't add to ClientRoutes — no navigable endpoint to access
   })

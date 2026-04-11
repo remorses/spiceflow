@@ -6,6 +6,11 @@ import {
 } from '@modelcontextprotocol/sdk/types.js'
 import { streamSSEResponse } from './client/index.js'
 
+function toError(error: unknown): Error {
+  if (error instanceof Error) return error
+  return new Error(String(error))
+}
+
 export type SpiceflowClientTransportOptions = {
   fetch?: FetchType
   url: string
@@ -73,10 +78,7 @@ export class FetchMCPCLientTransport implements Transport {
       map: (x) => {
         return x
       },
-    }) as AsyncGenerator<{
-      event: string
-      data: any
-    }>) {
+    })) {
       if (evt.event === 'endpoint') {
         const url = new URL(evt.data, this.sseUrl)
         if (url.origin !== this.sseUrl.origin) {
@@ -91,20 +93,20 @@ export class FetchMCPCLientTransport implements Transport {
           this.log(msg)
           this.onmessage?.(msg)
         } catch (err) {
-          this.onerror?.(err as Error)
+          this.onerror?.(toError(err))
         }
       } else {
         this.log('Unknown MCP event:', evt)
       }
     }
-    this.close?.()
+    void this.close?.()
   }
   catch(err) {
-    this.onerror?.(err as Error)
+    this.onerror?.(toError(err))
   }
 
   private async _commonHeaders() {
-    const headers = {} as Record<string, string>
+    const headers: Record<string, string> = {}
     // if (this._authProvider) {
     //   const tokens = await this._authProvider.tokens()
     //   if (tokens) {
