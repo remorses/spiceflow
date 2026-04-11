@@ -1247,9 +1247,9 @@ export function NewsletterForm({
 
 If a server action throws, the error is caught by the nearest error boundary. The error message is preserved (sanitized to strip secrets) and displayed to the user in both development and production builds.
 
-### Client Router
+### Router
 
-Use `getRouter` with your app type for type-safe navigation, URL building, and imperative loader data access. `useLoaderData` and `useRouterState` are exported separately from `spiceflow/react`, and both accept the same optional app generic.
+Use `getRouter` with your app type for type-safe navigation, URL building, and imperative loader data access. It works in **both client and server components** — in server/RSC code it reads the current request's location from async context, and `router.href()` builds typed URLs the same way. `useLoaderData` and `useRouterState` are exported separately from `spiceflow/react`, and both accept the same optional app generic.
 
 ```tsx
 // src/app/nav.tsx
@@ -1271,6 +1271,34 @@ export function Nav() {
   )
 }
 ```
+
+<details>
+<summary>Using getRouter in mounted sub-apps</summary>
+
+`app.href()` is scoped to the app instance it's called on — inside a sub-app mounted with `.use()`, you only see that sub-app's own routes, not the root app's. To build type-safe links that reference the whole app's routes from inside a sub-app (or any helper module that doesn't close over the root `app`), import the root `App` type and use `getRouter<App>()` instead of `app.href()`:
+
+```tsx
+// src/features/billing/page.tsx — a sub-app mounted into the main app
+import { Spiceflow } from 'spiceflow'
+import { getRouter, Link } from 'spiceflow/react'
+import type { App } from '../../main'
+
+export const billingApp = new Spiceflow().page('/billing', async () => {
+  // router is typed against the WHOLE app, not just billingApp
+  const router = getRouter<App>()
+  return (
+    <div>
+      <h1>Billing</h1>
+      {/* Link to a route defined in a different sub-app */}
+      <Link href={router.href('/users/:id', { id: '42' })}>Back to profile</Link>
+    </div>
+  )
+})
+```
+
+This is the recommended way to build links from server components in modular codebases — no need to thread `app` through props or imports, and every call is still fully type-checked against the root app's route table.
+
+</details>
 
 ### Navigation & State
 
