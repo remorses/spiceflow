@@ -663,7 +663,9 @@ export default {
 
 Spiceflow works with standard Request and Response objects, so you can use any cookie library like the `cookie` npm package. See [Middleware Patterns](docs/middleware-patterns.md) for full cookie examples including set/get/clear and cookie-based auth middleware.
 
-## Generating OpenAPI Schema
+## OpenAPI
+
+Spiceflow can generate a full OpenAPI 3.1 document from your routes without any extra configuration. Mount the `openapi` plugin and every route you registered on the app is picked up automatically — the same Zod schemas that validate the request and type the handler context are also the source of `parameters`, `requestBody`, and `responses` in the emitted document.
 
 ```ts
 import { openapi } from 'spiceflow/openapi'
@@ -675,31 +677,35 @@ export const app = new Spiceflow()
   .route({
     method: 'GET',
     path: '/hello',
-    handler() {
-      return 'Hello, World!'
-    },
     query: z.object({
       name: z.string(),
       age: z.number(),
     }),
     response: z.string(),
+    handler({ query }) {
+      return `Hello, ${query.name}!`
+    },
   })
   .route({
     method: 'POST',
     path: '/user',
-    handler() {
-      return new Response('Hello, World!')
-    },
     request: z.object({
       name: z.string(),
       email: z.string().email(),
     }),
+    response: z.object({ id: z.string() }),
+    async handler({ request }) {
+      const body = await request.json()
+      return { id: 'usr_' + body.name }
+    },
   })
 
 const openapiSchema = await (
   await app.handle(new Request('http://localhost:3000/openapi.json'))
 ).json()
 ```
+
+For status-code response maps, centralized error responses with `onError`, shared Zod schemas across routes, hiding internal routes from the document, writing markdown descriptions with `string-dedent`, generating a local `openapi.json` file from a script, and preserving fetch client type safety with thrown error responses, see [OpenAPI docs](docs/openapi.md).
 
 ## Adding CORS Headers
 
