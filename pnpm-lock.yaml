@@ -149,8 +149,8 @@ importers:
         specifier: ^0.3.0
         version: 0.3.0
       goke:
-        specifier: ^6.5.2
-        version: 6.5.2
+        specifier: ^6.6.0
+        version: 6.6.0
     devDependencies:
       '@types/node':
         specifier: ~24.0.1
@@ -4375,8 +4375,8 @@ packages:
     resolution: {integrity: sha512-jhIXaOzy1sb8IyocaruWSn1TjmnBVs8Ayhcy83rmxNJ8q2uWKCAj3CnJY+KpGSXCueAPc0i05kVvVKtP1t9S3g==}
     engines: {node: '>=10'}
 
-  goke@6.5.2:
-    resolution: {integrity: sha512-AJKTaBwSj9D9cAVQZOeMBG37Qf5YbCd37dHRUFecSHYYIAPlb8RHGGw7MiLD2aZS2d37gq0zD+B1nfe7xvB7xg==}
+  goke@6.6.0:
+    resolution: {integrity: sha512-4kwY8DG/9D5hfmAEsXvclYQvpkBTkvx7kbAkGGWA8IoIwi1+SjHGdtb0rW5fB4f6SNMVvc7YoCjOpl1UOxWszg==}
     engines: {node: '>=18'}
 
   gopd@1.2.0:
@@ -11136,7 +11136,7 @@ snapshots:
       merge2: 1.4.1
       slash: 3.0.0
 
-  goke@6.5.2: {}
+  goke@6.6.0: {}
 
   gopd@1.2.0: {}
 
@@ -11651,7 +11651,7 @@ snapshots:
   lintcn@0.7.0:
     dependencies:
       find-up: 8.0.0
-      goke: 6.5.2
+      goke: 6.6.0
       tar: 7.5.12
 
   loader-runner@4.3.1:
