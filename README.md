@@ -99,10 +99,10 @@ app.listen(3000)
 // vite.config.ts
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
-import { spiceflowPlugin } from 'spiceflow/vite'
+import spiceflow from 'spiceflow/vite'
 
 export default defineConfig({
-  plugins: [react(), spiceflowPlugin({ entry: './src/main.tsx' })],
+  plugins: [react(), spiceflow({ entry: './src/main.tsx' })],
 })
 ```
 
@@ -460,11 +460,11 @@ When using Spiceflow as a full-stack RSC framework with Vite, configure the base
 // vite.config.ts
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
-import { spiceflowPlugin } from 'spiceflow/vite'
+import spiceflow from 'spiceflow/vite'
 
 export default defineConfig({
   base: '/my-app',
-  plugins: [react(), spiceflowPlugin({ entry: 'src/main.tsx' })],
+  plugins: [react(), spiceflow({ entry: 'src/main.tsx' })],
 })
 ```
 
@@ -764,12 +764,12 @@ npm install spiceflow@rsc react react-dom
 // vite.config.ts
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
-import { spiceflowPlugin } from 'spiceflow/vite'
+import spiceflow from 'spiceflow/vite'
 
 export default defineConfig({
   plugins: [
     react(),
-    spiceflowPlugin({
+    spiceflow({
       entry: './src/main.tsx',
     }),
   ],

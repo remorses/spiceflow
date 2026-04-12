@@ -32,7 +32,7 @@ const spiceflowEntries = {
   client: path.resolve(__spiceflowDir, 'react/entry.client'),
 }
 
-// Module-level so the timestamp is stable even if spiceflowPlugin() is called more than once
+// Module-level so the timestamp is stable even if spiceflow() is called more than once
 const buildTimestamp = Date.now().toString(36)
 
 // For absolute URL bases (e.g. federation remotes using
@@ -112,7 +112,10 @@ function normalizeEnvironmentOutDirs(userConfig: UserConfig): UserConfig {
   }
 }
 
-export function spiceflowPlugin({
+/** @deprecated Use the default export instead: `import spiceflow from 'spiceflow/vite'` */
+export const spiceflowPlugin = spiceflow
+
+export default function spiceflow({
   entry,
   federation,
   importMap,

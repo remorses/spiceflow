@@ -5,7 +5,7 @@ import path from 'node:path'
 import { afterEach, describe, expect, test } from 'vitest'
 import { resolveConfig, type PluginOption } from 'vite'
 
-import { spiceflowPlugin } from './vite.js'
+import spiceflow from './vite.js'
 
 const tempRoots: string[] = []
 
@@ -36,7 +36,7 @@ async function createTempApp() {
 
 async function resolveSpiceflowConfig(options?: { cloudflare?: boolean }) {
   const root = await createTempApp()
-  const plugins: PluginOption[] = [spiceflowPlugin({ entry: './src/main.tsx' })]
+  const plugins: PluginOption[] = [spiceflow({ entry: './src/main.tsx' })]
 
   if (options?.cloudflare) {
     plugins.unshift({ name: 'vite-plugin-cloudflare' })
@@ -55,7 +55,7 @@ async function resolveSpiceflowConfig(options?: { cloudflare?: boolean }) {
   return { root, config }
 }
 
-describe('spiceflowPlugin outDir normalization', () => {
+describe('spiceflow outDir normalization', () => {
   test('top-level build.outDir becomes the single source of truth', async () => {
     const { root, config } = await resolveSpiceflowConfig()
 

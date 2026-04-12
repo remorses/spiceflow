@@ -1,6 +1,6 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
-import { spiceflowPlugin } from 'spiceflow/vite'
+import spiceflow from 'spiceflow/vite'
 
 // REMOTE_ORIGIN must be set to the remote's public URL so all built asset
 // paths (JS chunks, CSS) are absolute. Without this, the host browser would
@@ -14,7 +14,7 @@ export default defineConfig({
     cors: true,
   },
   plugins: [
-    spiceflowPlugin({
+    spiceflow({
       entry: './app/main.tsx',
       federation: 'remote',
     }),

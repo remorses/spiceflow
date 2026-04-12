@@ -1,5 +1,5 @@
 import { defineConfig } from "vite";
-import { spiceflowPlugin } from "spiceflow/vite";
+import spiceflow from "spiceflow/vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 
@@ -30,7 +30,7 @@ export default defineConfig({
 		// inspect(),
 		tailwindcss(),
 		react(),
-		spiceflowPlugin({
+		spiceflow({
 			entry: "./src/main.tsx",
 		}),
 	],

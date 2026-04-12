@@ -18,12 +18,12 @@ For Cloudflare Workers, keep the worker-specific SSR output and child environmen
 import { cloudflare } from '@cloudflare/vite-plugin'
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
-import { spiceflowPlugin } from 'spiceflow/vite'
+import spiceflow from 'spiceflow/vite'
 
 export default defineConfig({
   plugins: [
     react(),
-    spiceflowPlugin({ entry: './app/main.tsx' }),
+    spiceflow({ entry: './app/main.tsx' }),
     cloudflare({
       viteEnvironment: {
         name: 'rsc',

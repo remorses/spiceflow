@@ -39,12 +39,12 @@ const framerResponse = await fetch('https://framer.com/m/IOKnob-DT0M.js@eZsKjfnR
 
 ```tsx
 // remote/vite.config.ts
-import { spiceflowPlugin } from 'spiceflow/vite'
+import spiceflow from 'spiceflow/vite'
 
 export default defineConfig({
   base: process.env.REMOTE_ORIGIN || 'http://localhost:3001',
   plugins: [
-    spiceflowPlugin({
+    spiceflow({
       entry: './app/main.tsx',
       federation: 'remote',
     }),
@@ -177,11 +177,11 @@ Framer components import bare specifiers like `framer` and `framer-motion`. Thes
 
 ```ts
 // vite.config.ts
-import { spiceflowPlugin } from 'spiceflow/vite'
+import spiceflow from 'spiceflow/vite'
 
 export default defineConfig({
   plugins: [
-    spiceflowPlugin({
+    spiceflow({
       entry: './app/main.tsx',
       importMap: {
         'framer-motion': './app/shared/framer-motion.ts',

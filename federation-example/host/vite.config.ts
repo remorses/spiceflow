@@ -1,11 +1,11 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
-import { spiceflowPlugin } from 'spiceflow/vite'
+import spiceflow from 'spiceflow/vite'
 
 export default defineConfig({
   clearScreen: false,
   plugins: [
-    spiceflowPlugin({
+    spiceflow({
       entry: './app/main.tsx',
       importMap: {
         'framer-motion': 'https://esm.sh/framer-motion@12?external=react',
