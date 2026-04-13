@@ -55,6 +55,7 @@ import {
   getErrorContext,
   isNotFoundError,
   isRedirectError,
+  isRedirectStatus,
   contextToHeaders,
 } from './react/errors.js'
 import { formatServerError } from './react/format-server-error.js'
@@ -1356,8 +1357,10 @@ export class Spiceflow<
       return emptyState
     }
 
+    // Skip origin check in development — tunnels, proxies, and different
+    // ports constantly trigger false positives during local dev.
     const origin = request.headers.get('Origin')
-    if (origin) {
+    if (origin && !import.meta.hot) {
       const requestUrl = new URL(request.url)
       const root = this.topLevelApp || this
       const allowed = root.allowedActionOrigins
@@ -1371,9 +1374,11 @@ export class Spiceflow<
       }
     }
 
+    const url = new URL(request.url)
+    const actionId = url.searchParams.get('__rsc')
+    const isCallServerRequest = Boolean(actionId)
+
     try {
-      const url = new URL(request.url)
-      const actionId = url.searchParams.get('__rsc')
       if (actionId) {
         const temporaryReferences = createTemporaryReferenceSet()
         const contentType = request.headers.get('content-type')
@@ -1411,9 +1416,40 @@ export class Spiceflow<
         temporaryReferences: undefined,
       }
     } catch (error) {
-      // Thrown Responses (redirect, notFound) bypass the action payload entirely —
-      // return them as HTTP responses so the browser handles them natively.
+      // Redirect Responses thrown in callServer requests are encoded as action
+      // errors with a __REACT_SERVER_ERROR__ digest so the client can detect
+      // them and navigate via router.push(). Returning a raw 307 would cause
+      // fetch() to follow the redirect (POST to new URL), which breaks on
+      // Cloudflare Workers and other environments. Progressive enhancement
+      // (no JS) forms still get the raw Response so the browser follows it.
+      if (error instanceof Response && isRedirectStatus(error.status) && isCallServerRequest) {
+        const headers = [...error.headers.entries()]
+        const digest = `__REACT_SERVER_ERROR__:${JSON.stringify({ status: error.status, headers })}`
+        const redirectError = new Error(digest)
+        // Preserve non-location headers (e.g. set-cookie) from the redirect
+        // Response so they can be sent on the actual HTTP flight response.
+        const extraHeaders = new Headers(error.headers)
+        extraHeaders.delete('location')
+        return {
+          actionError: redirectError,
+          actionErrorDigest: digest,
+          returnValue: undefined,
+          formState: undefined,
+          temporaryReferences: undefined,
+          actionResponseHeaders: extraHeaders.keys().next().done ? undefined : extraHeaders,
+        }
+      }
+      // Thrown Responses (redirect for progressive enhancement, notFound, etc.)
+      // bypass the action payload — return them as HTTP responses.
+      // For redirects from POST form actions, use 303 (See Other) so the browser
+      // follows with a GET instead of re-POSTing to the target URL.
       if (error instanceof Response) {
+        if (isRedirectStatus(error.status) && error.status === 307) {
+          return new Response(null, {
+            status: 303,
+            headers: error.headers,
+          })
+        }
         return error
       }
 
@@ -1836,6 +1872,9 @@ export class Spiceflow<
           'content-type': 'text/x-component;charset=utf-8',
         })
         appendHeaders(headers, routeHeaders)
+        if (actionState.actionResponseHeaders) {
+          appendHeaders(headers, actionState.actionResponseHeaders)
+        }
 
         const pageHandlerStatus =
           pageResult.status && pageResult.status !== 200
@@ -3036,6 +3075,10 @@ type ReactActionState = {
   temporaryReferences:
     | ReturnType<(typeof import('#rsc-runtime'))['createTemporaryReferenceSet']>
     | undefined
+  // Extra headers from redirect responses (e.g. set-cookie) that should be
+  // merged into the flight HTTP response even though the redirect itself is
+  // encoded in the action error digest for client-side navigation.
+  actionResponseHeaders?: Headers
 }
 
 function isReactMatchedRoute(route: {

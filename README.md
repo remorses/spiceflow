@@ -1240,7 +1240,7 @@ export function EditorToolbar() {
 
 ### Forms & Server Actions
 
-Forms use React 19's `<form action>` with server functions marked `"use server"`. They work before JavaScript loads (progressive enhancement). After a server action completes, all matching loaders re-run automatically — no manual revalidation needed.
+Forms use React 19's `<form action>` with server functions marked `"use server"`. They work before JavaScript loads (progressive enhancement). After a form submission completes, the page re-renders with fresh server data automatically. When calling a server action directly as a function (not via form submission), the page does **not** re-render — call `router.refresh()` if you need the UI to update.
 
 ```tsx
 // src/app/submit-button.tsx
@@ -1459,6 +1459,19 @@ export async function submitForm(formData: FormData) {
 
 On the client, `getActionAbortController()` returns the `AbortController` for the most recent in-flight call to a server action, or `undefined` if nothing is in-flight. Call `.abort()` to cancel the fetch.
 
+Server actions include CSRF protection — the `Origin` header of POST requests is checked against the app's origin. This check is **disabled in development** (when running via `vite dev`) so tunnels and proxies don't cause issues. In production, when using a reverse proxy, tunnel, or custom domain that changes the origin, server actions return `403 Forbidden: origin mismatch`. Use `allowedActionOrigins` to allow additional origins:
+
+```tsx
+const app = new Spiceflow({
+  allowedActionOrigins: [
+    'https://my-app.example.com',
+    /\.my-tunnel\.dev$/,
+  ],
+})
+```
+
+Each entry can be an exact origin string or a `RegExp` tested against the request's `Origin` header.
+
 ### Streaming UI from Server Actions
 
 Server actions can return JSX directly — including via async generators that stream React elements to the client incrementally. The RSC flight protocol serializes each yielded element as it arrives, and the client deserializes them into real React elements you can render.
@@ -1541,7 +1554,7 @@ Each yielded element — whether a text paragraph, a weather card, or a stock ch
 
 ### Redirects and Not Found
 
-Use `redirect()` and `response.status` inside `.page()` and `.layout()` handlers to control navigation and HTTP status codes:
+Use `redirect()` and `response.status` inside `.page()`, `.layout()`, and server action handlers to control navigation and HTTP status codes:
 
 ```tsx
 import { Spiceflow, redirect } from 'spiceflow'

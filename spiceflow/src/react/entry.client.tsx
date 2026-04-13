@@ -26,7 +26,7 @@ import {
   isFlightResponse,
   isDeploymentMismatchResponse,
 } from './deployment.js'
-import { getErrorContext } from './errors.js'
+import { getErrorContext, isRedirectError } from './errors.js'
 import { actionAbortControllers } from './action-abort.js'
 
 // Reads the RSC flight payload that the server injected as <script> tags via
@@ -234,6 +234,10 @@ async function main() {
   router.subscribe(handleNavigation)
 
   const callServer = async (id: string, args: unknown[]) => {
+    // Form submissions (via <form action>) include FormData as the last arg.
+    // Re-render the page for form actions; skip for direct calls to preserve
+    // client state. This heuristic covers all React form submissions.
+    const isFormAction = args.length > 0 && args[args.length - 1] instanceof FormData
     // Temporary references track non-serializable values (DOM nodes, React elements) passed
     // as action args. Same set is shared with createFromFetch so they round-trip correctly.
     const temporaryReferences = createTemporaryReferenceSet()
@@ -262,9 +266,16 @@ async function main() {
         { temporaryReferences },
       )
 
-      setPayload(payloadPromise)
+      // Re-render the page tree for form actions so server-rendered content
+      // updates (e.g. server counter, form revalidation). Direct function
+      // calls skip re-rendering to avoid resetting client state.
+      if (isFormAction) {
+        setPayload(payloadPromise)
+      }
       const payload = await payloadPromise
-      router.__setLoaderData(payload.root?.loaderData)
+      if (isFormAction) {
+        router.__setLoaderData(payload.root?.loaderData)
+      }
 
       if (payload.actionError) {
         // React prod strips both error.message and error.digest for Error values
@@ -275,6 +286,19 @@ async function main() {
             Reflect.set(payload.actionError, 'digest', payload.actionErrorDigest)
             payload.actionError.message = payload.actionErrorDigest
           }
+        }
+        // Redirect errors from throw redirect() in server actions: navigate
+        // to the target URL instead of throwing to the caller.
+        const errorCtx = getErrorContext(payload.actionError)
+        const redirectInfo = isRedirectError(errorCtx)
+        if (redirectInfo) {
+          const target = new URL(redirectInfo.location, window.location.href)
+          if (target.origin !== window.location.origin) {
+            hardNavigate(target.href)
+          } else {
+            router.push(`${target.pathname}${target.search}${target.hash}`)
+          }
+          return never()
         }
         throw payload.actionError
       }
