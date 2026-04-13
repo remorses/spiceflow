@@ -846,6 +846,10 @@ export const app = new Spiceflow()
   })
 ```
 
+### shadcn/ui
+
+Spiceflow works with [shadcn/ui](https://ui.shadcn.com) out of the box. Instead of the usual `tsconfig.json` paths hack (`@/*`), use `package.json` `exports` for component imports — it's a standard Node.js feature that works across runtimes and lets other workspace packages import your components too. See [shadcn docs](docs/shadcn.md) for the full setup guide and [`example-shadcn/`](example-shadcn) for a working example.
+
 ### App Entry
 
 The entry file defines your routes using `.page()` for pages and `.layout()` for layouts. This file runs in the RSC environment on the server. All routes registered with `.page()`, `.get()`, etc. are available in `app.href()` for type-safe URL building — including path params and query params.
