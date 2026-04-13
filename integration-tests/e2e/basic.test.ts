@@ -571,6 +571,18 @@ test.describe(() => {
 		expect(html).toContain('data-testid="client-counter"');
 		expect(html).toContain('data-precedence="vite-rsc/client-reference"');
 	});
+
+	test("no-JS form action redirect returns 303 and navigates @nojs", async ({
+		page,
+	}) => {
+		// With JS disabled, the browser submits the form as a regular POST.
+		// The server should respond with 303 (not 307) so the browser follows
+		// with a GET instead of re-POSTing to the redirect target.
+		const response = await page.goto(url("/form-redirect-nojs"));
+		expect(response?.status()).toBe(200);
+		await page.getByRole("button", { name: "Submit" }).click();
+		await expect(page).toHaveURL(url("/other"), { timeout: 10000 });
+	});
 });
 
 async function testServerAction(page: Page) {
@@ -777,9 +789,11 @@ test.describe("route handler returns Error (not throws)", () => {
 });
 
 test.describe("CSRF protection", () => {
-	test("cross-origin POST to action endpoint returns 403", async () => {
-		// Use Node.js fetch directly — browser fetch cannot override the Origin header
-		// (it's a forbidden header). Node.js fetch has no such restriction.
+	test("cross-origin POST to action endpoint returns 403 @build", async () => {
+		// Origin check is disabled in dev (import.meta.hot is truthy) so this
+		// test only runs against the production build.
+		// Use Node.js fetch directly — browser fetch cannot override the Origin
+		// header (it's a forbidden header). Node.js fetch has no such restriction.
 		const response = await fetch(`${baseURL}${basePath}/?__rsc=fake-action-id`, {
 			method: "POST",
 			headers: { Origin: "https://evil.com" },
@@ -1913,6 +1927,41 @@ test.describe("server actions", () => {
 		});
 		await page.getByTestId("call-redirect-action").click();
 		await expect(page).toHaveURL(url("/other"), { timeout: 10000 });
+	});
+
+	test("direct server action redirect preserves layout state", async ({
+		page,
+	}) => {
+		await page.goto(url("/server-action-redirect"));
+		await expect(page.getByTestId("layout-mount-count")).toHaveText("1", {
+			timeout: 10000,
+		});
+		// Set some client state in the layout counter
+		const layoutCounter = page
+			.getByTestId("client-counter")
+			.filter({ hasText: "Layout" });
+		await layoutCounter.getByRole("button", { name: "+" }).click();
+		await expect(layoutCounter).toContainText("Layout counter: 1");
+		// Redirect via server action
+		await page.getByTestId("call-redirect-action").click();
+		await expect(page).toHaveURL(url("/other"), { timeout: 10000 });
+		// Layout state should be preserved (client-side navigation, not full reload)
+		await expect(page.getByTestId("layout-mount-count")).toHaveText("1");
+	});
+
+	test("direct server action redirect with set-cookie preserves cookie", async ({
+		page,
+	}) => {
+		await page.goto(url("/server-action-redirect"));
+		await expect(page.getByTestId("layout-mount-count")).toHaveText("1", {
+			timeout: 10000,
+		});
+		await page.getByTestId("call-redirect-cookie-action").click();
+		await expect(page).toHaveURL(url("/other"), { timeout: 10000 });
+		// The set-cookie header from the redirect should have been applied
+		const cookies = await page.context().cookies();
+		const actionCookie = cookies.find((c) => c.name === "action-redirect");
+		expect(actionCookie?.value).toBe("1");
 	});
 
 	test("form action with useActionState returns result to the page", async ({

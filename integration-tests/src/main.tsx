@@ -700,6 +700,18 @@ export const app = new Spiceflow()
 	.page("/server-action-redirect", async () => {
 		return <RedirectActionTest />;
 	})
+	.page("/form-redirect-nojs", async () => {
+		async function formRedirectAction(formData: FormData) {
+			"use server";
+			throw redirect("/other");
+		}
+		return (
+			<form action={formRedirectAction} data-testid="nojs-redirect-form">
+				<input name="name" type="text" defaultValue="test" />
+				<button type="submit">Submit</button>
+			</form>
+		);
+	})
 	.page("/server-action-jsx", async () => {
 		return <JsxActionTest />;
 	})

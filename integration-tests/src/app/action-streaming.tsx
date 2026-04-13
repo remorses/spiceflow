@@ -23,6 +23,12 @@ export async function redirectAction(): Promise<never> {
 	throw redirect("/other");
 }
 
+export async function redirectWithCookieAction(): Promise<never> {
+	throw redirect("/other", {
+		headers: { "set-cookie": "action-redirect=1; Path=/" },
+	});
+}
+
 export async function jsxAction(name: string) {
 	return (
 		<div data-testid="server-jsx-result">

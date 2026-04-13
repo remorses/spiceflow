@@ -6,6 +6,7 @@ import {
 	streamingAction,
 	simpleAction,
 	redirectAction,
+	redirectWithCookieAction,
 	jsxAction,
 	jsxStreamingAction,
 	throwingStreamingAction,
@@ -60,6 +61,12 @@ export function RedirectActionTest() {
 				onClick={() => redirectAction()}
 			>
 				Redirect via action
+			</button>
+			<button
+				data-testid="call-redirect-cookie-action"
+				onClick={() => redirectWithCookieAction()}
+			>
+				Redirect with cookie
 			</button>
 		</div>
 	);
