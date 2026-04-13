@@ -129,6 +129,19 @@ export const app = new Spiceflow()
   })
 ```
 
+When you need a `Response` object directly (for custom status codes or headers), use `Response.json()` instead of `new Response(JSON.stringify(...))`:
+
+```ts
+// Good — built-in static method, sets Content-Type automatically
+return Response.json({ error: 'Not found' }, { status: 404 })
+
+// Avoid — verbose, easy to forget Content-Type header
+return new Response(JSON.stringify({ error: 'Not found' }), {
+  status: 404,
+  headers: { 'content-type': 'application/json' },
+})
+```
+
 ## Routes & Validation
 
 Define routes with Zod schemas for automatic request and response validation. Use `.route()` with `request`, `response`, `query`, and `params` schemas for full type safety.
@@ -615,49 +628,39 @@ if (greeting instanceof Error) throw greeting
 
 For path matching patterns, error handling, server-side fetch, type-safe RPC, and path building (`href` / `createHref`), see [Fetch Client docs](docs/fetch-client.md).
 
-## State & Bindings
+## Cloudflare Bindings
 
-You can use bindings type safely using a `.state` method and then passing the state in the `handle` method in the second argument. This pattern is useful for dependency injection — you can swap the env with mocks when testing with Node.js:
+On Cloudflare Workers, the simplest way to read bindings is to import `env` directly from `cloudflare:workers`. Run `wrangler types` after changing `wrangler.jsonc` so Wrangler regenerates `worker-configuration.d.ts` — that gives `env` a type-safe `Env` shape automatically.
 
 ```tsx
 import { Spiceflow } from 'spiceflow'
-import { z } from 'zod'
-
-interface Env {
-  KV: KVNamespace
-  QUEUE: Queue
-  SECRET: string
-}
+import { env } from 'cloudflare:workers'
 
 export const app = new Spiceflow()
-  .state('env', {} as Env)
   .route({
     method: 'GET',
     path: '/kv/:key',
-    async handler({ params, state }) {
-      const value = await state.env!.KV.get(params.key)
+    async handler({ params }) {
+      const value = await env.KV.get(params.key)
       return { key: params.key, value }
     },
   })
   .route({
     method: 'POST',
     path: '/queue',
-    async handler({ request, state }) {
+    async handler({ request }) {
       const body = await request.json()
-      await state.env!.QUEUE.send(body)
+      await env.QUEUE.send(body)
       return { success: true, message: 'Added to queue' }
     },
   })
 
 export default {
-  fetch(request: Request, env: Env, ctx: ExecutionContext) {
-    // Pass the env bindings to the app
-    return app.handle(request, { state: { env } })
+  fetch(request: Request) {
+    return app.handle(request)
   },
 }
 ```
-
-> **Alternative:** On Cloudflare Workers you can also `import { env } from 'cloudflare:workers'` to access bindings directly from anywhere in your code, without threading env through `.state()`. See the [KV caching example](docs/cloudflare.md#kv-page-caching) for this approach.
 
 ## Cookies
 

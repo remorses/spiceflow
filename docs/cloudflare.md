@@ -53,6 +53,8 @@ export default {
 
 See [`cloudflare-example/`](../cloudflare-example) for a complete working example.
 
+When you add or change bindings in `wrangler.jsonc`, run `wrangler types`. Wrangler regenerates `worker-configuration.d.ts`, which provides the global `Env` type and the typed `env` export from `cloudflare:workers`.
+
 ### Wrangler Environments
 
 The `@cloudflare/vite-plugin` resolves and flattens your `wrangler.json` config at **build time** and writes it into `dist/rsc/wrangler.json`. When `wrangler deploy` runs, it reads this generated config — not your top-level `wrangler.json`. This means `wrangler deploy --env preview` alone is not enough if the build was done without specifying the environment.
@@ -130,8 +132,8 @@ async function processWebhookData(payload: any) {
 }
 
 export default {
-  fetch(request: Request, env: any, ctx: ExecutionContext) {
-    return app.handle(request, { state: { env } })
+  fetch(request: Request) {
+    return app.handle(request)
   },
 }
 ```
@@ -171,7 +173,7 @@ async function trackPageView(path: string) {
 
 Use middleware to cache full-page HTML in Cloudflare KV. The deployment ID is included in the cache key so each deploy gets its own cache namespace — this prevents serving stale HTML that references old CSS/JS filenames with different content hashes.
 
-This example uses `import { env } from 'cloudflare:workers'` to access KV bindings directly from anywhere in your code, without threading env through `.state()`.
+This example uses `import { env } from 'cloudflare:workers'` to access KV bindings directly from anywhere in your code, without threading env through `.state()`. Run `wrangler types` whenever the bindings change so `env.PAGE_CACHE` stays type-safe.
 
 ```tsx
 import { Spiceflow, getDeploymentId } from 'spiceflow'

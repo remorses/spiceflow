@@ -6,10 +6,6 @@ import { Suspense } from 'react'
 import { Link, ProgressBar } from 'spiceflow/react'
 import { env } from 'cloudflare:workers'
 
-interface Env {
-  POKEMON_KV: KVNamespace
-}
-
 type Pokemon = {
   id: number
   name: string
@@ -30,16 +26,13 @@ export const app = new Spiceflow()
 
     // Pick 12 random IDs
     const shuffled = allIds.sort(() => Math.random() - 0.5).slice(0, 12)
-    const pokemon = await Promise.all(
-      shuffled.map(async (id) => {
-        const data = await kv.get(`pokemon:${id}`, 'json')
-        return data as Pokemon
-      }),
-    )
+    const pokemon = (await Promise.all(
+      shuffled.map((id) => kv.get<Pokemon>(`pokemon:${id}`, 'json')),
+    )).filter((pokemon): pokemon is Pokemon => pokemon !== null)
 
     return (
       <PokemonList>
-        {pokemon.filter(Boolean).map((p) => (
+        {pokemon.map((p) => (
           <Link href={`/pokemon/${p.id}`} key={p.id}>
             <PokemonCard id={p.id} name={p.name} />
           </Link>
