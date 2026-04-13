@@ -6,6 +6,7 @@ import {
   createHref,
   extractWildcardParam,
   Spiceflow,
+  SpiceflowRequest,
 } from './spiceflow.tsx'
 import { z } from 'zod'
 import { createSpiceflowClient } from './client/index.js'
@@ -3730,6 +3731,26 @@ describe('.use() with page and layout routes', () => {
     expect(res.status).toBe(404)
     expect(await res.text()).toBe('Not Found')
     expect(ranLoader).toBe(false)
+  })
+
+  test('request.url is normalized for .rsc requests before handlers run', async () => {
+    const app = new Spiceflow().get('/dashboard', ({ request, path }) => ({
+      url: request.url,
+      originalUrl: request instanceof SpiceflowRequest ? request.originalUrl : 'missing',
+      path,
+    }))
+
+    const res = await app.handle(
+      new Request('http://localhost/dashboard.rsc?__rsc=&tab=settings'),
+    )
+
+    expect(await res.json()).toMatchInlineSnapshot(`
+      {
+        "originalUrl": "http://localhost/dashboard.rsc?__rsc=&tab=settings",
+        "path": "/dashboard",
+        "url": "http://localhost/dashboard?__rsc=&tab=settings",
+      }
+    `)
   })
 
   test('multiple sub-apps with pages at different basePaths', async () => {

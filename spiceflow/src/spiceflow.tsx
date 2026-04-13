@@ -1883,6 +1883,12 @@ export class Spiceflow<
       path = path.slice(0, -4)
     }
 
+    if (path !== u.pathname) {
+      const normalizedUrl = new URL(request.url)
+      normalizedUrl.pathname = path
+      request.overrideUrl(normalizedUrl.toString())
+    }
+
     if (!this.tracer) return this.executeRequest(request, u, path, customState)
 
     return withSpan(
@@ -2926,8 +2932,38 @@ function bfsFind<T>(
 
 export class SpiceflowRequest<T = any> extends Request {
   validateBody?: ValidationFunction
+  private _urlOverride?: string
+  /** Original transport URL before Spiceflow normalizes .rsc pathnames for handlers. */
+  private _originalUrl: string
   /** Lazily parsed URL, cached on first access so we only parse once */
   private _parsedUrl?: URL
+
+  constructor(input: RequestInfo | URL, init?: RequestInit) {
+    super(input, init)
+    this._originalUrl = super.url
+  }
+
+  /** Raw incoming request URL, including transport-only `.rsc` pathnames when present. */
+  get originalUrl(): string {
+    return this._originalUrl
+  }
+
+  /**
+   * App-facing request URL.
+   *
+   * For RSC transport requests, Spiceflow strips the `.rsc` pathname suffix before
+   * user handlers run, but intentionally keeps the `__rsc` query param so middleware
+   * and static serving can still detect Flight requests.
+   */
+  override get url(): string {
+    return this._urlOverride ?? super.url
+  }
+
+  overrideUrl(url: string) {
+    this._urlOverride = url
+    this._parsedUrl = undefined
+    return this
+  }
 
   get parsedUrl(): URL {
     this._parsedUrl ??= new URL(this.url, 'http://localhost')
