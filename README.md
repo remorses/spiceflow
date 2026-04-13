@@ -783,6 +783,69 @@ export default defineConfig({
 
 For Cloudflare Workers deployment with RSC, see [Cloudflare docs](docs/cloudflare.md). See [`cloudflare-example/`](cloudflare-example) for a complete working example.
 
+### Tailwind CSS
+
+Install `@tailwindcss/vite` and `tailwindcss`, then add the Vite plugin:
+
+```bash
+npm install @tailwindcss/vite tailwindcss
+```
+
+```ts
+// vite.config.ts
+import react from '@vitejs/plugin-react'
+import tailwindcss from '@tailwindcss/vite'
+import { defineConfig } from 'vite'
+import spiceflow from 'spiceflow/vite'
+
+export default defineConfig({
+  plugins: [
+    spiceflow({ entry: './src/main.tsx' }),
+    react(),
+    tailwindcss(),
+  ],
+})
+```
+
+Create a `globals.css` file with Tailwind and any CSS variables you need:
+
+```css
+/* src/globals.css */
+@import 'tailwindcss';
+
+:root {
+  --radius: 0.625rem;
+  --background: var(--color-white);
+  --foreground: var(--color-neutral-800);
+}
+```
+
+Import it at the top of your app entry so styles apply globally:
+
+```tsx
+// src/main.tsx
+import './globals.css'
+import { Spiceflow } from 'spiceflow'
+
+export const app = new Spiceflow()
+  .layout('/*', async ({ children }) => {
+    return (
+      <html>
+        <body className="bg-white dark:bg-gray-900 text-black dark:text-white">
+          {children}
+        </body>
+      </html>
+    )
+  })
+  .page('/', async () => {
+    return (
+      <div className="flex flex-col items-center gap-4 p-8">
+        <h1 className="text-4xl font-bold">Welcome</h1>
+      </div>
+    )
+  })
+```
+
 ### App Entry
 
 The entry file defines your routes using `.page()` for pages and `.layout()` for layouts. This file runs in the RSC environment on the server. All routes registered with `.page()`, `.get()`, etc. are available in `app.href()` for type-safe URL building — including path params and query params.
