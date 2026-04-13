@@ -9,7 +9,7 @@ export default defineConfig(() => ({
   plugins: [
     react(),
     spiceflow({
-      entry: './app/main.tsx',
+      entry: './src/main.tsx',
     }),
     tailwindcss(),
     cloudflare({

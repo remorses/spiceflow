@@ -6,5 +6,5 @@
     "moduleResolution": "bundler",
     "types": ["@cloudflare/workers-types", "node"]
   },
-  "include": ["app/**/*", "scripts/**/*", "worker-configuration.d.ts"]
+  "include": ["src/**/*", "scripts/**/*", "worker-configuration.d.ts"]
 }

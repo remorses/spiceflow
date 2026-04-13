@@ -29,7 +29,7 @@ pages) is untouched.
 `x402HTTPResourceServer`. It carries its own route matcher, HTML paywall
 generator, Hono context adapter, bazaar extension loader, and settlement
 overrides header. Spiceflow already has a trie router, so a bespoke ~180-line
-middleware at [`app/x402-middleware.ts`](./app/x402-middleware.ts) is enough.
+middleware at [`src/x402-middleware.ts`](./src/x402-middleware.ts) is enough.
 It only imports from `@x402/core/server`, `@x402/core/http`, `@x402/core/types`,
 and `@x402/evm/exact/server`.
 

@@ -7,7 +7,7 @@ export default defineConfig({
   clearScreen: false,
   plugins: [
     spiceflow({
-      entry: './app/main.tsx',
+      entry: './src/main.tsx',
     }),
     react(),
     tailwindcss(),

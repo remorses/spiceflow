@@ -45,7 +45,7 @@ export default defineConfig({
   base: process.env.REMOTE_ORIGIN || 'http://localhost:3001',
   plugins: [
     spiceflow({
-      entry: './app/main.tsx',
+      entry: './src/main.tsx',
       federation: 'remote',
     }),
   ],
@@ -53,7 +53,7 @@ export default defineConfig({
 ```
 
 ```tsx
-// remote/app/main.tsx
+// remote/src/main.tsx
 import { Spiceflow } from 'spiceflow'
 import { cors } from 'spiceflow/cors'
 import { encodeFederationPayload } from 'spiceflow/federation'
@@ -83,7 +83,7 @@ The `.staticGet` route runs at build time and writes the response to disk. You c
 **Host app** — fetches the response and renders it:
 
 ```tsx
-// host/app/main.tsx
+// host/src/main.tsx
 import { Suspense } from 'react'
 import { Spiceflow } from 'spiceflow'
 import { RenderFederatedPayload } from 'spiceflow/react'
@@ -182,10 +182,10 @@ import spiceflow from 'spiceflow/vite'
 export default defineConfig({
   plugins: [
     spiceflow({
-      entry: './app/main.tsx',
+      entry: './src/main.tsx',
       importMap: {
-        'framer-motion': './app/shared/framer-motion.ts',
-        'framer': './app/shared/framer.ts',
+        'framer-motion': './src/shared/framer-motion.ts',
+        'framer': './src/shared/framer.ts',
       },
     }),
   ],
@@ -193,12 +193,12 @@ export default defineConfig({
 ```
 
 ```ts
-// app/shared/framer-motion.ts
+// src/shared/framer-motion.ts
 export * from 'framer-motion'
 ```
 
 ```ts
-// app/shared/framer.ts
+// src/shared/framer.ts
 export * from 'framer'
 ```
 

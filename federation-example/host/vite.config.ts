@@ -6,7 +6,7 @@ export default defineConfig({
   clearScreen: false,
   plugins: [
     spiceflow({
-      entry: './app/main.tsx',
+      entry: './src/main.tsx',
       importMap: {
         'framer-motion': 'https://esm.sh/framer-motion@12?external=react',
         'framer': 'https://esm.sh/unframer@4.1.5/dist/framer.mjs?external=react',

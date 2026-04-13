@@ -23,7 +23,7 @@ import spiceflow from 'spiceflow/vite'
 export default defineConfig({
   plugins: [
     react(),
-    spiceflow({ entry: './app/main.tsx' }),
+    spiceflow({ entry: './src/main.tsx' }),
     cloudflare({
       viteEnvironment: {
         name: 'rsc',
@@ -35,7 +35,7 @@ export default defineConfig({
 ```
 
 ```tsx
-// app/main.tsx
+// src/main.tsx
 import { Spiceflow } from 'spiceflow'
 
 export const app = new Spiceflow().page('/', async () => {
