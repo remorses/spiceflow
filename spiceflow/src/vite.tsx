@@ -452,6 +452,8 @@ export default function spiceflow({
             'react-dom',
             'react/jsx-runtime',
             'react/jsx-dev-runtime',
+            'spiceflow',
+            'spiceflow/react',
           ])
 
           if (isCloudflareProject) {
