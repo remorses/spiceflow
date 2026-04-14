@@ -1315,6 +1315,41 @@ export function NewsletterForm({
 })
 ```
 
+When calling a server action directly (not via a form), the page does **not** re-render automatically. Import the action from a `"use server"` file and call `router.refresh()` after it completes — this refetches all loaders and server components so the UI reflects the mutation:
+
+```tsx
+// src/actions.ts
+'use server'
+
+export async function deletePost(id: string) {
+  await db.posts.delete(id)
+}
+```
+
+```tsx
+// src/app/delete-button.tsx
+'use client'
+
+import { getRouter } from 'spiceflow/react'
+import { deletePost } from '../actions'
+import type { App } from '../main'
+
+export function DeleteButton({ id }: { id: string }) {
+  const router = getRouter<App>()
+
+  return (
+    <button
+      onClick={async () => {
+        await deletePost(id)
+        router.refresh() // refetches loaders and server components data
+      }}
+    >
+      Delete
+    </button>
+  )
+}
+```
+
 If a server action throws, the error is caught by the nearest error boundary. The error message is preserved (sanitized to strip secrets) and displayed to the user in both development and production builds.
 
 ### Router
