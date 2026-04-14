@@ -71,7 +71,7 @@ async function fetchFlightResponse(args: {
   init?: RequestInit
   kind: 'navigation' | 'action'
 }) {
-  const response = await fetch(args.url, args.init)
+  const response = await fetch(args.url, { ...args.init, cache: 'no-store' })
 
   if (isDeploymentMismatchResponse(response)) {
     hardNavigate(

@@ -1899,6 +1899,7 @@ export class Spiceflow<
 
         const headers = new Headers({
           'content-type': 'text/x-component;charset=utf-8',
+          'cache-control': 'no-store',
         })
         appendHeaders(headers, routeHeaders)
         if (actionState.actionResponseHeaders) {
