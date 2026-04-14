@@ -2453,6 +2453,7 @@ export class Spiceflow<
         {
           ...err,
           message: err?.message || 'Internal Server Error',
+          ...(err instanceof Error && err.stack ? { stack: err.stack } : {}),
         },
         false,
         request,
@@ -2696,8 +2697,9 @@ export class Spiceflow<
         reusePort: true,
         error(error) {
           console.error(error)
+          const message = error instanceof Error ? error.message : 'Internal Server Error'
           return new Response(
-            app.superjsonSerialize({ message: 'Internal Server Error' }),
+            app.superjsonSerialize({ message, ...(error instanceof Error && error.stack ? { stack: error.stack } : {}) }),
             {
               status: 500,
             },
