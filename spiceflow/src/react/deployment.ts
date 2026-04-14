@@ -4,7 +4,6 @@
 export const deploymentCookieName = 'spiceflow-deployment'
 export const deploymentReloadHeader = 'x-spiceflow-reload'
 export const deploymentReasonHeader = 'x-spiceflow-reason'
-export const navigationRedirectHeader = 'x-spiceflow-redirect'
 export const deploymentMismatchStatus = 409
 
 export function parseCookies(cookieHeader: string | null) {
@@ -65,14 +64,6 @@ export function getDocumentLocationFromResponse(args: {
   response: Response
   requestUrl: URL
 }) {
-  const navigationRedirect = args.response.headers.get(navigationRedirectHeader)
-  if (navigationRedirect) {
-    return toSameOriginDocumentLocation({
-      location: navigationRedirect,
-      requestUrl: args.requestUrl,
-    })
-  }
-
   const reloadLocation = args.response.headers.get(deploymentReloadHeader)
   if (reloadLocation) {
     return toSameOriginDocumentLocation({

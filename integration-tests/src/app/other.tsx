@@ -1,3 +1,3 @@
 export default function OtherPage() {
-	return <div data-testid="other-page">Other Page</div>;
+	return <div>Other Page</div>;
 }

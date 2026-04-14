@@ -85,13 +85,6 @@ export function isNotFoundError(ctx?: ReactServerErrorContext) {
 export function getErrorContext(
   error: unknown,
 ): ReactServerErrorContext | undefined {
-  if (error instanceof Response) {
-    return {
-      status: error.status,
-      headers: [...error.headers.entries()],
-    }
-  }
-
   if (
     error instanceof Error &&
     'digest' in error &&

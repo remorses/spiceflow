@@ -24,76 +24,6 @@ function url(path: string): string {
 	return basePath + path;
 }
 
-type TransitionSample = {
-	fromVisible: boolean;
-	toVisible: boolean;
-	bodyTextLength: number;
-};
-
-const transitionSamplerStorageKey = "__spiceflow_transition_samples__";
-
-async function startTransitionSampler(
-	page: Page,
-	{
-		fromTestId,
-		toTestId,
-	}: {
-		fromTestId: string;
-		toTestId: string;
-	},
-) {
-	await page.evaluate(({ fromTestId, toTestId, storageKey }) => {
-		sessionStorage.setItem(storageKey, JSON.stringify([]));
-		let stopped = false;
-
-		(window as any).__transitionSampler = {
-			stop() {
-				stopped = true;
-			},
-		};
-
-		const sample = () => {
-			const samples = JSON.parse(
-				sessionStorage.getItem(storageKey) || "[]",
-			) as TransitionSample[];
-			samples.push({
-				fromVisible: Boolean(
-					document.querySelector(`[data-testid="${fromTestId}"]`),
-				),
-				toVisible: Boolean(document.querySelector(`[data-testid="${toTestId}"]`)),
-				bodyTextLength: document.body?.textContent?.trim().length ?? 0,
-			});
-			sessionStorage.setItem(
-				storageKey,
-				JSON.stringify(samples),
-			);
-			if (!stopped) {
-				requestAnimationFrame(sample);
-			}
-		};
-
-		sample();
-	}, { fromTestId, toTestId, storageKey: transitionSamplerStorageKey });
-}
-
-async function stopTransitionSampler(page: Page): Promise<TransitionSample[]> {
-	return await page.evaluate((storageKey) => {
-		const sampler = (window as any).__transitionSampler;
-		sampler?.stop?.();
-		return JSON.parse(
-			sessionStorage.getItem(storageKey) || "[]",
-		) as TransitionSample[];
-	}, transitionSamplerStorageKey);
-}
-
-function expectSeamlessTransition(samples: TransitionSample[]) {
-	expect(samples.length).toBeGreaterThan(0);
-	expect(samples.some((sample) => sample.bodyTextLength === 0)).toBe(false);
-	expect(
-		samples.some((sample) => !sample.fromVisible && !sample.toVisible),
-	).toBe(false);
-}
-
 function getSetCookies(response: Response) {
 	const getSetCookie = Reflect.get(response.headers, "getSetCookie");
 	if (typeof getSetCookie !== "function") return [];
@@ -662,20 +592,6 @@ test.describe(() => {
 		expect(response?.status()).toBe(200);
 		await page.getByRole("button", { name: "Submit" }).click();
 		await expect(page).toHaveURL(url("/other"), { timeout: 10000 });
-	});
-
-	test("no-JS useActionState form posts back to the page route @nojs", async ({
-		page,
-	}) => {
-		const response = await page.goto(url("/form-action-test"));
-		expect(response?.status()).toBe(200);
-		await page.getByTestId("action-form-input").fill("hello world");
-		await page.getByTestId("action-form-submit").click();
-		await expect(page).toHaveURL(url("/form-action-test"), { timeout: 10000 });
-		await expect(page.getByTestId("action-form-result")).toHaveText(
-			"Received: hello world",
-			{ timeout: 10000 },
-		);
 	});
 });
 
@@ -1263,32 +1179,6 @@ test.describe("client-side navigation with throw response", () => {
 		await expect(layoutCounter.getByText("Layout counter: 1")).toBeVisible();
 	});
 
-	test("page redirect keeps previous page content until target renders", async ({
-		page,
-	}) => {
-		await page.goto(url("/"));
-		await page.getByText("[hydrated: 1]").click();
-		const layoutCounter = page
-			.getByTestId("client-counter")
-			.filter({ hasText: "Layout counter" });
-		await layoutCounter.getByRole("button", { name: "+" }).click();
-		await expect(layoutCounter.getByText("Layout counter: 1")).toBeVisible();
-		await startTransitionSampler(page, {
-			fromTestId: "server-counter",
-			toTestId: "other-page",
-		});
-
-		await page.getByTestId("link-return-redirect-page").click();
-		await expect(page.getByTestId("other-page")).toBeVisible({
-			timeout: 10_000,
-		});
-		await expect(page).toHaveURL(url("/other"));
-		await expect(layoutCounter.getByText("Layout counter: 1")).toBeVisible();
-
-		const samples = await stopTransitionSampler(page);
-		expectSeamlessTransition(samples);
-	});
-
 	test("layout state is preserved after client-side redirect from layout", async ({
 		page,
 	}) => {
@@ -1354,26 +1244,6 @@ test.describe("router.push() follows .get() 302 redirect via client-side navigat
 
 		// Layout state should be preserved (SPA navigation, not hard reload)
 		await expect(layoutCounter.getByText("Layout counter: 1")).toBeVisible();
-	});
-
-	test(".get() redirect keeps previous page content until target renders", async ({
-		page,
-	}) => {
-		await page.goto(url("/get-redirect-nav"));
-		await expect(page.getByTestId("layout-mount-count")).toHaveText("1");
-		await startTransitionSampler(page, {
-			fromTestId: "get-redirect-nav",
-			toTestId: "get-redirect-target",
-		});
-
-		await page.getByTestId("get-redirect-push").click();
-		await expect(page.getByTestId("get-redirect-target")).toBeVisible({
-			timeout: 10_000,
-		});
-		await expect(page).toHaveURL(url("/get-redirect/123/target"));
-
-		const samples = await stopTransitionSampler(page);
-		expectSeamlessTransition(samples);
 	});
 });
 
