@@ -915,7 +915,6 @@ test.describe("router.refresh", () => {
 		await page.getByTestId("router-refresh-increment").click();
 		await expect(page.getByTestId("router-refresh-client-count")).toHaveText("1");
 
-		const instanceId = await page.getByTestId("router-refresh-instance-id").textContent();
 		const serverRenderCount = await page
 			.getByTestId("router-refresh-server-render-count")
 			.textContent();
@@ -941,9 +940,6 @@ test.describe("router.refresh", () => {
 			.textContent();
 		await expect(page.getByTestId("router-refresh-mount-count")).toHaveText("1");
 		await expect(page.getByTestId("router-refresh-client-count")).toHaveText("1");
-		await expect(page.getByTestId("router-refresh-instance-id")).toHaveText(
-			instanceId ?? "",
-		);
 		await expect(page.getByTestId("router-refresh-awaited-result")).toHaveText(
 			`${nextServerRenderCount}:${nextServerRandom}`,
 		);

@@ -4,6 +4,7 @@ import "./client.css";
 import React, { useActionState } from "react";
 import { add } from "./action-by-client";
 import { redirect } from "spiceflow";
+import { getRouter } from "spiceflow/react";
 import { action } from "./form-action";
 
 type ClientFormState = {
@@ -104,6 +105,58 @@ export function LayoutMountTracker() {
 
 export function CssTestClient() {
 	return <div data-testid="css-test-client">Client component with CSS</div>;
+}
+
+export function RouterRefreshStateTest({
+	serverRandom,
+	serverRenderCount,
+}: {
+	serverRandom: string;
+	serverRenderCount: number;
+}) {
+	const router = getRouter();
+	const [clientCount, setClientCount] = React.useState(0);
+	const [mountCount, setMountCount] = React.useState(0);
+	const [awaitedResult, setAwaitedResult] = React.useState("");
+	const latestServerRenderCount = React.useRef(serverRenderCount);
+	const latestServerRandom = React.useRef(serverRandom);
+
+	latestServerRenderCount.current = serverRenderCount;
+	latestServerRandom.current = serverRandom;
+
+	React.useEffect(() => {
+		setMountCount((count) => count + 1);
+	}, []);
+
+	return (
+		<div data-testid="router-refresh-state-test">
+			<div data-testid="router-refresh-server-render-count">
+				{serverRenderCount}
+			</div>
+			<div data-testid="router-refresh-server-random">{serverRandom}</div>
+			<div data-testid="router-refresh-mount-count">{mountCount}</div>
+			<div data-testid="router-refresh-client-count">{clientCount}</div>
+			<div data-testid="router-refresh-awaited-result">{awaitedResult}</div>
+			<button
+				data-testid="router-refresh-increment"
+				onClick={() => setClientCount((count) => count + 1)}
+			>
+				Increment
+			</button>
+			<button
+				data-testid="router-refresh-button"
+				onClick={async () => {
+					setAwaitedResult("pending");
+					await router.refresh();
+					setAwaitedResult(
+						`${latestServerRenderCount.current}:${latestServerRandom.current}`,
+					);
+				}}
+			>
+				Refresh
+			</button>
+		</div>
+	);
 }
 
 export function ClientFormWithError({

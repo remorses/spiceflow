@@ -20,7 +20,7 @@ import {
   NotFoundBoundary,
 } from './components.js'
 import { ServerPayload } from '../spiceflow.js'
-import { FlightDataContext } from './context.js'
+import { FlightDataContext, useFlightData } from './context.js'
 import {
   getDocumentLocationFromResponse,
   isFlightResponse,
@@ -342,6 +342,7 @@ async function main() {
         <ErrorBoundary errorComponent={DefaultGlobalErrorPage}>
           <NotFoundBoundary component={DefaultNotFoundPage}>
             <FlightDataContext.Provider value={payload}>
+              <PayloadCommitListener />
               <LayoutContent />
             </FlightDataContext.Provider>
           </NotFoundBoundary>
@@ -370,9 +371,19 @@ async function main() {
     import.meta.hot.on('rsc:update', (e: { file: string }) => {
       console.log('[rsc:update]', e.file)
       clearTimeout(hmrTimer)
-      hmrTimer = setTimeout(() => router.refresh(), 80)
+      hmrTimer = setTimeout(() => void router.refresh(), 80)
     })
   }
+}
+
+function PayloadCommitListener() {
+  const data = useFlightData()
+
+  React.useEffect(() => {
+    router.__commitPayload()
+  }, [data])
+
+  return null
 }
 
 if (import.meta.hot) {

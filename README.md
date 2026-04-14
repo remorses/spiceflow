@@ -1240,7 +1240,7 @@ export function EditorToolbar() {
 
 ### Forms & Server Actions
 
-Forms use React 19's `<form action>` with server functions marked `"use server"`. They work before JavaScript loads (progressive enhancement). After a form submission completes, the page re-renders with fresh server data automatically. When calling a server action directly as a function (not via form submission), the page does **not** re-render — call `router.refresh()` if you need the UI to update.
+Forms use React 19's `<form action>` with server functions marked `"use server"`. They work before JavaScript loads (progressive enhancement). After a form submission completes, the page re-renders with fresh server data automatically. When calling a server action directly as a function (not via form submission), the page does **not** re-render — call `await router.refresh()` if you need the UI to update before continuing.
 
 ```tsx
 // src/app/submit-button.tsx
@@ -1315,7 +1315,7 @@ export function NewsletterForm({
 })
 ```
 
-When calling a server action directly (not via a form), the page does **not** re-render automatically. Import the action from a `"use server"` file and call `router.refresh()` after it completes — this refetches all loaders and server components so the UI reflects the mutation:
+When calling a server action directly (not via a form), the page does **not** re-render automatically. Import the action from a `"use server"` file and call `await router.refresh()` after it completes — this refetches all loaders and server components and resolves when the fresh data has arrived:
 
 ```tsx
 // src/actions.ts
@@ -1341,7 +1341,7 @@ export function DeleteButton({ id }: { id: string }) {
     <button
       onClick={async () => {
         await deletePost(id)
-        router.refresh() // refetches loaders and server components data
+        await router.refresh() // waits for fresh loaders and server component data
       }}
     >
       Delete

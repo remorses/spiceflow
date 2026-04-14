@@ -11,6 +11,8 @@ import type {
 } from './router.js'
 
 const basePath = getBasePath()
+const noop = () => undefined
+const noopAsync = () => Promise.resolve()
 
 export type ReadonlyURLSearchParams = Omit<
   URLSearchParams,
@@ -45,8 +47,6 @@ function getCurrentLocation(): Location {
   }
 }
 
-const noop = () => undefined
-
 export const router: RouterBase = {
   get location() {
     return getCurrentLocation()
@@ -75,7 +75,7 @@ export const router: RouterBase = {
   block(..._args) {
     return noop
   },
-  refresh: noop,
+  refresh: noopAsync,
   subscribe() {
     return noop
   },

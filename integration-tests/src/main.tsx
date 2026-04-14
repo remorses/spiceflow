@@ -20,6 +20,7 @@ import {
 	Counter,
 	ErrorInUseEffect,
 	ErrorRender,
+	RouterRefreshStateTest,
 } from "./app/client";
 import { DialogDemo } from "./app/dialog";
 import { WithSelect } from "./app/select";
@@ -66,6 +67,7 @@ import { RenderFederatedPayload } from "spiceflow/react";
 // Increments on every RSC render of the home page. Used by e2e tests to detect
 // unwanted server re-renders (e.g. client HMR should not trigger a server render).
 let serverRenderCount = 0;
+let routerRefreshRenderCount = 0;
 let onErrorCount = 0;
 
 function getOptionalLabel(value: unknown): string | undefined {
@@ -153,6 +155,15 @@ export const app = new Spiceflow()
 				<span data-testid="server-render-count">{serverRenderCount}</span>
 				<IndexPage counter={counter} serverRandom={serverRandom} />
 			</>
+		);
+	})
+	.page("/router-refresh-state", async () => {
+		routerRefreshRenderCount++;
+		return (
+			<RouterRefreshStateTest
+				serverRandom={Math.random().toString(36).slice(2)}
+				serverRenderCount={routerRefreshRenderCount}
+			/>
 		);
 	})
 

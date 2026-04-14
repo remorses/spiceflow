@@ -39,8 +39,15 @@ type LoaderDataState = {
   data: Record<string, unknown>
   initialized: boolean
   locationSignature: string | null
+  pendingLocationSignature: string | null
   resolve: ((data: Record<string, unknown>) => void) | null
   ready: Promise<Record<string, unknown>>
+}
+
+type RefreshState = {
+  locationSignature: string | null
+  ready: Promise<void> | null
+  resolve: (() => void) | null
 }
 
 function createLoaderDataReady() {
@@ -57,12 +64,26 @@ function createLoaderDataState(): LoaderDataState {
     data: {},
     initialized: false,
     locationSignature: null,
+    pendingLocationSignature: null,
     resolve,
     ready,
   }
 }
 
+function createRefreshReady() {
+  let resolve: (() => void) | null = null
+  const ready = new Promise<void>((nextResolve) => {
+    resolve = nextResolve
+  })
+  return { ready, resolve }
+}
+
 const loaderDataState = createLoaderDataState()
+const refreshState: RefreshState = {
+  locationSignature: null,
+  ready: null,
+  resolve: null,
+}
 
 type NavigationMethod = 'push' | 'replace' | 'refresh'
 
@@ -162,7 +183,7 @@ export type RouterBase<App extends AnySpiceflow = AnySpiceflow> = {
   back(...args: Parameters<typeof history.back>): void
   forward(...args: Parameters<typeof history.forward>): void
   block(...args: Parameters<typeof history.block>): ReturnType<typeof history.block>
-  refresh(): void
+  refresh(): Promise<void>
   subscribe(cb: Subscriber): () => void
 
   getLoaderData<const Path extends RouterPathArg<App> = string>(
@@ -174,6 +195,7 @@ type Subscriber = (event: NavigationEvent) => void
 
 type RouterInternal = RouterBase & {
   __setLoaderData(data: Record<string, unknown> | undefined): void
+  __commitPayload(): void
 }
 
 const subscribers = new Set<Subscriber>()
@@ -194,6 +216,29 @@ function cloneLocation(location: Location): Location {
 
 function getLoaderDataLocationSignature(location: Pick<Location, 'pathname' | 'search'>) {
   return `${location.pathname}${location.search}`
+}
+
+function getOrCreateRefreshReady(locationSignature: string) {
+  if (
+    refreshState.locationSignature === locationSignature &&
+    refreshState.ready
+  ) {
+    return refreshState.ready
+  }
+
+  const nextReady = createRefreshReady()
+  refreshState.locationSignature = locationSignature
+  refreshState.ready = nextReady.ready
+  refreshState.resolve = nextReady.resolve
+  return nextReady.ready
+}
+
+function resolveRefreshReady() {
+  const resolve = refreshState.resolve
+  refreshState.locationSignature = null
+  refreshState.ready = null
+  refreshState.resolve = null
+  resolve?.()
 }
 
 function appendNavigationEvent<TEvent extends RouterEvent>(
@@ -442,8 +487,12 @@ export const router: RouterInternal = {
   forward: history.forward,
   block: history.block,
   refresh() {
+    const locationSignature = getLoaderDataLocationSignature(history.location)
+    loaderDataState.pendingLocationSignature = locationSignature
+    const ready = getOrCreateRefreshReady(locationSignature)
     requestNavigation('refresh')
     history.replace(history.location)
+    return ready
   },
   subscribe(cb: Subscriber) {
     if (!isBrowser) {
@@ -462,6 +511,7 @@ export const router: RouterInternal = {
     }
     const locationSignature = getLoaderDataLocationSignature(history.location)
     if (
+      loaderDataState.pendingLocationSignature !== locationSignature &&
       loaderDataState.initialized &&
       loaderDataState.locationSignature === locationSignature
     ) {
@@ -476,6 +526,7 @@ export const router: RouterInternal = {
     loaderDataState.locationSignature = getLoaderDataLocationSignature(
       history.location,
     )
+    loaderDataState.pendingLocationSignature = null
     const resolve = loaderDataState.resolve
     const nextReady = createLoaderDataReady()
     loaderDataState.resolve = nextReady.resolve
@@ -493,6 +544,10 @@ export const router: RouterInternal = {
     for (const cb of subscribers) {
       cb(event)
     }
+  },
+  /** @internal */
+  __commitPayload() {
+    resolveRefreshReady()
   },
 }
 
