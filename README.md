@@ -1888,6 +1888,36 @@ Spiceflow includes an MCP plugin that exposes your API routes as tools and resou
 
 Cache full-page HTML in Cloudflare KV with deployment-aware cache keys. See [Cloudflare docs](docs/cloudflare.md#kv-page-caching) for the full middleware example.
 
+## Deployment Skew Protection
+
+When you deploy a new version of your app, users with stale browser tabs still have the old client bundle. If they navigate or call a server action, the old client would try to deserialize a flight payload from the new server — module IDs, serialization formats, and action references may have changed. Spiceflow detects this automatically and forces a hard page reload so the browser picks up the new bundle.
+
+Each production build stamps a unique deployment ID (build timestamp) into the server bundle. The first document request sets an `HttpOnly` cookie with this ID. On subsequent RSC navigations and server action calls, the server compares the cookie against the current build:
+
+- **Match** — request proceeds normally
+- **Mismatch** — server returns `409` with an `x-spiceflow-reload` header pointing to the equivalent document URL. The client calls `window.location.replace()` to hard-reload the page, picking up the fresh HTML, JS, and cookie
+
+This is automatic — no configuration needed. The deployment ID is disabled during development (`vite dev`) so it never interferes with HMR.
+
+<details>
+<summary>Server action behavior on mismatch</summary>
+
+Server actions with a stale deployment cookie are never executed. The server short-circuits before route resolution and returns the 409 mismatch response. This prevents running action code against a mismatched server bundle where module IDs or database schemas may have changed. The client hard-reloads, and the user can retry the action on the fresh page.
+
+</details>
+
+<details>
+<summary>How the deployment ID is resolved per environment</summary>
+
+The deployment ID uses the `#deployment-id` import map in `package.json` with environment-conditional resolution:
+
+- **`react-server`** — imports from `virtual:spiceflow-deployment-id` (the build timestamp baked in by Vite)
+- **`default`** (browser, tests) — returns `''` (no-op, skew protection is server-side only)
+
+In dev mode the RSC loader also returns `''`, so skew detection is only active in production builds.
+
+</details>
+
 ## Node.js Handlers
 
 In user-facing code, you should almost never convert a Node.js `req`/`res` pair into a standard `Request` yourself. Spiceflow already exposes the right adapter for each situation, so this conversion should stay inside Spiceflow rather than in app code.
