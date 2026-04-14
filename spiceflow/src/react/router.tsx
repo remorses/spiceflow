@@ -40,6 +40,8 @@ type LoaderDataState = {
   data: Record<string, unknown>
   initialized: boolean
   locationSignature: string | null
+  pendingLocationSignature: string | null
+  pendingRequestId: number | null
   resolve: ((data: Record<string, unknown>) => void) | null
   ready: Promise<Record<string, unknown>>
 }
@@ -66,13 +68,19 @@ function createLoaderDataState(): LoaderDataState {
     data: {},
     initialized: false,
     locationSignature: null,
+    pendingLocationSignature: null,
+    pendingRequestId: null,
     resolve,
     ready,
   }
 }
 
 const loaderDataState = createLoaderDataState()
-const refreshCommitDeferreds = new Map<number, Deferred<void>>()
+let pendingRefreshCommit:
+  | (Deferred<void> & {
+      requestId: number
+    })
+  | null = null
 
 type NavigationMethod = 'push' | 'replace' | 'refresh'
 
@@ -96,37 +104,7 @@ type NavigationCommittedEvent = {
   source: 'navigate' | 'refresh'
 }
 
-type NavigationPayloadReadyEvent = {
-  id: number
-  type: 'navigation-payload-ready'
-  requestId: number
-  location: Location
-  source: 'navigate' | 'refresh'
-}
-
-type NavigationPayloadCommittedEvent = {
-  id: number
-  type: 'navigation-payload-committed'
-  requestId: number
-  location: Location
-  source: 'navigate' | 'refresh'
-}
-
-type NavigationPayloadFailedEvent = {
-  id: number
-  type: 'navigation-payload-failed'
-  requestId: number
-  location: Location
-  source: 'navigate' | 'refresh'
-  reason: 'aborted' | 'error'
-}
-
-export type RouterEvent =
-  | NavigationRequestedEvent
-  | NavigationCommittedEvent
-  | NavigationPayloadReadyEvent
-  | NavigationPayloadCommittedEvent
-  | NavigationPayloadFailedEvent
+export type RouterEvent = NavigationRequestedEvent | NavigationCommittedEvent
 
 export type NavigationEvent = {
   id: number
@@ -214,21 +192,10 @@ export type RouterBase<App extends AnySpiceflow = AnySpiceflow> = {
 type Subscriber = (event: NavigationEvent) => void
 
 type RouterInternal = RouterBase & {
-  __setLoaderData(args: {
-    data: Record<string, unknown> | undefined
-    location: Location
+  __setLoaderData(data: Record<string, unknown> | undefined): void
+  __commitRefresh(args: { requestId: number | null }): void
+  __failRefresh(args: {
     requestId: number | null
-    source: 'navigate' | 'refresh'
-  }): void
-  __commitPayload(args: {
-    requestId: number | null
-    location: Location
-    source: 'navigate' | 'refresh'
-  }): void
-  __failNavigationRequest(args: {
-    requestId: number | null
-    location: Location
-    source: 'navigate' | 'refresh'
     reason: 'aborted' | 'error'
   }): void
 }
@@ -253,42 +220,59 @@ function getLoaderDataLocationSignature(location: Pick<Location, 'pathname' | 's
   return `${location.pathname}${location.search}`
 }
 
-export function getLatestRequestAwaitingLoaderData(args: {
-  routerEvents: readonly RouterEvent[]
-  location: Pick<Location, 'pathname' | 'search'>
-  method: NavigationMethod
-}) {
-  const settledRequestIds = new Set<number>()
-  const locationSignature = getLoaderDataLocationSignature(args.location)
-
-  for (let index = args.routerEvents.length - 1; index >= 0; index -= 1) {
-    const event = args.routerEvents[index]
-    if (!event) {
-      continue
-    }
-    if (
-      event.type === 'navigation-payload-ready' ||
-      event.type === 'navigation-payload-failed'
-    ) {
-      settledRequestIds.add(event.requestId)
-      continue
-    }
-    if (event.type !== 'navigation-requested') {
-      continue
-    }
-    if (event.method !== args.method) {
-      continue
-    }
-    if (settledRequestIds.has(event.requestId)) {
-      continue
-    }
-    if (getLoaderDataLocationSignature(event.location) !== locationSignature) {
-      continue
-    }
-    return event
+function getPendingRefreshForLocation(location: Pick<Location, 'pathname' | 'search'>) {
+  if (
+    loaderDataState.pendingLocationSignature !==
+    getLoaderDataLocationSignature(location)
+  ) {
+    return null
   }
+  if (loaderDataState.pendingRequestId == null) {
+    return null
+  }
+  const pendingRequest = getLatestPendingNavigationRequest(navigationEvents)
+  if (!pendingRequest) {
+    return null
+  }
+  if (pendingRequest.requestId !== loaderDataState.pendingRequestId) {
+    return null
+  }
+  return pendingRequest
+}
 
-  return null
+function failPendingRefresh(args: {
+  requestId: number | null
+  reason: 'aborted' | 'error'
+}) {
+  if (args.requestId == null) {
+    return
+  }
+  if (loaderDataState.pendingRequestId === args.requestId) {
+    loaderDataState.pendingRequestId = null
+    loaderDataState.pendingLocationSignature = null
+  }
+  if (pendingRefreshCommit?.requestId !== args.requestId) {
+    return
+  }
+  pendingRefreshCommit.reject?.(
+    new Error(
+      args.reason === 'aborted'
+        ? 'router.refresh() was superseded before the payload committed'
+        : 'router.refresh() failed before the payload committed',
+    ),
+  )
+  pendingRefreshCommit = null
+}
+
+function resolvePendingRefresh(requestId: number | null) {
+  if (requestId == null) {
+    return
+  }
+  if (pendingRefreshCommit?.requestId !== requestId) {
+    return
+  }
+  pendingRefreshCommit.resolve?.()
+  pendingRefreshCommit = null
 }
 
 function appendNavigationEvent<TEvent extends RouterEvent>(
@@ -330,9 +314,6 @@ export function getLatestPendingNavigationRequest(
       if (event.requestId != null) {
         committedRequestIds.add(event.requestId)
       }
-      continue
-    }
-    if (event.type !== 'navigation-requested') {
       continue
     }
     if (!committedRequestIds.has(event.requestId)) {
@@ -544,8 +525,19 @@ export const router: RouterInternal = {
     if (!requestedNavigation) {
       return Promise.resolve()
     }
+    failPendingRefresh({
+      requestId: pendingRefreshCommit?.requestId ?? null,
+      reason: 'aborted',
+    })
     const deferred = createDeferred<void>()
-    refreshCommitDeferreds.set(requestedNavigation.requestId, deferred)
+    pendingRefreshCommit = {
+      ...deferred,
+      requestId: requestedNavigation.requestId,
+    }
+    loaderDataState.pendingRequestId = requestedNavigation.requestId
+    loaderDataState.pendingLocationSignature = getLoaderDataLocationSignature(
+      history.location,
+    )
     history.replace(history.location)
     return deferred.ready
   },
@@ -568,88 +560,47 @@ export const router: RouterInternal = {
     if (
       loaderDataState.initialized &&
       loaderDataState.locationSignature === locationSignature &&
-      !getLatestRequestAwaitingLoaderData({
-        routerEvents: navigationEvents,
-        location: history.location,
-        method: 'refresh',
-      })
+      !getPendingRefreshForLocation(history.location)
     ) {
       return Promise.resolve(loaderDataState.data)
     }
     return loaderDataState.ready
   },
   /** @internal */
-  __setLoaderData(args) {
-    loaderDataState.data = args.data ?? {}
+  __setLoaderData(data: Record<string, unknown> | undefined) {
+    loaderDataState.data = data ?? {}
     loaderDataState.initialized = true
-    loaderDataState.locationSignature = getLoaderDataLocationSignature(args.location)
+    loaderDataState.locationSignature = getLoaderDataLocationSignature(
+      history.location,
+    )
+    loaderDataState.pendingLocationSignature = null
+    loaderDataState.pendingRequestId = null
     const resolve = loaderDataState.resolve
     const nextReady = createDeferred<Record<string, unknown>>()
     loaderDataState.resolve = nextReady.resolve
     loaderDataState.ready = nextReady.ready
     resolve?.(loaderDataState.data)
-    if (args.requestId != null) {
-      appendNavigationEvent<NavigationPayloadReadyEvent>({
-        type: 'navigation-payload-ready',
-        requestId: args.requestId,
-        location: cloneLocation(args.location),
-        source: args.source,
-      })
-    }
+    const location = history.location
     const event: NavigationEvent = {
       id: ++nextEventId,
       action: 'LOADER_DATA',
-      requestId: args.requestId,
-      location: args.location,
-      previousLocation: args.location,
+      requestId: null,
+      location,
+      previousLocation: location,
       previousScrollY: cachedScrollY,
-      source: args.source,
+      source: 'navigate',
     }
     for (const cb of subscribers) {
       cb(event)
     }
   },
   /** @internal */
-  __commitPayload(args) {
-    if (args.requestId != null) {
-      appendNavigationEvent<NavigationPayloadCommittedEvent>({
-        type: 'navigation-payload-committed',
-        requestId: args.requestId,
-        location: cloneLocation(args.location),
-        source: args.source,
-      })
-    }
-    const deferred =
-      args.requestId == null ? undefined : refreshCommitDeferreds.get(args.requestId)
-    deferred?.resolve?.()
-    if (args.requestId != null) {
-      refreshCommitDeferreds.delete(args.requestId)
-    }
+  __commitRefresh(args) {
+    resolvePendingRefresh(args.requestId)
   },
   /** @internal */
-  __failNavigationRequest(args) {
-    if (args.requestId == null) {
-      return
-    }
-    appendNavigationEvent<NavigationPayloadFailedEvent>({
-      type: 'navigation-payload-failed',
-      requestId: args.requestId,
-      location: cloneLocation(args.location),
-      source: args.source,
-      reason: args.reason,
-    })
-    const deferred = refreshCommitDeferreds.get(args.requestId)
-    if (!deferred) {
-      return
-    }
-    deferred.reject?.(
-      new Error(
-        args.reason === 'aborted'
-          ? 'router.refresh() was superseded before the payload committed'
-          : 'router.refresh() failed before the payload committed',
-      ),
-    )
-    refreshCommitDeferreds.delete(args.requestId)
+  __failRefresh(args) {
+    failPendingRefresh(args)
   },
 }
 
