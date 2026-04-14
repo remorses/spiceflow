@@ -1356,6 +1356,8 @@ If a server action throws, the error is caught by the nearest error boundary. Th
 
 Use `getRouter` with your app type for type-safe navigation, URL building, and imperative loader data access. It works in **both client and server components** — in server/RSC code it reads the current request's location from async context, and `router.href()` builds typed URLs the same way. `useLoaderData` and `useRouterState` are exported separately from `spiceflow/react`, and both accept the same optional app generic.
 
+Use `href()` for links so route and query changes are caught by TypeScript.
+
 ```tsx
 // src/app/nav.tsx
 'use client'
@@ -1402,6 +1404,54 @@ export const billingApp = new Spiceflow().page('/billing', async () => {
 ```
 
 This is the recommended way to build links from server components in modular codebases — no need to thread `app` through props or imports, and every call is still fully type-checked against the root app's route table.
+
+</details>
+
+Wildcard routes like `/orgs/:orgId/*` accept **template literals** with interpolated values. TypeScript template literal types ensure only strings matching a registered route pattern are accepted:
+
+```tsx
+// Pattern form — pass params as an object
+router.href('/orgs/:orgId/*', { orgId: 'acme', '*': 'projects' })
+// → "/orgs/acme/projects"
+
+// Template literal form — params already in the string
+const orgId = 'acme'
+router.href(`/orgs/${orgId}/projects`)
+// → "/orgs/acme/projects"
+
+// Works with any depth under the wildcard
+const projectId = 'p1'
+router.href(`/orgs/${orgId}/projects/${projectId}/settings`)
+// → "/orgs/acme/projects/p1/settings"
+```
+
+The pattern form gives the strongest type checking — param names, query keys, and route existence are all validated. The template literal form is checked against registered route prefixes, but once values are interpolated TypeScript no longer knows the original param names. Invalid prefixes like `/settings/foo` still error at compile time either way.
+
+`getRouter()` works on the server too — use it in server components to build type-safe links without needing the `app` closure:
+
+```tsx
+// src/app/org-breadcrumb.tsx (server component — no "use client")
+import { getRouter, Link } from 'spiceflow/react'
+import type { App } from '../main'
+
+export async function OrgBreadcrumb({ orgId }: { orgId: string }) {
+  const router = getRouter<App>()
+  return (
+    <nav>
+      <Link href={router.href('/')}>Home</Link>
+      <span> / </span>
+      <Link href={router.href(`/orgs/${orgId}/projects`)}>Projects</Link>
+    </nav>
+  )
+}
+```
+
+<details>
+<summary>Always use href() for links</summary>
+
+Every `Link` href and every programmatic navigation path should go through `href()`. Raw string paths like `<Link href="/users/42">` bypass type checking — if the route is renamed from `/users/:id` to `/profiles/:id`, the raw string silently becomes a 404 while `href('/users/:id', { id: '42' })` immediately fails `tsc`. When a route path changes or gets removed, `tsc` catches every stale `href()` call at compile time.
+
+This applies to both client and server code. In server components, `getRouter<App>()` returns the same typed router as on the client — `router.href()` works identically. In the app entry file where you have the `app` instance, `app.href()` is equivalent.
 
 </details>
 
