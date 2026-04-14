@@ -1331,11 +1331,23 @@ export class Spiceflow<
               >
       >
   use<const Schema extends RouteSchema>(
+    path: string,
+    handler: MiddlewareHandler<Schema, Singleton>,
+  ): this
+  use<const Schema extends RouteSchema>(
     handler: MiddlewareHandler<Schema, Singleton>,
   ): this
 
-  use(appOrHandler) {
-    if (appOrHandler instanceof Spiceflow) {
+  use(appOrHandler: any, maybeHandler?: Function) {
+    if (typeof appOrHandler === 'string' && typeof maybeHandler === 'function') {
+      const pattern = appOrHandler
+      const handler = maybeHandler
+      this.middlewares ??= []
+      this.middlewares.push((context: any, next: any) => {
+        if (!middlewarePathMatches(context.path, pattern)) return
+        return handler(context, next)
+      })
+    } else if (appOrHandler instanceof Spiceflow) {
       appOrHandler.topLevelApp = this
       // Inherit disableSuperJsonUnlessRpc from parent if child doesn't have it set
       if (this.disableSuperJsonUnlessRpc === true) {
@@ -3384,6 +3396,15 @@ function pickBestRoute<T extends { route: InternalRoute; app?: AnySpiceflow }>(
     }
   }
   return best
+}
+
+function middlewarePathMatches(requestPath: string, pattern: string): boolean {
+  if (pattern.endsWith('/*')) {
+    const prefix = pattern.slice(0, -2) || '/'
+    if (prefix === '/') return true
+    return requestPath === prefix || requestPath.startsWith(prefix + '/')
+  }
+  return requestPath === pattern
 }
 
 function routeShouldYieldToStatic(route: InternalRoute) {
