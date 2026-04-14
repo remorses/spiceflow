@@ -109,6 +109,26 @@ import {
 
 let globalIndex = 0
 
+const spiceflowReportedErrors = new WeakMap<Request, Set<string>>()
+
+function getErrorReportKey(error: unknown) {
+  if (!(error instanceof Error)) return String(error)
+
+  const digest = Reflect.get(error, 'digest')
+  const status = Reflect.get(error, 'status')
+
+  return `${error.name}:${error.message}:${typeof digest === 'string' ? digest : ''}:${typeof status === 'number' ? status : ''}`
+}
+
+function getReportedErrorKeys(request: Request) {
+  const reportedErrors = spiceflowReportedErrors.get(request)
+  if (reportedErrors) return reportedErrors
+
+  const next = new Set<string>()
+  spiceflowReportedErrors.set(request, next)
+  return next
+}
+
 type AsyncResponse = Response | Promise<Response>
 
 export type SpiceflowListenResult =
@@ -1456,23 +1476,18 @@ export class Spiceflow<
       const actionError =
         error instanceof Error ? error : new Error(String(error))
 
-      // For callServer requests, the error is delivered to the client via
-      // the flight payload (actionError/actionErrorDigest). The client's
-      // error boundary handles it. Don't fire onError here — React may
-      // retry the action multiple times in concurrent mode, and the error
-      // is handled, not unhandled.
-      // For progressive enhancement (no-JS) form submissions, fire onError
-      // because there's no client-side error handling.
-      if (!isCallServerRequest) {
-        const handlerResponse = await this.runErrorHandlers({
-          context,
-          onErrorHandlers,
-          error: actionError,
-          request,
-        })
-        if (handlerResponse) {
-          return handlerResponse
-        }
+      // Report action failures for both callServer requests and progressive
+      // enhancement forms. callServer still needs the actionError payload so
+      // the client error boundary can render it, so handler Responses only
+      // take over the HTTP response for non-callServer submissions.
+      const handlerResponse = await this.runErrorHandlers({
+        context,
+        onErrorHandlers,
+        error: actionError,
+        request,
+      })
+      if (handlerResponse && !isCallServerRequest) {
+        return handlerResponse
       }
 
       return {
@@ -1530,7 +1545,11 @@ export class Spiceflow<
       },
     }
 
-    const actionHandlers = reactRoutes.flatMap((matchedRoute) => matchedRoute.app.onErrorHandlers)
+    const actionHandlers = [
+      ...new Set(
+        reactRoutes.flatMap((matchedRoute) => matchedRoute.app.onErrorHandlers),
+      ),
+    ]
     const actionState = await this.resolveReactActionState({
       request,
       context: baseContext,
@@ -2515,6 +2534,12 @@ export class Spiceflow<
     error: SpiceflowServerError
     request: Request
   }) {
+    const reportKey = getErrorReportKey(err)
+    const reportedErrors = getReportedErrorKeys(request)
+    if (reportedErrors.has(reportKey)) return
+
+    reportedErrors.add(reportKey)
+
     if (onErrorHandlers.length === 0) {
       console.error(`Spiceflow unhandled error:`, err)
     } else {

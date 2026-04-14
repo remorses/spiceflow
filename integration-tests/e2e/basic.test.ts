@@ -903,6 +903,53 @@ test.describe("layout stability during navigation", () => {
 	});
 });
 
+test.describe("router.refresh", () => {
+	test("refresh resolves after server data arrives without remounting client components", async ({
+		page,
+	}) => {
+		await page.goto(url("/router-refresh-state"));
+		await expect(page.getByTestId("router-refresh-mount-count")).toHaveText("1", {
+			timeout: 10000,
+		});
+
+		await page.getByTestId("router-refresh-increment").click();
+		await expect(page.getByTestId("router-refresh-client-count")).toHaveText("1");
+
+		const instanceId = await page.getByTestId("router-refresh-instance-id").textContent();
+		const serverRenderCount = await page
+			.getByTestId("router-refresh-server-render-count")
+			.textContent();
+		const serverRandom = await page
+			.getByTestId("router-refresh-server-random")
+			.textContent();
+
+		await page.getByTestId("router-refresh-button").click();
+
+		await expect(
+			page.getByTestId("router-refresh-server-render-count"),
+		).not.toHaveText(serverRenderCount ?? "", {
+			timeout: 10000,
+		});
+		await expect(page.getByTestId("router-refresh-server-random")).not.toHaveText(
+			serverRandom ?? "",
+		);
+		const nextServerRenderCount = await page
+			.getByTestId("router-refresh-server-render-count")
+			.textContent();
+		const nextServerRandom = await page
+			.getByTestId("router-refresh-server-random")
+			.textContent();
+		await expect(page.getByTestId("router-refresh-mount-count")).toHaveText("1");
+		await expect(page.getByTestId("router-refresh-client-count")).toHaveText("1");
+		await expect(page.getByTestId("router-refresh-instance-id")).toHaveText(
+			instanceId ?? "",
+		);
+		await expect(page.getByTestId("router-refresh-awaited-result")).toHaveText(
+			`${nextServerRenderCount}:${nextServerRandom}`,
+		);
+	});
+});
+
 test.describe("streaming async generator", () => {
 	test("client renders items incrementally before generator completes", async ({
 		page,
@@ -1995,12 +2042,10 @@ test.describe("server actions", () => {
 		).toBeVisible({ timeout: 10000 });
 	});
 
-	test("form action error does not trigger app onError for callServer requests", async ({ page }) => {
-		// For callServer requests (JS enabled), action errors are delivered to
-		// the client via the flight payload. onError does NOT fire because the
-		// error is handled (shown in error boundary), not unhandled. React may
-		// retry actions in concurrent mode, so firing onError per-request would
-		// over-count. Progressive enhancement (no-JS) errors still fire onError.
+	test("form action error triggers app onError exactly once for callServer requests", async ({ page }) => {
+		// JS-enabled form actions still surface the action error through the
+		// client error boundary, but the server-side onError hook should report
+		// the failure exactly once for monitoring.
 		const resetResponse = await fetch(`${baseURL}${basePath}/api/on-error-reset`);
 		expect(resetResponse.status).toBe(200);
 		expect(await resetResponse.json()).toEqual({ count: 0 });
@@ -2017,7 +2062,7 @@ test.describe("server actions", () => {
 
 		const countResponse = await fetch(`${baseURL}${basePath}/api/on-error-count`);
 		expect(countResponse.status).toBe(200);
-		expect(await countResponse.json()).toEqual({ count: 0 });
+		expect(await countResponse.json()).toEqual({ count: 1 });
 	});
 
 	test("getActionAbortController aborts an in-flight server action", async ({

@@ -480,6 +480,39 @@ test('onError fires on validation errors', async () => {
   expect(await res.text()).toMatchInlineSnapshot(`"Error"`)
 })
 
+test('onError reports the same Error only once', async () => {
+  let errorCount = 0
+  const app = new Spiceflow().onError(() => {
+    errorCount++
+  })
+  const error = new Error('boom')
+  const request = new Request('http://localhost/test')
+  const runErrorHandlers = Reflect.get(app, 'runErrorHandlers')
+  const onErrorHandlers = Reflect.get(app, 'onErrorHandlers')
+
+  if (typeof runErrorHandlers !== 'function') {
+    throw new Error('runErrorHandlers is unavailable')
+  }
+  if (!Array.isArray(onErrorHandlers)) {
+    throw new Error('onErrorHandlers is unavailable')
+  }
+
+  await runErrorHandlers.call(app, {
+    context: {},
+    onErrorHandlers,
+    error,
+    request,
+  })
+  await runErrorHandlers.call(app, {
+    context: {},
+    onErrorHandlers,
+    error,
+    request,
+  })
+
+  expect(errorCount).toBe(1)
+})
+
 test('HEAD uses GET route metadata but does not add body', async () => {
   const app = new Spiceflow().get('/ids/:id', () => {
     return {
