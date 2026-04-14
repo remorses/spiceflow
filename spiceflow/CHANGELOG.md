@@ -1,5 +1,25 @@
 # spiceflow
 
+## 1.18.0-rsc.28
+
+1. **Fix `router.push()` follows `.get()` 302 redirects via SPA navigation** — when navigating to a path handled by a `.get()` route that returns a redirect, the client router now performs a client-side navigation to the redirect target instead of triggering a full page reload. Layout state, scroll position, and client component state are all preserved across the redirect.
+
+   ```ts
+   const app = new Spiceflow()
+     .get('/projects/:id', ({ params, request }) => {
+       return new Response(null, {
+         status: 302,
+         headers: { Location: `/projects/${params.id}/envs/default` },
+       })
+     })
+     .page('/projects/:id/envs/:envId', async ({ params }) => {
+       return <ProjectEnvPage id={params.id} env={params.envId} />
+     })
+
+   // clicking the button now lands on /projects/123/envs/default via SPA nav
+   router.push('/projects/123')
+   ```
+
 ## 1.18.0-rsc.27
 
 1. **Revert Cloudflare linked entry resolution** — reverted the linked-spiceflow dev entry override from rsc.26 that was causing issues.
