@@ -1312,6 +1312,21 @@ export function EditorToolbar() {
 
 **Error handling**: if a loader throws a `redirect()` or `notFound()`, the entire request short-circuits — the page handler never runs. If a loader throws any other error, it renders through the nearest error boundary instead of showing a blank page.
 
+### Parallel Data Fetching
+
+Spiceflow already parallelizes at the framework level — all matched loaders run concurrently, then layouts and the page render concurrently after loaders finish. Within a single handler, use `Promise.all` for independent fetches instead of sequential `await`s:
+
+```tsx
+.page('/dashboard', async () => {
+  const [user, posts, analytics] = await Promise.all([
+    getUser(),
+    getPosts(),
+    getStats(),
+  ])
+  return <Dashboard user={user} posts={posts} analytics={analytics} />
+})
+```
+
 ### Forms & Server Actions
 
 Forms use React 19's `<form action>` with server functions marked `"use server"`. They work before JavaScript loads (progressive enhancement). After a form submission completes, the page re-renders with fresh server data automatically. When calling a server action directly as a function (not via form submission), the page does **not** re-render — call `await router.refresh()` if you need the UI to update before continuing.
