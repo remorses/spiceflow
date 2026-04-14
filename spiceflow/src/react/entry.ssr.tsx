@@ -221,6 +221,10 @@ export async function renderHtml({
       if (res) return res
     }
 
+    const errorMessage = e instanceof Error ? e.message : String(e)
+    const errorStack = e instanceof Error ? e.stack : undefined
+    const isDev = !!import.meta.hot
+
     const errorRoot = (
       <html>
         <head>
@@ -228,6 +232,11 @@ export async function renderHtml({
         </head>
         <body>
           <noscript>{status} Internal Server Error</noscript>
+          {isDev && (
+            <pre style={{ color: 'red', whiteSpace: 'pre-wrap', padding: '1rem', fontFamily: 'monospace' }}>
+              {errorStack || errorMessage}
+            </pre>
+          )}
         </body>
       </html>
     )
