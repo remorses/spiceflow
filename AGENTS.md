@@ -1,3 +1,5 @@
+spiceflow is still in pre release. ignore backwards compatibility, isntead focus on making code as simple as possible
+
 # generated READMEs
 
 The root `README.md` is the single source of truth. These files are generated from it and must NOT be edited directly:
