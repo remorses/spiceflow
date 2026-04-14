@@ -1,5 +1,13 @@
 # spiceflow
 
+## 1.18.0-rsc.29
+
+1. **Fix React page/layout handlers returning `Response`** — redirects from `.page()` and `.layout()` now short-circuit correctly via SPA navigation, and `notFound()` responses render through the 404 flow instead of crashing RSC serialization with `Only plain objects` errors during browser navigation.
+
+2. **Improved prerender build error messages** — static page build failures now include the failing response body in the error output, surfacing the original error message instead of only a generic `500`.
+
+3. **Fix duplicate spiceflow instances under pnpm strict isolation** — added `spiceflow` and `spiceflow/react` to `resolve.dedupe` in the Vite plugin. This prevents silent breakage from split module-level singletons (`AsyncLocalStorage` stores, router state) when pnpm resolves a nested copy of spiceflow from a subdirectory's `node_modules`.
+
 ## 1.18.0-rsc.28
 
 1. **Fix `router.push()` follows `.get()` 302 redirects via SPA navigation** — when navigating to a path handled by a `.get()` route that returns a redirect, the client router now performs a client-side navigation to the redirect target instead of triggering a full page reload. Layout state, scroll position, and client component state are all preserved across the redirect.
