@@ -1456,14 +1456,23 @@ export class Spiceflow<
       const actionError =
         error instanceof Error ? error : new Error(String(error))
 
-      const handlerResponse = await this.runErrorHandlers({
-        context,
-        onErrorHandlers,
-        error: actionError,
-        request,
-      })
-      if (handlerResponse) {
-        return handlerResponse
+      // For callServer requests, the error is delivered to the client via
+      // the flight payload (actionError/actionErrorDigest). The client's
+      // error boundary handles it. Don't fire onError here — React may
+      // retry the action multiple times in concurrent mode, and the error
+      // is handled, not unhandled.
+      // For progressive enhancement (no-JS) form submissions, fire onError
+      // because there's no client-side error handling.
+      if (!isCallServerRequest) {
+        const handlerResponse = await this.runErrorHandlers({
+          context,
+          onErrorHandlers,
+          error: actionError,
+          request,
+        })
+        if (handlerResponse) {
+          return handlerResponse
+        }
       }
 
       return {

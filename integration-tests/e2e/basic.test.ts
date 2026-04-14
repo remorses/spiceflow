@@ -1995,7 +1995,12 @@ test.describe("server actions", () => {
 		).toBeVisible({ timeout: 10000 });
 	});
 
-	test("form action error triggers app onError", async ({ page }) => {
+	test("form action error does not trigger app onError for callServer requests", async ({ page }) => {
+		// For callServer requests (JS enabled), action errors are delivered to
+		// the client via the flight payload. onError does NOT fire because the
+		// error is handled (shown in error boundary), not unhandled. React may
+		// retry actions in concurrent mode, so firing onError per-request would
+		// over-count. Progressive enhancement (no-JS) errors still fire onError.
 		const resetResponse = await fetch(`${baseURL}${basePath}/api/on-error-reset`);
 		expect(resetResponse.status).toBe(200);
 		expect(await resetResponse.json()).toEqual({ count: 0 });
@@ -2010,12 +2015,9 @@ test.describe("server actions", () => {
 			page.getByText("Action failed: invalid input", { exact: true }),
 		).toBeVisible({ timeout: 10000 });
 
-		// The error fires multiple times: once from the action handler, once from
-		// RSC serialization (onError callback), and once from SSR rendering.
 		const countResponse = await fetch(`${baseURL}${basePath}/api/on-error-count`);
 		expect(countResponse.status).toBe(200);
-		const { count } = await countResponse.json();
-		expect(count).toBeGreaterThanOrEqual(1);
+		expect(await countResponse.json()).toEqual({ count: 0 });
 	});
 
 	test("getActionAbortController aborts an in-flight server action", async ({
