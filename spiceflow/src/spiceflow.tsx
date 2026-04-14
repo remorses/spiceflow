@@ -1693,6 +1693,14 @@ export class Spiceflow<
                 }
               }
               if (isResponse(value)) {
+                if (value.status === 404) {
+                  return {
+                    kind: 'throw-response',
+                    response: value,
+                    headers: handlerResponse?.headers,
+                    status: handlerResponse?.status,
+                  }
+                }
                 return {
                   kind: 'response',
                   response: value,
@@ -1709,7 +1717,7 @@ export class Spiceflow<
             } catch (error) {
               if (isResponse(error)) {
                 return {
-                  kind: 'response',
+                  kind: 'throw-response',
                   response: error,
                   headers: handlerResponse?.headers,
                   status: handlerResponse?.status,
@@ -1794,13 +1802,13 @@ export class Spiceflow<
       ])
 
       const allResults = [...layoutResults, pageResult]
-      const getResponse = (result: RouteResult) =>
+      const getReturnedResponse = (result: RouteResult) =>
         result.kind === 'response' ? result.response : undefined
-      const shouldShortCircuitResponse = (response: Response) =>
-        response.status !== 404
+      const getThrownResponse = (result: RouteResult) =>
+        result.kind === 'throw-response' ? result.response : undefined
       const getRouteStatus = (result: RouteResult) => {
-        const responseStatus = getResponse(result)?.status
-        if (responseStatus && responseStatus !== 200) return responseStatus
+        const responseStatus = getThrownResponse(result)?.status
+        if (responseStatus === 404) return 404
         if (result.status && result.status !== 200) return result.status
       }
       const findLastLayoutValue = <T,>(
@@ -1813,7 +1821,7 @@ export class Spiceflow<
       }
       const renderRouteResult = (result: RouteResult): React.ReactNode => {
         if (result.kind === 'render') return result.element
-        const response = getResponse(result)
+        const response = getThrownResponse(result)
         if (response) return <ThrowResponse response={response} />
         if (result.kind === 'error') {
           throw result.error
@@ -1828,17 +1836,9 @@ export class Spiceflow<
         if (result.headers) appendHeaders(routeHeaders, result.headers)
       }
 
-      const pageResponse = getResponse(pageResult)
+      const pageResponse = getReturnedResponse(pageResult)
       const httpResponse =
-        pageResponse && shouldShortCircuitResponse(pageResponse)
-          ? pageResponse
-          : findLastLayoutValue((layout) => {
-              const response = getResponse(layout)
-              if (!response || !shouldShortCircuitResponse(response)) {
-                return
-              }
-              return response
-            })
+        pageResponse ?? findLastLayoutValue(getReturnedResponse)
       if (httpResponse) {
         return mergeHeadersIntoResponse({
           response: httpResponse,
@@ -1856,13 +1856,7 @@ export class Spiceflow<
       // include LayoutContent). Promote layout Response throws
       // (redirect/notFound) so they still take effect.
       if (isNotFound) {
-        const layoutResponse = findLastLayoutValue((layout) => {
-          const response = getResponse(layout)
-          if (!response || shouldShortCircuitResponse(response)) {
-            return
-          }
-          return response
-        })
+        const layoutResponse = findLastLayoutValue(getThrownResponse)
         if (layoutResponse) {
           return mergeHeadersIntoResponse({
             response: layoutResponse,
@@ -3126,6 +3120,12 @@ type RouteResult =
     }
   | {
       kind: 'response'
+      response: Response
+      headers?: Headers
+      status?: number
+    }
+  | {
+      kind: 'throw-response'
       response: Response
       headers?: Headers
       status?: number
