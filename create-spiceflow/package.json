@@ -53,6 +53,6 @@
   "dependencies": {
     "@clack/prompts": "^1.1.0",
     "@xmorse/tar-parser": "^0.3.0",
-    "goke": "^6.3.0"
+    "goke": "^6.6.0"
   }
 }
