@@ -1692,6 +1692,15 @@ export class Spiceflow<
                   status: handlerResponse?.status,
                 }
               }
+              if (isResponse(value)) {
+                return {
+                  ok: true,
+                  value: isRedirectStatus(value.status) ? null : <ThrowResponse response={value} />,
+                  response: value,
+                  headers: handlerResponse?.headers,
+                  status: handlerResponse?.status,
+                }
+              }
               return {
                 ok: true,
                 value,
@@ -1779,10 +1788,41 @@ export class Spiceflow<
 
       const allResults = [...layoutResults, pageResult]
       const getReturnedResponse = (result: RouteResult) => {
-        if (!result.ok) {
-          return
+        return result.ok ? result.response : undefined
+      }
+      const getThrownResponse = (result: RouteResult) =>
+        !result.ok && isResponse(result.error) ? result.error : undefined
+      const getRouteStatus = (result: RouteResult) => {
+        const responseStatus =
+          getReturnedResponse(result)?.status ?? getThrownResponse(result)?.status
+        if (responseStatus && responseStatus !== 200) {
+          return responseStatus
         }
-        return isResponse(result.value) ? result.value : undefined
+        if (result.status && result.status !== 200) {
+          return result.status
+        }
+        return
+      }
+      const findLastLayoutValue = <T,>(
+        getValue: (result: (typeof layoutResults)[number]) => T | undefined,
+      ) => {
+        for (let i = layoutResults.length - 1; i >= 0; i--) {
+          const value = getValue(layoutResults[i]!)
+          if (value !== undefined) {
+            return value
+          }
+        }
+        return
+      }
+      const renderRouteResult = (result: RouteResult) => {
+        if (result.ok) {
+          return result.value
+        }
+        const thrownResponse = getThrownResponse(result)
+        if (thrownResponse) {
+          return <ThrowResponse response={thrownResponse} />
+        }
+        throw new Error('Expected React route failure to be a Response')
       }
 
       const routeHeaders = new Headers()
@@ -1793,16 +1833,16 @@ export class Spiceflow<
       }
 
       const returnedPageResponse = getReturnedResponse(pageResult)
-      const returnedLayoutResponse = [...layoutResults]
-        .reverse()
-        .map(getReturnedResponse)
-        .find(isTruthy)
       const returnedRedirectResponse =
         returnedPageResponse && isRedirectStatus(returnedPageResponse.status)
           ? returnedPageResponse
-          : returnedLayoutResponse && isRedirectStatus(returnedLayoutResponse.status)
-            ? returnedLayoutResponse
-            : undefined
+          : findLastLayoutValue((layout) => {
+              const response = getReturnedResponse(layout)
+              if (!response || !isRedirectStatus(response.status)) {
+                return
+              }
+              return response
+            })
       if (returnedRedirectResponse) {
         return mergeHeadersIntoResponse({
           response: returnedRedirectResponse,
@@ -1822,41 +1862,21 @@ export class Spiceflow<
       // include LayoutContent). Promote layout Response throws
       // (redirect/notFound) so they still take effect.
       if (isNotFound) {
-        const layoutResponse = [...layoutResults]
-          .reverse()
-          .find(
-            (result): result is typeof result & { ok: false; error: Response } =>
-              !result.ok && isResponse(result.error),
-          )
+        const layoutResponse = findLastLayoutValue(getThrownResponse)
         if (layoutResponse) {
           return mergeHeadersIntoResponse({
-            response: layoutResponse.error,
+            response: layoutResponse,
             source: routeHeaders,
           })
         }
       }
 
-      const layouts = layoutResults.map((layout) => {
-        const returnedResponse = getReturnedResponse(layout)
-        return {
-          id: layout.id,
-          element: returnedResponse ? (
-            <ThrowResponse response={returnedResponse} />
-          ) : layout.ok ? (
-            layout.value
-          ) : (
-            <ThrowResponse response={layout.error as Response} />
-          ),
-        }
-      })
+      const layouts = layoutResults.map((layout) => ({
+        id: layout.id,
+        element: renderRouteResult(layout),
+      }))
 
-      const page = returnedPageResponse ? (
-        <ThrowResponse response={returnedPageResponse} />
-      ) : pageResult.ok ? (
-        pageResult.value
-      ) : (
-        <ThrowResponse response={pageResult.error as Response} />
-      )
+      const page = renderRouteResult(pageResult)
 
       // Global CSS: rscCssTransform auto-wraps component exports, but this entry
       // exports a Spiceflow instance so we call loadCss manually.
@@ -1881,13 +1901,6 @@ export class Spiceflow<
         globalCss,
         ...(hasLoaderData && { loaderData: mergedLoaderData }),
         head: <CollectedHead baseUrl={baseUrl} />,
-      }
-
-      if (root instanceof Response) {
-        return mergeHeadersIntoResponse({
-          response: root,
-          source: routeHeaders,
-        })
       }
 
       const payload =
@@ -1937,25 +1950,8 @@ export class Spiceflow<
           appendHeaders(headers, actionState.actionResponseHeaders)
         }
 
-        const pageHandlerStatus =
-          returnedPageResponse?.status && returnedPageResponse.status !== 200
-            ? returnedPageResponse.status
-            : pageResult.status && pageResult.status !== 200
-              ? pageResult.status
-              : undefined
-        const layoutHandlerStatus = [...layoutResults]
-          .reverse()
-          .map((layout) => {
-            const returnedResponse = getReturnedResponse(layout)
-            if (returnedResponse?.status && returnedResponse.status !== 200) {
-              return returnedResponse.status
-            }
-            if (layout.status && layout.status !== 200) {
-              return layout.status
-            }
-            return
-          })
-          .find(isTruthy)
+        const pageHandlerStatus = getRouteStatus(pageResult)
+        const layoutHandlerStatus = findLastLayoutValue(getRouteStatus)
         const status =
           pageHandlerStatus ?? layoutHandlerStatus ?? loaderStatus ?? (isNotFound ? 404 : 200)
 
@@ -3125,6 +3121,7 @@ type RouteResult =
   | {
       ok: true
       value: React.ReactNode
+      response?: Response
       headers?: Headers
       status?: number
     }
