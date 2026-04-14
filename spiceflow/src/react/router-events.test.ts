@@ -4,6 +4,7 @@ import { describe, expect, test } from 'vitest'
 import {
   getLastCommittedNavigationEvent,
   getLatestPendingNavigationRequest,
+  getLatestRequestAwaitingLoaderData,
   getLastNavigationEvent,
   getScrollPositions,
   isHashOnlyLocationChange,
@@ -158,6 +159,108 @@ describe('router event selectors', () => {
         "type": "navigation-committed",
       }
     `)
+  })
+
+  test('keeps same-location refresh pending until payload is ready', () => {
+    const events: RouterEvent[] = [
+      {
+        id: 1,
+        type: 'navigation-requested',
+        requestId: 1,
+        method: 'refresh',
+        location: location('/page-b', { key: 'b' }),
+        scrollY: 250,
+      },
+      {
+        id: 2,
+        type: 'navigation-committed',
+        requestId: 1,
+        action: 'REPLACE',
+        location: location('/page-b', { key: 'b' }),
+        previousLocation: location('/page-b', { key: 'b' }),
+        previousScrollY: 250,
+        source: 'refresh',
+      },
+    ]
+
+    expect(
+      getLatestRequestAwaitingLoaderData({
+        routerEvents: events,
+        location: location('/page-b', { key: 'b' }),
+        method: 'refresh',
+      }),
+    ).toMatchInlineSnapshot(`
+      {
+        "id": 1,
+        "location": {
+          "hash": "",
+          "key": "b",
+          "pathname": "/page-b",
+          "search": "",
+          "state": null,
+        },
+        "method": "refresh",
+        "requestId": 1,
+        "scrollY": 250,
+        "type": "navigation-requested",
+      }
+    `)
+
+    expect(
+      getLatestRequestAwaitingLoaderData({
+        routerEvents: [
+          ...events,
+          {
+            id: 3,
+            type: 'navigation-payload-ready',
+            requestId: 1,
+            location: location('/page-b', { key: 'b' }),
+            source: 'refresh',
+          },
+        ],
+        location: location('/page-b', { key: 'b' }),
+        method: 'refresh',
+      }),
+    ).toBeNull()
+  })
+
+  test('failed refresh no longer waits for loader data', () => {
+    const events: RouterEvent[] = [
+      {
+        id: 1,
+        type: 'navigation-requested',
+        requestId: 1,
+        method: 'refresh',
+        location: location('/page-b', { key: 'b' }),
+        scrollY: 250,
+      },
+      {
+        id: 2,
+        type: 'navigation-committed',
+        requestId: 1,
+        action: 'REPLACE',
+        location: location('/page-b', { key: 'b' }),
+        previousLocation: location('/page-b', { key: 'b' }),
+        previousScrollY: 250,
+        source: 'refresh',
+      },
+      {
+        id: 3,
+        type: 'navigation-payload-failed',
+        requestId: 1,
+        location: location('/page-b', { key: 'b' }),
+        source: 'refresh',
+        reason: 'aborted',
+      },
+    ]
+
+    expect(
+      getLatestRequestAwaitingLoaderData({
+        routerEvents: events,
+        location: location('/page-b', { key: 'b' }),
+        method: 'refresh',
+      }),
+    ).toBeNull()
   })
 
   test('does not register navigation events or subscribers on the server', () => {

@@ -2,6 +2,7 @@
 // embedded in the HTML, sets up client-side navigation and server action calls.
 import React from 'react'
 import ReactDomClient from 'react-dom/client'
+import type { Location } from 'history'
 import {
   createFromReadableStream,
   createFromFetch,
@@ -187,13 +188,33 @@ function wrapReturnValueErrors(value: unknown): unknown {
 }
 
 async function main() {
-  let pendingPayload: Promise<ServerPayload> | undefined
-  let setPayload: (v: Promise<ServerPayload>) => void = () => undefined
+  let pendingPayload:
+    | {
+        payload: Promise<ServerPayload>
+        requestId: number | null
+        location: Location
+        source: 'navigate' | 'refresh'
+      }
+    | undefined
+  let setPayload: (v: {
+    payload: Promise<ServerPayload>
+    requestId: number | null
+    location: Location
+    source: 'navigate' | 'refresh'
+  }) => void = () => undefined
   let currentNavigationAbort = new AbortController()
+  let currentNavigationRequestId: number | null = null
+  let currentNavigationLocation = router.location
+  let currentNavigationSource: 'navigate' | 'refresh' = 'navigate'
 
-  const applyPayload = (payload: Promise<ServerPayload>) => {
-    pendingPayload = payload
-    setPayload(payload)
+  const applyPayload = (args: {
+    payload: Promise<ServerPayload>
+    requestId: number | null
+    location: Location
+    source: 'navigate' | 'refresh'
+  }) => {
+    pendingPayload = args
+    setPayload(args)
   }
 
   const handleNavigation = async (event: NavigationEvent) => {
@@ -206,9 +227,20 @@ async function main() {
     ) {
       return
     }
+    if (currentNavigationRequestId != null) {
+      router.__failNavigationRequest({
+        requestId: currentNavigationRequestId,
+        location: currentNavigationLocation,
+        source: currentNavigationSource,
+        reason: 'aborted',
+      })
+    }
     currentNavigationAbort.abort()
     const navigationAbort = new AbortController()
     currentNavigationAbort = navigationAbort
+    currentNavigationRequestId = event.requestId
+    currentNavigationLocation = event.location
+    currentNavigationSource = event.source
     const url = new URL(window.location.href)
     url.pathname = url.pathname === '/' ? '/index.rsc' : url.pathname + '.rsc'
     url.searchParams.set('__rsc', '')
@@ -220,13 +252,33 @@ async function main() {
       }),
     )
     if (navigationAbort.signal.aborted) return
-    applyPayload(payload)
+    applyPayload({
+      payload,
+      requestId: event.requestId,
+      location: event.location,
+      source: event.source,
+    })
     Promise.resolve(payload)
       .then((resolved) => {
         if (currentNavigationAbort !== navigationAbort) return
-        router.__setLoaderData(resolved.root?.loaderData)
+        if (currentNavigationRequestId !== event.requestId) return
+        router.__setLoaderData({
+          data: resolved.root?.loaderData,
+          location: event.location,
+          requestId: event.requestId,
+          source: event.source,
+        })
       })
-      .catch(() => {})
+      .catch(() => {
+        if (currentNavigationRequestId !== event.requestId) return
+        router.__failNavigationRequest({
+          requestId: event.requestId,
+          location: event.location,
+          source: event.source,
+          reason: navigationAbort.signal.aborted ? 'aborted' : 'error',
+        })
+        currentNavigationRequestId = null
+      })
   }
 
   // Install the navigation subscription before hydration so an early Link click
@@ -270,11 +322,21 @@ async function main() {
       // updates (e.g. server counter, form revalidation). Direct function
       // calls skip re-rendering to avoid resetting client state.
       if (isFormAction) {
-        setPayload(payloadPromise)
+        setPayload({
+          payload: payloadPromise,
+          requestId: null,
+          location: router.location,
+          source: 'navigate',
+        })
       }
       const payload = await payloadPromise
       if (isFormAction) {
-        router.__setLoaderData(payload.root?.loaderData)
+        router.__setLoaderData({
+          data: payload.root?.loaderData,
+          location: router.location,
+          requestId: null,
+          source: 'navigate',
+        })
       }
 
       if (payload.actionError) {
@@ -321,12 +383,55 @@ async function main() {
   // (not a full Promise), so .then() doesn't return something with .catch().
   Promise.resolve(initialPayload)
     .then((payload) => {
-      router.__setLoaderData(payload.root?.loaderData)
+      router.__setLoaderData({
+        data: payload.root?.loaderData,
+        location: router.location,
+        requestId: null,
+        source: 'navigate',
+      })
     })
     .catch(() => {})
 
+  function PayloadCommitListener({
+    requestId,
+    location,
+    source,
+  }: {
+    requestId: number | null
+    location: Location
+    source: 'navigate' | 'refresh'
+  }) {
+    const data = useFlightData()
+
+    React.useEffect(() => {
+      if (requestId != null) {
+        if (currentNavigationRequestId !== requestId) {
+          return
+        }
+        currentNavigationRequestId = null
+      }
+      router.__commitPayload({
+        requestId,
+        location,
+        source,
+      })
+    }, [data, location, requestId, source])
+
+    return null
+  }
+
   function BrowserRoot() {
-    const [payload, setPayload_] = React.useState(initialPayload)
+    const [{ payload, requestId, location, source }, setPayload_] = React.useState<{
+      payload: Promise<ServerPayload>
+      requestId: number | null
+      location: Location
+      source: 'navigate' | 'refresh'
+    }>({
+      payload: initialPayload,
+      requestId: null,
+      location: router.location,
+      source: 'navigate',
+    })
     const [_isPending, startTransition] = React.useTransition()
 
     React.useEffect(() => {
@@ -342,7 +447,11 @@ async function main() {
         <ErrorBoundary errorComponent={DefaultGlobalErrorPage}>
           <NotFoundBoundary component={DefaultNotFoundPage}>
             <FlightDataContext.Provider value={payload}>
-              <PayloadCommitListener />
+              <PayloadCommitListener
+                requestId={requestId}
+                location={location}
+                source={source}
+              />
               <LayoutContent />
             </FlightDataContext.Provider>
           </NotFoundBoundary>
@@ -371,19 +480,12 @@ async function main() {
     import.meta.hot.on('rsc:update', (e: { file: string }) => {
       console.log('[rsc:update]', e.file)
       clearTimeout(hmrTimer)
-      hmrTimer = setTimeout(() => void router.refresh(), 80)
+      hmrTimer = setTimeout(
+        () => void router.refresh().catch(() => undefined),
+        80,
+      )
     })
   }
-}
-
-function PayloadCommitListener() {
-  const data = useFlightData()
-
-  React.useEffect(() => {
-    router.__commitPayload()
-  }, [data])
-
-  return null
 }
 
 if (import.meta.hot) {
