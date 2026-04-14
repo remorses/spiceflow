@@ -659,6 +659,7 @@ export const app = new Spiceflow()
 		return { echo: body };
 	})
 	.get("/api/hello", () => "Hello from API!")
+	.get("/api/setup", () => "setup")
 	.get("/api/response-headers", ({ response }) => {
 		response.headers.set("x-api-header", "ok");
 		response.headers.append("set-cookie", "api-cookie=1; Path=/; HttpOnly");

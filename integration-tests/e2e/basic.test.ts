@@ -222,6 +222,16 @@ test.describe("API route priority over layout-only matches", () => {
 		const text = await page.textContent("body");
 		expect(text).toContain("Hello from API!");
 	});
+
+	test("GET /api/setup via browser returns GET handler, not layout 404", async ({
+		page,
+	}) => {
+		const response = await page.goto(url("/api/setup"));
+		expect(response?.status()).toBe(200);
+		const text = await page.textContent("body");
+		expect(text).toContain("setup");
+		await expect(page.getByTestId("layout-not-found")).toHaveCount(0);
+	});
 });
 
 test.describe("staticGet runtime", () => {
