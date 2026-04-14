@@ -21,6 +21,7 @@ import {
 	ErrorInUseEffect,
 	ErrorRender,
 	RouterRefreshStateTest,
+	GetRedirectNav,
 } from "./app/client";
 import { DialogDemo } from "./app/dialog";
 import { WithSelect } from "./app/select";
@@ -788,6 +789,26 @@ export const app = new Spiceflow()
 			throw new Error("Action failed: invalid input");
 		}
 		return <ActionFormTest action={handleSubmit} />;
+	})
+	// --- .get() redirect followed by router.push() test ---
+	.get("/get-redirect/:id", ({ params, request }) => {
+		const base = new URL(request.url);
+		return new Response(null, {
+			status: 302,
+			headers: {
+				Location: new URL(`/get-redirect/${params.id}/target`, base).toString(),
+			},
+		});
+	})
+	.page("/get-redirect/:id/target", async ({ params }) => {
+		return (
+			<div data-testid="get-redirect-target">
+				Redirect target for {params.id}
+			</div>
+		);
+	})
+	.page("/get-redirect-nav", async () => {
+		return <GetRedirectNav />;
 	})
 	// --- Loader tests ---
 	.loader("/loader-test/*", async () => {

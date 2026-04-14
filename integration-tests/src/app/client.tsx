@@ -159,6 +159,20 @@ export function RouterRefreshStateTest({
 	);
 }
 
+export function GetRedirectNav() {
+	const router = getRouter();
+	return (
+		<div data-testid="get-redirect-nav">
+			<button
+				data-testid="get-redirect-push"
+				onClick={() => router.push("/get-redirect/123")}
+			>
+				Push to get redirect
+			</button>
+		</div>
+	);
+}
+
 export function ClientFormWithError({
 	shouldRedirect = false,
 	shouldError = false,

@@ -1123,6 +1123,58 @@ test.describe("client-side navigation with throw response", () => {
 	});
 });
 
+test.describe("router.push() follows .get() 302 redirect via client-side navigation", () => {
+	test("router.push to .get() redirect navigates to target without full reload", async ({
+		page,
+	}) => {
+		await page.goto(url("/get-redirect-nav"));
+		await expect(page.getByTestId("layout-mount-count")).toHaveText("1");
+
+		// Set a sentinel on window to detect full page reloads
+		const sentinel = Math.random().toString(36);
+		await page.evaluate((s) => {
+			(window as any).__hmrSentinel = s;
+		}, sentinel);
+
+		await page.getByTestId("get-redirect-push").click();
+
+		// Should navigate to the redirect target
+		await expect(page.getByTestId("get-redirect-target")).toBeVisible({
+			timeout: 10_000,
+		});
+		await expect(page).toHaveURL(url("/get-redirect/123/target"));
+
+		// Sentinel should still exist — no full page reload happened
+		const survivedReload = await page.evaluate(
+			(s) => (window as any).__hmrSentinel === s,
+			sentinel,
+		);
+		expect(survivedReload).toBe(true);
+	});
+
+	test("layout state is preserved after .get() redirect", async ({ page }) => {
+		await page.goto(url("/get-redirect-nav"));
+		await expect(page.getByTestId("layout-mount-count")).toHaveText("1");
+
+		// Increment layout counter to create trackable client state
+		const layoutCounter = page
+			.getByTestId("client-counter")
+			.filter({ hasText: "Layout counter" });
+		await layoutCounter.getByRole("button", { name: "+" }).click();
+		await expect(layoutCounter.getByText("Layout counter: 1")).toBeVisible();
+
+		await page.getByTestId("get-redirect-push").click();
+
+		// Target page should render
+		await expect(page.getByTestId("get-redirect-target")).toBeVisible({
+			timeout: 10_000,
+		});
+
+		// Layout state should be preserved (SPA navigation, not hard reload)
+		await expect(layoutCounter.getByText("Layout counter: 1")).toBeVisible();
+	});
+});
+
 test.describe("slow throw response (>50ms) still works via client-side fallback", () => {
 	test("slow redirect navigates to target via client-side", async ({
 		page,

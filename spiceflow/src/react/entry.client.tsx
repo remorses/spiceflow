@@ -84,12 +84,20 @@ async function fetchFlightResponse(args: {
   }
 
   if (response.redirected) {
-    hardNavigate(
-      getDocumentLocationFromResponse({
-        response,
-        requestUrl: args.url,
-      }),
-    )
+    const redirectLocation = getDocumentLocationFromResponse({
+      response,
+      requestUrl: args.url,
+    })
+    // For RSC navigations where the redirect stayed same-origin, do a
+    // client-side redirect so the SPA shell (layout state, scroll, etc.)
+    // is preserved instead of triggering a full page reload.
+    const isSameOriginRedirect =
+      response.url && new URL(response.url, args.url).origin === args.url.origin
+    if (args.kind === 'navigation' && isSameOriginRedirect) {
+      router.replace(redirectLocation)
+      return never()
+    }
+    hardNavigate(redirectLocation)
     return never()
   }
 

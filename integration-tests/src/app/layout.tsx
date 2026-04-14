@@ -82,12 +82,17 @@ export function Layout(props: React.PropsWithChildren) {
 							rsc error
 						</Link>
 					</li>
-					<li>
-						<Link href="/cached-page" data-testid="link-cached-page">
-							cached page
-						</Link>
-					</li>
-				</ul>
+				<li>
+					<Link href="/cached-page" data-testid="link-cached-page">
+						cached page
+					</Link>
+				</li>
+				<li>
+					<Link href="/get-redirect-nav" data-testid="link-get-redirect-nav">
+						get redirect nav
+					</Link>
+				</li>
+			</ul>
 				{props.children}
 			</body>
 		</html>
