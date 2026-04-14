@@ -39,51 +39,36 @@ type LoaderDataState = {
   data: Record<string, unknown>
   initialized: boolean
   locationSignature: string | null
-  pendingLocationSignature: string | null
   resolve: ((data: Record<string, unknown>) => void) | null
   ready: Promise<Record<string, unknown>>
 }
 
-type RefreshState = {
-  locationSignature: string | null
-  ready: Promise<void> | null
-  resolve: (() => void) | null
+type Deferred<T> = {
+  ready: Promise<T>
+  resolve: ((value: T) => void) | null
 }
 
-function createLoaderDataReady() {
-  let resolve: ((data: Record<string, unknown>) => void) | null = null
-  const ready = new Promise<Record<string, unknown>>((nextResolve) => {
+function createDeferred<T>() {
+  let resolve: ((value: T) => void) | null = null
+  const ready = new Promise<T>((nextResolve) => {
     resolve = nextResolve
   })
   return { ready, resolve }
 }
 
 function createLoaderDataState(): LoaderDataState {
-  const { ready, resolve } = createLoaderDataReady()
+  const { ready, resolve } = createDeferred<Record<string, unknown>>()
   return {
     data: {},
     initialized: false,
     locationSignature: null,
-    pendingLocationSignature: null,
     resolve,
     ready,
   }
 }
 
-function createRefreshReady() {
-  let resolve: (() => void) | null = null
-  const ready = new Promise<void>((nextResolve) => {
-    resolve = nextResolve
-  })
-  return { ready, resolve }
-}
-
 const loaderDataState = createLoaderDataState()
-const refreshState: RefreshState = {
-  locationSignature: null,
-  ready: null,
-  resolve: null,
-}
+let pendingRefreshCommit: Deferred<void> | null = null
 
 type NavigationMethod = 'push' | 'replace' | 'refresh'
 
@@ -218,27 +203,30 @@ function getLoaderDataLocationSignature(location: Pick<Location, 'pathname' | 's
   return `${location.pathname}${location.search}`
 }
 
-function getOrCreateRefreshReady(locationSignature: string) {
-  if (
-    refreshState.locationSignature === locationSignature &&
-    refreshState.ready
-  ) {
-    return refreshState.ready
+function getPendingRefreshForLocation(location: Pick<Location, 'pathname' | 'search'>) {
+  const pendingRequest = getLatestPendingNavigationRequest(navigationEvents)
+  if (!pendingRequest) {
+    return null
   }
-
-  const nextReady = createRefreshReady()
-  refreshState.locationSignature = locationSignature
-  refreshState.ready = nextReady.ready
-  refreshState.resolve = nextReady.resolve
-  return nextReady.ready
+  if (pendingRequest.method !== 'refresh') {
+    return null
+  }
+  if (
+    getLoaderDataLocationSignature(pendingRequest.location) !==
+    getLoaderDataLocationSignature(location)
+  ) {
+    return null
+  }
+  return pendingRequest
 }
 
-function resolveRefreshReady() {
-  const resolve = refreshState.resolve
-  refreshState.locationSignature = null
-  refreshState.ready = null
-  refreshState.resolve = null
-  resolve?.()
+function getOrCreatePendingRefreshCommit() {
+  if (pendingRefreshCommit) {
+    return pendingRefreshCommit.ready
+  }
+
+  pendingRefreshCommit = createDeferred<void>()
+  return pendingRefreshCommit.ready
 }
 
 function appendNavigationEvent<TEvent extends RouterEvent>(
@@ -487,9 +475,7 @@ export const router: RouterInternal = {
   forward: history.forward,
   block: history.block,
   refresh() {
-    const locationSignature = getLoaderDataLocationSignature(history.location)
-    loaderDataState.pendingLocationSignature = locationSignature
-    const ready = getOrCreateRefreshReady(locationSignature)
+    const ready = getOrCreatePendingRefreshCommit()
     requestNavigation('refresh')
     history.replace(history.location)
     return ready
@@ -511,9 +497,9 @@ export const router: RouterInternal = {
     }
     const locationSignature = getLoaderDataLocationSignature(history.location)
     if (
-      loaderDataState.pendingLocationSignature !== locationSignature &&
       loaderDataState.initialized &&
-      loaderDataState.locationSignature === locationSignature
+      loaderDataState.locationSignature === locationSignature &&
+      !getPendingRefreshForLocation(history.location)
     ) {
       return Promise.resolve(loaderDataState.data)
     }
@@ -526,9 +512,8 @@ export const router: RouterInternal = {
     loaderDataState.locationSignature = getLoaderDataLocationSignature(
       history.location,
     )
-    loaderDataState.pendingLocationSignature = null
     const resolve = loaderDataState.resolve
-    const nextReady = createLoaderDataReady()
+    const nextReady = createDeferred<Record<string, unknown>>()
     loaderDataState.resolve = nextReady.resolve
     loaderDataState.ready = nextReady.ready
     resolve?.(loaderDataState.data)
@@ -547,7 +532,8 @@ export const router: RouterInternal = {
   },
   /** @internal */
   __commitPayload() {
-    resolveRefreshReady()
+    pendingRefreshCommit?.resolve?.()
+    pendingRefreshCommit = null
   },
 }
 
