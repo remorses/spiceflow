@@ -77,6 +77,14 @@ export function Layout(props: React.PropsWithChildren) {
 					</li>
 					<li>
 						<Link
+							href="/return-response-in-page"
+							data-testid="link-return-response-page"
+						>
+							return response page
+						</Link>
+					</li>
+					<li>
+						<Link
 							href="/throw-notfound-in-layout"
 							data-testid="link-throw-notfound-layout"
 						>

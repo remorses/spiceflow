@@ -216,6 +216,12 @@ export const app = new Spiceflow()
 	.page("/return-notfound-in-page", async () => {
 		return notFound();
 	})
+	.page("/return-response-in-page", async () => {
+		return new Response("forbidden", {
+			status: 403,
+			headers: { "content-type": "text/plain;charset=utf-8" },
+		});
+	})
 	.page("/redirect-in-rsc", async () => {
 		return <Redirects />;
 	})
