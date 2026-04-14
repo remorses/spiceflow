@@ -83,6 +83,19 @@ async function fetchFlightResponse(args: {
     return never()
   }
 
+  const locationHeader = response.headers.get('location')
+  const isRedirectResponse = response.status >= 300 && response.status <= 399
+  if (locationHeader && isRedirectResponse) {
+    const redirectLocation = new URL(locationHeader, args.url).toString()
+    const isSameOriginRedirect =
+      new URL(redirectLocation).origin === window.location.origin
+    if (args.kind === 'navigation' && isSameOriginRedirect) {
+      router.replace(redirectLocation)
+      return never()
+    }
+    hardNavigate(redirectLocation)
+    return never()
+  }
   if (response.redirected) {
     const redirectLocation = getDocumentLocationFromResponse({
       response,

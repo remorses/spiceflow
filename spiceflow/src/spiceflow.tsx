@@ -1836,6 +1836,21 @@ export class Spiceflow<
         if (result.headers) appendHeaders(routeHeaders, result.headers)
       }
 
+      const getRedirectResponse = (result: RouteResult) => {
+        const response = getReturnedResponse(result) ?? getThrownResponse(result)
+        if (response && isRedirectStatus(response.status)) {
+          return response
+        }
+      }
+
+      const redirectResponse =
+        getRedirectResponse(pageResult) ?? findLastLayoutValue(getRedirectResponse)
+      if (redirectResponse) {
+        return mergeHeadersIntoResponse({
+          response: redirectResponse,
+          source: routeHeaders,
+        })
+      }
       const pageResponse = getReturnedResponse(pageResult)
       const httpResponse =
         pageResponse ?? findLastLayoutValue(getReturnedResponse)
