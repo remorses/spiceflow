@@ -1,5 +1,46 @@
 # spiceflow
 
+## 1.18.0-rsc.26
+
+1. **Template literal paths in `href()`** — wildcard routes now accept resolved template literal paths directly, without needing to pass params as an object:
+
+   ```ts
+   const orgId = 'abc'
+
+   // existing object form still works
+   app.href('/orgs/:orgId/*', { orgId: 'abc', '*': 'projects' })
+
+   // new: pass a resolved path directly
+   app.href(`/orgs/${orgId}/projects`)
+   ```
+
+2. **`router.refresh()` now returns a promise** — `await router.refresh()` resolves after the fresh RSC payload commits, making it easy to sequence UI work after a server action mutates state:
+
+   ```ts
+   await action()
+   await router.refresh()
+   // server components and loader data are now up to date
+   ```
+
+3. **Fix `throw redirect()` in server actions** — redirects thrown inside server actions are now encoded in the RSC flight payload instead of returned as raw HTTP 307 responses. This fixes redirect handling on Cloudflare Workers (where `fetch` follows 307s and breaks) and direct action calls (non-form). Direct action calls no longer trigger a full page re-render, preserving client component `useState`. Form submissions still re-render as before. The `allowedActionOrigins` option is now documented for CSRF protection with reverse proxies.
+
+4. **Fix `router.refresh()` stale data** — two related bugs fixed: RSC flight responses now include `Cache-Control: no-store` and the client fetch uses `cache: 'no-store'` so the browser never serves a cached flight payload. Also fixed a race where a refresh in flight could return stale same-location loader data, and each refresh promise now resolves for the correct request instead of being completed by an unrelated later commit.
+
+5. **`onError` fires exactly once per server action error** — server action failures no longer trigger duplicate `onError` calls from repeated route-handler collection or later passes in the same request. Errors still reach the client error boundary.
+
+6. **Default export for `spiceflow/vite`** — `import spiceflow from 'spiceflow/vite'` now works. The named export `spiceflowPlugin` still exists but is deprecated:
+
+   ```ts
+   import spiceflow from 'spiceflow/vite' // new default
+   // import { spiceflowPlugin } from 'spiceflow/vite' // deprecated
+   ```
+
+7. **Gate RSC/SSR debug logs behind `SPICEFLOW_VERBOSE=1`** — the low-level RSC and SSR render logs are no longer emitted in normal runs. Set `SPICEFLOW_VERBOSE=1` to re-enable them for debugging.
+
+8. **Fix Cloudflare local dev with linked spiceflow** — when `spiceflow` is symlinked from another repo, the dev-only RSC/SSR/client entry inputs now resolve to the app-local `node_modules/spiceflow/dist/react/*` files, keeping `@cloudflare/vite-plugin` happy without absolute realpaths that workerd cannot import.
+
+9. **Dedicated OpenAPI guide** — a new [`docs/openapi.md`](./docs/openapi.md) covers status-code response maps, centralized error responses with `onError`, reusable Zod schemas, hiding routes from the document, generating a local `openapi.json`, and preserving fetch client type safety.
+
 ## 1.18.0-rsc.25
 
 1. **Same-process federation with explicit `Response` rendering** — local federation now goes through the same `RenderFederatedPayload` and `decodeFederationPayload(response)` APIs as remote responses, so same-app flows can call `app.handle(new Request(...))` directly without a network round-trip:

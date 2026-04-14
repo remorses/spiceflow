@@ -106,14 +106,20 @@ export default defineConfig({
 })
 ```
 
-## `use client` dependency boundary trap
+## `use client` trap in optimized `node_modules` dependencies
 
-When a package has both server code and client code, the `use client` boundary only works if the client file stays a separate module boundary.
+**This section is about published dependencies from `node_modules`, not your app's own `src/` files.**
+
+Your own app code is usually treated as source by Vite, so its module boundaries are normally preserved. This problem shows up when a package from `node_modules` contains both server code and client code, and Vite prebundles that dependency into an optimized server chunk.
+
+If a bug only reproduces when importing a library from `node_modules`, and not when writing similar code directly in your app, this is the failure mode to look for.
+
+When that happens, the `use client` boundary only works if the client file stays a separate module boundary.
 
 **Bad pattern**
 
-- server-safe entry file imports a client file with a relative import
-- dependency optimizer flattens both files into one optimized server dependency
+- published dependency has a server-safe entry file that imports a client file with a relative import
+- Vite dependency optimization flattens both files into one optimized server dependency
 - the client module gets evaluated against `react-server`
 - startup crashes before the app renders
 
@@ -124,11 +130,11 @@ When a package has both server code and client code, the `use client` boundary o
 - Cloudflare dev crashes during worker startup before any request hits your app
 
 ```text
-server entry
+published dependency entry
   └─ imports ./client-widget.tsx   ('use client')
-       └─ optimizer flattens both into one server chunk
-            └─ client code now runs with react.react-server
-                 └─ boom
+       └─ optimizer flattens package into one server chunk in node_modules/.vite
+             └─ client code now runs with react.react-server
+                  └─ boom
 ```
 
 **Safer pattern**
@@ -143,6 +149,8 @@ import { ClientWidget } from 'my-lib/client'
 ```
 
 This matters most in Vite RSC dev, Cloudflare runner startup, and any environment that eagerly imports the full worker/module graph to inspect exports.
+
+If this only happens for a package from `node_modules` and not for your app's own `src/` files, this is the exact class of issue described here.
 
 ### How to debug this
 
@@ -1421,6 +1429,8 @@ If a server action throws, the error is caught by the nearest error boundary. Th
 ### Router
 
 Use `getRouter` with your app type for type-safe navigation, URL building, and imperative loader data access. It works in **both client and server components** — in server/RSC code it reads the current request's location from async context, and `router.href()` builds typed URLs the same way. `useLoaderData` and `useRouterState` are exported separately from `spiceflow/react`, and both accept the same optional app generic.
+
+`getRouter()` returns a **stable singleton** — the same object reference every time. It's safe to call in component bodies, pass to hook dependency arrays, or store at module scope. The reference never changes between renders, so it won't trigger unnecessary re-renders or effect re-runs.
 
 Use `href()` for links so route and query changes are caught by TypeScript.
 
