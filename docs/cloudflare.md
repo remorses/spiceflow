@@ -51,7 +51,7 @@ export default {
 }
 ```
 
-See [`cloudflare-example/`](../cloudflare-example) for a complete working example.
+See [`example-cloudflare/`](../example-cloudflare) for a complete working example.
 
 When you add or change bindings in `wrangler.jsonc`, run `wrangler types`. Wrangler regenerates `worker-configuration.d.ts`, which provides the global `Env` type and the typed `env` export from `cloudflare:workers`.
 

@@ -33,7 +33,7 @@ jobs:
       - run: pnpm test-e2e-basepath
         working-directory: integration-tests
 
-  deploy-cloudflare-example:
+  deploy-example-cloudflare:
     timeout-minutes: 15
     runs-on: ubuntu-latest
     needs: ci
@@ -53,10 +53,10 @@ jobs:
       - run: pnpm build
         working-directory: spiceflow
       - run: pnpm build
-        working-directory: cloudflare-example
+        working-directory: example-cloudflare
       - uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          workingDirectory: cloudflare-example
+          workingDirectory: example-cloudflare
           command: deploy

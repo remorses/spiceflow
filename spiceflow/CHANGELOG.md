@@ -424,7 +424,7 @@
 
 1. **Auto-configure `optimizeDeps.entries` per Vite environment** — the Vite plugin now automatically sets `optimizeDeps.entries` for the client, rsc, and ssr environments to point at your app entry file. Vite crawls the full import graph upfront during dev, preventing late dependency discovery that triggers re-optimization rounds and page reloads on fresh installs. Apps no longer need manual `optimizeDeps.include` lists for spiceflow's transitive dependencies.
 
-2. **Improved React SSR performance** — document GET/HEAD requests skip the extra Flight decode pass, bootstrap script content is cached in production, the default page payload shape is smaller, and `injectRSCPayload()` does less HTML stream work. These changes improve throughput for normal RSC page renders in the `nodejs-example` benchmark.
+2. **Improved React SSR performance** — document GET/HEAD requests skip the extra Flight decode pass, bootstrap script content is cached in production, the default page payload shape is smaller, and `injectRSCPayload()` does less HTML stream work. These changes improve throughput for normal RSC page renders in the `example-nodejs` benchmark.
 
 3. **Fixed `@tailwindcss/vite` triggering full page reloads during RSC HMR** — the plugin now intercepts `hotUpdate` events for CSS files before `@tailwindcss/vite` can escalate them to a full reload, keeping RSC HMR fast without a browser refresh.
 

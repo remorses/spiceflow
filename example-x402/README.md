@@ -1,4 +1,4 @@
-# x402-example
+# example-x402
 
 A spiceflow app that protects a single API route (`GET /paid`) with the
 [x402](https://www.x402.org) payment protocol. Each request costs **$0.01**,

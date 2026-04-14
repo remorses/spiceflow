@@ -93,7 +93,7 @@ When writing new tests, always use `url("/path")` for `page.goto` and `toHaveURL
 
 ## federation testing
 
-Federation e2e tests live in `federation-example/host/e2e/` and use Playwright. They require both the remote and host apps to be built first, since tests run against production builds.
+Federation e2e tests live in `example-federation/host/e2e/` and use Playwright. They require both the remote and host apps to be built first, since tests run against production builds.
 
 ```bash
 # 1. rebuild spiceflow dist (if you changed spiceflow/src/)
@@ -101,15 +101,15 @@ cd spiceflow
 pnpm tsc
 
 # 2. build remote first (host fetches from it at runtime)
-cd federation-example/remote
+cd example-federation/remote
 pnpm build
 
 # 3. build host
-cd federation-example/host
+cd example-federation/host
 pnpm build
 
 # 4. run federation e2e tests
-cd federation-example/host
+cd example-federation/host
 pnpm test-e2e
 ```
 
@@ -302,7 +302,7 @@ the spiceflow vite plugin depends on vite-rsc plugin. you can read its source co
 
 we also try to work well with the cloudflare vite plugin. the source code of that is in `https://github.com/cloudflare/workers-sdk/blob/main/packages/vite-plugin-cloudflare`
 
-we have an example `cloudflare-example` that we can use to make sure pnpm dev, build, preview and deployment work well.
+we have an example `example-cloudflare` that we can use to make sure pnpm dev, build, preview and deployment work well.
 
 Waku (`opensrc dai-shi/waku`, packages/waku/) is another Vite RSC framework we use as reference for Vite integration patterns. It uses the same `@vitejs/plugin-rsc` plugin and has a similar multi-environment setup (client, ssr, rsc). Useful to check how they handle `optimizeDeps`, `resolve.noExternal`, SSR middleware, and RSC environment config. Their Vite plugins live in `packages/waku/src/lib/vite-plugins/`.
 

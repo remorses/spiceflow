@@ -1,5 +1,5 @@
 {
-  "name": "cloudflare-example",
+  "name": "example-cloudflare",
   "private": true,
   "type": "module",
   "scripts": {

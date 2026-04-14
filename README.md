@@ -781,7 +781,7 @@ export default defineConfig({
 
 ### Cloudflare RSC Setup
 
-For Cloudflare Workers deployment with RSC, see [Cloudflare docs](docs/cloudflare.md). See [`cloudflare-example/`](cloudflare-example) for a complete working example.
+For Cloudflare Workers deployment with RSC, see [Cloudflare docs](docs/cloudflare.md). See [`example-cloudflare/`](example-cloudflare) for a complete working example.
 
 ### Tailwind CSS
 
