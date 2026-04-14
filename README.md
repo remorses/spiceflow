@@ -182,19 +182,18 @@ rg -n "extends .*Component|useState|useEffect|prefetchDNS|preconnect|react-serve
 
 ## Returning JSON
 
-Spiceflow automatically serializes objects returned from handlers to JSON, so you don't need to wrap them in a `Response` object:
+Spiceflow automatically serializes objects returned from handlers to JSON. Return plain objects directly — this is the preferred approach because the typed fetch client can infer the response type automatically:
 
 ```ts
 import { Spiceflow } from 'spiceflow'
 
 export const app = new Spiceflow()
   .get('/user', () => {
-    // Return object directly - no need for new Response()
+    // Preferred — return type is inferred by the typed fetch client
     return { id: 1, name: 'John', email: 'john@example.com' }
   })
   .post('/data', async ({ request }) => {
     const body = await request.json()
-    // Objects are automatically serialized to JSON
     return {
       received: body,
       timestamp: new Date().toISOString(),
@@ -203,10 +202,10 @@ export const app = new Spiceflow()
   })
 ```
 
-When you need a `Response` object directly (for custom status codes or headers), use `Response.json()` instead of `new Response(JSON.stringify(...))`:
+Only use `Response.json()` when you need to override the status code or headers. Note that wrapping the return value in a `Response` loses type inference on the client — the fetch client sees `Response` instead of the actual object shape:
 
 ```ts
-// Good — built-in static method, sets Content-Type automatically
+// Only when you need custom status or headers
 return Response.json({ error: 'Not found' }, { status: 404 })
 
 // Avoid — verbose, easy to forget Content-Type header
