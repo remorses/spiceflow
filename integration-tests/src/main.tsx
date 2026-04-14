@@ -207,8 +207,14 @@ export const app = new Spiceflow()
 	.page("/throw-redirect-in-page", async () => {
 		throw redirect("/other");
 	})
+	.page("/return-redirect-in-page", async () => {
+		return redirect("/other");
+	})
 	.page("/throw-notfound-in-page", async () => {
 		throw notFound();
+	})
+	.page("/return-notfound-in-page", async () => {
+		return notFound();
 	})
 	.page("/redirect-in-rsc", async () => {
 		return <Redirects />;

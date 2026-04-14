@@ -45,6 +45,14 @@ export function Layout(props: React.PropsWithChildren) {
 					</li>
 					<li>
 						<Link
+							href="/return-redirect-in-page"
+							data-testid="link-return-redirect-page"
+						>
+							return redirect page
+						</Link>
+					</li>
+					<li>
+						<Link
 							href="/throw-redirect-in-layout"
 							data-testid="link-throw-redirect-layout"
 						>
@@ -57,6 +65,14 @@ export function Layout(props: React.PropsWithChildren) {
 							data-testid="link-throw-notfound-page"
 						>
 							throw notfound page
+						</Link>
+					</li>
+					<li>
+						<Link
+							href="/return-notfound-in-page"
+							data-testid="link-return-notfound-page"
+						>
+							return notfound page
 						</Link>
 					</li>
 					<li>

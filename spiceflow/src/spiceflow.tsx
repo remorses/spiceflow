@@ -1778,6 +1778,12 @@ export class Spiceflow<
       ])
 
       const allResults = [...layoutResults, pageResult]
+      const getReturnedResponse = (result: RouteResult) => {
+        if (!result.ok) {
+          return
+        }
+        return isResponse(result.value) ? result.value : undefined
+      }
 
       const routeHeaders = new Headers()
       // Loader headers first (lowest priority), then layout/page headers override
@@ -1786,8 +1792,26 @@ export class Spiceflow<
         if (result.headers) appendHeaders(routeHeaders, result.headers)
       }
 
+      const returnedPageResponse = getReturnedResponse(pageResult)
+      const returnedLayoutResponse = [...layoutResults]
+        .reverse()
+        .map(getReturnedResponse)
+        .find(isTruthy)
+      const returnedRedirectResponse =
+        returnedPageResponse && isRedirectStatus(returnedPageResponse.status)
+          ? returnedPageResponse
+          : returnedLayoutResponse && isRedirectStatus(returnedLayoutResponse.status)
+            ? returnedLayoutResponse
+            : undefined
+      if (returnedRedirectResponse) {
+        return mergeHeadersIntoResponse({
+          response: returnedRedirectResponse,
+          source: routeHeaders,
+        })
+      }
+
       const firstError = allResults.find(
-        (r) => !r.ok && !(r.error instanceof Response),
+        (r) => !r.ok && !isResponse(r.error),
       )
       if (firstError && !firstError.ok) {
         throw firstError.error
@@ -1801,8 +1825,8 @@ export class Spiceflow<
         const layoutResponse = [...layoutResults]
           .reverse()
           .find(
-            (r): r is typeof r & { ok: false; error: Response } =>
-              !r.ok && r.error instanceof Response,
+            (result): result is typeof result & { ok: false; error: Response } =>
+              !result.ok && isResponse(result.error),
           )
         if (layoutResponse) {
           return mergeHeadersIntoResponse({
@@ -1812,16 +1836,23 @@ export class Spiceflow<
         }
       }
 
-      const layouts = layoutResults.map((layout) => ({
-        id: layout.id,
-        element: layout.ok ? (
-          layout.value
-        ) : (
-          <ThrowResponse response={layout.error as Response} />
-        ),
-      }))
+      const layouts = layoutResults.map((layout) => {
+        const returnedResponse = getReturnedResponse(layout)
+        return {
+          id: layout.id,
+          element: returnedResponse ? (
+            <ThrowResponse response={returnedResponse} />
+          ) : layout.ok ? (
+            layout.value
+          ) : (
+            <ThrowResponse response={layout.error as Response} />
+          ),
+        }
+      })
 
-      const page = pageResult.ok ? (
+      const page = returnedPageResponse ? (
+        <ThrowResponse response={returnedPageResponse} />
+      ) : pageResult.ok ? (
         pageResult.value
       ) : (
         <ThrowResponse response={pageResult.error as Response} />
@@ -1907,12 +1938,24 @@ export class Spiceflow<
         }
 
         const pageHandlerStatus =
-          pageResult.status && pageResult.status !== 200
-            ? pageResult.status
-            : undefined
+          returnedPageResponse?.status && returnedPageResponse.status !== 200
+            ? returnedPageResponse.status
+            : pageResult.status && pageResult.status !== 200
+              ? pageResult.status
+              : undefined
         const layoutHandlerStatus = [...layoutResults]
           .reverse()
-          .find((layout) => layout.status && layout.status !== 200)?.status
+          .map((layout) => {
+            const returnedResponse = getReturnedResponse(layout)
+            if (returnedResponse?.status && returnedResponse.status !== 200) {
+              return returnedResponse.status
+            }
+            if (layout.status && layout.status !== 200) {
+              return layout.status
+            }
+            return
+          })
+          .find(isTruthy)
         const status =
           pageHandlerStatus ?? layoutHandlerStatus ?? loaderStatus ?? (isNotFound ? 404 : 200)
 

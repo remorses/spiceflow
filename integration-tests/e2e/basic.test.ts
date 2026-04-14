@@ -987,6 +987,14 @@ test.describe("throw response status codes", () => {
 		expect(response.headers.get("location")).toBe(url("/other"));
 	});
 
+	test("return redirect in page returns 307 and Location header", async () => {
+		const response = await fetch(`${baseURL}${basePath}/return-redirect-in-page`, {
+			redirect: "manual",
+		});
+		expect(response.status).toBe(307);
+		expect(response.headers.get("location")).toBe(url("/other"));
+	});
+
 	test("throw redirect in layout returns 307 and Location header", async () => {
 		const response = await fetch(`${baseURL}${basePath}/throw-redirect-in-layout`, {
 			redirect: "manual",
@@ -1041,6 +1049,11 @@ test.describe("throw response status codes", () => {
 		expect(response.status).toBe(404);
 	});
 
+	test("return notFound in page returns 404", async () => {
+		const response = await fetch(`${baseURL}${basePath}/return-notfound-in-page`);
+		expect(response.status).toBe(404);
+	});
+
 	test("throw notFound in layout returns 404", async () => {
 		const response = await fetch(`${baseURL}${basePath}/throw-notfound-in-layout`);
 		expect(response.status).toBe(404);
@@ -1050,6 +1063,15 @@ test.describe("throw response status codes", () => {
 		page,
 	}) => {
 		const response = await page.goto(url("/throw-notfound-in-page"));
+		expect(response?.status()).toBe(404);
+		await expect(page.getByText("404")).toBeVisible();
+		await expect(page.getByText("This page could not be found.")).toBeVisible();
+	});
+
+	test("return notFound in page renders 404 page for browser request", async ({
+		page,
+	}) => {
+		const response = await page.goto(url("/return-notfound-in-page"));
 		expect(response?.status()).toBe(404);
 		await expect(page.getByText("404")).toBeVisible();
 		await expect(page.getByText("This page could not be found.")).toBeVisible();
@@ -1073,6 +1095,13 @@ test.describe("client-side navigation with throw response", () => {
 		await expect(page).toHaveURL(url("/other"));
 	});
 
+	test("return redirect in page navigates to target", async ({ page }) => {
+		await page.goto(url("/"));
+		await page.getByText("[hydrated: 1]").click();
+		await page.getByTestId("link-return-redirect-page").click();
+		await expect(page).toHaveURL(url("/other"));
+	});
+
 	test("throw redirect in layout navigates to target", async ({ page }) => {
 		await page.goto(url("/"));
 		await page.getByText("[hydrated: 1]").click();
@@ -1089,6 +1118,17 @@ test.describe("client-side navigation with throw response", () => {
 		await expect(page.getByText("404")).toBeVisible();
 		await expect(page.getByText("This page could not be found.")).toBeVisible();
 		await expect(page).toHaveURL(url("/throw-notfound-in-page"));
+	});
+
+	test("return notFound in page renders 404 page and preserves URL", async ({
+		page,
+	}) => {
+		await page.goto(url("/"));
+		await page.getByText("[hydrated: 1]").click();
+		await page.getByTestId("link-return-notfound-page").click();
+		await expect(page.getByText("404")).toBeVisible();
+		await expect(page.getByText("This page could not be found.")).toBeVisible();
+		await expect(page).toHaveURL(url("/return-notfound-in-page"));
 	});
 
 	test("throw notFound in layout renders 404 page and preserves URL", async ({
