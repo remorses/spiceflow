@@ -106,6 +106,72 @@ export default defineConfig({
 })
 ```
 
+## `use client` dependency boundary trap
+
+When a package has both server code and client code, the `use client` boundary only works if the client file stays a separate module boundary.
+
+**Bad pattern**
+
+- server-safe entry file imports a client file with a relative import
+- dependency optimizer flattens both files into one optimized server dependency
+- the client module gets evaluated against `react-server`
+- startup crashes before the app renders
+
+**Typical symptoms**
+
+- `Class extends value undefined is not a constructor or null`
+- `Component` / `useState` / `useEffect` / `prefetchDNS` is `undefined`
+- Cloudflare dev crashes during worker startup before any request hits your app
+
+```text
+server entry
+  └─ imports ./client-widget.tsx   ('use client')
+       └─ optimizer flattens both into one server chunk
+            └─ client code now runs with react.react-server
+                 └─ boom
+```
+
+**Safer pattern**
+
+- keep the main package entry server-safe
+- expose client code through a package subpath such as `my-lib/client`
+- import the client boundary through that package subpath instead of a relative path from the server entry
+
+```ts
+// safer than importing ./client-widget directly from the main entry
+import { ClientWidget } from 'my-lib/client'
+```
+
+This matters most in Vite RSC dev, Cloudflare runner startup, and any environment that eagerly imports the full worker/module graph to inspect exports.
+
+### How to debug this
+
+1. **Look at the optimized dep output**
+   - inspect `node_modules/.vite/deps_rsc/` and `deps_ssr/`
+   - search for the crashing package and check whether client-only code got bundled into a server chunk
+
+2. **Search for client-only React APIs in server chunks**
+   - things like `extends ...Component`, `useState`, `useEffect`, `prefetchDNS`, `preconnect`, `Suspense`
+   - if they are imported from a `react-server` build, your boundary was lost
+
+3. **Check whether the crash happens at import time**
+   - if dev dies before any request, the worker entry or export-inspection path is evaluating the bad module eagerly
+
+4. **Inspect package boundaries**
+   - main entry should not statically pull in a client file via `./relative-import`
+   - move the client module behind an exported subpath like `pkg/client`
+
+5. **Validate the fix**
+   - rebuild the package
+   - restart dev so Vite re-optimizes deps
+   - confirm the server starts and the bad optimized chunk disappears or no longer contains the client code
+
+Useful search pattern:
+
+```bash
+rg -n "extends .*Component|useState|useEffect|prefetchDNS|preconnect|react-server" node_modules/.vite
+```
+
 ## Returning JSON
 
 Spiceflow automatically serializes objects returned from handlers to JSON, so you don't need to wrap them in a `Response` object:

@@ -28,6 +28,7 @@ export function Link(
 ) {
   const { rawHref, ...rest } = props
   const href = rawHref ? props.href : withBase(props.href)
+
   return (
     <a
       {...rest}
