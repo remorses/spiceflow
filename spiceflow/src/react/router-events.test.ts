@@ -6,6 +6,7 @@ import {
   getLatestPendingNavigationRequest,
   getLastNavigationEvent,
   getScrollPositions,
+  isHashOnlyLocationChange,
   loadScrollPositions,
   recordScrollPosition,
   router,
@@ -170,14 +171,46 @@ describe('router event selectors', () => {
 
     expect({
       called,
+      href: router.href('/server-only', { tab: 'profile' }),
       lastNavigationEvent: getLastNavigationEvent(),
       pathname: router.pathname,
     }).toMatchInlineSnapshot(`
       {
         "called": false,
+        "href": "/server-only?tab=profile",
         "lastNavigationEvent": null,
         "pathname": "/server-only",
       }
     `)
+  })
+
+  test('detects hash-only same-page location changes', () => {
+    expect(
+      isHashOnlyLocationChange({
+        previousLocation: location('/docs', { hash: '' }),
+        location: location('/docs', { hash: '#intro' }),
+      }),
+    ).toBe(true)
+
+    expect(
+      isHashOnlyLocationChange({
+        previousLocation: location('/docs', { hash: '#intro' }),
+        location: location('/api', { hash: '#intro' }),
+      }),
+    ).toBe(false)
+
+    expect(
+      isHashOnlyLocationChange({
+        previousLocation: location('/docs', { search: '?tab=a', hash: '#intro' }),
+        location: location('/docs', { search: '?tab=b', hash: '#intro' }),
+      }),
+    ).toBe(false)
+
+    expect(
+      isHashOnlyLocationChange({
+        previousLocation: location('/docs', { hash: '#intro' }),
+        location: location('/docs', { hash: '#intro' }),
+      }),
+    ).toBe(false)
   })
 })

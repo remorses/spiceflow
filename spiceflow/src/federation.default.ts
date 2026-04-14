@@ -4,9 +4,11 @@
 function unavailable(): never {
   throw new Error(
     '[spiceflow] Federation APIs are only available in the react-server environment. ' +
-      'renderComponentPayload must be called from a spiceflow route handler inside a Vite RSC build.',
+      'encodeFederationPayload must be called from a spiceflow route handler inside a Vite RSC build.',
   )
 }
 
 export const renderToReadableStream: any = unavailable
-export const renderComponentPayload: any = unavailable
+export const encodeFederationPayload: (...args: any[]) => Promise<Response> = unavailable
+export const renderFlightPayload: (...args: any[]) => Promise<Response> = unavailable
+export const renderComponentPayload: (...args: any[]) => Promise<Response> = unavailable

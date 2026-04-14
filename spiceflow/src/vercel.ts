@@ -67,7 +67,7 @@ export function vercelPlugin(): Plugin[] {
       apply: 'build',
 
       configResolved(config) {
-        outDir = config.build.outDir
+        outDir = path.resolve(config.root, config.build.outDir)
         root = config.root
         base = config.base?.replace(/\/$/, '') ?? ''
         assetsDir = config.build.assetsDir ?? 'assets'
@@ -159,9 +159,9 @@ async function generateVercelOutput({
   // 5. Trace and copy externalized node_modules dependencies.
   //    Vite externalizes node packages by default in RSC/SSR builds. These
   //    imports remain as bare specifiers (e.g. import "@upstash/redis") and
-  //    need node_modules available at runtime. We use @vercel/nft to find
-  //    exactly which files are needed and copy only those into the function.
-  await traceAndCopyDependencies(outDir, funcDir)
+  //    need node_modules available at runtime. nf3 traces the built server
+  //    entries and copies only the runtime-required files into the function.
+  await traceAndCopyDependencies({ outDir, rootDir: root, targetDir: funcDir })
 
   // 6. Write package.json so Node.js treats .js files as ESM inside the function
   await writeFile(
@@ -210,5 +210,4 @@ async function generateVercelOutput({
 
   console.log('[spiceflow] Vercel Build Output generated at .vercel/output/')
 }
-
 

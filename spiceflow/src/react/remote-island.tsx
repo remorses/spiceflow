@@ -3,6 +3,12 @@
 import React, { useLayoutEffect, useRef } from 'react'
 import { createRoot, hydrateRoot } from 'react-dom/client'
 import { type ContextBridge, useContextBridge } from 'its-fine'
+import {
+  decodeParsedFederationPayload,
+  resolveFederatedUrl,
+  type FederatedClientModuleInfo,
+  type ParsedFederatedFlightPayload,
+} from './federated-payload.js'
 
 const isBrowser = typeof window !== 'undefined'
 
@@ -11,37 +17,14 @@ const isBrowser = typeof window !== 'undefined'
 // anyway (server has no interactive contexts to bridge), so return a
 // passthrough wrapper on the server.
 const PassthroughBridge: ContextBridge = ({ children }) =>
-  children as React.ReactElement
+  <>{children}</>
 
 function useContextBridgeSafe(): ContextBridge {
   if (!isBrowser) return PassthroughBridge
   return useContextBridge()
 }
 
-interface ClientModules {
-  [id: string]: { chunks: string[]; css?: string[] }
-}
-
-// Module-level registry: maps clean module IDs → module namespace objects.
-// Populated by decodeRemoteTree, read by the patched __vite_rsc_client_require__.
-const remoteRegistry = new Map<string, Record<string, any>>()
-
-// One-time idempotent patch of the global client require function.
-// Wraps only once — concurrent RemoteIslands all share the same registry.
-let requirePatched = false
-function ensureRequirePatched() {
-  if (requirePatched) return
-  requirePatched = true
-  const g = globalThis as any
-  const orig = g.__vite_rsc_client_require__
-  if (!orig) return
-  g.__vite_rsc_client_require__ = (id: string) => {
-    const cleanId = id.split('$$cache=')[0]
-    const mod = remoteRegistry.get(cleanId)
-    if (mod) return mod
-    return orig(id)
-  }
-}
+type ClientModules = Record<string, FederatedClientModuleInfo>
 
 // Cache decoded React trees by remoteId so re-renders don't re-decode.
 // Bounded to prevent unbounded memory growth in long-lived sessions.
@@ -49,17 +32,11 @@ const MAX_TREE_CACHE = 100
 const treeCache = new Map<string, Promise<React.ReactNode>>()
 
 function getOrCreateTree({
-  remoteId,
-  flightPayload,
-  remoteOrigin,
-  clientModules,
+  parsed,
 }: {
-  remoteId: string
-  flightPayload: string
-  remoteOrigin: string
-  clientModules: ClientModules
+  parsed: ParsedFederatedFlightPayload
 }): Promise<React.ReactNode> {
-  const cached = treeCache.get(remoteId)
+  const cached = treeCache.get(parsed.metadata.remoteId)
   if (cached) return cached
 
   if (treeCache.size >= MAX_TREE_CACHE) {
@@ -67,72 +44,49 @@ function getOrCreateTree({
     if (oldest) treeCache.delete(oldest)
   }
 
-  const promise = decodeRemoteTree({ flightPayload, remoteOrigin, clientModules })
-  treeCache.set(remoteId, promise)
+  const promise = decodeParsedFederationPayload<React.ReactNode>(parsed)
+  treeCache.set(parsed.metadata.remoteId, promise)
   return promise
 }
 
-function resolveUrl(path: string, origin: string): string {
-  return new URL(path, origin).toString()
-}
-
-async function decodeRemoteTree({
-  flightPayload,
-  remoteOrigin,
-  clientModules,
-}: {
-  flightPayload: string
-  remoteOrigin: string
-  clientModules: ClientModules
-}): Promise<React.ReactNode> {
-  // Inject CSS <link> tags for remote stylesheets before rendering.
+// Inject CSS <link> tags into a target root (document.head or a shadow root).
+function injectCssLinks(
+  target: Document | ShadowRoot,
+  clientModules: ClientModules,
+  remoteOrigin: string,
+) {
   for (const [, info] of Object.entries(clientModules)) {
     for (const cssPath of info.css ?? []) {
-      const href = resolveUrl(cssPath, remoteOrigin)
-      if (!document.querySelector(`link[href="${CSS.escape(href)}"]`)) {
+      const href = resolveFederatedUrl(cssPath, remoteOrigin)
+      if (!target.querySelector(`link[href="${CSS.escape(href)}"]`)) {
         const link = document.createElement('link')
         link.rel = 'stylesheet'
         link.href = href
-        document.head.appendChild(link)
+        if (target instanceof Document) {
+          target.head.appendChild(link)
+        } else {
+          target.appendChild(link)
+        }
       }
     }
   }
+}
 
-  // Load all remote client component chunks and register their exports
-  // before decoding the Flight payload, so the Flight decoder can
-  // resolve client references synchronously.
-  for (const [moduleId, info] of Object.entries(clientModules)) {
-    for (const chunkPath of info.chunks) {
-      const chunkUrl = resolveUrl(chunkPath, remoteOrigin)
-      const mod = await import(/* @vite-ignore */ chunkUrl)
-      // TODO: fragile — relies on vite-plugin-rsc emitting named exports as
-      // `export_<moduleId>` in client chunks. If the plugin changes its export
-      // naming convention this lookup will silently fail and remote client
-      // components won't hydrate.
-      const exportName = 'export_' + moduleId
-      if (mod[exportName]) {
-        remoteRegistry.set(moduleId, mod[exportName])
-      }
+// Inject top-level cssLinks (from the payload) into a shadow root.
+function injectTopLevelCssLinks(
+  shadow: ShadowRoot,
+  cssLinks: string[],
+  remoteOrigin: string,
+) {
+  for (const cssHref of cssLinks) {
+    const href = resolveFederatedUrl(cssHref, remoteOrigin)
+    if (!shadow.querySelector(`link[href="${CSS.escape(href)}"]`)) {
+      const link = document.createElement('link')
+      link.rel = 'stylesheet'
+      link.href = href
+      shadow.appendChild(link)
     }
   }
-
-  ensureRequirePatched()
-
-  const createFromReadableStream = globalThis.__spiceflow_createFromReadableStream
-  if (!createFromReadableStream) {
-    throw new Error(
-      '[RemoteIsland] Flight decoder not available — ensure the host app is a spiceflow RSC app',
-    )
-  }
-
-  const stream = new ReadableStream({
-    start(controller) {
-      controller.enqueue(new TextEncoder().encode(flightPayload))
-      controller.close()
-    },
-  })
-
-  return createFromReadableStream(stream) as Promise<React.ReactNode>
 }
 
 // Renders the decoded remote tree using hydrateRoot so React patches the
@@ -154,22 +108,40 @@ async function decodeRemoteTree({
 // First mount: hydrateRoot patches the SSR HTML DOM (no clearing).
 // On remoteId change: ssrHtml changes → React updates innerHTML first (new
 // content visible immediately), then createRoot re-mounts the new tree.
+//
+// When isolateStyles is true, content renders inside a Shadow DOM:
+// - SSR: Declarative Shadow DOM (<template shadowrootmode="open">) wraps the
+//   SSR HTML + CSS links so the browser creates the shadow root before JS loads.
+//   DSD is parser-only — it only works during initial HTML parsing, not when set
+//   via innerHTML (e.g. client-side navigation). The effect falls back to
+//   attachShadow() when no parser-created shadow root exists.
+// - Client: useLayoutEffect gets or creates the shadow root, injects CSS links
+//   inside it, then hydrates/renders into a mount point within the shadow.
+// - Remote styles stay inside the shadow root, host styles stay outside.
+//   CSS custom properties (variables) still penetrate for theming.
 export function RemoteIsland({
-  flightPayload,
-  remoteOrigin,
-  remoteId,
-  clientModules,
-  ssrHtml,
+  parsed,
+  isolateStyles,
 }: {
-  flightPayload: string
-  remoteOrigin: string
-  remoteId: string
-  clientModules: ClientModules
-  ssrHtml?: string
+  parsed: ParsedFederatedFlightPayload
+  isolateStyles?: boolean
 }) {
+  const {
+    flightPayload,
+    remoteOrigin,
+    metadata,
+    ssrHtml,
+  } = parsed
+  const remoteId = metadata.remoteId
+  const clientModules = metadata.clientModules
+  const cssLinks = metadata.cssLinks
   const containerRef = useRef<HTMLDivElement>(null)
   const rootRef = useRef<ReturnType<typeof hydrateRoot> | ReturnType<typeof createRoot> | null>(null)
-  const hasHydratedRef = useRef(false)
+  // Track whether this island has been mounted (via hydrate or createRoot).
+  // Prevents false hydration attempts on remoteId changes after an imperative
+  // first mount — hasChildNodes() would be true from old client-rendered DOM,
+  // but that's not SSR HTML so hydrateRoot would fail.
+  const hasMountedRef = useRef(false)
   // Bridge all host contexts into the remote root so remote client components
   // can read host-provided React contexts (theme, auth, i18n, etc.).
   const Bridge = useContextBridgeSafe()
@@ -178,39 +150,125 @@ export function RemoteIsland({
   // decoding overlap with React's commit phase instead of waiting for it.
   // treeCache deduplicates, so the useLayoutEffect below awaits the same promise.
   if (isBrowser) {
-    getOrCreateTree({ remoteId, flightPayload, remoteOrigin, clientModules })
+    void getOrCreateTree({ parsed })
   }
 
   useLayoutEffect(() => {
-    const container = containerRef.current
-    if (!container) return
+    const host = containerRef.current
+    if (!host) return
 
     let isMounted = true
-    getOrCreateTree({ remoteId, flightPayload, remoteOrigin, clientModules }).then(
-      (decoded) => {
-        if (!isMounted) return
-        const tree = <Bridge>{decoded as React.ReactElement}</Bridge>
-        if (!hasHydratedRef.current && ssrHtml) {
-          // First mount with SSR HTML: hydrate existing DOM nodes — no clearing.
-          hasHydratedRef.current = true
-          rootRef.current = hydrateRoot(container, tree, {
-            onRecoverableError() {},
-          })
-        } else {
-          // No SSR HTML or re-mount after remoteId change: replace stale DOM.
-          const r = createRoot(container)
-          r.render(tree)
-          rootRef.current = r
-        }
-      },
-    )
+
+    if (isolateStyles) {
+      // Shadow DOM path: render inside a shadow root for style isolation.
+      // DSD may have already created the shadow root from SSR HTML parsing.
+      const existingShadow = host.shadowRoot
+      const shadow = existingShadow ?? host.attachShadow({ mode: 'open' })
+
+      // Inject top-level CSS links inside the shadow root
+      injectTopLevelCssLinks(shadow, cssLinks ?? [], remoteOrigin)
+      // Inject per-component CSS links inside the shadow root
+      injectCssLinks(shadow, clientModules, remoteOrigin)
+
+      // Find or create the mount point inside the shadow
+      let mountPoint = shadow.querySelector<HTMLDivElement>('[data-mount]')
+      if (!mountPoint) {
+        mountPoint = document.createElement('div')
+        mountPoint.setAttribute('data-mount', '')
+        shadow.appendChild(mountPoint)
+      }
+
+      void getOrCreateTree({ parsed }).then(
+        (decoded) => {
+          if (!isMounted) return
+          const tree = <Bridge>{decoded}</Bridge>
+
+          // Can only hydrate on first mount when a parser-created shadow root
+          // exists (DSD from SSR) AND the mount point has SSR content to patch.
+          // hasMountedRef prevents false hydration on remoteId changes where
+          // mountPoint has stale client-rendered DOM, not SSR HTML.
+          const canHydrate =
+            !hasMountedRef.current &&
+            !!ssrHtml &&
+            !!existingShadow &&
+            mountPoint!.hasChildNodes()
+
+          hasMountedRef.current = true
+          if (canHydrate) {
+            rootRef.current = hydrateRoot(mountPoint!, tree, {
+              onRecoverableError() {},
+            })
+          } else {
+            mountPoint!.replaceChildren()
+            const r = createRoot(mountPoint!)
+            r.render(tree)
+            rootRef.current = r
+          }
+        },
+      )
+    } else {
+      // Default path: render directly in the container (no shadow DOM).
+      // Inject CSS into document.head (same timing as shadow path injects into shadow root).
+      injectCssLinks(document, clientModules, remoteOrigin)
+
+      void getOrCreateTree({ parsed }).then(
+        (decoded) => {
+          if (!isMounted) return
+          const tree = <Bridge>{decoded}</Bridge>
+          if (!hasMountedRef.current && ssrHtml) {
+            hasMountedRef.current = true
+            rootRef.current = hydrateRoot(host, tree, {
+              onRecoverableError() {},
+            })
+          } else {
+            hasMountedRef.current = true
+            const r = createRoot(host)
+            r.render(tree)
+            rootRef.current = r
+          }
+        },
+      )
+    }
 
     return () => {
       isMounted = false
-      rootRef.current?.unmount()
+      // Defer unmount to the next microtask to avoid "Attempted to
+      // synchronously unmount a root while React was already rendering".
+      // queueMicrotask runs before setTimeout(0), so the old root unmounts
+      // before the new effect's render starts.
+      const root = rootRef.current
       rootRef.current = null
+      if (root) {
+        queueMicrotask(() => root.unmount())
+      }
     }
-  }, [remoteId, flightPayload, remoteOrigin])
+  }, [remoteId, flightPayload, remoteOrigin, isolateStyles, parsed])
+
+  // When isolating styles, wrap SSR HTML in a Declarative Shadow DOM template
+  // so the browser creates the shadow root during initial HTML parsing (before JS).
+  // DSD is parser-only — only works during initial document parse, not innerHTML.
+  if (isolateStyles) {
+    const cssLinksHtml = (cssLinks ?? [])
+      .map((href) => {
+        const abs = resolveFederatedUrl(href, remoteOrigin)
+        return `<link rel="stylesheet" href="${abs}">`
+      })
+      .join('')
+
+    const dsdHtml = ssrHtml
+      ? `<template shadowrootmode="open">${cssLinksHtml}<div data-mount>${ssrHtml}</div></template>`
+      : ''
+
+    return (
+      <div
+        ref={containerRef}
+        data-remote-id={remoteId}
+        data-isolate-styles
+        suppressHydrationWarning
+        dangerouslySetInnerHTML={{ __html: dsdHtml }}
+      />
+    )
+  }
 
   return (
     <div

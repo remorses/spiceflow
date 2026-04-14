@@ -11,7 +11,7 @@ import { remarkGithubLinks } from './app/remark-github-links'
 import { defineConfig } from 'vite'
 import { cloudflare } from '@cloudflare/vite-plugin'
 import react from '@vitejs/plugin-react'
-import { spiceflowPlugin } from 'spiceflow/vite'
+import spiceflow from 'spiceflow/vite'
 import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig({
@@ -45,7 +45,7 @@ export default defineConfig({
         mdExtensions: [],
       }),
     },
-    spiceflowPlugin({
+    spiceflow({
       entry: './app/main.tsx',
     }),
     tailwindcss(),

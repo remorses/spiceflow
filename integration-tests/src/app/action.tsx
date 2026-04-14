@@ -13,5 +13,3 @@ export async function changeCounter(formData: FormData) {
 	const change = Number(formData.get("change"));
 	await incrementCounter(change);
 }
-
-console.log("rerunning");

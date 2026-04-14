@@ -42,7 +42,7 @@ describe('Stream', () => {
         let acc = ''
         const { promise, resolve } = Promise.withResolvers()
 
-        reader.read().then(function pump({ done, value }): unknown {
+        void reader.read().then(function pump({ done, value }): unknown {
           if (done) return resolve(acc)
 
           expect(parseTextEventStreamItem(value.toString())).toBe(
@@ -130,7 +130,7 @@ describe('Stream', () => {
         let acc = ''
         const { promise, resolve } = Promise.withResolvers()
 
-        reader.read().then(function pump({ done, value }): unknown {
+        void reader.read().then(function pump({ done, value }): unknown {
           if (done) {
             return resolve(acc)
           }
@@ -182,7 +182,7 @@ describe('Stream', () => {
 
     const body = await app.handle(req('/')).then((x) => x.body)
 
-    let events = [] as any[]
+    const events: { data: string }[] = []
     const parser = createParser({
       onEvent: (event) => {
         events.push(event)
@@ -191,7 +191,7 @@ describe('Stream', () => {
     const { promise, resolve } = Promise.withResolvers<void>()
     const reader = body?.getReader()!
 
-    reader.read().then(function pump({ done, value }): unknown {
+    void reader.read().then(function pump({ done, value }): unknown {
       if (done) {
         return resolve()
       }
@@ -241,7 +241,7 @@ describe('Stream', () => {
         }
       }
     } catch (err) {
-      streamError = err as Error
+      streamError = err instanceof Error ? err : new Error(String(err))
     }
 
     // Verify we received the values before the error
@@ -392,7 +392,7 @@ describe('Stream', () => {
 
         const { promise, resolve } = Promise.withResolvers<void>()
 
-        reader.read().then(function pump({ done, value }): unknown {
+        void reader.read().then(function pump({ done, value }): unknown {
           if (done) return resolve()
 
           expect(parseTextEventStreamItem(value.toString())).toEqual(
@@ -446,7 +446,7 @@ describe('Stream', () => {
         values.push(value)
       }
     } catch (err) {
-      streamError = err as Error
+      streamError = err instanceof Error ? err : new Error(String(err))
     }
 
     // Should have received at least the first value

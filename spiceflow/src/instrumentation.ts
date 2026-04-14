@@ -92,7 +92,7 @@ export async function withSpan<T>(
     } finally {
       span.end()
     }
-  }) as Promise<T>
+  })
 }
 
 // Record an error on a span: sets status to ERROR, records the exception event,
@@ -106,7 +106,7 @@ export function recordError(span: SpiceflowSpan, error: unknown): void {
     // Propagate errore tagged error fingerprint for stable error grouping.
     // errore fingerprints are arrays like ['NotFoundError', 'User $id not found in $database']
     // which are stable across deploys and variable values.
-    const fingerprint = (error as any).fingerprint
+    const fingerprint = Reflect.get(error, 'fingerprint')
     if (Array.isArray(fingerprint)) {
       span.setAttribute(ATTR.ERROR_FINGERPRINT, fingerprint.join('\n'))
     }

@@ -6,6 +6,7 @@ import fs from 'node:fs'
 import { mkdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import type { Plugin } from 'vite'
+import { resolveBuiltEntry } from '../trace-dependencies.js'
 
 type MaybePromise<T> = Promise<T> | T
 
@@ -33,9 +34,14 @@ export function prerenderPlugin(): Plugin[] {
       enforce: 'post',
       apply: 'build',
       configResolved(config) {
-        ssrOutDir = config.environments.ssr?.build?.outDir ?? 'dist/ssr'
-        clientOutDir =
-          config.environments.client?.build?.outDir ?? 'dist/client'
+        ssrOutDir = path.resolve(
+          config.root,
+          config.environments.ssr?.build?.outDir ?? 'dist/ssr',
+        )
+        clientOutDir = path.resolve(
+          config.root,
+          config.environments.client?.build?.outDir ?? 'dist/client',
+        )
         isCloudflare = config.plugins.some((p: any) =>
           p.name?.startsWith('vite-plugin-cloudflare:'),
         )
@@ -57,7 +63,10 @@ export function prerenderPlugin(): Plugin[] {
       name: prerenderPlugin.name + ':preview',
       apply: (_config, env) => !!env.isPreview,
       configurePreviewServer(server) {
-        const outDir = path.resolve(server.config.build.outDir, 'client')
+        const outDir = path.resolve(
+          server.config.root,
+          server.config.environments.client.build.outDir,
+        )
 
         server.middlewares.use((req, _res, next) => {
           // rewrite `/abc` to `/abc.html` since Vite "mpa" mode doesn't support this
@@ -85,8 +94,9 @@ async function processPrerender(dirs: {
   ;(globalThis as any).__SPICEFLOW_PRERENDER = true
   try {
     console.log('▶▶▶ PRERENDER')
+    const entryPath = await resolveBuiltEntry(dirs.ssrOutDir)
     const entry: typeof import('./entry.ssr.tsx') = await import(
-      path.resolve(path.join(dirs.ssrOutDir, 'index.js'))
+      path.resolve(entryPath)
     )
 
     const routes = await entry.getPrerenderRoutes()

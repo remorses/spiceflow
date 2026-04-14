@@ -4,10 +4,36 @@ import {
   type ServerResponse,
   createServer,
 } from 'node:http'
+import * as errore from 'errore'
 import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import { AddressInfo } from 'node:net'
 import { SpiceflowRequest } from './spiceflow.js'
+
+function getErrorCode(error: unknown): string | undefined {
+  if (!error || typeof error !== 'object') return undefined
+  const code = Reflect.get(error, 'code')
+  if (typeof code !== 'string') return undefined
+  return code
+}
+
+export function shouldIgnoreRequestError(error: unknown): boolean {
+  if (errore.isAbortError(error)) return true
+
+  const code = getErrorCode(error)
+  if (code === 'ERR_STREAM_PREMATURE_CLOSE') return true
+  if (code === 'ERR_STREAM_UNABLE_TO_PIPE') return true
+
+  return false
+}
+
+function getAddressInfo(server: Server): AddressInfo {
+  const address = server.address()
+  if (!address || typeof address === 'string') {
+    throw new Error('Node server did not expose an AddressInfo')
+  }
+  return address
+}
 
 export async function listenForNode(
   handler: (request: Request) => Promise<Response> | Response,
@@ -24,7 +50,10 @@ export async function listenForNode(
       const response = await handler(request)
       await sendWebResponse(response, res)
     } catch (error) {
+      if (shouldIgnoreRequestError(error)) return
+
       console.error('Error handling request:', error)
+      if (res.destroyed || res.writableEnded) return
       res.statusCode = 500
       res.end(JSON.stringify({ message: 'Internal Server Error' }))
     }
@@ -32,7 +61,7 @@ export async function listenForNode(
 
   await new Promise((resolve) => {
     server.listen(port, hostname, () => {
-      const addressInfo = server.address() as AddressInfo
+      const addressInfo = getAddressInfo(server)
       const displayedHost =
         addressInfo.address === '0.0.0.0' ? 'localhost' : addressInfo.address
       console.log(`Listening on http://${displayedHost}:${addressInfo.port}`)
@@ -40,7 +69,7 @@ export async function listenForNode(
     })
   })
 
-  const actualPort = (server.address() as AddressInfo).port
+  const actualPort = getAddressInfo(server).port
 
   const stop = () => {
     return new Promise<void>((resolve, reject) => {
@@ -146,7 +175,10 @@ export async function handleForNode(
     const response = await app.handle(request, context)
     await sendWebResponse(response, res)
   } catch (error) {
+    if (shouldIgnoreRequestError(error)) return
+
     console.error('Error handling request:', error)
+    if (res.destroyed || res.writableEnded) return
     res.statusCode = 500
     res.end(JSON.stringify({ message: 'Internal Server Error' }))
   }

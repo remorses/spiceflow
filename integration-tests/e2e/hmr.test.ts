@@ -70,9 +70,9 @@ test("server hmr @dev", async ({ page }) => {
 	const clientCounter = page
 		.getByTestId("client-counter")
 		.filter({ hasText: "Client counter" });
-	await clientCounter.getByText("Client counter: 0").click();
+	await expect(clientCounter).toContainText(/counter: 0/);
 	await clientCounter.getByRole("button", { name: "+" }).click();
-	await clientCounter.getByText("Client counter: 1").click();
+	await expect(clientCounter).toContainText(/counter: 1/);
 
 	const file = createEditor("src/app/index.tsx");
 	try {

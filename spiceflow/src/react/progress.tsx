@@ -2,7 +2,7 @@
 import { useContext, useEffect, useRef, useState } from 'react'
 
 import { ReactNode } from 'react'
-import { router } from './router.js'
+import { isHashOnlyLocationChange, router } from './router.js'
 import { FlightDataContext } from './context.js'
 
 export interface ProgressBarProps {
@@ -16,6 +16,10 @@ export interface ProgressBarProps {
    * @default 300
    */
   duration?: number
+}
+
+function getProgressShadow(color: string) {
+  return `0 4px 6px -1px color-mix(in srgb, ${color} 20%, transparent)`
 }
 
 export function ProgressBar({
@@ -44,13 +48,13 @@ export function ProgressBar({
     <div
       style={{
         position: 'fixed',
-        zIndex: 50,
+        zIndex: 200,
         top: 0,
         left: 0,
         right: 0,
         height: '4px',
         backgroundColor: color,
-        boxShadow: `0 4px 6px -1px ${color}33`,
+        boxShadow: getProgressShadow(color),
         transition: progress.state === 'initial' ? '' : `all ${duration}ms`,
         width: `${progress.width}%`,
         opacity: isExiting ? 0 : 1,
@@ -96,6 +100,14 @@ function useProgress() {
   useEffect(() => {
     return router.subscribe((event) => {
       if (event.action === 'LOADER_DATA') return
+      if (
+        isHashOnlyLocationChange({
+          previousLocation: event.previousLocation,
+          location: event.location,
+        })
+      ) {
+        return
+      }
       start()
     })
   }, [])

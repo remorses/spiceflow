@@ -90,6 +90,30 @@ export interface SSEEvent {
   id?: string
 }
 
+export function bindAbortToReader({
+  reader,
+  signal,
+}: {
+  reader: ReadableStreamDefaultReader<unknown>
+  signal?: AbortSignal
+}) {
+  if (!signal) return () => {}
+
+  const abortRead = () => {
+    void reader.cancel().catch(() => undefined)
+  }
+
+  if (signal.aborted) {
+    abortRead()
+    return () => {}
+  }
+
+  signal.addEventListener('abort', abortRead, { once: true })
+  return () => {
+    signal.removeEventListener('abort', abortRead)
+  }
+}
+
 export class TextDecoderStream extends TransformStream<Uint8Array, string> {
   constructor() {
     const decoder = new TextDecoder('utf-8', {
@@ -130,11 +154,13 @@ export async function* streamSSEResponse({
   map,
   executeRequest,
   maxRetries = 0,
+  signal,
 }: {
   response: Response
   map: (x: SSEEvent) => any
   executeRequest?: () => Promise<Response>
   maxRetries?: number
+  signal?: AbortSignal
 }): AsyncGenerator<SSEEvent> {
   let currentResponse = response
   let retriesLeft = maxRetries
@@ -147,12 +173,17 @@ export async function* streamSSEResponse({
       .pipeThrough(new TextDecoderStream())
       .pipeThrough(new EventSourceParserStream())
 
-    let reader = eventStream.getReader()
+    const reader = eventStream.getReader()
+    const unbindAbort = bindAbortToReader({ reader, signal })
+    let finished = false
 
     try {
       while (true) {
         const { done, value: event } = await reader.read()
-        if (done) return
+        if (done) {
+          finished = true
+          return
+        }
 
         if (event?.event === 'error') {
           const error = superjsonDeserialize(event.data)
@@ -198,6 +229,12 @@ export async function* streamSSEResponse({
       } else {
         throw error
       }
+    } finally {
+      unbindAbort()
+      if (!finished) {
+        await reader.cancel().catch(() => undefined)
+      }
+      reader.releaseLock()
     }
   }
 }

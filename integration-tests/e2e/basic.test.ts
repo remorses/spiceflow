@@ -1,3 +1,9 @@
+import { execSync, spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
+import { createRequire } from "node:module";
+import { createServer, type AddressInfo } from "node:net";
+import { cpSync, existsSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
 import {
 	type Page,
 	expect,
@@ -19,10 +25,123 @@ function url(path: string): string {
 }
 
 function getSetCookies(response: Response) {
-	const headers = response.headers as Headers & {
-		getSetCookie?: () => string[];
+	const getSetCookie = Reflect.get(response.headers, "getSetCookie");
+	if (typeof getSetCookie !== "function") return [];
+	return getSetCookie.call(response.headers);
+}
+
+function normalizePath(value: string): string {
+	return value.replaceAll("\\", "/");
+}
+
+function getAddressInfo(server: ReturnType<typeof createServer>): AddressInfo {
+	const address = server.address();
+	if (!address || typeof address === "string") {
+		throw new Error("Expected test server to expose an AddressInfo");
+	}
+	return address;
+}
+
+function copyStandaloneDist() {
+	const tempDir = mkdtempSync(join(tmpdir(), "spiceflow-takumi-standalone-"));
+	cpSync("dist", join(tempDir, "dist"), { recursive: true });
+	return tempDir;
+}
+
+function findPackageRoot(modulePath: string): string {
+	let currentDir = dirname(modulePath);
+	while (true) {
+		const packageJsonPath = join(currentDir, "package.json");
+		if (existsSync(packageJsonPath)) return currentDir;
+
+		const parentDir = dirname(currentDir);
+		if (parentDir === currentDir) {
+			throw new Error(`Could not find package.json for module path: ${modulePath}`);
+		}
+		currentDir = parentDir;
+	}
+}
+
+function resolveTakumiRuntimeFromStandalone({ tempDir }: { tempDir: string }) {
+	const standaloneRequire = createRequire(join(tempDir, "dist/rsc/index.js"));
+	const coreEntryPath = normalizePath(realpathSync(standaloneRequire.resolve("@takumi-rs/core")));
+	const corePackageJsonPath = normalizePath(
+		join(findPackageRoot(coreEntryPath), "package.json"),
+	);
+	const corePackageJson = JSON.parse(readFileSync(corePackageJsonPath, "utf-8")) as {
+		optionalDependencies?: Record<string, string>;
 	};
-	return headers.getSetCookie?.() ?? [];
+
+	for (const dependency of Object.keys(corePackageJson.optionalDependencies ?? {})) {
+		try {
+			const nativeEntryPath = normalizePath(
+				realpathSync(standaloneRequire.resolve(dependency)),
+			);
+			const nativePackageJsonPath = normalizePath(
+				join(findPackageRoot(nativeEntryPath), "package.json"),
+			);
+			return {
+				corePackageJsonPath,
+				nativeBinaryPath: nativeEntryPath,
+				nativePackageJsonPath,
+			};
+		} catch {
+			// Only the active platform package should resolve in the standalone output.
+		}
+	}
+
+	throw new Error("No standalone Takumi native runtime package was found");
+}
+
+async function getFreePort(): Promise<number> {
+	return new Promise((resolve) => {
+		const server = createServer();
+		server.listen(0, () => {
+			const port = getAddressInfo(server).port;
+			server.close(() => resolve(port));
+		});
+	});
+}
+
+async function waitForServer({
+	child,
+	port,
+}: {
+	child: ChildProcessWithoutNullStreams;
+	port: number;
+}) {
+	const startedAt = Date.now();
+	while (Date.now() - startedAt < 10_000) {
+		if (child.exitCode !== null) {
+			throw new Error(`Standalone server exited early with code ${child.exitCode}`);
+		}
+
+		try {
+			const response = await fetch(`http://127.0.0.1:${port}/api/hello`);
+			if (response.ok) return;
+		} catch {
+			// Server is still starting.
+		}
+
+		await new Promise((resolve) => setTimeout(resolve, 100));
+	}
+
+	throw new Error(`Timed out waiting for standalone server on port ${port}`);
+}
+
+async function stopProcess({ child }: { child: ChildProcessWithoutNullStreams }) {
+	if (child.exitCode !== null) return;
+
+	child.kill("SIGTERM");
+	await Promise.race([
+		new Promise<void>((resolve) => child.once("exit", () => resolve())),
+		new Promise<void>((resolve) =>
+			setTimeout(() => {
+				if (child.exitCode === null) child.kill("SIGKILL");
+				resolve();
+			}, 1_000),
+		),
+	]);
 }
 
 test.describe("not found", () => {
@@ -38,13 +157,33 @@ test.describe("not found", () => {
 		await expect(page.getByText("This page could not be found.")).toBeVisible();
 	});
 
-	test("unmatched route renders React 404 page for browser requests", async ({
+	test("unmatched route renders layout-based 404 for browser requests", async ({
 		page,
 	}) => {
 		const response = await page.goto(url("/a/b/does-not-exist"));
 		expect(response?.status()).toBe(404);
+		// The layout detects children=null and renders custom 404 inside the layout shell
+		await expect(page.getByTestId("layout-not-found")).toBeVisible();
 		await expect(page.getByText("404")).toBeVisible();
 		await expect(page.getByText("This page could not be found.")).toBeVisible();
+	});
+
+	test("unmatched route under nested /app/* layout renders root layout 404", async ({
+		page,
+	}) => {
+		const response = await page.goto(url("/app/does-not-exist"));
+		expect(response?.status()).toBe(404);
+		await expect(page.getByTestId("layout-not-found")).toBeVisible();
+		await expect(page.getByText("404")).toBeVisible();
+	});
+
+	test("unmatched route under nested /docs/* layout renders root layout 404", async ({
+		page,
+	}) => {
+		const response = await page.goto(url("/docs/does-not-exist"));
+		expect(response?.status()).toBe(404);
+		await expect(page.getByTestId("layout-not-found")).toBeVisible();
+		await expect(page.getByText("404")).toBeVisible();
 	});
 
 	test("unmatched route returns plain text for non-browser requests", async () => {
@@ -173,7 +312,10 @@ test.describe("response headers from page and layout handlers", () => {
 	}) => {
 		await page.goto(url("/response-nav"));
 		await page.getByTestId("response-nav-link").click();
-		await expect(page.getByTestId("response-headers-page")).toBeVisible();
+		await expect(page).toHaveURL(url("/response-headers"), { timeout: 10000 });
+		await expect(page.getByTestId("response-headers-page")).toBeVisible({
+			timeout: 10000,
+		});
 
 		const cookies = await page.context().cookies();
 		expect(cookies.some((cookie) => cookie.name === "page-cookie")).toBe(true);
@@ -224,6 +366,20 @@ test.describe("scoped wildcard layouts", () => {
 		expect(html).toContain('data-testid="app-page"');
 		expect(html.match(/<html(?:\s|>)/g)).toHaveLength(1);
 		expect(html.match(/<body(?:\s|>)/g)).toHaveLength(1);
+	});
+
+	test("duplicate layouts on the same path both render in registration order", async ({
+		page,
+	}) => {
+		await page.goto(url("/duplicate-layout"));
+		await expect(page.getByTestId("duplicate-layout-a")).toBeVisible();
+		await expect(page.getByTestId("duplicate-layout-b")).toBeVisible();
+		await expect(page.getByTestId("duplicate-layout-page")).toBeVisible();
+		await expect(
+			page.locator(
+				'[data-testid="duplicate-layout-a"] [data-testid="duplicate-layout-b"] [data-testid="duplicate-layout-page"]',
+			),
+		).toBeVisible();
 	});
 
 	test("scoped wildcard layouts still wrap nested child routes", async ({ page }) => {
@@ -313,6 +469,32 @@ test.describe("Head client components", () => {
 			page.locator('head meta[property="og:title"]'),
 		).toHaveAttribute("content", "Page og:title");
 	});
+
+	test("page title is not overridden by layout title after hydration", async ({
+		page,
+	}) => {
+		await page.goto(url("/meta-override"));
+		// Wait for hydration to complete so DocumentTitle's useEffect has fired.
+		// layout-mount-count goes from 0 to 1 after the layout client component mounts.
+		await expect(page.getByTestId("layout-mount-count")).toHaveText("1");
+		// document.title must still be the page's title, not the layout's.
+		// DocumentTitle runs client-side via useEffect and must receive the same
+		// deduped title value that CollectedHead rendered server-side.
+		expect(await page.title()).toBe("Page title");
+	});
+
+	test("document.title updates on client-side navigation", async ({ page }) => {
+		await page.goto(url("/title-nav-a"));
+		await expect(page).toHaveTitle("Title A");
+
+		await page.getByTestId("title-nav-link").click();
+		await expect(page).toHaveURL(url("/title-nav-b"));
+		await expect(page).toHaveTitle("Title B");
+
+		await page.getByTestId("title-nav-link").click();
+		await expect(page).toHaveURL(url("/title-nav-a"));
+		await expect(page).toHaveTitle("Title A");
+	});
 });
 
 test.describe("redirect", () => {
@@ -388,6 +570,18 @@ test.describe(() => {
 		const html = await page.content();
 		expect(html).toContain('data-testid="client-counter"');
 		expect(html).toContain('data-precedence="vite-rsc/client-reference"');
+	});
+
+	test("no-JS form action redirect returns 303 and navigates @nojs", async ({
+		page,
+	}) => {
+		// With JS disabled, the browser submits the form as a regular POST.
+		// The server should respond with 303 (not 307) so the browser follows
+		// with a GET instead of re-POSTing to the redirect target.
+		const response = await page.goto(url("/form-redirect-nojs"));
+		expect(response?.status()).toBe(200);
+		await page.getByRole("button", { name: "Submit" }).click();
+		await expect(page).toHaveURL(url("/other"), { timeout: 10000 });
 	});
 });
 
@@ -465,7 +659,7 @@ test.describe("SSR error fallback (__NO_HYDRATE)", () => {
 		// Wait for CSR recovery first — this confirms the bootstrap script ran
 		await expect(page.getByTestId("ssr-recovered")).toBeVisible();
 		// The bootstrap script set self.__NO_HYDRATE=1, which persists on globalThis
-		const hasFlag = await page.evaluate(() => "__NO_HYDRATE" in globalThis);
+		const hasFlag = await page.evaluate(() => Reflect.has(globalThis, "__NO_HYDRATE"));
 		expect(hasFlag).toBe(true);
 	});
 
@@ -509,7 +703,7 @@ test.describe("server component throws error", () => {
 		page,
 	}) => {
 		await page.goto(url("/rsc-error"));
-		const hasFlag = await page.evaluate(() => "__NO_HYDRATE" in globalThis);
+		const hasFlag = await page.evaluate(() => Reflect.has(globalThis, "__NO_HYDRATE"));
 		expect(hasFlag).toBe(true);
 		// In dev, ErrorBoundary rethrows → window.onerror → vite-error-overlay
 		const overlay = page.locator("vite-error-overlay");
@@ -558,7 +752,7 @@ test.describe("client component throws during render (SSR)", () => {
 		await expect(page.getByTestId("ssr-recovered")).toContainText(
 			"Recovered via CSR",
 		);
-		const hasFlag = await page.evaluate(() => "__NO_HYDRATE" in globalThis);
+		const hasFlag = await page.evaluate(() => Reflect.has(globalThis, "__NO_HYDRATE"));
 		expect(hasFlag).toBe(true);
 		// The layout shell is fully rendered by the browser — proves CSR recovery works
 		await expect(page.getByRole("link", { name: "Home" })).toBeVisible();
@@ -595,9 +789,11 @@ test.describe("route handler returns Error (not throws)", () => {
 });
 
 test.describe("CSRF protection", () => {
-	test("cross-origin POST to action endpoint returns 403", async () => {
-		// Use Node.js fetch directly — browser fetch cannot override the Origin header
-		// (it's a forbidden header). Node.js fetch has no such restriction.
+	test("cross-origin POST to action endpoint returns 403 @build", async () => {
+		// Origin check is disabled in dev (import.meta.hot is truthy) so this
+		// test only runs against the production build.
+		// Use Node.js fetch directly — browser fetch cannot override the Origin
+		// header (it's a forbidden header). Node.js fetch has no such restriction.
 		const response = await fetch(`${baseURL}${basePath}/?__rsc=fake-action-id`, {
 			method: "POST",
 			headers: { Origin: "https://evil.com" },
@@ -762,6 +958,26 @@ test.describe("throw response status codes", () => {
 		expect(response.headers.get("location")).toBe(url("/other"));
 	});
 
+	test("throw redirect in layout on unmatched route still redirects", async () => {
+		const response = await fetch(
+			`${baseURL}${basePath}/throw-redirect-in-layout/does-not-exist`,
+			{
+				redirect: "manual",
+				headers: { "sec-fetch-dest": "document" },
+			},
+		);
+		expect(response.status).toBe(307);
+		expect(response.headers.get("location")).toBe(url("/other"));
+	});
+
+	test("throw notFound in layout on unmatched route still returns 404", async () => {
+		const response = await fetch(
+			`${baseURL}${basePath}/throw-notfound-in-layout/does-not-exist`,
+			{ headers: { "sec-fetch-dest": "document" } },
+		);
+		expect(response.status).toBe(404);
+	});
+
 	test("throw notFound in layout child route returns 404", async () => {
 		const response = await fetch(`${baseURL}${basePath}/throw-notfound-in-layout/nested`);
 		expect(response.status).toBe(404);
@@ -900,7 +1116,7 @@ test.describe("soft 404 during client-side navigation (no hard reload)", () => {
 
 		// Set a sentinel to detect full page reloads
 		await page.evaluate(() => {
-			(window as any).__softNavSentinel = true;
+			Reflect.set(window, "__softNavSentinel", true);
 		});
 
 		// Navigate to a route that throws notFound() — should be a soft navigation
@@ -913,7 +1129,7 @@ test.describe("soft 404 during client-side navigation (no hard reload)", () => {
 
 		// Sentinel should still be present — proves no full page reload
 		const sentinel = await page.evaluate(
-			() => (window as any).__softNavSentinel,
+			() => Reflect.get(window, "__softNavSentinel"),
 		);
 		expect(sentinel).toBe(true);
 	});
@@ -951,7 +1167,7 @@ test.describe("soft server error during client-side navigation", () => {
 
 		// Set a sentinel to detect full page reloads
 		await page.evaluate(() => {
-			(window as any).__softNavSentinel = true;
+			Reflect.set(window, "__softNavSentinel", true);
 		});
 
 		// Navigate to a page that throws a server error
@@ -969,7 +1185,7 @@ test.describe("soft server error during client-side navigation", () => {
 
 		// Sentinel should still be present
 		const sentinel = await page.evaluate(
-			() => (window as any).__softNavSentinel,
+			() => Reflect.get(window, "__softNavSentinel"),
 		);
 		expect(sentinel).toBe(true);
 	});
@@ -1213,16 +1429,96 @@ test.describe("staticGet @build", () => {
 	});
 });
 
+test.describe("Takumi standalone tracing @build", () => {
+		test("Takumi runtime files resolve from standalone dist/node_modules", () => {
+		const tempDir = copyStandaloneDist();
+		try {
+			const runtime = resolveTakumiRuntimeFromStandalone({ tempDir });
+			const distNodeModules = normalizePath(
+				realpathSync(join(tempDir, "dist", "node_modules")),
+			);
+
+			expect(existsSync(runtime.corePackageJsonPath)).toBe(true);
+			expect(existsSync(runtime.nativePackageJsonPath)).toBe(true);
+			expect(existsSync(runtime.nativeBinaryPath)).toBe(true);
+			expect(runtime.corePackageJsonPath.startsWith(distNodeModules)).toBe(true);
+			expect(runtime.nativePackageJsonPath.startsWith(distNodeModules)).toBe(true);
+			expect(runtime.nativeBinaryPath.startsWith(distNodeModules)).toBe(true);
+		} finally {
+			rmSync(tempDir, { recursive: true, force: true });
+		}
+	});
+
+	test("isolated standalone output can render a Takumi image route", async () => {
+		const sharp = (await import("sharp")).default;
+		const port = await getFreePort();
+		const tempDir = copyStandaloneDist();
+
+		const child = spawn("node", ["dist/rsc/index.js"], {
+			cwd: tempDir,
+			env: { ...process.env, DEBUG_SPICEFLOW: "1", PORT: String(port) },
+			stdio: ["ignore", "pipe", "pipe"],
+		});
+
+		let stdout = "";
+		let stderr = "";
+		child.stdout.on("data", (chunk) => {
+			stdout += chunk.toString();
+		});
+		child.stderr.on("data", (chunk) => {
+			stderr += chunk.toString();
+		});
+
+		try {
+			await waitForServer({ child, port });
+
+			const response = await fetch(`http://127.0.0.1:${port}/api/takumi-image`);
+			expect(response.status).toBe(200);
+			expect(response.headers.get("content-type")).toBe("image/png");
+
+			const buffer = Buffer.from(await response.arrayBuffer());
+			const metadata = await sharp(buffer).metadata();
+			expect(metadata.format).toBe("png");
+			expect(metadata.width).toBe(120);
+			expect(metadata.height).toBe(60);
+		} catch (error) {
+			throw new Error(
+				`Isolated standalone Takumi render failed. stdout:\n${stdout}\n\nstderr:\n${stderr}`,
+				{ cause: error },
+			);
+		} finally {
+			await stopProcess({ child });
+			rmSync(tempDir, { recursive: true, force: true });
+		}
+	});
+});
+
 test.describe("prerender error @build", () => {
 	test("build fails with exit code 1 when a static page throws", async () => {
-		const { execSync } = await import("node:child_process");
+		const tempDir = mkdtempSync(join(tmpdir(), "spiceflow-prerender-error-"));
 		let stdout = "";
 		let stderr = "";
 		let exitCode = 0;
+
+		for (const entry of ["package.json", "tsconfig.json", "vite.config.ts", "src"]) {
+			cpSync(join(process.cwd(), entry), join(tempDir, entry), {
+				recursive: true,
+			});
+		}
+		symlinkSync(
+			join(process.cwd(), "node_modules"),
+			join(tempDir, "node_modules"),
+			"dir",
+		);
+
 		try {
-			const output = execSync("pnpm build", {
-				cwd: process.cwd(),
-				env: { ...process.env, STATIC_PAGE_ERROR: "1" },
+			const output = execSync("./node_modules/.bin/vite build", {
+				cwd: tempDir,
+				env: {
+					...process.env,
+					STATIC_PAGE_ERROR: "1",
+					SPICEFLOW_SKIP_STANDALONE_TRACE: "1",
+				},
 				encoding: "utf-8",
 				stdio: ["pipe", "pipe", "pipe"],
 				timeout: 120_000,
@@ -1232,6 +1528,10 @@ test.describe("prerender error @build", () => {
 			exitCode = err.status ?? 1;
 			stdout = err.stdout ?? "";
 			stderr = err.stderr ?? "";
+		} finally {
+			// Run the negative build in a temp copy so it can't clobber the live
+			// dist/ artifacts used by the production-start server later in this suite.
+			rmSync(tempDir, { recursive: true, force: true });
 		}
 		const combined = stdout + "\n" + stderr;
 		expect(exitCode).not.toBe(0);
@@ -1591,10 +1891,12 @@ test.describe("server actions", () => {
 			.toBe(true);
 	});
 
-	test("inline 'use server' with closure revalidates the page after submit", async ({
+	test("inline 'use server' with closure revalidates the page after form submit", async ({
 		page,
 	}) => {
-		// Relies on module-scope inlineActionRenderCount persisting across requests
+		// Form submissions (via <form action>) re-render the page tree so
+		// server-rendered content updates. Direct function calls do NOT
+		// re-render, to avoid resetting client state.
 		test.skip(isRemote, "stateless functions");
 		const errors: string[] = [];
 		page.on("pageerror", (err) => errors.push(err.message));
@@ -1607,8 +1909,8 @@ test.describe("server actions", () => {
 			.textContent();
 		await page.locator('input[name="name"]').fill("world");
 		await page.getByRole("button", { name: "Submit" }).click();
-		// After the action completes, the page should revalidate (re-render on server),
-		// so the render count increments.
+		// After the form action completes, the page should revalidate
+		// (re-render on server), so the render count increments.
 		await expect(page.getByTestId("inline-action-render-count")).not.toHaveText(
 			countBefore!,
 			{ timeout: 10000 },
@@ -1625,6 +1927,41 @@ test.describe("server actions", () => {
 		});
 		await page.getByTestId("call-redirect-action").click();
 		await expect(page).toHaveURL(url("/other"), { timeout: 10000 });
+	});
+
+	test("direct server action redirect preserves layout state", async ({
+		page,
+	}) => {
+		await page.goto(url("/server-action-redirect"));
+		await expect(page.getByTestId("layout-mount-count")).toHaveText("1", {
+			timeout: 10000,
+		});
+		// Set some client state in the layout counter
+		const layoutCounter = page
+			.getByTestId("client-counter")
+			.filter({ hasText: "Layout" });
+		await layoutCounter.getByRole("button", { name: "+" }).click();
+		await expect(layoutCounter).toContainText("Layout counter: 1");
+		// Redirect via server action
+		await page.getByTestId("call-redirect-action").click();
+		await expect(page).toHaveURL(url("/other"), { timeout: 10000 });
+		// Layout state should be preserved (client-side navigation, not full reload)
+		await expect(page.getByTestId("layout-mount-count")).toHaveText("1");
+	});
+
+	test("direct server action redirect with set-cookie preserves cookie", async ({
+		page,
+	}) => {
+		await page.goto(url("/server-action-redirect"));
+		await expect(page.getByTestId("layout-mount-count")).toHaveText("1", {
+			timeout: 10000,
+		});
+		await page.getByTestId("call-redirect-cookie-action").click();
+		await expect(page).toHaveURL(url("/other"), { timeout: 10000 });
+		// The set-cookie header from the redirect should have been applied
+		const cookies = await page.context().cookies();
+		const actionCookie = cookies.find((c) => c.name === "action-redirect");
+		expect(actionCookie?.value).toBe("1");
 	});
 
 	test("form action with useActionState returns result to the page", async ({
@@ -1656,6 +1993,31 @@ test.describe("server actions", () => {
 		await expect(
 			page.getByText("Action failed: invalid input", { exact: true }),
 		).toBeVisible({ timeout: 10000 });
+	});
+
+	test("form action error does not trigger app onError for callServer requests", async ({ page }) => {
+		// For callServer requests (JS enabled), action errors are delivered to
+		// the client via the flight payload. onError does NOT fire because the
+		// error is handled (shown in error boundary), not unhandled. React may
+		// retry actions in concurrent mode, so firing onError per-request would
+		// over-count. Progressive enhancement (no-JS) errors still fire onError.
+		const resetResponse = await fetch(`${baseURL}${basePath}/api/on-error-reset`);
+		expect(resetResponse.status).toBe(200);
+		expect(await resetResponse.json()).toEqual({ count: 0 });
+
+		await page.goto(url("/form-action-error-test"));
+		await expect(page.getByTestId("layout-mount-count")).toHaveText("1", {
+			timeout: 10000,
+		});
+		await page.getByTestId("action-form-input").fill("test");
+		await page.getByTestId("action-form-submit").click();
+		await expect(
+			page.getByText("Action failed: invalid input", { exact: true }),
+		).toBeVisible({ timeout: 10000 });
+
+		const countResponse = await fetch(`${baseURL}${basePath}/api/on-error-count`);
+		expect(countResponse.status).toBe(200);
+		expect(await countResponse.json()).toEqual({ count: 0 });
 	});
 
 	test("getActionAbortController aborts an in-flight server action", async ({
@@ -1703,6 +2065,88 @@ test.describe("server actions", () => {
 		expect(result.method).toBe("POST");
 		expect(result.hasSignal).toBe(true);
 		expect(result.url).toContain("__rsc=");
+	});
+});
+
+test.describe("federated payloads", () => {
+	test("decodeFederationPayload decodes route response and hydrates client components", async ({
+		page,
+	}) => {
+		await page.goto(url("/federated-payload-decode"));
+		await expect(page.getByTestId("layout-mount-count")).toHaveText("1", {
+			timeout: 10000,
+		});
+
+		const layoutCounter = page
+			.getByTestId("client-counter")
+			.filter({ hasText: "Layout" });
+		await layoutCounter.getByRole("button", { name: "+" }).click();
+		await expect(layoutCounter).toContainText("Layout counter: 1");
+
+		await page.getByTestId("decode-federated-payload").click();
+
+		await expect(page.getByTestId("decoded-federated-message")).toHaveText(
+			"decoded via decodeFederationPayload",
+			{ timeout: 10000 },
+		);
+
+		const decodedCounter = page
+			.getByTestId("decoded-federated-content")
+			.getByTestId("client-counter");
+		await expect(decodedCounter).toContainText("Imperative counter: 0", {
+			timeout: 10000,
+		});
+		await decodedCounter.getByRole("button", { name: "+" }).click();
+		await expect(decodedCounter).toContainText("Imperative counter: 1");
+
+		await expect(layoutCounter).toContainText("Layout counter: 1");
+	});
+
+	test("decodeFederationPayload preserves async iterable object fields from route responses", async ({
+		page,
+	}) => {
+		await page.goto(url("/federated-payload-decode"));
+		await expect(page.getByTestId("layout-mount-count")).toHaveText("1", {
+			timeout: 10000,
+		});
+
+		await page.getByTestId("decode-federated-stream").click();
+
+		await expect(page.getByTestId("decoded-federated-stream")).toContainText(
+			"Stream item 1",
+			{ timeout: 10000 },
+		);
+
+		await expect(page.getByTestId("decoded-federated-stream-item")).toHaveCount(3, {
+			timeout: 10000,
+		});
+		await expect(page.getByTestId("decoded-federated-stream")).toContainText(
+			"Stream item 2",
+		);
+		await expect(page.getByTestId("decoded-federated-stream")).toContainText(
+			"Stream item 3",
+		);
+		await expect(page.getByTestId("decoded-federated-stream-done")).toHaveText(
+			"done",
+		);
+	});
+
+	test("RenderFederatedPayload renders same-process response and hydrates client components", async ({
+		page,
+	}) => {
+		await page.goto(url("/render-federated-payload"));
+		await expect(page.getByTestId("layout-mount-count")).toHaveText("1", {
+			timeout: 10000,
+		});
+
+		const counter = page
+			.getByTestId("render-federated-payload-test")
+			.getByTestId("client-counter");
+		await expect(counter).toContainText("SSR counter: 0", {
+			timeout: 10000,
+		});
+		await counter.getByRole("button", { name: "+" }).click();
+		await expect(counter).toContainText("SSR counter: 1");
 	});
 });
 
@@ -1891,29 +2335,27 @@ test.describe("loaders", () => {
 		expect(text).not.toContain("should not render");
 	});
 
-	test("getLoaderData resolves with correct data after hydration", async ({
+	test("router.getLoaderData resolves with correct data after hydration", async ({
 		page,
 	}) => {
 		await page.goto(url("/loader-test/global"));
 		await expect(page.getByTestId("read-loader-data")).toBeVisible({
 			timeout: 10000,
 		});
-		// Read loader data via getLoaderData() exposed on window by test component
 		await expect(async () => {
-			const data = await page.evaluate(async () => {
-				const fn = (window as any).__test_getLoaderData;
-				if (!fn) return null;
-				return await fn();
-			});
+			await page.getByTestId("read-loader-data").click();
+			const data = await page.getByTestId("subscribe-data-live").textContent();
 			expect(data).toBeTruthy();
-			expect((data as any).global).toBe("from-wildcard-loader");
+			expect(JSON.parse(data!)).toMatchObject({
+				global: "from-wildcard-loader",
+			});
 		}).toPass({ timeout: 10000 });
 	});
 
-	test("getLoaderData updates after client-side navigation", async ({
+	test("router.getLoaderData updates after client-side navigation", async ({
 		page,
 	}) => {
-		// Start on a page with loader data, expose getLoaderData on window
+		// Start on a page with loader data, expose router.getLoaderData on window
 		await page.goto(url("/loader-test/global"));
 		await expect(page.getByTestId("link-global-nested")).toBeVisible({
 			timeout: 10000,
@@ -1923,15 +2365,13 @@ test.describe("loaders", () => {
 		await page.getByTestId("link-global-nested").click();
 		await expect(page).toHaveURL(url("/loader-test/nested"), { timeout: 10000 });
 
-		// The subscribe callback in loader-global-client.tsx stores updated data.
-		// After navigation, check the useLoaderData hook (React path) which reads
-		// from the flight context — confirms the RSC payload has the merged data.
-		await expect(page.getByTestId("loader-data-client")).toBeVisible({
+		await expect(page.getByTestId("read-loader-data")).toBeVisible({
 			timeout: 10000,
 		});
+		await page.getByTestId("read-loader-data").click();
 		await expect(async () => {
 			const clientData = await page
-				.getByTestId("loader-data-client")
+				.getByTestId("subscribe-data-live")
 				.textContent();
 			const parsed = JSON.parse(clientData!);
 			expect(parsed.global).toBe("from-wildcard-loader");
@@ -1993,9 +2433,20 @@ test.describe(".server.ts file guard", () => {
 		// Trigger client-env resolution by importing the module from the browser.
 		// Must include basePath so the import resolves under Vite's base URL.
 		const importPath = `${basePath}/src/app/bad-server-import-client.tsx`;
-		page
-			.evaluate((p) => import(/* @vite-ignore */ p), importPath)
-			.catch(() => {});
+		const importError = await page.evaluate(async (p) => {
+			try {
+				await import(/* @vite-ignore */ p);
+				return null;
+			} catch (error) {
+				return String(error instanceof Error ? error.message : error);
+			}
+		}, importPath);
+
+		if (typeof importError === "string" && importError.length > 0) {
+			expect(importError).toContain("bad-server-import-client");
+			return;
+		}
+
 		const overlay = page.locator("vite-error-overlay");
 		await expect(overlay).toBeAttached({ timeout: 10000 });
 		const overlayText = await overlay.evaluate(

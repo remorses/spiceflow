@@ -1,6 +1,6 @@
 {
   "name": "spiceflow",
-  "version": "1.18.0-rsc.21",
+  "version": "1.18.0-rsc.25",
   "description": "Simple API framework with RPC and type safety",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -27,6 +27,20 @@
       "react-server": "./dist/react/handle-ssr.rsc.js",
       "default": "./dist/react/handle-ssr.js"
     },
+    "#flight-data-context": {
+      "types": "./dist/react/flight-data-context.d.ts",
+      "react-server": "./dist/react/flight-data-context.rsc.js",
+      "default": "./dist/react/flight-data-context.js"
+    },
+    "#router-context": {
+      "types": "./dist/router-context.default.d.ts",
+      "browser": "./dist/router-context.default.js",
+      "bun": "./dist/router-context.js",
+      "node": "./dist/router-context.js",
+      "ssr": "./dist/router-context.js",
+      "react-server": "./dist/router-context.js",
+      "default": "./dist/router-context.default.js"
+    },
     "#node-server": {
       "types": "./dist/_node-server.d.ts",
       "bun": "./dist/_node-server.js",
@@ -45,6 +59,7 @@
     }
   },
   "exports": {
+    "./package.json": "./package.json",
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
@@ -55,6 +70,7 @@
     },
     "./react": {
       "types": "./dist/react/index.d.ts",
+      "react-server": "./dist/react/index.rsc.js",
       "default": "./dist/react/index.js"
     },
     "./mcp": {
@@ -82,6 +98,11 @@
       "default": "./src/*.ts"
     },
     "./cloudflare-entrypoint": {
+      "types": "./dist/react/entry.rsc.d.ts",
+      "react-server": "./dist/react/entry.rsc.js",
+      "workerd": "./dist/react/entry.rsc.js",
+      "worker": "./dist/react/entry.rsc.js",
+      "import": "./dist/react/entry.rsc.js",
       "default": "./dist/react/entry.rsc.js"
     },
     "./dist/*": {
@@ -90,8 +111,8 @@
     }
   },
   "scripts": {
-    "build": "echo '<!-- DO NOT EDIT: This file is auto-generated from root README.md -->' > ./README.md && echo '' >> ./README.md && cat ../README.md >> ./README.md && rm -rf dist *.tsbuildinfo && pnpm tsc && pnpm check-entry",
-    "prepublishOnly": "pnpm build",
+    "build": "echo '<!-- DO NOT EDIT: This file is auto-generated from root README.md -->' > ./README.md && echo '' >> ./README.md && cat ../README.md >> ./README.md && pnpm tsc && pnpm check-entry",
+    "prepublishOnly": "rimraf dist \"*.tsbuildinfo\" && pnpm build",
     "typecheck": "pnpm build",
     "gen-openapi": "pnpm tsx scripts/openapi-fern.ts",
     "docs:dev": "pnpm run gen-openapi && fern docs dev",
@@ -100,7 +121,7 @@
     "fern-docs": "pnpm run gen-openapi && fern generate --docs --force",
     "play-sdk:build": "pnpm vite build --config ./scripts/play-sdk.vite.ts",
     "check-entry": "esbuild src/index.ts --bundle --platform=node --format=esm --outfile=/dev/null",
-    "test": "pnpm vitest",
+    "test": "pnpm tsc && pnpm vitest",
     "lint": "lintcn lint --fix",
     "prepare": "# pnpm build",
     "watch": "tsc -w"
@@ -113,13 +134,13 @@
   "author": "Tommaso De Rossi, morse <beats.by.morse@gmail.com>",
   "license": "MIT",
   "dependencies": {
-    "@vercel/nft": "^1.5.0",
     "@vitejs/plugin-rsc": "0.5.21",
     "errore": "^0.14.0",
     "eventsource-parser": "^3.0.2",
     "history": "^5.3.0",
     "isbot": "^4.1.0",
     "its-fine": "^2.0.0",
+    "nf3": "0.3.16",
     "openapi-types": "^12.1.3",
     "superjson": "^2.2.2"
   },
@@ -147,7 +168,8 @@
     "js-base64": "^3.7.7",
     "js-yaml": "^4.1.0",
     "ps-tree": "^1.2.0",
-    "vite": "^8.0.0",
+    "rimraf": "^6.1.3",
+    "vite": "^8.0.8",
     "zod": "^4.3.6"
   }
 }

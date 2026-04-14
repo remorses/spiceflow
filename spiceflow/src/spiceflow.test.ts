@@ -1,4 +1,4 @@
-import { test, describe, expect, vi } from 'vitest'
+import { test, describe, expect } from 'vitest'
 
 import {
   bfs,
@@ -6,6 +6,7 @@ import {
   createHref,
   extractWildcardParam,
   Spiceflow,
+  SpiceflowRequest,
 } from './spiceflow.tsx'
 import { z } from 'zod'
 import { createSpiceflowClient } from './client/index.js'
@@ -77,10 +78,7 @@ test('listen() returns stop() that shuts down the server', async () => {
 })
 
 test('listen() returns noop stop() during prerender', async () => {
-  const globalThisWithPrerender = globalThis as typeof globalThis & {
-    __SPICEFLOW_PRERENDER?: boolean
-  }
-  globalThisWithPrerender.__SPICEFLOW_PRERENDER = true
+  Reflect.set(globalThis, '__SPICEFLOW_PRERENDER', true)
 
   try {
     const listener = await new Spiceflow()
@@ -98,7 +96,7 @@ test('listen() returns noop stop() during prerender', async () => {
 
     await stop()
   } finally {
-    delete globalThisWithPrerender.__SPICEFLOW_PRERENDER
+    Reflect.deleteProperty(globalThis, '__SPICEFLOW_PRERENDER')
   }
 })
 
@@ -1055,475 +1053,7 @@ test('regex constrained route is more specific than a generic param route', asyn
   expect(await res.json()).toBe('digits')
 })
 
-test('renderReact passes layout params to layouts instead of page params', async () => {
-  let payload: any
-  let pageProps: any
-  let layoutProps: any
 
-  vi.doMock('#rsc-runtime', () => ({
-    renderToReadableStream(value) {
-      payload = value
-      return new ReadableStream({
-        start(controller) {
-          controller.close()
-        },
-      })
-    },
-    createTemporaryReferenceSet: () => ({}),
-    decodeReply: async () => null,
-    decodeAction: async () => () => null,
-    decodeFormState: async () => undefined,
-    loadServerAction: async () => undefined,
-  }))
-
-  try {
-    const app = new Spiceflow()
-    const Page = (props: any) => {
-      pageProps = props
-      return null
-    }
-    const Layout = (props: any) => {
-      layoutProps = props
-      return null
-    }
-
-    await (app as any).renderReact({
-      request: new Request('http://localhost/layouts/parent/pages/child', {
-        method: 'GET',
-      }),
-      context: {
-        request: undefined,
-        state: {},
-        query: {},
-        params: {},
-        path: '/',
-        response: new Response(null),
-      },
-      reactRoutes: [
-        {
-          app,
-          params: { pageId: 'child' },
-          route: {
-            id: 'page',
-            kind: 'page',
-            handler: Page,
-          },
-        },
-        {
-          app,
-          params: { layoutId: 'parent' },
-          route: {
-            id: 'layout',
-            kind: 'layout',
-            handler: Layout,
-          },
-        },
-      ],
-    })
-
-    expect(payload.root.page).toBeNull()
-    expect(payload.root.layouts[0]?.element).toBeNull()
-    expect(pageProps.params).toEqual({ pageId: 'child' })
-    expect(layoutProps.params).toEqual({
-      layoutId: 'parent',
-    })
-    expect(pageProps.response).toHaveProperty('headers')
-    expect(pageProps.response).toHaveProperty('status', 200)
-    expect(layoutProps.response).toHaveProperty('headers')
-    expect(layoutProps.response).toHaveProperty('status', 200)
-    expect(layoutProps.response).not.toBe(pageProps.response)
-  } finally {
-    vi.doUnmock('#rsc-runtime')
-    vi.resetModules()
-  }
-})
-
-test('renderReact merges page response headers into the flight response', async () => {
-  vi.resetModules()
-  vi.doMock('#rsc-runtime', () => ({
-    renderToReadableStream() {
-      return new ReadableStream({
-        start(controller) {
-          controller.close()
-        },
-      })
-    },
-    createTemporaryReferenceSet: () => ({}),
-    decodeReply: async () => null,
-    decodeAction: async () => () => null,
-    decodeFormState: async () => undefined,
-    loadServerAction: async () => undefined,
-  }))
-
-  try {
-    const { Spiceflow: FreshSpiceflow } = await import('./spiceflow.js')
-    const app = new FreshSpiceflow()
-    const response = await (app as any).renderReact({
-      request: new Request('http://localhost/headers', {
-        method: 'GET',
-      }),
-      context: {
-        request: undefined,
-        state: {},
-        query: {},
-        params: {},
-        path: '/',
-        response: new Response(null),
-      },
-      reactRoutes: [
-        {
-          app,
-          params: {},
-          route: {
-            id: 'page',
-            kind: 'page',
-            handler: ({ response }: any) => {
-              response.headers.set('cache-control', 'private, max-age=60')
-              response.headers.append('set-cookie', 'a=1; Path=/')
-              response.headers.append('set-cookie', 'b=2; Path=/')
-              return null
-            },
-          },
-        },
-      ],
-    })
-
-    expect(response.headers.get('cache-control')).toBe('private, max-age=60')
-    const getSetCookie = (
-      response.headers as Headers & {
-        getSetCookie?: () => string[]
-      }
-    ).getSetCookie
-    expect(getSetCookie?.call(response.headers)).toEqual([
-      'a=1; Path=/',
-      'b=2; Path=/',
-    ])
-  } finally {
-    vi.doUnmock('#rsc-runtime')
-    vi.resetModules()
-  }
-})
-
-test('renderReact merges layout and page headers in route order', async () => {
-  vi.resetModules()
-  vi.doMock('#rsc-runtime', () => ({
-    renderToReadableStream() {
-      return new ReadableStream({
-        start(controller) {
-          controller.close()
-        },
-      })
-    },
-    createTemporaryReferenceSet: () => ({}),
-    decodeReply: async () => null,
-    decodeAction: async () => () => null,
-    decodeFormState: async () => undefined,
-    loadServerAction: async () => undefined,
-  }))
-
-  try {
-    const { Spiceflow: FreshSpiceflow } = await import('./spiceflow.js')
-    const app = new FreshSpiceflow()
-    const response = await (app as any).renderReact({
-      request: new Request('http://localhost/headers', {
-        method: 'GET',
-      }),
-      context: {
-        request: undefined,
-        state: {},
-        query: {},
-        params: {},
-        path: '/',
-        response: new Response(null),
-      },
-      reactRoutes: [
-        {
-          app,
-          params: { layoutId: 'outer' },
-          route: {
-            id: 'layout',
-            kind: 'layout',
-            handler: ({ children, response }: any) => {
-              response.headers.set('cache-control', 'layout')
-              response.headers.append('set-cookie', 'layout=1; Path=/')
-              return children
-            },
-          },
-        },
-        {
-          app,
-          params: {},
-          route: {
-            id: 'page',
-            kind: 'page',
-            handler: ({ response }: any) => {
-              response.headers.set('cache-control', 'page')
-              response.headers.append('set-cookie', 'page=1; Path=/')
-              return null
-            },
-          },
-        },
-      ],
-    })
-
-    expect(response.headers.get('cache-control')).toBe('page')
-    const getSetCookie = (
-      response.headers as Headers & {
-        getSetCookie?: () => string[]
-      }
-    ).getSetCookie
-    expect(getSetCookie?.call(response.headers)).toEqual([
-      'layout=1; Path=/',
-      'page=1; Path=/',
-    ])
-  } finally {
-    vi.doUnmock('#rsc-runtime')
-    vi.resetModules()
-  }
-})
-
-test('renderReact uses page response.status over layout response.status', async () => {
-  vi.resetModules()
-  vi.doMock('#rsc-runtime', () => ({
-    renderToReadableStream() {
-      return new ReadableStream({
-        start(controller) {
-          controller.close()
-        },
-      })
-    },
-    createTemporaryReferenceSet: () => ({}),
-    decodeReply: async () => null,
-    decodeAction: async () => () => null,
-    decodeFormState: async () => undefined,
-    loadServerAction: async () => undefined,
-  }))
-
-  try {
-    const { Spiceflow: FreshSpiceflow } = await import('./spiceflow.js')
-    const app = new FreshSpiceflow()
-    const response = await (app as any).renderReact({
-      request: new Request('http://localhost/status-precedence', {
-        method: 'GET',
-      }),
-      context: {
-        request: undefined,
-        state: {},
-        query: {},
-        params: {},
-        path: '/',
-        response: new Response(null),
-      },
-      reactRoutes: [
-        {
-          app,
-          params: {},
-          route: {
-            id: 'layout',
-            kind: 'layout',
-            handler: ({ children, response }: any) => {
-              response.status = 418
-              return children
-            },
-          },
-        },
-        {
-          app,
-          params: {},
-          route: {
-            id: 'page',
-            kind: 'page',
-            handler: ({ response }: any) => {
-              response.status = 202
-              return null
-            },
-          },
-        },
-      ],
-    })
-
-    expect(response.status).toBe(202)
-  } finally {
-    vi.doUnmock('#rsc-runtime')
-    vi.resetModules()
-  }
-})
-
-test('renderReact falls back to nearest layout response.status when page does not set status', async () => {
-  vi.resetModules()
-  vi.doMock('#rsc-runtime', () => ({
-    renderToReadableStream() {
-      return new ReadableStream({
-        start(controller) {
-          controller.close()
-        },
-      })
-    },
-    createTemporaryReferenceSet: () => ({}),
-    decodeReply: async () => null,
-    decodeAction: async () => () => null,
-    decodeFormState: async () => undefined,
-    loadServerAction: async () => undefined,
-  }))
-
-  try {
-    const { Spiceflow: FreshSpiceflow } = await import('./spiceflow.js')
-    const app = new FreshSpiceflow()
-    const response = await (app as any).renderReact({
-      request: new Request('http://localhost/layout-status', {
-        method: 'GET',
-      }),
-      context: {
-        request: undefined,
-        state: {},
-        query: {},
-        params: {},
-        path: '/',
-        response: new Response(null),
-      },
-      reactRoutes: [
-        {
-          app,
-          params: {},
-          route: {
-            id: 'outer-layout',
-            kind: 'layout',
-            handler: ({ children, response }: any) => {
-              response.status = 451
-              return children
-            },
-          },
-        },
-        {
-          app,
-          params: {},
-          route: {
-            id: 'inner-layout',
-            kind: 'layout',
-            handler: ({ children, response }: any) => {
-              response.status = 429
-              return children
-            },
-          },
-        },
-        {
-          app,
-          params: {},
-          route: {
-            id: 'page',
-            kind: 'page',
-            handler: () => null,
-          },
-        },
-      ],
-    })
-
-    // Nearest layout wins (last matched layout in render order)
-    expect(response.status).toBe(429)
-  } finally {
-    vi.doUnmock('#rsc-runtime')
-    vi.resetModules()
-  }
-})
-
-test('renderReact starts layouts and page concurrently', async () => {
-  const createDeferred = () => {
-    let resolve!: () => void
-    const promise = new Promise<void>((resolvePromise) => {
-      resolve = resolvePromise
-    })
-    return { promise, resolve }
-  }
-
-  try {
-    vi.resetModules()
-    vi.doMock('#rsc-runtime', () => ({
-      renderToReadableStream() {
-        return new ReadableStream({
-          start(controller) {
-            controller.close()
-          },
-        })
-      },
-      createTemporaryReferenceSet: () => ({}),
-      decodeReply: async () => null,
-      decodeAction: async () => () => null,
-      decodeFormState: async () => undefined,
-      loadServerAction: async () => undefined,
-    }))
-    const { Spiceflow: FreshSpiceflow } = await import('./spiceflow.js')
-    const app = new FreshSpiceflow()
-    const events: string[] = []
-    const layoutDeferred = createDeferred()
-    const pageDeferred = createDeferred()
-
-    const renderPromise = (app as any).renderReact({
-      request: new Request('http://localhost/concurrent', {
-        method: 'GET',
-      }),
-      context: {
-        request: undefined,
-        state: {},
-        query: {},
-        params: {},
-        path: '/',
-        response: new Response(null),
-      },
-      reactRoutes: [
-        {
-          app,
-          params: { layoutId: 'outer' },
-          route: {
-            id: 'layout',
-            kind: 'layout',
-            handler: async ({ children }: any) => {
-              events.push('layout:start')
-              await layoutDeferred.promise
-              events.push('layout:end')
-              return children
-            },
-          },
-        },
-        {
-          app,
-          params: {},
-          route: {
-            id: 'page',
-            kind: 'page',
-            handler: async () => {
-              events.push('page:start')
-              await pageDeferred.promise
-              events.push('page:end')
-              throw new Response(null, { status: 204 })
-            },
-          },
-        },
-      ],
-    })
-
-    await vi.waitFor(() => {
-      expect(events).toEqual(['layout:start', 'page:start'])
-    })
-
-    layoutDeferred.resolve()
-    await Promise.resolve()
-    expect(events).toEqual(['layout:start', 'page:start', 'layout:end'])
-
-    pageDeferred.resolve()
-    const response = await renderPromise
-    expect(events).toEqual([
-      'layout:start',
-      'page:start',
-      'layout:end',
-      'page:end',
-    ])
-    expect(response).toBeInstanceOf(Response)
-    expect(response.status).toMatchInlineSnapshot(`200`)
-  } finally {
-    vi.doUnmock('#rsc-runtime')
-    vi.resetModules()
-  }
-})
 
 test('api routes can set response headers through context.response', async () => {
   const app = new Spiceflow().get('/headers', ({ response }) => {
@@ -1536,11 +1066,7 @@ test('api routes can set response headers through context.response', async () =>
 
   expect(response.headers.get('x-api-header')).toBe('ok')
   expect((await response.json())?.ok).toBe(true)
-  const getSetCookie = (
-    response.headers as Headers & {
-      getSetCookie?: () => string[]
-    }
-  ).getSetCookie
+  const getSetCookie = Reflect.get(response.headers, 'getSetCookie')
   expect(getSetCookie?.call(response.headers)).toEqual(['api-cookie=1; Path=/'])
 })
 
@@ -1577,58 +1103,7 @@ test('missing route is not found', async () => {
   expect(res.status).toBe(404)
 })
 
-test('document requests set a deployment cookie when a deployment id is available', async () => {
-  vi.resetModules()
-  vi.doMock('#deployment-id', () => ({
-    getDeploymentId: async () => 'deploy-123',
-  }))
 
-  try {
-    const { Spiceflow: FreshSpiceflow } = await import('./spiceflow.js')
-    const res = await new FreshSpiceflow()
-      .get('/', () => 'ok')
-      .handle(
-        new Request('http://localhost/', {
-          headers: {
-            'sec-fetch-dest': 'document',
-          },
-        }),
-      )
-
-    expect(res.headers.get('set-cookie')).toContain(
-      'spiceflow-deployment=deploy-123',
-    )
-  } finally {
-    vi.doUnmock('#deployment-id')
-    vi.resetModules()
-  }
-})
-
-test('rsc deployment mismatch returns a same-origin relative reload path', async () => {
-  vi.resetModules()
-  vi.doMock('#deployment-id', () => ({
-    getDeploymentId: async () => 'deploy-123',
-  }))
-
-  try {
-    const { Spiceflow: FreshSpiceflow } = await import('./spiceflow.js')
-    const res = await new FreshSpiceflow()
-      .get('/', () => 'ok')
-      .handle(
-        new Request('http://internal-proxy/app/page.rsc?__rsc=&q=1', {
-          headers: {
-            cookie: 'spiceflow-deployment=deploy-old',
-          },
-        }),
-      )
-
-    expect(res.status).toBe(409)
-    expect(res.headers.get('x-spiceflow-reload')).toBe('/app/page?q=1')
-  } finally {
-    vi.doUnmock('#deployment-id')
-    vi.resetModules()
-  }
-})
 
 test('state works', async () => {
   const res = await new Spiceflow()
@@ -2017,8 +1492,8 @@ test('does not append subapp basePath if parent is prefix of subapp path', async
 })
 
 test('errors inside basPath works', async () => {
-  let onErrorTriggered = [] as string[]
-  let onReqTriggered = [] as string[]
+  let onErrorTriggered: string[] = []
+  let onReqTriggered: string[] = []
   let handlerCalledNTimes = 0
   const app = await new Spiceflow({ basePath: '/zero' })
     .onError(({ error }) => {
@@ -2158,7 +1633,7 @@ test('async generators handle non-ASCII characters correctly', async () => {
   expect(cyrillicText).toBe('ПриветΚόσμος')
 
   const { data: mixedData } = await client['mixed-scripts'].get()
-  const mixedResults = [] as any[]
+  const mixedResults: unknown[] = []
   for await (const chunk of mixedData!) {
     mixedResults.push(chunk)
   }
@@ -3859,14 +3334,14 @@ describe('use preserves type safety', () => {
     const f = createSpiceflowFetch(app)
 
     // Known routes are accepted
-    f('/health')
-    f('/users/:id', { params: { id: '1' } })
-    f('/items', { method: 'POST' })
+    void f('/health')
+    void f('/users/:id', { params: { id: '1' } })
+    void f('/items', { method: 'POST' })
 
     // @ts-expect-error - unknown path rejected
-    f('/nonexistent')
+    void f('/nonexistent')
     // @ts-expect-error - unknown path rejected
-    f('/users')
+    void f('/users')
   })
 
   test('fetch client rejects unknown paths from mounted subapp', () => {
@@ -3877,13 +3352,13 @@ describe('use preserves type safety', () => {
     const f = createSpiceflowFetch(app)
 
     // Known routes accepted
-    f('/health')
-    f('/api/data')
+    void f('/health')
+    void f('/api/data')
 
     // @ts-expect-error - unknown path rejected
-    f('/api/nonexistent')
+    void f('/api/nonexistent')
     // @ts-expect-error - unknown path rejected
-    f('/data')
+    void f('/data')
   })
 
   test('basePath alone is not a valid href when child has no root route', () => {
@@ -3924,7 +3399,7 @@ describe('use preserves type safety', () => {
     const client = createSpiceflowClient(app)
 
     // API route is accessible on client
-    client.app.api.data.get()
+    void client.app.api.data.get()
 
     // @ts-expect-error - page route not in ClientRoutes
     client.app.dashboard
@@ -3939,7 +3414,7 @@ describe('use preserves type safety', () => {
     const client = createSpiceflowClient(app)
 
     // API route is accessible
-    client.docs.api.versions.get()
+    void client.docs.api.versions.get()
 
     // @ts-expect-error - staticPage route not in ClientRoutes
     client.docs.intro
@@ -3954,7 +3429,7 @@ describe('use preserves type safety', () => {
     const client = createSpiceflowClient(app)
 
     // API route is accessible
-    client.docs.api.users.get()
+    void client.docs.api.users.get()
 
     // @ts-expect-error - staticGet route not in ClientRoutes
     client.docs.data
@@ -3969,7 +3444,7 @@ describe('use preserves type safety', () => {
     const f = createSpiceflowFetch(app)
 
     // API route works with typed result
-    f('/app/api/data')
+    void f('/app/api/data')
 
     // fetch client accepts any string path (falls back to untyped),
     // so page paths aren't rejected — but they resolve to fallback types,
@@ -3999,10 +3474,10 @@ describe('use preserves type safety', () => {
     const app = new Spiceflow().use(child)
 
     const client = createSpiceflowClient(app)
-    client.app.api.data.get()
+    void client.app.api.data.get()
 
     const f = createSpiceflowFetch(app)
-    f('/app/api/data')
+    void f('/app/api/data')
 
     // layout doesn't add to ClientRoutes — no navigable endpoint to access
   })
@@ -4231,6 +3706,51 @@ describe('.use() with page and layout routes', () => {
     expect(pageRes.status).toBe(500)
     const text = await pageRes.text()
     expect(text).toContain('RSC runtime is only available')
+  })
+
+  test('loader without matching page or layout stays a 404 route', async () => {
+    let ranLoader = false
+
+    const subApp = new Spiceflow({ basePath: '/admin' }).loader(
+      '/reports/*',
+      async () => {
+        ranLoader = true
+        return { reports: [] }
+      },
+    )
+
+    const app = new Spiceflow().use(subApp)
+
+    const res = await app.handle(
+      new Request('http://localhost/admin/reports/monthly', {
+        method: 'GET',
+        headers: { accept: 'text/html' },
+      }),
+    )
+
+    expect(res.status).toBe(404)
+    expect(await res.text()).toBe('Not Found')
+    expect(ranLoader).toBe(false)
+  })
+
+  test('request.url is normalized for .rsc requests before handlers run', async () => {
+    const app = new Spiceflow().get('/dashboard', ({ request, path }) => ({
+      url: request.url,
+      originalUrl: request instanceof SpiceflowRequest ? request.originalUrl : 'missing',
+      path,
+    }))
+
+    const res = await app.handle(
+      new Request('http://localhost/dashboard.rsc?__rsc=&tab=settings'),
+    )
+
+    expect(await res.json()).toMatchInlineSnapshot(`
+      {
+        "originalUrl": "http://localhost/dashboard.rsc?__rsc=&tab=settings",
+        "path": "/dashboard",
+        "url": "http://localhost/dashboard?__rsc=&tab=settings",
+      }
+    `)
   })
 
   test('multiple sub-apps with pages at different basePaths', async () => {

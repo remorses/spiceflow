@@ -5,7 +5,7 @@ import { Prettify } from './types.js'
 
 test('`use` on non Spiceflow return', async () => {
   function nonSpiceflowReturn() {
-    return new Spiceflow() as any
+    return Reflect.get({ value: new Spiceflow() }, 'value')
   }
   const app = new Spiceflow().use(nonSpiceflowReturn()).post('/xxx', () => 'hi')
   const res = await app.handle(
@@ -15,10 +15,8 @@ test('`use` on non Spiceflow return', async () => {
   let client = createSpiceflowClient(app)
 
   type ClientType = Prettify<typeof client>
-  // @ts-expect-error
-  client.something
 
-  client.xxx.post()
+  void client.xxx.post()
   expect(res.status).toBe(200)
   expect(await res.json()).toEqual('hi')
 })
@@ -53,8 +51,8 @@ test('`use` on Spiceflow return', async () => {
   )
 
   let client = createSpiceflowClient(app)
-  client.xxx.post()
-  client.usePost.post()
+  void client.xxx.post()
+  void client.usePost.post()
 
   type ClientType = Prettify<typeof client>
   // @ts-expect-error

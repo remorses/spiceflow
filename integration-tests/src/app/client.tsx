@@ -92,7 +92,6 @@ export function ClientComponentThrows() {
 }
 
 export function ErrorRender({ error }) {
-	console.log("caught error", error);
 	return <div>Error from rsc</div>;
 }
 export function LayoutMountTracker() {

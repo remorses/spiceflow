@@ -10,11 +10,7 @@ import {
   getErrorContext,
   contextHeaders,
 } from './errors.js'
-import { useFlightData, useLoaderData } from './context.js'
-export { useLoaderData }
-export function getLoaderData(): Promise<Record<string, unknown>> {
-  return router.getLoaderData()
-}
+import { useFlightData } from './context.js'
 import { ProgressBar } from './progress.js'
 
 export function LayoutContent(props: { id?: string }) {
@@ -186,61 +182,6 @@ export function DefaultGlobalErrorPage(props: ErrorPageProps) {
         {detail && <p style={{ color: '#666', margin: 0 }}>{detail}</p>}
       </body>
     </html>
-  )
-}
-
-declare const __SPICEFLOW_BASE__: string | undefined
-
-function getBase(): string {
-  return typeof __SPICEFLOW_BASE__ !== 'undefined' ? __SPICEFLOW_BASE__ : ''
-}
-
-// Check if a path already has the base prefix (handles /, ?, # boundaries)
-function hasBasePrefix(path: string, base: string): boolean {
-  if (path === base) return true
-  const next = path.charAt(base.length)
-  return path.startsWith(base) && (next === '/' || next === '?' || next === '#')
-}
-
-// Prepend base path to an href if it's a local absolute path that doesn't
-// already include the base prefix. External URLs, anchors, and protocol-relative
-// URLs (//cdn.com) are left as-is.
-function withBase(href: string | undefined): string | undefined {
-  if (!href) return href
-  const base = getBase()
-  if (!base) return href
-  // Only rewrite local absolute paths (starts with / but not //)
-  if (!href.startsWith('/') || href.startsWith('//')) return href
-  if (hasBasePrefix(href, base)) return href
-  return base + href
-}
-
-export function Link(
-  props: React.ComponentPropsWithRef<'a'> & { rawHref?: boolean },
-) {
-  const { rawHref, ...rest } = props
-  const href = rawHref ? props.href : withBase(props.href)
-  return (
-    <a
-      {...rest}
-      href={href}
-      onClick={(e) => {
-        if (
-          e.metaKey ||
-          e.ctrlKey ||
-          e.shiftKey ||
-          e.altKey ||
-          (props.target && props.target === '_blank')
-        ) {
-          props.onClick?.(e)
-          return
-        }
-        e.preventDefault()
-
-        props.onClick?.(e)
-        router.push(e.currentTarget.href)
-      }}
-    />
   )
 }
 

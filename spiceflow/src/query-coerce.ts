@@ -15,6 +15,10 @@ interface JsonSchema {
   oneOf?: JsonSchema[]
 }
 
+function isJsonSchemaRecord(value: unknown): value is Record<string, JsonSchema> {
+  return Boolean(value) && typeof value === 'object'
+}
+
 const jsonSchemaCache = new WeakMap<object, Record<string, unknown> | null>()
 
 function extractJsonSchema(
@@ -22,11 +26,11 @@ function extractJsonSchema(
 ): Record<string, unknown> | undefined {
   if (!schema || typeof schema !== 'object') return undefined
 
-  const cached = jsonSchemaCache.get(schema as object)
+  const cached = jsonSchemaCache.get(schema)
   if (cached !== undefined) return cached ?? undefined
 
   const result = extractJsonSchemaUncached(schema)
-  jsonSchemaCache.set(schema as object, result ?? null)
+  jsonSchemaCache.set(schema, result ?? null)
   return result
 }
 
@@ -34,21 +38,15 @@ function extractJsonSchemaUncached(
   schema: unknown,
 ): Record<string, unknown> | undefined {
   if (!schema || typeof schema !== 'object') return undefined
-  if (!('~standard' in schema)) return undefined
-  const std = (schema as Record<string, unknown>)['~standard']
+  const std = Reflect.get(schema, '~standard')
   if (!std || typeof std !== 'object') return undefined
 
-  const converter = (std as Record<string, unknown>).jsonSchema
-  if (
-    !converter ||
-    typeof converter !== 'object' ||
-    !('input' in converter) ||
-    typeof (converter as Record<string, unknown>).input !== 'function'
-  ) {
-    return undefined
-  }
+  const converter = Reflect.get(std, 'jsonSchema')
+  if (!converter || typeof converter !== 'object') return undefined
 
-  const input = (converter as { input: (opts: { target: string }) => Record<string, unknown> }).input
+  const input = Reflect.get(converter, 'input')
+  if (typeof input !== 'function') return undefined
+
   try {
     return input({ target: 'draft-2020-12' })
   } catch {
@@ -144,14 +142,12 @@ export function coerceQueryWithSchema(
   const jsonSchema = extractJsonSchema(schema)
   if (!jsonSchema) return rawQuery
 
-  const properties = jsonSchema.properties as
-    | Record<string, JsonSchema>
-    | undefined
-  if (!properties) return rawQuery
+  const properties = jsonSchema.properties
+  if (!isJsonSchemaRecord(properties)) return rawQuery
 
   const coerced: Record<string, unknown> = { ...rawQuery }
   for (const [key, propSchema] of Object.entries(properties)) {
-    if (!(key in coerced)) continue
+    if (!Object.hasOwn(coerced, key)) continue
     coerced[key] = coerceValue(coerced[key], propSchema)
   }
   return coerced

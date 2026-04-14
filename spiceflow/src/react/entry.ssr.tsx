@@ -20,12 +20,13 @@ import {
 import { formatServerError } from './format-server-error.js'
 import { sanitizeErrorMessage } from './sanitize-error.js'
 import { injectRSCPayload } from './transform.js'
+import { createRouterContextData, routerContextStorage } from '../router-context.js'
 
-const importMapJsonPromise: Promise<string> = import.meta.hot
-  ? Promise.resolve('')
-  : import('virtual:spiceflow-import-map')
-      .then((m) => m.default || '')
-      .catch(() => '')
+const verboseLogs = process.env.SPICEFLOW_VERBOSE === '1'
+
+const importMapJsonPromise: Promise<string> = import('virtual:spiceflow-import-map')
+  .then((m) => m.default || '')
+  .catch(() => '')
 
 let bootstrapScriptContentPromise: Promise<string> | undefined
 
@@ -99,6 +100,10 @@ export async function renderHtml({
   function SsrRoot() {
     payloadPromise ??= createFromReadableStream<ServerPayload>(flightForSsr)
     const payload = React.use(payloadPromise!)
+    const routerContext = routerContextStorage.getStore()
+    if (routerContext) {
+      routerContext.loaderData = payload.root?.loaderData ?? {}
+    }
     return (
       <FlightDataContext.Provider value={payloadPromise!}>
         <LayoutContent />
@@ -148,15 +153,14 @@ export async function renderHtml({
           if (shouldReplaceCtx(ctx)) ssrErrorCtx = ctx
         } else {
           formatServerError(e)
-          console.error('[entry.ssr.tsx:renderToReadableStream]', e)
+          if (verboseLogs) {
+            console.error('[entry.ssr.tsx:renderToReadableStream]', e)
+          }
         }
-        if (
-          e &&
-          typeof e === 'object' &&
-          'digest' in e &&
-          typeof e.digest === 'string'
-        )
-          return sanitizeErrorMessage(e.digest)
+        if (e && typeof e === 'object') {
+          const digest = Reflect.get(e, 'digest')
+          if (typeof digest === 'string') return sanitizeErrorMessage(digest)
+        }
         if (e instanceof Error) return sanitizeErrorMessage(e.message)
         return sanitizeErrorMessage(String(e))
       },
@@ -165,14 +169,22 @@ export async function renderHtml({
     if (flightForFormState) {
       const formStatePayload =
         await createFromReadableStream<ServerPayload>(flightForFormState)
-      htmlStream = await ReactDOMServer.renderToReadableStream(<SsrRoot />, {
-        ...renderOptions,
-        formState: formStatePayload.formState,
-      })
+      htmlStream = await routerContextStorage.run(
+        createRouterContextData(request),
+        () =>
+          ReactDOMServer.renderToReadableStream(<SsrRoot />, {
+            ...renderOptions,
+            formState: formStatePayload.formState,
+          }),
+      )
     } else {
-      htmlStream = await ReactDOMServer.renderToReadableStream(
-        <SsrRoot />,
-        renderOptions,
+      htmlStream = await routerContextStorage.run(
+        createRouterContextData(request),
+        () =>
+          ReactDOMServer.renderToReadableStream(
+            <SsrRoot />,
+            renderOptions,
+          ),
       )
     }
     if (prerender || isbot(request.headers.get('user-agent') || '')) {
@@ -280,7 +292,7 @@ export async function renderFlightToHtml(
     },
   })
 
-  const tree = await (createFromReadableStream(stream) as Promise<React.ReactNode>)
+  const tree: React.ReactNode = await createFromReadableStream(stream)
   const htmlStream = await ReactDOMServer.renderToReadableStream(
     React.createElement(React.Fragment, null, tree),
   )

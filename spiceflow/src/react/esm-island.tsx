@@ -1,6 +1,6 @@
 // Client component that dynamically imports an ESM module from a URL and
 // renders its default (or first) export as a React component. Used by
-// RemoteComponent when the response content-type is JavaScript instead of
+// RenderFederatedPayload when the response content-type is JavaScript instead of
 // a spiceflow federation JSON payload.
 'use client'
 
@@ -28,7 +28,10 @@ class EsmErrorBoundary extends Component<
   }
 
   componentDidCatch(error: Error) {
-    console.error(`[RemoteComponent] Failed to load ESM module from ${this.props.src}:`, error)
+    console.error(
+      `[RenderFederatedPayload] Failed to load ESM module from ${this.props.src}:`,
+      error,
+    )
   }
 
   render() {
@@ -62,7 +65,9 @@ export function EsmIsland({
         (v) => typeof v === 'function',
       )
       if (!Component) {
-        throw new Error(`[RemoteComponent] No component export found in ${src}`)
+        throw new Error(
+          `[RenderFederatedPayload] No component export found in ${src}`,
+        )
       }
       return { default: Component as React.ComponentType<any> }
     })
@@ -72,7 +77,7 @@ export function EsmIsland({
 
   // No inner Suspense — let the lazy suspension propagate to the user's
   // <Suspense> boundary so their fallback/skeleton shows during loading.
-  // RemoteComponent is an async server component which already requires
+  // RenderFederatedPayload is an async server component which already requires
   // <Suspense> to work, so the boundary is guaranteed to exist.
   return (
     <EsmErrorBoundary src={src}>

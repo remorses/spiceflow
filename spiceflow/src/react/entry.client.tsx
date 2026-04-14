@@ -10,7 +10,8 @@ import {
   setServerCallback,
 } from '@vitejs/plugin-rsc/browser'
 import { FiberProvider } from 'its-fine'
-import { router } from './router.js'
+import type { NavigationEvent } from './router.js'
+import { isHashOnlyLocationChange, router } from './router.js'
 import {
   DefaultGlobalErrorPage,
   DefaultNotFoundPage,
@@ -25,7 +26,7 @@ import {
   isFlightResponse,
   isDeploymentMismatchResponse,
 } from './deployment.js'
-import { getErrorContext } from './errors.js'
+import { getErrorContext, isRedirectError } from './errors.js'
 import { actionAbortControllers } from './action-abort.js'
 
 // Reads the RSC flight payload that the server injected as <script> tags via
@@ -41,10 +42,13 @@ const rscStream = new ReadableStream<Uint8Array>({
       )
     }
 
-    const w = window as any
-    w.__FLIGHT_DATA ||= []
-    w.__FLIGHT_DATA.forEach(enqueue)
-    w.__FLIGHT_DATA.push = enqueue
+    const flightData = Reflect.get(window, '__FLIGHT_DATA')
+    const chunks = Array.isArray(flightData) ? flightData : []
+    if (!Array.isArray(flightData)) {
+      Reflect.set(window, '__FLIGHT_DATA', chunks)
+    }
+    chunks.forEach(enqueue)
+    Reflect.set(chunks, 'push', enqueue)
 
     if (document.readyState !== 'loading') {
       controller.close()
@@ -117,17 +121,26 @@ async function fetchFlightResponse(args: {
 // that need to decode Flight payloads from remote servers in the browser.
 globalThis.__spiceflow_createFromReadableStream = createFromReadableStream
 
+function getErrorDigest(error: Error): string | undefined {
+  const digest = Reflect.get(error, 'digest')
+  if (typeof digest !== 'string') return undefined
+  if (!digest) return undefined
+  return digest
+}
+
+function isAsyncIterable(value: unknown): value is AsyncIterable<unknown> {
+  if (value == null || typeof value !== 'object') return false
+  return typeof Reflect.get(value, Symbol.asyncIterator) === 'function'
+}
+
 // React prod replaces error.message with a generic string for security but
 // keeps error.digest (set by our onError callback). Restore the original
 // message so user code can read it. Works for errors thrown mid-stream
 // (async generators) and for directly thrown action errors.
 function restoreErrorDigest(err: unknown): never {
-  if (
-    err instanceof Error &&
-    typeof (err as any).digest === 'string' &&
-    (err as any).digest
-  ) {
-    err.message = (err as any).digest
+  if (err instanceof Error) {
+    const digest = getErrorDigest(err)
+    if (digest) err.message = digest
   }
   throw err
 }
@@ -135,12 +148,8 @@ function restoreErrorDigest(err: unknown): never {
 // Wraps async generator return values so errors thrown mid-stream get their
 // message restored from digest before reaching user code.
 function wrapReturnValueErrors(value: unknown): unknown {
-  if (
-    value != null &&
-    typeof value === 'object' &&
-    Symbol.asyncIterator in value
-  ) {
-    const orig = value as AsyncIterable<unknown>
+  if (isAsyncIterable(value)) {
+    const orig = value
     return {
       [Symbol.asyncIterator]() {
         const it = orig[Symbol.asyncIterator]()
@@ -178,9 +187,57 @@ function wrapReturnValueErrors(value: unknown): unknown {
 }
 
 async function main() {
+  let pendingPayload: Promise<ServerPayload> | undefined
   let setPayload: (v: Promise<ServerPayload>) => void = () => undefined
+  let currentNavigationAbort = new AbortController()
+
+  const applyPayload = (payload: Promise<ServerPayload>) => {
+    pendingPayload = payload
+    setPayload(payload)
+  }
+
+  const handleNavigation = async (event: NavigationEvent) => {
+    if (event.action === 'LOADER_DATA') return
+    if (
+      isHashOnlyLocationChange({
+        previousLocation: event.previousLocation,
+        location: event.location,
+      })
+    ) {
+      return
+    }
+    currentNavigationAbort.abort()
+    const navigationAbort = new AbortController()
+    currentNavigationAbort = navigationAbort
+    const url = new URL(window.location.href)
+    url.pathname = url.pathname === '/' ? '/index.rsc' : url.pathname + '.rsc'
+    url.searchParams.set('__rsc', '')
+    const payload = createFromFetch<ServerPayload>(
+      fetchFlightResponse({
+        url,
+        kind: 'navigation',
+        init: { signal: navigationAbort.signal },
+      }),
+    )
+    if (navigationAbort.signal.aborted) return
+    applyPayload(payload)
+    Promise.resolve(payload)
+      .then((resolved) => {
+        if (currentNavigationAbort !== navigationAbort) return
+        router.__setLoaderData(resolved.root?.loaderData)
+      })
+      .catch(() => {})
+  }
+
+  // Install the navigation subscription before hydration so an early Link click
+  // cannot update the URL without also fetching the next flight payload.
+  router.subscribe(handleNavigation)
 
   const callServer = async (id: string, args: unknown[]) => {
+    // Form submissions (via <form action>) include FormData as the last arg.
+    // Re-render the page for form actions; skip for direct calls to preserve
+    // client state. This heuristic covers all React form submissions.
+    const isFormAction = args.length > 0 && args[args.length - 1] instanceof FormData
     // Temporary references track non-serializable values (DOM nodes, React elements) passed
     // as action args. Same set is shared with createFromFetch so they round-trip correctly.
     const temporaryReferences = createTemporaryReferenceSet()
@@ -209,19 +266,39 @@ async function main() {
         { temporaryReferences },
       )
 
-      setPayload(payloadPromise)
+      // Re-render the page tree for form actions so server-rendered content
+      // updates (e.g. server counter, form revalidation). Direct function
+      // calls skip re-rendering to avoid resetting client state.
+      if (isFormAction) {
+        setPayload(payloadPromise)
+      }
       const payload = await payloadPromise
-      router.__setLoaderData(payload.root?.loaderData)
+      if (isFormAction) {
+        router.__setLoaderData(payload.root?.loaderData)
+      }
 
       if (payload.actionError) {
-        console.log(getErrorContext(payload.actionError))
         // React prod strips both error.message and error.digest for Error values
         // serialized in the flight payload (not thrown during rendering).
         // Restore both from the separately-serialized plain string.
         if (payload.actionErrorDigest) {
-          const err = payload.actionError as Error & { digest?: string }
-          err.digest = payload.actionErrorDigest
-          err.message = payload.actionErrorDigest
+          if (payload.actionError instanceof Error) {
+            Reflect.set(payload.actionError, 'digest', payload.actionErrorDigest)
+            payload.actionError.message = payload.actionErrorDigest
+          }
+        }
+        // Redirect errors from throw redirect() in server actions: navigate
+        // to the target URL instead of throwing to the caller.
+        const errorCtx = getErrorContext(payload.actionError)
+        const redirectInfo = isRedirectError(errorCtx)
+        if (redirectInfo) {
+          const target = new URL(redirectInfo.location, window.location.href)
+          if (target.origin !== window.location.origin) {
+            hardNavigate(target.href)
+          } else {
+            router.push(`${target.pathname}${target.search}${target.hash}`)
+          }
+          return never()
         }
         throw payload.actionError
       }
@@ -248,44 +325,17 @@ async function main() {
     })
     .catch(() => {})
 
-  let navVersion = 0
-
   function BrowserRoot() {
     const [payload, setPayload_] = React.useState(initialPayload)
     const [_isPending, startTransition] = React.useTransition()
 
     React.useEffect(() => {
       setPayload = (v) => startTransition(() => setPayload_(v))
+      if (!pendingPayload) return
+      const nextPayload = pendingPayload
+      pendingPayload = undefined
+      setPayload(nextPayload)
     }, [startTransition, setPayload_])
-
-    React.useEffect(() => {
-      let navigationAbort = new AbortController()
-      return router.subscribe(async function onNavigation(event) {
-        if (event.action === 'LOADER_DATA') return
-        navigationAbort.abort()
-        navigationAbort = new AbortController()
-        const url = new URL(window.location.href)
-        url.pathname =
-          url.pathname === '/' ? '/index.rsc' : url.pathname + '.rsc'
-        url.searchParams.set('__rsc', '')
-        const payload = createFromFetch<ServerPayload>(
-          fetchFlightResponse({
-            url,
-            kind: 'navigation',
-            init: { signal: navigationAbort.signal },
-          }),
-        )
-        if (navigationAbort.signal.aborted) return
-        setPayload(payload)
-        const version = ++navVersion
-        Promise.resolve(payload)
-          .then((resolved) => {
-            if (version !== navVersion) return
-            router.__setLoaderData(resolved.root?.loaderData)
-          })
-          .catch(() => {})
-      })
-    }, [])
 
     return (
       <FiberProvider>
@@ -303,7 +353,7 @@ async function main() {
   // When SSR fails, the server injects self.__NO_HYDRATE=1 in the bootstrap script.
   // In that case use createRoot (CSR from scratch) instead of hydrateRoot which would
   // throw hydration mismatch errors against the error shell HTML.
-  if ('__NO_HYDRATE' in globalThis) {
+  if (Reflect.has(globalThis, '__NO_HYDRATE')) {
     ReactDomClient.createRoot(document).render(<BrowserRoot />)
   } else {
     ReactDomClient.hydrateRoot(document, <BrowserRoot />, {
@@ -329,9 +379,10 @@ if (import.meta.hot) {
   window.onerror = (_event, _source, _lineno, _colno, err) => {
     const ErrorOverlay = customElements.get('vite-error-overlay')
     if (!ErrorOverlay) return
-    const overlay = new (ErrorOverlay as any)(err)
+    const overlay = Reflect.construct(ErrorOverlay, [err])
+    if (!(overlay instanceof HTMLElement)) return
     document.body.appendChild(overlay)
   }
 }
 
-main()
+void main()

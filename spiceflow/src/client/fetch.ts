@@ -1,7 +1,7 @@
 // Type-safe fetch-like client for Spiceflow. Uses a familiar fetch(path, options)
 // interface instead of the proxy-based chainable API.
 import type { AnySpiceflow, Spiceflow } from '../spiceflow.ts'
-import type { ExtractParamsFromPath } from '../types.ts'
+import type { ExtractParamsFromPath, IsAny } from '../types.ts'
 
 import type { SpiceflowClient } from './types.ts'
 import type { ReplaceGeneratorWithAsyncGenerator } from './types.ts'
@@ -64,7 +64,9 @@ type FlattenClientRoutes<
 type AppClientPaths<App extends AnySpiceflow> = App extends {
   _types: { ClientRoutes: infer Routes extends Record<string, any> }
 }
-  ? FlattenClientRoutes<Routes>
+  ? IsAny<Routes> extends true
+    ? string
+    : FlattenClientRoutes<Routes>
   : string
 
 // Navigate the nested ClientRoutes tree given a path string.
@@ -262,7 +264,9 @@ type ResolveOptions<
 > = App extends {
   _types: { ClientRoutes: infer Routes extends Record<string, any> }
 }
-  ? FetchOptions<Routes, Path, Method>
+  ? IsAny<Routes> extends true
+    ? FetchOptionsFallback
+    : FetchOptions<Routes, Path, Method>
   : FetchOptionsFallback
 
 // Resolves the result type for a given App/Path/Method combination.
@@ -273,7 +277,9 @@ type ResolveResult<
 > = App extends {
   _types: { ClientRoutes: infer Routes extends Record<string, any> }
 }
-  ? FetchResult<Routes, Path, Method>
+  ? IsAny<Routes> extends true
+    ? SpiceflowFetchError<number, any> | any
+    : FetchResult<Routes, Path, Method>
   : SpiceflowFetchError<number, any> | any
 
 // Check if options are required for a given App/Path/Method
@@ -284,9 +290,11 @@ type IsOptionsRequired<
 > = App extends {
   _types: { ClientRoutes: infer Routes extends Record<string, any> }
 }
-  ? [RouteAtPath<Routes, Path>] extends [never]
+  ? IsAny<Routes> extends true
     ? false
-    : HasRequiredFields<Routes, Path, Method>
+    : [RouteAtPath<Routes, Path>] extends [never]
+      ? false
+      : HasRequiredFields<Routes, Path, Method>
   : false
 
 export interface SpiceflowFetch<App extends AnySpiceflow> {

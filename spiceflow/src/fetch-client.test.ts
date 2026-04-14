@@ -5,8 +5,10 @@ import { SpiceflowFetchError } from './client/errors.ts'
 
 import { describe, expect, it } from 'vitest'
 
+const someState: number | undefined = 1
+
 const app = new Spiceflow()
-  .state('someState', 1 as number | undefined)
+  .state('someState', someState)
   .get('/', () => 'a')
   .post('/', () => 'a')
   .get('/number', () => 1)
@@ -319,7 +321,8 @@ describe('fetch client', () => {
 
   it('untyped URL falls back gracefully', async () => {
     const untypedFetch = createSpiceflowFetch(app)
-    const result = await (untypedFetch as any)('/number')
+    const untypedInvoker = Reflect.get({ value: untypedFetch }, 'value')
+    const result = await untypedInvoker('/number')
     if (result instanceof Error) throw result
     expect(result).toEqual(1)
   })
@@ -328,17 +331,17 @@ describe('fetch client', () => {
 describe('fetch client type safety', () => {
   it('requires params for parameterized paths', () => {
     // @ts-expect-error - missing required params for /id/:id
-    f('/id/:id')
+    void f('/id/:id')
   })
 
   it('requires query when route schema demands it', () => {
     // @ts-expect-error - missing required query for /search
-    f('/search')
+    void f('/search')
   })
 
   it('requires body for POST with typed body schema', () => {
     // @ts-expect-error - missing required body for /deep/nested/mirror POST
-    f('/deep/nested/mirror', { method: 'POST' })
+    void f('/deep/nested/mirror', { method: 'POST' })
   })
 
   it('allows GET without options on routes with no required fields', async () => {

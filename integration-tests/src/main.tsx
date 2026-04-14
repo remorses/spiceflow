@@ -17,6 +17,7 @@ import { Chakra } from "./app/chakra";
 import {
 	ClientComponentThrows,
 	ClientFormWithError,
+	Counter,
 	ErrorInUseEffect,
 	ErrorRender,
 } from "./app/client";
@@ -53,12 +54,38 @@ import {
 	AbortActionTest,
 	InspectRequestActionTest,
 } from "./app/abort-test-client";
+import ImageResponse from "@takumi-rs/image-response";
+import {
+	FederatedPayloadDecodeTest,
+} from "./app/federated-payload-client";
 import testContentRaw from "./test-content.md?raw";
 import { publicDir, distDir } from "spiceflow";
+import { encodeFederationPayload } from "spiceflow/federation";
+import { RenderFederatedPayload } from "spiceflow/react";
 
 // Increments on every RSC render of the home page. Used by e2e tests to detect
 // unwanted server re-renders (e.g. client HMR should not trigger a server render).
 let serverRenderCount = 0;
+let onErrorCount = 0;
+
+function getOptionalLabel(value: unknown): string | undefined {
+	if (!value || typeof value !== "object") return undefined;
+	const label = Reflect.get(value, "label");
+	if (typeof label !== "string") return undefined;
+	return label;
+}
+
+async function* createFederatedPayloadStream({
+	label,
+}: {
+	label: string;
+}) {
+	yield { id: "1", label: `${label} item 1` };
+	await sleep(50);
+	yield { id: "2", label: `${label} item 2` };
+	await sleep(50);
+	yield { id: "3", label: `${label} item 3` };
+}
 
 // In-memory page cache for e2e testing of the README caching middleware pattern.
 // Key = pathname+search (naturally separates HTML and RSC responses).
@@ -73,6 +100,9 @@ function notFound() {
 }
 
 export const app = new Spiceflow()
+	.onError(() => {
+		onErrorCount++;
+	})
 	.use(serveStatic({ root: "./public" }))
 	.state("middleware1", "")
 	.use(async ({ request, state }, next) => {
@@ -92,7 +122,12 @@ export const app = new Spiceflow()
 				<Head>
 					<Head.Title>title from layout</Head.Title>
 				</Head>
-				{children}
+				{children ?? (
+					<div data-testid="layout-not-found">
+						<h1>404</h1>
+						<p>This page could not be found.</p>
+					</div>
+				)}
 			</Layout>
 		);
 	})
@@ -255,6 +290,15 @@ export const app = new Spiceflow()
 				{children}
 			</section>
 		);
+	})
+	.layout("/duplicate-layout/*", async ({ children }) => {
+		return <section data-testid="duplicate-layout-a">{children}</section>;
+	})
+	.layout("/duplicate-layout/*", async ({ children }) => {
+		return <section data-testid="duplicate-layout-b">{children}</section>;
+	})
+	.page("/duplicate-layout", async () => {
+		return <div data-testid="duplicate-layout-page">Duplicate layout page</div>;
 	})
 	.page("/docs", async () => {
 		return <div data-testid="docs-page">Docs index page</div>;
@@ -497,6 +541,13 @@ export const app = new Spiceflow()
 		cachedPageRenderCount = 0;
 		return { cleared: true };
 	})
+	.get("/api/on-error-count", () => {
+		return { count: onErrorCount };
+	})
+	.get("/api/on-error-reset", () => {
+		onErrorCount = 0;
+		return { count: onErrorCount };
+	})
 	.page("/static/:id", function StaticComponent({ params: { id } }) {
 		return <StaticPage id={id} />;
 	})
@@ -554,6 +605,30 @@ export const app = new Spiceflow()
 			</div>
 		);
 	})
+	.page("/title-nav-a", async () => {
+		return (
+			<div>
+				<Head>
+					<Head.Title>Title A</Head.Title>
+				</Head>
+				<Link data-testid="title-nav-link" href="/title-nav-b">
+					Go to B
+				</Link>
+			</div>
+		);
+	})
+	.page("/title-nav-b", async () => {
+		return (
+			<div>
+				<Head>
+					<Head.Title>Title B</Head.Title>
+				</Head>
+				<Link data-testid="title-nav-link" href="/title-nav-a">
+					Go to A
+				</Link>
+			</div>
+		);
+	})
 
 	.page("/server-guard-test", async () => {
 		return <ServerGuardTestClient />;
@@ -581,6 +656,41 @@ export const app = new Spiceflow()
 		const body = await request.json();
 		return { echo: body };
 	})
+	.post("/api/federated-payload", async ({ request }) => {
+		const label = getOptionalLabel(await request.json());
+		return await encodeFederationPayload({
+			message: "decoded via decodeFederationPayload",
+			content: <Counter name={label ?? "Imperative"} />,
+		});
+	})
+	.post("/api/federated-payload-stream", async ({ request }) => {
+		const label = getOptionalLabel(await request.json());
+		return await encodeFederationPayload({
+			stream: createFederatedPayloadStream({ label: label ?? "Stream" }),
+		});
+	})
+	.get("/api/federated-render", async ({ request }) => {
+		const url = new URL(request.url);
+		const label = url.searchParams.get("label") ?? "SSR";
+		return await encodeFederationPayload(<Counter name={label} />);
+	})
+	.page("/federated-payload-decode", async () => {
+		return <FederatedPayloadDecodeTest />;
+	})
+	.page("/render-federated-payload", async ({ request }) => {
+		const response = await app.handle(
+			new Request(new URL("./api/federated-render?label=SSR", request.url)),
+		);
+		return (
+			<div data-testid="render-federated-payload-test">
+				<Suspense
+					fallback={<div data-testid="render-federated-loading">loading</div>}
+				>
+					<RenderFederatedPayload response={response} />
+				</Suspense>
+			</div>
+		);
+	})
 	.page("/server-action-streaming", async () => {
 		return <StreamingActionTest />;
 	})
@@ -589,6 +699,18 @@ export const app = new Spiceflow()
 	})
 	.page("/server-action-redirect", async () => {
 		return <RedirectActionTest />;
+	})
+	.page("/form-redirect-nojs", async () => {
+		async function formRedirectAction(formData: FormData) {
+			"use server";
+			throw redirect("/other");
+		}
+		return (
+			<form action={formRedirectAction} data-testid="nojs-redirect-form">
+				<input name="name" type="text" defaultValue="test" />
+				<button type="submit">Submit</button>
+			</form>
+		);
 	})
 	.page("/server-action-jsx", async () => {
 		return <JsxActionTest />;
@@ -624,7 +746,10 @@ export const app = new Spiceflow()
 	.page("/form-action-test", async () => {
 		async function handleSubmit(prev: string, formData: FormData) {
 			"use server";
-			const message = formData.get("message") as string;
+			const message = formData.get("message");
+			if (typeof message !== "string") {
+				throw new Error("Expected form action message to be a string");
+			}
 			return `Received: ${message}`;
 		}
 		return <ActionFormTest action={handleSubmit} />;
@@ -665,6 +790,7 @@ export const app = new Spiceflow()
 			<div>
 				<div data-testid="loader-data-server">{JSON.stringify(loaderData)}</div>
 				<LoaderDataDisplay />
+				<SubscribeDataReader />
 				<LoaderNavLinks />
 			</div>
 		);
@@ -674,6 +800,7 @@ export const app = new Spiceflow()
 			<div>
 				<div data-testid="loader-data-server">{JSON.stringify(loaderData)}</div>
 				<LoaderDataDisplay />
+				<SubscribeDataReader />
 				<LoaderNavLinks />
 			</div>
 		);
@@ -683,6 +810,7 @@ export const app = new Spiceflow()
 			<div>
 				<div data-testid="loader-data-server">{JSON.stringify(loaderData)}</div>
 				<LoaderDataDisplay />
+				<SubscribeDataReader />
 				<LoaderNavLinks />
 			</div>
 		);
@@ -694,7 +822,7 @@ export const app = new Spiceflow()
 			</div>
 		);
 	})
-	// --- getLoaderData (module scope) tests ---
+	// --- router.getLoaderData imperative tests ---
 	.page("/loader-test/global", async ({ loaderData }) => {
 		return (
 			<div>
@@ -776,7 +904,29 @@ function UseStateInServerComponent() {
 	return <div>count: {count}</div>;
 }
 
-app
+void app
+	.get("/api/takumi-image", () => {
+		return new ImageResponse(
+			<div
+				style={{
+					width: "100%",
+					height: "100%",
+					display: "flex",
+					backgroundColor: "#0f172a",
+					padding: 8,
+					gap: 8,
+				}}
+			>
+				<div style={{ flex: 1, borderRadius: 18, backgroundColor: "#14b8a6" }} />
+				<div style={{ flex: 1, borderRadius: 18, backgroundColor: "#f8fafc" }} />
+			</div>,
+			{
+				width: 120,
+				height: 60,
+				format: "png",
+			},
+		);
+	})
 	.get("/api/sharp-test", async () => {
 		const sharp = (await import("sharp")).default;
 		const metadata = await sharp({
