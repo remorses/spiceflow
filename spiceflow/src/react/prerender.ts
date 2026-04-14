@@ -86,12 +86,27 @@ function urlPathToHtmlPath(pathname: string) {
   return pathname + (pathname.endsWith('/') ? 'index.html' : '.html')
 }
 
+async function throwPrerenderError({
+  response,
+  routePath,
+}: {
+  response: Response
+  routePath: string
+}) {
+  console.error(`  • Failed to prerender ${routePath}`)
+  const body = (await response.text()).trim().replace(/\s+/g, ' ')
+  const details = body ? `\n${body}` : ''
+  throw new Error(
+    `Failed to prerender ${routePath}: ${response.status} ${response.statusText}${details}`,
+  )
+}
+
 async function processPrerender(dirs: {
   ssrOutDir: string
   clientOutDir: string
 }) {
-  const prev = (globalThis as any).__SPICEFLOW_PRERENDER
-  ;(globalThis as any).__SPICEFLOW_PRERENDER = true
+  const prev = globalThis.__SPICEFLOW_PRERENDER
+  globalThis.__SPICEFLOW_PRERENDER = true
   try {
     console.log('▶▶▶ PRERENDER')
     const entryPath = await resolveBuiltEntry(dirs.ssrOutDir)
@@ -123,10 +138,7 @@ async function processPrerender(dirs: {
           new Request(url, { headers: prerenderHeaders }),
         )
         if (!response.ok) {
-          console.error(`  • Failed to prerender ${route.path}`)
-          throw new Error(
-            `Failed to prerender ${route.path}: ${response.status} ${response.statusText}`,
-          )
+          await throwPrerenderError({ response, routePath: route.path })
         }
         const outFile = route.path
         const outPath = path.join(dirs.clientOutDir, outFile)
@@ -149,10 +161,7 @@ async function processPrerender(dirs: {
         new Request(rscUrl, { headers: prerenderHeaders }),
       )
       if (!rscResponse.ok) {
-        console.error(`  • Failed to prerender ${route.path}`)
-        throw new Error(
-          `Failed to prerender ${route.path}: ${rscResponse.status} ${rscResponse.statusText}`,
-        )
+        await throwPrerenderError({ response: rscResponse, routePath: route.path })
       }
 
       // Fetch full HTML — without __rsc, fetchHandler SSR-renders the
@@ -162,10 +171,7 @@ async function processPrerender(dirs: {
         new Request(htmlUrl, { headers: prerenderHeaders }),
       )
       if (!htmlResponse.ok) {
-        console.error(`  • Failed to prerender ${route.path}`)
-        throw new Error(
-          `Failed to prerender ${route.path}: ${htmlResponse.status} ${htmlResponse.statusText}`,
-        )
+        await throwPrerenderError({ response: htmlResponse, routePath: route.path })
       }
 
       const isRoot = route.path === '/'
@@ -191,7 +197,7 @@ async function processPrerender(dirs: {
       JSON.stringify(manifest, null, 2),
     )
   } finally {
-    if (prev === undefined) delete (globalThis as any).__SPICEFLOW_PRERENDER
-    else (globalThis as any).__SPICEFLOW_PRERENDER = prev
+    if (prev === undefined) delete globalThis.__SPICEFLOW_PRERENDER
+    else globalThis.__SPICEFLOW_PRERENDER = prev
   }
 }
