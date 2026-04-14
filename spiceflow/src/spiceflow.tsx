@@ -69,6 +69,7 @@ import {
   getDocumentPath,
   isDocumentRequest,
   isRscRequest,
+  navigationRedirectHeader,
   readDeploymentCookie,
 } from './react/deployment.js'
 import { getDeploymentId } from '#deployment-id'
@@ -1693,7 +1694,14 @@ export class Spiceflow<
                 }
               }
               if (isResponse(value)) {
-                if (value.status === 404) {
+                // For RSC navigations, returned redirects should follow the same
+                // renderReact redirect path as thrown redirects so the client can
+                // keep rendering the previous page until the target route is ready.
+                if (
+                  value.status === 404 ||
+                  (isRedirectStatus(value.status) &&
+                    isRscRequest(new URL(request.url)))
+                ) {
                   return {
                     kind: 'throw-response',
                     response: value,
@@ -1834,6 +1842,30 @@ export class Spiceflow<
       appendHeaders(routeHeaders, loaderResponseHeaders)
       for (const result of allResults) {
         if (result.headers) appendHeaders(routeHeaders, result.headers)
+      }
+
+      const getRedirectResponse = (result: RouteResult) => {
+        const response = getReturnedResponse(result) ?? getThrownResponse(result)
+        if (response && isRedirectStatus(response.status)) {
+          return response
+        }
+      }
+
+      if (isRscRequest(new URL(request.url))) {
+        const redirectResponse =
+          getRedirectResponse(pageResult) ?? findLastLayoutValue(getRedirectResponse)
+        if (redirectResponse) {
+          const headers = new Headers(routeHeaders)
+          appendHeaders(headers, redirectResponse.headers)
+          headers.set(
+            navigationRedirectHeader,
+            redirectResponse.headers.get('location') ?? getDocumentPath(new URL(request.url)),
+          )
+          return new Response(null, {
+            status: 204,
+            headers,
+          })
+        }
       }
 
       const pageResponse = getReturnedResponse(pageResult)

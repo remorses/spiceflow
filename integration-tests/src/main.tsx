@@ -50,6 +50,7 @@ import {
 	GlobalLoaderDisplay,
 	SubscribeDataReader,
 } from "./app/loader-global-client";
+import OtherPage from "./app/other";
 import { ServerGuardTestClient } from "./app/server-guard-test-client";
 import { ActionFormTest } from "./app/action-form-test";
 import {
@@ -157,6 +158,9 @@ export const app = new Spiceflow()
 				<IndexPage counter={counter} serverRandom={serverRandom} />
 			</>
 		);
+	})
+	.page("/other", async () => {
+		return <OtherPage />;
 	})
 	.page("/router-refresh-state", async () => {
 		routerRefreshRenderCount++;

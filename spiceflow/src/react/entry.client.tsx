@@ -25,6 +25,7 @@ import {
   getDocumentLocationFromResponse,
   isFlightResponse,
   isDeploymentMismatchResponse,
+  navigationRedirectHeader,
 } from './deployment.js'
 import { getErrorContext, isRedirectError } from './errors.js'
 import { actionAbortControllers } from './action-abort.js'
@@ -80,6 +81,19 @@ async function fetchFlightResponse(args: {
         requestUrl: args.url,
       }),
     )
+    return never()
+  }
+
+  if (response.headers.has(navigationRedirectHeader)) {
+    const redirectLocation = getDocumentLocationFromResponse({
+      response,
+      requestUrl: args.url,
+    })
+    if (args.kind === 'navigation') {
+      router.replace(redirectLocation)
+      return never()
+    }
+    hardNavigate(redirectLocation)
     return never()
   }
 
@@ -244,14 +258,17 @@ async function main() {
     const url = new URL(window.location.href)
     url.pathname = url.pathname === '/' ? '/index.rsc' : url.pathname + '.rsc'
     url.searchParams.set('__rsc', '')
-    const payload = createFromFetch<ServerPayload>(
-      fetchFlightResponse({
-        url,
-        kind: 'navigation',
-        init: { signal: navigationAbort.signal },
-      }),
-    )
+    // Wait for fetch() to settle before swapping the tree. Same-origin redirects
+    // trigger router.replace() inside fetchFlightResponse(); if we installed a
+    // payload first we'd briefly replace the current page with a never-resolving
+    // transition, which shows up as a white flash before the redirected route.
+    const response = await fetchFlightResponse({
+      url,
+      kind: 'navigation',
+      init: { signal: navigationAbort.signal },
+    })
     if (navigationAbort.signal.aborted) return
+    const payload = createFromFetch<ServerPayload>(Promise.resolve(response))
     applyPayload({
       payload,
       requestId: event.requestId ?? null,
