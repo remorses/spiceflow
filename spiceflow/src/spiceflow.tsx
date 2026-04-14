@@ -1693,10 +1693,18 @@ export class Spiceflow<
                 }
               }
               if (isResponse(value)) {
+                if (isRedirectStatus(value.status)) {
+                  return {
+                    ok: true,
+                    value: null,
+                    redirect: value,
+                    headers: handlerResponse?.headers,
+                    status: handlerResponse?.status,
+                  }
+                }
                 return {
-                  ok: true,
-                  value: isRedirectStatus(value.status) ? null : <ThrowResponse response={value} />,
-                  response: value,
+                  ok: false,
+                  error: value,
                   headers: handlerResponse?.headers,
                   status: handlerResponse?.status,
                 }
@@ -1752,7 +1760,7 @@ export class Spiceflow<
 
       // Skip page handler when a loader failed — the error will be rendered
       // via <ThrowError> so the layout error boundary catches it.
-      const pageResultPromise = loaderError
+      const pageResultPromise: Promise<RouteResult> = loaderError
         ? Promise.resolve({
             ok: true as const,
             value: <ThrowError error={loaderError} />,
@@ -1787,41 +1795,25 @@ export class Spiceflow<
       ])
 
       const allResults = [...layoutResults, pageResult]
-      const getReturnedResponse = (result: RouteResult) => {
-        return result.ok ? result.response : undefined
-      }
-      const getThrownResponse = (result: RouteResult) =>
+      const getResponseError = (result: RouteResult) =>
         !result.ok && isResponse(result.error) ? result.error : undefined
       const getRouteStatus = (result: RouteResult) => {
-        const responseStatus =
-          getReturnedResponse(result)?.status ?? getThrownResponse(result)?.status
-        if (responseStatus && responseStatus !== 200) {
-          return responseStatus
-        }
-        if (result.status && result.status !== 200) {
-          return result.status
-        }
-        return
+        const responseStatus = getResponseError(result)?.status
+        if (responseStatus && responseStatus !== 200) return responseStatus
+        if (result.status && result.status !== 200) return result.status
       }
       const findLastLayoutValue = <T,>(
         getValue: (result: (typeof layoutResults)[number]) => T | undefined,
       ) => {
         for (let i = layoutResults.length - 1; i >= 0; i--) {
           const value = getValue(layoutResults[i]!)
-          if (value !== undefined) {
-            return value
-          }
+          if (value !== undefined) return value
         }
-        return
       }
-      const renderRouteResult = (result: RouteResult) => {
-        if (result.ok) {
-          return result.value
-        }
-        const thrownResponse = getThrownResponse(result)
-        if (thrownResponse) {
-          return <ThrowResponse response={thrownResponse} />
-        }
+      const renderRouteResult = (result: RouteResult): React.ReactNode => {
+        if (result.ok) return result.value
+        const response = getResponseError(result)
+        if (response) return <ThrowResponse response={response} />
         throw new Error('Expected React route failure to be a Response')
       }
 
@@ -1832,20 +1824,11 @@ export class Spiceflow<
         if (result.headers) appendHeaders(routeHeaders, result.headers)
       }
 
-      const returnedPageResponse = getReturnedResponse(pageResult)
-      const returnedRedirectResponse =
-        returnedPageResponse && isRedirectStatus(returnedPageResponse.status)
-          ? returnedPageResponse
-          : findLastLayoutValue((layout) => {
-              const response = getReturnedResponse(layout)
-              if (!response || !isRedirectStatus(response.status)) {
-                return
-              }
-              return response
-            })
-      if (returnedRedirectResponse) {
+      const returnedRedirect =
+        pageResult.redirect ?? findLastLayoutValue((layout) => layout.redirect)
+      if (returnedRedirect) {
         return mergeHeadersIntoResponse({
-          response: returnedRedirectResponse,
+          response: returnedRedirect,
           source: routeHeaders,
         })
       }
@@ -1862,7 +1845,7 @@ export class Spiceflow<
       // include LayoutContent). Promote layout Response throws
       // (redirect/notFound) so they still take effect.
       if (isNotFound) {
-        const layoutResponse = findLastLayoutValue(getThrownResponse)
+        const layoutResponse = findLastLayoutValue(getResponseError)
         if (layoutResponse) {
           return mergeHeadersIntoResponse({
             response: layoutResponse,
@@ -3121,13 +3104,14 @@ type RouteResult =
   | {
       ok: true
       value: React.ReactNode
-      response?: Response
+      redirect?: Response
       headers?: Headers
       status?: number
     }
   | {
       ok: false
       error: unknown
+      redirect?: undefined
       headers?: Headers
       status?: number
     }
