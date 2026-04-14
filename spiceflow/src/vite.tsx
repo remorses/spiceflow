@@ -10,6 +10,7 @@ import {
   type Plugin,
   type PluginOption,
   type ResolvedConfig,
+  type RunnableDevEnvironment,
   type UserConfig,
   type ViteDevServer,
 } from 'vite'
@@ -21,18 +22,14 @@ import { vercelPlugin } from './vercel.js'
 const require = createRequire(import.meta.url)
 const pluginRscRpcPath = require.resolve('@vitejs/plugin-rsc/utils/rpc')
 
-function getSpiceflowEntries({ root }: { root: string }) {
-  return {
-    rsc: path.join(root, 'node_modules/spiceflow/dist/react/entry.rsc.js'),
-    ssr: path.join(root, 'node_modules/spiceflow/dist/react/entry.ssr.js'),
-    client: path.join(root, 'node_modules/spiceflow/dist/react/entry.client.js'),
-  }
-}
-
-const defaultSpiceflowEntries = {
-  rsc: 'spiceflow/dist/react/entry.rsc',
-  ssr: 'spiceflow/dist/react/entry.ssr',
-  client: 'spiceflow/dist/react/entry.client',
+// Self-resolve entry paths from spiceflow's own location so they work even
+// when spiceflow is a transitive dependency (e.g. installed inside a wrapper
+// plugin's node_modules and not directly accessible from the consumer's root).
+const __spiceflowDir = path.dirname(url.fileURLToPath(import.meta.url))
+const spiceflowEntries = {
+  rsc: path.resolve(__spiceflowDir, 'react/entry.rsc'),
+  ssr: path.resolve(__spiceflowDir, 'react/entry.ssr'),
+  client: path.resolve(__spiceflowDir, 'react/entry.client'),
 }
 
 // Module-level so the timestamp is stable even if spiceflow() is called more than once
@@ -56,14 +53,6 @@ function resolveBuildOutDir(config: BuildOutDirConfig) {
   return path.isAbsolute(config.build.outDir)
     ? config.build.outDir
     : path.resolve(config.root, config.build.outDir)
-}
-
-function hasEnvironmentRunner(
-  environment: object,
-): environment is { runner: { import(id: string): Promise<unknown> } } {
-  const runner = Reflect.get(environment, 'runner')
-  if (!runner || typeof runner !== 'object') return false
-  return typeof Reflect.get(runner, 'import') === 'function'
 }
 
 function normalizeEnvironmentOutDirs(userConfig: UserConfig): UserConfig {
@@ -149,9 +138,8 @@ export default function spiceflow({
   let isCloudflareProject = false
   let isCloudflareRuntime = false
   let importMapJson = ''
-  let spiceflowEntries = defaultSpiceflowEntries
   const rscOptions: RscPluginOptions = {
-    entries: defaultSpiceflowEntries,
+    entries: spiceflowEntries,
     serverHandler: false as const,
     loadModuleDevProxy: true,
     ...(isRemote
@@ -180,16 +168,6 @@ export default function spiceflow({
       name: 'spiceflow:normalize-environment-outdirs',
       config(userConfig) {
         return normalizeEnvironmentOutDirs(userConfig)
-      },
-    },
-    {
-      name: 'spiceflow:entry-resolve',
-      enforce: 'pre',
-      resolveId(source) {
-        if (!isCloudflareProject) return
-        if (!path.isAbsolute(source)) return
-        if (!Object.values(spiceflowEntries).includes(source)) return
-        return source
       },
     },
     // Must run BEFORE rsc() — strips the base path from plugin-rsc's internal
@@ -317,17 +295,10 @@ export default function spiceflow({
           'vite-plugin-cloudflare',
         )
         isCloudflareProject = isCloudflare
-        const cloudflareServeEntries = getSpiceflowEntries({
-          root: userConfig.root ?? process.cwd(),
-        })
-        spiceflowEntries =
-          isCloudflare && env.command === 'serve'
-            ? cloudflareServeEntries
-            : defaultSpiceflowEntries
         if (isCloudflare) {
-          // Cloudflare child environments don't expose a runnable `ssr` runner to
-          // plugin-rsc's Node dev proxy, so keep cross-environment module loading
-          // inside the worker graph and point entries at the app-local node_modules path.
+          // Cloudflare child environments already expose worker-side module imports.
+          // Using plugin-rsc's Node dev proxy here makes child `ssr` call
+          // `.runner.import(...)` on a non-runnable CloudflareDevEnvironment.
           rscOptions.loadModuleDevProxy = false
         }
         return {
@@ -337,32 +308,6 @@ export default function spiceflow({
           // Disable Vite's built-in SPA fallback middleware so it doesn't
           // intercept unmatched paths with a 200 before our middleware runs.
           appType: 'custom' as const,
-          environments:
-            isCloudflare && env.command === 'serve'
-              ? {
-                  client: {
-                    build: {
-                      rollupOptions: {
-                        input: { index: cloudflareServeEntries.client },
-                      },
-                    },
-                  },
-                  rsc: {
-                    build: {
-                      rollupOptions: {
-                        input: { index: cloudflareServeEntries.rsc },
-                      },
-                    },
-                  },
-                  ssr: {
-                    build: {
-                      rollupOptions: {
-                        input: { index: cloudflareServeEntries.ssr },
-                      },
-                    },
-                  },
-                }
-              : undefined,
           // Replace process.env.NODE_ENV at build time so React uses its production
           // bundle. Without this, the built output contains runtime checks like
           // `"production" !== process.env.NODE_ENV` that always evaluate to the dev
@@ -560,16 +505,16 @@ export default function spiceflow({
               req.url = resolvedBase + req.url
             }
             try {
-              const ssrEnvironment = server.environments.ssr
-              if (!hasEnvironmentRunner(ssrEnvironment)) {
-                throw new Error('Spiceflow SSR environment is missing a module runner')
-              }
               const resolvedEntry =
-                await ssrEnvironment.pluginContainer.resolveId(spiceflowEntries.ssr)
+                await server.environments.ssr.pluginContainer.resolveId(
+                  spiceflowEntries.ssr,
+                )
               if (!resolvedEntry) {
                 throw new Error(`Failed to resolve spiceflow SSR entry: ${spiceflowEntries.ssr}`)
               }
-              const mod: any = await ssrEnvironment.runner.import(resolvedEntry.id)
+              const mod: any = await (
+                server.environments.ssr as RunnableDevEnvironment
+              ).runner?.import(resolvedEntry.id)
               const { createRequest, sendResponse } = await import(
                 './react/fetch.js'
               )

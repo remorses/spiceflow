@@ -161,10 +161,6 @@ where the importer lives. One line in `configEnvironment`, no custom dispatchers
 `ReactSharedInternals.A` (commit `eb96e01`). Works but reimplements React internals
 and doesn't address the root cause.
 
-## Cloudflare linked entries
-
-When a Cloudflare app links `spiceflow` from another repo, dev-only RSC entry inputs must be overridden after `@vitejs/plugin-rsc` config to point at the app-local `node_modules/spiceflow/dist/react/*.js` paths. A pre `resolveId` hook must return those absolute ids as-is; otherwise Vite realpaths them back outside the app and workerd fails to import them.
-
 ## Git safety
 
 During this session I tried to revert a recently-committed local change and

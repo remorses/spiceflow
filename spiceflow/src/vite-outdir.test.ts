@@ -34,9 +34,7 @@ async function createTempApp() {
   return root
 }
 
-async function resolveSpiceflowConfig(
-  options?: { cloudflare?: boolean; command?: 'build' | 'serve'; mode?: string },
-) {
+async function resolveSpiceflowConfig(options?: { cloudflare?: boolean }) {
   const root = await createTempApp()
   const plugins: PluginOption[] = [spiceflow({ entry: './src/main.tsx' })]
 
@@ -50,8 +48,8 @@ async function resolveSpiceflowConfig(
       build: { outDir: '.custom-build' },
       plugins,
     },
-    options?.command ?? 'build',
-    options?.mode ?? 'production',
+    'build',
+    'production',
   )
 
   return { root, config }
@@ -104,43 +102,4 @@ describe('spiceflow outDir normalization', () => {
       entryFileNames: '[name].js',
     })
   })
-
-  test('build keeps package entry specifiers', async () => {
-    const { config } = await resolveSpiceflowConfig()
-
-    expect(config.environments.rsc.build.rollupOptions.input).toEqual({
-      index: 'spiceflow/dist/react/entry.rsc',
-    })
-    expect(config.environments.ssr.build.rollupOptions.input).toEqual({
-      index: 'spiceflow/dist/react/entry.ssr',
-    })
-    expect(config.environments.client.build.rollupOptions.input).toEqual({
-      index: 'spiceflow/dist/react/entry.client',
-    })
-  })
-
-  test('cloudflare dev uses app-local spiceflow dist entries', async () => {
-    const { config } = await resolveSpiceflowConfig({
-      cloudflare: true,
-      command: 'serve',
-      mode: 'development',
-    })
-
-    expect(config.environments.rsc.build.rollupOptions.input).toEqual({
-      index: expect.stringContaining(
-        path.join('node_modules', 'spiceflow', 'dist', 'react', 'entry.rsc.js'),
-      ),
-    })
-    expect(config.environments.ssr.build.rollupOptions.input).toEqual({
-      index: expect.stringContaining(
-        path.join('node_modules', 'spiceflow', 'dist', 'react', 'entry.ssr.js'),
-      ),
-    })
-    expect(config.environments.client.build.rollupOptions.input).toEqual({
-      index: expect.stringContaining(
-        path.join('node_modules', 'spiceflow', 'dist', 'react', 'entry.client.js'),
-      ),
-    })
-  })
-
 })
