@@ -1686,30 +1686,45 @@ export class Spiceflow<
                 // Wrap in a component that throws during RSC rendering so error
                 // boundaries can catch it and the __NO_HYDRATE shell renders.
                 return {
-                  ok: true,
-                  value: <ThrowError error={value} />,
+                  kind: 'render',
+                  element: <ThrowError error={value} />,
                   headers: handlerResponse?.headers,
                   status: handlerResponse?.status,
                 }
               }
               if (isResponse(value)) {
+                if (value.status === 404) {
+                  return {
+                    kind: 'throw-response',
+                    response: value,
+                    headers: handlerResponse?.headers,
+                    status: handlerResponse?.status,
+                  }
+                }
                 return {
-                  ok: true,
-                  value: isRedirectStatus(value.status) ? null : <ThrowResponse response={value} />,
+                  kind: 'response',
                   response: value,
                   headers: handlerResponse?.headers,
                   status: handlerResponse?.status,
                 }
               }
               return {
-                ok: true,
-                value,
+                kind: 'render',
+                element: value,
                 headers: handlerResponse?.headers,
                 status: handlerResponse?.status,
               }
             } catch (error) {
+              if (isResponse(error)) {
+                return {
+                  kind: 'throw-response',
+                  response: error,
+                  headers: handlerResponse?.headers,
+                  status: handlerResponse?.status,
+                }
+              }
               return {
-                ok: false,
+                kind: 'error',
                 error,
                 headers: handlerResponse?.headers,
                 status: handlerResponse?.status,
@@ -1740,7 +1755,7 @@ export class Spiceflow<
                     { id, children },
                     span,
                   )
-                  if (!res.ok && !(res.error instanceof Response) && span) {
+                  if (res.kind === 'error' && span) {
                     recordError(span, res.error)
                   }
                   return res
@@ -1752,17 +1767,17 @@ export class Spiceflow<
 
       // Skip page handler when a loader failed — the error will be rendered
       // via <ThrowError> so the layout error boundary catches it.
-      const pageResultPromise = loaderError
+      const pageResultPromise: Promise<RouteResult> = loaderError
         ? Promise.resolve({
-            ok: true as const,
-            value: <ThrowError error={loaderError} />,
+            kind: 'render' as const,
+            element: <ThrowError error={loaderError} />,
             headers: undefined,
             status: undefined,
           })
         : isNotFound
           ? Promise.resolve({
-              ok: true as const,
-              value: <DefaultNotFoundPage />,
+              kind: 'render' as const,
+              element: <DefaultNotFoundPage />,
               headers: undefined,
               status: undefined,
             })
@@ -1774,7 +1789,7 @@ export class Spiceflow<
                 {},
                 async (span) => {
                   const res = await executeHandler(pageRoute, undefined, span)
-                  if (!res.ok && !(res.error instanceof Response) && span) {
+                  if (res.kind === 'error' && span) {
                     recordError(span, res.error)
                   }
                   return res
@@ -1787,42 +1802,31 @@ export class Spiceflow<
       ])
 
       const allResults = [...layoutResults, pageResult]
-      const getReturnedResponse = (result: RouteResult) => {
-        return result.ok ? result.response : undefined
-      }
+      const getReturnedResponse = (result: RouteResult) =>
+        result.kind === 'response' ? result.response : undefined
       const getThrownResponse = (result: RouteResult) =>
-        !result.ok && isResponse(result.error) ? result.error : undefined
+        result.kind === 'throw-response' ? result.response : undefined
       const getRouteStatus = (result: RouteResult) => {
-        const responseStatus =
-          getReturnedResponse(result)?.status ?? getThrownResponse(result)?.status
-        if (responseStatus && responseStatus !== 200) {
-          return responseStatus
-        }
-        if (result.status && result.status !== 200) {
-          return result.status
-        }
-        return
+        const responseStatus = getThrownResponse(result)?.status
+        if (responseStatus === 404) return 404
+        if (result.status && result.status !== 200) return result.status
       }
       const findLastLayoutValue = <T,>(
         getValue: (result: (typeof layoutResults)[number]) => T | undefined,
       ) => {
         for (let i = layoutResults.length - 1; i >= 0; i--) {
           const value = getValue(layoutResults[i]!)
-          if (value !== undefined) {
-            return value
-          }
+          if (value !== undefined) return value
         }
-        return
       }
-      const renderRouteResult = (result: RouteResult) => {
-        if (result.ok) {
-          return result.value
+      const renderRouteResult = (result: RouteResult): React.ReactNode => {
+        if (result.kind === 'render') return result.element
+        const response = getThrownResponse(result)
+        if (response) return <ThrowResponse response={response} />
+        if (result.kind === 'error') {
+          throw result.error
         }
-        const thrownResponse = getThrownResponse(result)
-        if (thrownResponse) {
-          return <ThrowResponse response={thrownResponse} />
-        }
-        throw new Error('Expected React route failure to be a Response')
+        throw new Error('Expected renderable route result')
       }
 
       const routeHeaders = new Headers()
@@ -1832,28 +1836,18 @@ export class Spiceflow<
         if (result.headers) appendHeaders(routeHeaders, result.headers)
       }
 
-      const returnedPageResponse = getReturnedResponse(pageResult)
-      const returnedRedirectResponse =
-        returnedPageResponse && isRedirectStatus(returnedPageResponse.status)
-          ? returnedPageResponse
-          : findLastLayoutValue((layout) => {
-              const response = getReturnedResponse(layout)
-              if (!response || !isRedirectStatus(response.status)) {
-                return
-              }
-              return response
-            })
-      if (returnedRedirectResponse) {
+      const pageResponse = getReturnedResponse(pageResult)
+      const httpResponse =
+        pageResponse ?? findLastLayoutValue(getReturnedResponse)
+      if (httpResponse) {
         return mergeHeadersIntoResponse({
-          response: returnedRedirectResponse,
+          response: httpResponse,
           source: routeHeaders,
         })
       }
 
-      const firstError = allResults.find(
-        (r) => !r.ok && !isResponse(r.error),
-      )
-      if (firstError && !firstError.ok) {
+      const firstError = allResults.find((result) => result.kind === 'error')
+      if (firstError && firstError.kind === 'error') {
         throw firstError.error
       }
 
@@ -3121,14 +3115,25 @@ export function bfs(tree: AnySpiceflow) {
 
 type RouteResult =
   | {
-      ok: true
-      value: React.ReactNode
-      response?: Response
+      kind: 'render'
+      element: React.ReactNode
       headers?: Headers
       status?: number
     }
   | {
-      ok: false
+      kind: 'response'
+      response: Response
+      headers?: Headers
+      status?: number
+    }
+  | {
+      kind: 'throw-response'
+      response: Response
+      headers?: Headers
+      status?: number
+    }
+  | {
+      kind: 'error'
       error: unknown
       headers?: Headers
       status?: number

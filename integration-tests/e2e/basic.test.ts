@@ -1054,6 +1054,12 @@ test.describe("throw response status codes", () => {
 		expect(response.status).toBe(404);
 	});
 
+	test("return response in page returns raw 403 response", async () => {
+		const response = await fetch(`${baseURL}${basePath}/return-response-in-page`);
+		expect(response.status).toBe(403);
+		expect(await response.text()).toBe("forbidden");
+	});
+
 	test("throw notFound in layout returns 404", async () => {
 		const response = await fetch(`${baseURL}${basePath}/throw-notfound-in-layout`);
 		expect(response.status).toBe(404);
@@ -1075,6 +1081,14 @@ test.describe("throw response status codes", () => {
 		expect(response?.status()).toBe(404);
 		await expect(page.getByText("404")).toBeVisible();
 		await expect(page.getByText("This page could not be found.")).toBeVisible();
+	});
+
+	test("return response in page serves raw 403 document for browser request", async ({
+		page,
+	}) => {
+		const response = await page.goto(url("/return-response-in-page"));
+		expect(response?.status()).toBe(403);
+		await expect(page.locator("body")).toHaveText("forbidden");
 	});
 
 	test("throw notFound in layout renders 404 page for browser request", async ({
@@ -1129,6 +1143,14 @@ test.describe("client-side navigation with throw response", () => {
 		await expect(page.getByText("404")).toBeVisible();
 		await expect(page.getByText("This page could not be found.")).toBeVisible();
 		await expect(page).toHaveURL(url("/return-notfound-in-page"));
+	});
+
+	test("return response in page navigates to raw 403 document", async ({ page }) => {
+		await page.goto(url("/"));
+		await page.getByText("[hydrated: 1]").click();
+		await page.getByTestId("link-return-response-page").click();
+		await expect(page).toHaveURL(url("/return-response-in-page"));
+		await expect(page.locator("body")).toHaveText("forbidden");
 	});
 
 	test("throw notFound in layout renders 404 page and preserves URL", async ({
