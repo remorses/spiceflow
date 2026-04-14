@@ -1,5 +1,9 @@
 # spiceflow
 
+## 1.18.0-rsc.27
+
+1. **Revert Cloudflare linked entry resolution** — reverted the linked-spiceflow dev entry override from rsc.26 that was causing issues.
+
 ## 1.18.0-rsc.26
 
 1. **Template literal paths in `href()`** — wildcard routes now accept resolved template literal paths directly, without needing to pass params as an object:
