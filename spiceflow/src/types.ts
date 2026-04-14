@@ -1022,6 +1022,21 @@ export type ExtractParamsFromPath<Path extends string> =
         ? { ['*']: string }
         : undefined
 
+// Convert route patterns to template literal types that accept resolved paths.
+// e.g. "/orgs/:orgId/*" → `/orgs/${string}/${string}`
+//      "/users/:id"     → `/users/${string}`
+type PatternToResolved<Path extends string> =
+  Path extends `${infer Before}:${infer _Param}/${infer Rest}`
+    ? `${Before}${string}/${PatternToResolved<Rest>}`
+    : Path extends `${infer Before}:${infer _Param}`
+      ? `${Before}${string}`
+      : Path extends `${infer Before}*`
+        ? `${Before}${string}`
+        : Path
+
+// Accepts both pattern paths ("/orgs/:orgId/*") and resolved paths ("/orgs/abc/projects")
+export type AllHrefPaths<Paths extends string> = Paths | PatternToResolved<Paths>
+
 type MergeParamsAndQuery<P, Q> = [P] extends [undefined]
   ? Partial<Q>
   : P & Omit<Partial<Q>, keyof P>
@@ -1029,7 +1044,7 @@ type MergeParamsAndQuery<P, Q> = [P] extends [undefined]
 export type HrefArgs<
   Paths extends string,
   QS extends object,
-  Path extends Paths,
+  Path extends AllHrefPaths<Paths>,
   Params extends ExtractParamsFromPath<Path>,
 > = [Params] extends [undefined]
   ? Path extends keyof QS

@@ -14,6 +14,7 @@ import {
   CreateClient,
   DefinitionBase,
   ErrorHandler,
+  AllHrefPaths,
   ExtractParamsFromPath,
   HrefArgs,
   GetRequestSchema,
@@ -2903,7 +2904,7 @@ export class Spiceflow<
     )
   }
   href<
-    const Path extends RoutePaths,
+    const Path extends AllHrefPaths<RoutePaths>,
     const Params extends ExtractParamsFromPath<Path>,
   >(
     path: Path,
@@ -2931,7 +2932,7 @@ export function createHref<
   type Paths = T['_types']['RoutePaths']
   type QS = T['_types']['RouteQuerySchemas']
   return <
-    const Path extends Paths,
+    const Path extends AllHrefPaths<Paths>,
     const Params extends
       ExtractParamsFromPath<Path> = ExtractParamsFromPath<Path>,
   >(

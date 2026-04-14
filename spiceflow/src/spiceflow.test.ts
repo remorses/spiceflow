@@ -1754,9 +1754,9 @@ describe('href', () => {
       .get('/posts/:postId/comments/:commentId', ({ params }) => params)
 
     expect(app.href('/users/:id', { id: '123' })).toBe('/users/123')
-    // @ts-expect-error
+    // @ts-expect-error - path prefix doesn't match any route
     app.href('/nonusers/:id', { id: '123' })
-    // @ts-expect-error
+    // /users/:nonid matches the resolved template `/users/${string}` so it's accepted
     app.href('/users/:nonid', { nonid: '123' })
     expect(
       app.href('/posts/:postId/comments/:commentId', {
@@ -1838,7 +1838,7 @@ describe('href', () => {
     // @ts-expect-error - Path not defined in app
     app.href('/api/users/invalid')
 
-    // @ts-expect-error - Wrong parameter name
+    // /api/settings/:wrongParam matches `/api/settings/${string}` so it's accepted
     app.href('/api/settings/:wrongParam', { wrongParam: '1' })
   })
 
@@ -2098,6 +2098,79 @@ describe('href', () => {
     expect(app.href('/docs', { section: 'api' })).toBe('/docs?section=api')
     // @ts-expect-error - invalid query param
     app.href('/docs', { wrong: 'x' })
+  })
+
+  test('href with wildcard page route accepts template literal with interpolated params', () => {
+    const app = new Spiceflow()
+      .page('/orgs/:orgId/*', async ({ params }) => `Org ${params.orgId}`)
+
+    // Pattern-based call works
+    expect(app.href('/orgs/:orgId/*', { orgId: 'abc', '*': 'projects' })).toBe(
+      '/orgs/abc/projects',
+    )
+
+    // Template literal with interpolated param — should also work
+    const orgId = 'abc'
+    expect(app.href(`/orgs/${orgId}/projects`)).toBe('/orgs/abc/projects')
+  })
+
+  test('href with wildcard accepts various template literal paths', () => {
+    const app = new Spiceflow()
+      .get('/files/*', () => 'files')
+
+    // Pattern call
+    expect(app.href('/files/*', { '*': 'docs/readme.md' })).toBe(
+      '/files/docs/readme.md',
+    )
+
+    // Template literal — resolved path without params
+    expect(app.href(`/files/docs/readme.md`)).toBe('/files/docs/readme.md')
+
+    // Template literal with slot
+    const folder = 'docs'
+    expect(app.href(`/files/${folder}/readme.md`)).toBe('/files/docs/readme.md')
+  })
+
+  test('href with nested layouts and wildcard pages', () => {
+    const app = new Spiceflow()
+      .layout('/*', ({ children }) => children)
+      .layout('/orgs/:orgId/*', ({ children }) => children)
+      .page('/orgs/:orgId/projects', async ({ params }) => `Projects for ${params.orgId}`)
+      .page('/orgs/:orgId/projects/:projectId/*', async ({ params }) => `Project ${params.projectId}`)
+
+    // Direct page paths work normally
+    expect(app.href('/orgs/:orgId/projects', { orgId: 'acme' })).toBe(
+      '/orgs/acme/projects',
+    )
+    expect(
+      app.href('/orgs/:orgId/projects/:projectId/*', {
+        orgId: 'acme',
+        projectId: 'p1',
+        '*': 'settings',
+      }),
+    ).toBe('/orgs/acme/projects/p1/settings')
+
+    // Template literal with all params resolved
+    const orgId = 'acme'
+    const projectId = 'p1'
+    expect(app.href(`/orgs/${orgId}/projects`)).toBe('/orgs/acme/projects')
+    expect(app.href(`/orgs/${orgId}/projects/${projectId}/settings`)).toBe(
+      '/orgs/acme/projects/p1/settings',
+    )
+  })
+
+  test('href template literal type-checks against wildcard route patterns', () => {
+    const app = new Spiceflow()
+      .page('/orgs/:orgId/*', async ({ params }) => `Org ${params.orgId}`)
+      .page('/users/:userId', async ({ params }) => `User ${params.userId}`)
+
+    // These should be valid — they match /orgs/:orgId/* pattern
+    const orgId = 'abc'
+    app.href(`/orgs/${orgId}/anything/here`)
+
+    // This should NOT match any route — /settings is not a registered path
+    // @ts-expect-error - no route matches /settings/*
+    app.href('/settings/foo')
   })
 })
 
