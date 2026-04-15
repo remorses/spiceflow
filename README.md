@@ -1342,25 +1342,29 @@ Forms use React 19's `<form action>` with server functions marked `"use server"`
 
 **Every server action call automatically re-renders the current page with fresh server data.** This applies to all server actions — form submissions, client wrapper functions, onClick handlers, and even imported server functions called directly. The re-render happens via React reconciliation, so client component state is preserved. No manual `router.refresh()` needed.
 
+Every submit button should show a loading state while its form action is in progress. Use `useFormStatus` from `react-dom` in your Button component to auto-detect pending forms — the button shows a spinner automatically when it's inside a `<form>` with a pending action:
+
 ```tsx
-// src/app/submit-button.tsx
+// src/app/button.tsx
 'use client'
 import { useFormStatus } from 'react-dom'
 
-// useFormStatus must be in a component rendered inside the <form>
-export function SubmitButton() {
+export function Button({ children, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) {
   const { pending } = useFormStatus()
+  const loading = props.type === 'submit' && pending
   return (
-    <button type="submit" disabled={pending}>
-      {pending ? 'Submitting...' : 'Submit'}
+    <button disabled={loading} {...props}>
+      {loading ? 'Loading...' : children}
     </button>
   )
 }
 ```
 
+Then use it in forms — no manual loading state needed:
+
 ```tsx
 import { redirect } from 'spiceflow'
-import { SubmitButton } from './app/submit-button'
+import { Button } from './app/button'
 
 .page('/subscribe', async () => {
   async function subscribe(formData: FormData) {
@@ -1372,7 +1376,7 @@ import { SubmitButton } from './app/submit-button'
   return (
     <form action={subscribe}>
       <input name="email" type="email" required />
-      <SubmitButton />
+      <Button type="submit">Subscribe</Button>
     </form>
   )
 })
@@ -1384,7 +1388,7 @@ Use `useActionState` to display return values from the action. The action receiv
 // src/app/newsletter.tsx
 'use client'
 import { useActionState } from 'react'
-import { SubmitButton } from './submit-button'
+import { Button } from './button'
 
 export function NewsletterForm({
   action,
@@ -1395,7 +1399,7 @@ export function NewsletterForm({
   return (
     <form action={formAction}>
       <input name="email" type="email" required />
-      <SubmitButton />
+      <Button type="submit">Subscribe</Button>
       {message && <p>{message}</p>}
     </form>
   )
@@ -1489,7 +1493,7 @@ export function CreatePostForm() {
         }}
       >
         <input name="title" required />
-        <button type="submit">Create</button>
+        <Button type="submit">Create</Button>
       </form>
     </ErrorBoundary>
   )
