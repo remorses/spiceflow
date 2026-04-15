@@ -2482,13 +2482,13 @@ export class Spiceflow<
     })
     if (isResponse(res)) return res
 
-    // In dev mode, re-throw unhandled errors so they propagate to the Vite
-    // dev server's error middleware. Vite catches the error, fixes the stack
-    // trace via ssrFixStacktrace, and sends it to the browser via WebSocket
-    // to show the error overlay. Without this, errors are swallowed as JSON
-    // responses and the overlay never triggers — both with Node.js SSR
-    // middleware (catch → next(e)) and Cloudflare Vite plugin (catch → next(error)).
-    if (import.meta.hot) {
+    // In dev mode, re-throw document/RSC errors so they reach Vite's error
+    // middleware and show the overlay in the browser. Plain API requests should
+    // keep returning JSON error bodies instead of Vite's HTML 500 page.
+    const isBrowserNavigation =
+      isDocumentRequest(request) ||
+      request.headers.get('accept')?.includes('text/html')
+    if (import.meta.hot && (isBrowserNavigation || isRscRequest(new URL(request.url)))) {
       throw err
     }
 
