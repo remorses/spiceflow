@@ -1471,6 +1471,54 @@ export function DeleteButton({ id }: { id: string }) {
 }
 ```
 
+### Progress Bar
+
+Render `<ProgressBar />` once in your root layout to show a top loading bar during client-side navigation:
+
+```tsx
+// src/main.tsx
+import { Spiceflow } from 'spiceflow'
+import { ProgressBar } from 'spiceflow/react'
+
+export const app = new Spiceflow().layout('/*', async ({ children }) => {
+  return (
+    <html>
+      <body>
+        <ProgressBar />
+        {children}
+      </body>
+    </html>
+  )
+})
+```
+
+For manual client-side async work like submit handlers, direct server action calls, or plain `fetch()`, call `ProgressBar.start()` and `ProgressBar.end()` in `try/finally`:
+
+```tsx
+'use client'
+
+import { ProgressBar } from 'spiceflow/react'
+
+export function SaveButton() {
+  return (
+    <button
+      onClick={async () => {
+        ProgressBar.start()
+        try {
+          await fetch('/api/save', { method: 'POST' })
+        } finally {
+          ProgressBar.end()
+        }
+      }}
+    >
+      Save
+    </button>
+  )
+}
+```
+
+Manual calls share the same state as router navigation, so if a navigation and a client fetch overlap, the bar stays visible until both have finished.
+
 If a server action throws, the error is caught by the nearest `ErrorBoundary`. The error message is preserved (sanitized to strip secrets) and displayed to the user in both development and production builds.
 
 ### Error Handling
