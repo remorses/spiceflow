@@ -1570,20 +1570,6 @@ export class Spiceflow<
     if (actionState instanceof Response) {
       return actionState
     }
-    // After the action consumed the request body (formData/text), the
-    // ReadableStream is locked. Replace with a bodiless clone so page
-    // and layout handlers can safely forward the request (e.g. to an
-    // auth session handler) without hitting "ReadableStream locked".
-    if (actionState.returnValue !== undefined || actionState.formState !== undefined) {
-      const fresh = new SpiceflowRequest(request.url, {
-        method: request.method,
-        headers: request.headers,
-        signal: request.signal,
-      })
-      request = fresh
-      baseContext.request = fresh
-    }
-
       try {
         return await routerContextStorage.run(
           createRouterContextData(request),
