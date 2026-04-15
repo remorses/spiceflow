@@ -1,7 +1,6 @@
 'use client'
-import { useContext, useEffect, useRef, useState } from 'react'
-
-import { ReactNode } from 'react'
+// Shared top progress bar state for router navigations and manual client work.
+import { useContext, useEffect, useSyncExternalStore } from 'react'
 import { isHashOnlyLocationChange, router } from './router.js'
 import { FlightDataContext } from './context.js'
 
@@ -22,27 +21,197 @@ function getProgressShadow(color: string) {
   return `0 4px 6px -1px color-mix(in srgb, ${color} 20%, transparent)`
 }
 
+export type ProgressState = 'initial' | 'in-progress' | 'completing'
+
+export type ProgressSnapshot = {
+  state: ProgressState
+  width: number
+}
+
+export function createProgressStore() {
+  let snapshot: ProgressSnapshot = {
+    state: 'initial',
+    width: 0,
+  }
+  let interval: ReturnType<typeof setInterval> | null = null
+  let manualCount = 0
+  let navigationPending = false
+  const listeners = new Set<() => void>()
+
+  function emit() {
+    for (const listener of listeners) {
+      listener()
+    }
+  }
+
+  function setSnapshot(next: ProgressSnapshot) {
+    if (snapshot.state === next.state && snapshot.width === next.width) {
+      return
+    }
+    snapshot = next
+    emit()
+  }
+
+  function stopInterval() {
+    if (!interval) {
+      return
+    }
+    clearInterval(interval)
+    interval = null
+  }
+
+  function tick() {
+    if (snapshot.state !== 'in-progress') {
+      return
+    }
+
+    const diff =
+      snapshot.width === 0
+        ? 15
+        : snapshot.width < 50
+          ? rand(1, 10)
+          : rand(1, 5)
+
+    setSnapshot({
+      state: 'in-progress',
+      width: Math.min(snapshot.width + diff, 99),
+    })
+  }
+
+  function ensureInterval() {
+    if (snapshot.state !== 'in-progress') {
+      stopInterval()
+      return
+    }
+    if (interval) {
+      return
+    }
+    interval = setInterval(tick, 750)
+  }
+
+  function startProgress() {
+    if (snapshot.state === 'in-progress') {
+      return
+    }
+
+    const width = snapshot.width === 0 || snapshot.width === 100 ? 15 : snapshot.width
+    setSnapshot({
+      state: 'in-progress',
+      width,
+    })
+    ensureInterval()
+  }
+
+  function completeProgress() {
+    if (snapshot.state === 'initial' || snapshot.state === 'completing') {
+      return
+    }
+    stopInterval()
+    setSnapshot({
+      state: 'completing',
+      width: 100,
+    })
+  }
+
+  function syncProgressState() {
+    if (manualCount > 0 || navigationPending) {
+      startProgress()
+      return
+    }
+    completeProgress()
+  }
+
+  function startManual() {
+    manualCount += 1
+    syncProgressState()
+  }
+
+  function endManual() {
+    if (manualCount === 0) {
+      return
+    }
+    manualCount -= 1
+    syncProgressState()
+  }
+
+  return {
+    subscribe(listener: () => void) {
+      listeners.add(listener)
+      return () => {
+        listeners.delete(listener)
+      }
+    },
+    getSnapshot() {
+      return snapshot
+    },
+    start: startManual,
+    end: endManual,
+    done() {
+      endManual()
+    },
+    beginNavigation() {
+      if (navigationPending) {
+        return
+      }
+      navigationPending = true
+      syncProgressState()
+    },
+    endNavigation() {
+      if (!navigationPending) {
+        return
+      }
+      navigationPending = false
+      syncProgressState()
+    },
+    reset() {
+      if (manualCount > 0 || navigationPending) {
+        startProgress()
+        return
+      }
+      stopInterval()
+      setSnapshot({
+        state: 'initial',
+        width: 0,
+      })
+    },
+    destroy() {
+      stopInterval()
+      listeners.clear()
+    },
+  }
+}
+
+const progressStore = createProgressStore()
+
 export function ProgressBar({
   color = '#0ea5e9',
   duration = 300,
 }: ProgressBarProps) {
-  const progress = useProgress()
-  const [isExiting, setIsExiting] = useState(false)
+  const progress = useSyncExternalStore(
+    progressStore.subscribe,
+    progressStore.getSnapshot,
+    progressStore.getSnapshot,
+  )
 
   const data = useContext(FlightDataContext)
   useEffect(() => {
-    progress.done()
+    progressStore.endNavigation()
   }, [data])
 
-  ProgressBar.done = () => progress.done()
-  ProgressBar.start = () => progress.start()
   useEffect(() => {
-    if (progress.state === 'complete') {
-      setIsExiting(true)
-    } else {
-      setIsExiting(false)
-    }
-  }, [progress.state])
+    return router.subscribe((event) => {
+      if (event.action === 'LOADER_DATA') return
+      if (
+        isHashOnlyLocationChange({
+          previousLocation: event.previousLocation,
+          location: event.location,
+        })
+      ) {
+        return
+      }
+      progressStore.beginNavigation()
+    })
+  }, [])
 
   return (
     <div
@@ -57,112 +226,21 @@ export function ProgressBar({
         boxShadow: getProgressShadow(color),
         transition: progress.state === 'initial' ? '' : `all ${duration}ms`,
         width: `${progress.width}%`,
-        opacity: isExiting ? 0 : 1,
+        opacity: progress.state === 'completing' ? 0 : 1,
       }}
       onTransitionEnd={(e) => {
-        if (e.propertyName === 'opacity' && isExiting) {
-          progress.reset()
-          setIsExiting(false)
+        if (e.propertyName === 'opacity' && progress.state === 'completing') {
+          progressStore.reset()
         }
       }}
     />
   )
 }
 
-ProgressBar.done = () => {}
-ProgressBar.start = () => {}
-
-function useProgress() {
-  const [state, setState] = useState<
-    'initial' | 'in-progress' | 'completing' | 'complete'
-  >('initial')
-  const [width, setWidth] = useState(0)
-
-  useInterval(
-    () => {
-      if (state === 'in-progress') {
-        setWidth((prev) => {
-          let diff
-          if (prev === 0) {
-            diff = 15
-          } else if (prev < 50) {
-            diff = rand(1, 10)
-          } else {
-            diff = rand(1, 5)
-          }
-          return Math.min(prev + diff, 99)
-        })
-      }
-    },
-    state === 'in-progress' ? 750 : null,
-  )
-
-  useEffect(() => {
-    return router.subscribe((event) => {
-      if (event.action === 'LOADER_DATA') return
-      if (
-        isHashOnlyLocationChange({
-          previousLocation: event.previousLocation,
-          location: event.location,
-        })
-      ) {
-        return
-      }
-      start()
-    })
-  }, [])
-
-  useEffect(() => {
-    if (state === 'initial') {
-      setWidth(0)
-    } else if (state === 'completing') {
-      setWidth(100)
-    }
-  }, [state])
-
-  useEffect(() => {
-    if (width === 100) {
-      setState('complete')
-    }
-  }, [width])
-
-  function reset() {
-    setState('initial')
-  }
-
-  function start() {
-    setState('in-progress')
-  }
-
-  function done() {
-    setState((prev) =>
-      prev === 'initial' || prev === 'in-progress' ? 'completing' : prev,
-    )
-  }
-
-  return { state, width, start, done, reset }
-}
+ProgressBar.start = () => progressStore.start()
+ProgressBar.end = () => progressStore.end()
+ProgressBar.done = () => progressStore.done()
 
 function rand(min: number, max: number) {
   return Math.floor(Math.random() * (max - min + 1)) + min
-}
-
-function useInterval(callback: () => void, delay: number | null) {
-  const savedCallback = useRef(callback)
-
-  useEffect(() => {
-    savedCallback.current = callback
-  }, [callback])
-
-  useEffect(() => {
-    function tick() {
-      savedCallback.current()
-    }
-
-    if (delay !== null) {
-      tick()
-      const id = setInterval(tick, delay)
-      return () => clearInterval(id)
-    }
-  }, [delay])
 }
