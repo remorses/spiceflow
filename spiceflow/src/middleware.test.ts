@@ -403,9 +403,9 @@ test('each middleware and route is called exactly once if an error is thrown', a
   const res = await app.handle(new Request('http://localhost/test'))
 
   expect(res.status).toBe(500)
-  expect(await res.text()).toMatchInlineSnapshot(
-    `"{"message":"Route response","stack":"Error: Route response\\n    at Spiceflow./test (/Users/morse/Documents/GitHub/spiceflow-rsc/spiceflow/src/middleware.test.ts:395:13)\\n    at /Users/morse/Documents/GitHub/spiceflow-rsc/spiceflow/src/spiceflow.tsx:2242:53\\n    at next (/Users/morse/Documents/GitHub/spiceflow-rsc/spiceflow/src/spiceflow.tsx:2434:27)\\n    at /Users/morse/Documents/GitHub/spiceflow-rsc/spiceflow/src/middleware.test.ts:400:7\\n    at next (/Users/morse/Documents/GitHub/spiceflow-rsc/spiceflow/src/spiceflow.tsx:2416:15)\\n    at /Users/morse/Documents/GitHub/spiceflow-rsc/spiceflow/src/middleware.test.ts:391:7\\n    at next (/Users/morse/Documents/GitHub/spiceflow-rsc/spiceflow/src/spiceflow.tsx:2416:15)\\n    at /Users/morse/Documents/GitHub/spiceflow-rsc/spiceflow/src/middleware.test.ts:387:7\\n    at next (/Users/morse/Documents/GitHub/spiceflow-rsc/spiceflow/src/spiceflow.tsx:2416:15)\\n    at /Users/morse/Documents/GitHub/spiceflow-rsc/spiceflow/src/spiceflow.tsx:2227:22"}"`,
-  )
+  const body = JSON.parse(await res.text())
+  expect(body.message).toBe('Route response')
+  expect(body.stack).toContain('Error: Route response')
   expect(callOrder).toEqual([
     'middleware1',
     'middleware2',
