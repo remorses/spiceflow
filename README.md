@@ -1498,16 +1498,30 @@ export function CreatePostForm() {
 
 When the form action throws, the `ErrorBoundary` catches the error, hides the form, and renders the `fallback` with the error message and a reset button. Clicking "Try again" restores the form. The error boundary also auto-resets when the user navigates to a different page.
 
-For **direct action calls** (onClick handlers, not forms), use try/catch since the error doesn't propagate through React's rendering:
+For **direct action calls** (onClick handlers, not forms), use try/catch since the error doesn't propagate through React's rendering. Wrap in `startTransition` if you want pending state (`isPending`) and non-blocking behavior while the server data loads:
 
 ```tsx
-<button onClick={async () => {
-  try {
-    await deletePost({ id })
-  } catch (e) {
-    alert(e.message)
-  }
-}}>Delete</button>
+import { useTransition } from 'react'
+
+function DeleteButton({ id }: { id: string }) {
+  const [isPending, startTransition] = useTransition()
+  return (
+    <button
+      disabled={isPending}
+      onClick={() => {
+        startTransition(async () => {
+          try {
+            await deletePost({ id })
+          } catch (e) {
+            alert(e.message)
+          }
+        })
+      }}
+    >
+      {isPending ? 'Deleting...' : 'Delete'}
+    </button>
+  )
+}
 ```
 
 ### Router

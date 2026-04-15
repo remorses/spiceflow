@@ -54,7 +54,7 @@
    // server components and loader data are now up to date
    ```
 
-3. **Fix `throw redirect()` in server actions** — redirects thrown inside server actions are now encoded in the RSC flight payload instead of returned as raw HTTP 307 responses. This fixes redirect handling on Cloudflare Workers (where `fetch` follows 307s and breaks) and direct action calls (non-form). Direct action calls no longer trigger a full page re-render, preserving client component `useState`. Form submissions still re-render as before. The `allowedActionOrigins` option is now documented for CSRF protection with reverse proxies.
+3. **Fix `throw redirect()` in server actions** — redirects thrown inside server actions are now encoded in the RSC flight payload instead of returned as raw HTTP 307 responses. This fixes redirect handling on Cloudflare Workers (where `fetch` follows 307s and breaks) and direct action calls (non-form). All server action calls now automatically re-render the page with fresh data while preserving client component `useState` via React reconciliation. The `allowedActionOrigins` option is now documented for CSRF protection with reverse proxies.
 
 4. **Fix `router.refresh()` stale data** — two related bugs fixed: RSC flight responses now include `Cache-Control: no-store` and the client fetch uses `cache: 'no-store'` so the browser never serves a cached flight payload. Also fixed a race where a refresh in flight could return stale same-location loader data, and each refresh promise now resolves for the correct request instead of being completed by an unrelated later commit.
 

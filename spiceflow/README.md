@@ -1151,22 +1151,23 @@ Always define a `query` schema on routes and pages that accept query parameters.
 
 ```tsx
 'use client'
-import { Link } from 'spiceflow/react'
-import { href } from './router'
+import { getRouter, Link } from 'spiceflow/react'
+import type { App } from '../main'
 
 export function ProductFilters() {
+  const router = getRouter<App>()
   return (
     <nav>
       {/* TypeScript validates these query keys against the schema */}
-      <Link href={href('/products', { category: 'shoes', sort: 'price' })}>
+      <Link href={router.href('/products', { category: 'shoes', sort: 'price' })}>
         Shoes by Price
       </Link>
-      <Link href={href('/products', { sort: 'date', page: 2 })}>
+      <Link href={router.href('/products', { sort: 'date', page: 2 })}>
         Page 2, newest first
       </Link>
 
       {/* @ts-expect-error — 'color' is not in the query schema */}
-      <Link href={href('/products', { color: 'red' })}>Red</Link>
+      <Link href={router.href('/products', { color: 'red' })}>Red</Link>
     </nav>
   )
 }
@@ -1499,16 +1500,30 @@ export function CreatePostForm() {
 
 When the form action throws, the `ErrorBoundary` catches the error, hides the form, and renders the `fallback` with the error message and a reset button. Clicking "Try again" restores the form. The error boundary also auto-resets when the user navigates to a different page.
 
-For **direct action calls** (onClick handlers, not forms), use try/catch since the error doesn't propagate through React's rendering:
+For **direct action calls** (onClick handlers, not forms), use try/catch since the error doesn't propagate through React's rendering. Wrap in `startTransition` if you want pending state (`isPending`) and non-blocking behavior while the server data loads:
 
 ```tsx
-<button onClick={async () => {
-  try {
-    await deletePost({ id })
-  } catch (e) {
-    alert(e.message)
-  }
-}}>Delete</button>
+import { useTransition } from 'react'
+
+function DeleteButton({ id }: { id: string }) {
+  const [isPending, startTransition] = useTransition()
+  return (
+    <button
+      disabled={isPending}
+      onClick={() => {
+        startTransition(async () => {
+          try {
+            await deletePost({ id })
+          } catch (e) {
+            alert(e.message)
+          }
+        })
+      }}
+    >
+      {isPending ? 'Deleting...' : 'Delete'}
+    </button>
+  )
+}
 ```
 
 ### Router

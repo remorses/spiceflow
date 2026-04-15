@@ -2054,9 +2054,8 @@ test.describe("server actions", () => {
 	test("inline 'use server' with closure revalidates the page after form submit", async ({
 		page,
 	}) => {
-		// Form submissions (via <form action>) re-render the page tree so
-		// server-rendered content updates. Direct function calls do NOT
-		// re-render, to avoid resetting client state.
+		// All server action calls (form submissions and direct calls) re-render
+		// the page tree so server-rendered content updates automatically.
 		test.skip(isRemote, "stateless functions");
 		const errors: string[] = [];
 		page.on("pageerror", (err) => errors.push(err.message));
