@@ -466,7 +466,7 @@ async function main() {
       console.log('[rsc:update]', e.file)
       clearTimeout(hmrTimer)
       hmrTimer = setTimeout(
-        () => void router.refresh().catch(() => undefined),
+        () => router.refresh(),
         80,
       )
     })

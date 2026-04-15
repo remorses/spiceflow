@@ -145,12 +145,9 @@ export function RouterRefreshStateTest({
 			</button>
 			<button
 				data-testid="router-refresh-button"
-				onClick={async () => {
+				onClick={() => {
 					setAwaitedResult("pending");
-					await router.refresh();
-					setAwaitedResult(
-						`${latestServerRenderCount.current}:${latestServerRandom.current}`,
-					);
+					router.refresh();
 				}}
 			>
 				Refresh

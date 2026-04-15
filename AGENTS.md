@@ -233,9 +233,11 @@ All React-facing APIs (components, router, utilities) must be exported from `spi
 
 ## server actions and router.refresh()
 
-When `<form action>` points directly to a `"use server"` function, React auto-refreshes the page after the action completes. But when the form action is a **client wrapper** (e.g. `action={async (fd) => { await myAction(...); }}`) that calls a server action inside, React does NOT auto-refresh — it treats the wrapper as a regular async function. Always call `await router.refresh()` after the server action in these client wrappers.
+When `<form action>` points directly to a `"use server"` function, React auto-refreshes the page after the action completes. But when the form action is a **client wrapper** (e.g. `action={async (fd) => { await myAction(...); }}`) that calls a server action inside, React does NOT auto-refresh — it treats the wrapper as a regular async function. Always call `router.refresh()` after the server action in these client wrappers.
 
-Same for direct `onClick` handlers that call server actions — always `await router.refresh()` after the action.
+Same for direct `onClick` handlers that call server actions — always call `router.refresh()` after the action.
+
+`router.refresh()` returns void (fire-and-forget). It triggers a re-fetch of all server components and loaders in the background. Do NOT await it — it deadlocks inside React form action transitions.
 
 Use `ErrorBoundary` from `spiceflow/react` to catch thrown errors from form actions. It provides `ErrorBoundary.ErrorMessage` and `ErrorBoundary.ResetButton` sub-components. See the README "Error Handling" section for examples.
 

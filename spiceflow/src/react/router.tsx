@@ -181,7 +181,7 @@ export type RouterBase<App extends AnySpiceflow = AnySpiceflow> = {
   back(...args: Parameters<typeof history.back>): void
   forward(...args: Parameters<typeof history.forward>): void
   block(...args: Parameters<typeof history.block>): ReturnType<typeof history.block>
-  refresh(): Promise<void>
+  refresh(): void
   subscribe(cb: Subscriber): () => void
 
   getLoaderData<const Path extends RouterPathArg<App> = string>(
@@ -523,7 +523,7 @@ export const router: RouterInternal = {
   refresh() {
     const requestedNavigation = requestNavigation('refresh')
     if (!requestedNavigation) {
-      return Promise.resolve()
+      return
     }
     failPendingRefresh({
       requestId: pendingRefreshCommit?.requestId ?? null,
@@ -539,7 +539,6 @@ export const router: RouterInternal = {
       history.location,
     )
     history.replace(history.location)
-    return deferred.ready
   },
   subscribe(cb: Subscriber) {
     if (!isBrowser) {

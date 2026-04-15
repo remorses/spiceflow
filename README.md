@@ -1328,7 +1328,7 @@ Spiceflow already parallelizes at the framework level — all matched loaders ru
 
 ### Forms & Server Actions
 
-Forms use React 19's `<form action>` with server functions marked `"use server"`. They work before JavaScript loads (progressive enhancement). After a form submission completes, the page re-renders with fresh server data automatically. When calling a server action directly as a function (not via form submission), the page does **not** re-render — call `await router.refresh()` if you need the UI to update before continuing.
+Forms use React 19's `<form action>` with server functions marked `"use server"`. They work before JavaScript loads (progressive enhancement). After a form submission completes, the page re-renders with fresh server data automatically. When calling a server action directly as a function (not via form submission), the page does **not** re-render — call `router.refresh()` to trigger a re-render with fresh data.
 
 ```tsx
 // src/app/submit-button.tsx
@@ -1403,7 +1403,7 @@ export function NewsletterForm({
 })
 ```
 
-When calling a server action directly (not via a form), the page does **not** re-render automatically. Import the action from a `"use server"` file and call `await router.refresh()` after it completes — this refetches all loaders and server components and resolves when the fresh data has arrived:
+When calling a server action directly (not via a form), the page does **not** re-render automatically. Import the action from a `"use server"` file and call `router.refresh()` after it completes — this refetches all loaders and server components:
 
 ```tsx
 // src/actions.ts
@@ -1429,7 +1429,7 @@ export function DeleteButton({ id }: { id: string }) {
     <button
       onClick={async () => {
         await deletePost(id)
-        await router.refresh() // waits for fresh loaders and server component data
+        router.refresh() // re-fetches all server components and loaders
       }}
     >
       Delete
@@ -1479,7 +1479,7 @@ export function CreatePostForm() {
         action={async (formData: FormData) => {
           const title = formData.get('title') as string
           await createPost({ title })
-          await router.refresh()
+          router.refresh()
         }}
       >
         <input name="title" required />
@@ -1496,16 +1496,16 @@ When the form action throws, the `ErrorBoundary` catches the error, hides the fo
 
 <details><summary>Why router.refresh() is needed here</summary>
 
-When a `<form action>` points directly to a server action (a function marked `"use server"`), React automatically re-renders the page with fresh server data after the action completes. But when the form action is a **client wrapper** that calls a server action inside it, React treats it as a regular async function — it doesn't know to refresh. Always call `await router.refresh()` after the action in client wrapper form handlers to ensure the UI updates.
+When a `<form action>` points directly to a server action (a function marked `"use server"`), React automatically re-renders the page with fresh server data after the action completes. But when the form action is a **client wrapper** that calls a server action inside it, React treats it as a regular async function — it doesn't know to refresh. Call `router.refresh()` after the action in client wrapper form handlers to ensure the UI updates.
 </details>
 
-For **direct action calls** (onClick handlers, not forms), use try/catch since the error doesn't propagate through React's rendering, and call `await router.refresh()` to update the UI:
+For **direct action calls** (onClick handlers, not forms), use try/catch since the error doesn't propagate through React's rendering, and call `router.refresh()` to update the UI. `router.refresh()` returns void (fire-and-forget):
 
 ```tsx
 <button onClick={async () => {
   try {
     await deletePost({ id })
-    await router.refresh()
+    router.refresh()
   } catch (e) {
     alert(e.message)
   }

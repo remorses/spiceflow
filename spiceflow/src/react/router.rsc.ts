@@ -75,7 +75,7 @@ export const router: RouterBase = {
   block(..._args) {
     return noop
   },
-  refresh: noopAsync,
+  refresh: noop,
   subscribe() {
     return noop
   },
