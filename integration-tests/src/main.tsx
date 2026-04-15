@@ -46,12 +46,14 @@ import {
 	LayoutClientContextValue,
 } from "./app/client-context";
 import { LoaderDataDisplay, LoaderNavLinks } from "./app/loader-test-client";
+import { ActionBodyTest } from "./app/action-body-test";
 import {
 	GlobalLoaderDisplay,
 	SubscribeDataReader,
 } from "./app/loader-global-client";
 import { ServerGuardTestClient } from "./app/server-guard-test-client";
 import { ActionFormTest } from "./app/action-form-test";
+import { ErrorBoundaryFormTest } from "./app/error-boundary-form-test";
 import {
 	AbortActionTest,
 	InspectRequestActionTest,
@@ -60,6 +62,7 @@ import ImageResponse from "@takumi-rs/image-response";
 import {
 	FederatedPayloadDecodeTest,
 } from "./app/federated-payload-client";
+import { UseIdTest } from "./app/use-id-test";
 import testContentRaw from "./test-content.md?raw";
 import { publicDir, distDir } from "spiceflow";
 import { encodeFederationPayload } from "spiceflow/federation";
@@ -431,6 +434,9 @@ export const app = new Spiceflow()
 			</div>
 		);
 	})
+	.page("/use-id-test", async () => {
+		return <UseIdTest />;
+	})
 	.page("/:id", async ({ request, params }) => {
 		const counter = await getCounter();
 		const serverRandom = Math.random().toString(36).slice(2);
@@ -752,6 +758,9 @@ export const app = new Spiceflow()
 	.page("/server-action-inspect-request", async () => {
 		return <InspectRequestActionTest />;
 	})
+	.page("/server-action-read-body", async () => {
+		return <ActionBodyTest />;
+	})
 	.page("/inline-action-with-closure", async () => {
 		let renderCount = inlineActionRenderCount++;
 		const closedValue = "just-a-string";
@@ -802,6 +811,15 @@ export const app = new Spiceflow()
 			throw new Error("Action failed: invalid input");
 		}
 		return <ActionFormTest action={handleSubmit} />;
+	})
+	.page("/error-boundary-form-test", async () => {
+		async function handleSubmit(formData: FormData) {
+			"use server";
+			const message = formData.get("message") as string;
+			if (message === "fail") throw new Error("Validation failed: bad input");
+			// success — no return needed
+		}
+		return <ErrorBoundaryFormTest action={handleSubmit} />;
 	})
 	// --- .get() redirect followed by router.push() test ---
 	.get("/get-redirect/:id", ({ params, request }) => {

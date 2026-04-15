@@ -215,11 +215,17 @@ async function main() {
         source: 'navigate' | 'refresh'
       }
     | undefined
-  let setPayload: (v: {
+  type PayloadArgs = {
     payload: Promise<ServerPayload>
     requestId: number | null
     source: 'navigate' | 'refresh'
-  }) => void = () => undefined
+  }
+  let setPayload: (v: PayloadArgs) => void = () => undefined
+  // Direct setter without startTransition — used by callServer for form actions
+  // so the payload update stays in React's form action transition instead of
+  // creating a nested one (which would commit client state independently and
+  // cause a flash of stale content).
+  let setPayloadDirect: (v: PayloadArgs) => void = () => undefined
   let currentNavigationAbort = new AbortController()
   let currentNavigationRequestId: number | null = null
   let currentNavigationSource: 'navigate' | 'refresh' = 'navigate'
@@ -293,10 +299,6 @@ async function main() {
   router.subscribe(handleNavigation)
 
   const callServer = async (id: string, args: unknown[]) => {
-    // Form submissions (via <form action>) include FormData as the last arg.
-    // Re-render the page for form actions; skip for direct calls to preserve
-    // client state. This heuristic covers all React form submissions.
-    const isFormAction = args.length > 0 && args[args.length - 1] instanceof FormData
     // Temporary references track non-serializable values (DOM nodes, React elements) passed
     // as action args. Same set is shared with createFromFetch so they round-trip correctly.
     const temporaryReferences = createTemporaryReferenceSet()
@@ -325,20 +327,19 @@ async function main() {
         { temporaryReferences },
       )
 
-      // Re-render the page tree for form actions so server-rendered content
-      // updates (e.g. server counter, form revalidation). Direct function
-      // calls skip re-rendering to avoid resetting client state.
-      if (isFormAction) {
-        setPayload({
-          payload: payloadPromise,
-          requestId: null,
-          source: 'navigate',
-        })
-      }
+      // Always re-render the page tree after a server action so mutations are
+      // visible immediately. Uses setPayloadDirect (raw setState, no
+      // startTransition) so the update joins whatever transition is already
+      // active — e.g. React's form action transition. A nested startTransition
+      // would create an independent transition that commits separately from
+      // the caller's setState calls, causing a flash of stale content.
+      setPayloadDirect({
+        payload: payloadPromise,
+        requestId: null,
+        source: 'navigate',
+      })
       const payload = await payloadPromise
-      if (isFormAction) {
-        router.__setLoaderData(payload.root?.loaderData)
-      }
+      router.__setLoaderData(payload.root?.loaderData)
 
       if (payload.actionError) {
         // React prod strips both error.message and error.digest for Error values
@@ -425,6 +426,7 @@ async function main() {
 
     React.useEffect(() => {
       setPayload = (v) => startTransition(() => setPayload_(v))
+      setPayloadDirect = setPayload_
       if (!pendingPayload) return
       const nextPayload = pendingPayload
       pendingPayload = undefined
@@ -466,7 +468,7 @@ async function main() {
       console.log('[rsc:update]', e.file)
       clearTimeout(hmrTimer)
       hmrTimer = setTimeout(
-        () => void router.refresh().catch(() => undefined),
+        () => router.refresh(),
         80,
       )
     })

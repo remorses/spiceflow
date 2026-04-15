@@ -1,4 +1,4 @@
-spiceflow is still in pre release. ignore backwards compatibility, isntead focus on making code as simple as possible
+spiceflow is still in pre release. ignore backwards compatibility, instead focus on making code as simple as possible
 
 # generated READMEs
 
@@ -230,6 +230,16 @@ always use tailwind for styling, prefer using simple styles using flex and gap. 
 ## spiceflow/react exports
 
 All React-facing APIs (components, router, utilities) must be exported from `spiceflow/react` (i.e. `spiceflow/src/react/index.ts`). Never import from `spiceflow/dist/react/...` directly — that's an internal path that breaks when the build output changes. If something is meant for users (like `Head`, `Link`, `ProgressBar`, `router`), it must be in the public export.
+
+## server actions and router.refresh()
+
+Spiceflow automatically re-renders the page after every server action call (`callServer` always applies the new RSC payload). This means `router.refresh()` is NOT needed after server actions — the page updates automatically, both for direct `<form action={serverAction}>` and client wrappers like `action={async (fd) => { await myAction(...); }}`.
+
+`router.refresh()` is still useful for standalone refreshes (e.g. after a WebSocket event, or to poll for updates). It triggers a re-fetch of all server components and loaders.
+
+The auto-re-render uses `setPayloadDirect` (raw setState, no `startTransition`) so it joins whatever transition is already active. This is critical: React 19 wraps form actions in `startTransition`, and a nested `startTransition` would create a separate transition that commits independently — causing a flash of stale content between the caller's state updates and the new server data.
+
+Use `ErrorBoundary` from `spiceflow/react` to catch thrown errors from form actions. It provides `ErrorBoundary.ErrorMessage` and `ErrorBoundary.ResetButton` sub-components. See the README "Error Handling" section for examples.
 
 ## files
 

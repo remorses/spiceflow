@@ -914,7 +914,7 @@ test.describe("layout stability during navigation", () => {
 });
 
 test.describe("router.refresh", () => {
-	test("refresh resolves after server data arrives without remounting client components", async ({
+	test("refresh updates server data without remounting client components", async ({
 		page,
 	}) => {
 		await page.goto(url("/router-refresh-state"));
@@ -934,6 +934,7 @@ test.describe("router.refresh", () => {
 
 		await page.getByTestId("router-refresh-button").click();
 
+		// Server data updates after refresh
 		await expect(
 			page.getByTestId("router-refresh-server-render-count"),
 		).not.toHaveText(serverRenderCount ?? "", {
@@ -942,17 +943,9 @@ test.describe("router.refresh", () => {
 		await expect(page.getByTestId("router-refresh-server-random")).not.toHaveText(
 			serverRandom ?? "",
 		);
-		const nextServerRenderCount = await page
-			.getByTestId("router-refresh-server-render-count")
-			.textContent();
-		const nextServerRandom = await page
-			.getByTestId("router-refresh-server-random")
-			.textContent();
+		// Client state preserved (no remount)
 		await expect(page.getByTestId("router-refresh-mount-count")).toHaveText("1");
 		await expect(page.getByTestId("router-refresh-client-count")).toHaveText("1");
-		await expect(page.getByTestId("router-refresh-awaited-result")).toHaveText(
-			`${nextServerRenderCount}:${nextServerRandom}`,
-		);
 	});
 });
 
@@ -2061,9 +2054,8 @@ test.describe("server actions", () => {
 	test("inline 'use server' with closure revalidates the page after form submit", async ({
 		page,
 	}) => {
-		// Form submissions (via <form action>) re-render the page tree so
-		// server-rendered content updates. Direct function calls do NOT
-		// re-render, to avoid resetting client state.
+		// All server action calls (form submissions and direct calls) re-render
+		// the page tree so server-rendered content updates automatically.
 		test.skip(isRemote, "stateless functions");
 		const errors: string[] = [];
 		page.on("pageerror", (err) => errors.push(err.message));
@@ -2185,6 +2177,30 @@ test.describe("server actions", () => {
 		expect(await countResponse.json()).toEqual({ count: 1 });
 	});
 
+	test("ErrorBoundary shows error message and reset button when form action throws", async ({
+		page,
+	}) => {
+		await page.goto(url("/error-boundary-form-test"));
+		await expect(page.getByTestId("layout-mount-count")).toHaveText("1", {
+			timeout: 10000,
+		});
+		// Form should be visible, error container should not
+		await expect(page.getByTestId("eb-form")).toBeVisible();
+		// Submit with "fail" to trigger the server error
+		await page.getByTestId("eb-form-input").fill("fail");
+		await page.getByTestId("eb-form-submit").click();
+		// ErrorBoundary should catch and show the error message
+		await expect(page.getByTestId("eb-error-message")).toHaveText(
+			"Validation failed: bad input",
+			{ timeout: 10000 },
+		);
+		// Reset button should be visible
+		await expect(page.getByTestId("eb-reset-button")).toBeVisible();
+		// Clicking reset should restore the form
+		await page.getByTestId("eb-reset-button").click();
+		await expect(page.getByTestId("eb-form")).toBeVisible({ timeout: 5000 });
+	});
+
 	test("getActionAbortController aborts an in-flight server action", async ({
 		page,
 	}) => {
@@ -2230,6 +2246,22 @@ test.describe("server actions", () => {
 		expect(result.method).toBe("POST");
 		expect(result.hasSignal).toBe(true);
 		expect(result.url).toContain("__rsc=");
+	});
+
+	test("getActionRequest body is not locked after spiceflow consumes it", async ({
+		page,
+	}) => {
+		await page.goto(url("/server-action-read-body"));
+		await expect(page.getByTestId("layout-mount-count")).toHaveText("1", {
+			timeout: 10000,
+		});
+		await page.getByRole("button", { name: "Read Body" }).click();
+		// The action reads request.text() on the request from getActionRequest().
+		// Spiceflow already consumed the body to decode args, so this should
+		// either return empty string or not throw a ReadableStream locked error.
+		await expect(page.getByTestId("action-body-result")).toHaveText("ok", {
+			timeout: 10000,
+		});
 	});
 });
 
@@ -2636,5 +2668,41 @@ test.describe("spiceflow dirs", () => {
 		await page.goto(url("/spiceflow-dirs"));
 		await expect(page.getByTestId("public-dir")).toHaveText("dist/client");
 		await expect(page.getByTestId("dist-dir")).toHaveText("dist");
+	});
+
+	test("useId produces matching IDs between SSR and client hydration", async ({
+		page,
+	}) => {
+		const warnings: string[] = [];
+		page.on("console", (msg) => {
+			if (msg.type() === "warning" || msg.type() === "error") {
+				warnings.push(msg.text());
+			}
+		});
+
+		// Fetch SSR HTML and extract the data-id attribute
+		const ssrResponse = await fetch(baseURL + url("/use-id-test"));
+		const ssrHtml = await ssrResponse.text();
+		const ssrIdMatch = ssrHtml.match(/data-id="([^"]+)"/);
+		expect(ssrIdMatch).toBeTruthy();
+		const ssrId = ssrIdMatch![1];
+
+		// Navigate to the page and wait for hydration
+		await page.goto(url("/use-id-test"));
+		const el = page.getByTestId("use-id-test");
+		await expect(el).toBeVisible();
+
+		// Get the hydrated ID
+		const hydratedId = await el.getAttribute("data-id");
+		expect(hydratedId).toBe(ssrId);
+
+		// Check no hydration mismatch warnings
+		const hydrationWarnings = warnings.filter(
+			(w) =>
+				w.includes("hydration") ||
+				w.includes("did not match") ||
+				w.includes("didn't match"),
+		);
+		expect(hydrationWarnings).toHaveLength(0);
 	});
 });

@@ -1419,6 +1419,17 @@ export class Spiceflow<
     const isCallServerRequest = Boolean(actionId)
 
     try {
+      // After consuming the request body (formData/text), the original
+      // ReadableStream is locked. Create a bodiless clone so
+      // getActionRequest() returns a request whose body won't throw
+      // "ReadableStream has been locked" if the action reads it (e.g.
+      // to forward the request to an auth handler that only needs headers).
+      const consumedRequest = new Request(request.url, {
+        method: request.method,
+        headers: request.headers,
+        signal: request.signal,
+      })
+
       if (actionId) {
         const temporaryReferences = createTemporaryReferenceSet()
         const contentType = request.headers.get('content-type')
@@ -1431,7 +1442,7 @@ export class Spiceflow<
         return {
           actionError: undefined,
           actionErrorDigest: undefined,
-          returnValue: await actionRequestStorage.run(request, () =>
+          returnValue: await actionRequestStorage.run(consumedRequest, () =>
             action.apply(null, args),
           ),
           formState: undefined,
@@ -1450,7 +1461,7 @@ export class Spiceflow<
         actionErrorDigest: undefined,
         returnValue: undefined,
         formState: await decodeFormState(
-          await actionRequestStorage.run(request, () => decodedAction()),
+          await actionRequestStorage.run(consumedRequest, () => decodedAction()),
           formData,
         ),
         temporaryReferences: undefined,
@@ -1578,7 +1589,6 @@ export class Spiceflow<
     if (actionState instanceof Response) {
       return actionState
     }
-
       try {
         return await routerContextStorage.run(
           createRouterContextData(request),
@@ -2471,6 +2481,16 @@ export class Spiceflow<
       request,
     })
     if (isResponse(res)) return res
+
+    // In dev mode, re-throw unhandled errors so they propagate to the Vite
+    // dev server's error middleware. Vite catches the error, fixes the stack
+    // trace via ssrFixStacktrace, and sends it to the browser via WebSocket
+    // to show the error overlay. Without this, errors are swallowed as JSON
+    // responses and the overlay never triggers — both with Node.js SSR
+    // middleware (catch → next(e)) and Cloudflare Vite plugin (catch → next(error)).
+    if (import.meta.hot) {
+      throw err
+    }
 
     let status = err?.status ?? err?.statusCode ?? 500
     if (typeof status !== 'number' || status < 100 || status > 599) {
