@@ -1340,7 +1340,9 @@ Spiceflow already parallelizes at the framework level — all matched loaders ru
 
 ### Forms & Server Actions
 
-Forms use React 19's `<form action>` with server functions marked `"use server"`. They work before JavaScript loads (progressive enhancement). After any server action completes — whether called from a form, a client wrapper, or an onClick handler — the page automatically re-renders with fresh server data. No manual `router.refresh()` needed.
+Forms use React 19's `<form action>` with server functions marked `"use server"`. They work before JavaScript loads (progressive enhancement).
+
+**Every server action call automatically re-renders the current page with fresh server data.** This applies to all server actions — form submissions, client wrapper functions, onClick handlers, and even imported server functions called directly. The re-render happens via React reconciliation, so client component state is preserved. No manual `router.refresh()` needed.
 
 ```tsx
 // src/app/submit-button.tsx
@@ -1525,6 +1527,47 @@ function DeleteButton({ id }: { id: string }) {
   )
 }
 ```
+
+### Redirecting After Actions
+
+When a server action needs to navigate to a different page (e.g. after creating a resource), use `throw redirect()` inside the action instead of `router.push()` on the client. Since every server action triggers a page re-render, calling `router.push()` after the action would briefly flash the re-rendered current page before navigating away.
+
+```tsx
+// src/actions.ts
+'use server'
+
+import { redirect } from 'spiceflow'
+
+export async function createProject({ name, orgId }: { name: string; orgId: string }) {
+  const project = await db.projects.create({ name, orgId })
+  throw redirect(`/orgs/${orgId}/projects/${project.id}`)
+}
+```
+
+```tsx
+// src/app/create-project.tsx
+'use client'
+
+import { ErrorBoundary } from 'spiceflow/react'
+import { createProject } from '../actions'
+
+export function CreateProjectForm({ orgId }: { orgId: string }) {
+  return (
+    <ErrorBoundary fallback={<ErrorBoundary.ErrorMessage />}>
+      <form action={async (formData: FormData) => {
+        const name = formData.get('name') as string
+        await createProject({ name, orgId })
+        // no router.push needed — the action redirects server-side
+      }}>
+        <input name="name" required />
+        <button type="submit">Create</button>
+      </form>
+    </ErrorBoundary>
+  )
+}
+```
+
+`router.push()` is still the right choice for pure client-side navigation that doesn't involve a server action (e.g. tab switches, select dropdowns, back buttons).
 
 ### Router
 
