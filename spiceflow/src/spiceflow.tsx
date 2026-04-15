@@ -2463,6 +2463,16 @@ export class Spiceflow<
     })
     if (isResponse(res)) return res
 
+    // In dev mode, re-throw unhandled errors so they propagate to the Vite
+    // dev server's error middleware. Vite catches the error, fixes the stack
+    // trace via ssrFixStacktrace, and sends it to the browser via WebSocket
+    // to show the error overlay. Without this, errors are swallowed as JSON
+    // responses and the overlay never triggers — both with Node.js SSR
+    // middleware (catch → next(e)) and Cloudflare Vite plugin (catch → next(error)).
+    if (import.meta.hot) {
+      throw err
+    }
+
     let status = err?.status ?? err?.statusCode ?? 500
     if (typeof status !== 'number' || status < 100 || status > 599) {
       status = 500

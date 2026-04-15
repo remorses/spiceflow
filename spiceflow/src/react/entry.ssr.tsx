@@ -66,6 +66,9 @@ export async function fetchHandler(request: Request) {
 
     return htmlResponse
   } catch (err) {
+    // In dev mode, re-throw so Vite's SSR middleware (catch → next(e)) can
+    // forward the error to the error overlay via WebSocket.
+    if (import.meta.hot) throw err
     console.error('[fetchHandler] unexpected error', err)
     return new Response('', { status: 500 })
   }
