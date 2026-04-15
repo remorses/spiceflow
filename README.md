@@ -1471,12 +1471,13 @@ export function DeleteButton({ id }: { id: string }) {
 
 ### Progress Bar
 
-Render `<ProgressBar />` once in your root layout to show a top loading bar during client-side navigation:
+Render `<ProgressBar />` once in the root layout. For manual client-side async work, wrap the call in `ProgressBar.start()` / `ProgressBar.end()`:
 
 ```tsx
 // src/main.tsx
 import { Spiceflow } from 'spiceflow'
 import { ProgressBar } from 'spiceflow/react'
+import { SaveButton } from './app/save-button'
 
 export const app = new Spiceflow().layout('/*', async ({ children }) => {
   return (
@@ -1484,15 +1485,13 @@ export const app = new Spiceflow().layout('/*', async ({ children }) => {
       <body>
         <ProgressBar />
         {children}
+        <SaveButton />
       </body>
     </html>
   )
 })
-```
 
-For manual client-side async work like submit handlers, direct server action calls, or plain `fetch()`, call `ProgressBar.start()` and `ProgressBar.end()` in `try/finally`:
-
-```tsx
+// src/app/save-button.tsx
 'use client'
 
 import { ProgressBar } from 'spiceflow/react'
