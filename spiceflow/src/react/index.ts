@@ -19,4 +19,5 @@ export {
   decodeFederationPayload,
   RenderFederatedPayload,
 } from './federated-payload.ts'
+export { ErrorBoundary } from './error-boundary.tsx'
 export { publicDir, distDir } from '#spiceflow-dirs'
