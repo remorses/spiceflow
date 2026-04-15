@@ -2670,4 +2670,40 @@ test.describe("spiceflow dirs", () => {
 		await expect(page.getByTestId("public-dir")).toHaveText("dist/client");
 		await expect(page.getByTestId("dist-dir")).toHaveText("dist");
 	});
+
+	test("useId produces matching IDs between SSR and client hydration", async ({
+		page,
+	}) => {
+		const warnings: string[] = [];
+		page.on("console", (msg) => {
+			if (msg.type() === "warning" || msg.type() === "error") {
+				warnings.push(msg.text());
+			}
+		});
+
+		// Fetch SSR HTML and extract the data-id attribute
+		const ssrResponse = await fetch(baseURL + url("/use-id-test"));
+		const ssrHtml = await ssrResponse.text();
+		const ssrIdMatch = ssrHtml.match(/data-id="([^"]+)"/);
+		expect(ssrIdMatch).toBeTruthy();
+		const ssrId = ssrIdMatch![1];
+
+		// Navigate to the page and wait for hydration
+		await page.goto(url("/use-id-test"));
+		const el = page.getByTestId("use-id-test");
+		await expect(el).toBeVisible();
+
+		// Get the hydrated ID
+		const hydratedId = await el.getAttribute("data-id");
+		expect(hydratedId).toBe(ssrId);
+
+		// Check no hydration mismatch warnings
+		const hydrationWarnings = warnings.filter(
+			(w) =>
+				w.includes("hydration") ||
+				w.includes("did not match") ||
+				w.includes("didn't match"),
+		);
+		expect(hydrationWarnings).toHaveLength(0);
+	});
 });

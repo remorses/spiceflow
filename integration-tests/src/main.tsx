@@ -62,6 +62,7 @@ import ImageResponse from "@takumi-rs/image-response";
 import {
 	FederatedPayloadDecodeTest,
 } from "./app/federated-payload-client";
+import { UseIdTest } from "./app/use-id-test";
 import testContentRaw from "./test-content.md?raw";
 import { publicDir, distDir } from "spiceflow";
 import { encodeFederationPayload } from "spiceflow/federation";
@@ -432,6 +433,9 @@ export const app = new Spiceflow()
 				<IndexPage counter={counter} serverRandom={serverRandom} />
 			</div>
 		);
+	})
+	.page("/use-id-test", async () => {
+		return <UseIdTest />;
 	})
 	.page("/:id", async ({ request, params }) => {
 		const counter = await getCounter();

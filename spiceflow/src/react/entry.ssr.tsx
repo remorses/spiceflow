@@ -7,7 +7,13 @@ import ReactDOMServer from 'react-dom/server.edge'
 import { createFromReadableStream } from '@vitejs/plugin-rsc/ssr'
 
 import { ServerPayload } from '../spiceflow.js'
-import { LayoutContent } from './components.js'
+import {
+  DefaultGlobalErrorPage,
+  DefaultNotFoundPage,
+  ErrorBoundary,
+  LayoutContent,
+  NotFoundBoundary,
+} from './components.js'
 import { FlightDataContext } from './context.js'
 import {
   getErrorContext,
@@ -100,6 +106,20 @@ export async function renderHtml({
   // render context so React can register preinit/preload hints for client refs.
   let payloadPromise: Promise<ServerPayload> | undefined
 
+  // Tree structure must match BrowserRoot in entry.client.tsx exactly so
+  // React's useId() generates identical IDs during SSR and hydration.
+  // FiberProvider (from its-fine) uses React fiber internals that crash in
+  // SSR, so we use a no-op wrapper that occupies the same tree position.
+  // PayloadCommitListener returns null during SSR but must exist at the
+  // same tree position as the client version.
+  function SsrFiberProvider({ children }: { children: React.ReactNode }) {
+    return <>{children}</>
+  }
+
+  function PayloadCommitListener() {
+    return null
+  }
+
   function SsrRoot() {
     payloadPromise ??= createFromReadableStream<ServerPayload>(flightForSsr)
     const payload = React.use(payloadPromise!)
@@ -108,9 +128,16 @@ export async function renderHtml({
       routerContext.loaderData = payload.root?.loaderData ?? {}
     }
     return (
-      <FlightDataContext.Provider value={payloadPromise!}>
-        <LayoutContent />
-      </FlightDataContext.Provider>
+      <SsrFiberProvider>
+        <ErrorBoundary errorComponent={DefaultGlobalErrorPage}>
+          <NotFoundBoundary component={DefaultNotFoundPage}>
+            <FlightDataContext.Provider value={payloadPromise!}>
+              <PayloadCommitListener />
+              <LayoutContent />
+            </FlightDataContext.Provider>
+          </NotFoundBoundary>
+        </ErrorBoundary>
+      </SsrFiberProvider>
     )
   }
 
