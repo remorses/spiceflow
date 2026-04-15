@@ -53,6 +53,7 @@ import {
 } from "./app/loader-global-client";
 import { ServerGuardTestClient } from "./app/server-guard-test-client";
 import { ActionFormTest } from "./app/action-form-test";
+import { ErrorBoundaryFormTest } from "./app/error-boundary-form-test";
 import {
 	AbortActionTest,
 	InspectRequestActionTest,
@@ -806,6 +807,15 @@ export const app = new Spiceflow()
 			throw new Error("Action failed: invalid input");
 		}
 		return <ActionFormTest action={handleSubmit} />;
+	})
+	.page("/error-boundary-form-test", async () => {
+		async function handleSubmit(formData: FormData) {
+			"use server";
+			const message = formData.get("message") as string;
+			if (message === "fail") throw new Error("Validation failed: bad input");
+			// success — no return needed
+		}
+		return <ErrorBoundaryFormTest action={handleSubmit} />;
 	})
 	// --- .get() redirect followed by router.push() test ---
 	.get("/get-redirect/:id", ({ params, request }) => {

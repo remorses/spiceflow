@@ -2185,6 +2185,30 @@ test.describe("server actions", () => {
 		expect(await countResponse.json()).toEqual({ count: 1 });
 	});
 
+	test("ErrorBoundary shows error message and reset button when form action throws", async ({
+		page,
+	}) => {
+		await page.goto(url("/error-boundary-form-test"));
+		await expect(page.getByTestId("layout-mount-count")).toHaveText("1", {
+			timeout: 10000,
+		});
+		// Form should be visible, error container should not
+		await expect(page.getByTestId("eb-form")).toBeVisible();
+		// Submit with "fail" to trigger the server error
+		await page.getByTestId("eb-form-input").fill("fail");
+		await page.getByTestId("eb-form-submit").click();
+		// ErrorBoundary should catch and show the error message
+		await expect(page.getByTestId("eb-error-message")).toHaveText(
+			"Validation failed: bad input",
+			{ timeout: 10000 },
+		);
+		// Reset button should be visible
+		await expect(page.getByTestId("eb-reset-button")).toBeVisible();
+		// Clicking reset should restore the form
+		await page.getByTestId("eb-reset-button").click();
+		await expect(page.getByTestId("eb-form")).toBeVisible({ timeout: 5000 });
+	});
+
 	test("getActionAbortController aborts an in-flight server action", async ({
 		page,
 	}) => {
