@@ -185,9 +185,9 @@ export const app = new Spiceflow()
       return next()
     }
 
-    const url = new URL(request.url)
+    const { pathname, search } = request.parsedUrl
     const deploymentId = await getDeploymentId()
-    const cacheKey = `${deploymentId}:${url.pathname}${url.search}` // IMPORTANT. cache key must always include search to distinguish html and rsc responses
+    const cacheKey = `${deploymentId}:${pathname}${search}` // IMPORTANT. cache key must always include search to distinguish html and rsc responses
 
     const cached = await env.PAGE_CACHE.get(cacheKey)
     if (cached) {

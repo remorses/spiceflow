@@ -111,7 +111,7 @@ export type MiddlewareContext<
   },
 > = Prettify<{
   state: Singleton['state']
-  request: Request
+  request: SpiceflowRequest
   path: string
   query?: Record<string, string | undefined>
   params?: Record<string, string | undefined>

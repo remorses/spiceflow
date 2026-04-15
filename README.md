@@ -242,7 +242,13 @@ new Spiceflow().route({
 <details>
 <summary>How body parsing works</summary>
 
-To get the body of the request, call `request.json()` to parse the body as JSON. Spiceflow does not parse the body automatically — there is no `body` field in the route argument. Instead you call either `request.json()` or `request.formData()` to get the body and validate it at the same time. This works by wrapping the request in a `SpiceflowRequest` instance, which has `json()` and `formData()` methods that parse and validate. The returned data will have the correct schema type instead of `any`.
+To get the body of the request, call `request.json()` to parse the body as JSON. Spiceflow does not parse the body automatically — there is no `body` field in the route argument. Instead you call either `request.json()` or `request.formData()` to get the body and validate it at the same time. The returned data will have the correct schema type instead of `any`.
+
+The `request` object in every handler and middleware is a `SpiceflowRequest`, which extends the standard Web `Request`. On top of the standard API, it adds:
+
+- **`request.parsedUrl`** — a lazily cached `URL` object, so you don't need to write `new URL(request.url)` yourself. Accessing `.pathname`, `.searchParams`, etc. is one property access away
+- **`request.json()` / `request.formData()`** — parse and validate the body against the route schema in one step, returning typed data instead of `any`
+- **`request.originalUrl`** — the raw transport URL before Spiceflow normalizes `.rsc` pathnames
 
 </details>
 
@@ -277,7 +283,7 @@ Middleware functions run before route handlers. They can log, authenticate, modi
 import { Spiceflow } from 'spiceflow'
 
 new Spiceflow().use(({ request }) => {
-  console.log(`Received ${request.method} request to ${request.url}`)
+  console.log(`Received ${request.method} request to ${request.parsedUrl.pathname}`)
 })
 ```
 
@@ -481,7 +487,7 @@ export const app = new Spiceflow()
     method: '*',
     path: '/*',
     handler({ request }) {
-      return new Response(`Cannot ${request.method} ${request.url}`, {
+      return new Response(`Cannot ${request.method} ${request.parsedUrl.pathname}`, {
         status: 404,
       })
     },
@@ -580,7 +586,7 @@ Do not set `basePath` in the Spiceflow constructor when using Vite — Spiceflow
 - Raw `<a href="/path">` tags (not using the `Link` component) — use `Link` instead
 - External URLs and protocol-relative URLs (`//cdn.com/...`) — left as-is
 - `fetch()` calls inside your app code — you need to construct the URL yourself
-- `request.url` in middleware — contains the full URL including the base prefix
+- `request.url` and `request.parsedUrl` in middleware — contain the full URL including the base prefix
 
 </details>
 
