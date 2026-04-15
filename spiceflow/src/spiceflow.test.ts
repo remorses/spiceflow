@@ -12,6 +12,27 @@ import { z } from 'zod'
 import { createSpiceflowClient } from './client/index.js'
 import { createSpiceflowFetch } from './client/fetch.ts'
 
+async function expectJsonErrorResponse({
+  response,
+  status,
+  message,
+  extra = {},
+}: {
+  response: Response
+  status: number
+  message: string
+  extra?: Record<string, unknown>
+}) {
+  expect(response.status).toBe(status)
+  const body = await response.json()
+  expect(body).toMatchObject({
+    ...extra,
+    message,
+    stack: expect.any(String),
+  })
+  expect(body.stack).toContain(`Error: ${message}`)
+}
+
 test('works', async () => {
   const res = await new Spiceflow()
     .post('/xxx', () => 'hi')
@@ -1230,10 +1251,15 @@ test('validate body works, request fails', async () => {
         body: JSON.stringify({ name: 'John' }),
       }),
     )
-  expect(res.status).toBe(422)
-  expect(await res.text()).toMatchInlineSnapshot(
-    `"{"code":"VALIDATION","status":422,"message":"requiredField: Invalid input: expected string, received undefined"}"`,
-  )
+  await expectJsonErrorResponse({
+    response: res,
+    status: 422,
+    message: 'requiredField: Invalid input: expected string, received undefined',
+    extra: {
+      code: 'VALIDATION',
+      status: 422,
+    },
+  })
 })
 
 test('run use', async () => {
@@ -1572,10 +1598,11 @@ test('errors inside basPath works', async () => {
     expect(handlerCalledNTimes).toBe(1)
     expect(onErrorTriggered).toEqual(['root', 'two', 'nested'])
     expect(onReqTriggered).toEqual(['root', 'two', 'nested'])
-    expect(res.status).toBe(500)
-    expect(await res.text()).toMatchInlineSnapshot(
-      `"{"message":"error message"}"`,
-    )
+    await expectJsonErrorResponse({
+      response: res,
+      status: 500,
+      message: 'error message',
+    })
     // expect(await res.json()).toEqual('nested'))
   }
 })
@@ -2483,13 +2510,11 @@ test('returning Error from handler behaves like throwing it', async () => {
   const res = await app.handle(
     new Request('http://localhost/test', { method: 'GET' }),
   )
-  expect(res.status).toBe(500)
-  const body = await res.json()
-  expect(body).toMatchInlineSnapshot(`
-    {
-      "message": "something went wrong",
-    }
-  `)
+  await expectJsonErrorResponse({
+    response: res,
+    status: 500,
+    message: 'something went wrong',
+  })
 })
 
 test('returning Error with status property uses that status', async () => {
@@ -2500,14 +2525,12 @@ test('returning Error with status property uses that status', async () => {
   const res = await app.handle(
     new Request('http://localhost/test', { method: 'GET' }),
   )
-  expect(res.status).toBe(400)
-  const body = await res.json()
-  expect(body).toMatchInlineSnapshot(`
-    {
-      "message": "bad request",
-      "status": 400,
-    }
-  `)
+  await expectJsonErrorResponse({
+    response: res,
+    status: 400,
+    message: 'bad request',
+    extra: { status: 400 },
+  })
 })
 
 test('returning Error triggers onError handlers', async () => {
@@ -2538,13 +2561,11 @@ test('throwing Error from handler gives status 500 with message', async () => {
   const res = await app.handle(
     new Request('http://localhost/test', { method: 'GET' }),
   )
-  expect(res.status).toBe(500)
-  const body = await res.json()
-  expect(body).toMatchInlineSnapshot(`
-    {
-      "message": "something went wrong",
-    }
-  `)
+  await expectJsonErrorResponse({
+    response: res,
+    status: 500,
+    message: 'something went wrong',
+  })
 })
 
 test('throwing Error with status property uses that status', async () => {
@@ -2555,14 +2576,12 @@ test('throwing Error with status property uses that status', async () => {
   const res = await app.handle(
     new Request('http://localhost/test', { method: 'GET' }),
   )
-  expect(res.status).toBe(400)
-  const body = await res.json()
-  expect(body).toMatchInlineSnapshot(`
-    {
-      "message": "bad request",
-      "status": 400,
-    }
-  `)
+  await expectJsonErrorResponse({
+    response: res,
+    status: 400,
+    message: 'bad request',
+    extra: { status: 400 },
+  })
 })
 
 test('route override - same method and path, second route wins', async () => {
@@ -3597,11 +3616,12 @@ test('.page() without Vite plugin throws a clear error', async () => {
       headers: { accept: 'text/html' },
     }),
   )
-  expect(res.status).toBe(500)
-  const text = await res.text()
-  expect(text).toMatchInlineSnapshot(
-    `"{"message":"[spiceflow] RSC runtime is only available in the react-server environment. This error means renderReact was called outside of a Vite RSC build. Spiceflow .page and .layout methods require using the Vite plugin. See example application: https://github.com/remorses/spiceflow/blob/main/example-nodejs/vite.config.ts"}"`,
-  )
+  await expectJsonErrorResponse({
+    response: res,
+    status: 500,
+    message:
+      '[spiceflow] RSC runtime is only available in the react-server environment. This error means renderReact was called outside of a Vite RSC build. Spiceflow .page and .layout methods require using the Vite plugin. See example application: https://github.com/remorses/spiceflow/blob/main/example-nodejs/vite.config.ts',
+  })
 })
 
 test('.layout() without Vite plugin throws a clear error', async () => {
@@ -3614,11 +3634,12 @@ test('.layout() without Vite plugin throws a clear error', async () => {
       headers: { accept: 'text/html' },
     }),
   )
-  expect(res.status).toBe(500)
-  const text = await res.text()
-  expect(text).toMatchInlineSnapshot(
-    `"{"message":"[spiceflow] RSC runtime is only available in the react-server environment. This error means renderReact was called outside of a Vite RSC build. Spiceflow .page and .layout methods require using the Vite plugin. See example application: https://github.com/remorses/spiceflow/blob/main/example-nodejs/vite.config.ts"}"`,
-  )
+  await expectJsonErrorResponse({
+    response: res,
+    status: 500,
+    message:
+      '[spiceflow] RSC runtime is only available in the react-server environment. This error means renderReact was called outside of a Vite RSC build. Spiceflow .page and .layout methods require using the Vite plugin. See example application: https://github.com/remorses/spiceflow/blob/main/example-nodejs/vite.config.ts',
+  })
 })
 
 describe('.use() with page and layout routes', () => {
