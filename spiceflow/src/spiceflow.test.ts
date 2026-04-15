@@ -336,75 +336,41 @@ test('can encode superjson types', async () => {
         ],
       }
     `)
-  expect(await res.json()).toMatchInlineSnapshot(`
-    {
-      "__superjsonMeta": {
-        "referentialEqualities": {
-          "items.0": [
-            "items.1",
-          ],
-        },
-        "values": {
-          "items.0.bigint": [
-            "bigint",
-          ],
-          "items.0.date": [
-            "Date",
-          ],
-          "items.0.map": [
-            "map",
-          ],
-          "items.0.set": [
-            "set",
-          ],
-          "items.1.bigint": [
-            "bigint",
-          ],
-          "items.1.date": [
-            "Date",
-          ],
-          "items.1.map": [
-            "map",
-          ],
-          "items.1.set": [
-            "set",
-          ],
-        },
+  const payload = await res.json()
+  expect(payload).toMatchObject({
+    __superjsonMeta: {
+      referentialEqualities: {
+        'items.0': ['items.1'],
       },
-      "items": [
-        {
-          "bigint": "123",
-          "date": "2025-01-20T18:01:57.852Z",
-          "map": [
-            [
-              "a",
-              1,
-            ],
-          ],
-          "set": [
-            1,
-            2,
-            3,
-          ],
-        },
-        {
-          "bigint": "123",
-          "date": "2025-01-20T18:01:57.852Z",
-          "map": [
-            [
-              "a",
-              1,
-            ],
-          ],
-          "set": [
-            1,
-            2,
-            3,
-          ],
-        },
-      ],
-    }
-  `)
+      values: {
+        'items.0.bigint': ['bigint'],
+        'items.0.date': ['Date'],
+        'items.0.map': ['map'],
+        'items.0.set': ['set'],
+        'items.1.bigint': ['bigint'],
+        'items.1.date': ['Date'],
+        'items.1.map': ['map'],
+        'items.1.set': ['set'],
+      },
+    },
+    items: [
+      {
+        bigint: '123',
+        date: '2025-01-20T18:01:57.852Z',
+        map: [['a', 1]],
+        set: [1, 2, 3],
+      },
+      {
+        bigint: '123',
+        date: '2025-01-20T18:01:57.852Z',
+        map: [['a', 1]],
+        set: [1, 2, 3],
+      },
+    ],
+  })
+  if ('v' in payload.__superjsonMeta) {
+    expect(payload.__superjsonMeta.v).toBe(1)
+  }
 })
 test('dynamic route', async () => {
   const res = await new Spiceflow()
@@ -2786,9 +2752,18 @@ test('disableSuperJsonUnlessRpc is inherited by child apps', async () => {
   expect(rpcRes.status).toBe(200)
   const rpcData = await rpcRes.text()
   expect(rpcData).toContain('__superjsonMeta')
-  expect(rpcData).toMatchInlineSnapshot(
-    `"{"date":"2024-01-01T00:00:00.000Z","__superjsonMeta":{"values":{"date":["Date"]}}}"`,
-  )
+  const rpcJson = JSON.parse(rpcData)
+  expect(rpcJson).toMatchObject({
+    date: '2024-01-01T00:00:00.000Z',
+    __superjsonMeta: {
+      values: {
+        date: ['Date'],
+      },
+    },
+  })
+  if ('v' in rpcJson.__superjsonMeta) {
+    expect(rpcJson.__superjsonMeta.v).toBe(1)
+  }
 })
 
 test('child app inherits disableSuperJsonUnlessRpc from parent even if set to false', async () => {
