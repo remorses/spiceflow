@@ -1438,7 +1438,79 @@ export function DeleteButton({ id }: { id: string }) {
 }
 ```
 
-If a server action throws, the error is caught by the nearest error boundary. The error message is preserved (sanitized to strip secrets) and displayed to the user in both development and production builds.
+If a server action throws, the error is caught by the nearest `ErrorBoundary`. The error message is preserved (sanitized to strip secrets) and displayed to the user in both development and production builds.
+
+### Error Handling
+
+Use `ErrorBoundary` from `spiceflow/react` to catch errors from form actions. It provides `ErrorBoundary.ErrorMessage` and `ErrorBoundary.ResetButton` sub-components that read the error and reset function from context — so they work as standalone elements anywhere in the `fallback` tree.
+
+Actions should **throw errors** instead of returning error strings. Return **objects** for rich success data instead of scalars:
+
+```tsx
+// src/actions.ts
+'use server'
+
+export async function createPost({ title }: { title: string }) {
+  if (!title) throw new Error('Title is required')
+  const post = await db.posts.create({ title })
+  return { id: post.id }
+}
+```
+
+```tsx
+// src/app/create-post.tsx
+'use client'
+
+import { ErrorBoundary, getRouter } from 'spiceflow/react'
+import { createPost } from '../actions'
+
+export function CreatePostForm() {
+  const router = getRouter()
+  return (
+    <ErrorBoundary
+      fallback={
+        <div>
+          <ErrorBoundary.ErrorMessage className="text-red-500" />
+          <ErrorBoundary.ResetButton>Try again</ErrorBoundary.ResetButton>
+        </div>
+      }
+    >
+      <form
+        action={async (formData: FormData) => {
+          const title = formData.get('title') as string
+          await createPost({ title })
+          await router.refresh()
+        }}
+      >
+        <input name="title" required />
+        <button type="submit">Create</button>
+      </form>
+    </ErrorBoundary>
+  )
+}
+```
+
+`ErrorBoundary.ErrorMessage` renders a `<div>` and `ErrorBoundary.ResetButton` renders a `<button>` — both accept all their respective HTML element props via `...props` spread, so you can pass `className`, `style`, `data-testid`, etc.
+
+When the form action throws, the `ErrorBoundary` catches the error, hides the form, and renders the `fallback` with the error message and a reset button. Clicking "Try again" restores the form. The error boundary also auto-resets when the user navigates to a different page.
+
+<details><summary>Why router.refresh() is needed here</summary>
+
+When a `<form action>` points directly to a server action (a function marked `"use server"`), React automatically re-renders the page with fresh server data after the action completes. But when the form action is a **client wrapper** that calls a server action inside it, React treats it as a regular async function — it doesn't know to refresh. Always call `await router.refresh()` after the action in client wrapper form handlers to ensure the UI updates.
+</details>
+
+For **direct action calls** (onClick handlers, not forms), use try/catch since the error doesn't propagate through React's rendering, and call `await router.refresh()` to update the UI:
+
+```tsx
+<button onClick={async () => {
+  try {
+    await deletePost({ id })
+    await router.refresh()
+  } catch (e) {
+    alert(e.message)
+  }
+}}>Delete</button>
+```
 
 ### Router
 

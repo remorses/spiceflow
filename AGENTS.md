@@ -231,6 +231,14 @@ always use tailwind for styling, prefer using simple styles using flex and gap. 
 
 All React-facing APIs (components, router, utilities) must be exported from `spiceflow/react` (i.e. `spiceflow/src/react/index.ts`). Never import from `spiceflow/dist/react/...` directly — that's an internal path that breaks when the build output changes. If something is meant for users (like `Head`, `Link`, `ProgressBar`, `router`), it must be in the public export.
 
+## server actions and router.refresh()
+
+When `<form action>` points directly to a `"use server"` function, React auto-refreshes the page after the action completes. But when the form action is a **client wrapper** (e.g. `action={async (fd) => { await myAction(...); }}`) that calls a server action inside, React does NOT auto-refresh — it treats the wrapper as a regular async function. Always call `await router.refresh()` after the server action in these client wrappers.
+
+Same for direct `onClick` handlers that call server actions — always `await router.refresh()` after the action.
+
+Use `ErrorBoundary` from `spiceflow/react` to catch thrown errors from form actions. It provides `ErrorBoundary.ErrorMessage` and `ErrorBoundary.ResetButton` sub-components. See the README "Error Handling" section for examples.
+
 ## files
 
 always use kebab case for new filenames. never use uppercase letters in filenames
