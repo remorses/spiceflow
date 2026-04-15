@@ -1,3 +1,5 @@
+<!-- DO NOT EDIT: This file is auto-generated from root README.md -->
+
 <div align='center' className='w-full'>
     <br/>
     <br/>
@@ -1149,23 +1151,22 @@ Always define a `query` schema on routes and pages that accept query parameters.
 
 ```tsx
 'use client'
-import { getRouter, Link } from 'spiceflow/react'
-import type { App } from '../main'
+import { Link } from 'spiceflow/react'
+import { href } from './router'
 
 export function ProductFilters() {
-  const router = getRouter<App>()
   return (
     <nav>
       {/* TypeScript validates these query keys against the schema */}
-      <Link href={router.href('/products', { category: 'shoes', sort: 'price' })}>
+      <Link href={href('/products', { category: 'shoes', sort: 'price' })}>
         Shoes by Price
       </Link>
-      <Link href={router.href('/products', { sort: 'date', page: 2 })}>
+      <Link href={href('/products', { sort: 'date', page: 2 })}>
         Page 2, newest first
       </Link>
 
       {/* @ts-expect-error — 'color' is not in the query schema */}
-      <Link href={router.href('/products', { color: 'red' })}>Red</Link>
+      <Link href={href('/products', { color: 'red' })}>Red</Link>
     </nav>
   )
 }

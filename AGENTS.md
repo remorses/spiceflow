@@ -233,11 +233,11 @@ All React-facing APIs (components, router, utilities) must be exported from `spi
 
 ## server actions and router.refresh()
 
-When `<form action>` points directly to a `"use server"` function, React auto-refreshes the page after the action completes. But when the form action is a **client wrapper** (e.g. `action={async (fd) => { await myAction(...); }}`) that calls a server action inside, React does NOT auto-refresh — it treats the wrapper as a regular async function. Always call `router.refresh()` after the server action in these client wrappers.
+Spiceflow automatically re-renders the page after every server action call (`callServer` always applies the new RSC payload). This means `router.refresh()` is NOT needed after server actions — the page updates automatically, both for direct `<form action={serverAction}>` and client wrappers like `action={async (fd) => { await myAction(...); }}`.
 
-Same for direct `onClick` handlers that call server actions — always call `router.refresh()` after the action.
+`router.refresh()` is still useful for standalone refreshes (e.g. after a WebSocket event, or to poll for updates). It triggers a re-fetch of all server components and loaders.
 
-`router.refresh()` returns void (fire-and-forget). It triggers a re-fetch of all server components and loaders in the background. Do NOT await it — it deadlocks inside React form action transitions.
+The auto-re-render uses `setPayloadDirect` (raw setState, no `startTransition`) so it joins whatever transition is already active. This is critical: React 19 wraps form actions in `startTransition`, and a nested `startTransition` would create a separate transition that commits independently — causing a flash of stale content between the caller's state updates and the new server data.
 
 Use `ErrorBoundary` from `spiceflow/react` to catch thrown errors from form actions. It provides `ErrorBoundary.ErrorMessage` and `ErrorBoundary.ResetButton` sub-components. See the README "Error Handling" section for examples.
 
