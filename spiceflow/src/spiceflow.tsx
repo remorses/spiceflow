@@ -1400,6 +1400,17 @@ export class Spiceflow<
     const isCallServerRequest = Boolean(actionId)
 
     try {
+      // After consuming the request body (formData/text), the original
+      // ReadableStream is locked. Create a bodiless clone so
+      // getActionRequest() returns a request whose body won't throw
+      // "ReadableStream has been locked" if the action reads it (e.g.
+      // to forward the request to an auth handler that only needs headers).
+      const consumedRequest = new Request(request.url, {
+        method: request.method,
+        headers: request.headers,
+        signal: request.signal,
+      })
+
       if (actionId) {
         const temporaryReferences = createTemporaryReferenceSet()
         const contentType = request.headers.get('content-type')
@@ -1412,7 +1423,7 @@ export class Spiceflow<
         return {
           actionError: undefined,
           actionErrorDigest: undefined,
-          returnValue: await actionRequestStorage.run(request, () =>
+          returnValue: await actionRequestStorage.run(consumedRequest, () =>
             action.apply(null, args),
           ),
           formState: undefined,
@@ -1431,7 +1442,7 @@ export class Spiceflow<
         actionErrorDigest: undefined,
         returnValue: undefined,
         formState: await decodeFormState(
-          await actionRequestStorage.run(request, () => decodedAction()),
+          await actionRequestStorage.run(consumedRequest, () => decodedAction()),
           formData,
         ),
         temporaryReferences: undefined,
@@ -1558,6 +1569,19 @@ export class Spiceflow<
     })
     if (actionState instanceof Response) {
       return actionState
+    }
+    // After the action consumed the request body (formData/text), the
+    // ReadableStream is locked. Replace with a bodiless clone so page
+    // and layout handlers can safely forward the request (e.g. to an
+    // auth session handler) without hitting "ReadableStream locked".
+    if (actionState.returnValue !== undefined || actionState.formState !== undefined) {
+      const fresh = new SpiceflowRequest(request.url, {
+        method: request.method,
+        headers: request.headers,
+        signal: request.signal,
+      })
+      request = fresh
+      baseContext.request = fresh
     }
 
       try {

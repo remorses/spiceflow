@@ -26,3 +26,20 @@ export async function inspectRequestAction(): Promise<{
 		hasSignal: request.signal instanceof AbortSignal,
 	};
 }
+
+// Reproduces ReadableStream locked error: the request body is consumed by
+// spiceflow to decode action args before the action runs. Trying to read
+// the body again (e.g. to forward the request to an auth handler) should
+// not throw "ReadableStream has been locked to a reader".
+export async function readBodyAction(): Promise<{
+	bodyReadable: boolean;
+	error: string | null;
+}> {
+	const request = getActionRequest();
+	try {
+		await request.text();
+		return { bodyReadable: true, error: null };
+	} catch (e) {
+		return { bodyReadable: false, error: String(e) };
+	}
+}

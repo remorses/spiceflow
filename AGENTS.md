@@ -1,4 +1,4 @@
-spiceflow is still in pre release. ignore backwards compatibility, isntead focus on making code as simple as possible
+spiceflow is still in pre release. ignore backwards compatibility, instead focus on making code as simple as possible
 
 # generated READMEs
 

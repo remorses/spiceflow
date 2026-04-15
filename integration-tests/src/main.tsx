@@ -46,6 +46,7 @@ import {
 	LayoutClientContextValue,
 } from "./app/client-context";
 import { LoaderDataDisplay, LoaderNavLinks } from "./app/loader-test-client";
+import { ActionBodyTest } from "./app/action-body-test";
 import {
 	GlobalLoaderDisplay,
 	SubscribeDataReader,
@@ -751,6 +752,9 @@ export const app = new Spiceflow()
 	})
 	.page("/server-action-inspect-request", async () => {
 		return <InspectRequestActionTest />;
+	})
+	.page("/server-action-read-body", async () => {
+		return <ActionBodyTest />;
 	})
 	.page("/inline-action-with-closure", async () => {
 		let renderCount = inlineActionRenderCount++;

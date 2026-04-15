@@ -2231,6 +2231,22 @@ test.describe("server actions", () => {
 		expect(result.hasSignal).toBe(true);
 		expect(result.url).toContain("__rsc=");
 	});
+
+	test("getActionRequest body is not locked after spiceflow consumes it", async ({
+		page,
+	}) => {
+		await page.goto(url("/server-action-read-body"));
+		await expect(page.getByTestId("layout-mount-count")).toHaveText("1", {
+			timeout: 10000,
+		});
+		await page.getByRole("button", { name: "Read Body" }).click();
+		// The action reads request.text() on the request from getActionRequest().
+		// Spiceflow already consumed the body to decode args, so this should
+		// either return empty string or not throw a ReadableStream locked error.
+		await expect(page.getByTestId("action-body-result")).toHaveText("ok", {
+			timeout: 10000,
+		});
+	});
 });
 
 test.describe("federated payloads", () => {
