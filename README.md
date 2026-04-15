@@ -1336,6 +1336,8 @@ Spiceflow already parallelizes at the framework level — all matched loaders ru
 
 Forms use React 19's `<form action>` with server functions marked `"use server"`. They work before JavaScript loads (progressive enhancement). After a form submission completes, the page re-renders with fresh server data automatically. When calling a server action directly as a function (not via form submission), the page does **not** re-render — call `await router.refresh()` if you need the UI to update before continuing.
 
+Prefer file-level `"use server"` (a dedicated file like `src/actions.tsx`) over inline `"use server"` inside function bodies. Inline is fine for simple form actions defined directly in a server component page, but if you find yourself passing actions as props to client components, import them from a `"use server"` file instead — it keeps action logic centralized and reusable. The inline examples below are kept short for readability.
+
 ```tsx
 // src/app/submit-button.tsx
 'use client'
@@ -1375,17 +1377,25 @@ import { SubmitButton } from './app/submit-button'
 Use `useActionState` to display return values from the action. The action receives the previous state as its first argument and `FormData` as the second:
 
 ```tsx
+// src/actions.tsx
+'use server'
+
+export async function subscribe(prev: string, formData: FormData) {
+  const email = formData.get('email') as string
+  await addSubscriber(email)
+  return `Subscribed ${email}!`
+}
+```
+
+```tsx
 // src/app/newsletter.tsx
 'use client'
 import { useActionState } from 'react'
+import { subscribe } from '../actions'
 import { SubmitButton } from './submit-button'
 
-export function NewsletterForm({
-  action,
-}: {
-  action: (prev: string, formData: FormData) => Promise<string>
-}) {
-  const [message, formAction] = useActionState(action, '')
+export function NewsletterForm() {
+  const [message, formAction] = useActionState(subscribe, '')
   return (
     <form action={formAction}>
       <input name="email" type="email" required />
@@ -1399,13 +1409,7 @@ export function NewsletterForm({
 ```tsx
 // In your server component page
 .page('/newsletter', async () => {
-  async function subscribe(prev: string, formData: FormData) {
-    'use server'
-    const email = formData.get('email') as string
-    await addSubscriber(email)
-    return `Subscribed ${email}!`
-  }
-  return <NewsletterForm action={subscribe} />
+  return <NewsletterForm />
 })
 ```
 
