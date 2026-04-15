@@ -404,7 +404,7 @@ test('each middleware and route is called exactly once if an error is thrown', a
 
   expect(res.status).toBe(500)
   expect(await res.text()).toMatchInlineSnapshot(
-    `"{"message":"Route response","stack":"Error: Route response\\n    at Spiceflow./test (/Users/morse/Documents/GitHub/spiceflow-rsc/spiceflow/src/middleware.test.ts:395:13)\\n    at /Users/morse/Documents/GitHub/spiceflow-rsc/spiceflow/src/spiceflow.tsx:2235:53\\n    at next (/Users/morse/Documents/GitHub/spiceflow-rsc/spiceflow/src/spiceflow.tsx:2427:27)\\n    at /Users/morse/Documents/GitHub/spiceflow-rsc/spiceflow/src/middleware.test.ts:400:7\\n    at next (/Users/morse/Documents/GitHub/spiceflow-rsc/spiceflow/src/spiceflow.tsx:2409:15)\\n    at /Users/morse/Documents/GitHub/spiceflow-rsc/spiceflow/src/middleware.test.ts:391:7\\n    at next (/Users/morse/Documents/GitHub/spiceflow-rsc/spiceflow/src/spiceflow.tsx:2409:15)\\n    at /Users/morse/Documents/GitHub/spiceflow-rsc/spiceflow/src/middleware.test.ts:387:7\\n    at next (/Users/morse/Documents/GitHub/spiceflow-rsc/spiceflow/src/spiceflow.tsx:2409:15)\\n    at /Users/morse/Documents/GitHub/spiceflow-rsc/spiceflow/src/spiceflow.tsx:2220:22"}"`,
+    `"{"message":"Route response","stack":"Error: Route response\\n    at Spiceflow./test (/Users/morse/Documents/GitHub/spiceflow-rsc/spiceflow/src/middleware.test.ts:395:13)\\n    at /Users/morse/Documents/GitHub/spiceflow-rsc/spiceflow/src/spiceflow.tsx:2242:53\\n    at next (/Users/morse/Documents/GitHub/spiceflow-rsc/spiceflow/src/spiceflow.tsx:2434:27)\\n    at /Users/morse/Documents/GitHub/spiceflow-rsc/spiceflow/src/middleware.test.ts:400:7\\n    at next (/Users/morse/Documents/GitHub/spiceflow-rsc/spiceflow/src/spiceflow.tsx:2416:15)\\n    at /Users/morse/Documents/GitHub/spiceflow-rsc/spiceflow/src/middleware.test.ts:391:7\\n    at next (/Users/morse/Documents/GitHub/spiceflow-rsc/spiceflow/src/spiceflow.tsx:2416:15)\\n    at /Users/morse/Documents/GitHub/spiceflow-rsc/spiceflow/src/middleware.test.ts:387:7\\n    at next (/Users/morse/Documents/GitHub/spiceflow-rsc/spiceflow/src/spiceflow.tsx:2416:15)\\n    at /Users/morse/Documents/GitHub/spiceflow-rsc/spiceflow/src/spiceflow.tsx:2227:22"}"`,
   )
   expect(callOrder).toEqual([
     'middleware1',
@@ -641,6 +641,46 @@ test('path-scoped middleware mixed with global middleware', async () => {
   called.length = 0
   await app.handle(new Request('http://localhost/health'))
   expect(called).toEqual(['global'])
+})
+
+test('exact path-scoped middleware matches trailing slash', async () => {
+  let middlewareCalled = false
+  const app = new Spiceflow()
+    .use('/api', async ({ request }, next) => {
+      middlewareCalled = true
+      return next()
+    })
+    .get('/api', () => 'api root')
+
+  middlewareCalled = false
+  const res = await app.handle(new Request('http://localhost/api/'))
+  expect(res.status).toBe(200)
+  expect(middlewareCalled).toBe(true)
+})
+
+test('path-scoped middleware works with basePath child app', async () => {
+  let middlewareCalled = false
+  const api = new Spiceflow({ basePath: '/api' })
+    .use('/users/*', async (ctx, next) => {
+      middlewareCalled = true
+      return next()
+    })
+    .get('/users', () => 'users')
+    .get('/health', () => 'api health')
+
+  const app = new Spiceflow().use(api)
+
+  middlewareCalled = false
+  const res1 = await app.handle(new Request('http://localhost/api/users'))
+  expect(res1.status).toBe(200)
+  expect(await res1.json()).toBe('users')
+  expect(middlewareCalled).toBe(true)
+
+  middlewareCalled = false
+  const res2 = await app.handle(new Request('http://localhost/api/health'))
+  expect(res2.status).toBe(200)
+  expect(await res2.json()).toBe('api health')
+  expect(middlewareCalled).toBe(false)
 })
 
 test('path-scoped middleware can short-circuit with early return', async () => {

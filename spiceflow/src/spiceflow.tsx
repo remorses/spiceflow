@@ -1342,9 +1342,16 @@ export class Spiceflow<
     if (typeof appOrHandler === 'string' && typeof maybeHandler === 'function') {
       const pattern = appOrHandler
       const handler = maybeHandler
+      const ownerApp: AnySpiceflow = this
       this.middlewares ??= []
       this.middlewares.push((context: any, next: any) => {
-        if (!middlewarePathMatches(context.path, pattern)) return
+        const prefix = ownerApp.topLevelApp
+          ? ownerApp.topLevelApp.joinBasePaths(
+              ownerApp.topLevelApp.getAppAndParents(ownerApp).map((x: AnySpiceflow) => x.basePath),
+            )
+          : ''
+        const fullPattern = prefix ? prefix + pattern : pattern
+        if (!middlewarePathMatches(context.path, fullPattern)) return
         return handler(context, next)
       })
     } else if (appOrHandler instanceof Spiceflow) {
@@ -3399,12 +3406,13 @@ function pickBestRoute<T extends { route: InternalRoute; app?: AnySpiceflow }>(
 }
 
 function middlewarePathMatches(requestPath: string, pattern: string): boolean {
+  const normalizedPath = requestPath.replace(/\/$/, '') || '/'
   if (pattern.endsWith('/*')) {
     const prefix = pattern.slice(0, -2) || '/'
     if (prefix === '/') return true
-    return requestPath === prefix || requestPath.startsWith(prefix + '/')
+    return normalizedPath === prefix || normalizedPath.startsWith(prefix + '/')
   }
-  return requestPath === pattern
+  return normalizedPath === pattern
 }
 
 function routeShouldYieldToStatic(route: InternalRoute) {
