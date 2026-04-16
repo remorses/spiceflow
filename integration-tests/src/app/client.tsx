@@ -3,6 +3,7 @@ import "./client.css";
 
 import React, { useActionState } from "react";
 import { add } from "./action-by-client";
+import { getRouter } from "spiceflow/react";
 import { action } from "./form-action";
 
 type ClientFormState = {
@@ -112,6 +113,7 @@ export function RouterRefreshStateTest({
 	serverRandom: string;
 	serverRenderCount: number;
 }) {
+	const router = getRouter();
 	const [clientCount, setClientCount] = React.useState(0);
 	const [mountCount, setMountCount] = React.useState(0);
 	const [awaitedResult, setAwaitedResult] = React.useState("");
@@ -142,9 +144,8 @@ export function RouterRefreshStateTest({
 			</button>
 			<button
 				data-testid="router-refresh-button"
-				onClick={async () => {
+				onClick={() => {
 					setAwaitedResult("pending");
-					const { router } = await import("spiceflow/react");
 					router.refresh();
 				}}
 			>
@@ -155,12 +156,12 @@ export function RouterRefreshStateTest({
 }
 
 export function GetRedirectNav() {
+	const router = getRouter();
 	return (
 		<div data-testid="get-redirect-nav">
 			<button
 				data-testid="get-redirect-push"
-				onClick={async () => {
-					const { router } = await import("spiceflow/react");
+				onClick={() => {
 					router.push("/get-redirect/123");
 				}}
 			>
