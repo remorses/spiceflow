@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { createSpiceflowFetch } from './client/fetch.ts'
 import { Spiceflow } from './spiceflow.tsx'
 import { SpiceflowFetchError } from './client/errors.ts'
+import { json } from './error.ts'
 
 import { describe, expect, it } from 'vitest'
 
@@ -409,5 +410,79 @@ describe('fetch client retries', () => {
     if (!(result instanceof Error)) throw new Error('Expected error')
     expect(result.status).toBe(400)
     expect(attemptCount).toBe(1)
+  })
+})
+
+// ── TypedResponse / json() ──────────────────────────────────────────────────
+
+const typedApp = new Spiceflow()
+  .route({
+    method: 'GET',
+    path: '/typed-ok',
+    response: {
+      200: z.object({ name: z.string() }),
+      404: z.object({ error: z.string() }),
+    },
+    handler() {
+      return json({ error: 'not found' }, { status: 404 })
+    },
+  })
+  .route({
+    method: 'GET',
+    path: '/typed-wrong-status',
+    response: {
+      200: z.object({ name: z.string() }),
+      404: z.object({ error: z.string() }),
+    },
+    // @ts-expect-error — 500 is not in the response schema
+    handler() {
+      return json({ error: 'server error' }, { status: 500 })
+    },
+  })
+  .route({
+    method: 'GET',
+    path: '/typed-wrong-body',
+    response: {
+      200: z.object({ name: z.string() }),
+      404: z.object({ error: z.string() }),
+    },
+    // @ts-expect-error — number doesn't match {error: string} for 404
+    handler() {
+      return json(42, { status: 404 })
+    },
+  })
+
+const typedFetch = createSpiceflowFetch(typedApp)
+
+describe('json() typed response', () => {
+  it('json() returns real Response at runtime', async () => {
+    const res = json({ name: 'test' })
+    expect(res).toBeInstanceOf(Response)
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({ name: 'test' })
+  })
+
+  it('json() with status returns correct status', async () => {
+    const res = json({ error: 'not found' }, { status: 404 })
+    expect(res).toBeInstanceOf(Response)
+    expect(res.status).toBe(404)
+  })
+
+  it('fetch client gets typed error from thrown json()', async () => {
+    const result = await typedFetch('/typed-ok')
+    expect(result).toBeInstanceOf(SpiceflowFetchError)
+    if (result instanceof Error) {
+      expect(result.status).toBe(404)
+    }
+  })
+
+  it('json() with no response schema accepts anything', async () => {
+    const untyped = new Spiceflow().get('/free', () => {
+      return json({ anything: true }, { status: 201 })
+    })
+    const f = createSpiceflowFetch(untyped)
+    const result = await f('/free')
+    if (result instanceof Error) throw result
+    expect(result).toEqual({ anything: true })
   })
 })

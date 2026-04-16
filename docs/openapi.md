@@ -96,7 +96,7 @@ When a route can return different payloads depending on the status code, pass `r
 
 ```ts
 import { z } from 'zod'
-import { Spiceflow } from 'spiceflow'
+import { Spiceflow, json } from 'spiceflow'
 import { openapi } from 'spiceflow/openapi'
 
 const ErrorShape = z.object({
@@ -121,7 +121,7 @@ export const app = new Spiceflow()
     handler({ params }) {
       const user = findUser(params.id)
       if (!user) {
-        throw Response.json(
+        throw json(
           { error: 'not found', code: 'NOT_FOUND' },
           { status: 404 },
         )
@@ -131,7 +131,7 @@ export const app = new Spiceflow()
   })
 ```
 
-`Response.json(body, init)` is the standard Web API for JSON responses — it sets `content-type: application/json` automatically and calls `JSON.stringify` for you, so you do not need to write the boilerplate by hand.
+`json(body, init)` is a type-safe wrapper around `Response.json()` — it sets `content-type: application/json` automatically and carries the data type and status code through the type system. Prefer `json()` over `Response.json()` so the fetch client gets typed error responses.
 
 **Use the status-code map whenever you already know which non-2xx status codes your route can return and there is a realistic possibility of errors.** Consumers of your API — and tools like Fern or Stainless that generate SDKs from the OpenAPI document — get precise types for each failure mode instead of a generic "it might fail".
 
@@ -162,7 +162,7 @@ export const commonResponses = {
 
 ```ts
 // src/api/app.ts
-import { Spiceflow } from 'spiceflow'
+import { Spiceflow, json } from 'spiceflow'
 import { openapi } from 'spiceflow/openapi'
 import { z } from 'zod'
 import { commonResponses, ErrorResponse } from './shared-responses'
@@ -171,7 +171,7 @@ export const app = new Spiceflow()
   .use(openapi({ path: '/openapi.json' }))
   .onError(({ error, request }) => {
     console.error('[api]', request.url, error)
-    return Response.json(
+    return json(
       {
         error: error.message || 'internal server error',
         code: 'INTERNAL',
@@ -191,7 +191,7 @@ export const app = new Spiceflow()
     handler({ params }) {
       const user = findUser(params.id)
       if (!user) {
-        throw Response.json(
+        throw json(
           { error: 'not found', code: 'NOT_FOUND' },
           { status: 404 },
         )
@@ -399,13 +399,13 @@ If you prefer a type-safe call, use `createSpiceflowFetch` against the app insta
 
 The [type-safe fetch client](fetch-client.md) reads your route schemas the same way the OpenAPI plugin does, so the way you declare `response` directly affects what the client sees.
 
-**Rule of thumb:** success responses should be **returned** from the handler, and non-2xx responses should be **thrown** as `Response` objects. Returning a raw `Response` with `status: 404` works at runtime, but the fetch client cannot tell from the return type alone that the route also returns an error body — it will infer the success case as `Data | ErrorBody`.
+**Rule of thumb:** success responses should be **returned** from the handler, and non-2xx responses should be **thrown** using `json()`. Use `json()` from `spiceflow` instead of `Response.json()` — it preserves the data type and status code in the type system, so TypeScript validates that the status exists in the response schema and the body shape matches. `Response.json()` erases all type information.
 
-When you throw non-successful responses instead, the client inference stays clean: the happy-path return type is just `Data`, and errors are delivered as a `SpiceflowFetchError` that `instanceof Error` narrows away.
+When you throw non-successful responses, the client inference stays clean: the happy-path return type is just `Data`, and errors are delivered as a `SpiceflowFetchError` that `instanceof Error` narrows away.
 
 ```ts
 // src/api/app.ts
-import { Spiceflow } from 'spiceflow'
+import { Spiceflow, json } from 'spiceflow'
 import { z } from 'zod'
 
 const NotFound = z.object({ error: z.literal('not found') })
@@ -422,14 +422,14 @@ export const app = new Spiceflow().route({
   },
   handler({ params }) {
     if (params.id === 'banned') {
-      throw Response.json(
+      throw json(
         { error: 'forbidden', reason: 'account suspended' },
         { status: 403 },
       )
     }
     const user = findUser(params.id)
     if (!user) {
-      throw Response.json({ error: 'not found' }, { status: 404 })
+      throw json({ error: 'not found' }, { status: 404 })
     }
     // Returned directly — the fetch client will type this as the success case only.
     return { id: user.id, name: user.name }

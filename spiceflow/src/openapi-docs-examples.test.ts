@@ -12,6 +12,7 @@ import { Spiceflow } from './spiceflow.js'
 import { openapi } from './openapi.js'
 import { createSpiceflowFetch } from './client/fetch.js'
 import { SpiceflowFetchError } from './client/errors.js'
+import { json } from './error.js'
 
 // `string-dedent` is referenced in the doc example but is not a dependency
 // of the spiceflow package. Emulate it with a local tagged template so this
@@ -218,7 +219,7 @@ function statusCodeResponseMapExample() {
       handler({ params }) {
         const user = findUser(params.id)
         if (!user) {
-          throw Response.json(
+          throw json(
             { error: 'not found', code: 'NOT_FOUND' },
             { status: 404 },
           )
@@ -235,7 +236,7 @@ function centralizedErrorResponsesExample() {
     .use(openapi({ path: '/openapi.json' }))
     .onError(({ error, request }) => {
       console.error('[api]', request.url, error)
-      return Response.json(
+      return json(
         {
           error: error.message || 'internal server error',
           code: 'INTERNAL',
@@ -255,7 +256,7 @@ function centralizedErrorResponsesExample() {
       handler({ params }) {
         const user = findUser(params.id)
         if (!user) {
-          throw Response.json(
+          throw json(
             { error: 'not found', code: 'NOT_FOUND' },
             { status: 404 },
           )
@@ -360,7 +361,7 @@ function customDescriptionsExample() {
       async handler({ request }) {
         const body = await request.json()
         if (await userExists(body.email)) {
-          throw Response.json(
+          throw json(
             { error: 'conflict', code: 'CONFLICT' },
             { status: 409 },
           )
@@ -405,14 +406,14 @@ function preservingClientTypeSafetyApp() {
     },
     handler({ params }) {
       if (params.id === 'banned') {
-        throw Response.json(
+        throw json(
           { error: 'forbidden', reason: 'account suspended' },
           { status: 403 },
         )
       }
       const user = findUser(params.id)
       if (!user) {
-        throw Response.json({ error: 'not found' }, { status: 404 })
+        throw json({ error: 'not found' }, { status: 404 })
       }
       // Returned directly — the fetch client will type this as the success case only.
       return { id: user.id, name: user.name }

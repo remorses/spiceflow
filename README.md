@@ -202,17 +202,16 @@ export const app = new Spiceflow()
   })
 ```
 
-Only use `Response.json()` when you need to override the status code or headers. Note that wrapping the return value in a `Response` loses type inference on the client — the fetch client sees `Response` instead of the actual object shape:
+When you need to return a non-200 status code, use the `json()` helper instead of `Response.json()`. It works the same way at runtime but preserves the data type and status code in the type system — so the fetch client gets full type safety for each status code:
 
 ```ts
-// Only when you need custom status or headers
-return Response.json({ error: 'Not found' }, { status: 404 })
+import { Spiceflow, json } from 'spiceflow'
 
-// Avoid — verbose, easy to forget Content-Type header
-return new Response(JSON.stringify({ error: 'Not found' }), {
-  status: 404,
-  headers: { 'content-type': 'application/json' },
-})
+// Preferred — type-safe, fetch client knows this is a 404 with { error: string }
+throw json({ error: 'Not found' }, { status: 404 })
+
+// Avoid — Response.json() erases the type, fetch client sees unknown
+throw Response.json({ error: 'Not found' }, { status: 404 })
 ```
 
 ## Routes & Validation
@@ -268,6 +267,44 @@ new Spiceflow().route({
   },
 })
 ```
+
+### Typed Error Responses
+
+When a route declares a status-code response map, use the `json()` helper from `spiceflow` to return or throw non-200 responses with full type safety. Unlike `Response.json()`, `json()` carries the data type and status code through the type system — so TypeScript validates that the status code exists in the response schema and the body matches the declared shape.
+
+```ts
+import { Spiceflow, json } from 'spiceflow'
+import { z } from 'zod'
+
+new Spiceflow().route({
+  method: 'GET',
+  path: '/users/:id',
+  response: {
+    200: z.object({ id: z.string(), name: z.string() }),
+    404: z.object({ error: z.string() }),
+  },
+  handler({ params }) {
+    const user = findUser(params.id)
+    if (!user) {
+      // TypeScript validates: 404 is in the response map, and { error: string } matches the 404 schema
+      throw json({ error: 'not found' }, { status: 404 })
+    }
+    return { id: user.id, name: user.name }
+  },
+})
+```
+
+If you pass a status code that's not in the response map, or a body that doesn't match the schema for that status, `tsc` reports an error:
+
+```ts
+// @ts-expect-error — 500 is not in the response schema
+throw json({ error: 'server error' }, { status: 500 })
+
+// @ts-expect-error — number doesn't match { error: string } for 404
+throw json(42, { status: 404 })
+```
+
+The fetch client picks up these types automatically — each non-200 status becomes a typed `SpiceflowFetchError` with the exact body shape. See [Preserving Client Type Safety](docs/openapi.md#preserving-client-type-safety) for the full client-side pattern.
 
 ## Middleware
 
