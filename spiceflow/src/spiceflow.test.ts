@@ -315,75 +315,37 @@ test('can encode superjson types', async () => {
         ],
       }
     `)
-  expect(await res.json()).toMatchInlineSnapshot(`
-    {
-      "__superjsonMeta": {
-        "referentialEqualities": {
-          "items.0": [
-            "items.1",
-          ],
-        },
-        "values": {
-          "items.0.bigint": [
-            "bigint",
-          ],
-          "items.0.date": [
-            "Date",
-          ],
-          "items.0.map": [
-            "map",
-          ],
-          "items.0.set": [
-            "set",
-          ],
-          "items.1.bigint": [
-            "bigint",
-          ],
-          "items.1.date": [
-            "Date",
-          ],
-          "items.1.map": [
-            "map",
-          ],
-          "items.1.set": [
-            "set",
-          ],
-        },
+  expect(await res.json()).toMatchObject({
+    __superjsonMeta: {
+      referentialEqualities: {
+        'items.0': ['items.1'],
       },
-      "items": [
-        {
-          "bigint": "123",
-          "date": "2025-01-20T18:01:57.852Z",
-          "map": [
-            [
-              "a",
-              1,
-            ],
-          ],
-          "set": [
-            1,
-            2,
-            3,
-          ],
-        },
-        {
-          "bigint": "123",
-          "date": "2025-01-20T18:01:57.852Z",
-          "map": [
-            [
-              "a",
-              1,
-            ],
-          ],
-          "set": [
-            1,
-            2,
-            3,
-          ],
-        },
-      ],
-    }
-  `)
+      values: {
+        'items.0.bigint': ['bigint'],
+        'items.0.date': ['Date'],
+        'items.0.map': ['map'],
+        'items.0.set': ['set'],
+        'items.1.bigint': ['bigint'],
+        'items.1.date': ['Date'],
+        'items.1.map': ['map'],
+        'items.1.set': ['set'],
+      },
+    },
+    items: [
+      {
+        bigint: '123',
+        date: '2025-01-20T18:01:57.852Z',
+        map: [['a', 1]],
+        set: [1, 2, 3],
+      },
+      {
+        bigint: '123',
+        date: '2025-01-20T18:01:57.852Z',
+        map: [['a', 1]],
+        set: [1, 2, 3],
+      },
+    ],
+  })
 })
 test('dynamic route', async () => {
   const res = await new Spiceflow()
@@ -865,7 +827,7 @@ test('query type safety: page object API query is typed', async () => {
       void query.missing
       void q
       void sort
-      return null as any
+      return null
     },
   })
 })
@@ -1231,9 +1193,11 @@ test('validate body works, request fails', async () => {
       }),
     )
   expect(res.status).toBe(422)
-  expect(await res.text()).toMatchInlineSnapshot(
-    `"{"code":"VALIDATION","status":422,"message":"requiredField: Invalid input: expected string, received undefined"}"`,
-  )
+  expect(await res.json()).toMatchObject({
+    code: 'VALIDATION',
+    status: 422,
+    message: 'requiredField: Invalid input: expected string, received undefined',
+  })
 })
 
 test('run use', async () => {
@@ -1573,9 +1537,9 @@ test('errors inside basPath works', async () => {
     expect(onErrorTriggered).toEqual(['root', 'two', 'nested'])
     expect(onReqTriggered).toEqual(['root', 'two', 'nested'])
     expect(res.status).toBe(500)
-    expect(await res.text()).toMatchInlineSnapshot(
-      `"{"message":"error message"}"`,
-    )
+    expect(await res.json()).toMatchObject({
+      message: 'error message',
+    })
     // expect(await res.json()).toEqual('nested'))
   }
 })
@@ -2485,11 +2449,9 @@ test('returning Error from handler behaves like throwing it', async () => {
   )
   expect(res.status).toBe(500)
   const body = await res.json()
-  expect(body).toMatchInlineSnapshot(`
-    {
-      "message": "something went wrong",
-    }
-  `)
+  expect(body).toMatchObject({
+    message: 'something went wrong',
+  })
 })
 
 test('returning Error with status property uses that status', async () => {
@@ -2502,12 +2464,10 @@ test('returning Error with status property uses that status', async () => {
   )
   expect(res.status).toBe(400)
   const body = await res.json()
-  expect(body).toMatchInlineSnapshot(`
-    {
-      "message": "bad request",
-      "status": 400,
-    }
-  `)
+  expect(body).toMatchObject({
+    message: 'bad request',
+    status: 400,
+  })
 })
 
 test('returning Error triggers onError handlers', async () => {
@@ -2540,11 +2500,9 @@ test('throwing Error from handler gives status 500 with message', async () => {
   )
   expect(res.status).toBe(500)
   const body = await res.json()
-  expect(body).toMatchInlineSnapshot(`
-    {
-      "message": "something went wrong",
-    }
-  `)
+  expect(body).toMatchObject({
+    message: 'something went wrong',
+  })
 })
 
 test('throwing Error with status property uses that status', async () => {
@@ -2557,12 +2515,10 @@ test('throwing Error with status property uses that status', async () => {
   )
   expect(res.status).toBe(400)
   const body = await res.json()
-  expect(body).toMatchInlineSnapshot(`
-    {
-      "message": "bad request",
-      "status": 400,
-    }
-  `)
+  expect(body).toMatchObject({
+    message: 'bad request',
+    status: 400,
+  })
 })
 
 test('route override - same method and path, second route wins', async () => {
@@ -2767,9 +2723,14 @@ test('disableSuperJsonUnlessRpc is inherited by child apps', async () => {
   expect(rpcRes.status).toBe(200)
   const rpcData = await rpcRes.text()
   expect(rpcData).toContain('__superjsonMeta')
-  expect(rpcData).toMatchInlineSnapshot(
-    `"{"date":"2024-01-01T00:00:00.000Z","__superjsonMeta":{"values":{"date":["Date"]}}}"`,
-  )
+  expect(JSON.parse(rpcData)).toMatchObject({
+    date: '2024-01-01T00:00:00.000Z',
+    __superjsonMeta: {
+      values: {
+        date: ['Date'],
+      },
+    },
+  })
 })
 
 test('child app inherits disableSuperJsonUnlessRpc from parent even if set to false', async () => {
@@ -3598,10 +3559,10 @@ test('.page() without Vite plugin throws a clear error', async () => {
     }),
   )
   expect(res.status).toBe(500)
-  const text = await res.text()
-  expect(text).toMatchInlineSnapshot(
-    `"{"message":"[spiceflow] RSC runtime is only available in the react-server environment. This error means renderReact was called outside of a Vite RSC build. Spiceflow .page and .layout methods require using the Vite plugin. See example application: https://github.com/remorses/spiceflow/blob/main/example-nodejs/vite.config.ts"}"`,
-  )
+  expect(await res.json()).toMatchObject({
+    message:
+      '[spiceflow] RSC runtime is only available in the react-server environment. This error means renderReact was called outside of a Vite RSC build. Spiceflow .page and .layout methods require using the Vite plugin. See example application: https://github.com/remorses/spiceflow/blob/main/example-nodejs/vite.config.ts',
+  })
 })
 
 test('.layout() without Vite plugin throws a clear error', async () => {
@@ -3615,10 +3576,10 @@ test('.layout() without Vite plugin throws a clear error', async () => {
     }),
   )
   expect(res.status).toBe(500)
-  const text = await res.text()
-  expect(text).toMatchInlineSnapshot(
-    `"{"message":"[spiceflow] RSC runtime is only available in the react-server environment. This error means renderReact was called outside of a Vite RSC build. Spiceflow .page and .layout methods require using the Vite plugin. See example application: https://github.com/remorses/spiceflow/blob/main/example-nodejs/vite.config.ts"}"`,
-  )
+  expect(await res.json()).toMatchObject({
+    message:
+      '[spiceflow] RSC runtime is only available in the react-server environment. This error means renderReact was called outside of a Vite RSC build. Spiceflow .page and .layout methods require using the Vite plugin. See example application: https://github.com/remorses/spiceflow/blob/main/example-nodejs/vite.config.ts',
+  })
 })
 
 describe('.use() with page and layout routes', () => {

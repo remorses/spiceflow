@@ -192,7 +192,7 @@ test('middleware next returns a response even for 404, if there are no routes', 
 })
 
 test('middleware without next runs the next middleware and handler', async () => {
-  let middlewaresCalled = [] as string[]
+  let middlewaresCalled: string[] = []
   const res = await new Spiceflow()
     .use(async ({ request }) => {
       middlewaresCalled.push('first')
@@ -214,7 +214,7 @@ test('middleware without next runs the next middleware and handler', async () =>
   expect(res.headers.get('x-test')).toBe('ok')
 })
 test('middleware throws response', async () => {
-  let middlewaresCalled = [] as string[]
+  let middlewaresCalled: string[] = []
   const res = await new Spiceflow()
     .use(async ({ request }) => {
       middlewaresCalled.push('first')
@@ -232,7 +232,7 @@ test('middleware throws response', async () => {
 })
 
 test('middleware stops other middlewares', async () => {
-  let middlewaresCalled = [] as string[]
+  let middlewaresCalled: string[] = []
   const res = await new Spiceflow()
     .use(async ({ request }) => {
       middlewaresCalled.push('first')
@@ -250,7 +250,7 @@ test('middleware stops other middlewares', async () => {
 })
 
 test('calling next and then returning a new response works', async () => {
-  let middlewaresCalled = [] as string[]
+  let middlewaresCalled: string[] = []
   const res = await new Spiceflow()
     .use(async (ctx, next) => {
       middlewaresCalled.push('first')
@@ -273,7 +273,7 @@ test('calling next and then returning a new response works', async () => {
 })
 
 test('middleware changes handler response body', async () => {
-  let middlewaresCalled = [] as string[]
+  let middlewaresCalled: string[] = []
   const res = await new Spiceflow()
     .use(async (ctx, next) => {
       middlewaresCalled.push('first')
@@ -403,9 +403,9 @@ test('each middleware and route is called exactly once if an error is thrown', a
   const res = await app.handle(new Request('http://localhost/test'))
 
   expect(res.status).toBe(500)
-  expect(await res.text()).toMatchInlineSnapshot(
-    `"{"message":"Route response"}"`,
-  )
+  expect(await res.json()).toMatchObject({
+    message: 'Route response',
+  })
   expect(callOrder).toEqual([
     'middleware1',
     'middleware2',
@@ -414,12 +414,13 @@ test('each middleware and route is called exactly once if an error is thrown', a
   ])
 
   // Check that each middleware and route is called exactly once
+  const emptyCounts: Record<string, number> = {}
   const counts = callOrder.reduce(
     (acc, item) => {
       acc[item] = (acc[item] || 0) + 1
       return acc
     },
-    {} as Record<string, number>,
+    emptyCounts,
   )
 
   expect(counts).toEqual({
