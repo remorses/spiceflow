@@ -436,25 +436,24 @@ export default function spiceflow({
           )
         }
 
+        // Force React packages to resolve from the project root in every
+        // environment so user code, spiceflow internals, and CJS dependencies
+        // all share one React instance. Without this, the client production
+        // bundle can inline a second React copy into a lazy chunk, which trips
+        // React's hook dispatcher (`Cannot read properties of null (reading
+        // 'useState')`) during hydration.
+        config.resolve ??= {}
+        config.resolve.dedupe = mergeUnique(config.resolve.dedupe, [
+          'react',
+          'react-dom',
+          'react/jsx-runtime',
+          'react/jsx-dev-runtime',
+          'spiceflow',
+          'spiceflow/react',
+        ])
+
         if (name === 'rsc' || name === 'ssr') {
           addNoExternal(config, 'spiceflow')
-          // Force React packages to resolve from the project root so the
-          // vendored react-server-dom CJS inside @vitejs/plugin-rsc shares
-          // the same React instance as user code. Without this, the vendor's
-          // require("react") can resolve to a separate module instance
-          // (especially under pnpm's strict isolation), causing
-          // ReactSharedInternals.A (the cache dispatcher) to be set on one
-          // instance while user code reads from another — breaking
-          // React.cache() in server components.
-          config.resolve ??= {}
-          config.resolve.dedupe = mergeUnique(config.resolve.dedupe, [
-            'react',
-            'react-dom',
-            'react/jsx-runtime',
-            'react/jsx-dev-runtime',
-            'spiceflow',
-            'spiceflow/react',
-          ])
 
           if (isCloudflareProject) {
             config.resolve.noExternal = true
