@@ -109,7 +109,7 @@ export function JsxActionTest() {
 			<button data-testid="call-jsx-action" onClick={handleClick}>
 				Get JSX
 			</button>
-			{content && <div data-testid="jsx-action-content">{content}</div>}
+			{content !== null ? <div data-testid="jsx-action-content">{content}</div> : null}
 			{error && <div data-testid="jsx-action-error">{error}</div>}
 		</div>
 	);

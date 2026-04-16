@@ -14,7 +14,7 @@ export function StreamingConsumer({
 
 	useEffect(() => {
 		let cancelled = false;
-		(async () => {
+		void (async () => {
 			for await (const item of stream) {
 				if (cancelled) break;
 				setItems((prev) => [...prev, item]);

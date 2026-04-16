@@ -72,4 +72,4 @@ async function main() {
   console.log(`Time taken: ${endTime - startTime}ms`)
 }
 
-main()
+void main()

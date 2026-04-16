@@ -207,7 +207,7 @@ export async function generateSDKForRoute({
 
   const logStream = logFile ? logToFile(logFile) : null
 
-  logStream?.write(ymlSchema + '\n---\n')
+  await logStream?.write(ymlSchema + '\n---\n')
 
   for await (const chunk of res.fullStream) {
     if (chunk.type === 'text-delta') {
@@ -217,7 +217,7 @@ export async function generateSDKForRoute({
     }
   }
 
-  logStream?.end()
+  await logStream?.end()
   console.timeEnd(
     `llm generate route ${route.method} ${route.path} ${requestId}`,
   )
@@ -472,7 +472,7 @@ export async function mergeSDKOutputs({
 
 export function logToFile(filePath: string) {
   fs.mkdirSync(path.dirname(filePath), { recursive: true })
-  fs.promises.writeFile(filePath, '')
+  fs.writeFileSync(filePath, '')
 
   let buffer = ''
   let lastWrite = Date.now()
