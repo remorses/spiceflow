@@ -1331,11 +1331,30 @@ export class Spiceflow<
               >
       >
   use<const Schema extends RouteSchema>(
+    path: string,
+    handler: MiddlewareHandler<Schema, Singleton>,
+  ): this
+  use<const Schema extends RouteSchema>(
     handler: MiddlewareHandler<Schema, Singleton>,
   ): this
 
-  use(appOrHandler) {
-    if (appOrHandler instanceof Spiceflow) {
+  use(appOrHandler: any, maybeHandler?: Function) {
+    if (typeof appOrHandler === 'string' && typeof maybeHandler === 'function') {
+      const pattern = appOrHandler
+      const handler = maybeHandler
+      const ownerApp: AnySpiceflow = this
+      this.middlewares ??= []
+      this.middlewares.push((context: any, next: any) => {
+        const prefix = ownerApp.topLevelApp
+          ? ownerApp.topLevelApp.joinBasePaths(
+              ownerApp.topLevelApp.getAppAndParents(ownerApp).map((x: AnySpiceflow) => x.basePath),
+            )
+          : ''
+        const fullPattern = prefix ? prefix + pattern : pattern
+        if (!middlewarePathMatches(context.path, fullPattern)) return
+        return handler(context, next)
+      })
+    } else if (appOrHandler instanceof Spiceflow) {
       appOrHandler.topLevelApp = this
       // Inherit disableSuperJsonUnlessRpc from parent if child doesn't have it set
       if (this.disableSuperJsonUnlessRpc === true) {
@@ -2463,13 +2482,13 @@ export class Spiceflow<
     })
     if (isResponse(res)) return res
 
-    // In dev mode, re-throw unhandled errors so they propagate to the Vite
-    // dev server's error middleware. Vite catches the error, fixes the stack
-    // trace via ssrFixStacktrace, and sends it to the browser via WebSocket
-    // to show the error overlay. Without this, errors are swallowed as JSON
-    // responses and the overlay never triggers — both with Node.js SSR
-    // middleware (catch → next(e)) and Cloudflare Vite plugin (catch → next(error)).
-    if (import.meta.hot) {
+    // In dev mode, re-throw document/RSC errors so they reach Vite's error
+    // middleware and show the overlay in the browser. Plain API requests should
+    // keep returning JSON error bodies instead of Vite's HTML 500 page.
+    const isBrowserNavigation =
+      isDocumentRequest(request) ||
+      request.headers.get('accept')?.includes('text/html')
+    if (import.meta.hot && (isBrowserNavigation || isRscRequest(new URL(request.url)))) {
       throw err
     }
 
@@ -3404,6 +3423,16 @@ function pickBestRoute<T extends { route: InternalRoute; app?: AnySpiceflow }>(
     }
   }
   return best
+}
+
+function middlewarePathMatches(requestPath: string, pattern: string): boolean {
+  const normalizedPath = requestPath.replace(/\/$/, '') || '/'
+  if (pattern.endsWith('/*')) {
+    const prefix = pattern.slice(0, -2) || '/'
+    if (prefix === '/') return true
+    return normalizedPath === prefix || normalizedPath.startsWith(prefix + '/')
+  }
+  return normalizedPath === pattern
 }
 
 function routeShouldYieldToStatic(route: InternalRoute) {

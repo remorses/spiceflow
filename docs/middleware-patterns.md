@@ -55,10 +55,10 @@ function createProxyMiddleware({
   changeOrigin = false,
 }): MiddlewareHandler {
   return async ({ request }) => {
-    const url = new URL(request.url)
+    const { pathname, search } = request.parsedUrl
 
     const proxyReq = new Request(
-      new URL(url.pathname + url.search, target),
+      new URL(pathname + search, target),
       request,
     )
 

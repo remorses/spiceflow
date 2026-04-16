@@ -12,6 +12,27 @@ import { z } from 'zod'
 import { createSpiceflowClient } from './client/index.js'
 import { createSpiceflowFetch } from './client/fetch.ts'
 
+async function expectJsonErrorResponse({
+  response,
+  status,
+  message,
+  extra = {},
+}: {
+  response: Response
+  status: number
+  message: string
+  extra?: Record<string, unknown>
+}) {
+  expect(response.status).toBe(status)
+  const body = await response.json()
+  expect(body).toMatchObject({
+    ...extra,
+    message,
+    stack: expect.any(String),
+  })
+  expect(body.stack).toContain(`Error: ${message}`)
+}
+
 test('works', async () => {
   const res = await new Spiceflow()
     .post('/xxx', () => 'hi')
@@ -315,7 +336,8 @@ test('can encode superjson types', async () => {
         ],
       }
     `)
-  expect(await res.json()).toMatchObject({
+  const payload = await res.json()
+  expect(payload).toMatchObject({
     __superjsonMeta: {
       referentialEqualities: {
         'items.0': ['items.1'],
@@ -346,6 +368,10 @@ test('can encode superjson types', async () => {
       },
     ],
   })
+  const payloadMetaVersion = payload.__superjsonMeta.v
+  if (payloadMetaVersion !== undefined) {
+    expect(payloadMetaVersion).toBe(1)
+  }
 })
 test('dynamic route', async () => {
   const res = await new Spiceflow()
@@ -1192,11 +1218,14 @@ test('validate body works, request fails', async () => {
         body: JSON.stringify({ name: 'John' }),
       }),
     )
-  expect(res.status).toBe(422)
-  expect(await res.json()).toMatchObject({
-    code: 'VALIDATION',
+  await expectJsonErrorResponse({
+    response: res,
     status: 422,
     message: 'requiredField: Invalid input: expected string, received undefined',
+    extra: {
+      code: 'VALIDATION',
+      status: 422,
+    },
   })
 })
 
@@ -1536,8 +1565,9 @@ test('errors inside basPath works', async () => {
     expect(handlerCalledNTimes).toBe(1)
     expect(onErrorTriggered).toEqual(['root', 'two', 'nested'])
     expect(onReqTriggered).toEqual(['root', 'two', 'nested'])
-    expect(res.status).toBe(500)
-    expect(await res.json()).toMatchObject({
+    await expectJsonErrorResponse({
+      response: res,
+      status: 500,
       message: 'error message',
     })
     // expect(await res.json()).toEqual('nested'))
@@ -2447,9 +2477,9 @@ test('returning Error from handler behaves like throwing it', async () => {
   const res = await app.handle(
     new Request('http://localhost/test', { method: 'GET' }),
   )
-  expect(res.status).toBe(500)
-  const body = await res.json()
-  expect(body).toMatchObject({
+  await expectJsonErrorResponse({
+    response: res,
+    status: 500,
     message: 'something went wrong',
   })
 })
@@ -2462,11 +2492,11 @@ test('returning Error with status property uses that status', async () => {
   const res = await app.handle(
     new Request('http://localhost/test', { method: 'GET' }),
   )
-  expect(res.status).toBe(400)
-  const body = await res.json()
-  expect(body).toMatchObject({
-    message: 'bad request',
+  await expectJsonErrorResponse({
+    response: res,
     status: 400,
+    message: 'bad request',
+    extra: { status: 400 },
   })
 })
 
@@ -2498,9 +2528,9 @@ test('throwing Error from handler gives status 500 with message', async () => {
   const res = await app.handle(
     new Request('http://localhost/test', { method: 'GET' }),
   )
-  expect(res.status).toBe(500)
-  const body = await res.json()
-  expect(body).toMatchObject({
+  await expectJsonErrorResponse({
+    response: res,
+    status: 500,
     message: 'something went wrong',
   })
 })
@@ -2513,11 +2543,11 @@ test('throwing Error with status property uses that status', async () => {
   const res = await app.handle(
     new Request('http://localhost/test', { method: 'GET' }),
   )
-  expect(res.status).toBe(400)
-  const body = await res.json()
-  expect(body).toMatchObject({
-    message: 'bad request',
+  await expectJsonErrorResponse({
+    response: res,
     status: 400,
+    message: 'bad request',
+    extra: { status: 400 },
   })
 })
 
@@ -2723,7 +2753,8 @@ test('disableSuperJsonUnlessRpc is inherited by child apps', async () => {
   expect(rpcRes.status).toBe(200)
   const rpcData = await rpcRes.text()
   expect(rpcData).toContain('__superjsonMeta')
-  expect(JSON.parse(rpcData)).toMatchObject({
+  const rpcJson = JSON.parse(rpcData)
+  expect(rpcJson).toMatchObject({
     date: '2024-01-01T00:00:00.000Z',
     __superjsonMeta: {
       values: {
@@ -2731,6 +2762,10 @@ test('disableSuperJsonUnlessRpc is inherited by child apps', async () => {
       },
     },
   })
+  const rpcMetaVersion = rpcJson.__superjsonMeta.v
+  if (rpcMetaVersion !== undefined) {
+    expect(rpcMetaVersion).toBe(1)
+  }
 })
 
 test('child app inherits disableSuperJsonUnlessRpc from parent even if set to false', async () => {
@@ -3558,8 +3593,9 @@ test('.page() without Vite plugin throws a clear error', async () => {
       headers: { accept: 'text/html' },
     }),
   )
-  expect(res.status).toBe(500)
-  expect(await res.json()).toMatchObject({
+  await expectJsonErrorResponse({
+    response: res,
+    status: 500,
     message:
       '[spiceflow] RSC runtime is only available in the react-server environment. This error means renderReact was called outside of a Vite RSC build. Spiceflow .page and .layout methods require using the Vite plugin. See example application: https://github.com/remorses/spiceflow/blob/main/example-nodejs/vite.config.ts',
   })
@@ -3575,8 +3611,9 @@ test('.layout() without Vite plugin throws a clear error', async () => {
       headers: { accept: 'text/html' },
     }),
   )
-  expect(res.status).toBe(500)
-  expect(await res.json()).toMatchObject({
+  await expectJsonErrorResponse({
+    response: res,
+    status: 500,
     message:
       '[spiceflow] RSC runtime is only available in the react-server environment. This error means renderReact was called outside of a Vite RSC build. Spiceflow .page and .layout methods require using the Vite plugin. See example application: https://github.com/remorses/spiceflow/blob/main/example-nodejs/vite.config.ts',
   })

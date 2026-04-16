@@ -403,9 +403,9 @@ test('each middleware and route is called exactly once if an error is thrown', a
   const res = await app.handle(new Request('http://localhost/test'))
 
   expect(res.status).toBe(500)
-  expect(await res.json()).toMatchObject({
-    message: 'Route response',
-  })
+  const body = JSON.parse(await res.text())
+  expect(body.message).toBe('Route response')
+  expect(body.stack).toContain('Error: Route response')
   expect(callOrder).toEqual([
     'middleware1',
     'middleware2',
@@ -514,6 +514,191 @@ test('middleware with try/finally correctly tracks operations even when errors a
 
   // Operation count should be back to 0
   expect(operationCount).toBe(0)
+})
+
+test('path-scoped middleware only runs for matching wildcard path', async () => {
+  let middlewareCalled = false
+  const app = new Spiceflow()
+    .use('/api/*', async ({ request }, next) => {
+      middlewareCalled = true
+      return next()
+    })
+    .get('/api/users', () => 'users')
+    .get('/health', () => 'ok')
+
+  middlewareCalled = false
+  const res1 = await app.handle(new Request('http://localhost/api/users'))
+  expect(res1.status).toBe(200)
+  expect(await res1.json()).toBe('users')
+  expect(middlewareCalled).toBe(true)
+
+  middlewareCalled = false
+  const res2 = await app.handle(new Request('http://localhost/health'))
+  expect(res2.status).toBe(200)
+  expect(await res2.json()).toBe('ok')
+  expect(middlewareCalled).toBe(false)
+})
+
+test('path-scoped middleware matches the prefix itself without trailing slash', async () => {
+  let middlewareCalled = false
+  const app = new Spiceflow()
+    .use('/api/*', async ({ request }, next) => {
+      middlewareCalled = true
+      return next()
+    })
+    .get('/api', () => 'api root')
+
+  const res = await app.handle(new Request('http://localhost/api'))
+  expect(res.status).toBe(200)
+  expect(await res.json()).toBe('api root')
+  expect(middlewareCalled).toBe(true)
+})
+
+test('exact path-scoped middleware only matches exact path', async () => {
+  let middlewareCalled = false
+  const app = new Spiceflow()
+    .use('/api', async ({ request }, next) => {
+      middlewareCalled = true
+      return next()
+    })
+    .get('/api', () => 'api root')
+    .get('/api/users', () => 'users')
+
+  middlewareCalled = false
+  const res1 = await app.handle(new Request('http://localhost/api'))
+  expect(res1.status).toBe(200)
+  expect(middlewareCalled).toBe(true)
+
+  middlewareCalled = false
+  const res2 = await app.handle(new Request('http://localhost/api/users'))
+  expect(res2.status).toBe(200)
+  expect(await res2.json()).toBe('users')
+  expect(middlewareCalled).toBe(false)
+})
+
+test('path-scoped middleware can modify response via next()', async () => {
+  const app = new Spiceflow()
+    .use('/api/*', async ({ request }, next) => {
+      const res = await next()
+      res.headers.set('x-api-version', '2')
+      return res
+    })
+    .get('/api/users', () => 'users')
+    .get('/health', () => 'ok')
+
+  const res1 = await app.handle(new Request('http://localhost/api/users'))
+  expect(res1.headers.get('x-api-version')).toBe('2')
+
+  const res2 = await app.handle(new Request('http://localhost/health'))
+  expect(res2.headers.get('x-api-version')).toBeNull()
+})
+
+test('multiple path-scoped middlewares each fire for their own path', async () => {
+  const called: string[] = []
+  const app = new Spiceflow()
+    .use('/api/*', async (ctx, next) => {
+      called.push('api')
+      return next()
+    })
+    .use('/admin/*', async (ctx, next) => {
+      called.push('admin')
+      return next()
+    })
+    .get('/api/users', () => 'users')
+    .get('/admin/dashboard', () => 'dashboard')
+    .get('/health', () => 'ok')
+
+  called.length = 0
+  await app.handle(new Request('http://localhost/api/users'))
+  expect(called).toEqual(['api'])
+
+  called.length = 0
+  await app.handle(new Request('http://localhost/admin/dashboard'))
+  expect(called).toEqual(['admin'])
+
+  called.length = 0
+  await app.handle(new Request('http://localhost/health'))
+  expect(called).toEqual([])
+})
+
+test('path-scoped middleware mixed with global middleware', async () => {
+  const called: string[] = []
+  const app = new Spiceflow()
+    .use(async (ctx, next) => {
+      called.push('global')
+      return next()
+    })
+    .use('/api/*', async (ctx, next) => {
+      called.push('api-only')
+      return next()
+    })
+    .get('/api/users', () => 'users')
+    .get('/health', () => 'ok')
+
+  called.length = 0
+  await app.handle(new Request('http://localhost/api/users'))
+  expect(called).toEqual(['global', 'api-only'])
+
+  called.length = 0
+  await app.handle(new Request('http://localhost/health'))
+  expect(called).toEqual(['global'])
+})
+
+test('exact path-scoped middleware matches trailing slash', async () => {
+  let middlewareCalled = false
+  const app = new Spiceflow()
+    .use('/api', async ({ request }, next) => {
+      middlewareCalled = true
+      return next()
+    })
+    .get('/api', () => 'api root')
+
+  middlewareCalled = false
+  const res = await app.handle(new Request('http://localhost/api/'))
+  expect(res.status).toBe(200)
+  expect(middlewareCalled).toBe(true)
+})
+
+test('path-scoped middleware works with basePath child app', async () => {
+  let middlewareCalled = false
+  const api = new Spiceflow({ basePath: '/api' })
+    .use('/users/*', async (ctx, next) => {
+      middlewareCalled = true
+      return next()
+    })
+    .get('/users', () => 'users')
+    .get('/health', () => 'api health')
+
+  const app = new Spiceflow().use(api)
+
+  middlewareCalled = false
+  const res1 = await app.handle(new Request('http://localhost/api/users'))
+  expect(res1.status).toBe(200)
+  expect(await res1.json()).toBe('users')
+  expect(middlewareCalled).toBe(true)
+
+  middlewareCalled = false
+  const res2 = await app.handle(new Request('http://localhost/api/health'))
+  expect(res2.status).toBe(200)
+  expect(await res2.json()).toBe('api health')
+  expect(middlewareCalled).toBe(false)
+})
+
+test('path-scoped middleware can short-circuit with early return', async () => {
+  const app = new Spiceflow()
+    .use('/api/*', async ({ request }, next) => {
+      return new Response('unauthorized', { status: 401 })
+    })
+    .get('/api/users', () => 'users')
+    .get('/health', () => 'ok')
+
+  const res1 = await app.handle(new Request('http://localhost/api/users'))
+  expect(res1.status).toBe(401)
+  expect(await res1.text()).toBe('unauthorized')
+
+  const res2 = await app.handle(new Request('http://localhost/health'))
+  expect(res2.status).toBe(200)
+  expect(await res2.json()).toBe('ok')
 })
 
 test('middleware with try/finally tracks operations correctly with child apps', async () => {

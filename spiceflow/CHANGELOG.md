@@ -1,5 +1,42 @@
 # spiceflow
 
+## 1.19.0-rsc.0
+
+1. **Public `ErrorBoundary` for server actions** — `spiceflow/react` now exports an `ErrorBoundary` component with `ErrorBoundary.ErrorMessage` and `ErrorBoundary.ResetButton` sub-components, so forms can catch thrown action errors and render a retry UI without building custom boundary plumbing:
+
+   ```tsx
+   import { ErrorBoundary } from 'spiceflow/react'
+
+   <ErrorBoundary
+     fallback={
+       <div>
+         <ErrorBoundary.ErrorMessage className="text-red-500" />
+         <ErrorBoundary.ResetButton>Try again</ErrorBoundary.ResetButton>
+       </div>
+     }
+   >
+     <form action={savePost}>...</form>
+   </ErrorBoundary>
+   ```
+
+2. **Every server action call now refreshes the page automatically** — form submissions, direct imported action calls, and client wrappers all apply the new RSC payload immediately after the action finishes, so loaders and server components stay in sync without `await router.refresh()`.
+
+3. **Path-scoped middleware with `.use(path, handler)`** — middleware can now be limited to a specific exact path or wildcard prefix instead of running globally:
+
+   ```ts
+   new Spiceflow()
+     .use('/api/*', async ({ request }, next) => {
+       console.log('only API routes hit this middleware')
+       return next()
+     })
+   ```
+
+4. **React pages and layouts can return raw HTTP responses** — non-404 `Response` values returned from `.page()` and `.layout()` now short-circuit as normal document responses, while 404 responses still flow through the existing not-found rendering path.
+
+5. **Fixed locked request bodies inside server actions** — calling `getActionRequest()` and then reading or forwarding the request body no longer crashes with `ReadableStream has been locked to a reader`.
+
+6. **Fixed several RSC correctness bugs** — dev-mode API errors now stay JSON instead of falling through to Vite's HTML overlay, and `useId()` output now stays consistent between SSR and hydration.
+
 ## 1.18.0-rsc.29
 
 1. **Fix React page/layout handlers returning `Response`** — redirects from `.page()` and `.layout()` now short-circuit correctly via SPA navigation, and `notFound()` responses render through the 404 flow instead of crashing RSC serialization with `Only plain objects` errors during browser navigation.
