@@ -9,6 +9,14 @@ import type { TypeSchema } from './types.js'
 
 import { z } from 'zod/v4'
 
+const hiddenRouteKinds = new Set([
+  'page',
+  'layout',
+  'loader',
+  'staticPage',
+  'staticPageWithoutHandler',
+])
+
 const extractParamNames = (path: string): string[] => {
   return path.split('/').reduce((params: string[], segment) => {
     if (segment.startsWith(':')) {
@@ -397,6 +405,7 @@ export function openapi<Path extends string = '/openapi'>({
       routes.forEach((route: InternalRoute) => {
         if (route.path.startsWith('_mcp_')) return
         if (route.hooks?.detail?.hide === true) return
+        if (route.kind && hiddenRouteKinds.has(route.kind)) return
         // TODO: route.hooks?.detail?.hide !== false  add ability to hide: false to prevent excluding
         if (excludeMethods.includes(route.method)) return
         if (

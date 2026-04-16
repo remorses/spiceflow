@@ -514,3 +514,22 @@ test('openapi response', async () => {
     }
   `)
 })
+
+test('openapi hides page, layout, and loader routes', async () => {
+  const app = new Spiceflow()
+    .use(openapi({ path: '/openapi.json' }))
+    .layout('/*', ({ children }) => children)
+    .loader('/dashboard', async () => ({ user: 'alice' }))
+    .page('/dashboard', async () => 'Dashboard')
+    .staticGet('/manifest.json', () => ({ ok: true }))
+    .get('/api/health', () => ({ ok: true }))
+
+  const schema = await app
+    .handle(new Request('http://localhost/openapi.json'))
+    .then((x) => x.json())
+
+  expect(schema.paths['/dashboard']).toBeUndefined()
+  expect(schema.paths['/*']).toBeUndefined()
+  expect(schema.paths['/manifest.json']).toBeTruthy()
+  expect(schema.paths['/api/health']).toBeTruthy()
+})
