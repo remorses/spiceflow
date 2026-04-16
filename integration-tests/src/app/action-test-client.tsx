@@ -11,6 +11,7 @@ import {
 	jsxStreamingAction,
 	throwingStreamingAction,
 } from "./action-streaming";
+import { redirectToNamedTarget } from "./form-action";
 
 export function StreamingActionTest() {
 	const [items, setItems] = useState<string[]>([]);
@@ -69,6 +70,24 @@ export function RedirectActionTest() {
 				Redirect with cookie
 			</button>
 		</div>
+	);
+}
+
+export function WrappedRedirectFormTest() {
+	return (
+		<form
+			action={async (formData: FormData) => {
+				const name = formData.get("name");
+				if (typeof name !== "string") {
+					throw new Error("Expected redirect target name");
+				}
+				await redirectToNamedTarget({ name });
+			}}
+			data-testid="wrapped-redirect-form"
+		>
+			<input name="name" type="text" defaultValue="created-org" />
+			<button type="submit">Create item</button>
+		</form>
 	);
 }
 
