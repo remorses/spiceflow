@@ -1518,6 +1518,15 @@ export function SaveButton() {
 
 Manual calls share the same state as router navigation, so if a navigation and a client fetch overlap, the bar stays visible until both have finished.
 
+<details>
+<summary>React export shape</summary>
+
+Do not mix React component exports with non-React exports like `const`, `Context`, or plain helper functions in the same public module. That can break HMR / Fast Refresh because the module stops behaving like a pure component module.
+
+If a component needs imperative helpers, attach them as static properties on the component instead of exporting separate helpers. For example, prefer `ProgressBar.start()` / `ProgressBar.end()` over standalone `startProgressBar()` or `endProgressBar()` exports.
+
+</details>
+
 If a server action throws, the error is caught by the nearest `ErrorBoundary`. The error message is preserved (sanitized to strip secrets) and displayed to the user in both development and production builds.
 
 ### Error Handling
