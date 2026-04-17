@@ -45,7 +45,7 @@ Result: the form stays pending and the page never updates.
 The public API should keep the safe rule simple:
 
 - `router.refresh()` returns `void`
-- `router.push()` and `router.replace()` stay fire-and-forget too
+- `router.push()`, `router.replace()`, `router.back()`, `router.forward()`, and `router.go()` stay fire-and-forget too
 - do not expose an implicit "wait for commit" promise from navigation helpers
 
 ## Repro shape to add
@@ -73,6 +73,7 @@ The fix should make the safe thing the default API:
 Preferred split:
 
 - `router.refresh()` — request a refresh, return `void`
+- `router.push()` / `router.replace()` / `router.back()` / `router.forward()` / `router.go()` — schedule navigation, return `void`
 - `router.whenNextRefreshCommits()` or similarly explicit helper — await commit outside form actions only
 
 That makes the dangerous pattern much harder to write by accident and keeps the normal mutation flow simple.

@@ -1681,7 +1681,7 @@ export function CreateProjectForm({ orgId }: { orgId: string }) {
 }
 ```
 
-`router.push()` is still the right choice for pure client-side navigation that doesn't involve a server action (e.g. tab switches, select dropdowns, back buttons).
+`router.push()`, `router.replace()`, `router.back()`, `router.forward()`, and `router.go()` are still the right choice for pure client-side navigation that doesn't involve a server action (e.g. tab switches, select dropdowns, back buttons). These APIs are all fire-and-forget — do not build awaitable wrappers around navigation commits and then call them inside a React client form action.
 
 ### Router
 
@@ -1855,6 +1855,13 @@ function Example() {
   router.push('/search?q=spiceflow&page=1')
 }
 ```
+
+<details>
+<summary>Navigation methods are fire-and-forget</summary>
+
+`router.push()`, `router.replace()`, `router.back()`, `router.forward()`, and `router.go()` schedule navigation and return immediately. Do not wrap them in helpers that wait for the next navigation commit and then call those helpers from a React client form action — React keeps the form action transition pending until the action returns, so awaiting that same commit can deadlock the page.
+
+</details>
 
 ### Server Actions
 

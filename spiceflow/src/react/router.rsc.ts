@@ -12,7 +12,6 @@ import type {
 
 const basePath = getBasePath()
 const noop = () => undefined
-const noopAsync = () => Promise.resolve()
 
 export type ReadonlyURLSearchParams = Omit<
   URLSearchParams,
