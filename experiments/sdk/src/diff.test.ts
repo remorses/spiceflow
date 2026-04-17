@@ -6,7 +6,7 @@ import fs from 'fs'
 
 import { extractMarkdownSnippets } from './sdk'
 
-test(`recursivelyResolveComponents on dub`, () => {
+test(`recursivelyResolveComponents on dub`, async () => {
   const yml = fs.readFileSync('./scripts/dub-openapi.yml', 'utf-8')
   const openApiSchema = YAML.load(yml) as any
   const subsetSchema = recursivelyResolveComponents({
@@ -14,7 +14,7 @@ test(`recursivelyResolveComponents on dub`, () => {
     path: '/links',
     method: 'get',
   })
-  expect(subsetSchema).toMatchFileSnapshot(
+  await expect(subsetSchema).toMatchFileSnapshot(
     '../scripts/openapi-tests/extracted.json5',
   )
 })

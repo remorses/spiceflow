@@ -1,6 +1,6 @@
 import React from 'react'
 import ReactDOM from 'react-dom'
-import { streamSSEResponse, type SSEEvent } from '../client/shared.js'
+import { EventSourceParserStream } from 'eventsource-parser/stream'
 import { EsmIsland } from './esm-island.js'
 import { RemoteIsland } from './remote-island.js'
 
@@ -104,32 +104,68 @@ export async function* parseFederationPayload(
 
   const remoteOrigin = getResponseOrigin(response)
 
-  for await (const event of streamSSEResponse({
-    response,
-    map: (x: SSEEvent) => x,
-    signal,
-  })) {
-    switch (event.event) {
-      case 'metadata':
-        yield {
-          type: 'metadata',
-          payload: JSON.parse(event.data) as FederatedPayloadMetadata,
-          remoteOrigin,
-        }
-        break
-      case 'ssr':
-        yield {
-          type: 'ssr',
-          payload: JSON.parse(event.data).html as string,
-        }
-        break
-      case 'flight':
-        yield { type: 'flight', payload: event.data }
-        break
-      case 'done':
-        yield { type: 'done' }
-        break
+  const body = response.body
+  if (!body) {
+    return
+  }
+
+  const eventStream = body
+    .pipeThrough(new TextDecoderStream())
+    .pipeThrough(new EventSourceParserStream())
+  const reader = eventStream.getReader()
+
+  const abort = () => {
+    void reader.cancel().catch(() => undefined)
+  }
+
+  if (signal) {
+    if (signal.aborted) {
+      abort()
+      return
     }
+    signal.addEventListener('abort', abort, { once: true })
+  }
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) {
+        return
+      }
+
+      const event = value
+      if (!event) {
+        continue
+      }
+
+      switch (event.event) {
+        case 'metadata':
+          yield {
+            type: 'metadata',
+            payload: JSON.parse(event.data) as FederatedPayloadMetadata,
+            remoteOrigin,
+          }
+          break
+        case 'ssr':
+          yield {
+            type: 'ssr',
+            payload: JSON.parse(event.data).html as string,
+          }
+          break
+        case 'flight':
+          yield { type: 'flight', payload: event.data }
+          break
+        case 'done':
+          yield { type: 'done' }
+          break
+      }
+    }
+  } finally {
+    if (signal) {
+      signal.removeEventListener('abort', abort)
+    }
+    await reader.cancel().catch(() => undefined)
+    reader.releaseLock()
   }
 }
 

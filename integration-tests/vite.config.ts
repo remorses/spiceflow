@@ -18,11 +18,13 @@ export default defineConfig({
 	base: basePath || "/",
 	resolve: {
 		conditions: extraConditions,
+		dedupe: ["react", "react-dom", "its-fine", "spiceflow"],
 	},
 	environments: {
 		rsc: {
 			resolve: {
 				conditions: extraConditions,
+				dedupe: ["react", "react-dom", "its-fine", "spiceflow"],
 			},
 		},
 	},

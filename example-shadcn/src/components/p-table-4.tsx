@@ -151,7 +151,7 @@ const columns: ColumnDef<Flight>[] = [
   {
     accessorKey: "status",
     cell: ({ row }) => {
-      const status = row.getValue("status") as Flight["status"];
+      const status = row.getValue<Flight["status"]>("status");
       return (
         <Badge variant="outline">
           <span

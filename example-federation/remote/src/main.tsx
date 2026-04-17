@@ -34,4 +34,4 @@ export const app = new Spiceflow()
 	return await encodeFederationPayload(<Chart {...props} />)
   })
 
-app.listen(Number(process.env.PORT || 3001))
+void app.listen(Number(process.env.PORT || 3001))

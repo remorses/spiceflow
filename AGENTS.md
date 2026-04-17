@@ -233,7 +233,7 @@ All React-facing APIs (components, router, utilities) must be exported from `spi
 
 ## server actions and router.refresh()
 
-Spiceflow automatically re-renders the page after direct form actions (`callServer` applies the new RSC payload when React submits a `<form action={serverAction}>`). Direct imported action calls and client wrappers still need `router.refresh()` if you want the current page's server components and loaders to refetch.
+Spiceflow automatically re-renders the page after every server action call (`callServer` always applies the new RSC payload). This means `router.refresh()` is NOT needed after server actions — the page updates automatically for direct `<form action={serverAction}>`, client wrapper functions, and direct imported action calls.
 
 `router.refresh()` is still useful for standalone refreshes (e.g. after a WebSocket event, or to poll for updates). It triggers a re-fetch of all server components and loaders.
 

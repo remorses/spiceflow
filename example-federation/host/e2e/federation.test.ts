@@ -86,10 +86,7 @@ test.describe('federation', () => {
     expect(ssrHtml).toContain('counter:')
 
     // clientModules should only contain user-component chunks, not index/framework
-    for (const [, info] of Object.entries(metadata.clientModules) as [
-      string,
-      { chunks: string[]; css: string[] },
-    ][]) {
+    for (const info of Object.values(metadata.clientModules)) {
       for (const chunk of info.chunks) {
         expect(chunk).toContain('user-components')
         expect(chunk).not.toContain('index-')
@@ -154,10 +151,7 @@ test.describe('federation', () => {
     const { metadata } = await parseFederationSSE(response)
 
     // JS chunk paths should be absolute with remote origin
-    for (const [, info] of Object.entries(metadata.clientModules) as [
-      string,
-      { chunks: string[]; css: string[] },
-    ][]) {
+    for (const info of Object.values(metadata.clientModules)) {
       for (const chunk of info.chunks) {
         expect(chunk).toMatch(/^https?:\/\//)
         expect(chunk).toContain(remoteURL)

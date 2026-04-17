@@ -308,9 +308,6 @@ async function main() {
         })
       }
       const payload = await payloadPromise
-      if (isFormAction) {
-        router.__setLoaderData(payload.root?.loaderData)
-      }
 
       if (payload.actionError) {
         // React prod strips both error.message and error.digest for Error values
@@ -324,6 +321,11 @@ async function main() {
         }
         // Redirect errors from throw redirect() in server actions: navigate
         // to the target URL instead of throwing to the caller.
+        // Resolve the action promise after scheduling the navigation.
+        // Returning a never-settling promise keeps React form actions stuck in
+        // the pending state, which prevents wrapped client form actions from
+        // committing the follow-up navigation payload even though the URL
+        // changed.
         const errorCtx = getErrorContext(payload.actionError)
         const redirectInfo = isRedirectError(errorCtx)
         if (redirectInfo) {
@@ -331,12 +333,35 @@ async function main() {
           if (target.origin !== window.location.origin) {
             hardNavigate(target.href)
           } else {
-            router.push(`${target.pathname}${target.search}${target.hash}`)
+            const nextHref = `${target.pathname}${target.search}${target.hash}`
+            queueMicrotask(() => {
+              router.push(nextHref)
+              router.refresh()
+            })
           }
-          return never()
+          return undefined
         }
+        // Re-render the page tree with the latest payload before surfacing the
+        // action error so ErrorBoundary fallbacks and server-rendered UI stay in
+        // sync with the response.
+        setPayloadDirect({
+          payload: Promise.resolve(payload),
+        })
         throw payload.actionError
       }
+
+      router.__setLoaderData(payload.root?.loaderData)
+
+      // Always re-render the page tree after a successful server action so
+      // mutations are visible immediately. Uses setPayloadDirect (raw
+      // setState, no startTransition) so the update joins whatever transition
+      // is already active — e.g. React's form action transition. A nested
+      // startTransition would create an independent transition that commits
+      // separately from the caller's setState calls, causing a flash of stale
+      // content.
+      setPayloadDirect({
+        payload: Promise.resolve(payload),
+      })
 
       return wrapReturnValueErrors(payload.returnValue)
     } finally {
