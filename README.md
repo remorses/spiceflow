@@ -1383,7 +1383,7 @@ Spiceflow already parallelizes at the framework level — all matched loaders ru
 
 Forms use React 19's `<form action>` with server functions marked `"use server"`. They work before JavaScript loads (progressive enhancement).
 
-**Every server action call automatically re-renders the current page with fresh server data.** This applies to all server actions — form submissions, client wrapper functions, onClick handlers, and even imported server functions called directly. The re-render happens via React reconciliation, so client component state is preserved. No manual `router.refresh()` needed.
+**Form submissions automatically re-render the current page with fresh server data.** When React submits a `<form action={serverAction}>`, Spiceflow applies the new RSC payload automatically so server-rendered content stays in sync without an extra refresh call. Direct imported action calls and client event handlers still need `router.refresh()` if you want the current page's server components and loaders to refetch.
 
 Every submit button should show a loading state while its form action is in progress. Use `useFormStatus` from `react-dom` in your Button component to auto-detect pending forms — the button shows a spinner automatically when it's inside a `<form>` with a pending action:
 
@@ -1475,7 +1475,7 @@ export function NewsletterForm({
 })
 ```
 
-Server actions called directly (onClick handlers, not forms) also trigger an automatic re-render:
+Server actions called directly from client event handlers do not re-render the current page automatically. Use `router.refresh()` after the action when you need fresh server-rendered data:
 
 ```tsx
 // src/actions.ts
@@ -1497,7 +1497,7 @@ export function DeleteButton({ id }: { id: string }) {
     <button
       onClick={async () => {
         await deletePost(id)
-        // page re-renders automatically — no router.refresh() needed
+        router.refresh()
       }}
     >
       Delete
@@ -1505,6 +1505,13 @@ export function DeleteButton({ id }: { id: string }) {
   )
 }
 ```
+
+<details>
+<summary>Avoid deadlocks in client form actions</summary>
+
+`router.refresh()` is fire-and-forget. Do not build awaitable navigation or refresh helpers and then use them inside a React client form action (`<form action={async () => { ... }}>`). React keeps that form action transition pending until the action returns, so awaiting the refresh or navigation commit from inside the action can deadlock the page.
+
+</details>
 
 ### Progress Bar
 

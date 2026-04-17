@@ -208,17 +208,9 @@ function wrapReturnValueErrors(value: unknown): unknown {
 }
 
 async function main() {
-  let pendingPayload:
-    | {
-        payload: Promise<ServerPayload>
-        requestId: number | null
-        source: 'navigate' | 'refresh'
-      }
-    | undefined
+  let pendingPayload: PayloadArgs | undefined
   type PayloadArgs = {
     payload: Promise<ServerPayload>
-    requestId: number | null
-    source: 'navigate' | 'refresh'
   }
   let setPayload: (v: PayloadArgs) => void = () => undefined
   // Direct setter without startTransition — used by callServer for form actions
@@ -228,13 +220,8 @@ async function main() {
   let setPayloadDirect: (v: PayloadArgs) => void = () => undefined
   let currentNavigationAbort = new AbortController()
   let currentNavigationRequestId: number | null = null
-  let currentNavigationSource: 'navigate' | 'refresh' = 'navigate'
 
-  const applyPayload = (args: {
-    payload: Promise<ServerPayload>
-    requestId: number | null
-    source: 'navigate' | 'refresh'
-  }) => {
+  const applyPayload = (args: PayloadArgs) => {
     pendingPayload = args
     setPayload(args)
   }
@@ -249,17 +236,10 @@ async function main() {
     ) {
       return
     }
-    if (currentNavigationSource === 'refresh') {
-      router.__failRefresh({
-        requestId: currentNavigationRequestId,
-        reason: 'aborted',
-      })
-    }
     currentNavigationAbort.abort()
     const navigationAbort = new AbortController()
     currentNavigationAbort = navigationAbort
     currentNavigationRequestId = event.requestId ?? null
-    currentNavigationSource = event.source
     const url = new URL(window.location.href)
     url.pathname = url.pathname === '/' ? '/index.rsc' : url.pathname + '.rsc'
     url.searchParams.set('__rsc', '')
@@ -273,23 +253,16 @@ async function main() {
     if (navigationAbort.signal.aborted) return
     applyPayload({
       payload,
-      requestId: event.requestId ?? null,
-      source: event.source,
     })
     Promise.resolve(payload)
       .then((resolved) => {
         if (currentNavigationAbort !== navigationAbort) return
         if (currentNavigationRequestId !== (event.requestId ?? null)) return
         router.__setLoaderData(resolved.root?.loaderData)
+        currentNavigationRequestId = null
       })
       .catch(() => {
         if (currentNavigationRequestId !== (event.requestId ?? null)) return
-        if (event.source === 'refresh') {
-          router.__failRefresh({
-            requestId: event.requestId ?? null,
-            reason: navigationAbort.signal.aborted ? 'aborted' : 'error',
-          })
-        }
         currentNavigationRequestId = null
       })
   }
@@ -299,6 +272,8 @@ async function main() {
   router.subscribe(handleNavigation)
 
   const callServer = async (id: string, args: unknown[]) => {
+    const isFormAction =
+      args.length > 0 && args[args.length - 1] instanceof FormData
     // Temporary references track non-serializable values (DOM nodes, React elements) passed
     // as action args. Same set is shared with createFromFetch so they round-trip correctly.
     const temporaryReferences = createTemporaryReferenceSet()
@@ -327,19 +302,15 @@ async function main() {
         { temporaryReferences },
       )
 
-      // Always re-render the page tree after a server action so mutations are
-      // visible immediately. Uses setPayloadDirect (raw setState, no
-      // startTransition) so the update joins whatever transition is already
-      // active — e.g. React's form action transition. A nested startTransition
-      // would create an independent transition that commits separately from
-      // the caller's setState calls, causing a flash of stale content.
-      setPayloadDirect({
-        payload: payloadPromise,
-        requestId: null,
-        source: 'navigate',
-      })
+      if (isFormAction) {
+        setPayloadDirect({
+          payload: payloadPromise,
+        })
+      }
       const payload = await payloadPromise
-      router.__setLoaderData(payload.root?.loaderData)
+      if (isFormAction) {
+        router.__setLoaderData(payload.root?.loaderData)
+      }
 
       if (payload.actionError) {
         // React prod strips both error.message and error.digest for Error values
@@ -389,38 +360,9 @@ async function main() {
     })
     .catch(() => {})
 
-  function PayloadCommitListener({
-    requestId,
-    source,
-  }: {
-    requestId: number | null
-    source: 'navigate' | 'refresh'
-  }) {
-    const data = useFlightData()
-
-    React.useEffect(() => {
-      if (source !== 'refresh' || requestId == null) {
-        return
-      }
-      if (currentNavigationRequestId !== requestId) {
-        return
-      }
-      currentNavigationRequestId = null
-      router.__commitRefresh({ requestId })
-    }, [data, requestId, source])
-
-    return null
-  }
-
   function BrowserRoot() {
-    const [{ payload, requestId, source }, setPayload_] = React.useState<{
-      payload: Promise<ServerPayload>
-      requestId: number | null
-      source: 'navigate' | 'refresh'
-    }>({
+    const [{ payload }, setPayload_] = React.useState<PayloadArgs>({
       payload: initialPayload,
-      requestId: null,
-      source: 'navigate',
     })
     const [_isPending, startTransition] = React.useTransition()
 
@@ -438,7 +380,6 @@ async function main() {
         <ErrorBoundary errorComponent={DefaultGlobalErrorPage}>
           <NotFoundBoundary component={DefaultNotFoundPage}>
             <FlightDataContext.Provider value={payload}>
-              <PayloadCommitListener requestId={requestId} source={source} />
               <LayoutContent />
             </FlightDataContext.Provider>
           </NotFoundBoundary>
