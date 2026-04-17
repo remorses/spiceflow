@@ -22,4 +22,4 @@ const app = new Spiceflow()
     type: 'json',
   })
 
-app.listen(3020)
+void app.listen(3020)

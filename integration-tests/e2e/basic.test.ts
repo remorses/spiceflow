@@ -2123,6 +2123,25 @@ test.describe("server actions", () => {
 		expect(actionCookie?.value).toBe("1");
 	});
 
+	test("wrapped client form action redirect renders target page", async ({
+		page,
+	}) => {
+		await page.goto(url("/wrapped-server-action-redirect"));
+		await expect(page.getByTestId("layout-mount-count")).toHaveText("1", {
+			timeout: 10000,
+		});
+		await page.locator('input[name="name"]').fill("new-org");
+		await page.getByRole("button", { name: "Create item" }).click();
+		await expect(page).toHaveURL(url("/wrapped-server-action-redirect/new-org"), {
+			timeout: 10000,
+		});
+		await expect(page.getByTestId("wrapped-redirect-target")).toHaveText(
+			"Created new-org",
+			{ timeout: 10000 },
+		);
+		await expect(page.getByTestId("wrapped-redirect-form")).toHaveCount(0);
+	});
+
 	test("form action with useActionState returns result to the page", async ({
 		page,
 	}) => {

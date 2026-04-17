@@ -2111,7 +2111,7 @@ export class Spiceflow<
       loaderData: {},
       span: noopSpan,
       tracer: this.tracer ?? noopTracer,
-      waitUntil: (promise: Promise<any>) => {
+      waitUntil: (promise) => {
         const wrappedPromise = promise.catch(async (error) => {
           const spiceflowError: SpiceflowServerError =
             error instanceof Error ? error : new Error(String(error))

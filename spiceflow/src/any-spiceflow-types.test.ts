@@ -200,7 +200,7 @@ test('strict app router types stay narrow', () => {
     // @ts-expect-error - typed loader data must not widen to any
     data.user.missing
 
-    await strictRouter.refresh()
+    strictRouter.refresh()
   }
 
   async function assertNoLoaderGetLoaderData() {

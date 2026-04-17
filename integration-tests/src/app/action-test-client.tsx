@@ -11,6 +11,7 @@ import {
 	jsxStreamingAction,
 	throwingStreamingAction,
 } from "./action-streaming";
+import { redirectToNamedTarget } from "./form-action";
 
 export function StreamingActionTest() {
 	const [items, setItems] = useState<string[]>([]);
@@ -72,6 +73,24 @@ export function RedirectActionTest() {
 	);
 }
 
+export function WrappedRedirectFormTest() {
+	return (
+		<form
+			action={async (formData: FormData) => {
+				const name = formData.get("name");
+				if (typeof name !== "string") {
+					throw new Error("Expected redirect target name");
+				}
+				await redirectToNamedTarget({ name });
+			}}
+			data-testid="wrapped-redirect-form"
+		>
+			<input name="name" type="text" defaultValue="created-org" />
+			<button type="submit">Create item</button>
+		</form>
+	);
+}
+
 export function JsxActionTest() {
 	const [content, setContent] = useState<React.ReactNode>(null);
 	const [error, setError] = useState<string | null>(null);
@@ -90,7 +109,7 @@ export function JsxActionTest() {
 			<button data-testid="call-jsx-action" onClick={handleClick}>
 				Get JSX
 			</button>
-			{content && <div data-testid="jsx-action-content">{content}</div>}
+			{content !== null ? <div data-testid="jsx-action-content">{content}</div> : null}
 			{error && <div data-testid="jsx-action-error">{error}</div>}
 		</div>
 	);

@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useLayoutEffect, useRef } from 'react'
-import { createRoot, hydrateRoot } from 'react-dom/client'
+import { createRoot, hydrateRoot, type Root } from 'react-dom/client'
 import { type ContextBridge, useContextBridge } from 'its-fine'
 import {
   decodeParsedFederationPayload,
@@ -136,7 +136,7 @@ export function RemoteIsland({
   const clientModules = metadata.clientModules
   const cssLinks = metadata.cssLinks
   const containerRef = useRef<HTMLDivElement>(null)
-  const rootRef = useRef<ReturnType<typeof hydrateRoot> | ReturnType<typeof createRoot> | null>(null)
+  const rootRef = useRef<Root | null>(null)
   // Track whether this island has been mounted (via hydrate or createRoot).
   // Prevents false hydration attempts on remoteId changes after an imperative
   // first mount — hasChildNodes() would be true from old client-rendered DOM,

@@ -3,7 +3,6 @@ import "./client.css";
 
 import React, { useActionState } from "react";
 import { add } from "./action-by-client";
-import { redirect } from "spiceflow";
 import { getRouter } from "spiceflow/react";
 import { action } from "./form-action";
 
@@ -162,7 +161,9 @@ export function GetRedirectNav() {
 		<div data-testid="get-redirect-nav">
 			<button
 				data-testid="get-redirect-push"
-				onClick={() => router.push("/get-redirect/123")}
+				onClick={() => {
+					router.push("/get-redirect/123");
+				}}
 			>
 				Push to get redirect
 			</button>

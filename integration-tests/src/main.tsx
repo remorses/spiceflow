@@ -31,6 +31,7 @@ import {
 	StreamingActionTest,
 	SimpleActionTest,
 	RedirectActionTest,
+	WrappedRedirectFormTest,
 	JsxActionTest,
 	JsxStreamingActionTest,
 	ThrowingStreamingActionTest,
@@ -730,6 +731,14 @@ export const app = new Spiceflow()
 	})
 	.page("/server-action-redirect", async () => {
 		return <RedirectActionTest />;
+	})
+	.page("/wrapped-server-action-redirect", async () => {
+		return <WrappedRedirectFormTest />;
+	})
+	.page("/wrapped-server-action-redirect/:name", async ({ params }) => {
+		return (
+			<div data-testid="wrapped-redirect-target">Created {params.name}</div>
+		);
 	})
 	.page("/form-redirect-nojs", async () => {
 		async function formRedirectAction(formData: FormData) {

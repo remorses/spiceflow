@@ -233,9 +233,11 @@ All React-facing APIs (components, router, utilities) must be exported from `spi
 
 ## server actions and router.refresh()
 
-Spiceflow automatically re-renders the page after every server action call (`callServer` always applies the new RSC payload). This means `router.refresh()` is NOT needed after server actions — the page updates automatically, both for direct `<form action={serverAction}>` and client wrappers like `action={async (fd) => { await myAction(...); }}`.
+Spiceflow automatically re-renders the page after every server action call (`callServer` always applies the new RSC payload). This means `router.refresh()` is NOT needed after server actions — the page updates automatically for direct `<form action={serverAction}>`, client wrapper functions, and direct imported action calls.
 
 `router.refresh()` is still useful for standalone refreshes (e.g. after a WebSocket event, or to poll for updates). It triggers a re-fetch of all server components and loaders.
+
+`router.refresh()` is fire-and-forget. `router.push()`, `router.replace()`, `router.back()`, `router.forward()`, and `router.go()` are fire-and-forget too. Never await refresh completion or build awaitable navigation/refresh helpers and call them inside a React client form action (`<form action={async () => { ... }}>`). React keeps the form action transition pending until the action returns, so awaiting the commit from inside that same action can deadlock the page.
 
 The auto-re-render uses `setPayloadDirect` (raw setState, no `startTransition`) so it joins whatever transition is already active. This is critical: React 19 wraps form actions in `startTransition`, and a nested `startTransition` would create a separate transition that commits independently — causing a flash of stale content between the caller's state updates and the new server data.
 

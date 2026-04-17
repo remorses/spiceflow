@@ -49,17 +49,15 @@ type LoaderDataState = {
 type Deferred<T> = {
   ready: Promise<T>
   resolve: ((value: T) => void) | null
-  reject: ((error: unknown) => void) | null
 }
 
 function createDeferred<T>() {
   let resolve: ((value: T) => void) | null = null
-  let reject: ((error: unknown) => void) | null = null
   const ready = new Promise<T>((nextResolve, nextReject) => {
     resolve = nextResolve
-    reject = nextReject
+    void nextReject
   })
-  return { ready, resolve, reject }
+  return { ready, resolve }
 }
 
 function createLoaderDataState(): LoaderDataState {
@@ -76,11 +74,6 @@ function createLoaderDataState(): LoaderDataState {
 }
 
 const loaderDataState = createLoaderDataState()
-let pendingRefreshCommit:
-  | (Deferred<void> & {
-      requestId: number
-    })
-  | null = null
 
 type NavigationMethod = 'push' | 'replace' | 'refresh'
 
@@ -193,11 +186,6 @@ type Subscriber = (event: NavigationEvent) => void
 
 type RouterInternal = RouterBase & {
   __setLoaderData(data: Record<string, unknown> | undefined): void
-  __commitRefresh(args: { requestId: number | null }): void
-  __failRefresh(args: {
-    requestId: number | null
-    reason: 'aborted' | 'error'
-  }): void
 }
 
 const subscribers = new Set<Subscriber>()
@@ -240,39 +228,15 @@ function getPendingRefreshForLocation(location: Pick<Location, 'pathname' | 'sea
   return pendingRequest
 }
 
-function failPendingRefresh(args: {
-  requestId: number | null
-  reason: 'aborted' | 'error'
-}) {
-  if (args.requestId == null) {
-    return
-  }
-  if (loaderDataState.pendingRequestId === args.requestId) {
-    loaderDataState.pendingRequestId = null
-    loaderDataState.pendingLocationSignature = null
-  }
-  if (pendingRefreshCommit?.requestId !== args.requestId) {
-    return
-  }
-  pendingRefreshCommit.reject?.(
-    new Error(
-      args.reason === 'aborted'
-        ? 'router.refresh() was superseded before the payload committed'
-        : 'router.refresh() failed before the payload committed',
-    ),
-  )
-  pendingRefreshCommit = null
-}
-
-function resolvePendingRefresh(requestId: number | null) {
+function clearPendingRefresh(requestId: number | null) {
   if (requestId == null) {
     return
   }
-  if (pendingRefreshCommit?.requestId !== requestId) {
+  if (loaderDataState.pendingRequestId !== requestId) {
     return
   }
-  pendingRefreshCommit.resolve?.()
-  pendingRefreshCommit = null
+  loaderDataState.pendingRequestId = null
+  loaderDataState.pendingLocationSignature = null
 }
 
 function appendNavigationEvent<TEvent extends RouterEvent>(
@@ -525,15 +489,7 @@ export const router: RouterInternal = {
     if (!requestedNavigation) {
       return
     }
-    failPendingRefresh({
-      requestId: pendingRefreshCommit?.requestId ?? null,
-      reason: 'aborted',
-    })
-    const deferred = createDeferred<void>()
-    pendingRefreshCommit = {
-      ...deferred,
-      requestId: requestedNavigation.requestId,
-    }
+    clearPendingRefresh(loaderDataState.pendingRequestId)
     loaderDataState.pendingRequestId = requestedNavigation.requestId
     loaderDataState.pendingLocationSignature = getLoaderDataLocationSignature(
       history.location,
@@ -592,14 +548,6 @@ export const router: RouterInternal = {
     for (const cb of subscribers) {
       cb(event)
     }
-  },
-  /** @internal */
-  __commitRefresh(args) {
-    resolvePendingRefresh(args.requestId)
-  },
-  /** @internal */
-  __failRefresh(args) {
-    failPendingRefresh(args)
   },
 }
 

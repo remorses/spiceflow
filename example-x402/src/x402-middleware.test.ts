@@ -101,12 +101,7 @@ describe('x402 middleware', () => {
     const res = await app.handle(new Request('http://localhost/paid'))
     expect(res.status).toBe(402)
     expect(res.headers.get('www-authenticate')).toBe('x402 scheme="exact"')
-    const body = (await res.json()) as {
-      error: string
-      x402Version: number
-      resource: { url: string }
-      accepts: PaymentRequirements[]
-    }
+    const body = await res.json()
     expect(body.error).toBe('Payment required')
     expect(body.x402Version).toBe(2)
     expect(body.resource.url).toBe('/paid')
@@ -122,7 +117,7 @@ describe('x402 middleware', () => {
       }),
     )
     expect(res.status).toBe(402)
-    const body = (await res.json()) as { error: string }
+    const body = await res.json()
     expect(body.error).toContain('decode payment header')
   })
 
@@ -163,7 +158,7 @@ describe('x402 middleware', () => {
       }),
     )
     expect(res.status).toBe(402)
-    const body = (await res.json()) as { error: string }
+    const body = await res.json()
     expect(body.error).toBe('insufficient_funds')
     expect(handlerCalls).toBe(0)
   })
@@ -176,7 +171,7 @@ describe('x402 middleware', () => {
       }),
     )
     expect(res.status).toBe(402)
-    const body = (await res.json()) as { error: string }
+    const body = await res.json()
     expect(body.error).toBe('No matching payment requirements')
   })
 
@@ -258,7 +253,7 @@ describe('x402 middleware', () => {
       .get('/paid', () => ({ foo: 'bar' }))
     const res = await app.handle(new Request('http://localhost/paid'))
     expect(res.status).toBe(500)
-    const body = (await res.json()) as { error: string }
+    const body = await res.json()
     expect(body.error).toContain('wallet is offline')
   })
 })

@@ -48,11 +48,11 @@ export async function addMcpTools<
   const basePath = app.topLevelApp?.basePath || ''
 
   // Fetch the OpenAPI data
-  const openapiDoc = (await app
+  const openapiDoc = await app
     .topLevelApp!.handle(
       new Request(`http://localhost${basePath}/_mcp_openapi`),
     )
-    .then((r) => r.json())) as OpenAPIV3.Document
+    .then((r) => r.json())
 
   const { server: configuredServer } = createMCPServer({
     server: mcpServer,
@@ -113,7 +113,7 @@ export function mcp<Path extends string = '/mcp'>({
           .topLevelApp!.handle(
             new Request(`http://localhost${basePath}/_mcp_openapi`),
           )
-          .then((r) => r.json()) as Promise<OpenAPIV3.Document>,
+          .then((r) => r.json()),
         app
           .topLevelApp!.handle(
             new Request(`http://localhost${basePath}/_mcp_config`),

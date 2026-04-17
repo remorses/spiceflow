@@ -102,4 +102,34 @@ describe('spiceflow outDir normalization', () => {
       entryFileNames: '[name].js',
     })
   })
+
+  test('all environments enable holdUntilCrawlEnd', async () => {
+    const { config } = await resolveSpiceflowConfig()
+
+    expect(config.environments.client.optimizeDeps.holdUntilCrawlEnd).toBe(true)
+    expect(config.environments.rsc.optimizeDeps.holdUntilCrawlEnd).toBe(true)
+    expect(config.environments.ssr.optimizeDeps.holdUntilCrawlEnd).toBe(true)
+  })
+
+  test('server environments opt into dep discovery', async () => {
+    const { config } = await resolveSpiceflowConfig()
+
+    expect(config.environments.client.optimizeDeps.noDiscovery).toBe(false)
+    expect(config.environments.rsc.optimizeDeps.noDiscovery).toBe(false)
+    expect(config.environments.ssr.optimizeDeps.noDiscovery).toBe(false)
+  })
+
+  test('all environments get optimizeDeps entries for the app entry', async () => {
+    const { config } = await resolveSpiceflowConfig()
+
+    expect(config.environments.client.optimizeDeps.entries).toContain(
+      './src/main.{js,jsx,ts,tsx,mjs,mts,cjs,cts}',
+    )
+    expect(config.environments.rsc.optimizeDeps.entries).toContain(
+      './src/main.{js,jsx,ts,tsx,mjs,mts,cjs,cts}',
+    )
+    expect(config.environments.ssr.optimizeDeps.entries).toContain(
+      './src/main.{js,jsx,ts,tsx,mjs,mts,cjs,cts}',
+    )
+  })
 })
