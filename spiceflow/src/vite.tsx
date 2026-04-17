@@ -10,7 +10,6 @@ import {
   type Plugin,
   type PluginOption,
   type ResolvedConfig,
-  type RunnableDevEnvironment,
   type UserConfig,
   type ViteDevServer,
 } from 'vite'
@@ -365,9 +364,13 @@ export default function spiceflow({
         }
       },
     },
-    // Point optimizeDeps.entries at the user's app entry and spiceflow's own entries
-    // so Vite crawls the full import graph upfront instead of discovering deps late
-    // (which triggers re-optimization rounds + page reloads during dev).
+    // Point optimizeDeps.entries at the user's app entry so each environment can
+    // crawl the full import graph up front instead of discovering deps mid-request.
+    //
+    // Vite only applies top-level optimizeDeps defaults to the client environment.
+    // Non-client environments default to noDiscovery=true, which ignores entries and
+    // skips holdUntilCrawlEnd entirely. Spiceflow opts ssr/rsc back into discovery so
+    // all three environments can stabilize their dep graph before serving requests.
     //
     // Also ensures Vite processes spiceflow through its transform pipeline (noExternal)
     // so conditional package.json exports (react-server vs default) resolve correctly.
@@ -378,6 +381,8 @@ export default function spiceflow({
       name: 'spiceflow:optimize-deps',
       configEnvironment(name, config) {
         config.resolve ??= {}
+        config.optimizeDeps ??= {}
+        config.optimizeDeps.holdUntilCrawlEnd = true
 
         // Package private `#imports` can target different runtime entry points
         // than public `exports`. The RSC environment already resolves with the
@@ -395,8 +400,6 @@ export default function spiceflow({
             'react-server',
           ])
         }
-
-        config.optimizeDeps ??= {}
 
         // Only add filesystem entries to optimizeDeps — virtual modules and
         // bare specifiers aren't files so they can't be used as globs.
@@ -453,6 +456,7 @@ export default function spiceflow({
         ])
 
         if (name === 'rsc' || name === 'ssr') {
+          config.optimizeDeps.noDiscovery = false
           addNoExternal(config, 'spiceflow')
 
           if (isCloudflareProject) {
@@ -513,9 +517,11 @@ export default function spiceflow({
               if (!resolvedEntry) {
                 throw new Error(`Failed to resolve spiceflow SSR entry: ${spiceflowEntries.ssr}`)
               }
-              const mod: any = await (
-                server.environments.ssr as RunnableDevEnvironment
-              ).runner?.import(resolvedEntry.id)
+              const runner = Reflect.get(server.environments.ssr, 'runner')
+              if (!runner || typeof runner.import !== 'function') {
+                throw new Error('Vite SSR environment runner is unavailable')
+              }
+              const mod: any = await runner.import(resolvedEntry.id)
               const { createRequest, sendResponse } = await import(
                 './react/fetch.js'
               )
