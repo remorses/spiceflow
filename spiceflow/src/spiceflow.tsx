@@ -3253,10 +3253,10 @@ export function isZodSchema(value: unknown): value is ZodType {
   )
 }
 
-import type * as z4 from 'zod/v4/core'
+import type * as z from 'zod'
 
 /** `true` ⇒ the value was created by Zod 4, `false` ⇒ Zod 3 */
-export function isZod4(schema: any): schema is z4.$ZodObject {
+export function isZod4(schema: any): schema is z.ZodObject {
   return '_zod' in schema // ⇦ only v4 adds this marker
 }
 

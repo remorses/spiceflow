@@ -1,6 +1,5 @@
 import { expect, test } from 'vitest'
 import { z } from 'zod'
-import { z as z4 } from 'zod/v4'
 import { openapi } from './openapi.js'
 import { Spiceflow } from './spiceflow.js'
 
@@ -44,8 +43,8 @@ test('openapi response', async () => {
         return body
       },
       {
-        body: z4.object({
-          name: z4.string(),
+        body: z.object({
+          name: z.string(),
         }),
         response: z.object({
           name: z.string().optional(),
@@ -149,8 +148,8 @@ test('openapi response', async () => {
         '/ids/:id',
         ({ params }) => params.id,
         {
-          params: z4.object({
-            id: z4.string(),
+          params: z.object({
+            id: z.string(),
           }),
         },
       ),
