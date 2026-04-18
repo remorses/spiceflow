@@ -1,5 +1,32 @@
 # spiceflow
 
+## 1.19.0-rsc.1
+
+1. **Type-safe `json()` helper with phantom brands** — `import { json } from 'spiceflow'` wraps `Response.json()` with TypedResponse phantom types so the fetch client gets full type safety for each status code. Use `throw json({ error: 'Not found' }, { status: 404 })` instead of raw `Response.json()`:
+
+   ```ts
+   import { Spiceflow, json } from 'spiceflow'
+
+   const app = new Spiceflow().get('/user/:id', ({ params }) => {
+     if (!user) throw json({ error: 'Not found' }, { status: 404 })
+     return user
+   })
+   ```
+
+2. **`ProgressBar.start()` and `ProgressBar.end()`** — drive the top loading bar around manual fetches, submit flows, and other non-router async work. Manual calls share the same progress state as router navigations with reference counting, so overlapping work keeps the bar visible until everything finishes.
+
+3. **`spanContext()` on tracing spans** — handlers and middleware can now read the current `traceId` and `spanId` from `span.spanContext()` when the configured OTel tracer provides them, useful for propagating trace context to child libraries.
+
+4. **Hide pages from OpenAPI output** — generated OpenAPI specs no longer include page, layout, and loader routes. Only API endpoints and `staticGet` routes appear in the spec.
+
+5. **Removed deployment skew cookie mechanism** — the `spiceflow-deployment` cookie and 409 mismatch responses are gone. RSC client reference IDs are stable across deployments (hash of file path, not content) and old client chunks remain on CDN, making the cookie-based protection unnecessary. `getDeploymentId()` is still exported for analytics and cache keys.
+
+6. **Fixed wrapped action redirects** — form-action redirects from wrapped client components now resolve correctly instead of leaving the React transition pending forever.
+
+7. **Fixed multi-environment Vite dep optimization** — dev dependency discovery now works for SSR and RSC environments with `holdUntilCrawlEnd` forced across all environments, avoiding mid-request re-optimization on cold starts.
+
+8. **`router.refresh()` is fire-and-forget** — removed the stale awaitable type and documented that awaitable navigation/refresh helpers must not be used inside React client form actions to avoid page deadlocks.
+
 ## 1.19.0-rsc.0
 
 1. **Public `ErrorBoundary` for server actions** — `spiceflow/react` now exports an `ErrorBoundary` component with `ErrorBoundary.ErrorMessage` and `ErrorBoundary.ResetButton` sub-components, so forms can catch thrown action errors and render a retry UI without building custom boundary plumbing:
