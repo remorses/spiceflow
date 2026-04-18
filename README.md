@@ -119,6 +119,7 @@ When that happens, the `use client` boundary only works if the client file stays
 **Bad pattern**
 
 - published dependency has a server-safe entry file that imports a client file with a relative import
+- a single package module mixes server-safe/shared exports with React hook or component exports behind `'use client'`
 - Vite dependency optimization flattens both files into one optimized server dependency
 - the client module gets evaluated against `react-server`
 - startup crashes before the app renders
@@ -140,12 +141,23 @@ published dependency entry
 **Safer pattern**
 
 - keep the main package entry server-safe
+- never put server-safe or shared exports in the same module as `'use client'` in a published package
+- split vanilla state, helpers, constants, and types into a separate server-safe file
 - expose client code through a package subpath such as `my-lib/client`
 - import the client boundary through that package subpath instead of a relative path from the server entry
 
 ```ts
 // safer than importing ./client-widget directly from the main entry
 import { ClientWidget } from 'my-lib/client'
+```
+
+```text
+good
+  chat-store.ts   -> vanilla store, helpers, types
+  chat-state.ts   -> 'use client' React hook wrapper
+
+bad
+  chat-state.ts   -> exports types + vanilla store + React hook in one module
 ```
 
 This matters most in Vite RSC dev, Cloudflare runner startup, and any environment that eagerly imports the full worker/module graph to inspect exports.
