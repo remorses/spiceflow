@@ -60,6 +60,13 @@ export function isRscRequest(url: URL) {
   return url.pathname.endsWith('.rsc') || url.searchParams.has('__rsc')
 }
 
+export function isRscNavigationRequest(url: URL) {
+  if (url.pathname.endsWith('.rsc')) return true
+  // __rsc with empty value = navigation, non-empty value = action
+  const rsc = url.searchParams.get('__rsc')
+  return rsc !== null && rsc === ''
+}
+
 export function getDocumentLocationFromResponse(args: {
   response: Response
   requestUrl: URL

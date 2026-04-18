@@ -68,6 +68,7 @@ import {
   deploymentReloadHeader,
   getDocumentPath,
   isDocumentRequest,
+  isRscNavigationRequest,
   isRscRequest,
   readDeploymentCookie,
 } from './react/deployment.js'
@@ -2071,11 +2072,15 @@ export class Spiceflow<
       ? readDeploymentCookie(request)
       : undefined
 
+    // Only block RSC navigations on deployment mismatch. Server actions are
+    // allowed through because client reference IDs are stable (hash of file
+    // path) and old client chunks remain on CDN — the old client resolves
+    // references from its own baked-in manifest, not the new server's.
     if (
       deploymentId &&
       requestDeploymentId &&
       deploymentId !== requestDeploymentId &&
-      isRscRequest(u)
+      isRscNavigationRequest(u)
     ) {
       const res = new Response(null, {
         status: deploymentMismatchStatus,

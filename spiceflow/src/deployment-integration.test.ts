@@ -41,8 +41,8 @@ test('rsc deployment mismatch returns a same-origin relative reload path', async
   expect(res.headers.get('x-spiceflow-reload')).toBe('/app/page?q=1')
 })
 
-test('server action with stale deployment cookie returns 409 mismatch', async () => {
-  const app = new Spiceflow().post('/dashboard', () => 'should not run')
+test('server action with stale deployment cookie executes normally (no skew block)', async () => {
+  const app = new Spiceflow().post('/dashboard', () => 'action-ran')
   const res = await app.handle(
     new Request('http://localhost/dashboard?__rsc=action-id', {
       method: 'POST',
@@ -53,12 +53,10 @@ test('server action with stale deployment cookie returns 409 mismatch', async ()
     }),
   )
 
-  expect(res.status).toBe(409)
-  expect(res.headers.get('x-spiceflow-reason')).toBe('deployment-mismatch')
-  expect(res.headers.get('x-spiceflow-reload')).toBe('/dashboard')
-  expect(res.headers.get('set-cookie')).toContain(
-    'spiceflow-deployment=deploy-123',
-  )
+  // Actions are allowed through even with a stale deployment cookie because
+  // client reference IDs are stable and old chunks remain on CDN.
+  expect(res.status).not.toBe(409)
+  expect(await res.text()).toContain('action-ran')
 })
 
 test('rsc navigation with matching deployment cookie skips mismatch', async () => {
