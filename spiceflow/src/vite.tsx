@@ -55,7 +55,10 @@ function resolveBuildOutDir(config: BuildOutDirConfig) {
 }
 
 function normalizeEnvironmentOutDirs(userConfig: UserConfig): UserConfig {
-  const isCloudflare = hasPluginNamed(userConfig.plugins, 'vite-plugin-cloudflare')
+  const isCloudflare = hasPluginNamed(
+    userConfig.plugins,
+    'vite-plugin-cloudflare',
+  )
   const rootOutDir = userConfig.build?.outDir ?? 'dist'
   const clientOutDir = path.join(rootOutDir, 'client')
   const rscOutDir = path.join(rootOutDir, 'rsc')
@@ -72,7 +75,8 @@ function normalizeEnvironmentOutDirs(userConfig: UserConfig): UserConfig {
     environments: {
       client: {
         build: {
-          outDir: userConfig.environments?.client?.build?.outDir ?? clientOutDir,
+          outDir:
+            userConfig.environments?.client?.build?.outDir ?? clientOutDir,
         },
       },
       rsc: {
@@ -144,7 +148,10 @@ export default function spiceflow({
     ...(isRemote
       ? {
           clientChunks(meta: { id: string; normalizedId: string }) {
-            if (meta.id.includes('spiceflow/') || meta.id.includes('spiceflow\\')) {
+            if (
+              meta.id.includes('spiceflow/') ||
+              meta.id.includes('spiceflow\\')
+            ) {
               return 'spiceflow-framework'
             }
             return 'user-components'
@@ -279,7 +286,8 @@ export default function spiceflow({
         // Capture base early — Vite normalizes it to '/' by default, but the
         // raw user value is available here before configResolved runs.
         const rawBase = userConfig.base || '/'
-        const isAbsoluteUrl = rawBase.startsWith('http://') || rawBase.startsWith('https://')
+        const isAbsoluteUrl =
+          rawBase.startsWith('http://') || rawBase.startsWith('https://')
         if (rawBase !== '/' && !rawBase.startsWith('/') && !isAbsoluteUrl) {
           throw new Error(
             `[spiceflow] config.base must be an absolute path starting with "/", got "${rawBase}". ` +
@@ -359,8 +367,7 @@ export default function spiceflow({
         if (name === 'rsc') {
           config.build ??= {}
           config.build.rollupOptions ??= {}
-          config.build.rollupOptions.preserveEntrySignatures =
-            'allow-extension'
+          config.build.rollupOptions.preserveEntrySignatures = 'allow-extension'
         }
       },
     },
@@ -392,7 +399,9 @@ export default function spiceflow({
         // AsyncLocalStorage implementation in SSR while the client environment
         // still resolves to the browser-safe fallback.
         if (name === 'ssr') {
-          config.resolve.conditions = mergeUnique(config.resolve.conditions, ['ssr'])
+          config.resolve.conditions = mergeUnique(config.resolve.conditions, [
+            'ssr',
+          ])
         }
 
         if (name === 'rsc') {
@@ -415,11 +424,25 @@ export default function spiceflow({
           )
         }
 
+
+        if (name === 'rsc' || name === 'ssr') {
+          config.optimizeDeps.noDiscovery = false
+          addNoExternal(config, 'spiceflow')
+
+          if (isCloudflareProject) {
+            config.resolve.noExternal = true
+          }
+        }
+
         // Each environment runs its own independent optimizer, so deps discovered
         // late by the rsc/ssr optimizer still cause reloads even if the client
         // optimizer finished cleanly. Explicitly include known CJS/late-discovered
         // deps that spiceflow transitively imports so all three environments
         // pre-bundle them upfront instead of finding them mid-request.
+        //
+        // IMPORTANT: when new dependencies are shown in the `vite dev` as new dependencies optimized.
+        // add them here if they are optimized because of spiceflow.
+        // so new users will not get initial error overlay on first page load. add in the right runtime
         if (name === 'client') {
           config.optimizeDeps.exclude = mergeUnique(
             config.optimizeDeps.exclude,
@@ -435,6 +458,36 @@ export default function spiceflow({
               'react-dom/client',
               'spiceflow > superjson',
               'spiceflow > history',
+              'spiceflow > its-fine',
+              'spiceflow > eventsource-parser/stream',
+            ],
+          )
+        }
+
+
+
+        if (name === 'rsc') {
+          config.optimizeDeps.include = mergeUnique(
+            config.optimizeDeps.include,
+            [
+              'spiceflow > superjson',
+              'spiceflow > history',
+              'spiceflow > eventsource-parser/stream',
+              'spiceflow > errore', //
+            ],
+          )
+        }
+
+        if (name === 'ssr') {
+          config.optimizeDeps.include = mergeUnique(
+            config.optimizeDeps.include,
+            [
+              'spiceflow > isbot',
+              'spiceflow > history',
+              'spiceflow > eventsource-parser/stream',
+              'react-dom/server',
+              'react-dom/client',
+              'react-dom/server.edge',
             ],
           )
         }
@@ -454,34 +507,6 @@ export default function spiceflow({
           'spiceflow',
           'spiceflow/react',
         ])
-
-        if (name === 'rsc' || name === 'ssr') {
-          config.optimizeDeps.noDiscovery = false
-          addNoExternal(config, 'spiceflow')
-
-          if (isCloudflareProject) {
-            config.resolve.noExternal = true
-          }
-        }
-
-        if (name === 'rsc') {
-          config.optimizeDeps.include = mergeUnique(
-            config.optimizeDeps.include,
-            ['spiceflow > superjson', 'spiceflow > history'],
-          )
-        }
-
-        if (name === 'ssr') {
-          config.optimizeDeps.include = mergeUnique(
-            config.optimizeDeps.include,
-            [
-              'spiceflow > isbot',
-              'spiceflow > history',
-              'react-dom/server',
-              'react-dom/server.edge',
-            ],
-          )
-        }
       },
     },
 
@@ -515,16 +540,17 @@ export default function spiceflow({
                   spiceflowEntries.ssr,
                 )
               if (!resolvedEntry) {
-                throw new Error(`Failed to resolve spiceflow SSR entry: ${spiceflowEntries.ssr}`)
+                throw new Error(
+                  `Failed to resolve spiceflow SSR entry: ${spiceflowEntries.ssr}`,
+                )
               }
               const runner = Reflect.get(server.environments.ssr, 'runner')
               if (!runner || typeof runner.import !== 'function') {
                 throw new Error('Vite SSR environment runner is unavailable')
               }
               const mod: any = await runner.import(resolvedEntry.id)
-              const { createRequest, sendResponse } = await import(
-                './react/fetch.js'
-              )
+              const { createRequest, sendResponse } =
+                await import('./react/fetch.js')
               const request = createRequest(req, res)
               const response = await mod.fetchHandler(request)
               sendResponse(response, res)
@@ -570,8 +596,14 @@ export default function spiceflow({
     // On Cloudflare Workers, import.meta.filename is undefined (no filesystem),
     // so both exports fall back to empty strings.
     createVirtualPlugin('virtual:spiceflow-dirs', () => {
-      const clientRelativeFromRsc = path.relative(resolvedRscOutDir, resolvedClientOutDir)
-      const distRelativeFromRsc = path.relative(resolvedRscOutDir, resolvedOutDir)
+      const clientRelativeFromRsc = path.relative(
+        resolvedRscOutDir,
+        resolvedClientOutDir,
+      )
+      const distRelativeFromRsc = path.relative(
+        resolvedRscOutDir,
+        resolvedOutDir,
+      )
       return [
         `import { resolve, dirname, basename } from 'node:path'`,
         `let publicDir = ''`,
@@ -607,7 +639,10 @@ export default function spiceflow({
       const resolvedEntry = resolved.id.startsWith('\0')
         ? resolved.id.slice(1)
         : resolved.id
-      const clientRelative = path.relative(resolvedRscOutDir, resolvedClientOutDir)
+      const clientRelative = path.relative(
+        resolvedRscOutDir,
+        resolvedClientOutDir,
+      )
 
       const escapedBase = resolvedBase.replace(/'/g, "\\'")
       const lines = [
@@ -651,9 +686,19 @@ export default function spiceflow({
       )
       return lines.join('\n')
     }),
-    federationSharedPlugin(importMapJson, (json) => { importMapJson = json }),
+    federationSharedPlugin(importMapJson, (json) => {
+      importMapJson = json
+    }),
     ...(importMap
-      ? [userImportMapPlugin(importMap, () => importMapJson, (json) => { importMapJson = json })]
+      ? [
+          userImportMapPlugin(
+            importMap,
+            () => importMapJson,
+            (json) => {
+              importMapJson = json
+            },
+          ),
+        ]
       : []),
     createVirtualPlugin('virtual:spiceflow-import-map', function () {
       // In dev mode, generate import map using Vite's ?url imports so that
@@ -669,7 +714,9 @@ export default function spiceflow({
           const filePath = SHARED_ENTRIES[name]
           if (!filePath) continue
           const varName = `__url_${idx++}`
-          importStatements.push(`import ${varName} from ${JSON.stringify(filePath + '?url')}`)
+          importStatements.push(
+            `import ${varName} from ${JSON.stringify(filePath + '?url')}`,
+          )
           for (const spec of specifiers) {
             mapEntries.push(`${JSON.stringify(spec)}: ${varName}`)
           }
@@ -678,10 +725,14 @@ export default function spiceflow({
         if (importMap) {
           for (const [spec, value] of Object.entries(importMap)) {
             if (value.startsWith('http://') || value.startsWith('https://')) {
-              mapEntries.push(`${JSON.stringify(spec)}: ${JSON.stringify(value)}`)
+              mapEntries.push(
+                `${JSON.stringify(spec)}: ${JSON.stringify(value)}`,
+              )
             } else {
               const varName = `__url_${idx++}`
-              importStatements.push(`import ${varName} from ${JSON.stringify(value + '?url')}`)
+              importStatements.push(
+                `import ${varName} from ${JSON.stringify(value + '?url')}`,
+              )
               mapEntries.push(`${JSON.stringify(spec)}: ${varName}`)
             }
           }
@@ -815,7 +866,8 @@ function userImportMapPlugin(
     buildStart() {
       if (this.environment?.name !== 'client') return
       for (const [specifier, value] of Object.entries(userEntries)) {
-        if (value.startsWith('http://') || value.startsWith('https://')) continue
+        if (value.startsWith('http://') || value.startsWith('https://'))
+          continue
         const ref = this.emitFile({
           type: 'chunk',
           id: value,
@@ -967,7 +1019,11 @@ type VirtualLoadContext = {
 
 function createVirtualPlugin(
   virtualName: string,
-  loadFn: (this: VirtualLoadContext, id: string, options?: { ssr?: boolean }) => string | void | Promise<string | void>,
+  loadFn: (
+    this: VirtualLoadContext,
+    id: string,
+    options?: { ssr?: boolean },
+  ) => string | void | Promise<string | void>,
 ): Plugin {
   const shortName = virtualName.replace('virtual:', '')
   const resolvedId = '\0' + virtualName
