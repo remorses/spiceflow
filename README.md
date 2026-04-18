@@ -2159,21 +2159,16 @@ Spiceflow includes an MCP plugin that exposes your API routes as tools and resou
 
 Cache full-page HTML in Cloudflare KV with deployment-aware cache keys. See [Cloudflare docs](docs/cloudflare.md#kv-page-caching) for the full middleware example.
 
-## Deployment Skew Protection
+## Cross-Deployment Safety
 
-When you deploy a new version of your app, users with stale browser tabs still have the old client bundle. Spiceflow handles this automatically for both navigations and server actions — no configuration needed.
+Spiceflow works across deployments without forced page reloads or cookies. When you deploy a new version, users with stale browser tabs continue working — both client navigations and server actions execute normally against the new server.
 
-Each production build stamps a unique deployment ID (build timestamp) into the server bundle. The first document request sets an `HttpOnly` cookie with this ID.
-
-- **Client navigations** — if the deployment cookie is stale, the server returns `409` with an `x-spiceflow-reload` header. The client calls `window.location.replace()` to hard-reload, picking up the fresh HTML, JS, and cookie.
-- **Server actions** — execute normally even with a stale deployment cookie. This is safe because client reference IDs are stable across deployments (they're a hash of the file path, not the content), and old client chunks remain on CDN. The old client resolves component references from its own baked-in manifest and loads its own chunks — no duplicate React instances, no hydration mismatches.
-
-The deployment ID is disabled during development (`vite dev`) so it never interferes with HMR. See [Deployment Skew](docs/deployment-skew.md) for a deep dive into how flight data, client references, and cross-deployment safety work.
+This works because RSC flight payloads contain **client reference IDs** (a hash of the file path), not chunk URLs. The old client resolves these IDs from its own baked-in manifest and loads its own chunks from CDN. No duplicate React instances, no hydration mismatches. See [Deployment Skew](docs/deployment-skew.md) for a deep dive.
 
 <details>
-<summary>Server action cross-deployment safety</summary>
+<summary>Edge cases and encryption</summary>
 
-When a server action returns JSX, the flight payload contains client reference IDs — not chunk URLs. The old client looks up these IDs in its own compiled references map and loads its own chunks from CDN. This means the old client always uses its own React instance and its own component code, even when the server has been updated. The only edge case is if the new server returns JSX referencing a brand-new component that didn't exist in the old build — but the next navigation will force a reload and pick up the new bundle.
+The only case where a cross-deployment request fails is if the new server renders JSX containing a brand-new `"use client"` component that didn't exist in the old build. The old client's references map won't have that ID. This is rare in practice — most deployments modify existing components rather than adding entirely new ones to existing pages.
 
 If you use inline `"use server"` functions that capture variables (bound arguments), set the `RSC_ENCRYPTION_KEY` environment variable to a stable base64-encoded 32-byte key so encrypted closures survive across deployments.
 
@@ -2182,12 +2177,14 @@ If you use inline `"use server"` functions that capture variables (bound argumen
 <details>
 <summary>How the deployment ID is resolved per environment</summary>
 
+Each production build stamps a unique deployment ID (build timestamp) into the server bundle. It's available via `getDeploymentId()` for custom logic (analytics, logging, cache keys) but is not used for request blocking.
+
 The deployment ID uses the `#deployment-id` import map in `package.json` with environment-conditional resolution:
 
 - **`react-server`** — imports from `virtual:spiceflow-deployment-id` (the build timestamp baked in by Vite)
-- **`default`** (browser, tests) — returns `''` (no-op, skew protection is server-side only)
+- **`default`** (browser, tests) — returns `''`
 
-In dev mode the RSC loader also returns `''`, so skew detection is only active in production builds.
+In dev mode the RSC loader also returns `''`.
 
 </details>
 

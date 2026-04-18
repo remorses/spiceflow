@@ -69,20 +69,20 @@ This works because CDNs keep old hashed assets around:
 
 As long as old chunk files aren't actively purged, the old client can load them indefinitely.
 
-## Spiceflow's Deployment ID Behavior
+## Spiceflow's Approach
 
-Spiceflow assigns a **deployment ID** (build timestamp) to each build. On document requests it sets a `spiceflow-deployment` cookie. On subsequent RSC requests it compares the cookie value to the current server's deployment ID.
+Spiceflow does **not** use cookies or 409 responses for deployment skew protection. Both client navigations and server actions execute normally against the new server, regardless of which deployment the client was loaded from.
 
-**Client navigations (clicking Links)** — if the deployment cookie is stale, Spiceflow returns a 409 response that triggers a full page reload. This forces the client to load the new HTML, pick up the new client bundle, and start fresh. This is intentional: navigations fetch a new page's RSC payload that may reference new components, new layouts, or changed server-side data shapes. A reload guarantees consistency.
+This is safe because:
 
-**Server actions** — if the deployment cookie is stale, the action executes normally. No 409, no reload. This is safe because:
-
-1. The action's referenceKey (`hash(filePath)#exportName`) is stable — same file path, same ID
-2. If the action returns JSX, the flight payload contains client reference IDs that the old client can resolve from its own map
+1. The referenceKey (`hash(filePath)#exportName`) is stable — same file path, same ID across deploys
+2. The flight payload contains only referenceKeys, not chunk URLs — the old client resolves from its own map
 3. The old client loads its own chunks from CDN, using its own React instance
 4. No duplicate modules, no hydration mismatches
 
-The only case where a cross-deployment action would fail is if the new server returns JSX referencing a brand-new `"use client"` component that didn't exist in the old client build. The old client's references map won't have that ID → `client reference not found` error. But this is an edge case that the navigation reload already handles: the next Link click will force a full reload and pick up the new bundle.
+The only case where a cross-deployment request fails is if the new server renders JSX containing a brand-new `"use client"` component that didn't exist in the old build. The old client's references map won't have that ID. This is rare — most deployments modify existing components rather than adding entirely new ones to existing pages.
+
+Each production build still stamps a unique **deployment ID** (build timestamp) into the server bundle, available via `getDeploymentId()`. This is useful for analytics, logging, and cache keys — but it's not used to block requests.
 
 ## Encryption of Bound Arguments
 
@@ -98,7 +98,7 @@ This only matters for inline server actions that capture variables. Top-level ex
 ┌──────────────────────────────────────────────────────────────────────┐
 │                What happens across deployments?                      │
 ├──────────────────────┬───────────────────────────────────────────────┤
-│ Client navigation    │ 409 → full page reload → picks up new bundle  │
+│ Client navigation    │ Executes normally on new server               │
 │ Server action call   │ Executes normally on new server               │
 │ Action returns JSX   │ Old client resolves refs from own map ✅       │
 │ Action bound args    │ Needs stable RSC_ENCRYPTION_KEY if used       │

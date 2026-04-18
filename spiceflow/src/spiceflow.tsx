@@ -62,17 +62,10 @@ import {
 import { formatServerError } from './react/format-server-error.js'
 import { sanitizeErrorMessage } from './react/sanitize-error.js'
 import {
-  createDeploymentCookie,
-  deploymentMismatchStatus,
-  deploymentReasonHeader,
-  deploymentReloadHeader,
-  getDocumentPath,
   isDocumentRequest,
-  isRscNavigationRequest,
   isRscRequest,
-  readDeploymentCookie,
 } from './react/deployment.js'
-import { getDeploymentId } from '#deployment-id'
+
 import {
   createTemporaryReferenceSet,
   decodeAction,
@@ -2062,41 +2055,6 @@ export class Spiceflow<
     customState: any,
     rootSpan?: SpiceflowSpan,
   ): Promise<Response> => {
-    const shouldUseDeploymentId = isDocumentRequest(request) || isRscRequest(u)
-    const deploymentId = shouldUseDeploymentId
-      ? await getDeploymentId()
-      : undefined
-
-    const root = this.topLevelApp || this
-    const requestDeploymentId = deploymentId
-      ? readDeploymentCookie(request)
-      : undefined
-
-    // Only block RSC navigations on deployment mismatch. Server actions are
-    // allowed through because client reference IDs are stable (hash of file
-    // path) and old client chunks remain on CDN — the old client resolves
-    // references from its own baked-in manifest, not the new server's.
-    if (
-      deploymentId &&
-      requestDeploymentId &&
-      deploymentId !== requestDeploymentId &&
-      isRscNavigationRequest(u)
-    ) {
-      const res = new Response(null, {
-        status: deploymentMismatchStatus,
-        headers: {
-          [deploymentReasonHeader]: 'deployment-mismatch',
-          [deploymentReloadHeader]: getDocumentPath(u),
-          'set-cookie': createDeploymentCookie({
-            deploymentId,
-            basePath: root.basePath,
-          }),
-        },
-      })
-      finalizeRequestSpan(rootSpan, res)
-      return res
-    }
-
     // Mutable ref — set after route resolution, read by waitUntil on error
     let onErrorHandlers: OnError[] = []
     let contextResponse: ContextResponse | undefined
@@ -2135,28 +2093,11 @@ export class Spiceflow<
     }
 
     const finalizeResponse = (response: Response, stripBody: boolean) => {
-      const finalized = this.finalizeHeadResponse(
+      return this.finalizeHeadResponse(
         response,
         stripBody,
         request.method === 'HEAD',
       )
-      if (
-        !deploymentId ||
-        !isDocumentRequest(request) ||
-        requestDeploymentId === deploymentId
-      ) {
-        return finalized
-      }
-      const headers = new Headers(finalized.headers)
-      headers.append(
-        'set-cookie',
-        createDeploymentCookie({ deploymentId, basePath: root.basePath }),
-      )
-      return new Response(finalized.body, {
-        status: finalized.status,
-        statusText: finalized.statusText,
-        headers,
-      })
     }
 
     return routerContextStorage.run(createRouterContextData(request), async () => {
