@@ -71,16 +71,19 @@ As long as old chunk files aren't actively purged, the old client can load them 
 
 ## Spiceflow's Approach
 
-Spiceflow does **not** use cookies or 409 responses for deployment skew protection. Both client navigations and server actions execute normally against the new server, regardless of which deployment the client was loaded from.
+Spiceflow does **not** use cookies or 409 responses for deployment skew protection. Both client navigations and server actions execute normally against the new server, as long as referenced client components remain backward-compatible.
 
-This is safe because:
+This works because:
 
 1. The referenceKey (`hash(filePath)#exportName`) is stable — same file path, same ID across deploys
 2. The flight payload contains only referenceKeys, not chunk URLs — the old client resolves from its own map
 3. The old client loads its own chunks from CDN, using its own React instance
 4. No duplicate modules, no hydration mismatches
 
-The only case where a cross-deployment request fails is if the new server renders JSX containing a brand-new `"use client"` component that didn't exist in the old build. The old client's references map won't have that ID. This is rare — most deployments modify existing components rather than adding entirely new ones to existing pages.
+Cross-deployment requests can fail in two cases:
+
+- **New client component** — the new server renders JSX containing a `"use client"` component that didn't exist in the old build. The old client's references map won't have that ID.
+- **Changed props interface** — a client component keeps the same file path but its props shape changes between deploys. The old client loads old component code that receives incompatible props from the new server. This is the same as any API contract change and is a code compatibility concern rather than a framework issue.
 
 Each production build still stamps a unique **deployment ID** (build timestamp) into the server bundle, available via `getDeploymentId()`. This is useful for analytics, logging, and cache keys — but it's not used to block requests.
 

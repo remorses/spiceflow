@@ -2161,14 +2161,17 @@ Cache full-page HTML in Cloudflare KV with deployment-aware cache keys. See [Clo
 
 ## Cross-Deployment Safety
 
-Spiceflow works across deployments without forced page reloads or cookies. When you deploy a new version, users with stale browser tabs continue working — both client navigations and server actions execute normally against the new server.
+Spiceflow works across deployments without forced page reloads or cookies. When you deploy a new version, users with stale browser tabs continue working — both client navigations and server actions execute normally against the new server, as long as referenced client components remain backward-compatible.
 
 This works because RSC flight payloads contain **client reference IDs** (a hash of the file path), not chunk URLs. The old client resolves these IDs from its own baked-in manifest and loads its own chunks from CDN. No duplicate React instances, no hydration mismatches. See [Deployment Skew](docs/deployment-skew.md) for a deep dive.
 
 <details>
 <summary>Edge cases and encryption</summary>
 
-The only case where a cross-deployment request fails is if the new server renders JSX containing a brand-new `"use client"` component that didn't exist in the old build. The old client's references map won't have that ID. This is rare in practice — most deployments modify existing components rather than adding entirely new ones to existing pages.
+Cross-deployment requests can fail in two cases:
+
+- The new server renders JSX containing a brand-new `"use client"` component that didn't exist in the old build — the old client's references map won't have that ID.
+- A client component keeps the same file path but its props interface changes between deploys — the old client loads old component code that receives incompatible props from the new server.
 
 If you use inline `"use server"` functions that capture variables (bound arguments), set the `RSC_ENCRYPTION_KEY` environment variable to a stable base64-encoded 32-byte key so encrypted closures survive across deployments.
 
