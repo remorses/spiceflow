@@ -5,11 +5,17 @@
 //   new Spiceflow({ tracer: trace.getTracer('my-app') })
 
 // Matches @opentelemetry/api Span interface (subset we use)
+export interface SpiceflowSpanContext {
+  traceId: string
+  spanId: string
+}
+
 export interface SpiceflowSpan {
   setAttribute(key: string, value: string | number | boolean): this
   setStatus(status: { code: number; message?: string }): this
   recordException(exception: Error | string): void
   updateName(name: string): this
+  spanContext?(): SpiceflowSpanContext | undefined
   end(endTime?: unknown): void
 }
 
@@ -49,6 +55,9 @@ export const noopSpan: SpiceflowSpan = {
   recordException() {},
   updateName() {
     return this
+  },
+  spanContext() {
+    return undefined
   },
   end() {},
 }

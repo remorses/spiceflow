@@ -12,7 +12,11 @@ export type {
 export type { ContextResponse, SpiceflowContext } from './context.js'
 export type { MergedLoaderData, AllLoaderData } from './types.js'
 export { ValidationError, json, type TypedResponse } from './error.js'
-export type { SpiceflowTracer, SpiceflowSpan } from './instrumentation.js'
+export type {
+  SpiceflowTracer,
+  SpiceflowSpan,
+  SpiceflowSpanContext,
+} from './instrumentation.js'
 export { withSpan, noopSpan, noopTracer } from './instrumentation.js'
 export { preventProcessExitIfBusy } from './prevent-process-exit-if-busy.js'
 export { getDeploymentId } from '#deployment-id'

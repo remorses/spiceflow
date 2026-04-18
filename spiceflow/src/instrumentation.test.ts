@@ -8,6 +8,8 @@ import { noopSpan, noopTracer } from './instrumentation.js'
 
 interface TestSpan {
   name: string
+  traceId: string
+  spanId: string
   kind?: number
   attributes: Record<string, string | number | boolean>
   status?: { code: number; message?: string }
@@ -22,6 +24,12 @@ interface TestSpan {
 function createTestTracer() {
   const spans: TestSpan[] = []
   const stack: TestSpan[] = []
+  let nextTraceId = 0
+  let nextSpanId = 0
+
+  function createId(length: number, value: number) {
+    return value.toString(16).padStart(length, '0')
+  }
 
   const tracer: SpiceflowTracer = {
     startActiveSpan(name: string, ...args: any[]) {
@@ -30,6 +38,8 @@ function createTestTracer() {
       const parent = stack[stack.length - 1]
       const testSpan: TestSpan = {
         name,
+        traceId: parent?.traceId ?? createId(32, ++nextTraceId),
+        spanId: createId(16, ++nextSpanId),
         kind: options.kind,
         attributes: { ...options.attributes },
         errors: [],
@@ -60,6 +70,12 @@ function createTestTracer() {
         updateName(n) {
           testSpan.name = n
           return span
+        },
+        spanContext() {
+          return {
+            traceId: testSpan.traceId,
+            spanId: testSpan.spanId,
+          }
         },
         end() {
           testSpan.ended = true
@@ -95,6 +111,19 @@ describe('instrumentation', () => {
     expect(await res.text()).toBe('"world"')
   })
 
+  test('noop span context is undefined without tracer', async () => {
+    let traceId: string | undefined
+
+    const app = new Spiceflow().get('/hello', ({ span }) => {
+      traceId = span.spanContext?.()?.traceId
+      return 'world'
+    })
+
+    await app.handle(new Request('http://localhost/hello'))
+
+    expect(traceId).toBeUndefined()
+  })
+
   test('root span for GET request', async () => {
     const { tracer, spans } = createTestTracer()
     const app = new Spiceflow({ tracer }).get('/hello', () => 'world')
@@ -123,6 +152,27 @@ describe('instrumentation', () => {
     expect(handler).toBeDefined()
     expect(handler!.name).toBe('handler - /users/:id')
     expect(handler!.ended).toBe(true)
+  })
+
+  test('handlers can read trace ids from span context', async () => {
+    const { tracer } = createTestTracer()
+    let traceId: string | undefined
+    let spanId: string | undefined
+
+    const app = new Spiceflow({ tracer }).get('/users/:id', ({ span }) => {
+      traceId = span.spanContext?.()?.traceId
+      spanId = span.spanContext?.()?.spanId
+      return { ok: true }
+    })
+
+    await app.handle(new Request('http://localhost/users/1'))
+
+    expect({ traceId, spanId }).toMatchInlineSnapshot(`
+      {
+        "spanId": "0000000000000002",
+        "traceId": "00000000000000000000000000000001",
+      }
+    `)
   })
 
   test('middleware spans are children of root', async () => {
