@@ -2161,19 +2161,21 @@ Cache full-page HTML in Cloudflare KV with deployment-aware cache keys. See [Clo
 
 ## Deployment Skew Protection
 
-When you deploy a new version of your app, users with stale browser tabs still have the old client bundle. If they navigate or call a server action, the old client would try to deserialize a flight payload from the new server — module IDs, serialization formats, and action references may have changed. Spiceflow detects this automatically and forces a hard page reload so the browser picks up the new bundle.
+When you deploy a new version of your app, users with stale browser tabs still have the old client bundle. Spiceflow handles this automatically for both navigations and server actions — no configuration needed.
 
-Each production build stamps a unique deployment ID (build timestamp) into the server bundle. The first document request sets an `HttpOnly` cookie with this ID. On subsequent RSC navigations and server action calls, the server compares the cookie against the current build:
+Each production build stamps a unique deployment ID (build timestamp) into the server bundle. The first document request sets an `HttpOnly` cookie with this ID.
 
-- **Match** — request proceeds normally
-- **Mismatch** — server returns `409` with an `x-spiceflow-reload` header pointing to the equivalent document URL. The client calls `window.location.replace()` to hard-reload the page, picking up the fresh HTML, JS, and cookie
+- **Client navigations** — if the deployment cookie is stale, the server returns `409` with an `x-spiceflow-reload` header. The client calls `window.location.replace()` to hard-reload, picking up the fresh HTML, JS, and cookie.
+- **Server actions** — execute normally even with a stale deployment cookie. This is safe because client reference IDs are stable across deployments (they're a hash of the file path, not the content), and old client chunks remain on CDN. The old client resolves component references from its own baked-in manifest and loads its own chunks — no duplicate React instances, no hydration mismatches.
 
-This is automatic — no configuration needed. The deployment ID is disabled during development (`vite dev`) so it never interferes with HMR.
+The deployment ID is disabled during development (`vite dev`) so it never interferes with HMR. See [Deployment Skew](docs/deployment-skew.md) for a deep dive into how flight data, client references, and cross-deployment safety work.
 
 <details>
-<summary>Server action behavior on mismatch</summary>
+<summary>Server action cross-deployment safety</summary>
 
-Server actions with a stale deployment cookie are never executed. The server short-circuits before route resolution and returns the 409 mismatch response. This prevents running action code against a mismatched server bundle where module IDs or database schemas may have changed. The client hard-reloads, and the user can retry the action on the fresh page.
+When a server action returns JSX, the flight payload contains client reference IDs — not chunk URLs. The old client looks up these IDs in its own compiled references map and loads its own chunks from CDN. This means the old client always uses its own React instance and its own component code, even when the server has been updated. The only edge case is if the new server returns JSX referencing a brand-new component that didn't exist in the old build — but the next navigation will force a reload and pick up the new bundle.
+
+If you use inline `"use server"` functions that capture variables (bound arguments), set the `RSC_ENCRYPTION_KEY` environment variable to a stable base64-encoded 32-byte key so encrypted closures survive across deployments.
 
 </details>
 
