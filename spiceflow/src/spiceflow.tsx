@@ -62,16 +62,10 @@ import {
 import { formatServerError } from './react/format-server-error.js'
 import { sanitizeErrorMessage } from './react/sanitize-error.js'
 import {
-  createDeploymentCookie,
-  deploymentMismatchStatus,
-  deploymentReasonHeader,
-  deploymentReloadHeader,
-  getDocumentPath,
   isDocumentRequest,
   isRscRequest,
-  readDeploymentCookie,
 } from './react/deployment.js'
-import { getDeploymentId } from '#deployment-id'
+
 import {
   createTemporaryReferenceSet,
   decodeAction,
@@ -2061,37 +2055,6 @@ export class Spiceflow<
     customState: any,
     rootSpan?: SpiceflowSpan,
   ): Promise<Response> => {
-    const shouldUseDeploymentId = isDocumentRequest(request) || isRscRequest(u)
-    const deploymentId = shouldUseDeploymentId
-      ? await getDeploymentId()
-      : undefined
-
-    const root = this.topLevelApp || this
-    const requestDeploymentId = deploymentId
-      ? readDeploymentCookie(request)
-      : undefined
-
-    if (
-      deploymentId &&
-      requestDeploymentId &&
-      deploymentId !== requestDeploymentId &&
-      isRscRequest(u)
-    ) {
-      const res = new Response(null, {
-        status: deploymentMismatchStatus,
-        headers: {
-          [deploymentReasonHeader]: 'deployment-mismatch',
-          [deploymentReloadHeader]: getDocumentPath(u),
-          'set-cookie': createDeploymentCookie({
-            deploymentId,
-            basePath: root.basePath,
-          }),
-        },
-      })
-      finalizeRequestSpan(rootSpan, res)
-      return res
-    }
-
     // Mutable ref — set after route resolution, read by waitUntil on error
     let onErrorHandlers: OnError[] = []
     let contextResponse: ContextResponse | undefined
@@ -2130,28 +2093,11 @@ export class Spiceflow<
     }
 
     const finalizeResponse = (response: Response, stripBody: boolean) => {
-      const finalized = this.finalizeHeadResponse(
+      return this.finalizeHeadResponse(
         response,
         stripBody,
         request.method === 'HEAD',
       )
-      if (
-        !deploymentId ||
-        !isDocumentRequest(request) ||
-        requestDeploymentId === deploymentId
-      ) {
-        return finalized
-      }
-      const headers = new Headers(finalized.headers)
-      headers.append(
-        'set-cookie',
-        createDeploymentCookie({ deploymentId, basePath: root.basePath }),
-      )
-      return new Response(finalized.body, {
-        status: finalized.status,
-        statusText: finalized.statusText,
-        headers,
-      })
     }
 
     return routerContextStorage.run(createRouterContextData(request), async () => {
@@ -3248,10 +3194,10 @@ export function isZodSchema(value: unknown): value is ZodType {
   )
 }
 
-import type * as z4 from 'zod/v4/core'
+import type * as z from 'zod'
 
 /** `true` ⇒ the value was created by Zod 4, `false` ⇒ Zod 3 */
-export function isZod4(schema: any): schema is z4.$ZodObject {
+export function isZod4(schema: any): schema is z.ZodObject {
   return '_zod' in schema // ⇦ only v4 adds this marker
 }
 

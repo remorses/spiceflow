@@ -7,7 +7,7 @@ let excludeMethods = ['OPTIONS']
 
 import type { TypeSchema } from './types.js'
 
-import { z } from 'zod/v4'
+import { z } from 'zod'
 
 const hiddenRouteKinds = new Set([
   'page',

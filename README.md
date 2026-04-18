@@ -2159,33 +2159,32 @@ Spiceflow includes an MCP plugin that exposes your API routes as tools and resou
 
 Cache full-page HTML in Cloudflare KV with deployment-aware cache keys. See [Cloudflare docs](docs/cloudflare.md#kv-page-caching) for the full middleware example.
 
-## Deployment Skew Protection
+## Cross-Deployment Safety
 
-When you deploy a new version of your app, users with stale browser tabs still have the old client bundle. If they navigate or call a server action, the old client would try to deserialize a flight payload from the new server — module IDs, serialization formats, and action references may have changed. Spiceflow detects this automatically and forces a hard page reload so the browser picks up the new bundle.
+Spiceflow works across deployments without forced page reloads or cookies. When you deploy a new version, users with stale browser tabs continue working — both client navigations and server actions execute normally against the new server.
 
-Each production build stamps a unique deployment ID (build timestamp) into the server bundle. The first document request sets an `HttpOnly` cookie with this ID. On subsequent RSC navigations and server action calls, the server compares the cookie against the current build:
-
-- **Match** — request proceeds normally
-- **Mismatch** — server returns `409` with an `x-spiceflow-reload` header pointing to the equivalent document URL. The client calls `window.location.replace()` to hard-reload the page, picking up the fresh HTML, JS, and cookie
-
-This is automatic — no configuration needed. The deployment ID is disabled during development (`vite dev`) so it never interferes with HMR.
+This works because RSC flight payloads contain **client reference IDs** (a hash of the file path), not chunk URLs. The old client resolves these IDs from its own baked-in manifest and loads its own chunks from CDN. No duplicate React instances, no hydration mismatches. See [Deployment Skew](docs/deployment-skew.md) for a deep dive.
 
 <details>
-<summary>Server action behavior on mismatch</summary>
+<summary>Edge cases and encryption</summary>
 
-Server actions with a stale deployment cookie are never executed. The server short-circuits before route resolution and returns the 409 mismatch response. This prevents running action code against a mismatched server bundle where module IDs or database schemas may have changed. The client hard-reloads, and the user can retry the action on the fresh page.
+The only case where a cross-deployment request fails is if the new server renders JSX containing a brand-new `"use client"` component that didn't exist in the old build. The old client's references map won't have that ID. This is rare in practice — most deployments modify existing components rather than adding entirely new ones to existing pages.
+
+If you use inline `"use server"` functions that capture variables (bound arguments), set the `RSC_ENCRYPTION_KEY` environment variable to a stable base64-encoded 32-byte key so encrypted closures survive across deployments.
 
 </details>
 
 <details>
 <summary>How the deployment ID is resolved per environment</summary>
 
+Each production build stamps a unique deployment ID (build timestamp) into the server bundle. It's available via `getDeploymentId()` for custom logic (analytics, logging, cache keys) but is not used for request blocking.
+
 The deployment ID uses the `#deployment-id` import map in `package.json` with environment-conditional resolution:
 
 - **`react-server`** — imports from `virtual:spiceflow-deployment-id` (the build timestamp baked in by Vite)
-- **`default`** (browser, tests) — returns `''` (no-op, skew protection is server-side only)
+- **`default`** (browser, tests) — returns `''`
 
-In dev mode the RSC loader also returns `''`, so skew detection is only active in production builds.
+In dev mode the RSC loader also returns `''`.
 
 </details>
 

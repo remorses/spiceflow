@@ -24,7 +24,6 @@ import { FlightDataContext, useFlightData } from './context.js'
 import {
   getDocumentLocationFromResponse,
   isFlightResponse,
-  isDeploymentMismatchResponse,
 } from './deployment.js'
 import { getErrorContext, isRedirectError } from './errors.js'
 import { actionAbortControllers } from './action-abort.js'
@@ -72,16 +71,6 @@ async function fetchFlightResponse(args: {
   kind: 'navigation' | 'action'
 }) {
   const response = await fetch(args.url, { ...args.init, cache: 'no-store' })
-
-  if (isDeploymentMismatchResponse(response)) {
-    hardNavigate(
-      getDocumentLocationFromResponse({
-        response,
-        requestUrl: args.url,
-      }),
-    )
-    return never()
-  }
 
   const locationHeader = response.headers.get('location')
   const isRedirectResponse = response.status >= 300 && response.status <= 399
