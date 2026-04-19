@@ -1449,7 +1449,7 @@ import { redirect, parseFormData } from 'spiceflow'
 import { Button } from './app/button'
 
 const subscribeSchema = z.object({ email: z.string().email() })
-const name = subscribeSchema.keyof().enum
+const fields = subscribeSchema.keyof().enum
 
 .page('/subscribe', async () => {
   async function subscribe(formData: FormData) {
@@ -1460,7 +1460,7 @@ const name = subscribeSchema.keyof().enum
   }
   return (
     <form action={subscribe}>
-      <input name={name.email} type="email" required />
+      <input name={fields.email} type="email" required />
       <Button type="submit">Subscribe</Button>
     </form>
   )
@@ -1492,7 +1492,7 @@ import { useActionState } from 'react'
 import { Button } from './button'
 import { subscribeSchema } from '../actions'
 
-const name = subscribeSchema.keyof().enum
+const fields = subscribeSchema.keyof().enum
 
 export function NewsletterForm({
   action,
@@ -1502,7 +1502,7 @@ export function NewsletterForm({
   const [message, formAction] = useActionState(action, '')
   return (
     <form action={formAction}>
-      <input name={name.email} type="email" required />
+      <input name={fields.email} type="email" required />
       <Button type="submit">Subscribe</Button>
       {message && <p>{message}</p>}
     </form>
@@ -1642,7 +1642,7 @@ export async function createPost(formData: FormData) {
 import { ErrorBoundary } from 'spiceflow/react'
 import { createPost, postSchema } from '../actions'
 
-const name = postSchema.keyof().enum
+const fields = postSchema.keyof().enum
 
 export function CreatePostForm() {
   return (
@@ -1655,7 +1655,7 @@ export function CreatePostForm() {
       }
     >
       <form action={createPost}>
-        <input name={name.title} required />
+        <input name={fields.title} required />
         <Button type="submit">Create</Button>
       </form>
     </ErrorBoundary>
@@ -1720,13 +1720,13 @@ export async function createProject(orgId: string, formData: FormData) {
 import { ErrorBoundary } from 'spiceflow/react'
 import { createProject, projectSchema } from '../actions'
 
-const name = projectSchema.keyof().enum
+const fields = projectSchema.keyof().enum
 
 export function CreateProjectForm({ orgId }: { orgId: string }) {
   return (
     <ErrorBoundary fallback={<ErrorBoundary.ErrorMessage />}>
       <form action={createProject.bind(null, orgId)}>
-        <input name={name.name} required />
+        <input name={fields.name} required />
         <button type="submit">Create</button>
       </form>
     </ErrorBoundary>
@@ -2002,7 +2002,7 @@ import { parseFormData } from 'spiceflow'
 import { chat } from './actions'
 
 const chatSchema = z.object({ message: z.string().min(1) })
-const name = chatSchema.keyof().enum
+const fields = chatSchema.keyof().enum
 
 export function Chat() {
   const [parts, setParts] = useState<ReactNode[]>([])
@@ -2023,7 +2023,7 @@ export function Chat() {
     <div>
       <div>{parts.map((part, i) => <div key={i}>{part}</div>)}</div>
       <form action={send}>
-        <input name={name.message} placeholder="Ask something..." />
+        <input name={fields.message} placeholder="Ask something..." />
         <button type="submit" disabled={isPending}>Send</button>
         {isPending && (
           <button type="button" onClick={() => getActionAbortController(chat)?.abort()}>
