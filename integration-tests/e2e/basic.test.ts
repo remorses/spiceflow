@@ -2210,6 +2210,43 @@ test.describe("server actions", () => {
 		await expect(page.getByTestId("eb-form")).toBeVisible({ timeout: 5000 });
 	});
 
+	test("parseFormData validates and coerces form fields with schema", async ({
+		page,
+	}) => {
+		await page.goto(url("/parse-form-data-test"));
+		await expect(page.getByTestId("layout-mount-count")).toHaveText("1", {
+			timeout: 10000,
+		});
+		// Fill in the form fields
+		await page.getByTestId("pfd-name").fill("Alice");
+		await page.getByTestId("pfd-age").fill("25");
+		// Select multiple tags
+		await page.getByTestId("pfd-tags").selectOption(["a", "c"]);
+		await page.getByTestId("pfd-submit").click();
+		// The action returns a formatted string with coerced values
+		await expect(page.getByTestId("pfd-result")).toHaveText(
+			"name=Alice, age=25, tags=a+c",
+			{ timeout: 10000 },
+		);
+	});
+
+	test("parseFormData returns validation error on invalid input", async ({
+		page,
+	}) => {
+		await page.goto(url("/parse-form-data-test"));
+		await expect(page.getByTestId("layout-mount-count")).toHaveText("1", {
+			timeout: 10000,
+		});
+		// Submit with empty name (min 1 char required)
+		await page.getByTestId("pfd-name").fill("");
+		await page.getByTestId("pfd-age").fill("25");
+		await page.getByTestId("pfd-submit").click();
+		// The action catches ValidationError and returns it as "error:..."
+		await expect(page.getByTestId("pfd-result")).toContainText("error:", {
+			timeout: 10000,
+		});
+	});
+
 	test("getActionAbortController aborts an in-flight server action", async ({
 		page,
 	}) => {
