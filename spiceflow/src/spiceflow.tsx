@@ -1038,15 +1038,9 @@ export class Spiceflow<
     const Path extends string,
     const LocalSchema extends InputSchema<keyof Definitions['type'] & string>,
     const Schema extends UnwrapRoute<LocalSchema, Definitions['type']>,
-    const Handle extends InlineHandler<
-      this,
-      Schema,
-      Singleton,
-      JoinPath<BasePath, Path>
-    >,
   >(
     path: Path,
-    handler: Handle,
+    handler: InlineHandler<this, Schema, Singleton, JoinPath<BasePath, Path>>,
   ): Spiceflow<
     BasePath,
     Scoped,
@@ -1110,15 +1104,9 @@ export class Spiceflow<
     const Path extends string,
     const LocalSchema extends InputSchema<keyof Definitions['type'] & string>,
     const Schema extends UnwrapRoute<LocalSchema, Definitions['type']>,
-    const Handle extends InlineHandler<
-      this,
-      Schema,
-      Singleton,
-      JoinPath<BasePath, Path>
-    >,
   >(
     path: Path,
-    handler?: Handle,
+    handler?: InlineHandler<this, Schema, Singleton, JoinPath<BasePath, Path>>,
   ): Spiceflow<
     BasePath,
     Scoped,
@@ -1228,15 +1216,9 @@ export class Spiceflow<
     const Path extends string,
     const LocalSchema extends InputSchema<keyof Definitions['type'] & string>,
     const Schema extends UnwrapRoute<LocalSchema, Definitions['type']>,
-    const Handle extends InlineHandler<
-      this,
-      Schema,
-      Singleton,
-      JoinPath<BasePath, Path>
-    >,
   >(
     path: Path,
-    handler: Handle,
+    handler: InlineHandler<this, Schema, Singleton, JoinPath<BasePath, Path>>,
   ): Spiceflow<
     BasePath,
     Scoped,

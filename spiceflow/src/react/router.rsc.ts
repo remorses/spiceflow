@@ -6,6 +6,7 @@ import { getRouterContext } from '#router-context'
 import { buildHref } from './loader-utils.js'
 import type {
   LoaderDataForPath,
+  RegisteredApp,
   RouterBase,
   RouterPathArg,
 } from './router.js'
@@ -101,6 +102,10 @@ export function useLoaderData<
   return getRouterContext()?.loaderData as LoaderDataForPath<App, Path>
 }
 
-export function getRouter<App extends AnySpiceflow = AnySpiceflow>(): RouterBase<App> {
-  return router as RouterBase<App>
+export type { SpiceflowRegister, RegisteredApp } from './router.js'
+
+export function getRouter(): RouterBase<RegisteredApp>
+export function getRouter<App extends AnySpiceflow>(): RouterBase<App>
+export function getRouter(): any {
+  return router
 }

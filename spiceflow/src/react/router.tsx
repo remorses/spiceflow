@@ -581,6 +581,24 @@ export function useRouterState<_App extends AnySpiceflow = AnySpiceflow>() {
   )
 }
 
-export function getRouter<App extends AnySpiceflow = AnySpiceflow>(): RouterBase<App> {
-  return router as RouterBase<App>
+// Type registry for getRouter(). Augment this interface to get fully typed
+// router without passing <typeof app> everywhere:
+//
+//   declare module 'spiceflow/react' {
+//     interface SpiceflowRegister { app: typeof app }
+//   }
+//
+// Then getRouter() returns a typed router automatically.
+export interface SpiceflowRegister {}
+
+export type RegisteredApp = SpiceflowRegister extends {
+  app: infer App extends AnySpiceflow
+}
+  ? App
+  : AnySpiceflow
+
+export function getRouter(): RouterBase<RegisteredApp>
+export function getRouter<App extends AnySpiceflow>(): RouterBase<App>
+export function getRouter(): any {
+  return router
 }

@@ -231,6 +231,19 @@ always use tailwind for styling, prefer using simple styles using flex and gap. 
 
 All React-facing APIs (components, router, utilities) must be exported from `spiceflow/react` (i.e. `spiceflow/src/react/index.ts`). Never import from `spiceflow/dist/react/...` directly — that's an internal path that breaks when the build output changes. If something is meant for users (like `Head`, `Link`, `ProgressBar`, `router`), it must be in the public export.
 
+## type-safe routing with SpiceflowRegister
+
+Spiceflow uses a type registry pattern (like TanStack Router) for type-safe routing. The preferred approach:
+
+1. Call `getRouter()` without generics everywhere — components, handlers, server code
+2. Add `declare module 'spiceflow/react' { interface SpiceflowRegister { app: typeof app } }` at the bottom of the app entry file
+
+This registers the app type globally so `getRouter()`, `useLoaderData()`, and `useRouterState()` are fully typed without importing the app type. Never use the old `getRouter<typeof app>()` pattern — the register is the preferred method.
+
+When writing examples or tests, always use `getRouter()` (no generic). The `<typeof app>` generic still works for backwards compatibility but should not appear in new code or documentation.
+
+The register interface lives in `spiceflow/src/react/router.tsx` as `SpiceflowRegister`, exported from `spiceflow/react` and `spiceflow`. The `getRouter()` function uses overloads: no-arg returns `RouterBase<RegisteredApp>` (reads from register), explicit generic returns `RouterBase<App>`.
+
 ## server actions and router.refresh()
 
 Spiceflow automatically re-renders the page after every server action call (`callServer` always applies the new RSC payload). This means `router.refresh()` is NOT needed after server actions — the page updates automatically for direct `<form action={serverAction}>`, client wrapper functions, and direct imported action calls.
