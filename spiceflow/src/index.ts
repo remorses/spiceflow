@@ -22,6 +22,7 @@ export { preventProcessExitIfBusy } from './prevent-process-exit-if-busy.js'
 export { getDeploymentId } from '#deployment-id'
 export { publicDir, distDir } from '#spiceflow-dirs'
 export { getActionRequest } from './action-context.js'
+export { parseFormData, parseFormDataAsync } from './parse-form-data.js'
 
 // utility Response to be used in Cloudflare Workers to shut up the TypeScript errors (cloudflare Response is different than normal Response type)
 class Response extends globalThis.Response {}

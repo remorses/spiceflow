@@ -119,6 +119,7 @@ When that happens, the `use client` boundary only works if the client file stays
 **Bad pattern**
 
 - published dependency has a server-safe entry file that imports a client file with a relative import
+- a single package module mixes server-safe/shared exports with React hook or component exports behind `'use client'`
 - Vite dependency optimization flattens both files into one optimized server dependency
 - the client module gets evaluated against `react-server`
 - startup crashes before the app renders
@@ -127,6 +128,8 @@ When that happens, the `use client` boundary only works if the client file stays
 
 - `Class extends value undefined is not a constructor or null`
 - `Component` / `useState` / `useEffect` / `prefetchDNS` is `undefined`
+- `Cannot read properties of null (reading 'useState' | 'useEffect' | 'useCallback')`
+- `Invalid hook call. Hooks can only be called inside of the body of a function component`
 - Cloudflare dev crashes during worker startup before any request hits your app
 
 ```text
@@ -140,6 +143,8 @@ published dependency entry
 **Safer pattern**
 
 - keep the main package entry server-safe
+- never put server-safe or shared exports in the same module as `'use client'` in a published package
+- split vanilla state, helpers, constants, and types into a separate server-safe file
 - expose client code through a package subpath such as `my-lib/client`
 - import the client boundary through that package subpath instead of a relative path from the server entry
 
@@ -148,9 +153,40 @@ published dependency entry
 import { ClientWidget } from 'my-lib/client'
 ```
 
+```text
+good
+  chat-store.ts   -> vanilla store, helpers, types
+  chat-state.ts   -> 'use client' React hook wrapper
+
+bad
+  chat-state.ts   -> exports types + vanilla store + React hook in one module
+```
+
 This matters most in Vite RSC dev, Cloudflare runner startup, and any environment that eagerly imports the full worker/module graph to inspect exports.
 
 If this only happens for a package from `node_modules` and not for your app's own `src/` files, this is the exact class of issue described here.
+
+### Fast diagnosis
+
+If you see one of the errors above, the quickest way to confirm this failure mode is:
+
+1. **Check where the crash starts**
+   - if the first useful stack frame points into a package under `node_modules` instead of your app `src/`, suspect an optimized package-boundary issue
+   - if the stack mentions a hook helper like `useState`, `useEffect`, `useCallback`, `Component`, or a client-only React DOM helper, that package likely leaked client code into a server chunk
+
+2. **Check whether it is server-only**
+   - if the bug happens during SSR, worker startup, or the first server render but not in the browser-only client path, this is a strong signal that a package client boundary got flattened into the server graph
+
+3. **Check whether the module mixes concerns**
+   - if the crashing package module exports both shared/server-safe values and React hook/component exports, split it first before trying anything more exotic
+
+### Fast fix checklist
+
+- move shared types, constants, helpers, and vanilla stores into a server-safe file with no `'use client'`
+- keep hook wrappers and interactive components in a separate `'use client'` file
+- do not import a client file from a server-safe package entry with a relative import
+- expose client code through a package subpath like `pkg/client` when the package is meant to be consumed from `node_modules`
+- rebuild the package and restart dev so Vite throws away the old optimized chunks
 
 ### How to debug this
 
@@ -1405,22 +1441,26 @@ export function Button({ children, ...props }: React.ButtonHTMLAttributes<HTMLBu
 }
 ```
 
-Then use it in forms — no manual loading state needed:
+Then use it in forms — no manual loading state needed. Use `parseFormData` to validate form fields with a Zod schema, and `schema.keyof().enum` for type-safe input `name` attributes (typos become compile errors):
 
 ```tsx
-import { redirect } from 'spiceflow'
+import { z } from 'zod'
+import { redirect, parseFormData } from 'spiceflow'
 import { Button } from './app/button'
+
+const subscribeSchema = z.object({ email: z.string().email() })
+const fields = subscribeSchema.keyof().enum
 
 .page('/subscribe', async () => {
   async function subscribe(formData: FormData) {
     'use server'
-    const email = formData.get('email') as string
+    const { email } = parseFormData(subscribeSchema, formData)
     await addSubscriber(email)
     throw redirect('/thank-you')
   }
   return (
     <form action={subscribe}>
-      <input name="email" type="email" required />
+      <input name={fields.email} type="email" required />
       <Button type="submit">Subscribe</Button>
     </form>
   )
@@ -1433,8 +1473,13 @@ Use `useActionState` to display return values from the action. The action receiv
 // src/actions.tsx
 'use server'
 
+import { z } from 'zod'
+import { parseFormData } from 'spiceflow'
+
+export const subscribeSchema = z.object({ email: z.string().email() })
+
 export async function subscribe(prev: string, formData: FormData) {
-  const email = formData.get('email') as string
+  const { email } = parseFormData(subscribeSchema, formData)
   await addSubscriber(email)
   return `Subscribed ${email}!`
 }
@@ -1445,6 +1490,9 @@ export async function subscribe(prev: string, formData: FormData) {
 'use client'
 import { useActionState } from 'react'
 import { Button } from './button'
+import { subscribeSchema } from '../actions'
+
+const fields = subscribeSchema.keyof().enum
 
 export function NewsletterForm({
   action,
@@ -1454,7 +1502,7 @@ export function NewsletterForm({
   const [message, formAction] = useActionState(action, '')
   return (
     <form action={formAction}>
-      <input name="email" type="email" required />
+      <input name={fields.email} type="email" required />
       <Button type="submit">Subscribe</Button>
       {message && <p>{message}</p>}
     </form>
@@ -1465,12 +1513,6 @@ export function NewsletterForm({
 ```tsx
 // In your server component page
 .page('/newsletter', async () => {
-  async function subscribe(prev: string, formData: FormData) {
-    'use server'
-    const email = formData.get('email') as string
-    await addSubscriber(email)
-    return `Subscribed ${email}!`
-  }
   return <NewsletterForm action={subscribe} />
 })
 ```
@@ -1575,14 +1617,19 @@ If a server action throws, the error is caught by the nearest `ErrorBoundary`. T
 
 Use `ErrorBoundary` from `spiceflow/react` to catch errors from form actions. It provides `ErrorBoundary.ErrorMessage` and `ErrorBoundary.ResetButton` sub-components that read the error and reset function from context — so they work as standalone elements anywhere in the `fallback` tree.
 
-Actions should **throw errors** instead of returning error strings. Return **objects** for rich success data instead of scalars:
+Actions should **throw errors** instead of returning error strings. Return **objects** for rich success data instead of scalars. Use `parseFormData` for validation — it throws a `ValidationError` when the schema fails, which `ErrorBoundary` catches automatically:
 
 ```tsx
 // src/actions.ts
 'use server'
 
-export async function createPost({ title }: { title: string }) {
-  if (!title) throw new Error('Title is required')
+import { z } from 'zod'
+import { parseFormData } from 'spiceflow'
+
+export const postSchema = z.object({ title: z.string().min(1, 'Title is required') })
+
+export async function createPost(formData: FormData) {
+  const { title } = parseFormData(postSchema, formData)
   const post = await db.posts.create({ title })
   return { id: post.id }
 }
@@ -1593,7 +1640,9 @@ export async function createPost({ title }: { title: string }) {
 'use client'
 
 import { ErrorBoundary } from 'spiceflow/react'
-import { createPost } from '../actions'
+import { createPost, postSchema } from '../actions'
+
+const fields = postSchema.keyof().enum
 
 export function CreatePostForm() {
   return (
@@ -1605,13 +1654,8 @@ export function CreatePostForm() {
         </div>
       }
     >
-      <form
-        action={async (formData: FormData) => {
-          const title = formData.get('title') as string
-          await createPost({ title })
-        }}
-      >
-        <input name="title" required />
+      <form action={createPost}>
+        <input name={fields.title} required />
         <Button type="submit">Create</Button>
       </form>
     </ErrorBoundary>
@@ -1657,9 +1701,13 @@ When a server action needs to navigate to a different page (e.g. after creating 
 // src/actions.ts
 'use server'
 
-import { redirect } from 'spiceflow'
+import { z } from 'zod'
+import { redirect, parseFormData } from 'spiceflow'
 
-export async function createProject({ name, orgId }: { name: string; orgId: string }) {
+export const projectSchema = z.object({ name: z.string().min(1) })
+
+export async function createProject(orgId: string, formData: FormData) {
+  const { name } = parseFormData(projectSchema, formData)
   const project = await db.projects.create({ name, orgId })
   throw redirect(`/orgs/${orgId}/projects/${project.id}`)
 }
@@ -1670,17 +1718,15 @@ export async function createProject({ name, orgId }: { name: string; orgId: stri
 'use client'
 
 import { ErrorBoundary } from 'spiceflow/react'
-import { createProject } from '../actions'
+import { createProject, projectSchema } from '../actions'
+
+const fields = projectSchema.keyof().enum
 
 export function CreateProjectForm({ orgId }: { orgId: string }) {
   return (
     <ErrorBoundary fallback={<ErrorBoundary.ErrorMessage />}>
-      <form action={async (formData: FormData) => {
-        const name = formData.get('name') as string
-        await createProject({ name, orgId })
-        // no router.push needed — the action redirects server-side
-      }}>
-        <input name="name" required />
+      <form action={createProject.bind(null, orgId)}>
+        <input name={fields.name} required />
         <button type="submit">Create</button>
       </form>
     </ErrorBoundary>
@@ -1878,11 +1924,14 @@ Use `"use server"` to define functions that run on the server but can be called 
 // src/app/actions.tsx
 'use server'
 
-import { getActionRequest } from 'spiceflow'
+import { z } from 'zod'
+import { getActionRequest, parseFormData } from 'spiceflow'
+
+export const contactSchema = z.object({ name: z.string().min(1) })
 
 export async function submitForm(formData: FormData) {
   const { signal } = getActionRequest()
-  const name = formData.get('name')
+  const { name } = parseFormData(contactSchema, formData)
   // signal is aborted when the client disconnects or cancels —
   // pass it to any downstream work so it cancels automatically
   await saveToDatabase(name, { signal })
@@ -1946,16 +1995,21 @@ export async function* chat(
 // src/app/chat.tsx
 'use client'
 
+import { z } from 'zod'
 import { useState, useTransition, type ReactNode } from 'react'
 import { getActionAbortController } from 'spiceflow/react'
+import { parseFormData } from 'spiceflow'
 import { chat } from './actions'
+
+const chatSchema = z.object({ message: z.string().min(1) })
+const fields = chatSchema.keyof().enum
 
 export function Chat() {
   const [parts, setParts] = useState<ReactNode[]>([])
   const [isPending, startTransition] = useTransition()
 
   function send(formData: FormData) {
-    const message = formData.get('message') as string
+    const { message } = parseFormData(chatSchema, formData)
     setParts([])
     startTransition(async () => {
       const stream = await chat([{ role: 'user', content: message }])
@@ -1969,7 +2023,7 @@ export function Chat() {
     <div>
       <div>{parts.map((part, i) => <div key={i}>{part}</div>)}</div>
       <form action={send}>
-        <input name="message" placeholder="Ask something..." />
+        <input name={fields.message} placeholder="Ask something..." />
         <button type="submit" disabled={isPending}>Send</button>
         {isPending && (
           <button type="button" onClick={() => getActionAbortController(chat)?.abort()}>

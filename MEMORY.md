@@ -83,7 +83,7 @@ if (!depForEntryFileName[chunk.fileName]) {
    respects `preserveSymlinks` so pnpm `+` paths aren't produced. Simplest. Downside:
    requires spiceflow to be resolvable from the project root (breaks wrapper-plugin
    nesting like `@holocron.so/vite` → spiceflow).
-2. Wrapper plugins can prefix: `'holocron > spiceflow > superjson'` when spiceflow
+2. Wrapper plugins can prefix: `'holocron > spiceflow > dep'` when spiceflow
    is nested. Wrapper knows its own name.
 3. Use `tryResolve` + post-process `.pnpm/.../node_modules/` segment to get the
    symlinked path (our previous fix, now reverted for simplicity).

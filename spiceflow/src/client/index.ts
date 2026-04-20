@@ -1,5 +1,5 @@
 import type { AnySpiceflow, Spiceflow } from '../spiceflow.ts'
-import superjson from 'superjson'
+import { flightDecode } from '../flight-data.js'
 import { EventSourceParserStream } from 'eventsource-parser/stream'
 
 import type { SpiceflowClient } from './types.js'
@@ -18,7 +18,7 @@ import {
   processHeaders,
   streamSSEResponse,
   tryParsingSSEJson,
-  superjsonDeserialize,
+  flightDeserialize,
   TextDecoderStream,
   isAbortError,
   type SSEEvent,
@@ -321,7 +321,7 @@ const createProxy = (
               data = streamSSEResponse({
                 response,
                 map: (x) => {
-                  return tryParsingSSEJson(x.data)
+                  return tryParsingSSEJson(x.data, true)
                 },
                 executeRequest,
                 maxRetries: retries,
@@ -329,9 +329,12 @@ const createProxy = (
 
               break
 
+            case 'text/x-flight':
+              data = flightDecode(await response.text())
+              break
+
             case 'application/json':
               data = await response.json()
-              data = superjsonDeserialize(data)
               break
             case 'application/octet-stream':
               data = await response.arrayBuffer()

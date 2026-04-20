@@ -1,6 +1,6 @@
 import { Suspense, useActionState, useState } from "react";
 
-import { Spiceflow, serveStatic, redirect } from "spiceflow";
+import { Spiceflow, serveStatic, redirect, parseFormData } from "spiceflow";
 import { IndexPage } from "./app/index";
 import { getCounter } from "./app/action";
 
@@ -55,6 +55,7 @@ import {
 import { ServerGuardTestClient } from "./app/server-guard-test-client";
 import { ActionFormTest } from "./app/action-form-test";
 import { ErrorBoundaryFormTest } from "./app/error-boundary-form-test";
+import { ParseFormDataTest } from "./app/parse-form-data-test";
 import {
 	AbortActionTest,
 	InspectRequestActionTest,
@@ -68,6 +69,14 @@ import testContentRaw from "./test-content.md?raw";
 import { publicDir, distDir } from "spiceflow";
 import { encodeFederationPayload } from "spiceflow/federation";
 import { RenderFederatedPayload } from "spiceflow/react";
+import { z } from "zod";
+
+const contactSchema = z.object({
+	name: z.string().min(1),
+	age: z.number().min(0),
+	tags: z.array(z.string()),
+});
+const contactFields = contactSchema.keyof().enum;
 
 // Increments on every RSC render of the home page. Used by e2e tests to detect
 // unwanted server re-renders (e.g. client HMR should not trigger a server render).
@@ -829,6 +838,18 @@ export const app = new Spiceflow()
 			// success — no return needed
 		}
 		return <ErrorBoundaryFormTest action={handleSubmit} />;
+	})
+	.page("/parse-form-data-test", async () => {
+		async function handleSubmit(prev: string, formData: FormData) {
+			"use server";
+			try {
+				const data = parseFormData(contactSchema, formData);
+				return `name=${data.name}, age=${data.age}, tags=${data.tags.join("+")}`;
+			} catch (e: any) {
+				return `error:${e.message}`;
+			}
+		}
+		return <ParseFormDataTest action={handleSubmit} fields={contactFields} />;
 	})
 	// --- .get() redirect followed by router.push() test ---
 	.get("/get-redirect/:id", ({ params, request }) => {

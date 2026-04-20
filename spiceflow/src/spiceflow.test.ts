@@ -280,32 +280,33 @@ describe('cloneDeep', () => {
   })
 })
 
-test('can encode superjson types', async () => {
-  const app = new Spiceflow().post('/superjson', () => {
+test('can encode rich types via Flight protocol', async () => {
+  const app = new Spiceflow().post('/rich-types', () => {
     const item = {
       date: new Date('2025-01-20T18:01:57.852Z'),
       map: new Map([['a', 1]]),
       set: new Set([1, 2, 3]),
       bigint: BigInt(123),
     }
-    return { items: Array(2).fill(item) }
+    return { items: [item, item] }
   })
   // Plain request without RPC header gets regular JSON (BigInt can't be serialized)
   const plainRes = await app.handle(
-    new Request('http://localhost/superjson', { method: 'POST' }),
+    new Request('http://localhost/rich-types', { method: 'POST' }),
   )
   expect(plainRes.status).toBe(500)
 
-  // RPC request with x-spiceflow-agent header gets superjson
+  // RPC request with x-spiceflow-agent header gets Flight encoding
   const res = await app.handle(
-    new Request('http://localhost/superjson', {
+    new Request('http://localhost/rich-types', {
       method: 'POST',
       headers: { 'x-spiceflow-agent': 'spiceflow-client' },
     }),
   )
   expect(res.status).toBe(200)
+  expect(res.headers.get('content-type')).toBe('text/x-flight')
   const client = createSpiceflowClient(app)
-  expect(await client.superjson.post().then((x) => x.data))
+  expect(await client['rich-types'].post().then((x) => x.data))
     .toMatchInlineSnapshot(`
       {
         "items": [
@@ -336,42 +337,12 @@ test('can encode superjson types', async () => {
         ],
       }
     `)
-  const payload = await res.json()
-  expect(payload).toMatchObject({
-    __superjsonMeta: {
-      referentialEqualities: {
-        'items.0': ['items.1'],
-      },
-      values: {
-        'items.0.bigint': ['bigint'],
-        'items.0.date': ['Date'],
-        'items.0.map': ['map'],
-        'items.0.set': ['set'],
-        'items.1.bigint': ['bigint'],
-        'items.1.date': ['Date'],
-        'items.1.map': ['map'],
-        'items.1.set': ['set'],
-      },
-    },
-    items: [
-      {
-        bigint: '123',
-        date: '2025-01-20T18:01:57.852Z',
-        map: [['a', 1]],
-        set: [1, 2, 3],
-      },
-      {
-        bigint: '123',
-        date: '2025-01-20T18:01:57.852Z',
-        map: [['a', 1]],
-        set: [1, 2, 3],
-      },
-    ],
-  })
-  const payloadMetaVersion = payload.__superjsonMeta.v
-  if (payloadMetaVersion !== undefined) {
-    expect(payloadMetaVersion).toBe(1)
-  }
+  // Verify the raw payload is Flight wire format
+  const rawPayload = await res.text()
+  expect(rawPayload).toContain('$D2025-01-20T18:01:57.852Z')
+  expect(rawPayload).toContain('$n123')
+  expect(rawPayload).toContain('$Q')
+  expect(rawPayload).toContain('$W')
 })
 test('dynamic route', async () => {
   const res = await new Spiceflow()
@@ -2722,28 +2693,25 @@ test('child app specific routes beat parent wildcard routes', async () => {
   expect(await sharedRes.json()).toBe('parent shared')
 })
 
-test('disableSuperJsonUnlessRpc is inherited by child apps', async () => {
-  // Test that child apps inherit the flag from parent
+test('flight encoding is inherited by child apps', async () => {
   const childApp = new Spiceflow().get('/date', () => ({
     date: new Date('2024-01-01'),
   }))
 
-  const parentApp = new Spiceflow({ disableSuperJsonUnlessRpc: true }).use(
-    childApp,
-  )
+  const parentApp = new Spiceflow().use(childApp)
 
-  // Regular request should not use superjson
+  // Regular request gets plain JSON
   const regularRes = await parentApp.handle(
     new Request('http://localhost/date', { method: 'GET' }),
   )
   expect(regularRes.status).toBe(200)
+  expect(regularRes.headers.get('content-type')).toBe('application/json')
   const regularData = await regularRes.text()
-  expect(regularData).not.toContain('__superjsonMeta')
   expect(regularData).toMatchInlineSnapshot(
     `"{"date":"2024-01-01T00:00:00.000Z"}"`,
   )
 
-  // RPC request should use superjson
+  // RPC request gets Flight encoding
   const rpcRes = await parentApp.handle(
     new Request('http://localhost/date', {
       method: 'GET',
@@ -2751,43 +2719,24 @@ test('disableSuperJsonUnlessRpc is inherited by child apps', async () => {
     }),
   )
   expect(rpcRes.status).toBe(200)
+  expect(rpcRes.headers.get('content-type')).toBe('text/x-flight')
   const rpcData = await rpcRes.text()
-  expect(rpcData).toContain('__superjsonMeta')
-  const rpcJson = JSON.parse(rpcData)
-  expect(rpcJson).toMatchObject({
-    date: '2024-01-01T00:00:00.000Z',
-    __superjsonMeta: {
-      values: {
-        date: ['Date'],
-      },
-    },
-  })
-  const rpcMetaVersion = rpcJson.__superjsonMeta.v
-  if (rpcMetaVersion !== undefined) {
-    expect(rpcMetaVersion).toBe(1)
-  }
+  expect(rpcData).toContain('$D2024-01-01T00:00:00.000Z')
 })
 
-test('child app inherits disableSuperJsonUnlessRpc from parent even if set to false', async () => {
-  // Parent has the flag set to true
-  const parentApp = new Spiceflow({ disableSuperJsonUnlessRpc: true })
-
-  // Child explicitly sets the flag to false (wants to keep using superjson)
+test('child app inherits flight encoding from parent', async () => {
+  const parentApp = new Spiceflow()
   const childApp = new Spiceflow().get('/date', () => ({
     date: new Date('2024-01-01'),
   }))
-
   parentApp.use(childApp)
 
-  // After being mounted, child should inherit parent's setting
-  // Regular request should not use superjson because parent has flag set
+  // Regular request gets plain JSON
   const regularRes = await parentApp.handle(
     new Request('http://localhost/date', { method: 'GET' }),
   )
   expect(regularRes.status).toBe(200)
-  const regularData = await regularRes.text()
-  expect(regularData).not.toContain('__superjsonMeta')
-  expect(regularData).toMatchInlineSnapshot(
+  expect(await regularRes.text()).toMatchInlineSnapshot(
     `"{"date":"2024-01-01T00:00:00.000Z"}"`,
   )
 })
