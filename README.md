@@ -106,9 +106,35 @@ export default defineConfig({
 })
 ```
 
-## `use client` trap in optimized dependencies
+## Route Chaining
 
-If a `node_modules` dependency mixes server and client code in one entry, Vite can flatten the `'use client'` boundary into a server chunk — crashing at startup with errors like `useState is undefined`. See [docs/use-client-trap.md](docs/use-client-trap.md) for symptoms, diagnosis, and fixes.
+To preserve full type safety on the fetch client, routes must be chained in a single expression. Declaring the app separately and adding routes later loses the inferred types.
+
+<details>
+<summary>Why chaining matters</summary>
+
+When you declare routes separately, TypeScript can't infer the combined route types across multiple statements. The fetch client needs the full chain to infer path params, query params, body types, and response types.
+
+```ts
+// This is an example of what NOT to do when using Spiceflow
+
+import { Spiceflow } from 'spiceflow'
+
+// DO NOT declare the app separately and add routes later
+export const app = new Spiceflow()
+
+// Do NOT do this! Defining routes separately will lose type safety
+app.get('/hello', () => {
+  return 'Hello, World!'
+})
+// Do NOT do this! Adding routes separately like this will lose type safety
+app.post('/echo', async ({ request }) => {
+  const body = await request.json()
+  return body
+})
+```
+
+</details>
 
 ## Returning JSON
 
@@ -674,44 +700,6 @@ if (greeting instanceof Error) throw greeting
 
 For path matching patterns, error handling, server-side fetch, type-safe RPC, and path building (`href` / `createHref`), see [Fetch Client docs](docs/fetch-client.md).
 
-## Cloudflare Bindings
-
-On Cloudflare Workers, the simplest way to read bindings is to import `env` directly from `cloudflare:workers`. Run `wrangler types` after changing `wrangler.jsonc` so Wrangler regenerates `worker-configuration.d.ts` — that gives `env` a type-safe `Env` shape automatically.
-
-```tsx
-import { Spiceflow } from 'spiceflow'
-import { env } from 'cloudflare:workers'
-
-export const app = new Spiceflow()
-  .route({
-    method: 'GET',
-    path: '/kv/:key',
-    async handler({ params }) {
-      const value = await env.KV.get(params.key)
-      return { key: params.key, value }
-    },
-  })
-  .route({
-    method: 'POST',
-    path: '/queue',
-    async handler({ request }) {
-      const body = await request.json()
-      await env.QUEUE.send(body)
-      return { success: true, message: 'Added to queue' }
-    },
-  })
-
-export default {
-  fetch(request: Request) {
-    return app.handle(request)
-  },
-}
-```
-
-## Cookies
-
-Spiceflow works with standard Request and Response objects, so you can use any cookie library like the `cookie` npm package. See [Middleware Patterns](docs/middleware-patterns.md) for full cookie examples including set/get/clear and cookie-based auth middleware.
-
 ## OpenAPI
 
 Spiceflow can generate a full OpenAPI 3.1 document from your routes without any extra configuration. Mount the `openapi` plugin and every route you registered on the app is picked up automatically — the same Zod schemas that validate the request and type the handler context are also the source of `parameters`, `requestBody`, and `responses` in the emitted document.
@@ -770,10 +758,6 @@ export const app = new Spiceflow().use(cors()).route({
   },
 })
 ```
-
-## Background Tasks (`waitUntil`)
-
-Spiceflow provides a `waitUntil` function in the handler context for scheduling background tasks in a cross-platform way. It uses Cloudflare Workers' `waitUntil` if present, and is a no-op in Node.js. See [Cloudflare docs](docs/cloudflare.md#background-tasks-waituntil) for full examples including Cloudflare integration and custom implementations.
 
 ## Server Lifecycle
 
@@ -2103,6 +2087,44 @@ See [Federation docs](docs/federation.md) for full setup, imperative decoding wi
 
 Spiceflow includes an MCP plugin that exposes your API routes as tools and resources for AI language models. Mount it with `.use(mcp())` and all routes become callable tools with proper input validation. See [MCP docs](docs/mcp.md) for full setup, client examples, and integrating with existing MCP servers.
 
+## Cloudflare Bindings
+
+On Cloudflare Workers, the simplest way to read bindings is to import `env` directly from `cloudflare:workers`. Run `wrangler types` after changing `wrangler.jsonc` so Wrangler regenerates `worker-configuration.d.ts` — that gives `env` a type-safe `Env` shape automatically.
+
+```tsx
+import { Spiceflow } from 'spiceflow'
+import { env } from 'cloudflare:workers'
+
+export const app = new Spiceflow()
+  .route({
+    method: 'GET',
+    path: '/kv/:key',
+    async handler({ params }) {
+      const value = await env.KV.get(params.key)
+      return { key: params.key, value }
+    },
+  })
+  .route({
+    method: 'POST',
+    path: '/queue',
+    async handler({ request }) {
+      const body = await request.json()
+      await env.QUEUE.send(body)
+      return { success: true, message: 'Added to queue' }
+    },
+  })
+
+export default {
+  fetch(request: Request) {
+    return app.handle(request)
+  },
+}
+```
+
+## Background Tasks (`waitUntil`)
+
+Spiceflow provides a `waitUntil` function in the handler context for scheduling background tasks in a cross-platform way. It uses Cloudflare Workers' `waitUntil` if present, and is a no-op in Node.js. See [Cloudflare docs](docs/cloudflare.md#background-tasks-waituntil) for full examples including Cloudflare integration and custom implementations.
+
 ## KV Page Caching
 
 Cache full-page HTML in Cloudflare KV with deployment-aware cache keys. See [Cloudflare docs](docs/cloudflare.md#kv-page-caching) for the full middleware example.
@@ -2204,36 +2226,6 @@ export const config = {
 
 The build output is self-contained — `dist/` includes all traced runtime dependencies, so you can copy it directly into a Docker image without installing packages at deploy time. See [Docker docs](docs/docker.md) for Dockerfile examples and cross-platform native module handling.
 
-## Route Chaining
-
-To preserve full type safety on the fetch client, routes must be chained in a single expression. Declaring the app separately and adding routes later loses the inferred types.
-
-<details>
-<summary>Why chaining matters</summary>
-
-When you declare routes separately, TypeScript can't infer the combined route types across multiple statements. The fetch client needs the full chain to infer path params, query params, body types, and response types.
-
-```ts
-// This is an example of what NOT to do when using Spiceflow
-
-import { Spiceflow } from 'spiceflow'
-
-// DO NOT declare the app separately and add routes later
-export const app = new Spiceflow()
-
-// Do NOT do this! Defining routes separately will lose type safety
-app.get('/hello', () => {
-  return 'Hello, World!'
-})
-// Do NOT do this! Adding routes separately like this will lose type safety
-app.post('/echo', async ({ request }) => {
-  const body = await request.json()
-  return body
-})
-```
-
-</details>
-
 ## Class Instances
 
 If you need to store a Spiceflow router as a property in a class instance, use the `AnySpiceflow` type.
@@ -2286,6 +2278,10 @@ export class ChatDurableObject {
   }
 }
 ```
+
+## `use client` trap in optimized dependencies
+
+If a `node_modules` dependency mixes server and client code in one entry, Vite can flatten the `'use client'` boundary into a server chunk — crashing at startup with errors like `useState is undefined`. See [docs/use-client-trap.md](docs/use-client-trap.md) for symptoms, diagnosis, and fixes.
 
 ## Comparisons
 
