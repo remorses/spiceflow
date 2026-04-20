@@ -389,6 +389,19 @@ if (isBrowser) {
     for (const cb of subscribers) {
       cb(event)
     }
+
+    // pushState/replaceState suppress the native hashchange event.
+    // Dispatch it synthetically so code listening for hashchange (TOC trackers,
+    // analytics, scroll-to-hash libs) works with client navigations.
+    if (isHashOnlyLocationChange({ previousLocation, location })) {
+      const base = window.location.origin + location.pathname + location.search
+      window.dispatchEvent(
+        new HashChangeEvent('hashchange', {
+          oldURL: base + previousLocation.hash,
+          newURL: base + location.hash,
+        }),
+      )
+    }
   })
 }
 
