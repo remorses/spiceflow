@@ -456,7 +456,6 @@ export default function spiceflow({
               'react/jsx-dev-runtime',
               'react-dom',
               'react-dom/client',
-              'spiceflow > superjson',
               'spiceflow > history',
               'spiceflow > its-fine',
               'spiceflow > eventsource-parser/stream',
@@ -470,7 +469,6 @@ export default function spiceflow({
           config.optimizeDeps.include = mergeUnique(
             config.optimizeDeps.include,
             [
-              'spiceflow > superjson',
               'spiceflow > history',
               'spiceflow > eventsource-parser/stream',
               'spiceflow > errore', //

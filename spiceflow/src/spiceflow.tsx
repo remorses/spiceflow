@@ -1,7 +1,7 @@
 import type { ReactFormState } from 'react-dom/client'
 
 import { copy } from './copy-anything.js'
-import superjson from 'superjson'
+import { flightEncode } from './flight-data.js'
 import * as errore from 'errore'
 
 import { SpiceflowFetchError } from './client/errors.js'
@@ -259,7 +259,7 @@ export class Spiceflow<
 
   topLevelApp?: AnySpiceflow = this
   private waitUntilFn: WaitUntil
-  private disableSuperJsonUnlessRpc: boolean = true
+  private useFlightEncoding: boolean = true
   tracer?: SpiceflowTracer
 
   _types = {
@@ -495,13 +495,17 @@ export class Spiceflow<
       scoped?: Scoped
       waitUntil?: WaitUntil
       basePath?: BasePath
+      /**
+       * @deprecated Use useFlightEncoding instead. This option will be removed.
+       */
       disableSuperJsonUnlessRpc?: boolean
+      useFlightEncoding?: boolean
       allowedActionOrigins?: (string | RegExp)[]
       tracer?: SpiceflowTracer
     } = {},
   ) {
     this.scoped = options.scoped
-    this.disableSuperJsonUnlessRpc = options.disableSuperJsonUnlessRpc ?? true
+    this.useFlightEncoding = options.useFlightEncoding ?? options.disableSuperJsonUnlessRpc ?? true
     this.allowedActionOrigins = options.allowedActionOrigins
     this.tracer = options.tracer
 
@@ -1350,9 +1354,8 @@ export class Spiceflow<
       })
     } else if (appOrHandler instanceof Spiceflow) {
       appOrHandler.topLevelApp = this
-      // Inherit disableSuperJsonUnlessRpc from parent if child doesn't have it set
-      if (this.disableSuperJsonUnlessRpc === true) {
-        appOrHandler.disableSuperJsonUnlessRpc = true
+      if (this.useFlightEncoding === true) {
+        appOrHandler.useFlightEncoding = true
       }
       this.childrenApps.push(appOrHandler)
     } else if (typeof appOrHandler === 'function') {
@@ -2443,7 +2446,7 @@ export class Spiceflow<
       status = 500
     }
     return new Response(
-      this.superjsonSerialize(
+      this.serializeResponse(
         {
           ...err,
           message: err?.message || 'Internal Server Error',
@@ -2452,7 +2455,15 @@ export class Spiceflow<
         false,
         request,
       ),
-      { status, headers: { 'content-type': 'application/json' } },
+      {
+        status,
+        headers: {
+          'content-type': this.isFlightRequest(request)
+            ? 'text/x-flight'
+            : 'application/json',
+          vary: 'x-spiceflow-agent',
+        },
+      },
     )
   }
 
@@ -2470,25 +2481,22 @@ export class Spiceflow<
     })
   }
 
-  protected superjsonSerialize(
+  protected isFlightRequest(request?: Request): boolean {
+    return (
+      this.useFlightEncoding &&
+      request?.headers.get('x-spiceflow-agent') === 'spiceflow-client'
+    )
+  }
+
+  protected serializeResponse(
     value: any,
     indent = false,
     request?: Request,
   ): string {
-    const isRpcRequest =
-      request?.headers.get('x-spiceflow-agent') === 'spiceflow-client'
-
-    // If flag is set and this is not an RPC request, use regular JSON
-    if (this.disableSuperJsonUnlessRpc && !isRpcRequest) {
-      return JSON.stringify(value ?? null, null, indent ? 2 : undefined)
+    if (this.isFlightRequest(request)) {
+      return flightEncode(value ?? null)
     }
-
-    // Otherwise use superjson
-    const { json, meta } = superjson.serialize(value)
-    if (json && meta) {
-      json['__superjsonMeta'] = meta
-    }
-    return JSON.stringify(json ?? null, null, indent ? 2 : undefined)
+    return JSON.stringify(value ?? null, null, indent ? 2 : undefined)
   }
 
   private async turnHandlerResultIntoResponse(
@@ -2552,9 +2560,12 @@ export class Spiceflow<
       }
     }
 
-    return new Response(this.superjsonSerialize(result, false, request), {
+    return new Response(this.serializeResponse(result, false, request), {
       headers: {
-        'content-type': 'application/json',
+        'content-type': this.isFlightRequest(request)
+          ? 'text/x-flight'
+          : 'application/json',
+        vary: 'x-spiceflow-agent',
       },
     })
   }
@@ -2693,7 +2704,7 @@ export class Spiceflow<
           console.error(error)
           const message = error instanceof Error ? error.message : 'Internal Server Error'
           return new Response(
-            app.superjsonSerialize({ message, ...(error instanceof Error && error.stack ? { stack: error.stack } : {}) }),
+            app.serializeResponse({ message, ...(error instanceof Error && error.stack ? { stack: error.stack } : {}) }),
             {
               status: 500,
             },
@@ -2784,7 +2795,7 @@ export class Spiceflow<
     if (init?.done) {
       return new Response(
         'event: message\ndata: ' +
-          this.superjsonSerialize(init.value, false, request) +
+          this.serializeResponse(init.value, false, request) +
           '\n\n' +
           'event: done\n\n',
         {
@@ -2856,7 +2867,7 @@ export class Spiceflow<
             controller.enqueue(
               Buffer.from(
                 'event: message\ndata: ' +
-                  self.superjsonSerialize(init.value, false, request) +
+                  self.serializeResponse(init.value, false, request) +
                   '\n\n',
               ),
             )
@@ -2889,7 +2900,7 @@ export class Spiceflow<
             controller.enqueue(
               Buffer.from(
                 'event: message\ndata: ' +
-                  self.superjsonSerialize(chunk, false, request) +
+                  self.serializeResponse(chunk, false, request) +
                   '\n\n',
               ),
             )
@@ -2904,7 +2915,7 @@ export class Spiceflow<
               controller.enqueue(
                 Buffer.from(
                   'event: error\ndata: ' +
-                    self.superjsonSerialize(
+                    self.serializeResponse(
                       {
                         ...error,
                         message: error.message || error.name || 'Error',

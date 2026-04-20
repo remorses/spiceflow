@@ -1,5 +1,5 @@
 // Shared utilities used by both the proxy client and the fetch client
-import superjson from 'superjson'
+import { flightDecode } from '../flight-data.js'
 import { EventSourceParserStream } from 'eventsource-parser/stream'
 
 import type { SpiceflowClient } from './types.ts'
@@ -186,7 +186,16 @@ export async function* streamSSEResponse({
         }
 
         if (event?.event === 'error') {
-          const error = superjsonDeserialize(event.data)
+          let error: any
+          try {
+            error = flightDecode(event.data)
+          } catch {
+            try {
+              error = JSON.parse(event.data)
+            } catch {
+              error = event.data
+            }
+          }
           throw new SpiceflowFetchError(500, error)
         }
 
@@ -239,23 +248,23 @@ export async function* streamSSEResponse({
   }
 }
 
-export function tryParsingSSEJson(data: string): any {
+export function tryParsingSSEJson(data: string, isFlight: boolean): any {
+  if (isFlight) {
+    try {
+      return flightDecode(data)
+    } catch {
+      return data
+    }
+  }
   try {
-    return superjsonDeserialize(JSON.parse(data))
-  } catch (error) {
+    return JSON.parse(data)
+  } catch {
     return data
   }
 }
 
-export function superjsonDeserialize(data: any) {
-  if (data?.__superjsonMeta) {
-    const { __superjsonMeta, ...rest } = data
-    return superjson.deserialize({
-      json: rest,
-      meta: __superjsonMeta,
-    })
-  }
-  return data
+export function flightDeserialize(data: string) {
+  return flightDecode(data)
 }
 
 export function buildQueryString(
@@ -354,19 +363,25 @@ export async function parseResponseData({
   let data = null as any
   let error = null as any
 
-  switch (response.headers.get('Content-Type')?.split(';')[0]) {
+  const contentType = response.headers.get('Content-Type')?.split(';')[0]
+  const isFlight = contentType === 'text/x-flight'
+
+  switch (contentType) {
     case 'text/event-stream':
       data = streamSSEResponse({
         response,
-        map: (x) => tryParsingSSEJson(x.data),
+        map: (x) => tryParsingSSEJson(x.data, true),
         executeRequest,
         maxRetries: retries,
       })
       break
 
+    case 'text/x-flight':
+      data = flightDecode(await response.text())
+      break
+
     case 'application/json':
       data = await response.json()
-      data = superjsonDeserialize(data)
       break
 
     case 'application/octet-stream':
