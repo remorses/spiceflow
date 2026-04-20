@@ -110,14 +110,8 @@ export async function renderHtml({
   // React's useId() generates identical IDs during SSR and hydration.
   // FiberProvider (from its-fine) uses React fiber internals that crash in
   // SSR, so we use a no-op wrapper that occupies the same tree position.
-  // PayloadCommitListener returns null during SSR but must exist at the
-  // same tree position as the client version.
   function SsrFiberProvider({ children }: { children: React.ReactNode }) {
     return <>{children}</>
-  }
-
-  function PayloadCommitListener() {
-    return null
   }
 
   function SsrRoot() {
@@ -132,7 +126,6 @@ export async function renderHtml({
         <ErrorBoundary errorComponent={DefaultGlobalErrorPage}>
           <NotFoundBoundary component={DefaultNotFoundPage}>
             <FlightDataContext.Provider value={payloadPromise!}>
-              <PayloadCommitListener />
               <LayoutContent />
             </FlightDataContext.Provider>
           </NotFoundBoundary>
