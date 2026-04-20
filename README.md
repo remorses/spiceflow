@@ -882,12 +882,12 @@ Spiceflow works with [shadcn/ui](https://ui.shadcn.com) out of the box. Instead 
 
 ### App Entry
 
-The entry file defines your routes using `.page()` for pages and `.layout()` for layouts. This file runs in the RSC environment on the server. All routes registered with `.page()`, `.get()`, etc. are available via `getRouter().href()` for type-safe URL building — including path params and query params.
+The entry file defines your routes using `.page()` for pages and `.layout()` for layouts. This file runs in the RSC environment on the server. All routes registered with `.page()`, `.get()`, etc. are available via `router.href()` for type-safe URL building — including path params and query params.
 
 ```tsx
 // src/main.tsx
 import { Spiceflow, serveStatic } from 'spiceflow'
-import { getRouter, Head, Link } from 'spiceflow/react'
+import { router, Head, Link } from 'spiceflow/react'
 import { z } from 'zod'
 import { Counter } from './app/counter'
 import { Nav } from './app/nav'
@@ -908,7 +908,6 @@ export const app = new Spiceflow()
     )
   })
   .page('/', async () => {
-    const router = getRouter()
     const data = await fetchSomeData()
     return (
       <div>
@@ -921,7 +920,6 @@ export const app = new Spiceflow()
     )
   })
   .page('/about', async () => {
-    const router = getRouter()
     return (
       <div>
         <h1>About</h1>
@@ -960,14 +958,14 @@ declare module 'spiceflow/react' {
 }
 ```
 
-`getRouter().href()` gives you **type-safe links** — TypeScript validates that the path exists, params are correct, and query values match the schema. Invalid paths or missing params are caught at compile time. `getRouter()` works in both server and client components.
+`router.href()` gives you **type-safe links** — TypeScript validates that the path exists, params are correct, and query values match the schema. Invalid paths or missing params are caught at compile time. The `router` import works in both server and client components.
 
-Add the `declare module` block at the bottom of your app entry file. This registers your app's routes globally — then `getRouter()` anywhere in the project returns a fully typed router without needing to pass generics or import the app type.
+Add the `declare module` block at the bottom of your app entry file. This registers your app's routes globally — then `import { router } from 'spiceflow/react'` anywhere in the project gives you a fully typed router without needing to pass generics or import the app type.
 
 <details>
 <summary>Why not app.href() inside the chain?</summary>
 
-Using `app.href()` inside page/layout handlers in the chain definition causes TypeScript error TS7022 — `app` references itself during construction, creating circular type inference. Use `getRouter()` instead, which resolves the router at request time when `app` is fully constructed. `app.href()` still works in standalone functions defined after the chain, but `getRouter()` is the recommended pattern everywhere.
+Using `app.href()` inside page/layout handlers in the chain definition causes TypeScript error TS7022 — `app` references itself during construction, creating circular type inference. Use the `router` import instead, which resolves at request time when `app` is fully constructed. `app.href()` still works in standalone functions defined after the chain, but `import { router }` is the recommended pattern everywhere.
 
 </details>
 
@@ -1110,10 +1108,9 @@ Always define a `query` schema on routes and pages that accept query parameters.
 
 ```tsx
 'use client'
-import { getRouter, Link } from 'spiceflow/react'
+import { router, Link } from 'spiceflow/react'
 
 export function ProductFilters() {
-  const router = getRouter()
   return (
     <nav>
       {/* TypeScript validates these query keys against the schema */}
@@ -1252,20 +1249,19 @@ export function Sidebar() {
 
 Loader data updates automatically on client-side navigation — when the user navigates to a new route, the server re-runs the matching loaders and the new data arrives atomically with the new page content via the RSC flight stream.
 
-**Reading loader data imperatively** uses `getRouter()`. This works in client code outside React components and during active server render. Call it inside component scope, event handlers, or helper functions tied to the current render flow instead of binding request-sensitive access at module scope:
+**Reading loader data imperatively** uses the `router` import. This works in client code outside React components and during active server render. Call it inside component scope, event handlers, or helper functions tied to the current render flow instead of binding request-sensitive access at module scope:
 
 ```tsx
 // src/app/editor-toolbar.tsx
 'use client'
 
-import { getRouter, useLoaderData } from 'spiceflow/react'
+import { router, useLoaderData } from 'spiceflow/react'
 
 async function readCurrentDocument() {
-  return getRouter().getLoaderData('/editor/:id')
+  return router.getLoaderData('/editor/:id')
 }
 
 export function EditorToolbar() {
-  const router = getRouter()
   const { document } = useLoaderData('/editor/:id')
 
   async function refresh() {
@@ -1617,9 +1613,9 @@ export function CreateProjectForm({ orgId }: { orgId: string }) {
 
 ### Router
 
-Use `getRouter` for type-safe navigation, URL building, and imperative loader data access. It works in **both client and server components** — in server/RSC code it reads the current request's location from async context, and `router.href()` builds typed URLs the same way. `useLoaderData` and `useRouterState` are exported separately from `spiceflow/react`.
+Import `router` from `spiceflow/react` for type-safe navigation, URL building, and imperative loader data access. It works in **both client and server components** — in server/RSC code it reads the current request's location from async context, and `router.href()` builds typed URLs the same way. `useLoaderData` and `useRouterState` are exported separately from `spiceflow/react`.
 
-`getRouter()` returns a **stable singleton** — the same object reference every time. It's safe to call in component bodies, pass to hook dependency arrays, or store at module scope. The reference never changes between renders, so it won't trigger unnecessary re-renders or effect re-runs.
+`router` is a **stable singleton** — the same object reference every time. It's safe to use in component bodies, pass to hook dependency arrays, or reference at module scope. The reference never changes between renders, so it won't trigger unnecessary re-renders or effect re-runs.
 
 Use `href()` for links so route and query changes are caught by TypeScript.
 
@@ -1627,10 +1623,9 @@ Use `href()` for links so route and query changes are caught by TypeScript.
 // src/app/nav.tsx
 'use client'
 
-import { getRouter, Link } from 'spiceflow/react'
+import { router, Link } from 'spiceflow/react'
 
 export function Nav() {
-  const router = getRouter()
 
   return (
     <nav>
@@ -1644,18 +1639,17 @@ export function Nav() {
 ```
 
 <details>
-<summary>Using getRouter in mounted sub-apps</summary>
+<summary>Using router in mounted sub-apps</summary>
 
-`getRouter()` sees all routes registered on the root app, regardless of where you call it. Inside a sub-app mounted with `.use()`, it still sees the whole route table — not just the sub-app's own routes:
+`router` sees all routes registered on the root app, regardless of where you import it. Inside a sub-app mounted with `.use()`, it still sees the whole route table — not just the sub-app's own routes:
 
 ```tsx
 // src/features/billing/page.tsx — a sub-app mounted into the main app
 import { Spiceflow } from 'spiceflow'
-import { getRouter, Link } from 'spiceflow/react'
+import { router, Link } from 'spiceflow/react'
 
 export const billingApp = new Spiceflow().page('/billing', async () => {
   // router is typed against the WHOLE app, not just billingApp
-  const router = getRouter()
   return (
     <div>
       <h1>Billing</h1>
@@ -1666,7 +1660,7 @@ export const billingApp = new Spiceflow().page('/billing', async () => {
 })
 ```
 
-No need to thread `app` through props or imports — every call is still fully type-checked against the root app's route table.
+No need to thread `app` through props or imports — every import is still fully type-checked against the root app's route table.
 
 </details>
 
@@ -1690,14 +1684,13 @@ router.href(`/orgs/${orgId}/projects/${projectId}/settings`)
 
 The pattern form gives the strongest type checking — param names, query keys, and route existence are all validated. The template literal form is checked against registered route prefixes, but once values are interpolated TypeScript no longer knows the original param names. Invalid prefixes like `/settings/foo` still error at compile time either way.
 
-`getRouter()` works on the server too — use it in server components to build type-safe links without needing the `app` closure:
+`router` works on the server too — use it in server components to build type-safe links without needing the `app` closure:
 
 ```tsx
 // src/app/org-breadcrumb.tsx (server component — no "use client")
-import { getRouter, Link } from 'spiceflow/react'
+import { router, Link } from 'spiceflow/react'
 
 export async function OrgBreadcrumb({ orgId }: { orgId: string }) {
-  const router = getRouter()
   return (
     <nav>
       <Link href={router.href('/')}>Home</Link>
@@ -1713,23 +1706,21 @@ export async function OrgBreadcrumb({ orgId }: { orgId: string }) {
 
 Every `Link` href and every programmatic navigation path should go through `href()`. Raw string paths like `<Link href="/users/42">` bypass type checking — if the route is renamed from `/users/:id` to `/profiles/:id`, the raw string silently becomes a 404 while `href('/users/:id', { id: '42' })` immediately fails `tsc`. When a route path changes or gets removed, `tsc` catches every stale `href()` call at compile time.
 
-This applies to both client and server code. `getRouter()` returns the same typed router everywhere — `router.href()` works identically in server components, client components, and the app entry file.
+This applies to both client and server code. The `router` import is the same typed singleton everywhere — `router.href()` works identically in server components, client components, and the app entry file.
 
 </details>
 
 ### Navigation & State
 
-The `router` object from `getRouter` handles type-safe client-side navigation. `router.push`, `router.replace`, and `router.href` accept typed paths with autocomplete — params and query values are validated at compile time:
+The `router` object handles type-safe client-side navigation. `router.push`, `router.replace`, and `router.href` accept typed paths with autocomplete — params and query values are validated at compile time:
 
 ```tsx
 // src/app/search-filters.tsx
 'use client'
 
-import { useRouterState } from 'spiceflow/react'
-import { getRouter } from 'spiceflow/react'
+import { router, useRouterState } from 'spiceflow/react'
 
 export function SearchFilters() {
-  const router = getRouter()
   const { pathname, searchParams } = useRouterState()
 
   const query = searchParams.get('q') ?? ''
@@ -1765,8 +1756,9 @@ export function SearchFilters() {
 You can also navigate to a different pathname with search params, or use `router.replace` to update without adding a history entry:
 
 ```tsx
+import { router } from 'spiceflow/react'
+
 function Example() {
-  const router = getRouter()
 
   // Navigate to a new path with search params
   router.push({
@@ -1793,7 +1785,7 @@ function Example() {
 
 ### Type-Safe Routing
 
-Spiceflow uses a **type registry** pattern (similar to TanStack Router) to provide type-safe routing without passing generics everywhere. Add one `declare module` block at the bottom of your app entry file:
+Spiceflow uses a **type registry** pattern (similar to TanStack Router) for type-safe routing. This one line is **required** to enable type safety for `router`, `useLoaderData()`, and `useRouterState()` — add it at the bottom of your app entry file:
 
 ```tsx
 // src/main.tsx
@@ -1810,15 +1802,13 @@ declare module 'spiceflow/react' {
 }
 ```
 
-After this, `getRouter()`, `useLoaderData()`, and `useRouterState()` are fully typed everywhere — no generics needed:
+After this, `router`, `useLoaderData()`, and `useRouterState()` are fully typed everywhere — no generics needed:
 
 ```tsx
 'use client'
-import { getRouter } from 'spiceflow/react'
+import { router } from 'spiceflow/react'
 
 export function Nav() {
-  const router = getRouter()  // fully typed — knows all your routes
-
   router.href('/login')                    // ✅ valid
   router.href('/users/:id', { id: '42' }) // ✅ params validated
   router.href('/nonexistent')              // ❌ compile error
@@ -1826,7 +1816,7 @@ export function Nav() {
 }
 ```
 
-Without the `declare module`, `getRouter()` still works at runtime — it just accepts any path without compile-time validation.
+Without the `declare module`, `router` still works at runtime — it just accepts any path without compile-time validation.
 
 ### Server Actions
 

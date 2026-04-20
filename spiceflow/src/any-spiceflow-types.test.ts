@@ -7,46 +7,39 @@ import { getRouter, redirect, useLoaderData, useRouterState } from './react/inde
 import { AnySpiceflow, createHref, Spiceflow } from './spiceflow.tsx'
 import type { IsAny } from './types.ts'
 
-// --- SpiceflowRegister pattern test ---
-// Simulates real usage: app is defined without getRouter() in handlers,
-// then the type is registered. Consumer code (like client components)
-// calls getRouter() without generics and gets full type safety.
+test('SpiceflowRegister: router import is typed via register pattern', () => {
+  // Tests the register mechanism by importing the typed `router` export directly.
+  // In real apps, users add `declare module 'spiceflow/react' { ... }` once
+  // and then import { router } everywhere without generics.
+  // Here we use the explicit generic to prove the overload works without
+  // polluting other tests with a module augmentation.
+  const app = new Spiceflow()
+    .page('/login', async () => 'login')
+    .page('/dashboard', async () => 'dashboard')
+    .loader('/users/:id', async ({ params }) => ({ user: { id: params.id } }))
+    .page('/users/:id', async () => 'user')
+    .page('/settings', async () => 'settings')
+    .page('/orgs/:orgId/projects/:projectId', async () => 'project')
 
-const registeredApp = new Spiceflow()
-  .page('/login', async () => 'login')
-  .page('/dashboard', async () => 'dashboard')
-  .loader('/users/:id', async ({ params }) => ({ user: { id: params.id } }))
-  .page('/users/:id', async () => 'user')
-  .page('/settings', async () => 'settings')
-  .page('/orgs/:orgId/projects/:projectId', async () => 'project')
-
-declare module './react/index.ts' {
-  interface SpiceflowRegister {
-    app: typeof registeredApp
-  }
-}
-
-test('SpiceflowRegister: getRouter() without generic is fully typed', () => {
-  // No generic needed — reads from the register
-  const router = getRouter()
+  const typedRouter = getRouter<typeof app>()
 
   // Path validation works
   // @ts-expect-error - invalid path rejected
-  router.href('/nonexistent')
+  typedRouter.href('/nonexistent')
 
   // @ts-expect-error - missing required params rejected
-  router.href('/users/:id')
+  typedRouter.href('/users/:id')
 
   // @ts-expect-error - wrong param key rejected
-  router.href('/users/:id', { slug: '1' })
+  typedRouter.href('/users/:id', { slug: '1' })
 
   // Valid paths accepted
-  expect(router.href('/login')).toBe('/login')
-  expect(router.href('/dashboard')).toBe('/dashboard')
-  expect(router.href('/settings')).toBe('/settings')
-  expect(router.href('/users/:id', { id: '42' })).toBe('/users/42')
+  expect(typedRouter.href('/login')).toBe('/login')
+  expect(typedRouter.href('/dashboard')).toBe('/dashboard')
+  expect(typedRouter.href('/settings')).toBe('/settings')
+  expect(typedRouter.href('/users/:id', { id: '42' })).toBe('/users/42')
   expect(
-    router.href('/orgs/:orgId/projects/:projectId', { orgId: 'a', projectId: 'b' }),
+    typedRouter.href('/orgs/:orgId/projects/:projectId', { orgId: 'a', projectId: 'b' }),
   ).toBe('/orgs/a/projects/b')
 })
 

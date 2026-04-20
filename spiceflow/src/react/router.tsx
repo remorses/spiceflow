@@ -180,13 +180,12 @@ export type RouterBase<App extends AnySpiceflow = AnySpiceflow> = {
   getLoaderData<const Path extends RouterPathArg<App> = string>(
     path?: Path,
   ): Promise<LoaderDataForPath<App, Path>>
+
+  /** @internal */
+  __setLoaderData(data: Record<string, unknown> | undefined): void
 }
 
 type Subscriber = (event: NavigationEvent) => void
-
-type RouterInternal = RouterBase & {
-  __setLoaderData(data: Record<string, unknown> | undefined): void
-}
 
 const subscribers = new Set<Subscriber>()
 const navigationEvents: RouterEvent[] = []
@@ -468,7 +467,10 @@ function scrollToHashElement() {
   })
 }
 
-export const router: RouterInternal = {
+// Typed router singleton. Import directly for type-safe routing:
+//   import { router } from 'spiceflow/react'
+//   router.href('/users/:id', { id: '42' })
+export const router: RouterBase<RegisteredApp> = {
   get location() {
     return getCurrentLocation()
   },
@@ -597,7 +599,9 @@ export type RegisteredApp = SpiceflowRegister extends {
   ? App
   : AnySpiceflow
 
+/** @deprecated Use `import { router } from 'spiceflow/react'` directly instead. */
 export function getRouter(): RouterBase<RegisteredApp>
+/** @deprecated Use `import { router } from 'spiceflow/react'` directly instead. */
 export function getRouter<App extends AnySpiceflow>(): RouterBase<App>
 export function getRouter(): any {
   return router

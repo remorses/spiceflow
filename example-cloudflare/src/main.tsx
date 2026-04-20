@@ -150,6 +150,10 @@ function RootLayout({ children }: { children: React.ReactNode }) {
   )
 }
 
+declare module 'spiceflow/react' {
+  interface SpiceflowRegister { app: typeof app }
+}
+
 export { MyDurableObject } from './durable-object'
 
 export default {

@@ -235,14 +235,14 @@ All React-facing APIs (components, router, utilities) must be exported from `spi
 
 Spiceflow uses a type registry pattern (like TanStack Router) for type-safe routing. The preferred approach:
 
-1. Call `getRouter()` without generics everywhere — components, handlers, server code
+1. Import `router` directly from `spiceflow/react` — no function call, no generics
 2. Add `declare module 'spiceflow/react' { interface SpiceflowRegister { app: typeof app } }` at the bottom of the app entry file
 
-This registers the app type globally so `getRouter()`, `useLoaderData()`, and `useRouterState()` are fully typed without importing the app type. Never use the old `getRouter<typeof app>()` pattern — the register is the preferred method.
+This registers the app type globally so `router`, `useLoaderData()`, and `useRouterState()` are fully typed without importing the app type. Never use the old `getRouter<typeof app>()` pattern — the direct `router` import is the preferred method.
 
-When writing examples or tests, always use `getRouter()` (no generic). The `<typeof app>` generic still works for backwards compatibility but should not appear in new code or documentation.
+When writing examples or tests, always use `import { router } from 'spiceflow/react'` directly. The `getRouter()` function and `<typeof app>` generic still work for backwards compatibility but should not appear in new code or documentation.
 
-The register interface lives in `spiceflow/src/react/router.tsx` as `SpiceflowRegister`, exported from `spiceflow/react` and `spiceflow`. The `getRouter()` function uses overloads: no-arg returns `RouterBase<RegisteredApp>` (reads from register), explicit generic returns `RouterBase<App>`.
+The register interface lives in `spiceflow/src/react/router.tsx` as `SpiceflowRegister`, exported from `spiceflow/react` and `spiceflow`. The `router` export is typed as `RouterBase<RegisteredApp>` which reads from the register. `getRouter()` is kept as an alias.
 
 ## server actions and router.refresh()
 

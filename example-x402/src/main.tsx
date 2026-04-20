@@ -82,4 +82,6 @@ function RootLayout({ children }: { children: React.ReactNode }) {
 
 void app.listen(Number(process.env.PORT || 3000))
 
-export type App = typeof app
+declare module 'spiceflow/react' {
+  interface SpiceflowRegister { app: typeof app }
+}

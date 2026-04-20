@@ -2,10 +2,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { getRouter } from "spiceflow/react";
-import { Link } from "spiceflow/react";
-
-const router = getRouter();
+import { router, Link } from "spiceflow/react";
 
 export function GlobalLoaderDisplay() {
 	return (

@@ -1039,3 +1039,9 @@ void app
 		return { result: _.chunk([1, 2, 3, 4, 5, 6], 2) };
 	})
 	.listen(Number(process.env.PORT || 3000));
+
+declare module "spiceflow/react" {
+	interface SpiceflowRegister {
+		app: typeof app;
+	}
+}
