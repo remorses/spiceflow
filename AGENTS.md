@@ -130,6 +130,32 @@ NEVER use --noCheck or --noEmit
 
 This is the most common reason e2e tests fail after code changes — stale dist files.
 
+## vercel deployment checks
+
+The `integration-tests` Vercel project exists to validate that Spiceflow still deploys and runs correctly on Vercel. Keep this project green. If a change breaks this deployment, treat it as a real regression in platform support, not just a flaky preview failure.
+
+Use the Vercel CLI to check the latest production deployment status:
+
+```bash
+vercel list integration-tests --scope tommaso-de-rossis-projects
+```
+
+If the latest deployment failed, inspect its build logs using the deployment URL from `vercel list`:
+
+```bash
+vercel inspect "https://integration-tests-<id>-tommaso-de-rossis-projects.vercel.app" --logs --wait --scope tommaso-de-rossis-projects
+```
+
+Useful workflow when debugging:
+
+- Look at the latest failed deployment first, not an older dashboard link.
+- Read the exact failing command from the build logs, usually `pnpm install`, `pnpm run vercel-build`, or the generated output step.
+- If the failure is before the build starts, check workspace metadata problems first: missing lockfile updates, bad workspace ranges, missing files, or package.json changes not reflected in `pnpm-lock.yaml`.
+- If the failure happens during `vercel-build`, reproduce it from `integration-tests/` locally and rebuild `spiceflow/` first if you changed `spiceflow/src/`.
+- After fixing the issue, push to `main`, then watch the new deployment logs again with `vercel inspect ... --logs --wait` until it reaches `status ● Ready`.
+
+Common gotcha: Vercel runs `pnpm install` with a frozen lockfile. If `integration-tests/package.json` changes but `pnpm-lock.yaml` was not committed, the deployment fails with `ERR_PNPM_OUTDATED_LOCKFILE`. In that case the fix is usually to update and commit the lockfile, not to change Vercel settings.
+
 ## writing e2e tests
 
 - The base URL and port are defined at the top of `basic.test.ts`:
