@@ -3,6 +3,7 @@ import type { ReactFormState } from 'react-dom/client'
 import { copy } from './copy-anything.js'
 import superjson from 'superjson'
 import * as errore from 'errore'
+import { loadGlobalCss } from '#load-global-css'
 
 import { SpiceflowFetchError } from './client/errors.js'
 import { actionRequestStorage } from './action-context.js'
@@ -1895,15 +1896,9 @@ export class Spiceflow<
 
       // Global CSS: rscCssTransform auto-wraps component exports, but this entry
       // exports a Spiceflow instance so we call loadCss manually.
-      // NOTE: the loadCss call MUST appear exactly as `import.meta.viteRsc.loadCss(`
-      // because vite-rsc's transform uses a regex to find and replace it at build time.
-      // Do not use optional chaining, ternaries around the same expression, or put the
-      // pattern in comments — any of these can confuse the regex-based transform.
-      const globalCssResult = errore.try(() =>
-        import.meta.viteRsc.loadCss('virtual:app-entry'),
-      )
-      const globalCss =
-        globalCssResult instanceof Error ? undefined : globalCssResult
+      // The actual import.meta.viteRsc.loadCss call lives in load-global-css.rsc.ts
+      // behind #load-global-css so only the react-server environment sees it.
+      const globalCss = loadGlobalCss()
       let baseUrl = new URL('/', request.url).href
       if (baseUrl.endsWith('/')) {
         baseUrl = baseUrl.slice(0, -1)
