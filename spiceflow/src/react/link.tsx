@@ -39,7 +39,8 @@ export function Link(
           e.ctrlKey ||
           e.shiftKey ||
           e.altKey ||
-          (props.target && props.target === '_blank')
+          (props.target && props.target === '_blank') ||
+          e.currentTarget.origin !== window.location.origin
         ) {
           props.onClick?.(e)
           return

@@ -65,6 +65,7 @@ import {
 	FederatedPayloadDecodeTest,
 } from "./app/federated-payload-client";
 import { UseIdTest } from "./app/use-id-test";
+import { AbsoluteUrlTest } from "./app/absolute-url-test";
 import testContentRaw from "./test-content.md?raw";
 import { publicDir, distDir } from "spiceflow";
 import { encodeFederationPayload } from "spiceflow/federation";
@@ -956,6 +957,10 @@ export const app = new Spiceflow()
 	.page("/loader-error", async () => {
 		return <div>should not render</div>;
 	});
+
+app.page("/absolute-url-test", async () => {
+	return <AbsoluteUrlTest />;
+});
 
 const somePaths = ["/static/one", "/static/two"];
 for (const path of somePaths) {

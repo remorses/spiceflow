@@ -2752,3 +2752,56 @@ test.describe("spiceflow dirs", () => {
 		expect(hydrationWarnings).toHaveLength(0);
 	});
 });
+
+test("router.push with same-origin absolute URL navigates via SPA", async ({
+	page,
+}) => {
+	await page.goto(url("/absolute-url-test"));
+	await expect(page.getByTestId("hydrated")).toBeVisible();
+	// Set a sentinel to verify no full page reload happens (SPA navigation)
+	const sentinel = Math.random().toString(36);
+	await page.evaluate((s) => { (window as any).__sentinel = s }, sentinel);
+	await page.getByTestId("push-same-origin-absolute").click();
+	await expect(page).toHaveURL(new RegExp(`${basePath}/page$`));
+	// Sentinel should survive — SPA navigation, not a full reload
+	const survived = await page.evaluate((s) => (window as any).__sentinel === s, sentinel);
+	expect(survived).toBe(true);
+});
+
+test("router.replace with same-origin absolute URL navigates via SPA", async ({
+	page,
+}) => {
+	await page.goto(url("/absolute-url-test"));
+	await expect(page.getByTestId("hydrated")).toBeVisible();
+	const sentinel = Math.random().toString(36);
+	await page.evaluate((s) => { (window as any).__sentinel = s }, sentinel);
+	await page.getByTestId("replace-same-origin-absolute").click();
+	await expect(page).toHaveURL(new RegExp(`${basePath}/page$`));
+	const survived = await page.evaluate((s) => (window as any).__sentinel === s, sentinel);
+	expect(survived).toBe(true);
+});
+
+test("Link with external href lets browser handle navigation", async ({
+	page,
+}) => {
+	await page.goto(url("/absolute-url-test"));
+	const externalLink = page.getByTestId("external-link");
+	// External link should have the full external href, not be rewritten
+	await expect(externalLink).toHaveAttribute("href", "https://example.com");
+	// Clicking should NOT be intercepted by the SPA router.
+	// Verify by checking that the link's click handler doesn't call preventDefault.
+	const wasDefaultPrevented = await externalLink.evaluate((el) => {
+		return new Promise<boolean>((resolve) => {
+			el.addEventListener(
+				"click",
+				(e) => {
+					// Check after a microtask to let the React handler run first
+					queueMicrotask(() => resolve(e.defaultPrevented));
+				},
+				{ capture: true, once: true },
+			);
+			el.click();
+		});
+	});
+	expect(wasDefaultPrevented).toBe(false);
+});

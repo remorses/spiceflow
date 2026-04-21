@@ -430,6 +430,10 @@ function stripBase(pathname: string): string {
   return pathname
 }
 
+function isExternalUrl(url: string): boolean {
+  return url.startsWith('http://') || url.startsWith('https://')
+}
+
 function prependBase(to: string | Partial<{ pathname: string }>): typeof to {
   if (!basePath) return to
   if (typeof to === 'string') {
@@ -484,12 +488,28 @@ export const router: RouterBase<RegisteredApp> = {
     return buildHref(path, allParams)
   },
   push(...args: Parameters<typeof history.push>) {
+    if (typeof args[0] === 'string' && isExternalUrl(args[0])) {
+      const parsed = new URL(args[0])
+      if (!isBrowser || parsed.origin !== window.location.origin) {
+        if (isBrowser) window.location.assign(args[0])
+        return
+      }
+      args[0] = parsed.pathname + parsed.search + parsed.hash
+    }
     args[0] = prependBase(args[0]) as typeof args[0]
     requestNavigation('push')
     history.push(...args)
     scrollToHashElement()
   },
   replace(...args: Parameters<typeof history.replace>) {
+    if (typeof args[0] === 'string' && isExternalUrl(args[0])) {
+      const parsed = new URL(args[0])
+      if (!isBrowser || parsed.origin !== window.location.origin) {
+        if (isBrowser) window.location.replace(args[0])
+        return
+      }
+      args[0] = parsed.pathname + parsed.search + parsed.hash
+    }
     args[0] = prependBase(args[0]) as typeof args[0]
     requestNavigation('replace')
     history.replace(...args)
