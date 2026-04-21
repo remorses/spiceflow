@@ -444,9 +444,8 @@ On the client side, the fetch client gives you back a discriminated `Error | Dat
 ```ts
 // src/client.ts
 import { createSpiceflowFetch } from 'spiceflow/client'
-import type { App } from './api/app'
 
-const api = createSpiceflowFetch<App>('https://api.example.com')
+const api = createSpiceflowFetch('https://api.example.com')
 
 const result = await api('/users/:id', { params: { id: 'abc' } })
 

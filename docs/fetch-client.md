@@ -60,9 +60,8 @@ export type App = typeof app
 ```ts
 // client.ts
 import { createSpiceflowFetch } from 'spiceflow/client'
-import type { App } from './server'
 
-const safeFetch = createSpiceflowFetch<App>('http://localhost:3000')
+const safeFetch = createSpiceflowFetch('http://localhost:3000')
 
 async function handleErrors() {
   const errorResult = await safeFetch('/error')
@@ -208,9 +207,8 @@ export type App = typeof app
 ```ts
 // client.ts
 import { createSpiceflowFetch } from 'spiceflow/client'
-import type { App } from './server'
 
-const safeFetch = createSpiceflowFetch<App>('http://localhost:3000')
+const safeFetch = createSpiceflowFetch('http://localhost:3000')
 
 // Path params are type-safe — TypeScript requires { id: string }
 const user = await safeFetch('/users/:id', {
@@ -309,13 +307,12 @@ app.href('/search', { invalid: 'x' })
 
 ### Standalone `createHref`
 
-If you need a path builder on the client side where you can't import server app code, use `createHref` with the `App` type:
+If you need a path builder on the client side where you can't import server app code, use `createHref`. When `SpiceflowRegister` is set, it's fully typed without generics:
 
 ```ts
 import { createHref } from 'spiceflow'
-import type { App } from './server' // import only the type, not the runtime app
 
-const href = createHref<App>()
+const href = createHref()
 
 href('/users/:id', { id: '123' })
 // Result: '/users/123'
@@ -324,7 +321,7 @@ href('/search', { q: 'hello', page: 1 })
 // Result: '/search?q=hello&page=1'
 ```
 
-The returned function has the same type safety as `app.href` — it infers paths, params, and query schemas from the app type. The app argument is optional and not used at runtime, so you can call `createHref<App>()` without passing any value.
+The returned function has the same type safety as `app.href` — it infers paths, params, and query schemas from the registered app type.
 
 <details>
 <summary>OAuth callback example</summary>

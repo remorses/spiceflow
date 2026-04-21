@@ -238,11 +238,18 @@ Spiceflow uses a type registry pattern (like TanStack Router) for type-safe rout
 1. Import `router` directly from `spiceflow/react` — no function call, no generics
 2. Add `declare module 'spiceflow/react' { interface SpiceflowRegister { app: typeof app } }` at the bottom of the app entry file
 
-This registers the app type globally so `router`, `useLoaderData()`, and `useRouterState()` are fully typed without importing the app type. Never use the old `getRouter<typeof app>()` pattern — the direct `router` import is the preferred method.
+This registers the app type globally so all typed APIs work without generics:
+- `router` and `getRouter()` from `spiceflow/react`
+- `useLoaderData()` and `useRouterState()` from `spiceflow/react`
+- `createSpiceflowFetch()` from `spiceflow/client`
+- `createSpiceflowClient()` from `spiceflow/client`
+- `createHref()` from `spiceflow`
 
-When writing examples or tests, always use `import { router } from 'spiceflow/react'` directly. The `getRouter()` function and `<typeof app>` generic still work for backwards compatibility but should not appear in new code or documentation.
+Never use explicit generics like `getRouter<typeof app>()`, `useLoaderData<typeof app>()`, or `createSpiceflowFetch<typeof app>()` in new code or documentation — the register pattern replaces them.
 
-The register interface lives in `spiceflow/src/react/router.tsx` as `SpiceflowRegister`, exported from `spiceflow/react` and `spiceflow`. The `router` export is typed as `RouterBase<RegisteredApp>` which reads from the register. `getRouter()` is kept as an alias.
+The register interface lives in `spiceflow/src/react/router.tsx` as `SpiceflowRegister`, exported from `spiceflow/react` and `spiceflow`. `RegisteredApp` is the conditional type that reads from the register and falls back to `AnySpiceflow` (which gives `any` fallback behavior). All typed APIs default their generic to `RegisteredApp`.
+
+In **tests**, the register pattern assumes a single app per TypeScript project — which doesn't hold in test files that create multiple apps per test. Tests that need to verify type safety for a specific app must still use explicit generics like `useLoaderData<typeof app>('/path')` or `getRouter<typeof app>()`. Tests that only verify runtime behavior can use the no-generic versions.
 
 ## server actions and router.refresh()
 

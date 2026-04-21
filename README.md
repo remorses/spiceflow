@@ -427,9 +427,8 @@ Server-Sent Events (SSE) format — the server sends events as `data: {"message"
 ```ts
 // client.ts
 import { createSpiceflowFetch } from 'spiceflow/client'
-import type { App } from './server'
 
-const safeFetch = createSpiceflowFetch<App>('http://localhost:3000')
+const safeFetch = createSpiceflowFetch('http://localhost:3000')
 
 async function fetchStream() {
   const stream = await safeFetch('/sseStream')
@@ -642,14 +641,13 @@ export const app = new Spiceflow()
 export type App = typeof app
 ```
 
-Then use the `App` type on the client side without importing server code:
+Then use `createSpiceflowFetch` on the client side — when `SpiceflowRegister` is set, the fetch client is fully typed without importing server code:
 
 ```ts
 // client.ts
 import { createSpiceflowFetch } from 'spiceflow/client'
-import type { App } from './server'
 
-const safeFetch = createSpiceflowFetch<App>('http://localhost:3000')
+const safeFetch = createSpiceflowFetch('http://localhost:3000')
 
 // GET request — returns Error | Data, check with instanceof Error
 const greeting = await safeFetch('/hello')
@@ -1785,7 +1783,7 @@ function Example() {
 
 ### Type-Safe Routing
 
-Spiceflow uses a **type registry** pattern (similar to TanStack Router) for type-safe routing. This one line is **required** to enable type safety for `router`, `useLoaderData()`, and `useRouterState()` — add it at the bottom of your app entry file:
+Spiceflow uses a **type registry** pattern (similar to TanStack Router) for type-safe routing. Add this one line at the bottom of your app entry file to enable type safety across all public APIs:
 
 ```tsx
 // src/main.tsx
@@ -1802,21 +1800,29 @@ declare module 'spiceflow/react' {
 }
 ```
 
-After this, `router`, `useLoaderData()`, and `useRouterState()` are fully typed everywhere — no generics needed:
+After this, **all typed APIs** are fully typed everywhere — no generics needed:
 
 ```tsx
-'use client'
-import { router } from 'spiceflow/react'
+// spiceflow/react exports
+import { router, useLoaderData, useRouterState } from 'spiceflow/react'
 
-export function Nav() {
-  router.href('/login')                    // ✅ valid
-  router.href('/users/:id', { id: '42' }) // ✅ params validated
-  router.href('/nonexistent')              // ❌ compile error
-  router.href('/users/:id')                // ❌ missing params
-}
+router.href('/login')                    // ✅ valid
+router.href('/users/:id', { id: '42' }) // ✅ params validated
+router.href('/nonexistent')              // ❌ compile error
+
+const data = useLoaderData('/dashboard') // ✅ typed loader data
+const state = useRouterState()           // ✅ typed router state
+
+// spiceflow/client exports
+import { createSpiceflowFetch } from 'spiceflow/client'
+const f = createSpiceflowFetch('http://localhost:3000') // ✅ typed fetch
+
+// spiceflow exports
+import { createHref } from 'spiceflow'
+const href = createHref()                // ✅ typed path builder
 ```
 
-Without the `declare module`, `router` still works at runtime — it just accepts any path without compile-time validation.
+Without the `declare module`, all APIs still work at runtime — they just accept any path without compile-time validation.
 
 ### Server Actions
 
