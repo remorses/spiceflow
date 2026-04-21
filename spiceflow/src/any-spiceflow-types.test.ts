@@ -3,9 +3,10 @@ import { z } from 'zod'
 import { expect, test } from 'vitest'
 
 import { createSpiceflowClient, createSpiceflowFetch } from './client/index.ts'
-import { getRouter, redirect, useLoaderData, useRouterState } from './react/index.ts'
+import { getRouter, Link, redirect, useLoaderData, useRouterState } from './react/index.ts'
+import type { LinkProps } from './react/index.ts'
 import { AnySpiceflow, createHref, Spiceflow } from './spiceflow.tsx'
-import type { IsAny } from './types.ts'
+import type { AllHrefPaths, IsAny } from './types.ts'
 
 test('SpiceflowRegister: router import is typed via register pattern', () => {
   // Tests the register mechanism by importing the typed `router` export directly.
@@ -375,4 +376,44 @@ test('overlapping loaders merge into typed router data', () => {
 
   MergedLoaderDataComponent
   assertMergedGetLoaderData
+})
+
+test('Link: unregistered app accepts any string href', () => {
+  // Without SpiceflowRegister, Link falls back to string (any path works)
+  const a: LinkProps = { href: '/anything' }
+  const b: LinkProps = { href: '/with/params', params: { id: '1' } }
+  const c: LinkProps = { href: '/plain' }
+  const d: LinkProps = {}
+  void [a, b, c, d]
+})
+
+test('Link: typed app validates href paths and requires params', () => {
+  const app = new Spiceflow()
+    .page('/login', async () => 'login')
+    .page('/dashboard', async () => 'dashboard')
+    .page('/users/:id', async () => 'user')
+    .page('/orgs/:orgId/projects/:projectId', async () => 'project')
+
+  type App = typeof app
+  type Paths = App['_types']['RoutePaths']
+
+  // Helper to check LinkProps assignability via function call (catches missing props)
+  function expectLink<P extends AllHrefPaths<Paths>>(_props: LinkProps<App, Paths, P>) {}
+
+  // Valid static paths
+  expectLink({ href: '/login' as const })
+  expectLink({ href: '/dashboard' as const })
+
+  // Valid parameterized paths with required params
+  expectLink({ href: '/users/:id' as const, params: { id: '42' } })
+  expectLink({ href: '/orgs/:orgId/projects/:projectId' as const, params: { orgId: 'a', projectId: 'b' } })
+
+  // @ts-expect-error - invalid path rejected
+  expectLink({ href: '/nonexistent' as const })
+
+  // @ts-expect-error - missing required params rejected
+  expectLink({ href: '/users/:id' as const })
+
+  // @ts-expect-error - wrong param key rejected
+  expectLink({ href: '/users/:id' as const, params: { slug: '1' } })
 })
