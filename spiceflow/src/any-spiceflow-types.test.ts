@@ -50,12 +50,13 @@ test('AnySpiceflow falls back to ergonomic any types', () => {
     .page('/', async () => 'home')
   const anyApp = app as AnySpiceflow
 
-  const fetchClient = createSpiceflowFetch<AnySpiceflow>('http://localhost:3000')
+  // No-generic versions use RegisteredApp which falls back to AnySpiceflow
+  const fetchClient = createSpiceflowFetch('http://localhost:3000')
   const fetchFromApp = createSpiceflowFetch(anyApp)
-  const proxyClient = createSpiceflowClient<AnySpiceflow>('http://localhost:3000')
+  const proxyClient = createSpiceflowClient('http://localhost:3000')
   const proxyClientFromApp = createSpiceflowClient(anyApp)
-  const href = createHref<AnySpiceflow>()
-  const routerApi = getRouter<AnySpiceflow>()
+  const href = createHref()
+  const routerApi = getRouter()
 
   function assertFetchFallbackTypes() {
     const result = fetchClient('/runtime-route', {
@@ -120,7 +121,7 @@ test('AnySpiceflow falls back to ergonomic any types', () => {
   }
 
   function GlobalLoaderDataComponent() {
-    const data = useLoaderData<AnySpiceflow>()
+    const data = useLoaderData()
     const dataIsAny: IsAny<typeof data> = true
     void dataIsAny
     data.session.user.name
@@ -128,7 +129,7 @@ test('AnySpiceflow falls back to ergonomic any types', () => {
   }
 
   function PathLoaderDataComponent() {
-    const data = useLoaderData<AnySpiceflow>('/runtime-route')
+    const data = useLoaderData('/runtime-route')
     const dataIsAny: IsAny<typeof data> = true
     void dataIsAny
     data.session.user.name
@@ -136,7 +137,7 @@ test('AnySpiceflow falls back to ergonomic any types', () => {
   }
 
   function UntypedRouterStateComponent() {
-    const state = useRouterState<AnySpiceflow>()
+    const state = useRouterState()
     state.pathname.toUpperCase()
     return null
   }

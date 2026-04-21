@@ -566,7 +566,7 @@ export const router: RouterBase<RegisteredApp> = {
   },
 }
 
-export function useRouterState<_App extends AnySpiceflow = AnySpiceflow>() {
+export function useRouterState<_App extends AnySpiceflow = RegisteredApp>() {
   const location = useSyncExternalStore(
     (cb) => router.subscribe(cb),
     () => history.location,

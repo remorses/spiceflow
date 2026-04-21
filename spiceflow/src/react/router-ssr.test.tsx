@@ -32,8 +32,9 @@ const app = new Spiceflow()
 const typedRouter = getRouter<typeof app>()
 
 function HookProbe() {
-  const data = useLoaderData<typeof app>('/dashboard')
-  const state = useRouterState<typeof app>()
+  // No-generic versions default to RegisteredApp (falls back to AnySpiceflow)
+  const data = useLoaderData('/dashboard')
+  const state = useRouterState()
 
   return (
     <pre>

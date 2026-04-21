@@ -6,6 +6,7 @@ import { getRouterContext } from '#router-context'
 import {
   coerceLoaderData,
   type LoaderDataForPath,
+  type RegisteredApp,
   type RouterPathArg,
 } from './router.js'
 
@@ -39,7 +40,7 @@ export function useFlightData() {
 }
 
 export function useLoaderData<
-  App extends AnySpiceflow = AnySpiceflow,
+  App extends AnySpiceflow = RegisteredApp,
   const Path extends RouterPathArg<App> = string,
 >(_path?: Path): LoaderDataForPath<App, Path> {
   const payloadPromise = readFlightDataContext()

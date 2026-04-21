@@ -5,6 +5,7 @@ export { getRouter, router, useRouterState } from './router.tsx'
 export type {
   NavigationEvent,
   ReadonlyURLSearchParams,
+  RegisteredApp,
   SpiceflowRegister,
 } from './router.tsx'
 export { Head } from './head.tsx'

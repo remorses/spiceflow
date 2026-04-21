@@ -41,6 +41,7 @@ import {
   PrefixLoaderData,
 } from './types.js'
 import { buildHref } from './react/loader-utils.js'
+import type { RegisteredApp } from './react/router.js'
 
 import React, { createElement } from 'react'
 import { ZodType } from 'zod'
@@ -2933,19 +2934,17 @@ export class Spiceflow<
 }
 
 /**
- * Create a standalone type-safe path builder. Pass your app instance for automatic
- * type inference, or call with explicit type params. The app value is not used at runtime.
+ * Create a standalone type-safe path builder. When `SpiceflowRegister` is set,
+ * no arguments are needed. Pass your app instance for automatic type inference,
+ * or call with explicit type params. The app value is not used at runtime.
  *
  * ```ts
- * const app = new Spiceflow()
- *   .get('/users/:id', handler, { query: z.object({ page: z.number() }) })
- *
- * const href = createHref(app)
+ * const href = createHref()
  * href('/users/:id', { id: '123', page: 1 })
  * ```
  */
 export function createHref<
-  T extends { _types: { RoutePaths: string; RouteQuerySchemas: object } },
+  T extends { _types: { RoutePaths: string; RouteQuerySchemas: object } } = RegisteredApp,
 >(_app?: T) {
   type Paths = T['_types']['RoutePaths']
   type QS = T['_types']['RouteQuerySchemas']

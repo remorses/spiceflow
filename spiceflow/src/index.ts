@@ -4,7 +4,7 @@ import type { MiddlewareHandler } from './types.js'
 
 export { Spiceflow, createHref } from './spiceflow.js'
 export { redirect } from './react/errors.js'
-export type { SpiceflowRegister } from './react/router.js'
+export type { SpiceflowRegister, RegisteredApp } from './react/router.js'
 export type {
   AnySpiceflow,
   SpiceflowListenResult,

@@ -88,7 +88,7 @@ export const router = {
   __setLoaderData() {},
 } as RouterBase<RegisteredApp>
 
-export function useRouterState<_App extends AnySpiceflow = AnySpiceflow>() {
+export function useRouterState<_App extends AnySpiceflow = RegisteredApp>() {
   const location = getCurrentLocation()
   return {
     ...location,
@@ -97,7 +97,7 @@ export function useRouterState<_App extends AnySpiceflow = AnySpiceflow>() {
 }
 
 export function useLoaderData<
-  App extends AnySpiceflow = AnySpiceflow,
+  App extends AnySpiceflow = RegisteredApp,
   const Path extends RouterPathArg<App> = string,
 >(_path?: Path): LoaderDataForPath<App, Path> {
   return getRouterContext()?.loaderData as LoaderDataForPath<App, Path>
