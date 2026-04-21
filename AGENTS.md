@@ -1,3 +1,5 @@
+spiceflow is still in pre release. ignore backwards compatibility, instead focus on making code as simple as possible
+
 # generated READMEs
 
 The root `README.md` is the single source of truth. These files are generated from it and must NOT be edited directly:
@@ -93,7 +95,7 @@ When writing new tests, always use `url("/path")` for `page.goto` and `toHaveURL
 
 ## federation testing
 
-Federation e2e tests live in `federation-example/host/e2e/` and use Playwright. They require both the remote and host apps to be built first, since tests run against production builds.
+Federation e2e tests live in `example-federation/host/e2e/` and use Playwright. They require both the remote and host apps to be built first, since tests run against production builds.
 
 ```bash
 # 1. rebuild spiceflow dist (if you changed spiceflow/src/)
@@ -101,15 +103,15 @@ cd spiceflow
 pnpm tsc
 
 # 2. build remote first (host fetches from it at runtime)
-cd federation-example/remote
+cd example-federation/remote
 pnpm build
 
 # 3. build host
-cd federation-example/host
+cd example-federation/host
 pnpm build
 
 # 4. run federation e2e tests
-cd federation-example/host
+cd example-federation/host
 pnpm test-e2e
 ```
 
@@ -127,6 +129,32 @@ pnpm tsc
 NEVER use --noCheck or --noEmit
 
 This is the most common reason e2e tests fail after code changes — stale dist files.
+
+## vercel deployment checks
+
+The `integration-tests` Vercel project exists to validate that Spiceflow still deploys and runs correctly on Vercel. Keep this project green. If a change breaks this deployment, treat it as a real regression in platform support, not just a flaky preview failure.
+
+Use the Vercel CLI to check the latest production deployment status:
+
+```bash
+vercel list integration-tests --scope tommaso-de-rossis-projects
+```
+
+If the latest deployment failed, inspect its build logs using the deployment URL from `vercel list`:
+
+```bash
+vercel inspect "https://integration-tests-<id>-tommaso-de-rossis-projects.vercel.app" --logs --wait --scope tommaso-de-rossis-projects
+```
+
+Useful workflow when debugging:
+
+- Look at the latest failed deployment first, not an older dashboard link.
+- Read the exact failing command from the build logs, usually `pnpm install`, `pnpm run vercel-build`, or the generated output step.
+- If the failure is before the build starts, check workspace metadata problems first: missing lockfile updates, bad workspace ranges, missing files, or package.json changes not reflected in `pnpm-lock.yaml`.
+- If the failure happens during `vercel-build`, reproduce it from `integration-tests/` locally and rebuild `spiceflow/` first if you changed `spiceflow/src/`.
+- After fixing the issue, push to `main`, then watch the new deployment logs again with `vercel inspect ... --logs --wait` until it reaches `status ● Ready`.
+
+Common gotcha: Vercel runs `pnpm install` with a frozen lockfile. If `integration-tests/package.json` changes but `pnpm-lock.yaml` was not committed, the deployment fails with `ERR_PNPM_OUTDATED_LOCKFILE`. In that case the fix is usually to update and commit the lockfile, not to change Vercel settings.
 
 ## writing e2e tests
 
@@ -165,7 +193,7 @@ Client components used in tests should be created in `integration-tests/src/app/
 - Always call `file[Symbol.dispose]()` or use `try/finally` to restore files after edits.
 - When editing files, make sure the `replace()` string actually exists in the source. For example, `client.tsx` has `name = "Client"` as a default prop — the literal string "Client counter" does NOT exist in the file, so `replace("Client counter", ...)` would be a no-op and the HMR test would silently fail.
 - **Client HMR preserves state**: editing a client component triggers React Fast Refresh without a server re-render. Client state is preserved. Vite's SSR environment logs `page reload` internally but the browser does not actually reload — Fast Refresh handles it.
-- **Server HMR preserves server state**: editing a server component triggers RSC HMR. Server-side state (e.g. counters stored in module scope) is preserved. Client state is NOT preserved — `router.refresh()` re-fetches the full RSC payload, and React reconciliation remounts client components with fresh state.
+- **Server HMR preserves server state**: editing a server component triggers RSC HMR. Server-side state (e.g. counters stored in module scope) is preserved. `router.refresh()` re-fetches the RSC payload, but React reconciles matching client components in place, so their local state is preserved unless their identity/key actually changes.
 - The home page has a `serverRenderCount` counter (`data-testid="server-render-count"`) that increments on each RSC render. Use it in tests to verify whether a server re-render happened.
 - To detect full page reloads in tests, set a window sentinel before the edit and check it after: `await page.evaluate((s) => { window.__hmrSentinel = s }, sentinel)` — if the sentinel is gone after the edit, a full reload happened.
 
@@ -228,6 +256,38 @@ always use tailwind for styling, prefer using simple styles using flex and gap. 
 ## spiceflow/react exports
 
 All React-facing APIs (components, router, utilities) must be exported from `spiceflow/react` (i.e. `spiceflow/src/react/index.ts`). Never import from `spiceflow/dist/react/...` directly — that's an internal path that breaks when the build output changes. If something is meant for users (like `Head`, `Link`, `ProgressBar`, `router`), it must be in the public export.
+
+## type-safe routing with SpiceflowRegister
+
+Spiceflow uses a type registry pattern (like TanStack Router) for type-safe routing. The preferred approach:
+
+1. Import `router` directly from `spiceflow/react` — no function call, no generics
+2. Add `declare module 'spiceflow/react' { interface SpiceflowRegister { app: typeof app } }` at the bottom of the app entry file
+
+This registers the app type globally so all typed APIs work without generics:
+- `router` and `getRouter()` from `spiceflow/react`
+- `useLoaderData()` and `useRouterState()` from `spiceflow/react`
+- `createSpiceflowFetch()` from `spiceflow/client`
+- `createSpiceflowClient()` from `spiceflow/client`
+- `createHref()` from `spiceflow`
+
+Never use explicit generics like `getRouter<typeof app>()`, `useLoaderData<typeof app>()`, or `createSpiceflowFetch<typeof app>()` in new code or documentation — the register pattern replaces them.
+
+The register interface lives in `spiceflow/src/react/router.tsx` as `SpiceflowRegister`, exported from `spiceflow/react` and `spiceflow`. `RegisteredApp` is the conditional type that reads from the register and falls back to `AnySpiceflow` (which gives `any` fallback behavior). All typed APIs default their generic to `RegisteredApp`.
+
+In **tests**, the register pattern assumes a single app per TypeScript project — which doesn't hold in test files that create multiple apps per test. Tests that need to verify type safety for a specific app must still use explicit generics like `useLoaderData<typeof app>('/path')` or `getRouter<typeof app>()`. Tests that only verify runtime behavior can use the no-generic versions.
+
+## server actions and router.refresh()
+
+Spiceflow automatically re-renders the page after every server action call (`callServer` always applies the new RSC payload). This means `router.refresh()` is NOT needed after server actions — the page updates automatically for direct `<form action={serverAction}>`, client wrapper functions, and direct imported action calls.
+
+`router.refresh()` is still useful for standalone refreshes (e.g. after a WebSocket event, or to poll for updates). It triggers a re-fetch of all server components and loaders.
+
+`router.refresh()` is fire-and-forget. `router.push()`, `router.replace()`, `router.back()`, `router.forward()`, and `router.go()` are fire-and-forget too. Never await refresh completion or build awaitable navigation/refresh helpers and call them inside a React client form action (`<form action={async () => { ... }}>`). React keeps the form action transition pending until the action returns, so awaiting the commit from inside that same action can deadlock the page.
+
+The auto-re-render uses `setPayloadDirect` (raw setState, no `startTransition`) so it joins whatever transition is already active. This is critical: React 19 wraps form actions in `startTransition`, and a nested `startTransition` would create a separate transition that commits independently — causing a flash of stale content between the caller's state updates and the new server data.
+
+Use `ErrorBoundary` from `spiceflow/react` to catch thrown errors from form actions. It provides `ErrorBoundary.ErrorMessage` and `ErrorBoundary.ResetButton` sub-components. See the README "Error Handling" section for examples.
 
 ## files
 
@@ -302,7 +362,7 @@ the spiceflow vite plugin depends on vite-rsc plugin. you can read its source co
 
 we also try to work well with the cloudflare vite plugin. the source code of that is in `https://github.com/cloudflare/workers-sdk/blob/main/packages/vite-plugin-cloudflare`
 
-we have an example `cloudflare-example` that we can use to make sure pnpm dev, build, preview and deployment work well.
+we have an example `example-cloudflare` that we can use to make sure pnpm dev, build, preview and deployment work well.
 
 Waku (`opensrc dai-shi/waku`, packages/waku/) is another Vite RSC framework we use as reference for Vite integration patterns. It uses the same `@vitejs/plugin-rsc` plugin and has a similar multi-environment setup (client, ssr, rsc). Useful to check how they handle `optimizeDeps`, `resolve.noExternal`, SSR middleware, and RSC environment config. Their Vite plugins live in `packages/waku/src/lib/vite-plugins/`.
 

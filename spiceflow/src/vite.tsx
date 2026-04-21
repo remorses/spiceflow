@@ -10,7 +10,6 @@ import {
   type Plugin,
   type PluginOption,
   type ResolvedConfig,
-  type RunnableDevEnvironment,
   type UserConfig,
   type ViteDevServer,
 } from 'vite'
@@ -56,7 +55,10 @@ function resolveBuildOutDir(config: BuildOutDirConfig) {
 }
 
 function normalizeEnvironmentOutDirs(userConfig: UserConfig): UserConfig {
-  const isCloudflare = hasPluginNamed(userConfig.plugins, 'vite-plugin-cloudflare')
+  const isCloudflare = hasPluginNamed(
+    userConfig.plugins,
+    'vite-plugin-cloudflare',
+  )
   const rootOutDir = userConfig.build?.outDir ?? 'dist'
   const clientOutDir = path.join(rootOutDir, 'client')
   const rscOutDir = path.join(rootOutDir, 'rsc')
@@ -73,7 +75,8 @@ function normalizeEnvironmentOutDirs(userConfig: UserConfig): UserConfig {
     environments: {
       client: {
         build: {
-          outDir: userConfig.environments?.client?.build?.outDir ?? clientOutDir,
+          outDir:
+            userConfig.environments?.client?.build?.outDir ?? clientOutDir,
         },
       },
       rsc: {
@@ -145,7 +148,10 @@ export default function spiceflow({
     ...(isRemote
       ? {
           clientChunks(meta: { id: string; normalizedId: string }) {
-            if (meta.id.includes('spiceflow/') || meta.id.includes('spiceflow\\')) {
+            if (
+              meta.id.includes('spiceflow/') ||
+              meta.id.includes('spiceflow\\')
+            ) {
               return 'spiceflow-framework'
             }
             return 'user-components'
@@ -280,7 +286,8 @@ export default function spiceflow({
         // Capture base early — Vite normalizes it to '/' by default, but the
         // raw user value is available here before configResolved runs.
         const rawBase = userConfig.base || '/'
-        const isAbsoluteUrl = rawBase.startsWith('http://') || rawBase.startsWith('https://')
+        const isAbsoluteUrl =
+          rawBase.startsWith('http://') || rawBase.startsWith('https://')
         if (rawBase !== '/' && !rawBase.startsWith('/') && !isAbsoluteUrl) {
           throw new Error(
             `[spiceflow] config.base must be an absolute path starting with "/", got "${rawBase}". ` +
@@ -308,6 +315,13 @@ export default function spiceflow({
           // Disable Vite's built-in SPA fallback middleware so it doesn't
           // intercept unmatched paths with a 200 before our middleware runs.
           appType: 'custom' as const,
+          // Default to IPv4 loopback to prevent two Vite servers silently
+          // sharing the same port on different IP families (IPv4 vs IPv6).
+          // macOS allows binding to 127.0.0.1 and ::1 on the same port
+          // without EADDRINUSE, so pinning to IPv4 makes collisions visible.
+          server: {
+            host: userConfig.server?.host ?? '127.0.0.1',
+          },
           // Replace process.env.NODE_ENV at build time so React uses its production
           // bundle. Without this, the built output contains runtime checks like
           // `"production" !== process.env.NODE_ENV` that always evaluate to the dev
@@ -360,14 +374,17 @@ export default function spiceflow({
         if (name === 'rsc') {
           config.build ??= {}
           config.build.rollupOptions ??= {}
-          config.build.rollupOptions.preserveEntrySignatures =
-            'allow-extension'
+          config.build.rollupOptions.preserveEntrySignatures = 'allow-extension'
         }
       },
     },
-    // Point optimizeDeps.entries at the user's app entry and spiceflow's own entries
-    // so Vite crawls the full import graph upfront instead of discovering deps late
-    // (which triggers re-optimization rounds + page reloads during dev).
+    // Point optimizeDeps.entries at the user's app entry so each environment can
+    // crawl the full import graph up front instead of discovering deps mid-request.
+    //
+    // Vite only applies top-level optimizeDeps defaults to the client environment.
+    // Non-client environments default to noDiscovery=true, which ignores entries and
+    // skips holdUntilCrawlEnd entirely. Spiceflow opts ssr/rsc back into discovery so
+    // all three environments can stabilize their dep graph before serving requests.
     //
     // Also ensures Vite processes spiceflow through its transform pipeline (noExternal)
     // so conditional package.json exports (react-server vs default) resolve correctly.
@@ -378,6 +395,8 @@ export default function spiceflow({
       name: 'spiceflow:optimize-deps',
       configEnvironment(name, config) {
         config.resolve ??= {}
+        config.optimizeDeps ??= {}
+        config.optimizeDeps.holdUntilCrawlEnd = true
 
         // Package private `#imports` can target different runtime entry points
         // than public `exports`. The RSC environment already resolves with the
@@ -387,7 +406,9 @@ export default function spiceflow({
         // AsyncLocalStorage implementation in SSR while the client environment
         // still resolves to the browser-safe fallback.
         if (name === 'ssr') {
-          config.resolve.conditions = mergeUnique(config.resolve.conditions, ['ssr'])
+          config.resolve.conditions = mergeUnique(config.resolve.conditions, [
+            'ssr',
+          ])
         }
 
         if (name === 'rsc') {
@@ -395,8 +416,6 @@ export default function spiceflow({
             'react-server',
           ])
         }
-
-        config.optimizeDeps ??= {}
 
         // Only add filesystem entries to optimizeDeps — virtual modules and
         // bare specifiers aren't files so they can't be used as globs.
@@ -412,11 +431,25 @@ export default function spiceflow({
           )
         }
 
+
+        if (name === 'rsc' || name === 'ssr') {
+          config.optimizeDeps.noDiscovery = false
+          addNoExternal(config, 'spiceflow')
+
+          if (isCloudflareProject) {
+            config.resolve.noExternal = true
+          }
+        }
+
         // Each environment runs its own independent optimizer, so deps discovered
         // late by the rsc/ssr optimizer still cause reloads even if the client
         // optimizer finished cleanly. Explicitly include known CJS/late-discovered
         // deps that spiceflow transitively imports so all three environments
         // pre-bundle them upfront instead of finding them mid-request.
+        //
+        // IMPORTANT: when new dependencies are shown in the `vite dev` as new dependencies optimized.
+        // add them here if they are optimized because of spiceflow.
+        // so new users will not get initial error overlay on first page load. add in the right runtime
         if (name === 'client') {
           config.optimizeDeps.exclude = mergeUnique(
             config.optimizeDeps.exclude,
@@ -432,37 +465,23 @@ export default function spiceflow({
               'react-dom/client',
               'spiceflow > superjson',
               'spiceflow > history',
+              'spiceflow > its-fine',
+              'spiceflow > eventsource-parser/stream',
             ],
           )
         }
 
-        if (name === 'rsc' || name === 'ssr') {
-          addNoExternal(config, 'spiceflow')
-          // Force React packages to resolve from the project root so the
-          // vendored react-server-dom CJS inside @vitejs/plugin-rsc shares
-          // the same React instance as user code. Without this, the vendor's
-          // require("react") can resolve to a separate module instance
-          // (especially under pnpm's strict isolation), causing
-          // ReactSharedInternals.A (the cache dispatcher) to be set on one
-          // instance while user code reads from another — breaking
-          // React.cache() in server components.
-          config.resolve ??= {}
-          config.resolve.dedupe = mergeUnique(config.resolve.dedupe, [
-            'react',
-            'react-dom',
-            'react/jsx-runtime',
-            'react/jsx-dev-runtime',
-          ])
 
-          if (isCloudflareProject) {
-            config.resolve.noExternal = true
-          }
-        }
 
         if (name === 'rsc') {
           config.optimizeDeps.include = mergeUnique(
             config.optimizeDeps.include,
-            ['spiceflow > superjson', 'spiceflow > history'],
+            [
+              'spiceflow > superjson',
+              'spiceflow > history',
+              'spiceflow > eventsource-parser/stream',
+              'spiceflow > errore', //
+            ],
           )
         }
 
@@ -472,11 +491,29 @@ export default function spiceflow({
             [
               'spiceflow > isbot',
               'spiceflow > history',
+              'spiceflow > eventsource-parser/stream',
               'react-dom/server',
+              'react-dom/client',
               'react-dom/server.edge',
             ],
           )
         }
+
+        // Force React packages to resolve from the project root in every
+        // environment so user code, spiceflow internals, and CJS dependencies
+        // all share one React instance. Without this, the client production
+        // bundle can inline a second React copy into a lazy chunk, which trips
+        // React's hook dispatcher (`Cannot read properties of null (reading
+        // 'useState')`) during hydration.
+        config.resolve ??= {}
+        config.resolve.dedupe = mergeUnique(config.resolve.dedupe, [
+          'react',
+          'react-dom',
+          'react/jsx-runtime',
+          'react/jsx-dev-runtime',
+          'spiceflow',
+          'spiceflow/react',
+        ])
       },
     },
 
@@ -510,14 +547,17 @@ export default function spiceflow({
                   spiceflowEntries.ssr,
                 )
               if (!resolvedEntry) {
-                throw new Error(`Failed to resolve spiceflow SSR entry: ${spiceflowEntries.ssr}`)
+                throw new Error(
+                  `Failed to resolve spiceflow SSR entry: ${spiceflowEntries.ssr}`,
+                )
               }
-              const mod: any = await (
-                server.environments.ssr as RunnableDevEnvironment
-              ).runner?.import(resolvedEntry.id)
-              const { createRequest, sendResponse } = await import(
-                './react/fetch.js'
-              )
+              const runner = Reflect.get(server.environments.ssr, 'runner')
+              if (!runner || typeof runner.import !== 'function') {
+                throw new Error('Vite SSR environment runner is unavailable')
+              }
+              const mod: any = await runner.import(resolvedEntry.id)
+              const { createRequest, sendResponse } =
+                await import('./react/fetch.js')
               const request = createRequest(req, res)
               const response = await mod.fetchHandler(request)
               sendResponse(response, res)
@@ -563,8 +603,14 @@ export default function spiceflow({
     // On Cloudflare Workers, import.meta.filename is undefined (no filesystem),
     // so both exports fall back to empty strings.
     createVirtualPlugin('virtual:spiceflow-dirs', () => {
-      const clientRelativeFromRsc = path.relative(resolvedRscOutDir, resolvedClientOutDir)
-      const distRelativeFromRsc = path.relative(resolvedRscOutDir, resolvedOutDir)
+      const clientRelativeFromRsc = path.relative(
+        resolvedRscOutDir,
+        resolvedClientOutDir,
+      )
+      const distRelativeFromRsc = path.relative(
+        resolvedRscOutDir,
+        resolvedOutDir,
+      )
       return [
         `import { resolve, dirname, basename } from 'node:path'`,
         `let publicDir = ''`,
@@ -600,7 +646,10 @@ export default function spiceflow({
       const resolvedEntry = resolved.id.startsWith('\0')
         ? resolved.id.slice(1)
         : resolved.id
-      const clientRelative = path.relative(resolvedRscOutDir, resolvedClientOutDir)
+      const clientRelative = path.relative(
+        resolvedRscOutDir,
+        resolvedClientOutDir,
+      )
 
       const escapedBase = resolvedBase.replace(/'/g, "\\'")
       const lines = [
@@ -644,9 +693,19 @@ export default function spiceflow({
       )
       return lines.join('\n')
     }),
-    federationSharedPlugin(importMapJson, (json) => { importMapJson = json }),
+    federationSharedPlugin(importMapJson, (json) => {
+      importMapJson = json
+    }),
     ...(importMap
-      ? [userImportMapPlugin(importMap, () => importMapJson, (json) => { importMapJson = json })]
+      ? [
+          userImportMapPlugin(
+            importMap,
+            () => importMapJson,
+            (json) => {
+              importMapJson = json
+            },
+          ),
+        ]
       : []),
     createVirtualPlugin('virtual:spiceflow-import-map', function () {
       // In dev mode, generate import map using Vite's ?url imports so that
@@ -662,7 +721,9 @@ export default function spiceflow({
           const filePath = SHARED_ENTRIES[name]
           if (!filePath) continue
           const varName = `__url_${idx++}`
-          importStatements.push(`import ${varName} from ${JSON.stringify(filePath + '?url')}`)
+          importStatements.push(
+            `import ${varName} from ${JSON.stringify(filePath + '?url')}`,
+          )
           for (const spec of specifiers) {
             mapEntries.push(`${JSON.stringify(spec)}: ${varName}`)
           }
@@ -671,10 +732,14 @@ export default function spiceflow({
         if (importMap) {
           for (const [spec, value] of Object.entries(importMap)) {
             if (value.startsWith('http://') || value.startsWith('https://')) {
-              mapEntries.push(`${JSON.stringify(spec)}: ${JSON.stringify(value)}`)
+              mapEntries.push(
+                `${JSON.stringify(spec)}: ${JSON.stringify(value)}`,
+              )
             } else {
               const varName = `__url_${idx++}`
-              importStatements.push(`import ${varName} from ${JSON.stringify(value + '?url')}`)
+              importStatements.push(
+                `import ${varName} from ${JSON.stringify(value + '?url')}`,
+              )
               mapEntries.push(`${JSON.stringify(spec)}: ${varName}`)
             }
           }
@@ -808,7 +873,8 @@ function userImportMapPlugin(
     buildStart() {
       if (this.environment?.name !== 'client') return
       for (const [specifier, value] of Object.entries(userEntries)) {
-        if (value.startsWith('http://') || value.startsWith('https://')) continue
+        if (value.startsWith('http://') || value.startsWith('https://'))
+          continue
         const ref = this.emitFile({
           type: 'chunk',
           id: value,
@@ -960,7 +1026,11 @@ type VirtualLoadContext = {
 
 function createVirtualPlugin(
   virtualName: string,
-  loadFn: (this: VirtualLoadContext, id: string, options?: { ssr?: boolean }) => string | void | Promise<string | void>,
+  loadFn: (
+    this: VirtualLoadContext,
+    id: string,
+    options?: { ssr?: boolean },
+  ) => string | void | Promise<string | void>,
 ): Plugin {
   const shortName = virtualName.replace('virtual:', '')
   const resolvedId = '\0' + virtualName

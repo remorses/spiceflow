@@ -7,7 +7,13 @@ import ReactDOMServer from 'react-dom/server.edge'
 import { createFromReadableStream } from '@vitejs/plugin-rsc/ssr'
 
 import { ServerPayload } from '../spiceflow.js'
-import { LayoutContent } from './components.js'
+import {
+  DefaultGlobalErrorPage,
+  DefaultNotFoundPage,
+  ErrorBoundary,
+  LayoutContent,
+  NotFoundBoundary,
+} from './components.js'
 import { FlightDataContext } from './context.js'
 import {
   getErrorContext,
@@ -66,6 +72,9 @@ export async function fetchHandler(request: Request) {
 
     return htmlResponse
   } catch (err) {
+    // In dev mode, re-throw so Vite's SSR middleware (catch → next(e)) can
+    // forward the error to the error overlay via WebSocket.
+    if (import.meta.hot) throw err
     console.error('[fetchHandler] unexpected error', err)
     return new Response('', { status: 500 })
   }
@@ -97,6 +106,14 @@ export async function renderHtml({
   // render context so React can register preinit/preload hints for client refs.
   let payloadPromise: Promise<ServerPayload> | undefined
 
+  // Tree structure must match BrowserRoot in entry.client.tsx exactly so
+  // React's useId() generates identical IDs during SSR and hydration.
+  // FiberProvider (from its-fine) uses React fiber internals that crash in
+  // SSR, so we use a no-op wrapper that occupies the same tree position.
+  function SsrFiberProvider({ children }: { children: React.ReactNode }) {
+    return <>{children}</>
+  }
+
   function SsrRoot() {
     payloadPromise ??= createFromReadableStream<ServerPayload>(flightForSsr)
     const payload = React.use(payloadPromise!)
@@ -105,9 +122,15 @@ export async function renderHtml({
       routerContext.loaderData = payload.root?.loaderData ?? {}
     }
     return (
-      <FlightDataContext.Provider value={payloadPromise!}>
-        <LayoutContent />
-      </FlightDataContext.Provider>
+      <SsrFiberProvider>
+        <ErrorBoundary errorComponent={DefaultGlobalErrorPage}>
+          <NotFoundBoundary component={DefaultNotFoundPage}>
+            <FlightDataContext.Provider value={payloadPromise!}>
+              <LayoutContent />
+            </FlightDataContext.Provider>
+          </NotFoundBoundary>
+        </ErrorBoundary>
+      </SsrFiberProvider>
     )
   }
 
@@ -221,6 +244,10 @@ export async function renderHtml({
       if (res) return res
     }
 
+    const errorMessage = e instanceof Error ? e.message : String(e)
+    const errorStack = e instanceof Error ? e.stack : undefined
+    const isDev = !!import.meta.hot
+
     const errorRoot = (
       <html>
         <head>
@@ -228,6 +255,11 @@ export async function renderHtml({
         </head>
         <body>
           <noscript>{status} Internal Server Error</noscript>
+          {isDev && (
+            <pre style={{ color: 'red', whiteSpace: 'pre-wrap', padding: '1rem', fontFamily: 'monospace' }}>
+              {errorStack || errorMessage}
+            </pre>
+          )}
         </body>
       </html>
     )

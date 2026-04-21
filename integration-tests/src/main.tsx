@@ -1,6 +1,6 @@
 import { Suspense, useActionState, useState } from "react";
 
-import { Spiceflow, serveStatic, redirect } from "spiceflow";
+import { Spiceflow, serveStatic, redirect, parseFormData } from "spiceflow";
 import { IndexPage } from "./app/index";
 import { getCounter } from "./app/action";
 
@@ -20,6 +20,8 @@ import {
 	Counter,
 	ErrorInUseEffect,
 	ErrorRender,
+	RouterRefreshStateTest,
+	GetRedirectNav,
 } from "./app/client";
 import { DialogDemo } from "./app/dialog";
 import { WithSelect } from "./app/select";
@@ -29,6 +31,7 @@ import {
 	StreamingActionTest,
 	SimpleActionTest,
 	RedirectActionTest,
+	WrappedRedirectFormTest,
 	JsxActionTest,
 	JsxStreamingActionTest,
 	ThrowingStreamingActionTest,
@@ -44,12 +47,15 @@ import {
 	LayoutClientContextValue,
 } from "./app/client-context";
 import { LoaderDataDisplay, LoaderNavLinks } from "./app/loader-test-client";
+import { ActionBodyTest } from "./app/action-body-test";
 import {
 	GlobalLoaderDisplay,
 	SubscribeDataReader,
 } from "./app/loader-global-client";
 import { ServerGuardTestClient } from "./app/server-guard-test-client";
 import { ActionFormTest } from "./app/action-form-test";
+import { ErrorBoundaryFormTest } from "./app/error-boundary-form-test";
+import { ParseFormDataTest } from "./app/parse-form-data-test";
 import {
 	AbortActionTest,
 	InspectRequestActionTest,
@@ -58,14 +64,25 @@ import ImageResponse from "@takumi-rs/image-response";
 import {
 	FederatedPayloadDecodeTest,
 } from "./app/federated-payload-client";
+import { UseIdTest } from "./app/use-id-test";
+import { AbsoluteUrlTest } from "./app/absolute-url-test";
 import testContentRaw from "./test-content.md?raw";
 import { publicDir, distDir } from "spiceflow";
 import { encodeFederationPayload } from "spiceflow/federation";
 import { RenderFederatedPayload } from "spiceflow/react";
+import { z } from "zod";
+
+const contactSchema = z.object({
+	name: z.string().min(1),
+	age: z.number().min(0),
+	tags: z.array(z.string()),
+});
+const contactFields = contactSchema.keyof().enum;
 
 // Increments on every RSC render of the home page. Used by e2e tests to detect
 // unwanted server re-renders (e.g. client HMR should not trigger a server render).
 let serverRenderCount = 0;
+let routerRefreshRenderCount = 0;
 let onErrorCount = 0;
 
 function getOptionalLabel(value: unknown): string | undefined {
@@ -155,6 +172,15 @@ export const app = new Spiceflow()
 			</>
 		);
 	})
+	.page("/router-refresh-state", async () => {
+		routerRefreshRenderCount++;
+		return (
+			<RouterRefreshStateTest
+				serverRandom={Math.random().toString(36).slice(2)}
+				serverRenderCount={routerRefreshRenderCount}
+			/>
+		);
+	})
 
 	.get("/hello", () => "Hello, World!")
 	.page("/not-found", () => {
@@ -195,8 +221,20 @@ export const app = new Spiceflow()
 	.page("/throw-redirect-in-page", async () => {
 		throw redirect("/other");
 	})
+	.page("/return-redirect-in-page", async () => {
+		return redirect("/other");
+	})
 	.page("/throw-notfound-in-page", async () => {
 		throw notFound();
+	})
+	.page("/return-notfound-in-page", async () => {
+		return notFound();
+	})
+	.page("/return-response-in-page", async () => {
+		return new Response("forbidden", {
+			status: 403,
+			headers: { "content-type": "text/plain;charset=utf-8" },
+		});
 	})
 	.page("/redirect-in-rsc", async () => {
 		return <Redirects />;
@@ -406,6 +444,9 @@ export const app = new Spiceflow()
 				<IndexPage counter={counter} serverRandom={serverRandom} />
 			</div>
 		);
+	})
+	.page("/use-id-test", async () => {
+		return <UseIdTest />;
 	})
 	.page("/:id", async ({ request, params }) => {
 		const counter = await getCounter();
@@ -647,6 +688,7 @@ export const app = new Spiceflow()
 		return { echo: body };
 	})
 	.get("/api/hello", () => "Hello from API!")
+	.get("/api/setup", () => "setup")
 	.get("/api/response-headers", ({ response }) => {
 		response.headers.set("x-api-header", "ok");
 		response.headers.append("set-cookie", "api-cookie=1; Path=/; HttpOnly");
@@ -700,6 +742,14 @@ export const app = new Spiceflow()
 	.page("/server-action-redirect", async () => {
 		return <RedirectActionTest />;
 	})
+	.page("/wrapped-server-action-redirect", async () => {
+		return <WrappedRedirectFormTest />;
+	})
+	.page("/wrapped-server-action-redirect/:name", async ({ params }) => {
+		return (
+			<div data-testid="wrapped-redirect-target">Created {params.name}</div>
+		);
+	})
 	.page("/form-redirect-nojs", async () => {
 		async function formRedirectAction(formData: FormData) {
 			"use server";
@@ -726,6 +776,9 @@ export const app = new Spiceflow()
 	})
 	.page("/server-action-inspect-request", async () => {
 		return <InspectRequestActionTest />;
+	})
+	.page("/server-action-read-body", async () => {
+		return <ActionBodyTest />;
 	})
 	.page("/inline-action-with-closure", async () => {
 		let renderCount = inlineActionRenderCount++;
@@ -777,6 +830,47 @@ export const app = new Spiceflow()
 			throw new Error("Action failed: invalid input");
 		}
 		return <ActionFormTest action={handleSubmit} />;
+	})
+	.page("/error-boundary-form-test", async () => {
+		async function handleSubmit(formData: FormData) {
+			"use server";
+			const message = formData.get("message") as string;
+			if (message === "fail") throw new Error("Validation failed: bad input");
+			// success — no return needed
+		}
+		return <ErrorBoundaryFormTest action={handleSubmit} />;
+	})
+	.page("/parse-form-data-test", async () => {
+		async function handleSubmit(prev: string, formData: FormData) {
+			"use server";
+			try {
+				const data = parseFormData(contactSchema, formData);
+				return `name=${data.name}, age=${data.age}, tags=${data.tags.join("+")}`;
+			} catch (e: any) {
+				return `error:${e.message}`;
+			}
+		}
+		return <ParseFormDataTest action={handleSubmit} fields={contactFields} />;
+	})
+	// --- .get() redirect followed by router.push() test ---
+	.get("/get-redirect/:id", ({ params, request }) => {
+		const base = new URL(request.url);
+		return new Response(null, {
+			status: 302,
+			headers: {
+				Location: new URL(`/get-redirect/${params.id}/target`, base).toString(),
+			},
+		});
+	})
+	.page("/get-redirect/:id/target", async ({ params }) => {
+		return (
+			<div data-testid="get-redirect-target">
+				Redirect target for {params.id}
+			</div>
+		);
+	})
+	.page("/get-redirect-nav", async () => {
+		return <GetRedirectNav />;
 	})
 	// --- Loader tests ---
 	.loader("/loader-test/*", async () => {
@@ -864,6 +958,10 @@ export const app = new Spiceflow()
 		return <div>should not render</div>;
 	});
 
+app.page("/absolute-url-test", async () => {
+	return <AbsoluteUrlTest />;
+});
+
 const somePaths = ["/static/one", "/static/two"];
 for (const path of somePaths) {
 	app.staticPage(path);
@@ -946,3 +1044,9 @@ void app
 		return { result: _.chunk([1, 2, 3, 4, 5, 6], 2) };
 	})
 	.listen(Number(process.env.PORT || 3000));
+
+declare module "spiceflow/react" {
+	interface SpiceflowRegister {
+		app: typeof app;
+	}
+}

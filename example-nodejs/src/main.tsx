@@ -1,7 +1,7 @@
 import './globals.css'
 import { Spiceflow } from 'spiceflow'
 import { Suspense } from 'react'
-import { Head, Link, ProgressBar, redirect } from 'spiceflow/react'
+import { Head, Link, ProgressBar, redirect, router } from 'spiceflow/react'
 
 import { serveStatic } from 'spiceflow'
 
@@ -54,7 +54,8 @@ export const app = new Spiceflow()
     )
   })
   .page('/redirect-test', async function RedirectTest() {
-    throw redirect('/about')
+    // Type-safe redirect using router.href() inside an inline handler
+    throw redirect(router.href('/about'))
   })
   .page('/about', async function About() {
     return (
@@ -72,6 +73,12 @@ export const app = new Spiceflow()
           className="mt-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
         >
           Back to home
+        </Link>
+        <Link
+          href={router.href('/pokemon/:id', { id: '25' })}
+          className="mt-2 px-4 py-2 text-sm font-medium text-blue-700 bg-blue-50 border border-blue-300 rounded-md hover:bg-blue-100"
+        >
+          Go to Pikachu (typed href)
         </Link>
       </div>
     )
@@ -166,4 +173,8 @@ function RootLayout({ children }: { children: React.ReactNode }) {
   )
 }
 
-app.listen(Number(process.env.PORT || 3000))
+void app.listen(Number(process.env.PORT || 3000))
+
+declare module 'spiceflow/react' {
+  interface SpiceflowRegister { app: typeof app }
+}

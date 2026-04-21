@@ -1,8 +1,14 @@
 export { Link } from './link.tsx'
+export type { LinkProps } from './link.tsx'
 export { ProgressBar } from './progress.tsx'
 export { ScrollRestoration } from './scroll-restoration.tsx'
 export { getRouter, router, useRouterState } from './router.tsx'
-export type { NavigationEvent, ReadonlyURLSearchParams } from './router.tsx'
+export type {
+  NavigationEvent,
+  ReadonlyURLSearchParams,
+  RegisteredApp,
+  SpiceflowRegister,
+} from './router.tsx'
 export { Head } from './head.tsx'
 export type {
   MetaProps,
@@ -19,4 +25,5 @@ export {
   decodeFederationPayload,
   RenderFederatedPayload,
 } from './federated-payload.ts'
+export { ErrorBoundary } from './error-boundary.tsx'
 export { publicDir, distDir } from '#spiceflow-dirs'

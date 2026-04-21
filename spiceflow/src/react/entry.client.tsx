@@ -20,11 +20,10 @@ import {
   NotFoundBoundary,
 } from './components.js'
 import { ServerPayload } from '../spiceflow.js'
-import { FlightDataContext } from './context.js'
+import { FlightDataContext, useFlightData } from './context.js'
 import {
   getDocumentLocationFromResponse,
   isFlightResponse,
-  isDeploymentMismatchResponse,
 } from './deployment.js'
 import { getErrorContext, isRedirectError } from './errors.js'
 import { actionAbortControllers } from './action-abort.js'
@@ -71,25 +70,36 @@ async function fetchFlightResponse(args: {
   init?: RequestInit
   kind: 'navigation' | 'action'
 }) {
-  const response = await fetch(args.url, args.init)
+  const response = await fetch(args.url, { ...args.init, cache: 'no-store' })
 
-  if (isDeploymentMismatchResponse(response)) {
-    hardNavigate(
-      getDocumentLocationFromResponse({
-        response,
-        requestUrl: args.url,
-      }),
-    )
+  const locationHeader = response.headers.get('location')
+  const isRedirectResponse = response.status >= 300 && response.status <= 399
+  if (locationHeader && isRedirectResponse) {
+    const redirectLocation = new URL(locationHeader, args.url).toString()
+    const isSameOriginRedirect =
+      new URL(redirectLocation).origin === window.location.origin
+    if (args.kind === 'navigation' && isSameOriginRedirect) {
+      router.replace(redirectLocation)
+      return never()
+    }
+    hardNavigate(redirectLocation)
     return never()
   }
-
   if (response.redirected) {
-    hardNavigate(
-      getDocumentLocationFromResponse({
-        response,
-        requestUrl: args.url,
-      }),
-    )
+    const redirectLocation = getDocumentLocationFromResponse({
+      response,
+      requestUrl: args.url,
+    })
+    // For RSC navigations where the redirect stayed same-origin, do a
+    // client-side redirect so the SPA shell (layout state, scroll, etc.)
+    // is preserved instead of triggering a full page reload.
+    const isSameOriginRedirect =
+      response.url && new URL(response.url, args.url).origin === args.url.origin
+    if (args.kind === 'navigation' && isSameOriginRedirect) {
+      router.replace(redirectLocation)
+      return never()
+    }
+    hardNavigate(redirectLocation)
     return never()
   }
 
@@ -187,13 +197,22 @@ function wrapReturnValueErrors(value: unknown): unknown {
 }
 
 async function main() {
-  let pendingPayload: Promise<ServerPayload> | undefined
-  let setPayload: (v: Promise<ServerPayload>) => void = () => undefined
+  let pendingPayload: PayloadArgs | undefined
+  type PayloadArgs = {
+    payload: Promise<ServerPayload>
+  }
+  let setPayload: (v: PayloadArgs) => void = () => undefined
+  // Direct setter without startTransition — used by callServer for form actions
+  // so the payload update stays in React's form action transition instead of
+  // creating a nested one (which would commit client state independently and
+  // cause a flash of stale content).
+  let setPayloadDirect: (v: PayloadArgs) => void = () => undefined
   let currentNavigationAbort = new AbortController()
+  let currentNavigationRequestId: number | null = null
 
-  const applyPayload = (payload: Promise<ServerPayload>) => {
-    pendingPayload = payload
-    setPayload(payload)
+  const applyPayload = (args: PayloadArgs) => {
+    pendingPayload = args
+    setPayload(args)
   }
 
   const handleNavigation = async (event: NavigationEvent) => {
@@ -209,6 +228,7 @@ async function main() {
     currentNavigationAbort.abort()
     const navigationAbort = new AbortController()
     currentNavigationAbort = navigationAbort
+    currentNavigationRequestId = event.requestId ?? null
     const url = new URL(window.location.href)
     url.pathname = url.pathname === '/' ? '/index.rsc' : url.pathname + '.rsc'
     url.searchParams.set('__rsc', '')
@@ -220,13 +240,20 @@ async function main() {
       }),
     )
     if (navigationAbort.signal.aborted) return
-    applyPayload(payload)
+    applyPayload({
+      payload,
+    })
     Promise.resolve(payload)
       .then((resolved) => {
         if (currentNavigationAbort !== navigationAbort) return
+        if (currentNavigationRequestId !== (event.requestId ?? null)) return
         router.__setLoaderData(resolved.root?.loaderData)
+        currentNavigationRequestId = null
       })
-      .catch(() => {})
+      .catch(() => {
+        if (currentNavigationRequestId !== (event.requestId ?? null)) return
+        currentNavigationRequestId = null
+      })
   }
 
   // Install the navigation subscription before hydration so an early Link click
@@ -234,10 +261,8 @@ async function main() {
   router.subscribe(handleNavigation)
 
   const callServer = async (id: string, args: unknown[]) => {
-    // Form submissions (via <form action>) include FormData as the last arg.
-    // Re-render the page for form actions; skip for direct calls to preserve
-    // client state. This heuristic covers all React form submissions.
-    const isFormAction = args.length > 0 && args[args.length - 1] instanceof FormData
+    const isFormAction =
+      args.length > 0 && args[args.length - 1] instanceof FormData
     // Temporary references track non-serializable values (DOM nodes, React elements) passed
     // as action args. Same set is shared with createFromFetch so they round-trip correctly.
     const temporaryReferences = createTemporaryReferenceSet()
@@ -266,16 +291,12 @@ async function main() {
         { temporaryReferences },
       )
 
-      // Re-render the page tree for form actions so server-rendered content
-      // updates (e.g. server counter, form revalidation). Direct function
-      // calls skip re-rendering to avoid resetting client state.
       if (isFormAction) {
-        setPayload(payloadPromise)
+        setPayloadDirect({
+          payload: payloadPromise,
+        })
       }
       const payload = await payloadPromise
-      if (isFormAction) {
-        router.__setLoaderData(payload.root?.loaderData)
-      }
 
       if (payload.actionError) {
         // React prod strips both error.message and error.digest for Error values
@@ -289,6 +310,11 @@ async function main() {
         }
         // Redirect errors from throw redirect() in server actions: navigate
         // to the target URL instead of throwing to the caller.
+        // Resolve the action promise after scheduling the navigation.
+        // Returning a never-settling promise keeps React form actions stuck in
+        // the pending state, which prevents wrapped client form actions from
+        // committing the follow-up navigation payload even though the URL
+        // changed.
         const errorCtx = getErrorContext(payload.actionError)
         const redirectInfo = isRedirectError(errorCtx)
         if (redirectInfo) {
@@ -296,12 +322,35 @@ async function main() {
           if (target.origin !== window.location.origin) {
             hardNavigate(target.href)
           } else {
-            router.push(`${target.pathname}${target.search}${target.hash}`)
+            const nextHref = `${target.pathname}${target.search}${target.hash}`
+            queueMicrotask(() => {
+              router.push(nextHref)
+              router.refresh()
+            })
           }
-          return never()
+          return undefined
         }
+        // Re-render the page tree with the latest payload before surfacing the
+        // action error so ErrorBoundary fallbacks and server-rendered UI stay in
+        // sync with the response.
+        setPayloadDirect({
+          payload: Promise.resolve(payload),
+        })
         throw payload.actionError
       }
+
+      router.__setLoaderData(payload.root?.loaderData)
+
+      // Always re-render the page tree after a successful server action so
+      // mutations are visible immediately. Uses setPayloadDirect (raw
+      // setState, no startTransition) so the update joins whatever transition
+      // is already active — e.g. React's form action transition. A nested
+      // startTransition would create an independent transition that commits
+      // separately from the caller's setState calls, causing a flash of stale
+      // content.
+      setPayloadDirect({
+        payload: Promise.resolve(payload),
+      })
 
       return wrapReturnValueErrors(payload.returnValue)
     } finally {
@@ -326,11 +375,14 @@ async function main() {
     .catch(() => {})
 
   function BrowserRoot() {
-    const [payload, setPayload_] = React.useState(initialPayload)
+    const [{ payload }, setPayload_] = React.useState<PayloadArgs>({
+      payload: initialPayload,
+    })
     const [_isPending, startTransition] = React.useTransition()
 
     React.useEffect(() => {
       setPayload = (v) => startTransition(() => setPayload_(v))
+      setPayloadDirect = setPayload_
       if (!pendingPayload) return
       const nextPayload = pendingPayload
       pendingPayload = undefined
@@ -370,7 +422,10 @@ async function main() {
     import.meta.hot.on('rsc:update', (e: { file: string }) => {
       console.log('[rsc:update]', e.file)
       clearTimeout(hmrTimer)
-      hmrTimer = setTimeout(() => router.refresh(), 80)
+      hmrTimer = setTimeout(
+        () => router.refresh(),
+        80,
+      )
     })
   }
 }

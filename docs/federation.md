@@ -65,8 +65,7 @@ export const app = new Spiceflow()
   .use(cors({ origin: '*' }))
   // Dynamic: fetch data at request time, render the component, return the SSE response
   .get('/api/chart', async ({ request }) => {
-    const url = new URL(request.url)
-    const props = JSON.parse(url.searchParams.get('props') || '{}')
+    const props = JSON.parse(request.parsedUrl.searchParams.get('props') || '{}')
     const rows = await db.query('SELECT month, revenue FROM sales WHERE year = 2025')
     return await encodeFederationPayload(<Chart data={rows} {...props} />)
   })

@@ -42,7 +42,8 @@
 		"sharp": "^0.34.5",
 		"spiceflow": "workspace:^",
 		"tailwindcss": "^4.0.5",
-		"vite": "^8.0.8"
+		"vite": "^8.0.8",
+		"zod": "^4.3.6"
 	},
 	"license": "ISC",
 	"devDependencies": {

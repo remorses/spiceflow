@@ -51,7 +51,7 @@ export default {
 }
 ```
 
-See [`cloudflare-example/`](../cloudflare-example) for a complete working example.
+See [`example-cloudflare/`](../example-cloudflare) for a complete working example.
 
 When you add or change bindings in `wrangler.jsonc`, run `wrangler types`. Wrangler regenerates `worker-configuration.d.ts`, which provides the global `Env` type and the typed `env` export from `cloudflare:workers`.
 
@@ -185,9 +185,9 @@ export const app = new Spiceflow()
       return next()
     }
 
-    const url = new URL(request.url)
+    const { pathname, search } = request.parsedUrl
     const deploymentId = await getDeploymentId()
-    const cacheKey = `${deploymentId}:${url.pathname}${url.search}` // IMPORTANT. cache key must always include search to distinguish html and rsc responses
+    const cacheKey = `${deploymentId}:${pathname}${search}` // IMPORTANT. cache key must always include search to distinguish html and rsc responses
 
     const cached = await env.PAGE_CACHE.get(cacheKey)
     if (cached) {

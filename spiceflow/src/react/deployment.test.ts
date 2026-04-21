@@ -1,37 +1,40 @@
-// Tests deployment skew helpers for same-origin reload navigation.
+// Tests for RSC URL helpers in deployment.ts.
 
 import { describe, expect, test } from 'vitest'
 
-import { getDocumentLocationFromResponse } from './deployment.js'
+import { getDocumentLocationFromResponse, getDocumentPath } from './deployment.js'
+
+describe('getDocumentPath', () => {
+  test('strips .rsc extension and __rsc param', () => {
+    expect(getDocumentPath(new URL('https://example.com/page.rsc?__rsc=&q=1'))).toBe('/page?q=1')
+  })
+
+  test('strips /index.rsc', () => {
+    expect(getDocumentPath(new URL('https://example.com/index.rsc?__rsc='))).toBe('/')
+  })
+})
 
 describe('getDocumentLocationFromResponse', () => {
-  test('keeps same-origin absolute reload locations on the same origin', () => {
+  test('extracts same-origin location from redirected response', () => {
+    const response = new Response(null, { status: 200 })
+    // Simulate a redirected response by setting the url and redirected flag
+    Object.defineProperty(response, 'redirected', { value: true })
+    Object.defineProperty(response, 'url', { value: 'https://example.com/dashboard?tab=settings' })
+
     const location = getDocumentLocationFromResponse({
-      response: new Response(null, {
-        status: 409,
-        headers: {
-          'x-spiceflow-reload': 'https://example.com/dashboard?tab=settings',
-        },
-      }),
-      requestUrl: new URL('https://example.com/dashboard.rsc?__rsc='),
+      response,
+      requestUrl: new URL('https://example.com/page.rsc?__rsc='),
     })
 
     expect(location).toBe('/dashboard?tab=settings')
   })
 
-  test('falls back when reload locations change origin', () => {
+  test('falls back to request URL when not redirected', () => {
     const location = getDocumentLocationFromResponse({
-      response: new Response(null, {
-        status: 409,
-        headers: {
-          'x-spiceflow-reload': 'https://evil.example/phish',
-        },
-      }),
-      requestUrl: new URL(
-        'https://example.com/dashboard.rsc?__rsc=&tab=settings',
-      ),
+      response: new Response(null),
+      requestUrl: new URL('https://example.com/page.rsc?__rsc=&q=1'),
     })
 
-    expect(location).toBe('/dashboard?tab=settings')
+    expect(location).toBe('/page?q=1')
   })
 })

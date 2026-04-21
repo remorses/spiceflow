@@ -102,7 +102,7 @@ export class ExampleClient {
       });
     }
 
-    return response.json() as Promise<types.v1RatelimitMultiRatelimitResponseBody>;
+    return response.json();
   }
 
   // POST /ratelimit.v1.RatelimitService/Ratelimit
@@ -124,7 +124,7 @@ export class ExampleClient {
       });
     }
 
-    return response.json() as Promise<types.v1RatelimitRatelimitResponseBody>;
+    return response.json();
   }
 
   // GET /v1/liveness
@@ -144,7 +144,7 @@ export class ExampleClient {
       });
     }
 
-    return response.json() as Promise<V1LivenessResponseBody>;
+    return response.json();
   }
 
   // POST /v1/ratelimit.commitLease
@@ -201,7 +201,7 @@ export class ExampleClient {
       });
     }
 
-    return response.json() as Promise<types.V1DecryptResponseBody>;
+    return response.json();
   }
 
   // POST /vault.v1.VaultService/Encrypt
@@ -337,7 +337,6 @@ export interface DecryptResponseBody extends types.V1DecryptResponseBody {}
 // Type definitions for the new method
 export interface EncryptRequestBody extends types.V1EncryptRequestBody {}
 export interface EncryptResponseBody extends types.V1EncryptResponseBody {}
-
 
 
 

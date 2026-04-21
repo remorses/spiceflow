@@ -106,21 +106,50 @@ export default defineConfig({
 })
 ```
 
+## Route Chaining
+
+To preserve full type safety on the fetch client, routes must be chained in a single expression. Declaring the app separately and adding routes later loses the inferred types.
+
+<details>
+<summary>Why chaining matters</summary>
+
+When you declare routes separately, TypeScript can't infer the combined route types across multiple statements. The fetch client needs the full chain to infer path params, query params, body types, and response types.
+
+```ts
+// This is an example of what NOT to do when using Spiceflow
+
+import { Spiceflow } from 'spiceflow'
+
+// DO NOT declare the app separately and add routes later
+export const app = new Spiceflow()
+
+// Do NOT do this! Defining routes separately will lose type safety
+app.get('/hello', () => {
+  return 'Hello, World!'
+})
+// Do NOT do this! Adding routes separately like this will lose type safety
+app.post('/echo', async ({ request }) => {
+  const body = await request.json()
+  return body
+})
+```
+
+</details>
+
 ## Returning JSON
 
-Spiceflow automatically serializes objects returned from handlers to JSON, so you don't need to wrap them in a `Response` object:
+Spiceflow automatically serializes objects returned from handlers to JSON. Return plain objects directly — this is the preferred approach because the typed fetch client can infer the response type automatically:
 
 ```ts
 import { Spiceflow } from 'spiceflow'
 
 export const app = new Spiceflow()
   .get('/user', () => {
-    // Return object directly - no need for new Response()
+    // Preferred — return type is inferred by the typed fetch client
     return { id: 1, name: 'John', email: 'john@example.com' }
   })
   .post('/data', async ({ request }) => {
     const body = await request.json()
-    // Objects are automatically serialized to JSON
     return {
       received: body,
       timestamp: new Date().toISOString(),
@@ -129,17 +158,16 @@ export const app = new Spiceflow()
   })
 ```
 
-When you need a `Response` object directly (for custom status codes or headers), use `Response.json()` instead of `new Response(JSON.stringify(...))`:
+When you need to return a non-200 status code, use the `json()` helper instead of `Response.json()`. It works the same way at runtime but preserves the data type and status code in the type system — so the fetch client gets full type safety for each status code:
 
 ```ts
-// Good — built-in static method, sets Content-Type automatically
-return Response.json({ error: 'Not found' }, { status: 404 })
+import { Spiceflow, json } from 'spiceflow'
 
-// Avoid — verbose, easy to forget Content-Type header
-return new Response(JSON.stringify({ error: 'Not found' }), {
-  status: 404,
-  headers: { 'content-type': 'application/json' },
-})
+// Preferred — type-safe, fetch client knows this is a 404 with { error: string }
+throw json({ error: 'Not found' }, { status: 404 })
+
+// Avoid — Response.json() erases the type, fetch client sees unknown
+throw Response.json({ error: 'Not found' }, { status: 404 })
 ```
 
 ## Routes & Validation
@@ -169,7 +197,13 @@ new Spiceflow().route({
 <details>
 <summary>How body parsing works</summary>
 
-To get the body of the request, call `request.json()` to parse the body as JSON. Spiceflow does not parse the body automatically — there is no `body` field in the route argument. Instead you call either `request.json()` or `request.formData()` to get the body and validate it at the same time. This works by wrapping the request in a `SpiceflowRequest` instance, which has `json()` and `formData()` methods that parse and validate. The returned data will have the correct schema type instead of `any`.
+To get the body of the request, call `request.json()` to parse the body as JSON. Spiceflow does not parse the body automatically — there is no `body` field in the route argument. Instead you call either `request.json()` or `request.formData()` to get the body and validate it at the same time. The returned data will have the correct schema type instead of `any`.
+
+The `request` object in every handler and middleware is a `SpiceflowRequest`, which extends the standard Web `Request`. On top of the standard API, it adds:
+
+- **`request.parsedUrl`** — a lazily cached `URL` object, so you don't need to write `new URL(request.url)` yourself. Accessing `.pathname`, `.searchParams`, etc. is one property access away
+- **`request.json()` / `request.formData()`** — parse and validate the body against the route schema in one step, returning typed data instead of `any`
+- **`request.originalUrl`** — the raw transport URL before Spiceflow normalizes `.rsc` pathnames
 
 </details>
 
@@ -196,6 +230,44 @@ new Spiceflow().route({
 })
 ```
 
+### Typed Error Responses
+
+When a route declares a status-code response map, use the `json()` helper from `spiceflow` to return or throw non-200 responses with full type safety. Unlike `Response.json()`, `json()` carries the data type and status code through the type system — so TypeScript validates that the status code exists in the response schema and the body matches the declared shape.
+
+```ts
+import { Spiceflow, json } from 'spiceflow'
+import { z } from 'zod'
+
+new Spiceflow().route({
+  method: 'GET',
+  path: '/users/:id',
+  response: {
+    200: z.object({ id: z.string(), name: z.string() }),
+    404: z.object({ error: z.string() }),
+  },
+  handler({ params }) {
+    const user = findUser(params.id)
+    if (!user) {
+      // TypeScript validates: 404 is in the response map, and { error: string } matches the 404 schema
+      throw json({ error: 'not found' }, { status: 404 })
+    }
+    return { id: user.id, name: user.name }
+  },
+})
+```
+
+If you pass a status code that's not in the response map, or a body that doesn't match the schema for that status, `tsc` reports an error:
+
+```ts
+// @ts-expect-error — 500 is not in the response schema
+throw json({ error: 'server error' }, { status: 500 })
+
+// @ts-expect-error — number doesn't match { error: string } for 404
+throw json(42, { status: 404 })
+```
+
+The fetch client picks up these types automatically — each non-200 status becomes a typed `SpiceflowFetchError` with the exact body shape. See [Preserving Client Type Safety](docs/openapi.md#preserving-client-type-safety) for the full client-side pattern.
+
 ## Middleware
 
 Middleware functions run before route handlers. They can log, authenticate, modify responses, or short-circuit the request entirely.
@@ -204,7 +276,7 @@ Middleware functions run before route handlers. They can log, authenticate, modi
 import { Spiceflow } from 'spiceflow'
 
 new Spiceflow().use(({ request }) => {
-  console.log(`Received ${request.method} request to ${request.url}`)
+  console.log(`Received ${request.method} request to ${request.parsedUrl.pathname}`)
 })
 ```
 
@@ -355,9 +427,8 @@ Server-Sent Events (SSE) format — the server sends events as `data: {"message"
 ```ts
 // client.ts
 import { createSpiceflowFetch } from 'spiceflow/client'
-import type { App } from './server'
 
-const safeFetch = createSpiceflowFetch<App>('http://localhost:3000')
+const safeFetch = createSpiceflowFetch('http://localhost:3000')
 
 async function fetchStream() {
   const stream = await safeFetch('/sseStream')
@@ -408,7 +479,7 @@ export const app = new Spiceflow()
     method: '*',
     path: '/*',
     handler({ request }) {
-      return new Response(`Cannot ${request.method} ${request.url}`, {
+      return new Response(`Cannot ${request.method} ${request.parsedUrl.pathname}`, {
         status: 404,
       })
     },
@@ -507,7 +578,7 @@ Do not set `basePath` in the Spiceflow constructor when using Vite — Spiceflow
 - Raw `<a href="/path">` tags (not using the `Link` component) — use `Link` instead
 - External URLs and protocol-relative URLs (`//cdn.com/...`) — left as-is
 - `fetch()` calls inside your app code — you need to construct the URL yourself
-- `request.url` in middleware — contains the full URL including the base prefix
+- `request.url` and `request.parsedUrl` in middleware — contain the full URL including the base prefix
 
 </details>
 
@@ -570,14 +641,13 @@ export const app = new Spiceflow()
 export type App = typeof app
 ```
 
-Then use the `App` type on the client side without importing server code:
+Then use `createSpiceflowFetch` on the client side — when `SpiceflowRegister` is set, the fetch client is fully typed without importing server code:
 
 ```ts
 // client.ts
 import { createSpiceflowFetch } from 'spiceflow/client'
-import type { App } from './server'
 
-const safeFetch = createSpiceflowFetch<App>('http://localhost:3000')
+const safeFetch = createSpiceflowFetch('http://localhost:3000')
 
 // GET request — returns Error | Data, check with instanceof Error
 const greeting = await safeFetch('/hello')
@@ -626,45 +696,7 @@ const greeting = await safeFetch('/hello')
 if (greeting instanceof Error) throw greeting
 ```
 
-For path matching patterns, error handling, server-side fetch, type-safe RPC, and path building (`href` / `createHref`), see [Fetch Client docs](docs/fetch-client.md).
-
-## Cloudflare Bindings
-
-On Cloudflare Workers, the simplest way to read bindings is to import `env` directly from `cloudflare:workers`. Run `wrangler types` after changing `wrangler.jsonc` so Wrangler regenerates `worker-configuration.d.ts` — that gives `env` a type-safe `Env` shape automatically.
-
-```tsx
-import { Spiceflow } from 'spiceflow'
-import { env } from 'cloudflare:workers'
-
-export const app = new Spiceflow()
-  .route({
-    method: 'GET',
-    path: '/kv/:key',
-    async handler({ params }) {
-      const value = await env.KV.get(params.key)
-      return { key: params.key, value }
-    },
-  })
-  .route({
-    method: 'POST',
-    path: '/queue',
-    async handler({ request }) {
-      const body = await request.json()
-      await env.QUEUE.send(body)
-      return { success: true, message: 'Added to queue' }
-    },
-  })
-
-export default {
-  fetch(request: Request) {
-    return app.handle(request)
-  },
-}
-```
-
-## Cookies
-
-Spiceflow works with standard Request and Response objects, so you can use any cookie library like the `cookie` npm package. See [Middleware Patterns](docs/middleware-patterns.md) for full cookie examples including set/get/clear and cookie-based auth middleware.
+For path matching patterns, error handling, server-side fetch, and type-safe RPC, see [Fetch Client docs](docs/fetch-client.md).
 
 ## OpenAPI
 
@@ -725,10 +757,6 @@ export const app = new Spiceflow().use(cors()).route({
 })
 ```
 
-## Background Tasks (`waitUntil`)
-
-Spiceflow provides a `waitUntil` function in the handler context for scheduling background tasks in a cross-platform way. It uses Cloudflare Workers' `waitUntil` if present, and is a no-op in Node.js. See [Cloudflare docs](docs/cloudflare.md#background-tasks-waituntil) for full examples including Cloudflare integration and custom implementations.
-
 ## Server Lifecycle
 
 `listen()` returns an object with `port`, `server`, and `stop()` for programmatic control:
@@ -749,7 +777,7 @@ The `preventProcessExitIfBusy` middleware prevents platforms like Fly.io from ki
 
 ## Tracing (OpenTelemetry)
 
-Spiceflow has built-in OpenTelemetry tracing. Pass a `tracer` to the constructor and every request gets automatic spans for middleware, handlers, loaders, layouts, pages, and RSC serialization — no monkey-patching, no plugins. Zero overhead when disabled. See [Tracing docs](docs/tracing.md) for setup, span trees, custom spans, and examples.
+Spiceflow has built-in OpenTelemetry tracing. Pass a `tracer` to the constructor and every request gets automatic spans for middleware, handlers, loaders, layouts, pages, and RSC serialization — no monkey-patching, no plugins. Zero overhead when disabled. Handlers can also read `traceId` and `spanId` from `span.spanContext?.()` when the tracer supports it. See [Tracing docs](docs/tracing.md) for setup, span trees, custom spans, and examples.
 
 ## React Framework (RSC)
 
@@ -781,7 +809,7 @@ export default defineConfig({
 
 ### Cloudflare RSC Setup
 
-For Cloudflare Workers deployment with RSC, see [Cloudflare docs](docs/cloudflare.md). See [`cloudflare-example/`](cloudflare-example) for a complete working example.
+For Cloudflare Workers deployment with RSC, see [Cloudflare docs](docs/cloudflare.md). See [`example-cloudflare/`](example-cloudflare) for a complete working example.
 
 ### Tailwind CSS
 
@@ -852,12 +880,12 @@ Spiceflow works with [shadcn/ui](https://ui.shadcn.com) out of the box. Instead 
 
 ### App Entry
 
-The entry file defines your routes using `.page()` for pages and `.layout()` for layouts. This file runs in the RSC environment on the server. All routes registered with `.page()`, `.get()`, etc. are available in `app.href()` for type-safe URL building — including path params and query params.
+The entry file defines your routes using `.page()` for pages and `.layout()` for layouts. This file runs in the RSC environment on the server. All routes registered with `.page()`, `.get()`, etc. are available via `router.href()` for type-safe URL building — including path params and query params.
 
 ```tsx
 // src/main.tsx
 import { Spiceflow, serveStatic } from 'spiceflow'
-import { Head, Link } from 'spiceflow/react'
+import { router, Head, Link } from 'spiceflow/react'
 import { z } from 'zod'
 import { Counter } from './app/counter'
 import { Nav } from './app/nav'
@@ -884,8 +912,8 @@ export const app = new Spiceflow()
         <h1>Welcome</h1>
         <p>Server-rendered data: {data.message}</p>
         <Counter />
-        <Link href={app.href('/users/:id', { id: '42' })}>View User 42</Link>
-        <Link href={app.href('/search', { q: 'spiceflow' })}>Search</Link>
+        <Link href={router.href('/users/:id', { id: '42' })}>View User 42</Link>
+        <Link href={router.href('/search', { q: 'spiceflow' })}>Search</Link>
       </div>
     )
   })
@@ -893,7 +921,7 @@ export const app = new Spiceflow()
     return (
       <div>
         <h1>About</h1>
-        <Link href={app.href('/')}>Back to Home</Link>
+        <Link href={router.href('/')}>Back to Home</Link>
       </div>
     )
   })
@@ -922,11 +950,22 @@ export const app = new Spiceflow()
   })
   .listen(3000)
 
-// Export the app type for use in client components
-export type App = typeof app
+// Register the app type for type-safe routing everywhere
+declare module 'spiceflow/react' {
+  interface SpiceflowRegister { app: typeof app }
+}
 ```
 
-`app.href()` gives you **type-safe links** — TypeScript validates that the path exists, params are correct, and query values match the schema. Invalid paths or missing params are caught at compile time. The closure over `app` sees all routes, including ones defined later in the chain.
+`router.href()` gives you **type-safe links** — TypeScript validates that the path exists, params are correct, and query values match the schema. Invalid paths or missing params are caught at compile time. The `router` import works in both server and client components.
+
+Add the `declare module` block at the bottom of your app entry file. This registers your app's routes globally — then `import { router } from 'spiceflow/react'` anywhere in the project gives you a fully typed router without needing to pass generics or import the app type.
+
+<details>
+<summary>Why not app.href() inside the chain?</summary>
+
+Using `app.href()` inside page/layout handlers in the chain definition causes TypeScript error TS7022 — `app` references itself during construction, creating circular type inference. Use the `router` import instead, which resolves at request time when `app` is fully constructed. `app.href()` still works in standalone functions defined after the chain, but `import { router }` is the recommended pattern everywhere.
+
+</details>
 
 ### Layouts
 
@@ -1067,22 +1106,21 @@ Always define a `query` schema on routes and pages that accept query parameters.
 
 ```tsx
 'use client'
-import { Link } from 'spiceflow/react'
-import { href } from './router'
+import { router, Link } from 'spiceflow/react'
 
 export function ProductFilters() {
   return (
     <nav>
       {/* TypeScript validates these query keys against the schema */}
-      <Link href={href('/products', { category: 'shoes', sort: 'price' })}>
+      <Link href={router.href('/products', { category: 'shoes', sort: 'price' })}>
         Shoes by Price
       </Link>
-      <Link href={href('/products', { sort: 'date', page: 2 })}>
+      <Link href={router.href('/products', { sort: 'date', page: 2 })}>
         Page 2, newest first
       </Link>
 
       {/* @ts-expect-error — 'color' is not in the query schema */}
-      <Link href={href('/products', { color: 'red' })}>Red</Link>
+      <Link href={router.href('/products', { color: 'red' })}>Red</Link>
     </nav>
   )
 }
@@ -1195,11 +1233,10 @@ When multiple loaders match a route (e.g. `/*` and `/dashboard` both match `/das
 'use client'
 
 import { useLoaderData } from 'spiceflow/react'
-import type { App } from '../main'
 
 export function Sidebar() {
   // Type-safe: path narrows the return type to the loaders matching '/dashboard'
-  const { user, stats } = useLoaderData<App>('/dashboard')
+  const { user, stats } = useLoaderData('/dashboard')
   return (
     <aside>
       {user.name} — {stats.totalViews} views
@@ -1210,22 +1247,20 @@ export function Sidebar() {
 
 Loader data updates automatically on client-side navigation — when the user navigates to a new route, the server re-runs the matching loaders and the new data arrives atomically with the new page content via the RSC flight stream.
 
-**Reading loader data imperatively** uses `getRouter<App>()`. This works in client code outside React components and during active server render. Call it inside component scope, event handlers, or helper functions tied to the current render flow instead of binding request-sensitive access at module scope:
+**Reading loader data imperatively** uses the `router` import. This works in client code outside React components and during active server render. Call it inside component scope, event handlers, or helper functions tied to the current render flow instead of binding request-sensitive access at module scope:
 
 ```tsx
 // src/app/editor-toolbar.tsx
 'use client'
 
-import { getRouter, useLoaderData } from 'spiceflow/react'
-import type { App } from '../main'
+import { router, useLoaderData } from 'spiceflow/react'
 
 async function readCurrentDocument() {
-  return getRouter<App>().getLoaderData('/editor/:id')
+  return router.getLoaderData('/editor/:id')
 }
 
 export function EditorToolbar() {
-  const router = getRouter<App>()
-  const { document } = useLoaderData<App>('/editor/:id')
+  const { document } = useLoaderData('/editor/:id')
 
   async function refresh() {
     const next = await readCurrentDocument()
@@ -1238,41 +1273,68 @@ export function EditorToolbar() {
 
 **Error handling**: if a loader throws a `redirect()` or `notFound()`, the entire request short-circuits — the page handler never runs. If a loader throws any other error, it renders through the nearest error boundary instead of showing a blank page.
 
-### Forms & Server Actions
+### Parallel Data Fetching
 
-Forms use React 19's `<form action>` with server functions marked `"use server"`. They work before JavaScript loads (progressive enhancement). After a form submission completes, the page re-renders with fresh server data automatically. When calling a server action directly as a function (not via form submission), the page does **not** re-render — call `router.refresh()` if you need the UI to update.
+Spiceflow already parallelizes at the framework level — all matched loaders run concurrently, then layouts and the page render concurrently after loaders finish. Within a single handler, use `Promise.all` for independent fetches instead of sequential `await`s:
 
 ```tsx
-// src/app/submit-button.tsx
+.page('/dashboard', async () => {
+  const [user, posts, analytics] = await Promise.all([
+    getUser(),
+    getPosts(),
+    getStats(),
+  ])
+  return <Dashboard user={user} posts={posts} analytics={analytics} />
+})
+```
+
+### Forms & Server Actions
+
+Forms use React 19's `<form action>` with server functions marked `"use server"`. They work before JavaScript loads (progressive enhancement).
+
+**Every server action call automatically re-renders the current page with fresh server data.** This applies to forms, client wrapper functions, and direct imported server action calls. The re-render happens via React reconciliation, so client component state is preserved. No manual `router.refresh()` needed after a server action.
+
+Every submit button should show a loading state while its form action is in progress. Use `useFormStatus` from `react-dom` in your Button component to auto-detect pending forms — the button shows a spinner automatically when it's inside a `<form>` with a pending action:
+
+Prefer file-level `"use server"` (a dedicated file like `src/actions.tsx`) over inline `"use server"` inside function bodies. Inline is fine for simple form actions defined directly in a server component page, but if you find yourself passing actions as props to client components, import them from a `"use server"` file instead — it keeps action logic centralized and reusable. The inline examples below are kept short for readability.
+
+```tsx
+// src/app/button.tsx
 'use client'
 import { useFormStatus } from 'react-dom'
 
-// useFormStatus must be in a component rendered inside the <form>
-export function SubmitButton() {
+export function Button({ children, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) {
   const { pending } = useFormStatus()
+  const loading = props.type === 'submit' && pending
   return (
-    <button type="submit" disabled={pending}>
-      {pending ? 'Submitting...' : 'Submit'}
+    <button disabled={loading} {...props}>
+      {loading ? 'Loading...' : children}
     </button>
   )
 }
 ```
 
+Then use it in forms — no manual loading state needed. Use `parseFormData` to validate form fields with a Zod schema, and `schema.keyof().enum` for type-safe input `name` attributes (typos become compile errors):
+
 ```tsx
-import { redirect } from 'spiceflow'
-import { SubmitButton } from './app/submit-button'
+import { z } from 'zod'
+import { redirect, parseFormData } from 'spiceflow'
+import { Button } from './app/button'
+
+const subscribeSchema = z.object({ email: z.string().email() })
+const fields = subscribeSchema.keyof().enum
 
 .page('/subscribe', async () => {
   async function subscribe(formData: FormData) {
     'use server'
-    const email = formData.get('email') as string
+    const { email } = parseFormData(subscribeSchema, formData)
     await addSubscriber(email)
     throw redirect('/thank-you')
   }
   return (
     <form action={subscribe}>
-      <input name="email" type="email" required />
-      <SubmitButton />
+      <input name={fields.email} type="email" required />
+      <Button type="submit">Subscribe</Button>
     </form>
   )
 })
@@ -1281,10 +1343,29 @@ import { SubmitButton } from './app/submit-button'
 Use `useActionState` to display return values from the action. The action receives the previous state as its first argument and `FormData` as the second:
 
 ```tsx
+// src/actions.tsx
+'use server'
+
+import { z } from 'zod'
+import { parseFormData } from 'spiceflow'
+
+export const subscribeSchema = z.object({ email: z.string().email() })
+
+export async function subscribe(prev: string, formData: FormData) {
+  const { email } = parseFormData(subscribeSchema, formData)
+  await addSubscriber(email)
+  return `Subscribed ${email}!`
+}
+```
+
+```tsx
 // src/app/newsletter.tsx
 'use client'
 import { useActionState } from 'react'
-import { SubmitButton } from './submit-button'
+import { Button } from './button'
+import { subscribeSchema } from '../actions'
+
+const fields = subscribeSchema.keyof().enum
 
 export function NewsletterForm({
   action,
@@ -1294,8 +1375,8 @@ export function NewsletterForm({
   const [message, formAction] = useActionState(action, '')
   return (
     <form action={formAction}>
-      <input name="email" type="email" required />
-      <SubmitButton />
+      <input name={fields.email} type="email" required />
+      <Button type="submit">Subscribe</Button>
       {message && <p>{message}</p>}
     </form>
   )
@@ -1305,31 +1386,244 @@ export function NewsletterForm({
 ```tsx
 // In your server component page
 .page('/newsletter', async () => {
-  async function subscribe(prev: string, formData: FormData) {
-    'use server'
-    const email = formData.get('email') as string
-    await addSubscriber(email)
-    return `Subscribed ${email}!`
-  }
   return <NewsletterForm action={subscribe} />
 })
 ```
 
-If a server action throws, the error is caught by the nearest error boundary. The error message is preserved (sanitized to strip secrets) and displayed to the user in both development and production builds.
+Server actions called directly from client event handlers also trigger the same automatic re-render:
+
+```tsx
+// src/actions.ts
+'use server'
+
+export async function deletePost(id: string) {
+  await db.posts.delete(id)
+}
+```
+
+```tsx
+// src/app/delete-button.tsx
+'use client'
+
+import { deletePost } from '../actions'
+
+export function DeleteButton({ id }: { id: string }) {
+  return (
+    <button
+      onClick={async () => {
+        await deletePost(id)
+        // page re-renders automatically — no router.refresh() needed
+      }}
+    >
+      Delete
+    </button>
+  )
+}
+```
+
+<details>
+<summary>Avoid deadlocks in client form actions</summary>
+
+`router.refresh()` is fire-and-forget. Do not build awaitable navigation or refresh helpers and then use them inside a React client form action (`<form action={async () => { ... }}>`). React keeps that form action transition pending until the action returns, so awaiting the refresh or navigation commit from inside the action can deadlock the page.
+
+</details>
+
+### Progress Bar
+
+Render `<ProgressBar />` once in the root layout. For manual client-side async work, wrap the call in `ProgressBar.start()` / `ProgressBar.end()`:
+
+```tsx
+// src/main.tsx
+import { Spiceflow } from 'spiceflow'
+import { ProgressBar } from 'spiceflow/react'
+import { SaveButton } from './app/save-button'
+
+export const app = new Spiceflow().layout('/*', async ({ children }) => {
+  return (
+    <html>
+      <body>
+        <ProgressBar />
+        {children}
+        <SaveButton />
+      </body>
+    </html>
+  )
+})
+
+// src/app/save-button.tsx
+'use client'
+
+import { ProgressBar } from 'spiceflow/react'
+
+export function SaveButton() {
+  return (
+    <button
+      onClick={async () => {
+        ProgressBar.start()
+        try {
+          await fetch('/api/save', { method: 'POST' })
+        } finally {
+          ProgressBar.end()
+        }
+      }}
+    >
+      Save
+    </button>
+  )
+}
+```
+
+Manual calls share the same state as router navigation, so if a navigation and a client fetch overlap, the bar stays visible until both have finished.
+
+<details>
+<summary>React export shape</summary>
+
+Do not mix React component exports with non-React exports like `const`, `Context`, or plain helper functions in the same public module. That can break HMR / Fast Refresh because the module stops behaving like a pure component module.
+
+If a component needs imperative helpers, attach them as static properties on the component instead of exporting separate helpers. For example, prefer `ProgressBar.start()` / `ProgressBar.end()` over standalone `startProgressBar()` or `endProgressBar()` exports.
+
+</details>
+
+If a server action throws, the error is caught by the nearest `ErrorBoundary`. The error message is preserved (sanitized to strip secrets) and displayed to the user in both development and production builds.
+
+### Error Handling
+
+Use `ErrorBoundary` from `spiceflow/react` to catch errors from form actions. It provides `ErrorBoundary.ErrorMessage` and `ErrorBoundary.ResetButton` sub-components that read the error and reset function from context — so they work as standalone elements anywhere in the `fallback` tree.
+
+Actions should **throw errors** instead of returning error strings. Return **objects** for rich success data instead of scalars. Use `parseFormData` for validation — it throws a `ValidationError` when the schema fails, which `ErrorBoundary` catches automatically:
+
+```tsx
+// src/actions.ts
+'use server'
+
+import { z } from 'zod'
+import { parseFormData } from 'spiceflow'
+
+export const postSchema = z.object({ title: z.string().min(1, 'Title is required') })
+
+export async function createPost(formData: FormData) {
+  const { title } = parseFormData(postSchema, formData)
+  const post = await db.posts.create({ title })
+  return { id: post.id }
+}
+```
+
+```tsx
+// src/app/create-post.tsx
+'use client'
+
+import { ErrorBoundary } from 'spiceflow/react'
+import { createPost, postSchema } from '../actions'
+
+const fields = postSchema.keyof().enum
+
+export function CreatePostForm() {
+  return (
+    <ErrorBoundary
+      fallback={
+        <div>
+          <ErrorBoundary.ErrorMessage className="text-red-500" />
+          <ErrorBoundary.ResetButton>Try again</ErrorBoundary.ResetButton>
+        </div>
+      }
+    >
+      <form action={createPost}>
+        <input name={fields.title} required />
+        <Button type="submit">Create</Button>
+      </form>
+    </ErrorBoundary>
+  )
+}
+```
+
+`ErrorBoundary.ErrorMessage` renders a `<div>` and `ErrorBoundary.ResetButton` renders a `<button>` — both accept all their respective HTML element props via `...props` spread, so you can pass `className`, `style`, `data-testid`, etc.
+
+When the form action throws, the `ErrorBoundary` catches the error, hides the form, and renders the `fallback` with the error message and a reset button. Clicking "Try again" restores the form. The error boundary also auto-resets when the user navigates to a different page.
+
+For **direct action calls** (onClick handlers, not forms), use try/catch since the error doesn't propagate through React's rendering. Wrap in `startTransition` if you want pending state (`isPending`) and non-blocking behavior while the server data loads:
+
+```tsx
+import { useTransition } from 'react'
+
+function DeleteButton({ id }: { id: string }) {
+  const [isPending, startTransition] = useTransition()
+  return (
+    <button
+      disabled={isPending}
+      onClick={() => {
+        startTransition(async () => {
+          try {
+            await deletePost({ id })
+          } catch (e) {
+            alert(e.message)
+          }
+        })
+      }}
+    >
+      {isPending ? 'Deleting...' : 'Delete'}
+    </button>
+  )
+}
+```
+
+### Redirecting After Actions
+
+When a server action needs to navigate to a different page (e.g. after creating a resource), use `throw redirect()` inside the action instead of `router.push()` on the client. Since every server action triggers a page re-render, calling `router.push()` after the action would briefly flash the re-rendered current page before navigating away.
+
+```tsx
+// src/actions.ts
+'use server'
+
+import { z } from 'zod'
+import { redirect, parseFormData } from 'spiceflow'
+
+export const projectSchema = z.object({ name: z.string().min(1) })
+
+export async function createProject(orgId: string, formData: FormData) {
+  const { name } = parseFormData(projectSchema, formData)
+  const project = await db.projects.create({ name, orgId })
+  throw redirect(`/orgs/${orgId}/projects/${project.id}`)
+}
+```
+
+```tsx
+// src/app/create-project.tsx
+'use client'
+
+import { ErrorBoundary } from 'spiceflow/react'
+import { createProject, projectSchema } from '../actions'
+
+const fields = projectSchema.keyof().enum
+
+export function CreateProjectForm({ orgId }: { orgId: string }) {
+  return (
+    <ErrorBoundary fallback={<ErrorBoundary.ErrorMessage />}>
+      <form action={createProject.bind(null, orgId)}>
+        <input name={fields.name} required />
+        <button type="submit">Create</button>
+      </form>
+    </ErrorBoundary>
+  )
+}
+```
+
+`router.push()`, `router.replace()`, `router.back()`, `router.forward()`, and `router.go()` are still the right choice for pure client-side navigation that doesn't involve a server action (e.g. tab switches, select dropdowns, back buttons). These APIs are all fire-and-forget — do not build awaitable wrappers around navigation commits and then call them inside a React client form action.
 
 ### Router
 
-Use `getRouter` with your app type for type-safe navigation, URL building, and imperative loader data access. It works in **both client and server components** — in server/RSC code it reads the current request's location from async context, and `router.href()` builds typed URLs the same way. `useLoaderData` and `useRouterState` are exported separately from `spiceflow/react`, and both accept the same optional app generic.
+Import `router` from `spiceflow/react` for type-safe navigation, URL building, and imperative loader data access. It works in **both client and server components** — in server/RSC code it reads the current request's location from async context, and `router.href()` builds typed URLs the same way. `useLoaderData` and `useRouterState` are exported separately from `spiceflow/react`.
+
+`router` is a **stable singleton** — the same object reference every time. It's safe to use in component bodies, pass to hook dependency arrays, or reference at module scope. The reference never changes between renders, so it won't trigger unnecessary re-renders or effect re-runs.
+
+Use `href()` for links so route and query changes are caught by TypeScript.
 
 ```tsx
 // src/app/nav.tsx
 'use client'
 
-import { getRouter, Link } from 'spiceflow/react'
-import type { App } from '../main'
+import { router, Link } from 'spiceflow/react'
 
 export function Nav() {
-  const router = getRouter<App>()
 
   return (
     <nav>
@@ -1343,19 +1637,17 @@ export function Nav() {
 ```
 
 <details>
-<summary>Using getRouter in mounted sub-apps</summary>
+<summary>Using router in mounted sub-apps</summary>
 
-`app.href()` is scoped to the app instance it's called on — inside a sub-app mounted with `.use()`, you only see that sub-app's own routes, not the root app's. To build type-safe links that reference the whole app's routes from inside a sub-app (or any helper module that doesn't close over the root `app`), import the root `App` type and use `getRouter<App>()` instead of `app.href()`:
+`router` sees all routes registered on the root app, regardless of where you import it. Inside a sub-app mounted with `.use()`, it still sees the whole route table — not just the sub-app's own routes:
 
 ```tsx
 // src/features/billing/page.tsx — a sub-app mounted into the main app
 import { Spiceflow } from 'spiceflow'
-import { getRouter, Link } from 'spiceflow/react'
-import type { App } from '../../main'
+import { router, Link } from 'spiceflow/react'
 
 export const billingApp = new Spiceflow().page('/billing', async () => {
   // router is typed against the WHOLE app, not just billingApp
-  const router = getRouter<App>()
   return (
     <div>
       <h1>Billing</h1>
@@ -1366,25 +1658,68 @@ export const billingApp = new Spiceflow().page('/billing', async () => {
 })
 ```
 
-This is the recommended way to build links from server components in modular codebases — no need to thread `app` through props or imports, and every call is still fully type-checked against the root app's route table.
+No need to thread `app` through props or imports — every import is still fully type-checked against the root app's route table.
+
+</details>
+
+Wildcard routes like `/orgs/:orgId/*` accept **template literals** with interpolated values. TypeScript template literal types ensure only strings matching a registered route pattern are accepted:
+
+```tsx
+// Pattern form — pass params as an object
+router.href('/orgs/:orgId/*', { orgId: 'acme', '*': 'projects' })
+// → "/orgs/acme/projects"
+
+// Template literal form — params already in the string
+const orgId = 'acme'
+router.href(`/orgs/${orgId}/projects`)
+// → "/orgs/acme/projects"
+
+// Works with any depth under the wildcard
+const projectId = 'p1'
+router.href(`/orgs/${orgId}/projects/${projectId}/settings`)
+// → "/orgs/acme/projects/p1/settings"
+```
+
+The pattern form gives the strongest type checking — param names, query keys, and route existence are all validated. The template literal form is checked against registered route prefixes, but once values are interpolated TypeScript no longer knows the original param names. Invalid prefixes like `/settings/foo` still error at compile time either way.
+
+`router` works on the server too — use it in server components to build type-safe links without needing the `app` closure:
+
+```tsx
+// src/app/org-breadcrumb.tsx (server component — no "use client")
+import { router, Link } from 'spiceflow/react'
+
+export async function OrgBreadcrumb({ orgId }: { orgId: string }) {
+  return (
+    <nav>
+      <Link href={router.href('/')}>Home</Link>
+      <span> / </span>
+      <Link href={router.href(`/orgs/${orgId}/projects`)}>Projects</Link>
+    </nav>
+  )
+}
+```
+
+<details>
+<summary>Always use href() for links</summary>
+
+Every `Link` href and every programmatic navigation path should go through `href()`. Raw string paths like `<Link href="/users/42">` bypass type checking — if the route is renamed from `/users/:id` to `/profiles/:id`, the raw string silently becomes a 404 while `href('/users/:id', { id: '42' })` immediately fails `tsc`. When a route path changes or gets removed, `tsc` catches every stale `href()` call at compile time.
+
+This applies to both client and server code. The `router` import is the same typed singleton everywhere — `router.href()` works identically in server components, client components, and the app entry file.
 
 </details>
 
 ### Navigation & State
 
-The `router` object from `getRouter` handles type-safe client-side navigation. `router.push`, `router.replace`, and `router.href` accept typed paths with autocomplete — params and query values are validated at compile time:
+The `router` object handles type-safe client-side navigation. `router.push`, `router.replace`, and `router.href` accept typed paths with autocomplete — params and query values are validated at compile time:
 
 ```tsx
 // src/app/search-filters.tsx
 'use client'
 
-import { useRouterState } from 'spiceflow/react'
-import { getRouter } from 'spiceflow/react'
-import type { App } from '../main'
+import { router, useRouterState } from 'spiceflow/react'
 
 export function SearchFilters() {
-  const router = getRouter<App>()
-  const { pathname, searchParams } = useRouterState<App>()
+  const { pathname, searchParams } = useRouterState()
 
   const query = searchParams.get('q') ?? ''
   const page = Number(searchParams.get('page') ?? '1')
@@ -1414,13 +1749,14 @@ export function SearchFilters() {
 }
 ```
 
-`useRouterState<App>()` subscribes to navigation changes and re-renders the component when the URL changes. It returns the current `pathname`, `search`, `hash`, and a parsed `searchParams` (a read-only `URLSearchParams`). If you omit `App`, the hook still works at runtime but skips route-type inference.
+`useRouterState()` subscribes to navigation changes and re-renders the component when the URL changes. It returns the current `pathname`, `search`, `hash`, and a parsed `searchParams` (a read-only `URLSearchParams`).
 
 You can also navigate to a different pathname with search params, or use `router.replace` to update without adding a history entry:
 
 ```tsx
+import { router } from 'spiceflow/react'
+
 function Example() {
-  const router = getRouter<App>()
 
   // Navigate to a new path with search params
   router.push({
@@ -1438,6 +1774,52 @@ function Example() {
 }
 ```
 
+<details>
+<summary>Navigation methods are fire-and-forget</summary>
+
+`router.push()`, `router.replace()`, `router.back()`, `router.forward()`, and `router.go()` schedule navigation and return immediately. Do not wrap them in helpers that wait for the next navigation commit and then call those helpers from a React client form action — React keeps the form action transition pending until the action returns, so awaiting that same commit can deadlock the page.
+
+</details>
+
+### Type-Safe Routing
+
+Spiceflow uses a **type registry** pattern (similar to TanStack Router) for type-safe routing. Add this one line at the bottom of your app entry file to enable type safety across all public APIs:
+
+```tsx
+// src/main.tsx
+import { Spiceflow } from 'spiceflow'
+
+export const app = new Spiceflow()
+  .page('/login', async () => 'login')
+  .page('/users/:id', async ({ params }) => <div>User {params.id}</div>)
+  .page('/settings', async () => 'settings')
+
+// Register the app type globally
+declare module 'spiceflow/react' {
+  interface SpiceflowRegister { app: typeof app }
+}
+```
+
+After this, **all typed APIs** are fully typed everywhere — no generics needed:
+
+```tsx
+// spiceflow/react exports
+import { router, useLoaderData, useRouterState } from 'spiceflow/react'
+
+router.href('/login')                    // ✅ valid
+router.href('/users/:id', { id: '42' }) // ✅ params validated
+router.href('/nonexistent')              // ❌ compile error
+
+const data = useLoaderData('/dashboard') // ✅ typed loader data
+const state = useRouterState()           // ✅ typed router state
+
+// spiceflow/client exports
+import { createSpiceflowFetch } from 'spiceflow/client'
+const f = createSpiceflowFetch('http://localhost:3000') // ✅ typed fetch
+```
+
+Without the `declare module`, all APIs still work at runtime — they just accept any path without compile-time validation. See [docs/type-safety.md](docs/type-safety.md) for details on how the register pattern works inside inline handlers, autocomplete behavior, and multi-app workspaces.
+
 ### Server Actions
 
 Use `"use server"` to define functions that run on the server but can be called from client components (e.g. form actions).
@@ -1446,11 +1828,14 @@ Use `"use server"` to define functions that run on the server but can be called 
 // src/app/actions.tsx
 'use server'
 
-import { getActionRequest } from 'spiceflow'
+import { z } from 'zod'
+import { getActionRequest, parseFormData } from 'spiceflow'
+
+export const contactSchema = z.object({ name: z.string().min(1) })
 
 export async function submitForm(formData: FormData) {
   const { signal } = getActionRequest()
-  const name = formData.get('name')
+  const { name } = parseFormData(contactSchema, formData)
   // signal is aborted when the client disconnects or cancels —
   // pass it to any downstream work so it cancels automatically
   await saveToDatabase(name, { signal })
@@ -1514,16 +1899,21 @@ export async function* chat(
 // src/app/chat.tsx
 'use client'
 
+import { z } from 'zod'
 import { useState, useTransition, type ReactNode } from 'react'
 import { getActionAbortController } from 'spiceflow/react'
+import { parseFormData } from 'spiceflow'
 import { chat } from './actions'
+
+const chatSchema = z.object({ message: z.string().min(1) })
+const fields = chatSchema.keyof().enum
 
 export function Chat() {
   const [parts, setParts] = useState<ReactNode[]>([])
   const [isPending, startTransition] = useTransition()
 
   function send(formData: FormData) {
-    const message = formData.get('message') as string
+    const { message } = parseFormData(chatSchema, formData)
     setParts([])
     startTransition(async () => {
       const stream = await chat([{ role: 'user', content: message }])
@@ -1537,7 +1927,7 @@ export function Chat() {
     <div>
       <div>{parts.map((part, i) => <div key={i}>{part}</div>)}</div>
       <form action={send}>
-        <input name="message" placeholder="Ask something..." />
+        <input name={fields.message} placeholder="Ask something..." />
         <button type="submit" disabled={isPending}>Send</button>
         {isPending && (
           <button type="button" onClick={() => getActionAbortController(chat)?.abort()}>
@@ -1723,9 +2113,79 @@ See [Federation docs](docs/federation.md) for full setup, imperative decoding wi
 
 Spiceflow includes an MCP plugin that exposes your API routes as tools and resources for AI language models. Mount it with `.use(mcp())` and all routes become callable tools with proper input validation. See [MCP docs](docs/mcp.md) for full setup, client examples, and integrating with existing MCP servers.
 
+## Cloudflare Bindings
+
+On Cloudflare Workers, the simplest way to read bindings is to import `env` directly from `cloudflare:workers`. Run `wrangler types` after changing `wrangler.jsonc` so Wrangler regenerates `worker-configuration.d.ts` — that gives `env` a type-safe `Env` shape automatically.
+
+```tsx
+import { Spiceflow } from 'spiceflow'
+import { env } from 'cloudflare:workers'
+
+export const app = new Spiceflow()
+  .route({
+    method: 'GET',
+    path: '/kv/:key',
+    async handler({ params }) {
+      const value = await env.KV.get(params.key)
+      return { key: params.key, value }
+    },
+  })
+  .route({
+    method: 'POST',
+    path: '/queue',
+    async handler({ request }) {
+      const body = await request.json()
+      await env.QUEUE.send(body)
+      return { success: true, message: 'Added to queue' }
+    },
+  })
+
+export default {
+  fetch(request: Request) {
+    return app.handle(request)
+  },
+}
+```
+
+## Background Tasks (`waitUntil`)
+
+Spiceflow provides a `waitUntil` function in the handler context for scheduling background tasks in a cross-platform way. It uses Cloudflare Workers' `waitUntil` if present, and is a no-op in Node.js. See [Cloudflare docs](docs/cloudflare.md#background-tasks-waituntil) for full examples including Cloudflare integration and custom implementations.
+
 ## KV Page Caching
 
 Cache full-page HTML in Cloudflare KV with deployment-aware cache keys. See [Cloudflare docs](docs/cloudflare.md#kv-page-caching) for the full middleware example.
+
+## Cross-Deployment Safety
+
+Spiceflow works across deployments without forced page reloads or cookies. When you deploy a new version, users with stale browser tabs continue working — both client navigations and server actions execute normally against the new server, as long as referenced client components remain backward-compatible.
+
+This works because RSC flight payloads contain **client reference IDs** (a hash of the file path), not chunk URLs. The old client resolves these IDs from its own baked-in manifest and loads its own chunks from CDN. No duplicate React instances, no hydration mismatches. See [Deployment Skew](docs/deployment-skew.md) for a deep dive.
+
+<details>
+<summary>Edge cases and encryption</summary>
+
+Cross-deployment requests can fail in two cases:
+
+- The new server renders JSX containing a brand-new `"use client"` component that didn't exist in the old build — the old client's references map won't have that ID.
+- A client component keeps the same file path but its props interface changes between deploys — the old client loads old component code that receives incompatible props from the new server.
+
+If you use inline `"use server"` functions that capture variables (bound arguments), set the `RSC_ENCRYPTION_KEY` environment variable to a stable base64-encoded 32-byte key so encrypted closures survive across deployments.
+
+</details>
+
+<details>
+<summary>How the deployment ID is resolved per environment</summary>
+
+Each production build stamps a unique deployment ID (build timestamp) into the server bundle. It's available via `getDeploymentId()` for custom logic (analytics, logging, cache keys) but is not used for request blocking.
+
+The deployment ID uses the `#deployment-id` import map in `package.json` with environment-conditional resolution:
+
+- **`react-server`** — imports from `virtual:spiceflow-deployment-id` (the build timestamp baked in by Vite)
+- **`default`** (browser, tests) — returns `''`
+
+In dev mode the RSC loader also returns `''`.
+
+</details>
 
 ## Node.js Handlers
 
@@ -1792,36 +2252,6 @@ export const config = {
 
 The build output is self-contained — `dist/` includes all traced runtime dependencies, so you can copy it directly into a Docker image without installing packages at deploy time. See [Docker docs](docs/docker.md) for Dockerfile examples and cross-platform native module handling.
 
-## Route Chaining
-
-To preserve full type safety on the fetch client, routes must be chained in a single expression. Declaring the app separately and adding routes later loses the inferred types.
-
-<details>
-<summary>Why chaining matters</summary>
-
-When you declare routes separately, TypeScript can't infer the combined route types across multiple statements. The fetch client needs the full chain to infer path params, query params, body types, and response types.
-
-```ts
-// This is an example of what NOT to do when using Spiceflow
-
-import { Spiceflow } from 'spiceflow'
-
-// DO NOT declare the app separately and add routes later
-export const app = new Spiceflow()
-
-// Do NOT do this! Defining routes separately will lose type safety
-app.get('/hello', () => {
-  return 'Hello, World!'
-})
-// Do NOT do this! Adding routes separately like this will lose type safety
-app.post('/echo', async ({ request }) => {
-  const body = await request.json()
-  return body
-})
-```
-
-</details>
-
 ## Class Instances
 
 If you need to store a Spiceflow router as a property in a class instance, use the `AnySpiceflow` type.
@@ -1874,6 +2304,10 @@ export class ChatDurableObject {
   }
 }
 ```
+
+## `use client` trap in optimized dependencies
+
+If a `node_modules` dependency mixes server and client code in one entry, Vite can flatten the `'use client'` boundary into a server chunk — crashing at startup with errors like `useState is undefined`. See [docs/use-client-trap.md](docs/use-client-trap.md) for symptoms, diagnosis, and fixes.
 
 ## Comparisons
 

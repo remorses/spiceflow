@@ -85,7 +85,26 @@ importers:
         specifier: ^4.12.8
         version: 4.12.8
 
-  cloudflare-example:
+  create-spiceflow:
+    dependencies:
+      '@clack/prompts':
+        specifier: ^1.1.0
+        version: 1.1.0
+      '@xmorse/tar-parser':
+        specifier: ^0.3.0
+        version: 0.3.0
+      goke:
+        specifier: ^6.6.0
+        version: 6.8.0
+    devDependencies:
+      '@types/node':
+        specifier: ~24.0.1
+        version: 24.0.1
+      typescript:
+        specifier: ^5.7.0
+        version: 5.8.3
+
+  example-cloudflare:
     dependencies:
       '@fontsource/inter':
         specifier: ^4.5.15
@@ -140,24 +159,101 @@ importers:
         specifier: ^4.71.0
         version: 4.73.0(@cloudflare/workers-types@4.20260313.1)(bufferutil@4.0.7)(utf-8-validate@6.0.3)
 
-  create-spiceflow:
+  example-federation/host:
     dependencies:
-      '@clack/prompts':
-        specifier: ^1.1.0
-        version: 1.1.0
-      '@xmorse/tar-parser':
-        specifier: ^0.3.0
-        version: 0.3.0
-      goke:
-        specifier: ^6.6.0
-        version: 6.6.0
-    devDependencies:
-      '@types/node':
-        specifier: ~24.0.1
-        version: 24.0.1
+      '@types/react':
+        specifier: 19.2.14
+        version: 19.2.14
+      '@types/react-dom':
+        specifier: 19.2.3
+        version: 19.2.3(@types/react@19.2.14)
+      importmap-vite-plugin:
+        specifier: ^0.1.0
+        version: 0.1.0(vite@8.0.8(@types/node@24.0.15)(esbuild@0.27.4)(jiti@2.6.1)(terser@5.46.1)(tsx@4.20.6)(yaml@2.7.0))
+      react:
+        specifier: 19.2.4
+        version: 19.2.4
+      react-dom:
+        specifier: 19.2.4
+        version: 19.2.4(react@19.2.4)
+      spiceflow:
+        specifier: workspace:^
+        version: link:../../spiceflow
       typescript:
-        specifier: ^5.7.0
-        version: 5.8.3
+        specifier: 5.7.3
+        version: 5.7.3
+      vite:
+        specifier: ^8.0.8
+        version: 8.0.8(@types/node@24.0.15)(esbuild@0.27.4)(jiti@2.6.1)(terser@5.46.1)(tsx@4.20.6)(yaml@2.7.0)
+    devDependencies:
+      '@playwright/test':
+        specifier: ^1.52.0
+        version: 1.58.2
+      '@vitejs/plugin-react':
+        specifier: ^6.0.1
+        version: 6.0.1(vite@8.0.8(@types/node@24.0.15)(esbuild@0.27.4)(jiti@2.6.1)(terser@5.46.1)(tsx@4.20.6)(yaml@2.7.0))
+
+  example-federation/remote:
+    dependencies:
+      '@types/react':
+        specifier: 19.2.14
+        version: 19.2.14
+      '@types/react-dom':
+        specifier: 19.2.3
+        version: 19.2.3(@types/react@19.2.14)
+      react:
+        specifier: 19.2.4
+        version: 19.2.4
+      react-dom:
+        specifier: 19.2.4
+        version: 19.2.4(react@19.2.4)
+      spiceflow:
+        specifier: workspace:^
+        version: link:../../spiceflow
+      typescript:
+        specifier: 5.7.3
+        version: 5.7.3
+      vite:
+        specifier: ^8.0.8
+        version: 8.0.8(@types/node@24.0.15)(esbuild@0.27.4)(jiti@2.6.1)(terser@5.46.1)(tsx@4.20.6)(yaml@2.7.0)
+    devDependencies:
+      '@vitejs/plugin-react':
+        specifier: ^6.0.1
+        version: 6.0.1(vite@8.0.8(@types/node@24.0.15)(esbuild@0.27.4)(jiti@2.6.1)(terser@5.46.1)(tsx@4.20.6)(yaml@2.7.0))
+
+  example-nodejs:
+    dependencies:
+      '@tailwindcss/vite':
+        specifier: ^4.2.2
+        version: 4.2.2(vite@8.0.8(@types/node@24.0.15)(esbuild@0.27.4)(jiti@2.6.1)(terser@5.46.1)(tsx@4.20.6)(yaml@2.7.0))
+      '@types/react':
+        specifier: 19.2.14
+        version: 19.2.14
+      '@types/react-dom':
+        specifier: 19.2.3
+        version: 19.2.3(@types/react@19.2.14)
+      react:
+        specifier: 19.2.4
+        version: 19.2.4
+      react-dom:
+        specifier: 19.2.4
+        version: 19.2.4(react@19.2.4)
+      spiceflow:
+        specifier: workspace:^
+        version: link:../spiceflow
+      tailwindcss:
+        specifier: 4.0.6
+        version: 4.0.6
+      typescript:
+        specifier: 5.7.3
+        version: 5.7.3
+      vite:
+        specifier: ^8.0.8
+        version: 8.0.8(@types/node@24.0.15)(esbuild@0.27.4)(jiti@2.6.1)(terser@5.46.1)(tsx@4.20.6)(yaml@2.7.0)
+    devDependencies:
+      '@vitejs/plugin-react':
+        specifier: ^6.0.1
+        version: 6.0.1(vite@8.0.8(@types/node@24.0.15)(esbuild@0.27.4)(jiti@2.6.1)(terser@5.46.1)(tsx@4.20.6)(yaml@2.7.0))
 
   example-shadcn:
     dependencies:
@@ -213,6 +309,61 @@ importers:
       '@vitejs/plugin-react':
         specifier: ^6.0.1
         version: 6.0.1(vite@8.0.8(@types/node@24.0.15)(esbuild@0.27.4)(jiti@2.6.1)(terser@5.46.1)(tsx@4.20.6)(yaml@2.7.0))
+
+  example-x402:
+    dependencies:
+      '@tailwindcss/vite':
+        specifier: ^4.2.2
+        version: 4.2.2(vite@8.0.8(@types/node@24.0.15)(esbuild@0.27.4)(jiti@2.6.1)(terser@5.46.1)(tsx@4.20.6)(yaml@2.7.0))
+      '@types/react':
+        specifier: 19.2.14
+        version: 19.2.14
+      '@types/react-dom':
+        specifier: 19.2.3
+        version: 19.2.3(@types/react@19.2.14)
+      '@x402/core':
+        specifier: ^2.9.0
+        version: 2.9.0
+      '@x402/evm':
+        specifier: ^2.9.0
+        version: 2.9.0(bufferutil@4.0.7)(typescript@5.7.3)(utf-8-validate@6.0.3)
+      dotenv:
+        specifier: ^17.4.0
+        version: 17.4.1
+      errore:
+        specifier: ^0.14.0
+        version: 0.14.0
+      node-cache:
+        specifier: ^5.1.2
+        version: 5.1.2
+      react:
+        specifier: 19.2.4
+        version: 19.2.4
+      react-dom:
+        specifier: 19.2.4
+        version: 19.2.4(react@19.2.4)
+      spiceflow:
+        specifier: workspace:^
+        version: link:../spiceflow
+      stripe:
+        specifier: ^21.0.1
+        version: 21.0.1(@types/node@24.0.15)
+      tailwindcss:
+        specifier: 4.0.6
+        version: 4.0.6
+      typescript:
+        specifier: 5.7.3
+        version: 5.7.3
+      vite:
+        specifier: ^8.0.8
+        version: 8.0.8(@types/node@24.0.15)(esbuild@0.27.4)(jiti@2.6.1)(terser@5.46.1)(tsx@4.20.6)(yaml@2.7.0)
+    devDependencies:
+      '@vitejs/plugin-react':
+        specifier: ^6.0.1
+        version: 6.0.1(vite@8.0.8(@types/node@24.0.15)(esbuild@0.27.4)(jiti@2.6.1)(terser@5.46.1)(tsx@4.20.6)(yaml@2.7.0))
+      vitest:
+        specifier: ^4.1.4
+        version: 4.1.4(@opentelemetry/api@1.9.0)(@types/node@24.0.15)(vite@8.0.8(@types/node@24.0.15)(esbuild@0.27.4)(jiti@2.6.1)(terser@5.46.1)(tsx@4.20.6)(yaml@2.7.0))
 
   experiments/openapi-schema-diff:
     dependencies:
@@ -312,68 +463,6 @@ importers:
         specifier: ^4.1.0
         version: 4.1.0
 
-  federation-example/host:
-    dependencies:
-      '@types/react':
-        specifier: 19.2.14
-        version: 19.2.14
-      '@types/react-dom':
-        specifier: 19.2.3
-        version: 19.2.3(@types/react@19.2.14)
-      importmap-vite-plugin:
-        specifier: ^0.1.0
-        version: 0.1.0(vite@8.0.8(@types/node@24.0.15)(esbuild@0.27.4)(jiti@2.6.1)(terser@5.46.1)(tsx@4.20.6)(yaml@2.7.0))
-      react:
-        specifier: 19.2.4
-        version: 19.2.4
-      react-dom:
-        specifier: 19.2.4
-        version: 19.2.4(react@19.2.4)
-      spiceflow:
-        specifier: workspace:^
-        version: link:../../spiceflow
-      typescript:
-        specifier: 5.7.3
-        version: 5.7.3
-      vite:
-        specifier: ^8.0.8
-        version: 8.0.8(@types/node@24.0.15)(esbuild@0.27.4)(jiti@2.6.1)(terser@5.46.1)(tsx@4.20.6)(yaml@2.7.0)
-    devDependencies:
-      '@playwright/test':
-        specifier: ^1.52.0
-        version: 1.58.2
-      '@vitejs/plugin-react':
-        specifier: ^6.0.1
-        version: 6.0.1(vite@8.0.8(@types/node@24.0.15)(esbuild@0.27.4)(jiti@2.6.1)(terser@5.46.1)(tsx@4.20.6)(yaml@2.7.0))
-
-  federation-example/remote:
-    dependencies:
-      '@types/react':
-        specifier: 19.2.14
-        version: 19.2.14
-      '@types/react-dom':
-        specifier: 19.2.3
-        version: 19.2.3(@types/react@19.2.14)
-      react:
-        specifier: 19.2.4
-        version: 19.2.4
-      react-dom:
-        specifier: 19.2.4
-        version: 19.2.4(react@19.2.4)
-      spiceflow:
-        specifier: workspace:^
-        version: link:../../spiceflow
-      typescript:
-        specifier: 5.7.3
-        version: 5.7.3
-      vite:
-        specifier: ^8.0.8
-        version: 8.0.8(@types/node@24.0.15)(esbuild@0.27.4)(jiti@2.6.1)(terser@5.46.1)(tsx@4.20.6)(yaml@2.7.0)
-    devDependencies:
-      '@vitejs/plugin-react':
-        specifier: ^6.0.1
-        version: 6.0.1(vite@8.0.8(@types/node@24.0.15)(esbuild@0.27.4)(jiti@2.6.1)(terser@5.46.1)(tsx@4.20.6)(yaml@2.7.0))
-
   integration-tests:
     dependencies:
       '@chakra-ui/react':
@@ -433,44 +522,13 @@ importers:
       vite:
         specifier: ^8.0.8
         version: 8.0.8(@types/node@24.0.15)(esbuild@0.27.4)(jiti@2.6.1)(terser@5.46.1)(tsx@4.20.6)(yaml@2.7.0)
+      zod:
+        specifier: ^4.3.6
+        version: 4.3.6
     devDependencies:
       vite-plugin-inspect:
         specifier: ^11.3.3
         version: 11.3.3(vite@8.0.8(@types/node@24.0.15)(esbuild@0.27.4)(jiti@2.6.1)(terser@5.46.1)(tsx@4.20.6)(yaml@2.7.0))
-
-  nodejs-example:
-    dependencies:
-      '@tailwindcss/vite':
-        specifier: ^4.2.2
-        version: 4.2.2(vite@8.0.8(@types/node@24.0.15)(esbuild@0.27.4)(jiti@2.6.1)(terser@5.46.1)(tsx@4.20.6)(yaml@2.7.0))
-      '@types/react':
-        specifier: 19.2.14
-        version: 19.2.14
-      '@types/react-dom':
-        specifier: 19.2.3
-        version: 19.2.3(@types/react@19.2.14)
-      react:
-        specifier: 19.2.4
-        version: 19.2.4
-      react-dom:
-        specifier: 19.2.4
-        version: 19.2.4(react@19.2.4)
-      spiceflow:
-        specifier: workspace:^
-        version: link:../spiceflow
-      tailwindcss:
-        specifier: 4.0.6
-        version: 4.0.6
-      typescript:
-        specifier: 5.7.3
-        version: 5.7.3
-      vite:
-        specifier: ^8.0.8
-        version: 8.0.8(@types/node@24.0.15)(esbuild@0.27.4)(jiti@2.6.1)(terser@5.46.1)(tsx@4.20.6)(yaml@2.7.0)
-    devDependencies:
-      '@vitejs/plugin-react':
-        specifier: ^6.0.1
-        version: 6.0.1(vite@8.0.8(@types/node@24.0.15)(esbuild@0.27.4)(jiti@2.6.1)(terser@5.46.1)(tsx@4.20.6)(yaml@2.7.0))
 
   spiceflow:
     dependencies:
@@ -638,61 +696,6 @@ importers:
       wrangler:
         specifier: ^4.41.0
         version: 4.73.0(@cloudflare/workers-types@4.20260313.1)(bufferutil@4.0.7)(utf-8-validate@6.0.3)
-
-  x402-example:
-    dependencies:
-      '@tailwindcss/vite':
-        specifier: ^4.2.2
-        version: 4.2.2(vite@8.0.8(@types/node@24.0.15)(esbuild@0.27.4)(jiti@2.6.1)(terser@5.46.1)(tsx@4.20.6)(yaml@2.7.0))
-      '@types/react':
-        specifier: 19.2.14
-        version: 19.2.14
-      '@types/react-dom':
-        specifier: 19.2.3
-        version: 19.2.3(@types/react@19.2.14)
-      '@x402/core':
-        specifier: ^2.9.0
-        version: 2.9.0
-      '@x402/evm':
-        specifier: ^2.9.0
-        version: 2.9.0(bufferutil@4.0.7)(typescript@5.7.3)(utf-8-validate@6.0.3)
-      dotenv:
-        specifier: ^17.4.0
-        version: 17.4.1
-      errore:
-        specifier: ^0.14.0
-        version: 0.14.0
-      node-cache:
-        specifier: ^5.1.2
-        version: 5.1.2
-      react:
-        specifier: 19.2.4
-        version: 19.2.4
-      react-dom:
-        specifier: 19.2.4
-        version: 19.2.4(react@19.2.4)
-      spiceflow:
-        specifier: workspace:^
-        version: link:../spiceflow
-      stripe:
-        specifier: ^21.0.1
-        version: 21.0.1(@types/node@24.0.15)
-      tailwindcss:
-        specifier: 4.0.6
-        version: 4.0.6
-      typescript:
-        specifier: 5.7.3
-        version: 5.7.3
-      vite:
-        specifier: ^8.0.8
-        version: 8.0.8(@types/node@24.0.15)(esbuild@0.27.4)(jiti@2.6.1)(terser@5.46.1)(tsx@4.20.6)(yaml@2.7.0)
-    devDependencies:
-      '@vitejs/plugin-react':
-        specifier: ^6.0.1
-        version: 6.0.1(vite@8.0.8(@types/node@24.0.15)(esbuild@0.27.4)(jiti@2.6.1)(terser@5.46.1)(tsx@4.20.6)(yaml@2.7.0))
-      vitest:
-        specifier: ^4.1.4
-        version: 4.1.4(@opentelemetry/api@1.9.0)(@types/node@24.0.15)(vite@8.0.8(@types/node@24.0.15)(esbuild@0.27.4)(jiti@2.6.1)(terser@5.46.1)(tsx@4.20.6)(yaml@2.7.0))
 
 packages:
 
@@ -4579,8 +4582,8 @@ packages:
     resolution: {integrity: sha512-jhIXaOzy1sb8IyocaruWSn1TjmnBVs8Ayhcy83rmxNJ8q2uWKCAj3CnJY+KpGSXCueAPc0i05kVvVKtP1t9S3g==}
     engines: {node: '>=10'}
 
-  goke@6.6.0:
-    resolution: {integrity: sha512-4kwY8DG/9D5hfmAEsXvclYQvpkBTkvx7kbAkGGWA8IoIwi1+SjHGdtb0rW5fB4f6SNMVvc7YoCjOpl1UOxWszg==}
+  goke@6.8.0:
+    resolution: {integrity: sha512-tRvG7y9JnBgBQJe9H5zbyijVkkTNhz5EgsD0cCG88NKhJGneP8AkFUN8iuaIe2LOjqhQANvoB+ClVzfj/FYprg==}
     engines: {node: '>=18'}
 
   gopd@1.2.0:
@@ -11384,7 +11387,7 @@ snapshots:
       merge2: 1.4.1
       slash: 3.0.0
 
-  goke@6.6.0: {}
+  goke@6.8.0: {}
 
   gopd@1.2.0: {}
 
@@ -11896,7 +11899,7 @@ snapshots:
   lintcn@0.7.0:
     dependencies:
       find-up: 8.0.0
-      goke: 6.6.0
+      goke: 6.8.0
       tar: 7.5.12
 
   loader-runner@4.3.1:

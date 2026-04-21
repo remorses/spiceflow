@@ -163,4 +163,8 @@ export const app = new Spiceflow()
     return await encodeFederationPayload(<LocalCounter {...props} />)
   })
 
-app.listen(Number(process.env.PORT || 3002))
+void app.listen(Number(process.env.PORT || 3002))
+
+declare module 'spiceflow/react' {
+  interface SpiceflowRegister { app: typeof app }
+}

@@ -222,6 +222,16 @@ test.describe("API route priority over layout-only matches", () => {
 		const text = await page.textContent("body");
 		expect(text).toContain("Hello from API!");
 	});
+
+	test("GET /api/setup via browser returns GET handler, not layout 404", async ({
+		page,
+	}) => {
+		const response = await page.goto(url("/api/setup"));
+		expect(response?.status()).toBe(200);
+		const text = await page.textContent("body");
+		expect(text).toContain("setup");
+		await expect(page.getByTestId("layout-not-found")).toHaveCount(0);
+	});
 });
 
 test.describe("staticGet runtime", () => {
@@ -903,6 +913,42 @@ test.describe("layout stability during navigation", () => {
 	});
 });
 
+test.describe("router.refresh", () => {
+	test("refresh updates server data without remounting client components", async ({
+		page,
+	}) => {
+		await page.goto(url("/router-refresh-state"));
+		await expect(page.getByTestId("router-refresh-mount-count")).toHaveText("1", {
+			timeout: 10000,
+		});
+
+		await page.getByTestId("router-refresh-increment").click();
+		await expect(page.getByTestId("router-refresh-client-count")).toHaveText("1");
+
+		const serverRenderCount = await page
+			.getByTestId("router-refresh-server-render-count")
+			.textContent();
+		const serverRandom = await page
+			.getByTestId("router-refresh-server-random")
+			.textContent();
+
+		await page.getByTestId("router-refresh-button").click();
+
+		// Server data updates after refresh
+		await expect(
+			page.getByTestId("router-refresh-server-render-count"),
+		).not.toHaveText(serverRenderCount ?? "", {
+			timeout: 10000,
+		});
+		await expect(page.getByTestId("router-refresh-server-random")).not.toHaveText(
+			serverRandom ?? "",
+		);
+		// Client state preserved (no remount)
+		await expect(page.getByTestId("router-refresh-mount-count")).toHaveText("1");
+		await expect(page.getByTestId("router-refresh-client-count")).toHaveText("1");
+	});
+});
+
 test.describe("streaming async generator", () => {
 	test("client renders items incrementally before generator completes", async ({
 		page,
@@ -928,6 +974,14 @@ test.describe("streaming async generator", () => {
 test.describe("throw response status codes", () => {
 	test("throw redirect in page returns 307 and Location header", async () => {
 		const response = await fetch(`${baseURL}${basePath}/throw-redirect-in-page`, {
+			redirect: "manual",
+		});
+		expect(response.status).toBe(307);
+		expect(response.headers.get("location")).toBe(url("/other"));
+	});
+
+	test("return redirect in page returns 307 and Location header", async () => {
+		const response = await fetch(`${baseURL}${basePath}/return-redirect-in-page`, {
 			redirect: "manual",
 		});
 		expect(response.status).toBe(307);
@@ -988,6 +1042,17 @@ test.describe("throw response status codes", () => {
 		expect(response.status).toBe(404);
 	});
 
+	test("return notFound in page returns 404", async () => {
+		const response = await fetch(`${baseURL}${basePath}/return-notfound-in-page`);
+		expect(response.status).toBe(404);
+	});
+
+	test("return response in page returns raw 403 response", async () => {
+		const response = await fetch(`${baseURL}${basePath}/return-response-in-page`);
+		expect(response.status).toBe(403);
+		expect(await response.text()).toBe("forbidden");
+	});
+
 	test("throw notFound in layout returns 404", async () => {
 		const response = await fetch(`${baseURL}${basePath}/throw-notfound-in-layout`);
 		expect(response.status).toBe(404);
@@ -1000,6 +1065,23 @@ test.describe("throw response status codes", () => {
 		expect(response?.status()).toBe(404);
 		await expect(page.getByText("404")).toBeVisible();
 		await expect(page.getByText("This page could not be found.")).toBeVisible();
+	});
+
+	test("return notFound in page renders 404 page for browser request", async ({
+		page,
+	}) => {
+		const response = await page.goto(url("/return-notfound-in-page"));
+		expect(response?.status()).toBe(404);
+		await expect(page.getByText("404")).toBeVisible();
+		await expect(page.getByText("This page could not be found.")).toBeVisible();
+	});
+
+	test("return response in page serves raw 403 document for browser request", async ({
+		page,
+	}) => {
+		const response = await page.goto(url("/return-response-in-page"));
+		expect(response?.status()).toBe(403);
+		await expect(page.locator("body")).toHaveText("forbidden");
 	});
 
 	test("throw notFound in layout renders 404 page for browser request", async ({
@@ -1020,6 +1102,13 @@ test.describe("client-side navigation with throw response", () => {
 		await expect(page).toHaveURL(url("/other"));
 	});
 
+	test("return redirect in page navigates to target", async ({ page }) => {
+		await page.goto(url("/"));
+		await page.getByText("[hydrated: 1]").click();
+		await page.getByTestId("link-return-redirect-page").click();
+		await expect(page).toHaveURL(url("/other"));
+	});
+
 	test("throw redirect in layout navigates to target", async ({ page }) => {
 		await page.goto(url("/"));
 		await page.getByText("[hydrated: 1]").click();
@@ -1036,6 +1125,25 @@ test.describe("client-side navigation with throw response", () => {
 		await expect(page.getByText("404")).toBeVisible();
 		await expect(page.getByText("This page could not be found.")).toBeVisible();
 		await expect(page).toHaveURL(url("/throw-notfound-in-page"));
+	});
+
+	test("return notFound in page renders 404 page and preserves URL", async ({
+		page,
+	}) => {
+		await page.goto(url("/"));
+		await page.getByText("[hydrated: 1]").click();
+		await page.getByTestId("link-return-notfound-page").click();
+		await expect(page.getByText("404")).toBeVisible();
+		await expect(page.getByText("This page could not be found.")).toBeVisible();
+		await expect(page).toHaveURL(url("/return-notfound-in-page"));
+	});
+
+	test("return response in page navigates to raw 403 document", async ({ page }) => {
+		await page.goto(url("/"));
+		await page.getByText("[hydrated: 1]").click();
+		await page.getByTestId("link-return-response-page").click();
+		await expect(page).toHaveURL(url("/return-response-in-page"));
+		await expect(page.locator("body")).toHaveText("forbidden");
 	});
 
 	test("throw notFound in layout renders 404 page and preserves URL", async ({
@@ -1076,6 +1184,58 @@ test.describe("client-side navigation with throw response", () => {
 		await expect(layoutCounter.getByText("Layout counter: 1")).toBeVisible();
 		await page.getByTestId("link-throw-redirect-layout").click();
 		await expect(page).toHaveURL(url("/other"));
+		await expect(layoutCounter.getByText("Layout counter: 1")).toBeVisible();
+	});
+});
+
+test.describe("router.push() follows .get() 302 redirect via client-side navigation", () => {
+	test("router.push to .get() redirect navigates to target without full reload", async ({
+		page,
+	}) => {
+		await page.goto(url("/get-redirect-nav"));
+		await expect(page.getByTestId("layout-mount-count")).toHaveText("1");
+
+		// Set a sentinel on window to detect full page reloads
+		const sentinel = Math.random().toString(36);
+		await page.evaluate((s) => {
+			(window as any).__hmrSentinel = s;
+		}, sentinel);
+
+		await page.getByTestId("get-redirect-push").click();
+
+		// Should navigate to the redirect target
+		await expect(page.getByTestId("get-redirect-target")).toBeVisible({
+			timeout: 10_000,
+		});
+		await expect(page).toHaveURL(url("/get-redirect/123/target"));
+
+		// Sentinel should still exist — no full page reload happened
+		const survivedReload = await page.evaluate(
+			(s) => (window as any).__hmrSentinel === s,
+			sentinel,
+		);
+		expect(survivedReload).toBe(true);
+	});
+
+	test("layout state is preserved after .get() redirect", async ({ page }) => {
+		await page.goto(url("/get-redirect-nav"));
+		await expect(page.getByTestId("layout-mount-count")).toHaveText("1");
+
+		// Increment layout counter to create trackable client state
+		const layoutCounter = page
+			.getByTestId("client-counter")
+			.filter({ hasText: "Layout counter" });
+		await layoutCounter.getByRole("button", { name: "+" }).click();
+		await expect(layoutCounter.getByText("Layout counter: 1")).toBeVisible();
+
+		await page.getByTestId("get-redirect-push").click();
+
+		// Target page should render
+		await expect(page.getByTestId("get-redirect-target")).toBeVisible({
+			timeout: 10_000,
+		});
+
+		// Layout state should be preserved (SPA navigation, not hard reload)
 		await expect(layoutCounter.getByText("Layout counter: 1")).toBeVisible();
 	});
 });
@@ -1695,24 +1855,14 @@ test.describe("middleware page cache", () => {
 });
 
 test.describe("deployment id @build", () => {
-	const docHeaders = { "sec-fetch-dest": "document" };
-
-	test("document response sets spiceflow-deployment cookie in prod", async () => {
-		const response = await fetch(baseURL + "/", { headers: docHeaders });
+	test("document response does not set deployment cookie", async () => {
+		const response = await fetch(baseURL + "/", {
+			headers: { "sec-fetch-dest": "document" },
+		});
 		const setCookie = response.headers.get("set-cookie") ?? "";
-		expect(setCookie).toContain("spiceflow-deployment=");
-		const match = setCookie.match(/spiceflow-deployment=([^;]+)/);
-		expect(match).toBeTruthy();
-		expect(match![1].length).toBeGreaterThanOrEqual(4);
-	});
-
-	test("deployment id is stable across requests", async () => {
-		const first = await fetch(baseURL + "/", { headers: docHeaders });
-		const second = await fetch(baseURL + "/", { headers: docHeaders });
-		const getId = (res: Response) =>
-			res.headers.get("set-cookie")?.match(/spiceflow-deployment=([^;]+)/)?.[1];
-		expect(getId(first)).toBeTruthy();
-		expect(getId(first)).toBe(getId(second));
+		// Deployment cookie was removed — deployment ID is available via
+		// getDeploymentId() but no longer sent as a cookie.
+		expect(setCookie).not.toContain("spiceflow-deployment=");
 	});
 });
 
@@ -1894,9 +2044,8 @@ test.describe("server actions", () => {
 	test("inline 'use server' with closure revalidates the page after form submit", async ({
 		page,
 	}) => {
-		// Form submissions (via <form action>) re-render the page tree so
-		// server-rendered content updates. Direct function calls do NOT
-		// re-render, to avoid resetting client state.
+		// All server action calls (form submissions and direct calls) re-render
+		// the page tree so server-rendered content updates automatically.
 		test.skip(isRemote, "stateless functions");
 		const errors: string[] = [];
 		page.on("pageerror", (err) => errors.push(err.message));
@@ -1964,6 +2113,25 @@ test.describe("server actions", () => {
 		expect(actionCookie?.value).toBe("1");
 	});
 
+	test("wrapped client form action redirect renders target page", async ({
+		page,
+	}) => {
+		await page.goto(url("/wrapped-server-action-redirect"));
+		await expect(page.getByTestId("layout-mount-count")).toHaveText("1", {
+			timeout: 10000,
+		});
+		await page.locator('input[name="name"]').fill("new-org");
+		await page.getByRole("button", { name: "Create item" }).click();
+		await expect(page).toHaveURL(url("/wrapped-server-action-redirect/new-org"), {
+			timeout: 10000,
+		});
+		await expect(page.getByTestId("wrapped-redirect-target")).toHaveText(
+			"Created new-org",
+			{ timeout: 10000 },
+		);
+		await expect(page.getByTestId("wrapped-redirect-form")).toHaveCount(0);
+	});
+
 	test("form action with useActionState returns result to the page", async ({
 		page,
 	}) => {
@@ -1995,12 +2163,10 @@ test.describe("server actions", () => {
 		).toBeVisible({ timeout: 10000 });
 	});
 
-	test("form action error does not trigger app onError for callServer requests", async ({ page }) => {
-		// For callServer requests (JS enabled), action errors are delivered to
-		// the client via the flight payload. onError does NOT fire because the
-		// error is handled (shown in error boundary), not unhandled. React may
-		// retry actions in concurrent mode, so firing onError per-request would
-		// over-count. Progressive enhancement (no-JS) errors still fire onError.
+	test("form action error triggers app onError exactly once for callServer requests", async ({ page }) => {
+		// JS-enabled form actions still surface the action error through the
+		// client error boundary, but the server-side onError hook should report
+		// the failure exactly once for monitoring.
 		const resetResponse = await fetch(`${baseURL}${basePath}/api/on-error-reset`);
 		expect(resetResponse.status).toBe(200);
 		expect(await resetResponse.json()).toEqual({ count: 0 });
@@ -2017,7 +2183,68 @@ test.describe("server actions", () => {
 
 		const countResponse = await fetch(`${baseURL}${basePath}/api/on-error-count`);
 		expect(countResponse.status).toBe(200);
-		expect(await countResponse.json()).toEqual({ count: 0 });
+		expect(await countResponse.json()).toEqual({ count: 1 });
+	});
+
+	test("ErrorBoundary shows error message and reset button when form action throws", async ({
+		page,
+	}) => {
+		await page.goto(url("/error-boundary-form-test"));
+		await expect(page.getByTestId("layout-mount-count")).toHaveText("1", {
+			timeout: 10000,
+		});
+		// Form should be visible, error container should not
+		await expect(page.getByTestId("eb-form")).toBeVisible();
+		// Submit with "fail" to trigger the server error
+		await page.getByTestId("eb-form-input").fill("fail");
+		await page.getByTestId("eb-form-submit").click();
+		// ErrorBoundary should catch and show the error message
+		await expect(page.getByTestId("eb-error-message")).toHaveText(
+			"Validation failed: bad input",
+			{ timeout: 10000 },
+		);
+		// Reset button should be visible
+		await expect(page.getByTestId("eb-reset-button")).toBeVisible();
+		// Clicking reset should restore the form
+		await page.getByTestId("eb-reset-button").click();
+		await expect(page.getByTestId("eb-form")).toBeVisible({ timeout: 5000 });
+	});
+
+	test("parseFormData validates and coerces form fields with schema", async ({
+		page,
+	}) => {
+		await page.goto(url("/parse-form-data-test"));
+		await expect(page.getByTestId("layout-mount-count")).toHaveText("1", {
+			timeout: 10000,
+		});
+		// Fill in the form fields
+		await page.getByTestId("pfd-name").fill("Alice");
+		await page.getByTestId("pfd-age").fill("25");
+		// Select multiple tags
+		await page.getByTestId("pfd-tags").selectOption(["a", "c"]);
+		await page.getByTestId("pfd-submit").click();
+		// The action returns a formatted string with coerced values
+		await expect(page.getByTestId("pfd-result")).toHaveText(
+			"name=Alice, age=25, tags=a+c",
+			{ timeout: 10000 },
+		);
+	});
+
+	test("parseFormData returns validation error on invalid input", async ({
+		page,
+	}) => {
+		await page.goto(url("/parse-form-data-test"));
+		await expect(page.getByTestId("layout-mount-count")).toHaveText("1", {
+			timeout: 10000,
+		});
+		// Submit with empty name (min 1 char required)
+		await page.getByTestId("pfd-name").fill("");
+		await page.getByTestId("pfd-age").fill("25");
+		await page.getByTestId("pfd-submit").click();
+		// The action catches ValidationError and returns it as "error:..."
+		await expect(page.getByTestId("pfd-result")).toContainText("error:", {
+			timeout: 10000,
+		});
 	});
 
 	test("getActionAbortController aborts an in-flight server action", async ({
@@ -2065,6 +2292,22 @@ test.describe("server actions", () => {
 		expect(result.method).toBe("POST");
 		expect(result.hasSignal).toBe(true);
 		expect(result.url).toContain("__rsc=");
+	});
+
+	test("getActionRequest body is not locked after spiceflow consumes it", async ({
+		page,
+	}) => {
+		await page.goto(url("/server-action-read-body"));
+		await expect(page.getByTestId("layout-mount-count")).toHaveText("1", {
+			timeout: 10000,
+		});
+		await page.getByRole("button", { name: "Read Body" }).click();
+		// The action reads request.text() on the request from getActionRequest().
+		// Spiceflow already consumed the body to decode args, so this should
+		// either return empty string or not throw a ReadableStream locked error.
+		await expect(page.getByTestId("action-body-result")).toHaveText("ok", {
+			timeout: 10000,
+		});
 	});
 });
 
@@ -2472,4 +2715,93 @@ test.describe("spiceflow dirs", () => {
 		await expect(page.getByTestId("public-dir")).toHaveText("dist/client");
 		await expect(page.getByTestId("dist-dir")).toHaveText("dist");
 	});
+
+	test("useId produces matching IDs between SSR and client hydration", async ({
+		page,
+	}) => {
+		const warnings: string[] = [];
+		page.on("console", (msg) => {
+			if (msg.type() === "warning" || msg.type() === "error") {
+				warnings.push(msg.text());
+			}
+		});
+
+		// Fetch SSR HTML and extract the data-id attribute
+		const ssrResponse = await fetch(baseURL + url("/use-id-test"));
+		const ssrHtml = await ssrResponse.text();
+		const ssrIdMatch = ssrHtml.match(/data-id="([^"]+)"/);
+		expect(ssrIdMatch).toBeTruthy();
+		const ssrId = ssrIdMatch![1];
+
+		// Navigate to the page and wait for hydration
+		await page.goto(url("/use-id-test"));
+		const el = page.getByTestId("use-id-test");
+		await expect(el).toBeVisible();
+
+		// Get the hydrated ID
+		const hydratedId = await el.getAttribute("data-id");
+		expect(hydratedId).toBe(ssrId);
+
+		// Check no hydration mismatch warnings
+		const hydrationWarnings = warnings.filter(
+			(w) =>
+				w.includes("hydration") ||
+				w.includes("did not match") ||
+				w.includes("didn't match"),
+		);
+		expect(hydrationWarnings).toHaveLength(0);
+	});
+});
+
+test("router.push with same-origin absolute URL navigates via SPA", async ({
+	page,
+}) => {
+	await page.goto(url("/absolute-url-test"));
+	await expect(page.getByTestId("hydrated")).toBeVisible();
+	// Set a sentinel to verify no full page reload happens (SPA navigation)
+	const sentinel = Math.random().toString(36);
+	await page.evaluate((s) => { (window as any).__sentinel = s }, sentinel);
+	await page.getByTestId("push-same-origin-absolute").click();
+	await expect(page).toHaveURL(new RegExp(`${basePath}/page$`));
+	// Sentinel should survive — SPA navigation, not a full reload
+	const survived = await page.evaluate((s) => (window as any).__sentinel === s, sentinel);
+	expect(survived).toBe(true);
+});
+
+test("router.replace with same-origin absolute URL navigates via SPA", async ({
+	page,
+}) => {
+	await page.goto(url("/absolute-url-test"));
+	await expect(page.getByTestId("hydrated")).toBeVisible();
+	const sentinel = Math.random().toString(36);
+	await page.evaluate((s) => { (window as any).__sentinel = s }, sentinel);
+	await page.getByTestId("replace-same-origin-absolute").click();
+	await expect(page).toHaveURL(new RegExp(`${basePath}/page$`));
+	const survived = await page.evaluate((s) => (window as any).__sentinel === s, sentinel);
+	expect(survived).toBe(true);
+});
+
+test("Link with external href lets browser handle navigation", async ({
+	page,
+}) => {
+	await page.goto(url("/absolute-url-test"));
+	const externalLink = page.getByTestId("external-link");
+	// External link should have the full external href, not be rewritten
+	await expect(externalLink).toHaveAttribute("href", "https://example.com");
+	// Clicking should NOT be intercepted by the SPA router.
+	// Verify by checking that the link's click handler doesn't call preventDefault.
+	const wasDefaultPrevented = await externalLink.evaluate((el) => {
+		return new Promise<boolean>((resolve) => {
+			el.addEventListener(
+				"click",
+				(e) => {
+					// Check after a microtask to let the React handler run first
+					queueMicrotask(() => resolve(e.defaultPrevented));
+				},
+				{ capture: true, once: true },
+			);
+			el.click();
+		});
+	});
+	expect(wasDefaultPrevented).toBe(false);
 });

@@ -175,3 +175,7 @@ Federated RSC streaming needs cancellation wired through both layers: the outer 
 ## Standalone test isolation
 
 `test-e2e-start` runs the built server from the app root, so Node can still fall back to source `node_modules` and hide missing `dist/node_modules` files. For standalone tracing regressions, copy `dist/` into a temp directory and boot `node dist/rsc/index.js` there so resolution only sees traced output.
+
+## Returned page responses
+
+If a `.page()` or `.layout()` handler returns a `Response`, never place that object directly into `FlightData` (`page`/`layouts`) or React RSC serialization crashes with `Only plain objects... {page: Response}`. Redirect `Response`s should short-circuit out of `renderReact()` as raw HTTP responses; non-redirect `Response`s should be turned into `<ThrowResponse>` so browser/client navigation still goes through the existing notFound/error boundary flow.

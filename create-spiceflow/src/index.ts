@@ -27,9 +27,9 @@ const REPO = 'remorses/spiceflow'
 const BRANCH = 'main'
 
 const TEMPLATE_DIRS: Record<Template, string> = {
-  node: 'nodejs-example',
-  cloudflare: 'cloudflare-example',
-  bun: 'nodejs-example',
+  node: 'example-nodejs',
+  cloudflare: 'example-cloudflare',
+  bun: 'example-nodejs',
 }
 
 const cli = goke('create-spiceflow')
@@ -145,7 +145,7 @@ async function downloadTemplate({
   await parseTar(gz, async (entry) => {
     if (entry.header.type !== 'file') return
 
-    // tar paths look like "spiceflow-main/nodejs-example/package.json"
+    // tar paths look like "spiceflow-main/example-nodejs/package.json"
     // strip the first segment (repo-branch) then match the template prefix
     const parts = entry.name.split('/')
     const rel = parts.slice(1).join('/')

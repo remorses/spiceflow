@@ -150,7 +150,7 @@ export class ExampleClient {
       throw new ExampleError(errorData.error.message, { status: response.status, data: errorData });
     }
 
-    return response.json() as Promise<types.Link>;
+    return response.json();
   }
 
   // GET /links/count
@@ -237,7 +237,7 @@ export class ExampleClient {
       });
     }
 
-    return response.json() as Promise<Link>;
+    return response.json();
   }
 
   // DELETE /links/{linkId}
@@ -271,7 +271,7 @@ export class ExampleClient {
       throw new ExampleError(errorData.error.message, { status: response.status, data: errorData });
     }
 
-    return response.json() as Promise<Link>;
+    return response.json();
   }
 
   // POST /links/bulk
@@ -495,7 +495,7 @@ export class ExampleClient {
       throw new ExampleError(errorData.error.message, { status: response.status, data: errorData });
     }
 
-    return response.json() as Promise<types.linkSchema>;
+    return response.json();
   }
 
   /**
@@ -752,7 +752,7 @@ export class ExampleClient {
       throw new ExampleError(errorData.error.message, { status: response.status, data: errorData });
     }
 
-    return response.json() as Promise<Tag>;
+    return response.json();
   }
 
   // DELETE /tags/{id} - Tags
@@ -789,7 +789,7 @@ export class ExampleClient {
       throw new ExampleError(errorData.error.message, { status: response.status, data: errorData });
     }
 
-    return response.json() as Promise<Tag>;
+    return response.json();
   }
 
   // GET /domains - Retrieve a list of domains
@@ -815,7 +815,7 @@ export class ExampleClient {
       throw new ExampleError(errorData.error.message, { status: response.status, data: errorData });
     }
 
-    return response.json() as Promise<DomainSchema[]>;
+    return response.json();
   }
 
   // POST /domains
@@ -852,7 +852,7 @@ export class ExampleClient {
       });
     }
 
-    return response.json() as Promise<DomainSchema>;
+    return response.json();
   }
 
   // DELETE /domains/{slug}
@@ -902,7 +902,7 @@ export class ExampleClient {
       throw new ExampleError(errorData.error.message, { status: response.status, data: errorData });
     }
 
-    return response.json() as Promise<DomainSchema>;
+    return response.json();
   }
 
  
@@ -1066,7 +1066,7 @@ export class ExampleClient {
       });
     }
 
-    return response.json() as Promise<types.Customer[]>;
+    return response.json();
   }
 
   // Type declarations for the response
@@ -1253,7 +1253,7 @@ export class ExampleClient {
       throw new ExampleError(errorData.error.message, { status: response.status, data: errorData });
     }
 
-    return response.json() as Promise<types.Customer>;
+    return response.json();
   }
 
   // DELETE /customers/{id} - Delete a customer
@@ -1345,7 +1345,7 @@ export class ExampleClient {
       throw new ExampleError(errorData.error.message, { status: response.status, data: errorData });
     }
 
-    return response.json() as Promise<Workspace>;
+    return response.json();
   }
 
   // PATCH /workspaces/{idOrSlug}
@@ -1370,7 +1370,7 @@ export class ExampleClient {
       throw new ExampleError(errorData.error.message, { status: response.status, data: errorData });
     }
 
-    return response.json() as Promise<Workspace>;
+    return response.json();
   }
 
   // POST /tokens/embed
@@ -1592,7 +1592,6 @@ export interface UpdateWorkspaceRequest {
   slug?: string;
   logo?: string;
 }
-
 
 
 

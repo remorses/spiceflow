@@ -83,6 +83,19 @@ Every handler receives `span` and `tracer` on its context. These work whether or
 })
 ```
 
+**Read the current trace id or span id:**
+
+```ts
+.get('/api/users/:id', ({ span }) => {
+  const traceId = span.spanContext?.()?.traceId
+  const spanId = span.spanContext?.()?.spanId
+  console.log({ traceId, spanId })
+  return { ok: true }
+})
+```
+
+`spanContext()` is optional because Spiceflow keeps the span interface compatible with simple custom tracer test doubles. When no tracer is configured, the noop span returns `undefined`.
+
 **Record a caught exception without re-throwing:**
 
 ```ts
@@ -122,6 +135,41 @@ import { withSpan } from 'spiceflow'
   })
 })
 ```
+
+## Context propagation to libraries
+
+Libraries that use OpenTelemetry (like the [Vercel AI SDK](https://sdk.vercel.ai), database drivers, HTTP clients) automatically create **child spans** under your request span — no extra wiring needed.
+
+This works because the OTel `NodeSDK` registers an `AsyncLocalStorageContextManager` by default. When spiceflow calls `tracer.startActiveSpan()` for a request, the root span is stored in `AsyncLocalStorage`. Any library that calls `trace.getTracer()` from `@opentelemetry/api` inside your handler sees the active span and creates children, not roots.
+
+```
+GET /api/chat [server]
+├── middleware - auth
+├── handler - /api/chat
+│   ├── ai.generateText          ← created by AI SDK
+│   │   ├── ai.toolCall          ← created by AI SDK
+│   │   └── ai.toolCall
+│   └── db.query                 ← created by your code
+```
+
+Example with the AI SDK:
+
+```ts
+import { generateText } from 'ai'
+import { openai } from '@ai-sdk/openai'
+
+.post('/api/chat', async ({ request }) => {
+  const { prompt } = await request.json()
+  const result = await generateText({
+    model: openai('gpt-4.1'),
+    prompt,
+    experimental_telemetry: { isEnabled: true },
+  })
+  return { text: result.text }
+})
+```
+
+The `ai.generateText` and `ai.toolCall` spans appear as children of `handler - /api/chat` automatically. This applies to any OTel-instrumented library — HTTP clients, database drivers, queue publishers, etc.
 
 ## Zero overhead without tracer
 

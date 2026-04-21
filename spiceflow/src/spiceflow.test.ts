@@ -12,6 +12,27 @@ import { z } from 'zod'
 import { createSpiceflowClient } from './client/index.js'
 import { createSpiceflowFetch } from './client/fetch.ts'
 
+async function expectJsonErrorResponse({
+  response,
+  status,
+  message,
+  extra = {},
+}: {
+  response: Response
+  status: number
+  message: string
+  extra?: Record<string, unknown>
+}) {
+  expect(response.status).toBe(status)
+  const body = await response.json()
+  expect(body).toMatchObject({
+    ...extra,
+    message,
+    stack: expect.any(String),
+  })
+  expect(body.stack).toContain(`Error: ${message}`)
+}
+
 test('works', async () => {
   const res = await new Spiceflow()
     .post('/xxx', () => 'hi')
@@ -315,75 +336,42 @@ test('can encode superjson types', async () => {
         ],
       }
     `)
-  expect(await res.json()).toMatchInlineSnapshot(`
-    {
-      "__superjsonMeta": {
-        "referentialEqualities": {
-          "items.0": [
-            "items.1",
-          ],
-        },
-        "values": {
-          "items.0.bigint": [
-            "bigint",
-          ],
-          "items.0.date": [
-            "Date",
-          ],
-          "items.0.map": [
-            "map",
-          ],
-          "items.0.set": [
-            "set",
-          ],
-          "items.1.bigint": [
-            "bigint",
-          ],
-          "items.1.date": [
-            "Date",
-          ],
-          "items.1.map": [
-            "map",
-          ],
-          "items.1.set": [
-            "set",
-          ],
-        },
+  const payload = await res.json()
+  expect(payload).toMatchObject({
+    __superjsonMeta: {
+      referentialEqualities: {
+        'items.0': ['items.1'],
       },
-      "items": [
-        {
-          "bigint": "123",
-          "date": "2025-01-20T18:01:57.852Z",
-          "map": [
-            [
-              "a",
-              1,
-            ],
-          ],
-          "set": [
-            1,
-            2,
-            3,
-          ],
-        },
-        {
-          "bigint": "123",
-          "date": "2025-01-20T18:01:57.852Z",
-          "map": [
-            [
-              "a",
-              1,
-            ],
-          ],
-          "set": [
-            1,
-            2,
-            3,
-          ],
-        },
-      ],
-    }
-  `)
+      values: {
+        'items.0.bigint': ['bigint'],
+        'items.0.date': ['Date'],
+        'items.0.map': ['map'],
+        'items.0.set': ['set'],
+        'items.1.bigint': ['bigint'],
+        'items.1.date': ['Date'],
+        'items.1.map': ['map'],
+        'items.1.set': ['set'],
+      },
+    },
+    items: [
+      {
+        bigint: '123',
+        date: '2025-01-20T18:01:57.852Z',
+        map: [['a', 1]],
+        set: [1, 2, 3],
+      },
+      {
+        bigint: '123',
+        date: '2025-01-20T18:01:57.852Z',
+        map: [['a', 1]],
+        set: [1, 2, 3],
+      },
+    ],
+  })
+  const payloadMetaVersion = payload.__superjsonMeta.v
+  if (payloadMetaVersion !== undefined) {
+    expect(payloadMetaVersion).toBe(1)
+  }
 })
 test('dynamic route', async () => {
   const res = await new Spiceflow()
@@ -478,6 +466,39 @@ test('onError fires on validation errors', async () => {
     `"name: Invalid input: expected string, received number"`,
   )
   expect(await res.text()).toMatchInlineSnapshot(`"Error"`)
+})
+
+test('onError reports the same Error only once', async () => {
+  let errorCount = 0
+  const app = new Spiceflow().onError(() => {
+    errorCount++
+  })
+  const error = new Error('boom')
+  const request = new Request('http://localhost/test')
+  const runErrorHandlers = Reflect.get(app, 'runErrorHandlers')
+  const onErrorHandlers = Reflect.get(app, 'onErrorHandlers')
+
+  if (typeof runErrorHandlers !== 'function') {
+    throw new Error('runErrorHandlers is unavailable')
+  }
+  if (!Array.isArray(onErrorHandlers)) {
+    throw new Error('onErrorHandlers is unavailable')
+  }
+
+  await runErrorHandlers.call(app, {
+    context: {},
+    onErrorHandlers,
+    error,
+    request,
+  })
+  await runErrorHandlers.call(app, {
+    context: {},
+    onErrorHandlers,
+    error,
+    request,
+  })
+
+  expect(errorCount).toBe(1)
 })
 
 test('HEAD uses GET route metadata but does not add body', async () => {
@@ -832,7 +853,7 @@ test('query type safety: page object API query is typed', async () => {
       void query.missing
       void q
       void sort
-      return null as any
+      return null
     },
   })
 })
@@ -1197,10 +1218,15 @@ test('validate body works, request fails', async () => {
         body: JSON.stringify({ name: 'John' }),
       }),
     )
-  expect(res.status).toBe(422)
-  expect(await res.text()).toMatchInlineSnapshot(
-    `"{"code":"VALIDATION","status":422,"message":"requiredField: Invalid input: expected string, received undefined"}"`,
-  )
+  await expectJsonErrorResponse({
+    response: res,
+    status: 422,
+    message: 'requiredField: Invalid input: expected string, received undefined',
+    extra: {
+      code: 'VALIDATION',
+      status: 422,
+    },
+  })
 })
 
 test('run use', async () => {
@@ -1539,10 +1565,11 @@ test('errors inside basPath works', async () => {
     expect(handlerCalledNTimes).toBe(1)
     expect(onErrorTriggered).toEqual(['root', 'two', 'nested'])
     expect(onReqTriggered).toEqual(['root', 'two', 'nested'])
-    expect(res.status).toBe(500)
-    expect(await res.text()).toMatchInlineSnapshot(
-      `"{"message":"error message"}"`,
-    )
+    await expectJsonErrorResponse({
+      response: res,
+      status: 500,
+      message: 'error message',
+    })
     // expect(await res.json()).toEqual('nested'))
   }
 })
@@ -1721,9 +1748,9 @@ describe('href', () => {
       .get('/posts/:postId/comments/:commentId', ({ params }) => params)
 
     expect(app.href('/users/:id', { id: '123' })).toBe('/users/123')
-    // @ts-expect-error
+    // @ts-expect-error - path prefix doesn't match any route
     app.href('/nonusers/:id', { id: '123' })
-    // @ts-expect-error
+    // /users/:nonid matches the resolved template `/users/${string}` so it's accepted
     app.href('/users/:nonid', { nonid: '123' })
     expect(
       app.href('/posts/:postId/comments/:commentId', {
@@ -1805,7 +1832,7 @@ describe('href', () => {
     // @ts-expect-error - Path not defined in app
     app.href('/api/users/invalid')
 
-    // @ts-expect-error - Wrong parameter name
+    // /api/settings/:wrongParam matches `/api/settings/${string}` so it's accepted
     app.href('/api/settings/:wrongParam', { wrongParam: '1' })
   })
 
@@ -2065,6 +2092,79 @@ describe('href', () => {
     expect(app.href('/docs', { section: 'api' })).toBe('/docs?section=api')
     // @ts-expect-error - invalid query param
     app.href('/docs', { wrong: 'x' })
+  })
+
+  test('href with wildcard page route accepts template literal with interpolated params', () => {
+    const app = new Spiceflow()
+      .page('/orgs/:orgId/*', async ({ params }) => `Org ${params.orgId}`)
+
+    // Pattern-based call works
+    expect(app.href('/orgs/:orgId/*', { orgId: 'abc', '*': 'projects' })).toBe(
+      '/orgs/abc/projects',
+    )
+
+    // Template literal with interpolated param — should also work
+    const orgId = 'abc'
+    expect(app.href(`/orgs/${orgId}/projects`)).toBe('/orgs/abc/projects')
+  })
+
+  test('href with wildcard accepts various template literal paths', () => {
+    const app = new Spiceflow()
+      .get('/files/*', () => 'files')
+
+    // Pattern call
+    expect(app.href('/files/*', { '*': 'docs/readme.md' })).toBe(
+      '/files/docs/readme.md',
+    )
+
+    // Template literal — resolved path without params
+    expect(app.href(`/files/docs/readme.md`)).toBe('/files/docs/readme.md')
+
+    // Template literal with slot
+    const folder = 'docs'
+    expect(app.href(`/files/${folder}/readme.md`)).toBe('/files/docs/readme.md')
+  })
+
+  test('href with nested layouts and wildcard pages', () => {
+    const app = new Spiceflow()
+      .layout('/*', ({ children }) => children)
+      .layout('/orgs/:orgId/*', ({ children }) => children)
+      .page('/orgs/:orgId/projects', async ({ params }) => `Projects for ${params.orgId}`)
+      .page('/orgs/:orgId/projects/:projectId/*', async ({ params }) => `Project ${params.projectId}`)
+
+    // Direct page paths work normally
+    expect(app.href('/orgs/:orgId/projects', { orgId: 'acme' })).toBe(
+      '/orgs/acme/projects',
+    )
+    expect(
+      app.href('/orgs/:orgId/projects/:projectId/*', {
+        orgId: 'acme',
+        projectId: 'p1',
+        '*': 'settings',
+      }),
+    ).toBe('/orgs/acme/projects/p1/settings')
+
+    // Template literal with all params resolved
+    const orgId = 'acme'
+    const projectId = 'p1'
+    expect(app.href(`/orgs/${orgId}/projects`)).toBe('/orgs/acme/projects')
+    expect(app.href(`/orgs/${orgId}/projects/${projectId}/settings`)).toBe(
+      '/orgs/acme/projects/p1/settings',
+    )
+  })
+
+  test('href template literal type-checks against wildcard route patterns', () => {
+    const app = new Spiceflow()
+      .page('/orgs/:orgId/*', async ({ params }) => `Org ${params.orgId}`)
+      .page('/users/:userId', async ({ params }) => `User ${params.userId}`)
+
+    // These should be valid — they match /orgs/:orgId/* pattern
+    const orgId = 'abc'
+    app.href(`/orgs/${orgId}/anything/here`)
+
+    // This should NOT match any route — /settings is not a registered path
+    // @ts-expect-error - no route matches /settings/*
+    app.href('/settings/foo')
   })
 })
 
@@ -2377,13 +2477,11 @@ test('returning Error from handler behaves like throwing it', async () => {
   const res = await app.handle(
     new Request('http://localhost/test', { method: 'GET' }),
   )
-  expect(res.status).toBe(500)
-  const body = await res.json()
-  expect(body).toMatchInlineSnapshot(`
-    {
-      "message": "something went wrong",
-    }
-  `)
+  await expectJsonErrorResponse({
+    response: res,
+    status: 500,
+    message: 'something went wrong',
+  })
 })
 
 test('returning Error with status property uses that status', async () => {
@@ -2394,14 +2492,12 @@ test('returning Error with status property uses that status', async () => {
   const res = await app.handle(
     new Request('http://localhost/test', { method: 'GET' }),
   )
-  expect(res.status).toBe(400)
-  const body = await res.json()
-  expect(body).toMatchInlineSnapshot(`
-    {
-      "message": "bad request",
-      "status": 400,
-    }
-  `)
+  await expectJsonErrorResponse({
+    response: res,
+    status: 400,
+    message: 'bad request',
+    extra: { status: 400 },
+  })
 })
 
 test('returning Error triggers onError handlers', async () => {
@@ -2432,13 +2528,11 @@ test('throwing Error from handler gives status 500 with message', async () => {
   const res = await app.handle(
     new Request('http://localhost/test', { method: 'GET' }),
   )
-  expect(res.status).toBe(500)
-  const body = await res.json()
-  expect(body).toMatchInlineSnapshot(`
-    {
-      "message": "something went wrong",
-    }
-  `)
+  await expectJsonErrorResponse({
+    response: res,
+    status: 500,
+    message: 'something went wrong',
+  })
 })
 
 test('throwing Error with status property uses that status', async () => {
@@ -2449,14 +2543,12 @@ test('throwing Error with status property uses that status', async () => {
   const res = await app.handle(
     new Request('http://localhost/test', { method: 'GET' }),
   )
-  expect(res.status).toBe(400)
-  const body = await res.json()
-  expect(body).toMatchInlineSnapshot(`
-    {
-      "message": "bad request",
-      "status": 400,
-    }
-  `)
+  await expectJsonErrorResponse({
+    response: res,
+    status: 400,
+    message: 'bad request',
+    extra: { status: 400 },
+  })
 })
 
 test('route override - same method and path, second route wins', async () => {
@@ -2661,9 +2753,19 @@ test('disableSuperJsonUnlessRpc is inherited by child apps', async () => {
   expect(rpcRes.status).toBe(200)
   const rpcData = await rpcRes.text()
   expect(rpcData).toContain('__superjsonMeta')
-  expect(rpcData).toMatchInlineSnapshot(
-    `"{"date":"2024-01-01T00:00:00.000Z","__superjsonMeta":{"values":{"date":["Date"]}}}"`,
-  )
+  const rpcJson = JSON.parse(rpcData)
+  expect(rpcJson).toMatchObject({
+    date: '2024-01-01T00:00:00.000Z',
+    __superjsonMeta: {
+      values: {
+        date: ['Date'],
+      },
+    },
+  })
+  const rpcMetaVersion = rpcJson.__superjsonMeta.v
+  if (rpcMetaVersion !== undefined) {
+    expect(rpcMetaVersion).toBe(1)
+  }
 })
 
 test('child app inherits disableSuperJsonUnlessRpc from parent even if set to false', async () => {
@@ -3491,11 +3593,12 @@ test('.page() without Vite plugin throws a clear error', async () => {
       headers: { accept: 'text/html' },
     }),
   )
-  expect(res.status).toBe(500)
-  const text = await res.text()
-  expect(text).toMatchInlineSnapshot(
-    `"{"message":"[spiceflow] RSC runtime is only available in the react-server environment. This error means renderReact was called outside of a Vite RSC build. Spiceflow .page and .layout methods require using the Vite plugin. See example application: https://github.com/remorses/spiceflow/blob/main/nodejs-example/vite.config.ts"}"`,
-  )
+  await expectJsonErrorResponse({
+    response: res,
+    status: 500,
+    message:
+      '[spiceflow] RSC runtime is only available in the react-server environment. This error means renderReact was called outside of a Vite RSC build. Spiceflow .page and .layout methods require using the Vite plugin. See example application: https://github.com/remorses/spiceflow/blob/main/example-nodejs/vite.config.ts',
+  })
 })
 
 test('.layout() without Vite plugin throws a clear error', async () => {
@@ -3508,11 +3611,12 @@ test('.layout() without Vite plugin throws a clear error', async () => {
       headers: { accept: 'text/html' },
     }),
   )
-  expect(res.status).toBe(500)
-  const text = await res.text()
-  expect(text).toMatchInlineSnapshot(
-    `"{"message":"[spiceflow] RSC runtime is only available in the react-server environment. This error means renderReact was called outside of a Vite RSC build. Spiceflow .page and .layout methods require using the Vite plugin. See example application: https://github.com/remorses/spiceflow/blob/main/nodejs-example/vite.config.ts"}"`,
-  )
+  await expectJsonErrorResponse({
+    response: res,
+    status: 500,
+    message:
+      '[spiceflow] RSC runtime is only available in the react-server environment. This error means renderReact was called outside of a Vite RSC build. Spiceflow .page and .layout methods require using the Vite plugin. See example application: https://github.com/remorses/spiceflow/blob/main/example-nodejs/vite.config.ts',
+  })
 })
 
 describe('.use() with page and layout routes', () => {

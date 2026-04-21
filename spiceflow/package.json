@@ -1,12 +1,16 @@
 {
   "name": "spiceflow",
-  "version": "1.18.0-rsc.25",
+  "version": "1.19.0-rsc.2",
   "description": "Simple API framework with RPC and type safety",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "type": "module",
   "repository": "https://github.com/remorses/spiceflow",
   "imports": {
+    "#load-global-css": {
+      "react-server": "./dist/load-global-css.rsc.js",
+      "default": "./dist/load-global-css.js"
+    },
     "#rsc-runtime": {
       "react-server": "./dist/rsc-runtime.js",
       "default": "./dist/rsc-runtime.default.js"
@@ -62,6 +66,14 @@
     "./package.json": "./package.json",
     ".": {
       "types": "./dist/index.d.ts",
+      "react-server": "./dist/index.js",
+      "workerd": "./dist/index.js",
+      "node": "./dist/index.js",
+      "bun": "./dist/index.js",
+      "deno": "./dist/index.js",
+      "edge-light": "./dist/index.js",
+      "ssr": "./dist/index.client.js",
+      "browser": "./dist/index.client.js",
       "default": "./dist/index.js"
     },
     "./cors": {

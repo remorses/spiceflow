@@ -1,8 +1,11 @@
 'use client'
 
 import React from 'react'
+import type { AnySpiceflow } from '../spiceflow.js'
+import type { AllHrefPaths, ExtractParamsFromPath } from '../types.js'
 import { getBasePath } from '../base-path.js'
-import { router } from './router.js'
+import { buildHref } from './loader-utils.js'
+import { type RegisteredApp, type RouterPaths, router } from './router.js'
 
 function getBase(): string {
   return getBasePath()
@@ -23,11 +26,32 @@ function withBase(href: string | undefined): string | undefined {
   return base + href
 }
 
-export function Link(
-  props: React.ComponentPropsWithRef<'a'> & { rawHref?: boolean },
-) {
-  const { rawHref, ...rest } = props
-  const href = rawHref ? props.href : withBase(props.href)
+// When path has :param segments, require a params prop. Otherwise optional.
+type LinkParamsProps<
+  Paths extends string,
+  Path extends AllHrefPaths<Paths>,
+> = [ExtractParamsFromPath<Path>] extends [undefined]
+  ? { params?: Record<string, string | number | boolean> }
+  : { params: ExtractParamsFromPath<Path> }
+
+export type LinkProps<
+  App extends AnySpiceflow = RegisteredApp,
+  Paths extends string = RouterPaths<App>,
+  Path extends AllHrefPaths<Paths> = AllHrefPaths<Paths>,
+> = Omit<React.ComponentPropsWithRef<'a'>, 'href'> & {
+  rawHref?: boolean
+  href?: Path
+} & LinkParamsProps<Paths, Path>
+
+export function Link<
+  App extends AnySpiceflow = RegisteredApp,
+  Paths extends string = RouterPaths<App>,
+  const Path extends AllHrefPaths<Paths> = AllHrefPaths<Paths>,
+>(props: LinkProps<App, Paths, Path>) {
+  const { rawHref, params, href: hrefProp, ...rest } = props as LinkProps & { params?: Record<string, any> }
+  const resolved = params && hrefProp ? buildHref(hrefProp, params) : hrefProp
+  const href = rawHref ? resolved : withBase(resolved)
+
   return (
     <a
       {...rest}
@@ -38,7 +62,8 @@ export function Link(
           e.ctrlKey ||
           e.shiftKey ||
           e.altKey ||
-          (props.target && props.target === '_blank')
+          (props.target && props.target === '_blank') ||
+          e.currentTarget.origin !== window.location.origin
         ) {
           props.onClick?.(e)
           return

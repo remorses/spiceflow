@@ -2,6 +2,7 @@
 // interface instead of the proxy-based chainable API.
 import type { AnySpiceflow, Spiceflow } from '../spiceflow.ts'
 import type { ExtractParamsFromPath, IsAny } from '../types.ts'
+import type { RegisteredApp } from '../react/router.js'
 
 import type { SpiceflowClient } from './types.ts'
 import type { ReplaceGeneratorWithAsyncGenerator } from './types.ts'
@@ -308,13 +309,22 @@ export interface SpiceflowFetch<App extends AnySpiceflow> {
 
 // ─── Factory ─────────────────────────────────────────────────────────────────
 
+export function createSpiceflowFetch(
+  domain: string,
+  config?: SpiceflowClient.Config,
+): SpiceflowFetch<RegisteredApp>
+/** @deprecated Use SpiceflowRegister instead of passing an explicit generic. */
 export function createSpiceflowFetch<const App extends AnySpiceflow>(
   domain: App | string,
-  config: SpiceflowClient.Config &
+  config?: SpiceflowClient.Config &
     (App extends Spiceflow<any, any, infer Singleton, any, any, any, any>
       ? { state?: Singleton['state'] }
-      : {}) = {} as any,
-): SpiceflowFetch<App> {
+      : {}),
+): SpiceflowFetch<App>
+export function createSpiceflowFetch(
+  domain: any,
+  config: any = {},
+): SpiceflowFetch<any> {
   let baseUrl: string
   let instance: AnySpiceflow | undefined
 

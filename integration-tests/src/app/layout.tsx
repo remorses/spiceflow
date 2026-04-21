@@ -45,6 +45,14 @@ export function Layout(props: React.PropsWithChildren) {
 					</li>
 					<li>
 						<Link
+							href="/return-redirect-in-page"
+							data-testid="link-return-redirect-page"
+						>
+							return redirect page
+						</Link>
+					</li>
+					<li>
+						<Link
 							href="/throw-redirect-in-layout"
 							data-testid="link-throw-redirect-layout"
 						>
@@ -57,6 +65,22 @@ export function Layout(props: React.PropsWithChildren) {
 							data-testid="link-throw-notfound-page"
 						>
 							throw notfound page
+						</Link>
+					</li>
+					<li>
+						<Link
+							href="/return-notfound-in-page"
+							data-testid="link-return-notfound-page"
+						>
+							return notfound page
+						</Link>
+					</li>
+					<li>
+						<Link
+							href="/return-response-in-page"
+							data-testid="link-return-response-page"
+						>
+							return response page
 						</Link>
 					</li>
 					<li>
@@ -82,12 +106,17 @@ export function Layout(props: React.PropsWithChildren) {
 							rsc error
 						</Link>
 					</li>
-					<li>
-						<Link href="/cached-page" data-testid="link-cached-page">
-							cached page
-						</Link>
-					</li>
-				</ul>
+				<li>
+					<Link href="/cached-page" data-testid="link-cached-page">
+						cached page
+					</Link>
+				</li>
+				<li>
+					<Link href="/get-redirect-nav" data-testid="link-get-redirect-nav">
+						get redirect nav
+					</Link>
+				</li>
+			</ul>
 				{props.children}
 			</body>
 		</html>

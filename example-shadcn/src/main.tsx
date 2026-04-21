@@ -40,4 +40,8 @@ export const app = new Spiceflow()
     )
   })
 
-app.listen(Number(process.env.PORT || 3000))
+void app.listen(Number(process.env.PORT || 3000))
+
+declare module 'spiceflow/react' {
+  interface SpiceflowRegister { app: typeof app }
+}

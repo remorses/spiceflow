@@ -1,5 +1,194 @@
 # spiceflow
 
+## 1.19.0-rsc.2
+
+1. **`parseFormData` for type-safe form validation** — `import { parseFormData } from 'spiceflow'` validates FormData against any Standard Schema (Zod, Valibot, ArkType) with automatic string→number/boolean coercion and `getAll()` support for array fields. Pair with `schema.keyof().enum` for type-safe input `name` attributes — typos become compile errors:
+
+   ```ts
+   import { parseFormData } from 'spiceflow'
+   import { z } from 'zod'
+
+   const subscribeSchema = z.object({ email: z.string().email() })
+
+   export async function subscribe(_: any, formData: FormData) {
+     const { email } = parseFormData(subscribeSchema, formData)
+     // email is typed as string, invalid fields throw ValidationError
+   }
+   ```
+
+2. **`SpiceflowRegister` type registry** — add a single `declare module` at the bottom of your app entry and all typed APIs (`router`, `useLoaderData`, `useRouterState`, `createSpiceflowFetch`) work without generics. No more `<typeof app>` everywhere:
+
+   ```ts
+   import { Spiceflow } from 'spiceflow'
+
+   const app = new Spiceflow().page('/', () => <Home />)
+
+   declare module 'spiceflow/react' {
+     interface SpiceflowRegister { app: typeof app }
+   }
+   ```
+
+   Without the declare module, `router` and `useLoaderData()` fall back to accepting any path — zero breaking change, opt-in type safety.
+
+3. **`router` direct import** — `import { router } from 'spiceflow/react'` is now the primary API for type-safe navigation and URL building. `getRouter()` is deprecated in favor of the direct import:
+
+   ```ts
+   import { router } from 'spiceflow/react'
+
+   router.push('/dashboard')
+   router.href('/users/:id', { id: '42' })
+   ```
+
+4. **Absolute URLs in `router.push()`, `router.replace()`, and `Link`** — cross-origin URLs trigger full page navigation (`window.location.assign`), same-origin absolute URLs extract the pathname and continue with normal SPA navigation preserving client state:
+
+   ```ts
+   router.push('https://external.com/path') // full navigation
+   router.push('https://same-origin.com/path') // SPA navigation
+   ```
+
+   `Link` detects external hrefs and lets the browser handle them natively.
+
+5. **Synthetic `hashchange` on pushState navigations** — hash-only navigations now dispatch a real `HashChangeEvent` on the window, making TOC trackers, analytics, and scroll-to-hash libraries work correctly with client-side navigation.
+
+6. **Fixed `useId()` hydration mismatch in production builds** — removed orphaned `PayloadCommitListener` from SSR tree that caused structural mismatch between server and client renders, fixing `useId()` output divergence in production.
+
+## 1.19.0-rsc.1
+
+1. **Type-safe `json()` helper with phantom brands** — `import { json } from 'spiceflow'` wraps `Response.json()` with TypedResponse phantom types so the fetch client gets full type safety for each status code. Use `throw json({ error: 'Not found' }, { status: 404 })` instead of raw `Response.json()`:
+
+   ```ts
+   import { Spiceflow, json } from 'spiceflow'
+
+   const app = new Spiceflow().get('/user/:id', ({ params }) => {
+     if (!user) throw json({ error: 'Not found' }, { status: 404 })
+     return user
+   })
+   ```
+
+2. **`ProgressBar.start()` and `ProgressBar.end()`** — drive the top loading bar around manual fetches, submit flows, and other non-router async work. Manual calls share the same progress state as router navigations with reference counting, so overlapping work keeps the bar visible until everything finishes.
+
+3. **`spanContext()` on tracing spans** — handlers and middleware can now read the current `traceId` and `spanId` from `span.spanContext()` when the configured OTel tracer provides them, useful for propagating trace context to child libraries.
+
+4. **Hide pages from OpenAPI output** — generated OpenAPI specs no longer include page, layout, and loader routes. Only API endpoints and `staticGet` routes appear in the spec.
+
+5. **Removed deployment skew cookie mechanism** — the `spiceflow-deployment` cookie and 409 mismatch responses are gone. RSC client reference IDs are stable across deployments (hash of file path, not content) and old client chunks remain on CDN, making the cookie-based protection unnecessary. `getDeploymentId()` is still exported for analytics and cache keys.
+
+6. **Fixed wrapped action redirects** — form-action redirects from wrapped client components now resolve correctly instead of leaving the React transition pending forever.
+
+7. **Fixed multi-environment Vite dep optimization** — dev dependency discovery now works for SSR and RSC environments with `holdUntilCrawlEnd` forced across all environments, avoiding mid-request re-optimization on cold starts.
+
+8. **`router.refresh()` is fire-and-forget** — removed the stale awaitable type and documented that awaitable navigation/refresh helpers must not be used inside React client form actions to avoid page deadlocks.
+
+## 1.19.0-rsc.0
+
+1. **Public `ErrorBoundary` for server actions** — `spiceflow/react` now exports an `ErrorBoundary` component with `ErrorBoundary.ErrorMessage` and `ErrorBoundary.ResetButton` sub-components, so forms can catch thrown action errors and render a retry UI without building custom boundary plumbing:
+
+   ```tsx
+   import { ErrorBoundary } from 'spiceflow/react'
+
+   <ErrorBoundary
+     fallback={
+       <div>
+         <ErrorBoundary.ErrorMessage className="text-red-500" />
+         <ErrorBoundary.ResetButton>Try again</ErrorBoundary.ResetButton>
+       </div>
+     }
+   >
+     <form action={savePost}>...</form>
+   </ErrorBoundary>
+   ```
+
+2. **Every server action call now refreshes the page automatically** — form submissions, direct imported action calls, and client wrappers all apply the new RSC payload immediately after the action finishes, so loaders and server components stay in sync without `await router.refresh()`.
+
+3. **Path-scoped middleware with `.use(path, handler)`** — middleware can now be limited to a specific exact path or wildcard prefix instead of running globally:
+
+   ```ts
+   new Spiceflow()
+     .use('/api/*', async ({ request }, next) => {
+       console.log('only API routes hit this middleware')
+       return next()
+     })
+   ```
+
+4. **React pages and layouts can return raw HTTP responses** — non-404 `Response` values returned from `.page()` and `.layout()` now short-circuit as normal document responses, while 404 responses still flow through the existing not-found rendering path.
+
+5. **Fixed locked request bodies inside server actions** — calling `getActionRequest()` and then reading or forwarding the request body no longer crashes with `ReadableStream has been locked to a reader`.
+
+6. **Fixed several RSC correctness bugs** — dev-mode API errors now stay JSON instead of falling through to Vite's HTML overlay, and `useId()` output now stays consistent between SSR and hydration.
+
+## 1.18.0-rsc.29
+
+1. **Fix React page/layout handlers returning `Response`** — redirects from `.page()` and `.layout()` now short-circuit correctly via SPA navigation, and `notFound()` responses render through the 404 flow instead of crashing RSC serialization with `Only plain objects` errors during browser navigation.
+
+2. **Improved prerender build error messages** — static page build failures now include the failing response body in the error output, surfacing the original error message instead of only a generic `500`.
+
+3. **Fix duplicate spiceflow instances under pnpm strict isolation** — added `spiceflow` and `spiceflow/react` to `resolve.dedupe` in the Vite plugin. This prevents silent breakage from split module-level singletons (`AsyncLocalStorage` stores, router state) when pnpm resolves a nested copy of spiceflow from a subdirectory's `node_modules`.
+
+## 1.18.0-rsc.28
+
+1. **Fix `router.push()` follows `.get()` 302 redirects via SPA navigation** — when navigating to a path handled by a `.get()` route that returns a redirect, the client router now performs a client-side navigation to the redirect target instead of triggering a full page reload. Layout state, scroll position, and client component state are all preserved across the redirect.
+
+   ```ts
+   const app = new Spiceflow()
+     .get('/projects/:id', ({ params, request }) => {
+       return new Response(null, {
+         status: 302,
+         headers: { Location: `/projects/${params.id}/envs/default` },
+       })
+     })
+     .page('/projects/:id/envs/:envId', async ({ params }) => {
+       return <ProjectEnvPage id={params.id} env={params.envId} />
+     })
+
+   // clicking the button now lands on /projects/123/envs/default via SPA nav
+   router.push('/projects/123')
+   ```
+
+## 1.18.0-rsc.27
+
+1. **Revert Cloudflare linked entry resolution** — reverted the linked-spiceflow dev entry override from rsc.26 that was causing issues.
+
+## 1.18.0-rsc.26
+
+1. **Template literal paths in `href()`** — wildcard routes now accept resolved template literal paths directly, without needing to pass params as an object:
+
+   ```ts
+   const orgId = 'abc'
+
+   // existing object form still works
+   app.href('/orgs/:orgId/*', { orgId: 'abc', '*': 'projects' })
+
+   // new: pass a resolved path directly
+   app.href(`/orgs/${orgId}/projects`)
+   ```
+
+2. **`router.refresh()` now returns a promise** — `await router.refresh()` resolves after the fresh RSC payload commits, making it easy to sequence UI work after a server action mutates state:
+
+   ```ts
+   await action()
+   await router.refresh()
+   // server components and loader data are now up to date
+   ```
+
+3. **Fix `throw redirect()` in server actions** — redirects thrown inside server actions are now encoded in the RSC flight payload instead of returned as raw HTTP 307 responses. This fixes redirect handling on Cloudflare Workers (where `fetch` follows 307s and breaks) and direct action calls (non-form). All server action calls now automatically re-render the page with fresh data while preserving client component `useState` via React reconciliation. The `allowedActionOrigins` option is now documented for CSRF protection with reverse proxies.
+
+4. **Fix `router.refresh()` stale data** — two related bugs fixed: RSC flight responses now include `Cache-Control: no-store` and the client fetch uses `cache: 'no-store'` so the browser never serves a cached flight payload. Also fixed a race where a refresh in flight could return stale same-location loader data, and each refresh promise now resolves for the correct request instead of being completed by an unrelated later commit.
+
+5. **`onError` fires exactly once per server action error** — server action failures no longer trigger duplicate `onError` calls from repeated route-handler collection or later passes in the same request. Errors still reach the client error boundary.
+
+6. **Default export for `spiceflow/vite`** — `import spiceflow from 'spiceflow/vite'` now works. The named export `spiceflowPlugin` still exists but is deprecated:
+
+   ```ts
+   import spiceflow from 'spiceflow/vite' // new default
+   // import { spiceflowPlugin } from 'spiceflow/vite' // deprecated
+   ```
+
+7. **Gate RSC/SSR debug logs behind `SPICEFLOW_VERBOSE=1`** — the low-level RSC and SSR render logs are no longer emitted in normal runs. Set `SPICEFLOW_VERBOSE=1` to re-enable them for debugging.
+
+8. **Fix Cloudflare local dev with linked spiceflow** — when `spiceflow` is symlinked from another repo, the dev-only RSC/SSR/client entry inputs now resolve to the app-local `node_modules/spiceflow/dist/react/*` files, keeping `@cloudflare/vite-plugin` happy without absolute realpaths that workerd cannot import.
+
+9. **Dedicated OpenAPI guide** — a new [`docs/openapi.md`](./docs/openapi.md) covers status-code response maps, centralized error responses with `onError`, reusable Zod schemas, hiding routes from the document, generating a local `openapi.json`, and preserving fetch client type safety.
+
 ## 1.18.0-rsc.25
 
 1. **Same-process federation with explicit `Response` rendering** — local federation now goes through the same `RenderFederatedPayload` and `decodeFederationPayload(response)` APIs as remote responses, so same-app flows can call `app.handle(new Request(...))` directly without a network round-trip:
@@ -424,7 +613,7 @@
 
 1. **Auto-configure `optimizeDeps.entries` per Vite environment** — the Vite plugin now automatically sets `optimizeDeps.entries` for the client, rsc, and ssr environments to point at your app entry file. Vite crawls the full import graph upfront during dev, preventing late dependency discovery that triggers re-optimization rounds and page reloads on fresh installs. Apps no longer need manual `optimizeDeps.include` lists for spiceflow's transitive dependencies.
 
-2. **Improved React SSR performance** — document GET/HEAD requests skip the extra Flight decode pass, bootstrap script content is cached in production, the default page payload shape is smaller, and `injectRSCPayload()` does less HTML stream work. These changes improve throughput for normal RSC page renders in the `nodejs-example` benchmark.
+2. **Improved React SSR performance** — document GET/HEAD requests skip the extra Flight decode pass, bootstrap script content is cached in production, the default page payload shape is smaller, and `injectRSCPayload()` does less HTML stream work. These changes improve throughput for normal RSC page renders in the `example-nodejs` benchmark.
 
 3. **Fixed `@tailwindcss/vite` triggering full page reloads during RSC HMR** — the plugin now intercepts `hotUpdate` events for CSS files before `@tailwindcss/vite` can escalate them to a full reload, keeping RSC HMR fast without a browser refresh.
 

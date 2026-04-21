@@ -10,7 +10,12 @@ import type {
   ErrorContext,
   MiddlewareContext,
 } from './context.js'
-import { SPICEFLOW_RESPONSE, ValidationError } from './error.js'
+import {
+  SPICEFLOW_RESPONSE,
+  ValidationError,
+  RESPONSE_DATA,
+  type TypedResponse,
+} from './error.js'
 import { AnySpiceflow, Spiceflow } from './spiceflow.js'
 
 export type MaybeArray<T> = T | T[]
@@ -368,10 +373,14 @@ export type CoExist<Original, Target, With> =
         ? Original | With
         : Original
 
+// Accepts plain {status, headers, body} objects and raw Response,
+// but NOT TypedResponse (which carries phantom brands and must go
+// through the typed union branch so tsc can validate status/data).
 type ResponseLike = {
   status: number
   headers?: any
   body?: any
+  readonly [RESPONSE_DATA]?: never
 }
 
 export type InlineHandler<
@@ -403,6 +412,13 @@ export type InlineHandler<
                   [SPICEFLOW_RESPONSE]: Status
                 }
               }[keyof Route['response']]
+            | {
+                [Status in keyof Route['response'] &
+                  number]: TypedResponse<
+                  Route['response'][Status],
+                  Status
+                >
+              }[keyof Route['response'] & number]
     >
 
 export type OptionalHandler<
@@ -690,7 +706,10 @@ export type ComposeSpiceflowResponse<Response, Handle> = Handle extends (
 type _ComposeSpiceflowResponse<Response, Handle> = Prettify<
   {} extends Response
     ? {
-        200: Exclude<Handle, { [SPICEFLOW_RESPONSE]: any }>
+        200: Exclude<
+          Handle,
+          { [SPICEFLOW_RESPONSE]: any } | TypedResponse<any, any>
+        >
       } & {
         [ErrorResponse in Extract<
           Handle,
@@ -700,6 +719,11 @@ type _ComposeSpiceflowResponse<Response, Handle> = Prettify<
         }
           ? Status
           : never]: ErrorResponse['response']
+      } & {
+        [TR in Extract<
+          Handle,
+          TypedResponse<any, any>
+        > as TR extends TypedResponse<any, infer S> ? S : never]: TR extends TypedResponse<infer D, any> ? D : never
       }
     : Response
 >
@@ -1022,6 +1046,21 @@ export type ExtractParamsFromPath<Path extends string> =
         ? { ['*']: string }
         : undefined
 
+// Convert route patterns to template literal types that accept resolved paths.
+// e.g. "/orgs/:orgId/*" → `/orgs/${string}/${string}`
+//      "/users/:id"     → `/users/${string}`
+type PatternToResolved<Path extends string> =
+  Path extends `${infer Before}:${infer _Param}/${infer Rest}`
+    ? `${Before}${string}/${PatternToResolved<Rest>}`
+    : Path extends `${infer Before}:${infer _Param}`
+      ? `${Before}${string}`
+      : Path extends `${infer Before}*`
+        ? `${Before}${string}`
+        : Path
+
+// Accepts both pattern paths ("/orgs/:orgId/*") and resolved paths ("/orgs/abc/projects")
+export type AllHrefPaths<Paths extends string> = Paths | PatternToResolved<Paths>
+
 type MergeParamsAndQuery<P, Q> = [P] extends [undefined]
   ? Partial<Q>
   : P & Omit<Partial<Q>, keyof P>
@@ -1029,7 +1068,7 @@ type MergeParamsAndQuery<P, Q> = [P] extends [undefined]
 export type HrefArgs<
   Paths extends string,
   QS extends object,
-  Path extends Paths,
+  Path extends AllHrefPaths<Paths>,
   Params extends ExtractParamsFromPath<Path>,
 > = [Params] extends [undefined]
   ? Path extends keyof QS

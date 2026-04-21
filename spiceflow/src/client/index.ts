@@ -1,4 +1,5 @@
 import type { AnySpiceflow, Spiceflow } from '../spiceflow.ts'
+import type { RegisteredApp } from '../react/router.js'
 import superjson from 'superjson'
 import { EventSourceParserStream } from 'eventsource-parser/stream'
 
@@ -396,13 +397,22 @@ const createProxy = (
  * if (result instanceof Error) return result
  * ```
  */
-export const createSpiceflowClient = <const App extends AnySpiceflow>(
+export function createSpiceflowClient(
+  domain: string,
+  config?: SpiceflowClient.Config,
+): SpiceflowClient.Create<RegisteredApp>
+/** @deprecated Use SpiceflowRegister instead of passing an explicit generic. */
+export function createSpiceflowClient<const App extends AnySpiceflow>(
   domain: App | string,
   config?: SpiceflowClient.Config &
     (App extends Spiceflow<any, any, infer Singleton, any, any, any, any>
       ? { state?: Singleton['state'] }
       : {}),
-): SpiceflowClient.Create<App> => {
+): SpiceflowClient.Create<App>
+export function createSpiceflowClient(
+  domain: any,
+  config?: any,
+): SpiceflowClient.Create<any> {
   if (typeof domain === 'string') {
     let domainStr = String(domain)
     if (domain.endsWith('/')) domainStr = domain.slice(0, -1)

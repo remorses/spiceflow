@@ -3,9 +3,46 @@ import { z } from 'zod'
 import { expect, test } from 'vitest'
 
 import { createSpiceflowClient, createSpiceflowFetch } from './client/index.ts'
-import { getRouter, useLoaderData, useRouterState } from './react/index.ts'
+import { getRouter, Link, redirect, useLoaderData, useRouterState } from './react/index.ts'
+import type { LinkProps } from './react/index.ts'
 import { AnySpiceflow, createHref, Spiceflow } from './spiceflow.tsx'
-import type { IsAny } from './types.ts'
+import type { AllHrefPaths, IsAny } from './types.ts'
+
+test('SpiceflowRegister: router import is typed via register pattern', () => {
+  // Tests the register mechanism by importing the typed `router` export directly.
+  // In real apps, users add `declare module 'spiceflow/react' { ... }` once
+  // and then import { router } everywhere without generics.
+  // Here we use the explicit generic to prove the overload works without
+  // polluting other tests with a module augmentation.
+  const app = new Spiceflow()
+    .page('/login', async () => 'login')
+    .page('/dashboard', async () => 'dashboard')
+    .loader('/users/:id', async ({ params }) => ({ user: { id: params.id } }))
+    .page('/users/:id', async () => 'user')
+    .page('/settings', async () => 'settings')
+    .page('/orgs/:orgId/projects/:projectId', async () => 'project')
+
+  const typedRouter = getRouter<typeof app>()
+
+  // Path validation works
+  // @ts-expect-error - invalid path rejected
+  typedRouter.href('/nonexistent')
+
+  // @ts-expect-error - missing required params rejected
+  typedRouter.href('/users/:id')
+
+  // @ts-expect-error - wrong param key rejected
+  typedRouter.href('/users/:id', { slug: '1' })
+
+  // Valid paths accepted
+  expect(typedRouter.href('/login')).toBe('/login')
+  expect(typedRouter.href('/dashboard')).toBe('/dashboard')
+  expect(typedRouter.href('/settings')).toBe('/settings')
+  expect(typedRouter.href('/users/:id', { id: '42' })).toBe('/users/42')
+  expect(
+    typedRouter.href('/orgs/:orgId/projects/:projectId', { orgId: 'a', projectId: 'b' }),
+  ).toBe('/orgs/a/projects/b')
+})
 
 test('AnySpiceflow falls back to ergonomic any types', () => {
   const app = new Spiceflow()
@@ -14,12 +51,13 @@ test('AnySpiceflow falls back to ergonomic any types', () => {
     .page('/', async () => 'home')
   const anyApp = app as AnySpiceflow
 
-  const fetchClient = createSpiceflowFetch<AnySpiceflow>('http://localhost:3000')
+  // No-generic versions use RegisteredApp which falls back to AnySpiceflow
+  const fetchClient = createSpiceflowFetch('http://localhost:3000')
   const fetchFromApp = createSpiceflowFetch(anyApp)
-  const proxyClient = createSpiceflowClient<AnySpiceflow>('http://localhost:3000')
+  const proxyClient = createSpiceflowClient('http://localhost:3000')
   const proxyClientFromApp = createSpiceflowClient(anyApp)
-  const href = createHref<AnySpiceflow>()
-  const routerApi = getRouter<AnySpiceflow>()
+  const href = createHref()
+  const routerApi = getRouter()
 
   function assertFetchFallbackTypes() {
     const result = fetchClient('/runtime-route', {
@@ -84,7 +122,7 @@ test('AnySpiceflow falls back to ergonomic any types', () => {
   }
 
   function GlobalLoaderDataComponent() {
-    const data = useLoaderData<AnySpiceflow>()
+    const data = useLoaderData()
     const dataIsAny: IsAny<typeof data> = true
     void dataIsAny
     data.session.user.name
@@ -92,7 +130,7 @@ test('AnySpiceflow falls back to ergonomic any types', () => {
   }
 
   function PathLoaderDataComponent() {
-    const data = useLoaderData<AnySpiceflow>('/runtime-route')
+    const data = useLoaderData('/runtime-route')
     const dataIsAny: IsAny<typeof data> = true
     void dataIsAny
     data.session.user.name
@@ -100,7 +138,7 @@ test('AnySpiceflow falls back to ergonomic any types', () => {
   }
 
   function UntypedRouterStateComponent() {
-    const state = useRouterState<AnySpiceflow>()
+    const state = useRouterState()
     state.pathname.toUpperCase()
     return null
   }
@@ -199,6 +237,8 @@ test('strict app router types stay narrow', () => {
     data.user.id
     // @ts-expect-error - typed loader data must not widen to any
     data.user.missing
+
+    strictRouter.refresh()
   }
 
   async function assertNoLoaderGetLoaderData() {
@@ -208,7 +248,8 @@ test('strict app router types stay narrow', () => {
   }
 
   function assertUntypedRouterStillAllowsArbitraryPaths() {
-    const untypedRouter = getRouter()
+    // Explicit AnySpiceflow to bypass the register and get untyped behavior
+    const untypedRouter = getRouter<AnySpiceflow>()
     untypedRouter.href('/anything-at-runtime', { whatever: true })
     void untypedRouter.getLoaderData('/anything-at-runtime')
   }
@@ -220,6 +261,93 @@ test('strict app router types stay narrow', () => {
   assertNoLoaderGetLoaderData
   assertUntypedRouterStillAllowsArbitraryPaths
 })
+
+test('getRouter().href() inside handlers for typed redirect', () => {
+  // Using getRouter<typeof app> INSIDE handler closures creates a circular
+  // type reference: the handler's return type is part of `typeof app`, but
+  // the handler also references `typeof app` via getRouter.
+  //
+  // Result: TypeScript resolves the circularity by widening RoutePaths to
+  // `string`, so PATH VALIDATION IS LOST (any string accepted). However,
+  // PARAM ENFORCEMENT IS PRESERVED for paths with :param patterns because
+  // template literal extraction still works on concrete string literals.
+  const app = new Spiceflow()
+    .page('/login', async () => 'login')
+    .page('/dashboard', async () => {
+      // Redirect inside handler to a path defined BEFORE this one
+      const router = getRouter<typeof app>()
+      const url = router.href('/login')
+      return redirect(url)
+    })
+    .loader('/users/:id', async ({ params }) => {
+      // Use getRouter inside a loader to redirect to a path defined AFTER
+      const router = getRouter<typeof app>()
+      const url = router.href('/settings')
+      if (!params.id) throw redirect(url)
+      return { user: { id: params.id } }
+    })
+    .page('/users/:id', async () => 'user')
+    .page('/settings', async () => 'settings')
+    .page('/orgs/:orgId/projects/:projectId', async () => {
+      // Redirect to a parameterized sibling path from inside a handler
+      const router = getRouter<typeof app>()
+      const url = router.href('/users/:id', { id: '123' })
+      return redirect(url)
+    })
+
+  const router = getRouter<typeof app>()
+
+  // Runtime assertions still pass
+  expect(router.href('/login')).toBe('/login')
+  expect(router.href('/settings')).toBe('/settings')
+  expect(router.href('/users/:id', { id: '42' })).toBe('/users/42')
+  expect(router.href('/orgs/:orgId/projects/:projectId', { orgId: 'a', projectId: 'b' })).toBe(
+    '/orgs/a/projects/b',
+  )
+
+  // PATH VALIDATION IS LOST due to circular type — these are accepted:
+  router.href('/nonexistent') // would be rejected without circularity
+  router.href('/totally/bogus/path') // would be rejected without circularity
+
+  // PARAM ENFORCEMENT IS PRESERVED — template literal extraction still works:
+  // @ts-expect-error - missing required params is still caught
+  router.href('/users/:id')
+
+  // @ts-expect-error - wrong param key is still caught
+  router.href('/users/:id', { slug: '1' })
+})
+
+test('getRouter() with pre-declared type avoids circular widening', () => {
+  // Workaround: define the app without getRouter in handlers, then use the
+  // type externally. This avoids circular inference and preserves full path validation.
+  const app = new Spiceflow()
+    .page('/login', async () => 'login')
+    .page('/dashboard', async () => 'dashboard')
+    .loader('/users/:id', async ({ params }) => ({ user: { id: params.id } }))
+    .page('/users/:id', async () => 'user')
+    .page('/settings', async () => 'settings')
+    .page('/orgs/:orgId/projects/:projectId', async () => 'project')
+
+  type App = typeof app
+  const router = getRouter<App>()
+
+  // PATH VALIDATION IS PRESERVED — no circularity
+  // @ts-expect-error - invalid path correctly rejected
+  router.href('/nonexistent')
+
+  // @ts-expect-error - missing required params correctly rejected
+  router.href('/users/:id')
+
+  // @ts-expect-error - wrong param key correctly rejected
+  router.href('/users/:id', { slug: '1' })
+
+  // Valid paths work fine
+  expect(router.href('/login')).toBe('/login')
+  expect(router.href('/settings')).toBe('/settings')
+  expect(router.href('/users/:id', { id: '42' })).toBe('/users/42')
+})
+
+
 
 test('overlapping loaders merge into typed router data', () => {
   const app = new Spiceflow()
@@ -248,4 +376,44 @@ test('overlapping loaders merge into typed router data', () => {
 
   MergedLoaderDataComponent
   assertMergedGetLoaderData
+})
+
+test('Link: unregistered app accepts any string href', () => {
+  // Without SpiceflowRegister, Link falls back to string (any path works)
+  const a: LinkProps = { href: '/anything' }
+  const b: LinkProps = { href: '/with/params', params: { id: '1' } }
+  const c: LinkProps = { href: '/plain' }
+  const d: LinkProps = {}
+  void [a, b, c, d]
+})
+
+test('Link: typed app validates href paths and requires params', () => {
+  const app = new Spiceflow()
+    .page('/login', async () => 'login')
+    .page('/dashboard', async () => 'dashboard')
+    .page('/users/:id', async () => 'user')
+    .page('/orgs/:orgId/projects/:projectId', async () => 'project')
+
+  type App = typeof app
+  type Paths = App['_types']['RoutePaths']
+
+  // Helper to check LinkProps assignability via function call (catches missing props)
+  function expectLink<P extends AllHrefPaths<Paths>>(_props: LinkProps<App, Paths, P>) {}
+
+  // Valid static paths
+  expectLink({ href: '/login' as const })
+  expectLink({ href: '/dashboard' as const })
+
+  // Valid parameterized paths with required params
+  expectLink({ href: '/users/:id' as const, params: { id: '42' } })
+  expectLink({ href: '/orgs/:orgId/projects/:projectId' as const, params: { orgId: 'a', projectId: 'b' } })
+
+  // @ts-expect-error - invalid path rejected
+  expectLink({ href: '/nonexistent' as const })
+
+  // @ts-expect-error - missing required params rejected
+  expectLink({ href: '/users/:id' as const })
+
+  // @ts-expect-error - wrong param key rejected
+  expectLink({ href: '/users/:id' as const, params: { slug: '1' } })
 })

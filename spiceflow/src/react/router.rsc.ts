@@ -6,11 +6,13 @@ import { getRouterContext } from '#router-context'
 import { buildHref } from './loader-utils.js'
 import type {
   LoaderDataForPath,
+  RegisteredApp,
   RouterBase,
   RouterPathArg,
 } from './router.js'
 
 const basePath = getBasePath()
+const noop = () => undefined
 
 export type ReadonlyURLSearchParams = Omit<
   URLSearchParams,
@@ -45,9 +47,7 @@ function getCurrentLocation(): Location {
   }
 }
 
-const noop = () => undefined
-
-export const router: RouterBase = {
+export const router = {
   get location() {
     return getCurrentLocation()
   },
@@ -85,9 +85,10 @@ export const router: RouterBase = {
   getLoaderData(_path?: string): Promise<Record<string, unknown>> {
     return Promise.resolve(getRouterContext()?.loaderData ?? {})
   },
-}
+  __setLoaderData() {},
+} as RouterBase<RegisteredApp>
 
-export function useRouterState<_App extends AnySpiceflow = AnySpiceflow>() {
+export function useRouterState<_App extends AnySpiceflow = RegisteredApp>() {
   const location = getCurrentLocation()
   return {
     ...location,
@@ -96,12 +97,18 @@ export function useRouterState<_App extends AnySpiceflow = AnySpiceflow>() {
 }
 
 export function useLoaderData<
-  App extends AnySpiceflow = AnySpiceflow,
+  App extends AnySpiceflow = RegisteredApp,
   const Path extends RouterPathArg<App> = string,
 >(_path?: Path): LoaderDataForPath<App, Path> {
   return getRouterContext()?.loaderData as LoaderDataForPath<App, Path>
 }
 
-export function getRouter<App extends AnySpiceflow = AnySpiceflow>(): RouterBase<App> {
-  return router as RouterBase<App>
+export type { SpiceflowRegister, RegisteredApp } from './router.js'
+
+/** @deprecated Use `import { router } from 'spiceflow/react'` directly instead. */
+export function getRouter(): RouterBase<RegisteredApp>
+/** @deprecated Use `import { router } from 'spiceflow/react'` directly instead. */
+export function getRouter<App extends AnySpiceflow>(): RouterBase<App>
+export function getRouter(): any {
+  return router as any
 }

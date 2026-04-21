@@ -1,5 +1,5 @@
 // Remark plugin that rewrites relative URLs in markdown to GitHub blob/tree URLs.
-// The root README.md uses relative links like (nodejs-example/vite.config.ts) which
+// The root README.md uses relative links like (example-nodejs/vite.config.ts) which
 // work on GitHub but 404 on the website. This plugin fixes them during MDX compilation.
 import { visit } from 'unist-util-visit'
 

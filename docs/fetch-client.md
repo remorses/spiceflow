@@ -60,9 +60,8 @@ export type App = typeof app
 ```ts
 // client.ts
 import { createSpiceflowFetch } from 'spiceflow/client'
-import type { App } from './server'
 
-const safeFetch = createSpiceflowFetch<App>('http://localhost:3000')
+const safeFetch = createSpiceflowFetch('http://localhost:3000')
 
 async function handleErrors() {
   const errorResult = await safeFetch('/error')
@@ -208,9 +207,8 @@ export type App = typeof app
 ```ts
 // client.ts
 import { createSpiceflowFetch } from 'spiceflow/client'
-import type { App } from './server'
 
-const safeFetch = createSpiceflowFetch<App>('http://localhost:3000')
+const safeFetch = createSpiceflowFetch('http://localhost:3000')
 
 // Path params are type-safe — TypeScript requires { id: string }
 const user = await safeFetch('/users/:id', {
@@ -241,140 +239,61 @@ With this pattern:
 
 ## Path Building
 
-The `href` method provides a type-safe way to build URLs with parameters. It prevents runtime errors by ensuring all required parameters are provided and properly substituted into the path.
+`router.href()` provides a type-safe way to build URLs with parameters. It prevents runtime errors by ensuring all required parameters are provided and properly substituted into the path. Import `router` from `spiceflow/react`:
 
 ```ts
-import { Spiceflow } from 'spiceflow'
+import { router } from 'spiceflow/react'
+```
 
-export const app = new Spiceflow()
-  .route({
-    method: 'GET',
-    path: '/users/:id',
-    handler({ params }) {
-      return { id: params.id }
-    },
-  })
-  .route({
-    method: 'GET',
-    path: '/users/:id/posts/:postId',
-    handler({ params }) {
-      return { userId: params.id, postId: params.postId }
-    },
-  })
+Type safety comes from the **register pattern**. Add `declare module 'spiceflow/react' { interface SpiceflowRegister { app: typeof app } }` at the bottom of your app entry file. This registers your app's route types globally, so `router.href()` knows every valid path, its params, and its query schema at compile time. Without the register block, `router.href()` still works at runtime but accepts any string.
 
-// Building URLs with required parameters
-const userPath = app.href('/users/:id', { id: '123' })
+```ts
+import { router } from 'spiceflow/react'
+
+router.href('/users/:id', { id: '123' })
 // Result: '/users/123'
 
-// Building URLs with required parameters
-const userPostPath = app.href('/users/:id/posts/:postId', {
-  id: '456',
-  postId: 'abc',
-})
+router.href('/users/:id/posts/:postId', { id: '456', postId: 'abc' })
 // Result: '/users/456/posts/abc'
 ```
 
 ### Query Parameters
 
-When a route has a `query` schema, `href` accepts query parameters alongside path parameters in the same flat object. Query parameters are appended as a query string, and unknown keys are rejected at the type level:
+When a route has a `query` schema, `router.href()` accepts query parameters alongside path parameters in the same flat object. Query parameters are appended as a query string, and unknown keys are rejected at the type level:
 
 ```ts
-export const app = new Spiceflow()
-  .route({
-    method: 'GET',
-    path: '/search',
-    query: z.object({ q: z.string(), page: z.coerce.number() }),
-    handler({ query }) {
-      return { results: [], q: query.q }
-    },
-  })
-  .route({
-    method: 'GET',
-    path: '/users/:id',
-    query: z.object({ fields: z.string() }),
-    handler({ params, query }) {
-      return { id: params.id, fields: query.fields }
-    },
-  })
-
-app.href('/search', { q: 'hello', page: 1 })
+router.href('/search', { q: 'hello', page: 1 })
 // Result: '/search?q=hello&page=1'
 
-app.href('/users/:id', { id: '42', fields: 'name' })
+router.href('/users/:id', { id: '42', fields: 'name' })
 // Result: '/users/42?fields=name'
 
 // @ts-expect-error - 'invalid' is not a known query key
-app.href('/search', { invalid: 'x' })
+router.href('/search', { invalid: 'x' })
 ```
-
-### Standalone `createHref`
-
-If you need a path builder on the client side where you can't import server app code, use `createHref` with the `App` type:
-
-```ts
-import { createHref } from 'spiceflow'
-import type { App } from './server' // import only the type, not the runtime app
-
-const href = createHref<App>()
-
-href('/users/:id', { id: '123' })
-// Result: '/users/123'
-
-href('/search', { q: 'hello', page: 1 })
-// Result: '/search?q=hello&page=1'
-```
-
-The returned function has the same type safety as `app.href` — it infers paths, params, and query schemas from the app type. The app argument is optional and not used at runtime, so you can call `createHref<App>()` without passing any value.
 
 <details>
 <summary>OAuth callback example</summary>
 
-The `href` method is particularly useful when building callback URLs for OAuth flows, where you need to construct URLs dynamically based on user data or session information:
+`router.href()` is useful when building callback URLs for OAuth flows, where you need to construct URLs dynamically based on user data or session information:
 
 ```ts
-import { Spiceflow } from 'spiceflow'
+import { router } from 'spiceflow/react'
 
-export const app = new Spiceflow()
-  .route({
-    method: 'GET',
-    path: '/auth/callback/:provider/:userId',
-    handler({ params, query }) {
-      const { provider, userId } = params
-      const { code, state } = query
+const callbackUrl = new URL(
+  router.href('/auth/callback/:provider/:userId', {
+    provider: 'google',
+    userId: '12345',
+  }),
+  'https://myapp.com',
+).toString()
 
-      return {
-        provider,
-        userId,
-        authCode: code,
-        state,
-      }
-    },
-  })
-  .route({
-    method: 'POST',
-    path: '/auth/login',
-    handler({ request }) {
-      const userId = '12345'
-      const provider = 'google'
-
-      const callbackUrl = new URL(
-        app.href('/auth/callback/:provider/:userId', {
-          provider,
-          userId,
-        }),
-        'https://myapp.com',
-      ).toString()
-
-      const oauthUrl =
-        `https://accounts.google.com/oauth/authorize?` +
-        `client_id=your-client-id&` +
-        `redirect_uri=${encodeURIComponent(callbackUrl)}&` +
-        `response_type=code&` +
-        `scope=openid%20profile%20email`
-
-      return { redirectUrl: oauthUrl }
-    },
-  })
+const oauthUrl =
+  `https://accounts.google.com/oauth/authorize?` +
+  `client_id=your-client-id&` +
+  `redirect_uri=${encodeURIComponent(callbackUrl)}&` +
+  `response_type=code&` +
+  `scope=openid%20profile%20email`
 ```
 
 </details>

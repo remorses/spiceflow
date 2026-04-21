@@ -55,7 +55,8 @@ export async function listenForNode(
       console.error('Error handling request:', error)
       if (res.destroyed || res.writableEnded) return
       res.statusCode = 500
-      res.end(JSON.stringify({ message: 'Internal Server Error' }))
+      const message = error instanceof Error ? error.message : 'Internal Server Error'
+      res.end(JSON.stringify({ message, ...(error instanceof Error && error.stack ? { stack: error.stack } : {}) }))
     }
   })
 
@@ -180,6 +181,7 @@ export async function handleForNode(
     console.error('Error handling request:', error)
     if (res.destroyed || res.writableEnded) return
     res.statusCode = 500
-    res.end(JSON.stringify({ message: 'Internal Server Error' }))
+    const message = error instanceof Error ? error.message : 'Internal Server Error'
+    res.end(JSON.stringify({ message, ...(error instanceof Error && error.stack ? { stack: error.stack } : {}) }))
   }
 }
