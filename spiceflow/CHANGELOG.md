@@ -1,5 +1,57 @@
 # spiceflow
 
+## 1.19.0-rsc.2
+
+1. **`parseFormData` for type-safe form validation** — `import { parseFormData } from 'spiceflow'` validates FormData against any Standard Schema (Zod, Valibot, ArkType) with automatic string→number/boolean coercion and `getAll()` support for array fields. Pair with `schema.keyof().enum` for type-safe input `name` attributes — typos become compile errors:
+
+   ```ts
+   import { parseFormData } from 'spiceflow'
+   import { z } from 'zod'
+
+   const subscribeSchema = z.object({ email: z.string().email() })
+
+   export async function subscribe(_: any, formData: FormData) {
+     const { email } = parseFormData(subscribeSchema, formData)
+     // email is typed as string, invalid fields throw ValidationError
+   }
+   ```
+
+2. **`SpiceflowRegister` type registry** — add a single `declare module` at the bottom of your app entry and all typed APIs (`router`, `useLoaderData`, `useRouterState`, `createSpiceflowFetch`) work without generics. No more `<typeof app>` everywhere:
+
+   ```ts
+   import { Spiceflow } from 'spiceflow'
+
+   const app = new Spiceflow().page('/', () => <Home />)
+
+   declare module 'spiceflow/react' {
+     interface SpiceflowRegister { app: typeof app }
+   }
+   ```
+
+   Without the declare module, `router` and `useLoaderData()` fall back to accepting any path — zero breaking change, opt-in type safety.
+
+3. **`router` direct import** — `import { router } from 'spiceflow/react'` is now the primary API for type-safe navigation and URL building. `getRouter()` is deprecated in favor of the direct import:
+
+   ```ts
+   import { router } from 'spiceflow/react'
+
+   router.push('/dashboard')
+   router.href('/users/:id', { id: '42' })
+   ```
+
+4. **Absolute URLs in `router.push()`, `router.replace()`, and `Link`** — cross-origin URLs trigger full page navigation (`window.location.assign`), same-origin absolute URLs extract the pathname and continue with normal SPA navigation preserving client state:
+
+   ```ts
+   router.push('https://external.com/path') // full navigation
+   router.push('https://same-origin.com/path') // SPA navigation
+   ```
+
+   `Link` detects external hrefs and lets the browser handle them natively.
+
+5. **Synthetic `hashchange` on pushState navigations** — hash-only navigations now dispatch a real `HashChangeEvent` on the window, making TOC trackers, analytics, and scroll-to-hash libraries work correctly with client-side navigation.
+
+6. **Fixed `useId()` hydration mismatch in production builds** — removed orphaned `PayloadCommitListener` from SSR tree that caused structural mismatch between server and client renders, fixing `useId()` output divergence in production.
+
 ## 1.19.0-rsc.1
 
 1. **Type-safe `json()` helper with phantom brands** — `import { json } from 'spiceflow'` wraps `Response.json()` with TypedResponse phantom types so the fetch client gets full type safety for each status code. Use `throw json({ error: 'Not found' }, { status: 404 })` instead of raw `Response.json()`:
