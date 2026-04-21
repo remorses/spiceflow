@@ -696,7 +696,7 @@ const greeting = await safeFetch('/hello')
 if (greeting instanceof Error) throw greeting
 ```
 
-For path matching patterns, error handling, server-side fetch, type-safe RPC, and path building (`href` / `createHref`), see [Fetch Client docs](docs/fetch-client.md).
+For path matching patterns, error handling, server-side fetch, and type-safe RPC, see [Fetch Client docs](docs/fetch-client.md).
 
 ## OpenAPI
 
@@ -1816,10 +1816,6 @@ const state = useRouterState()           // ✅ typed router state
 // spiceflow/client exports
 import { createSpiceflowFetch } from 'spiceflow/client'
 const f = createSpiceflowFetch('http://localhost:3000') // ✅ typed fetch
-
-// spiceflow exports
-import { createHref } from 'spiceflow'
-const href = createHref()                // ✅ typed path builder
 ```
 
 Without the `declare module`, all APIs still work at runtime — they just accept any path without compile-time validation.
