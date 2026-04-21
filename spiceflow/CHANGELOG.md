@@ -1,5 +1,15 @@
 # spiceflow
 
+## 1.19.0-rsc.3
+
+1. **Type-safe `href` on `<Link>` via SpiceflowRegister** — when the app type is registered, `Link` autocompletes route paths and requires `params` for dynamic segments like `/users/:id`. Without registration, `href` stays `string` for full backwards compatibility:
+
+   ```tsx
+   <Link href="/users/:id" params={{ id: '42' }} />
+   ```
+
+2. **Client-safe export for bundler environments** — the `.` export now resolves to a lightweight client-safe subset when bundled in browser or SSR environments, preventing `import.meta.viteRsc.loadCss` from triggering Vite RSC rolldown assertions in non-RSC builds (e.g. Cloudflare with child environments)
+
 ## 1.19.0-rsc.2
 
 1. **`parseFormData` for type-safe form validation** — `import { parseFormData } from 'spiceflow'` validates FormData against any Standard Schema (Zod, Valibot, ArkType) with automatic string→number/boolean coercion and `getAll()` support for array fields. Pair with `schema.keyof().enum` for type-safe input `name` attributes — typos become compile errors:
