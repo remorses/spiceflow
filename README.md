@@ -1818,7 +1818,7 @@ import { createSpiceflowFetch } from 'spiceflow/client'
 const f = createSpiceflowFetch('http://localhost:3000') // ✅ typed fetch
 ```
 
-Without the `declare module`, all APIs still work at runtime — they just accept any path without compile-time validation.
+Without the `declare module`, all APIs still work at runtime — they just accept any path without compile-time validation. See [docs/type-safety.md](docs/type-safety.md) for details on how the register pattern works inside inline handlers, autocomplete behavior, and multi-app workspaces.
 
 ### Server Actions
 

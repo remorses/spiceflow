@@ -315,6 +315,13 @@ export default function spiceflow({
           // Disable Vite's built-in SPA fallback middleware so it doesn't
           // intercept unmatched paths with a 200 before our middleware runs.
           appType: 'custom' as const,
+          // Default to IPv4 loopback to prevent two Vite servers silently
+          // sharing the same port on different IP families (IPv4 vs IPv6).
+          // macOS allows binding to 127.0.0.1 and ::1 on the same port
+          // without EADDRINUSE, so pinning to IPv4 makes collisions visible.
+          server: {
+            host: userConfig.server?.host ?? '127.0.0.1',
+          },
           // Replace process.env.NODE_ENV at build time so React uses its production
           // bundle. Without this, the built output contains runtime checks like
           // `"production" !== process.env.NODE_ENV` that always evaluate to the dev
