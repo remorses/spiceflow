@@ -1880,18 +1880,25 @@ export async function submitForm(formData: FormData) {
 
 On the client, `getActionAbortController()` returns the `AbortController` for the most recent in-flight call to a server action, or `undefined` if nothing is in-flight. Call `.abort()` to cancel the fetch.
 
-Server actions include CSRF protection — the `Origin` header of POST requests is checked against the app's origin. This check is **disabled in development** (when running via `vite dev`) so tunnels and proxies don't cause issues. In production, when using a reverse proxy, tunnel, or custom domain that changes the origin, server actions return `403 Forbidden: origin mismatch`. Use `allowedActionOrigins` to allow additional origins:
+Server actions include CSRF protection. The `Origin` header of POST requests is checked against the app's origin. This check is **disabled in development** (when `vite dev` is running) so tunnels and proxies work without issues. In production, the origin check works automatically on any hosting platform (Cloudflare Workers, Node.js, Vercel, etc.) because the browser's `Origin` header matches the server's URL.
+
+<details>
+<summary>allowedActionOrigins (rare, only for reverse proxies)</summary>
+
+If you use a reverse proxy that rewrites the request URL before it reaches your app (so `request.url` differs from the browser's origin), server actions return `403 Forbidden: origin mismatch`. Use `allowedActionOrigins` to allow additional origins:
 
 ```tsx
 const app = new Spiceflow({
   allowedActionOrigins: [
     'https://my-app.example.com',
-    /\.my-tunnel\.dev$/,
+    /\.my-proxy\.dev$/,
   ],
 })
 ```
 
-Each entry can be an exact origin string or a `RegExp` tested against the request's `Origin` header.
+Each entry can be an exact origin string or a `RegExp` tested against the request's `Origin` header. You do **not** need this on Cloudflare Workers, Vercel, Fly.io, or any platform where the request URL already matches your domain.
+
+</details>
 
 ### Streaming UI from Server Actions
 

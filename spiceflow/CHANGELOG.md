@@ -1,5 +1,23 @@
 # spiceflow
 
+## 1.19.0-rsc.4
+
+1. **`serverTiming: true` for Chrome DevTools** — add `serverTiming: true` alongside `tracer` to expose request spans as a `Server-Timing` response header. Includes built-in framework spans (middleware, handlers, loaders) and custom spans from `context.tracer.startActiveSpan()`, with nested paths like `GET /users/:id > handler - /users/:id > db.query` so slow queries are visible directly in the browser:
+
+   ```ts
+   import { trace } from '@opentelemetry/api'
+
+   export const app = new Spiceflow({
+     tracer: trace.getTracer('my-app'),
+     serverTiming: true,
+   }).get('/api/users/:id', ({ params, tracer }) => {
+     return tracer.startActiveSpan('db.query', (span) => {
+       span.end()
+       return { id: params.id, name: 'Alice' }
+     })
+   })
+   ```
+
 ## 1.19.0-rsc.3
 
 1. **Type-safe `href` on `<Link>` via SpiceflowRegister** — when the app type is registered, `Link` autocompletes route paths and requires `params` for dynamic segments like `/users/:id`. Without registration, `href` stays `string` for full backwards compatibility:
