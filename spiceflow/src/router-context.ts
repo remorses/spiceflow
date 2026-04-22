@@ -12,6 +12,7 @@ export type RouterLocation = {
 export type RouterContextData = {
   location: RouterLocation
   loaderData: Record<string, unknown>
+  serverTimingStack?: unknown[]
 }
 
 export const routerContextStorage = new AsyncLocalStorage<RouterContextData>()

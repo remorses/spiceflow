@@ -103,6 +103,12 @@ function serializeSpans(spans: TestSpan[]) {
   }))
 }
 
+function getServerTimingDescriptions(header: string | null) {
+  if (!header) return []
+
+  return Array.from(header.matchAll(/desc="([^"]+)"/g), (match) => match[1]!)
+}
+
 describe('instrumentation', () => {
   test('no spans when tracer is not set', async () => {
     const app = new Spiceflow().get('/hello', () => 'world')
@@ -551,5 +557,39 @@ describe('instrumentation', () => {
       received = span
     })
     expect(received).toBe(noopSpan)
+  })
+
+  test('server timing emits nested descriptions for built-in and custom spans', async () => {
+    const { tracer } = createTestTracer()
+    const app = new Spiceflow({ tracer, serverTiming: true }).get(
+      '/users/:id',
+      ({ tracer }) => {
+        return tracer.startActiveSpan('db.query', (dbSpan) => {
+          dbSpan.end()
+          return { ok: true }
+        })
+      },
+    )
+
+    const res = await app.handle(new Request('http://localhost/users/1'))
+
+    expect(res.status).toBe(200)
+    expect(getServerTimingDescriptions(res.headers.get('server-timing')))
+      .toMatchInlineSnapshot(`
+      [
+        "GET /users/:id",
+        "GET /users/:id > handler - /users/:id",
+        "GET /users/:id > handler - /users/:id > db.query",
+      ]
+    `)
+  })
+
+  test('server timing is omitted when disabled', async () => {
+    const { tracer } = createTestTracer()
+    const app = new Spiceflow({ tracer }).get('/hello', () => 'world')
+
+    const res = await app.handle(new Request('http://localhost/hello'))
+
+    expect(res.headers.get('server-timing')).toBeNull()
   })
 })
