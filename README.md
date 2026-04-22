@@ -813,7 +813,7 @@ The `preventProcessExitIfBusy` middleware prevents platforms like Fly.io from ki
 
 ## Tracing (OpenTelemetry)
 
-Spiceflow has built-in OpenTelemetry tracing. Pass a `tracer` to the constructor and every request gets automatic spans for middleware, handlers, loaders, layouts, pages, and RSC serialization. Set `serverTiming: true` too if you want those spans exposed as a `Server-Timing` response header in Chrome DevTools, with nested descriptions like `GET /users/:id > handler - /users/:id > db.query`. Zero overhead when disabled. Handlers can also read `traceId` and `spanId` from `span.spanContext?.()` when the tracer supports it. See [Tracing docs](docs/tracing.md) for setup, span trees, custom spans, and examples.
+Spiceflow has built-in OpenTelemetry tracing. Pass a `tracer` to the constructor and every request gets automatic spans for middleware, handlers, loaders, layouts, pages, and RSC serialization. Set `serverTiming: true` too if you want those spans exposed as a `Server-Timing` response header in Chrome DevTools, with nested descriptions like `handler - /users/:id > db.query`. Zero overhead when disabled. Handlers can also read `traceId` and `spanId` from `span.spanContext?.()` when the tracer supports it. See [Tracing docs](docs/tracing.md) for setup, span trees, custom spans, and examples.
 
 ## React Framework (RSC)
 

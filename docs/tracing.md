@@ -87,12 +87,12 @@ Each span includes standard HTTP attributes (`http.request.method`, `http.route`
 
 Set `serverTiming: true` together with `tracer` to emit a `Server-Timing` response header on every request. This makes slow work visible in Chrome DevTools without setting up a trace backend first.
 
-Spiceflow keeps the browser format flat, because `Server-Timing` is flat, but the `desc` value preserves the nested path with ` > `:
+Spiceflow keeps the browser format flat, because `Server-Timing` is flat, but the `desc` value preserves the nested path with ` > `. Child items omit the repeated root request prefix so the list stays easy to scan:
 
 ```http
 Server-Timing: get-users-id;dur=42.1;desc="GET /users/:id"
-Server-Timing: get-users-id-handler-users-id;dur=40.3;desc="GET /users/:id > handler - /users/:id"
-Server-Timing: get-users-id-handler-users-id-db.query;dur=31.8;desc="GET /users/:id > handler - /users/:id > db.query"
+Server-Timing: handler-users-id;dur=40.3;desc="handler - /users/:id"
+Server-Timing: handler-users-id-db.query;dur=31.8;desc="handler - /users/:id > db.query"
 ```
 
 Built-in spans and custom spans created with `context.tracer.startActiveSpan()` are both included. This is useful for debugging slow database queries, cache lookups, or external API calls directly in the browser.

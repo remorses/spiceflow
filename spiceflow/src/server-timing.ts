@@ -51,6 +51,10 @@ function getServerTimingDescription(metric: ServerTimingMetric) {
     current = current.parent
   }
 
+  if (names.length > 1) {
+    names.shift()
+  }
+
   return names.join(' > ')
 }
 

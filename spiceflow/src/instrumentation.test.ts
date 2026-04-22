@@ -578,8 +578,8 @@ describe('instrumentation', () => {
       .toMatchInlineSnapshot(`
       [
         "GET /users/:id",
-        "GET /users/:id > handler - /users/:id",
-        "GET /users/:id > handler - /users/:id > db.query",
+        "handler - /users/:id",
+        "handler - /users/:id > db.query",
       ]
     `)
   })
