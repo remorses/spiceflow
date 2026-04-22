@@ -686,7 +686,43 @@ for await (const chunk of stream) {
 
 The fetch client returns `Error | Data` directly following the [errore](https://errore.org) convention — use `instanceof Error` to check for errors with Go-style early returns, then the happy path continues with the narrowed data type. No `{ data, error }` destructuring, no null checks. On error, the returned `SpiceflowFetchError` has `status`, `value` (the parsed error body), and `response` (the raw Response object) properties.
 
-The fetch client supports configuration options like headers, retries, onRequest/onResponse hooks, and custom fetch.
+You can set **headers** both globally (on the client) and per request:
+
+```ts
+// Global headers — sent with every request
+const safeFetch = createSpiceflowFetch('http://localhost:3000', {
+  headers: {
+    Authorization: 'Bearer my-token',
+  },
+})
+
+// Per-request headers — merged with global headers
+const result = await safeFetch('/users', {
+  headers: { 'X-Request-Id': '123' },
+})
+
+// Dynamic global headers with a function
+const safeFetch2 = createSpiceflowFetch('http://localhost:3000', {
+  headers: (path, options) => ({
+    Authorization: `Bearer ${getToken()}`,
+  }),
+})
+```
+
+The client also supports **onRequest/onResponse hooks**, **retries**, and a **custom fetch** function:
+
+```ts
+const safeFetch = createSpiceflowFetch('http://localhost:3000', {
+  retries: 3,
+  onRequest: (path, options) => {
+    console.log(`→ ${options.method} ${path}`)
+    return options
+  },
+  onResponse: (response) => {
+    console.log(`← ${response.status}`)
+  },
+})
+```
 
 You can also pass a Spiceflow app instance directly for server-side usage without network requests:
 
@@ -696,7 +732,7 @@ const greeting = await safeFetch('/hello')
 if (greeting instanceof Error) throw greeting
 ```
 
-For path matching patterns, error handling, server-side fetch, and type-safe RPC, see [Fetch Client docs](docs/fetch-client.md).
+For path matching patterns, error handling, server-side fetch, type-safe RPC, and path building, see **[Fetch Client (Advanced)](docs/fetch-client.md)**.
 
 ## OpenAPI
 
