@@ -1,5 +1,19 @@
 # spiceflow
 
+## 1.19.0-rsc.6
+
+1. **Vercel `waitUntil` auto-detection** — Spiceflow now auto-detects Vercel's request context (`globalThis[Symbol.for('@vercel/request-context')]`) for `waitUntil`, forwarding background work to the Vercel execution context automatically. No configuration needed on Vercel deployments.
+
+2. **Graceful shutdown tracks `waitUntil` promises** — `preventProcessExitIfBusy` middleware now waits for pending `waitUntil` promises before exiting, not just in-flight requests. Prevents background work from being dropped during shutdown:
+
+   ```ts
+   import { preventProcessExitIfBusy } from 'spiceflow'
+
+   app.use(preventProcessExitIfBusy({ maxWaitSeconds: 60 }))
+   ```
+
+3. **Type-safe `redirect()` with `SpiceflowRegister`** — when the app type is registered, the exported `redirect()` helper validates route literals and requires `params` for parameterized paths like `` redirect('/users/:id', { params: { id: '42' } }) ``. Handler context `redirect` stays broadly typed to avoid circular app type inference.
+
 ## 1.19.0-rsc.5
 
 1. **Automatic `waitUntil` on Cloudflare Workers** — Spiceflow now auto-detects `waitUntil` from `cloudflare:workers` via a conditional package.json import map (`#wait-until`). No need to pass `waitUntil` in the constructor; background work scheduled via `context.waitUntil()` is forwarded to the Cloudflare execution context automatically. On Node.js and Bun, the default runs promises in the background with safe rejection handling so they don't crash the process.
