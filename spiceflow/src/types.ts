@@ -1061,6 +1061,17 @@ type PatternToResolved<Path extends string> =
 // Accepts both pattern paths ("/orgs/:orgId/*") and resolved paths ("/orgs/abc/projects")
 export type AllHrefPaths<Paths extends string> = Paths | PatternToResolved<Paths>
 
+export type MatchingPathPattern<
+  Paths extends string,
+  Path extends AllHrefPaths<Paths>,
+> = Path extends Paths
+  ? Extract<Paths, Path>
+  : Paths extends any
+    ? Path extends PatternToResolved<Paths>
+      ? Paths
+      : never
+    : never
+
 type MergeParamsAndQuery<P, Q> = [P] extends [undefined]
   ? Partial<Q>
   : P & Omit<Partial<Q>, keyof P>

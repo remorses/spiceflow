@@ -1,7 +1,12 @@
 // Type-safe fetch-like client for Spiceflow. Uses a familiar fetch(path, options)
 // interface instead of the proxy-based chainable API.
 import type { AnySpiceflow, Spiceflow } from '../spiceflow.ts'
-import type { ExtractParamsFromPath, IsAny } from '../types.ts'
+import type {
+  AllHrefPaths,
+  ExtractParamsFromPath,
+  IsAny,
+  MatchingPathPattern,
+} from '../types.ts'
 import type { RegisteredApp } from '../react/router.js'
 
 import type { SpiceflowClient } from './types.ts'
@@ -70,6 +75,8 @@ type AppClientPaths<App extends AnySpiceflow> = App extends {
     : FlattenClientRoutes<Routes>
   : string
 
+type AppClientFetchPaths<App extends AnySpiceflow> = AllHrefPaths<AppClientPaths<App>>
+
 // Navigate the nested ClientRoutes tree given a path string.
 // Reverses what CreateClient does: `/users/:id` → Routes['users'][':id']
 type NavigateRoutes<Routes, Path extends string> = Path extends `/${infer Rest}`
@@ -96,22 +103,22 @@ type RouteAtPath<
   Path extends string,
 > = NavigateRoutes<Routes, Path>
 
-type MethodsAtPath<
+type RouteAtFetchPath<
   Routes extends Record<string, any>,
-  Path extends string,
-> = Extract<keyof RouteAtPath<Routes, Path>, HttpMethodLower>
-
-type AllowedMethod<Routes extends Record<string, any>, Path extends string> =
-  | Uppercase<MethodsAtPath<Routes, Path>>
-  | MethodsAtPath<Routes, Path>
+  Paths extends string,
+  Path extends AllHrefPaths<Paths>,
+> = MatchingPathPattern<Paths, Path> extends infer Pattern extends string
+  ? RouteAtPath<Routes, Pattern>
+  : never
 
 type RouteInfoForMethod<
   Routes extends Record<string, any>,
-  Path extends string,
+  Paths extends string,
+  Path extends AllHrefPaths<Paths>,
   Method extends string,
 > =
-  Lowercase<Method> extends keyof RouteAtPath<Routes, Path>
-    ? RouteAtPath<Routes, Path>[Lowercase<Method>]
+  Lowercase<Method> extends keyof RouteAtFetchPath<Routes, Paths, Path>
+    ? RouteAtFetchPath<Routes, Paths, Path>[Lowercase<Method>]
     : never
 
 // ─── Options type ────────────────────────────────────────────────────────────
@@ -125,10 +132,11 @@ type ParamsOption<Path extends string> =
 // Query option: typed from route schema if available
 type QueryOption<
   Routes extends Record<string, any>,
-  Path extends string,
+  Paths extends string,
+  Path extends AllHrefPaths<Paths>,
   Method extends string,
 > =
-  RouteInfoForMethod<Routes, Path, Method> extends {
+  RouteInfoForMethod<Routes, Paths, Path, Method> extends {
     query: infer Q
   }
     ? undefined extends Q
@@ -139,12 +147,13 @@ type QueryOption<
 // Body option: typed from route schema, only for non-GET/HEAD/SUBSCRIBE methods
 type BodyOption<
   Routes extends Record<string, any>,
-  Path extends string,
+  Paths extends string,
+  Path extends AllHrefPaths<Paths>,
   Method extends string,
 > =
   Lowercase<Method> extends 'get' | 'head' | 'subscribe'
     ? {}
-    : RouteInfoForMethod<Routes, Path, Method> extends {
+    : RouteInfoForMethod<Routes, Paths, Path, Method> extends {
           request: infer Body
         }
       ? undefined extends Body
@@ -155,18 +164,19 @@ type BodyOption<
 // Check if options has any required fields
 type HasRequiredFields<
   Routes extends Record<string, any>,
-  Path extends string,
+  Paths extends string,
+  Path extends AllHrefPaths<Paths>,
   Method extends string,
 > =
   // params required?
   ExtractParamsFromPath<Path> extends undefined
     ? // query required?
-      RouteInfoForMethod<Routes, Path, Method> extends { query: infer Q }
+      RouteInfoForMethod<Routes, Paths, Path, Method> extends { query: infer Q }
       ? undefined extends Q
         ? // body required?
           Lowercase<Method> extends 'get' | 'head' | 'subscribe'
           ? false
-          : RouteInfoForMethod<Routes, Path, Method> extends {
+          : RouteInfoForMethod<Routes, Paths, Path, Method> extends {
                 request: infer Body
               }
             ? undefined extends Body
@@ -177,7 +187,7 @@ type HasRequiredFields<
       : // body required?
         Lowercase<Method> extends 'get' | 'head' | 'subscribe'
         ? false
-        : RouteInfoForMethod<Routes, Path, Method> extends {
+        : RouteInfoForMethod<Routes, Paths, Path, Method> extends {
               request: infer Body
             }
           ? undefined extends Body
@@ -188,15 +198,16 @@ type HasRequiredFields<
 
 type FetchOptionsTyped<
   Routes extends Record<string, any>,
-  Path extends string,
+  Paths extends string,
+  Path extends AllHrefPaths<Paths>,
   Method extends string,
 > = {
   method?: Method
   headers?: RequestInit['headers']
   signal?: AbortSignal
 } & ParamsOption<Path> &
-  QueryOption<Routes, Path, Method> &
-  BodyOption<Routes, Path, Method>
+  QueryOption<Routes, Paths, Path, Method> &
+  BodyOption<Routes, Paths, Path, Method>
 
 type FetchOptionsFallback = {
   method?: string
@@ -210,21 +221,23 @@ type FetchOptionsFallback = {
 
 type FetchOptions<
   Routes extends Record<string, any>,
-  Path extends string,
+  Paths extends string,
+  Path extends AllHrefPaths<Paths>,
   Method extends string,
-> = [RouteAtPath<Routes, Path>] extends [never]
+> = [RouteAtFetchPath<Routes, Paths, Path>] extends [never]
   ? FetchOptionsFallback
-  : FetchOptionsTyped<Routes, Path, Method>
+  : FetchOptionsTyped<Routes, Paths, Path, Method>
 
 // ─── Response type ───────────────────────────────────────────────────────────
 
 type FetchResultData<
   Routes extends Record<string, any>,
-  Path extends string,
+  Paths extends string,
+  Path extends AllHrefPaths<Paths>,
   Method extends string,
-> = [RouteAtPath<Routes, Path>] extends [never]
+> = [RouteAtFetchPath<Routes, Paths, Path>] extends [never]
   ? any
-  : RouteInfoForMethod<Routes, Path, Method> extends {
+  : RouteInfoForMethod<Routes, Paths, Path, Method> extends {
         response: infer Res extends Record<number, unknown>
       }
     ? ReplaceGeneratorWithAsyncGenerator<Res>[200]
@@ -232,11 +245,12 @@ type FetchResultData<
 
 type FetchResultError<
   Routes extends Record<string, any>,
-  Path extends string,
+  Paths extends string,
+  Path extends AllHrefPaths<Paths>,
   Method extends string,
-> = [RouteAtPath<Routes, Path>] extends [never]
+> = [RouteAtFetchPath<Routes, Paths, Path>] extends [never]
   ? SpiceflowFetchError<number, any>
-  : RouteInfoForMethod<Routes, Path, Method> extends {
+  : RouteInfoForMethod<Routes, Paths, Path, Method> extends {
         response: infer Res extends Record<number, unknown>
       }
     ? Exclude<keyof Res, 200> extends never
@@ -248,11 +262,12 @@ type FetchResultError<
 
 type FetchResult<
   Routes extends Record<string, any>,
-  Path extends string,
+  Paths extends string,
+  Path extends AllHrefPaths<Paths>,
   Method extends string,
 > =
-  | FetchResultError<Routes, Path, Method>
-  | FetchResultData<Routes, Path, Method>
+  | FetchResultError<Routes, Paths, Path, Method>
+  | FetchResultData<Routes, Paths, Path, Method>
 
 // ─── Public type ─────────────────────────────────────────────────────────────
 
@@ -260,47 +275,47 @@ type FetchResult<
 // Returns the appropriate options type, or FetchOptionsFallback for unknown paths.
 type ResolveOptions<
   App extends AnySpiceflow,
-  Path extends string,
+  Path extends AppClientFetchPaths<App>,
   Method extends string,
 > = App extends {
   _types: { ClientRoutes: infer Routes extends Record<string, any> }
 }
   ? IsAny<Routes> extends true
     ? FetchOptionsFallback
-    : FetchOptions<Routes, Path, Method>
+    : FetchOptions<Routes, AppClientPaths<App>, Path, Method>
   : FetchOptionsFallback
 
 // Resolves the result type for a given App/Path/Method combination.
 type ResolveResult<
   App extends AnySpiceflow,
-  Path extends string,
+  Path extends AppClientFetchPaths<App>,
   Method extends string,
 > = App extends {
   _types: { ClientRoutes: infer Routes extends Record<string, any> }
 }
   ? IsAny<Routes> extends true
     ? SpiceflowFetchError<number, any> | any
-    : FetchResult<Routes, Path, Method>
+    : FetchResult<Routes, AppClientPaths<App>, Path, Method>
   : SpiceflowFetchError<number, any> | any
 
 // Check if options are required for a given App/Path/Method
 type IsOptionsRequired<
   App extends AnySpiceflow,
-  Path extends string,
+  Path extends AppClientFetchPaths<App>,
   Method extends string,
 > = App extends {
   _types: { ClientRoutes: infer Routes extends Record<string, any> }
 }
   ? IsAny<Routes> extends true
     ? false
-    : [RouteAtPath<Routes, Path>] extends [never]
+    : [RouteAtFetchPath<Routes, AppClientPaths<App>, Path>] extends [never]
       ? false
-      : HasRequiredFields<Routes, Path, Method>
+      : HasRequiredFields<Routes, AppClientPaths<App>, Path, Method>
   : false
 
 export interface SpiceflowFetch<App extends AnySpiceflow> {
   // Overload: options required when route demands params/query/body
-  <const Path extends AppClientPaths<App>, const Method extends string = 'GET'>(
+  <const Path extends AppClientFetchPaths<App>, const Method extends string = 'GET'>(
     ...args: IsOptionsRequired<App, Path, Method> extends true
       ? [path: Path, options: ResolveOptions<App, Path, Method>]
       : [path: Path, options?: ResolveOptions<App, Path, Method>]
@@ -345,7 +360,7 @@ export function createSpiceflowFetch(
     throw new Error('State is only available when using a Spiceflow instance')
   }
 
-  const spiceflowFetch = async (
+  const spiceflowFetch: SpiceflowFetch<any> = async (
     path: string,
     options: any = {},
   ): Promise<any> => {
@@ -447,9 +462,9 @@ export function createSpiceflowFetch(
       delete fetchInit.body
     }
 
-    // Add x-spiceflow-agent header
-    ;(fetchInit.headers as Record<string, string>)['x-spiceflow-agent'] =
-      'spiceflow-client'
+    fetchInit.headers = processHeaders(fetchInit.headers, resolvedPath, fetchInit, {
+      'x-spiceflow-agent': 'spiceflow-client',
+    })
 
     // Apply onRequest hooks (second pass, after body serialization — matches proxy client behavior)
     if (onRequest) {
@@ -463,7 +478,7 @@ export function createSpiceflowFetch(
             headers: {
               ...fetchInit.headers,
               ...processHeaders(temp.headers, resolvedPath, fetchInit),
-            } as Record<string, string>,
+            },
           }
         }
       }
@@ -505,5 +520,5 @@ export function createSpiceflowFetch(
     return data
   }
 
-  return spiceflowFetch as any
+  return spiceflowFetch
 }
