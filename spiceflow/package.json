@@ -1,6 +1,6 @@
 {
   "name": "spiceflow",
-  "version": "1.19.0-rsc.4",
+  "version": "1.19.0-rsc.5",
   "description": "Simple API framework with RPC and type safety",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -44,6 +44,10 @@
       "ssr": "./dist/router-context.js",
       "react-server": "./dist/router-context.js",
       "default": "./dist/router-context.default.js"
+    },
+    "#wait-until": {
+      "workerd": "./dist/wait-until.workerd.js",
+      "default": "./dist/wait-until.js"
     },
     "#node-server": {
       "types": "./dist/_node-server.d.ts",

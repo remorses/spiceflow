@@ -86,6 +86,7 @@ import type { StandardSchemaV1 } from './standard-schema.js'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { handleForNode, listenForNode } from '#node-server'
 import { renderSsr } from '#handle-ssr'
+import { defaultWaitUntil } from '#wait-until'
 import {
   SpiceflowContext,
   MiddlewareContext,
@@ -514,12 +515,7 @@ export class Spiceflow<
     this.tracer = options.tracer
     this.serverTiming = options.serverTiming
 
-    // Set up waitUntil function - use provided one, global one, or noop
-    this.waitUntilFn =
-      options.waitUntil ||
-      (typeof globalThis !== 'undefined' && 'waitUntil' in globalThis
-        ? (globalThis as any).waitUntil
-        : () => {})
+    this.waitUntilFn = options.waitUntil || defaultWaitUntil
 
     this.basePath = options.basePath || ''
     if (this.basePath === '/') {

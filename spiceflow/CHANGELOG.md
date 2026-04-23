@@ -1,5 +1,13 @@
 # spiceflow
 
+## 1.19.0-rsc.5
+
+1. **Automatic `waitUntil` on Cloudflare Workers** — Spiceflow now auto-detects `waitUntil` from `cloudflare:workers` via a conditional package.json import map (`#wait-until`). No need to pass `waitUntil` in the constructor; background work scheduled via `context.waitUntil()` is forwarded to the Cloudflare execution context automatically. On Node.js and Bun, the default runs promises in the background with safe rejection handling so they don't crash the process.
+
+2. **Resolved path type inference in `createSpiceflowFetch()`** — typed fetch calls now accept interpolated route strings like `` `/users/${id}` `` while preserving route-specific request and response inference. Previously only pattern-form paths like `/users/:id` were type-safe.
+
+3. **Shorter Server-Timing descriptions in Chrome DevTools** — child spans no longer repeat the root request prefix on every row, making the waterfall easier to scan.
+
 ## 1.19.0-rsc.4
 
 1. **`serverTiming: true` for Chrome DevTools** — add `serverTiming: true` alongside `tracer` to expose request spans as a `Server-Timing` response header. Includes built-in framework spans (middleware, handlers, loaders) and custom spans from `context.tracer.startActiveSpan()`, with nested paths like `GET /users/:id > handler - /users/:id > db.query` so slow queries are visible directly in the browser:
