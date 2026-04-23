@@ -2,7 +2,7 @@
 
 import React from 'react'
 import type { AnySpiceflow } from '../spiceflow.js'
-import type { AllHrefPaths, ExtractParamsFromPath } from '../types.js'
+import type { AllHrefPaths, PathParamsProp } from '../types.js'
 import { getBasePath } from '../base-path.js'
 import { buildHref } from './loader-utils.js'
 import { type RegisteredApp, type RouterPaths, router } from './router.js'
@@ -26,14 +26,6 @@ function withBase(href: string | undefined): string | undefined {
   return base + href
 }
 
-// When path has :param segments, require a params prop. Otherwise optional.
-type LinkParamsProps<
-  Paths extends string,
-  Path extends AllHrefPaths<Paths>,
-> = [ExtractParamsFromPath<Path>] extends [undefined]
-  ? { params?: Record<string, string | number | boolean> }
-  : { params: ExtractParamsFromPath<Path> }
-
 export type LinkProps<
   App extends AnySpiceflow = RegisteredApp,
   Paths extends string = RouterPaths<App>,
@@ -41,14 +33,14 @@ export type LinkProps<
 > = Omit<React.ComponentPropsWithRef<'a'>, 'href'> & {
   rawHref?: boolean
   href?: Path
-} & LinkParamsProps<Paths, Path>
+} & PathParamsProp<Path>
 
 export function Link<
   App extends AnySpiceflow = RegisteredApp,
   Paths extends string = RouterPaths<App>,
   const Path extends AllHrefPaths<Paths> = AllHrefPaths<Paths>,
 >(props: LinkProps<App, Paths, Path>) {
-  const { rawHref, params, href: hrefProp, ...rest } = props as LinkProps & { params?: Record<string, any> }
+  const { rawHref, params, href: hrefProp, ...rest } = props
   const resolved = params && hrefProp ? buildHref(hrefProp, params) : hrefProp
   const href = rawHref ? resolved : withBase(resolved)
 

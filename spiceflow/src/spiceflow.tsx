@@ -15,10 +15,8 @@ import {
   CreateClient,
   DefinitionBase,
   ErrorHandler,
-  AllHrefPaths,
-  ExtractParamsFromPath,
-  HrefArgs,
   GetRequestSchema,
+  HrefBuilder,
   HTTPMethod,
   ValidationFunction,
   InlineHandler,
@@ -2944,14 +2942,8 @@ export class Spiceflow<
       },
     )
   }
-  href<
-    const Path extends AllHrefPaths<RoutePaths>,
-    const Params extends ExtractParamsFromPath<Path>,
-  >(
-    path: Path,
-    ...rest: HrefArgs<RoutePaths, RouteQuerySchemas, Path, Params>
-  ): string {
-    return buildHref(path, rest[0] as Record<string, any> | undefined)
+  href: HrefBuilder<RoutePaths, RouteQuerySchemas> = (path, ...rest) => {
+    return buildHref(path, rest[0])
   }
 }
 
@@ -2967,19 +2959,14 @@ export class Spiceflow<
  */
 export function createHref<
   T extends { _types: { RoutePaths: string; RouteQuerySchemas: object } } = RegisteredApp,
->(_app?: T) {
+>(_app?: T): HrefBuilder<T['_types']['RoutePaths'], T['_types']['RouteQuerySchemas']> {
   type Paths = T['_types']['RoutePaths']
   type QS = T['_types']['RouteQuerySchemas']
-  return <
-    const Path extends AllHrefPaths<Paths>,
-    const Params extends
-      ExtractParamsFromPath<Path> = ExtractParamsFromPath<Path>,
-  >(
-    path: Path,
-    ...rest: HrefArgs<Paths, QS, Path, Params>
-  ): string => {
-    return buildHref(path, rest[0] as Record<string, any> | undefined)
+  const href: HrefBuilder<Paths, QS> = (path, ...rest) => {
+    return buildHref(path, rest[0])
   }
+
+  return href
 }
 
 const METHODS = [

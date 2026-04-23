@@ -1,4 +1,4 @@
-import type { StatusMap, InvertedStatusMap, Redirect } from './utils.js'
+import type { StatusMap, InvertedStatusMap } from './utils.js'
 
 import type {
   RouteSchema,
@@ -11,6 +11,17 @@ import type {
 
 import { SpiceflowRequest, WaitUntil } from './spiceflow.js'
 import type { SpiceflowSpan, SpiceflowTracer } from './instrumentation.js'
+
+// Keep handler-context redirect broad. If this points at the globally typed
+// redirect export, app inference becomes circular through SpiceflowRegister.
+type Redirect = (
+  location: string,
+  options?: {
+    status?: number
+    headers?: Record<string, string>
+    params?: Record<string, string | number | boolean>
+  },
+) => Response
 
 // Mutable response object passed to page, layout, and API handlers via
 // context.response. Unlike the Web Response class (whose status is readonly),
