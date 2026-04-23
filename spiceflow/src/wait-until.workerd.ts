@@ -4,3 +4,8 @@
 import { waitUntil } from 'cloudflare:workers'
 
 export const defaultWaitUntil: (promise: Promise<any>) => void = waitUntil
+
+// Cloudflare tracks pending promises internally, so always 0 here.
+export function pendingWaitUntilCount(): number {
+  return 0
+}

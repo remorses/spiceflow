@@ -1,7 +1,33 @@
 import { describe, test, expect, vi } from 'vitest'
 import { Spiceflow } from './spiceflow.js'
+import { pendingWaitUntilCount } from '#wait-until'
 
 describe('waitUntil', () => {
+  test('default waitUntil tracks pending promises', async () => {
+    let resolve!: () => void
+    const slow = new Promise<void>((r) => {
+      resolve = r
+    })
+
+    const app = new Spiceflow().route({
+      method: 'GET',
+      path: '/bg',
+      handler({ waitUntil }) {
+        waitUntil(slow)
+        return { ok: true }
+      },
+    })
+
+    const before = pendingWaitUntilCount()
+    await app.handle(new Request('http://localhost/bg'))
+
+    expect(pendingWaitUntilCount()).toBe(before + 1)
+    resolve()
+    // let microtasks flush
+    await new Promise((r) => setTimeout(r, 10))
+    expect(pendingWaitUntilCount()).toBe(before)
+  })
+
   test('waitUntil is available in handler context', async () => {
     let waitUntilCalled = false
     let waitUntilPromise: Promise<any> | null = null
