@@ -109,6 +109,32 @@ describe('waitUntil', () => {
     expect(mockWaitUntil).toHaveBeenCalledTimes(3)
   })
 
+  test('default waitUntil delegates to Vercel request context when present', async () => {
+    const mockVercelWaitUntil = vi.fn()
+    const VERCEL_CONTEXT = Symbol.for('@vercel/request-context')
+    const g = globalThis as any
+
+    // Simulate Vercel's ALS-backed request context
+    g[VERCEL_CONTEXT] = { get: () => ({ waitUntil: mockVercelWaitUntil }) }
+
+    try {
+      const app = new Spiceflow().route({
+        method: 'GET',
+        path: '/vercel',
+        handler({ waitUntil }) {
+          waitUntil(Promise.resolve('vercel bg'))
+          return { vercel: true }
+        },
+      })
+
+      const response = await app.handle(new Request('http://localhost/vercel'))
+      expect(await response.json()).toEqual({ vercel: true })
+      expect(mockVercelWaitUntil).toHaveBeenCalledTimes(1)
+    } finally {
+      delete g[VERCEL_CONTEXT]
+    }
+  })
+
   test('waitUntil works with middleware context', async () => {
     const mockWaitUntil = vi.fn()
 
