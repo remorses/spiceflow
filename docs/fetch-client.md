@@ -2,6 +2,58 @@
 
 Advanced fetch client patterns including headers, hooks, error handling, server-side usage, type-safe RPC, and path building. For basic usage see the [Fetch Client section in the README](../README.md#fetch-client).
 
+## Common Pitfalls
+
+**Never interpolate path params into the path string.** Use `:param` syntax with a `params` object. Interpolated template literals resolve to `string`, which breaks type inference on params, body, and response.
+
+```ts
+// GOOD: typed path, typed params, typed response
+const res = await safeFetch('/api/users/:id', {
+  params: { id: '123' },
+})
+
+// BAD: path is just `string`, response is unknown, body unchecked
+const res = await safeFetch(`/api/users/${id}`)
+```
+
+**All packages in a monorepo must use the exact same spiceflow version.** The `App` type carries private class properties from the `Spiceflow` class. If the CLI resolves spiceflow@1.19.0-rsc.3 but the server uses spiceflow@1.19.0-rsc.4, TypeScript sees two different class declarations and rejects the generic with `Types have separate declarations of a private property`.
+
+**Never `return new Response(...)` in route handlers.** A raw `Response` in the return type erases the body type. The fetch client sees `Response | { id, name }` and can't infer the typed object. Use `return json(...)` instead (preserves body type and status), or `throw` anything (`throw new Response(...)`, `throw json(...)`) since thrown values don't affect the return type.
+
+```ts
+// GOOD: return json() preserves the error body type
+handler() {
+  if (!user) return json({ error: 'not found' }, { status: 404 })
+  return { id: user.id, name: user.name }
+}
+
+// GOOD: throw anything is fine, doesn't pollute return type
+handler() {
+  if (!user) throw new Response('not found', { status: 404 })
+  return { id: user.id, name: user.name }
+}
+
+// BAD: return new Response erases the body type
+handler() {
+  if (!user) return new Response('not found', { status: 404 })
+  return { id: user.id, name: user.name }
+}
+```
+
+**Route handlers must return objects for the response to be typed.** If a handler returns `res.json()` (which is `Promise<any>`), the typed fetch client gets `any` for the response. Return plain objects instead.
+
+```ts
+// GOOD: return type is inferred as { id: string, name: string }
+handler() {
+  return { id: user.id, name: user.name }
+}
+
+// BAD: return type is any, fetch client loses response type
+handler() {
+  return externalApi.json()
+}
+```
+
 ## Headers
 
 Set headers globally on the client, per request, or dynamically with a function. Per-request headers are merged with global headers.
