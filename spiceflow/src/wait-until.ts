@@ -2,6 +2,8 @@
 // first (globalThis[Symbol.for('@vercel/request-context')]), then falls back
 // to local tracking. On Cloudflare the workerd condition resolves to the real
 // cloudflare:workers waitUntil instead.
+// Vercel pattern found in @vercel/functions wait-until.js and get-context.js:
+// https://npmx.dev/package-code/@vercel/functions/v/3.4.3/wait-until.js
 const VERCEL_CONTEXT = Symbol.for('@vercel/request-context')
 const pending = new Set<Promise<any>>()
 
