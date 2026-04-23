@@ -54,6 +54,154 @@ handler() {
 }
 ```
 
+<details>
+<summary>Detailed monorepo typed fetch guide</summary>
+
+The typed fetch client only feels good when the server app exposes a clean type boundary and the client calls it in the intended style. Most weird TypeScript failures come from one of four mistakes:
+
+1. importing the wrong app type
+2. interpolating params into the path string
+3. manually serializing the body
+4. ignoring the `Error | Data` return type
+
+### Basic setup
+
+```ts
+import { createSpiceflowFetch } from 'spiceflow/client'
+import type { App } from '@my-org/website/dist/src/app.d.ts'
+
+export const safeFetch = createSpiceflowFetch<App>('https://example.com', {
+  headers: {
+    Authorization: `Bearer ${token}`,
+  },
+})
+```
+
+### Good vs bad path usage
+
+Use the declared route pattern and pass params separately:
+
+```ts
+// GOOD
+const res = await safeFetch('/api/v0/orgs/:orgId/projects', {
+  params: { orgId: 'org_123' },
+})
+
+// BAD
+const res = await safeFetch(`/api/v0/orgs/${orgId}/projects`)
+```
+
+The bad version turns the path into a generic `string`, so TypeScript can no longer connect it to the route table.
+
+### POST bodies
+
+Pass `body` as a plain object. The client handles JSON serialization and headers.
+
+```ts
+// GOOD
+const res = await safeFetch('/api/v0/orgs/:orgId/projects', {
+  method: 'POST',
+  params: { orgId: 'org_123' },
+  body: { slug: 'frontend' },
+})
+
+// BAD
+const res = await safeFetch('/api/v0/orgs/:orgId/projects', {
+  method: 'POST',
+  params: { orgId: 'org_123' },
+  body: JSON.stringify({ slug: 'frontend' }),
+  headers: { 'Content-Type': 'application/json' },
+})
+```
+
+### Handling the response correctly
+
+The return type is always `Error | Data`.
+
+```ts
+const res = await safeFetch('/api/v0/projects/:projectId/query', {
+  method: 'POST',
+  params: { projectId: 'proj_123' },
+  body: { sql: 'SELECT 1' },
+})
+
+if (res instanceof Error) {
+  throw res
+}
+
+console.log(res.rows)
+console.log(res.data)
+```
+
+Do not skip the `instanceof Error` check.
+
+### Cross-workspace imports
+
+In a monorepo, prefer this pattern:
+
+```ts
+import type { App } from '@my-org/website/dist/src/app.d.ts'
+```
+
+Not this:
+
+```ts
+import type { App } from '@my-org/website/src/app.tsx'
+```
+
+Why:
+
+- `dist/*.d.ts` keeps the dependency boundary **type-only**
+- TypeScript does not crawl into unrelated runtime modules like CSS, `cloudflare:workers`, raw asset imports, or framework-specific globals
+- client packages stay easier to typecheck and easier to publish
+
+If the server package is private, keep it in the client package's `devDependencies` when possible.
+
+### Server-side requirements for good fetch inference
+
+These server handlers infer well:
+
+```ts
+import { Spiceflow, json } from 'spiceflow'
+
+export const app = new Spiceflow()
+  .get('/api/health', () => {
+    return { ok: true }
+  })
+  .route({
+    method: 'POST',
+    path: '/api/v0/projects/:projectId/query',
+    async handler() {
+      return { rows: 1, data: [{ value: 1 }] }
+    },
+  })
+  .get('/api/not-found', () => {
+    throw json({ error: 'not found' }, { status: 404 })
+  })
+```
+
+These lose useful inference:
+
+```ts
+// BAD
+return Response.json({ ok: true })
+
+// BAD
+return new Response('ok')
+```
+
+### Monorepo checklist
+
+When typed fetch gets weird, check these first:
+
+- server and client packages use the **same Spiceflow version**
+- client imports the app type from **built `dist/*.d.ts`**, not source
+- server package exports the `dist` path in `package.json`
+- server build actually emits declarations before client typecheck runs
+- client uses route patterns like `'/users/:id'` with `params`, never interpolated strings
+
+</details>
+
 ## Headers
 
 Set headers globally on the client, per request, or dynamically with a function. Per-request headers are merged with global headers.
