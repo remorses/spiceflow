@@ -15,10 +15,8 @@ import {
   CreateClient,
   DefinitionBase,
   ErrorHandler,
-  AllHrefPaths,
-  ExtractParamsFromPath,
-  HrefArgs,
   GetRequestSchema,
+  HrefBuilder,
   HTTPMethod,
   ValidationFunction,
   InlineHandler,
@@ -86,6 +84,7 @@ import type { StandardSchemaV1 } from './standard-schema.js'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { handleForNode, listenForNode } from '#node-server'
 import { renderSsr } from '#handle-ssr'
+import { defaultWaitUntil } from '#wait-until'
 import {
   SpiceflowContext,
   MiddlewareContext,
@@ -103,6 +102,10 @@ import {
   noopSpan,
   noopTracer,
 } from './instrumentation.js'
+import {
+  appendServerTimingHeader,
+  createRequestTracing,
+} from './server-timing.js'
 
 let globalIndex = 0
 
@@ -263,6 +266,7 @@ export class Spiceflow<
   private waitUntilFn: WaitUntil
   private disableSuperJsonUnlessRpc: boolean = true
   tracer?: SpiceflowTracer
+  serverTiming?: boolean
 
   _types = {
     Prefix: '' as BasePath,
@@ -500,19 +504,16 @@ export class Spiceflow<
       disableSuperJsonUnlessRpc?: boolean
       allowedActionOrigins?: (string | RegExp)[]
       tracer?: SpiceflowTracer
+      serverTiming?: boolean
     } = {},
   ) {
     this.scoped = options.scoped
     this.disableSuperJsonUnlessRpc = options.disableSuperJsonUnlessRpc ?? true
     this.allowedActionOrigins = options.allowedActionOrigins
     this.tracer = options.tracer
+    this.serverTiming = options.serverTiming
 
-    // Set up waitUntil function - use provided one, global one, or noop
-    this.waitUntilFn =
-      options.waitUntil ||
-      (typeof globalThis !== 'undefined' && 'waitUntil' in globalThis
-        ? (globalThis as any).waitUntil
-        : () => {})
+    this.waitUntilFn = options.waitUntil || defaultWaitUntil
 
     this.basePath = options.basePath || ''
     if (this.basePath === '/') {
@@ -1513,10 +1514,12 @@ export class Spiceflow<
     request,
     context,
     reactRoutes,
+    tracer,
   }: {
     request: Request
     context: SpiceflowContext<any, any, any>
     reactRoutes: ReactMatchedRoute[]
+    tracer?: SpiceflowTracer
   }) {
     const [pageRoutes, nonPageRoutes] = partition(
       reactRoutes,
@@ -1588,7 +1591,7 @@ export class Spiceflow<
             },
           }
           try {
-            if (!this.tracer) {
+            if (!tracer) {
               const data = await loader.route.handler.call(
                 loader.app,
                 loaderContext,
@@ -1612,7 +1615,7 @@ export class Spiceflow<
               }
             }
             return await withSpan(
-              this.tracer,
+              tracer,
               `loader - ${loader.route.path}`,
               {},
               async (loaderSpan) => {
@@ -1750,10 +1753,10 @@ export class Spiceflow<
           const children = isNotFound
             ? null
             : createElement(LayoutContent, { id })
-          const result = !this.tracer
+          const result = !tracer
             ? await executeHandler(layout, { id, children })
             : await withSpan(
-                this.tracer,
+                tracer,
                 `layout - ${layout.route.path}`,
                 {},
                 async (span) => {
@@ -1788,10 +1791,10 @@ export class Spiceflow<
               headers: undefined,
               status: undefined,
             })
-          : !this.tracer
+          : !tracer
             ? executeHandler(pageRoute)
             : withSpan(
-                this.tracer,
+                tracer,
                 `page - ${pageRoute.route.path}`,
                 {},
                 async (span) => {
@@ -1967,8 +1970,8 @@ export class Spiceflow<
 
         return new Response(stream, { status, headers })
       }
-          if (!this.tracer) return buildRscResponse()
-          return withSpan(this.tracer, 'rsc.serialize', {}, buildRscResponse)
+          if (!tracer) return buildRscResponse()
+          return withSpan(tracer, 'rsc.serialize', {}, buildRscResponse)
         },
       )
     } catch (error) {
@@ -2007,22 +2010,38 @@ export class Spiceflow<
       request.overrideUrl(normalizedUrl.toString())
     }
 
-    if (!this.tracer) return this.executeRequest(request, u, path, customState)
+    const requestTracing = createRequestTracing({
+      tracer: this.tracer,
+      serverTiming: this.serverTiming,
+    })
+    const response = !requestTracing.tracer
+      ? await this.executeRequest(request, u, path, customState, undefined, undefined)
+      : await withSpan(
+          requestTracing.tracer,
+          request.method,
+          {
+            kind: SPAN_KIND_SERVER,
+            attributes: {
+              [ATTR.HTTP_REQUEST_METHOD]: request.method,
+              [ATTR.URL_FULL]: request.url,
+              [ATTR.URL_PATH]: path,
+            },
+          },
+          async (rootSpan) => {
+            return this.executeRequest(
+              request,
+              u,
+              path,
+              customState,
+              rootSpan,
+              requestTracing.tracer,
+            )
+          },
+        )
 
-    return withSpan(
-      this.tracer,
-      request.method,
-      {
-        kind: SPAN_KIND_SERVER,
-        attributes: {
-          [ATTR.HTTP_REQUEST_METHOD]: request.method,
-          [ATTR.URL_FULL]: request.url,
-          [ATTR.URL_PATH]: path,
-        },
-      },
-      async (rootSpan) => {
-        return this.executeRequest(request, u, path, customState, rootSpan)
-      },
+    return appendServerTimingHeader(
+      response,
+      requestTracing.getServerTimingHeader(),
     )
   }
 
@@ -2032,6 +2051,7 @@ export class Spiceflow<
     path: string,
     customState: any,
     rootSpan?: SpiceflowSpan,
+    tracer?: SpiceflowTracer,
   ): Promise<Response> => {
     // Mutable ref — set after route resolution, read by waitUntil on error
     let onErrorHandlers: OnError[] = []
@@ -2051,7 +2071,7 @@ export class Spiceflow<
       params: {},
       loaderData: {},
       span: noopSpan,
-      tracer: this.tracer ?? noopTracer,
+      tracer: tracer ?? noopTracer,
       waitUntil: (promise) => {
         const wrappedPromise = promise.catch(async (error) => {
           const spiceflowError: SpiceflowServerError =
@@ -2113,20 +2133,23 @@ export class Spiceflow<
               request,
               context,
               reactRoutes: resolved.reactRoutes,
+              tracer,
             })
             if (
               shouldSsr &&
               renderSsr &&
               res.headers.get('content-type')?.startsWith('text/x-component')
             ) {
-              res = this.tracer
-                ? await withSpan(this.tracer, 'ssr.render', {}, () =>
+              res = tracer
+                ? await withSpan(tracer, 'ssr.render', {}, () =>
                     renderSsr!(res, request),
                   )
                 : await renderSsr(res, request)
             }
             return res
           },
+          undefined,
+          tracer,
         )
 
         const result = finalizeResponse(response, shouldStripHeadBody)
@@ -2172,7 +2195,7 @@ export class Spiceflow<
             route?.route?.validateParams,
           )
 
-          if (!this.tracer) {
+          if (!tracer) {
             const res = await route?.route?.handler.call(this, context)
             // Returning an Error from a handler is treated the same as throwing it:
             // routes through errorToResponse → onError handlers → status extraction.
@@ -2191,7 +2214,7 @@ export class Spiceflow<
             return this.turnHandlerResultIntoResponse(res, route?.route, request)
           }
           return withSpan(
-            this.tracer,
+            tracer,
             `handler - ${route?.route?.path || path}`,
             {},
             async (handlerSpan) => {
@@ -2225,6 +2248,7 @@ export class Spiceflow<
           )
         },
         route?.route,
+        tracer,
       )
 
       response = mergeHeadersIntoResponse({
@@ -2323,6 +2347,7 @@ export class Spiceflow<
     onErrorHandlers: OnError[],
     finalHandler: () => Promise<Response>,
     route?: InternalRoute,
+    tracer?: SpiceflowTracer,
   ): Promise<Response> {
     let index = 0
     let handlerResponse: Response | undefined
@@ -2332,9 +2357,9 @@ export class Spiceflow<
         if (index < middlewares.length) {
           const middleware = middlewares[index]
           index++
-          const result = this.tracer
+          const result = tracer
             ? await withSpan(
-                this.tracer,
+                tracer,
                 `middleware - ${middleware.name || 'anonymous'}`,
                 {},
                 async (mwSpan) => {
@@ -2917,14 +2942,8 @@ export class Spiceflow<
       },
     )
   }
-  href<
-    const Path extends AllHrefPaths<RoutePaths>,
-    const Params extends ExtractParamsFromPath<Path>,
-  >(
-    path: Path,
-    ...rest: HrefArgs<RoutePaths, RouteQuerySchemas, Path, Params>
-  ): string {
-    return buildHref(path, rest[0] as Record<string, any> | undefined)
+  href: HrefBuilder<RoutePaths, RouteQuerySchemas> = (path, ...rest) => {
+    return buildHref(path, rest[0])
   }
 }
 
@@ -2940,19 +2959,14 @@ export class Spiceflow<
  */
 export function createHref<
   T extends { _types: { RoutePaths: string; RouteQuerySchemas: object } } = RegisteredApp,
->(_app?: T) {
+>(_app?: T): HrefBuilder<T['_types']['RoutePaths'], T['_types']['RouteQuerySchemas']> {
   type Paths = T['_types']['RoutePaths']
   type QS = T['_types']['RouteQuerySchemas']
-  return <
-    const Path extends AllHrefPaths<Paths>,
-    const Params extends
-      ExtractParamsFromPath<Path> = ExtractParamsFromPath<Path>,
-  >(
-    path: Path,
-    ...rest: HrefArgs<Paths, QS, Path, Params>
-  ): string => {
-    return buildHref(path, rest[0] as Record<string, any> | undefined)
+  const href: HrefBuilder<Paths, QS> = (path, ...rest) => {
+    return buildHref(path, rest[0])
   }
+
+  return href
 }
 
 const METHODS = [

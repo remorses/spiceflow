@@ -1,9 +1,68 @@
 import { getBasePath } from '../base-path.js'
+import type {
+  AllHrefPaths,
+  ExtractParamsFromPath,
+  PathParamsProp,
+} from '../types.js'
+import { buildHref } from './loader-utils.js'
+import type { RegisteredApp, RouterPaths } from './router.js'
 
 export interface ReactServerErrorContext {
   status: number
   headers?: Record<string, string> | [string, string][]
 }
+
+type RedirectOptions = {
+  status?: number
+  headers?: Record<string, string>
+}
+
+type RedirectParamsOptions<Path extends string> = RedirectOptions &
+  PathParamsProp<Path>
+
+type RedirectArgs<Path extends string> = [ExtractParamsFromPath<Path>] extends [undefined]
+  ? [options?: RedirectParamsOptions<Path>]
+  : [options: RedirectParamsOptions<Path>]
+
+type RedirectAnyOptions = RedirectOptions & {
+  params?: Record<string, string | number | boolean>
+}
+
+type ExternalRedirectLocation =
+  | `${string}://${string}`
+  | `//${string}`
+  | `?${string}`
+  | `#${string}`
+
+type UnionToIntersection<U> =
+  (U extends any ? (value: U) => void : never) extends (value: infer I) => void
+    ? I
+    : never
+
+type RedirectPatternOverloads<Paths extends string> = UnionToIntersection<
+  {
+    [Path in Paths]: (location: Path, ...rest: RedirectArgs<Path>) => Response
+  }[Paths]
+>
+
+type RedirectResolvedOverload<Paths extends string> = <
+  Location extends AllHrefPaths<Paths>,
+>(
+  location: Location extends Paths ? never : Location,
+  ...rest: RedirectArgs<Location>
+) => Response
+
+type DynamicStringRedirect = <Location extends string>(
+  location: string extends Location ? Location : never,
+  options?: RedirectAnyOptions,
+) => Response
+
+type RedirectFn = string extends RouterPaths<RegisteredApp>
+  ? (location: string, options?: RedirectAnyOptions) => Response
+  : RedirectPatternOverloads<RouterPaths<RegisteredApp>> &
+      RedirectResolvedOverload<RouterPaths<RegisteredApp>> &
+      DynamicStringRedirect &
+      ((location: ExternalRedirectLocation, options?: RedirectOptions) => Response)
 
 // Normalizes headers from either Record or entries array into a plain
 // object. Used when reading headers from decoded digest contexts where
@@ -22,7 +81,8 @@ export function contextHeaders(
 // preserving duplicate keys like set-cookie.
 export function contextToHeaders(ctx: ReactServerErrorContext): Headers {
   if (!ctx.headers) return new Headers()
-  return new Headers(ctx.headers as HeadersInit)
+  if (Array.isArray(ctx.headers)) return new Headers(ctx.headers)
+  return new Headers(Object.entries(ctx.headers))
 }
 
 function hasBasePrefix(path: string, base: string): boolean {
@@ -31,29 +91,39 @@ function hasBasePrefix(path: string, base: string): boolean {
   return path.startsWith(base) && (next === '/' || next === '?' || next === '#')
 }
 
-export function redirect(
-  location: string,
-  options?: { status?: number; headers?: Record<string, string> },
-) {
+const redirectImpl = (location: string, options?: RedirectAnyOptions) => {
+  const [target, resolvedOptions] = options?.params
+    ? [buildHref(location, options.params), options]
+    : [location, options]
+
   const base = getBasePath()
   // Auto-prepend base path to absolute redirect targets so user code
   // can write redirect("/dashboard") without worrying about base config.
   if (
     base &&
-    location.startsWith('/') &&
-    !location.startsWith('//') &&
-    !hasBasePrefix(location, base)
+    target.startsWith('/') &&
+    !target.startsWith('//') &&
+    !hasBasePrefix(target, base)
   ) {
-    location = base + location
+    return new Response(null, {
+      status: resolvedOptions?.status ?? 307,
+      headers: {
+        ...resolvedOptions?.headers,
+        location: base + target,
+      },
+    })
   }
+
   return new Response(null, {
-    status: options?.status ?? 307,
+    status: resolvedOptions?.status ?? 307,
     headers: {
-      ...options?.headers,
-      location,
+      ...resolvedOptions?.headers,
+      location: target,
     },
   })
 }
+
+export const redirect: RedirectFn = redirectImpl
 
 export function notFound() {
   return new Response(null, { status: 404 })
@@ -85,19 +155,19 @@ export function isNotFoundError(ctx?: ReactServerErrorContext) {
 export function getErrorContext(
   error: unknown,
 ): ReactServerErrorContext | undefined {
-  if (
-    error instanceof Error &&
-    'digest' in error &&
-    typeof error.digest === 'string'
-  ) {
-    const m = error.digest.match(/^__REACT_SERVER_ERROR__:(.*)$/)
-    if (m && m[1]) {
-      try {
-        return JSON.parse(m[1])
-      } catch (e) {
-        console.error(e)
-      }
+  if (!(error instanceof Error)) return
+
+  const digest = Reflect.get(error, 'digest')
+  if (typeof digest !== 'string') return
+
+  const m = digest.match(/^__REACT_SERVER_ERROR__:(.*)$/)
+  if (m && m[1]) {
+    try {
+      return JSON.parse(m[1])
+    } catch (e) {
+      console.error(e)
     }
   }
+
   return
 }

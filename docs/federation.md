@@ -166,6 +166,72 @@ This means remote client components can use `useRouterState` from the host and r
 
 </details>
 
+## Streaming and Suspense
+
+`encodeFederationPayload` handles React elements and plain objects differently. When the top-level value is a **React element**, the entire flight stream is buffered before any SSE events are sent. This gives the consumer SSR HTML for instant display, but it means **Suspense boundaries inside the element do not stream incrementally**. The client waits until every promise resolves before seeing anything.
+
+When the top-level value is a **plain object**, flight rows stream incrementally as they become available. Suspense fallbacks arrive immediately, and resolved content streams in later.
+
+If streaming matters for your federation payload (slow data fetches, AI responses, anything behind a `<Suspense>` boundary), wrap your JSX in an object and render it on the consumer side:
+
+```tsx
+// ❌ Top-level JSX — entire payload is buffered, no Suspense streaming
+app.get('/api/dashboard', async () => {
+  return await encodeFederationPayload(
+    <Suspense fallback={<div>Loading...</div>}>
+      <SlowChart />
+    </Suspense>
+  )
+})
+
+// ✅ Object with JSX field — flight rows stream incrementally
+app.get('/api/dashboard', async () => {
+  return await encodeFederationPayload({
+    chart: (
+      <Suspense fallback={<div>Loading...</div>}>
+        <SlowChart />
+      </Suspense>
+    ),
+  })
+})
+```
+
+The consumer decodes the object and renders the JSX field:
+
+```tsx
+'use client'
+
+import { useEffect, useState } from 'react'
+import { decodeFederationPayload } from 'spiceflow/react'
+
+export function Dashboard() {
+  const [chart, setChart] = useState<React.ReactNode>(null)
+
+  useEffect(() => {
+    fetch('/api/dashboard')
+      .then((res) => decodeFederationPayload<{ chart: React.ReactNode }>(res))
+      .then((decoded) => setChart(decoded.chart))
+  }, [])
+
+  return <div>{chart}</div>
+}
+```
+
+The same applies to async iterables. Wrapping a generator in an object field streams items as they yield:
+
+```tsx
+app.get('/api/feed', async () => {
+  async function* items() {
+    yield { id: '1', text: 'first' }
+    await sleep(100)
+    yield { id: '2', text: 'second' }
+  }
+  return await encodeFederationPayload({ stream: items() })
+})
+```
+
+**Why the difference?** Top-level React elements get SSR-rendered into an HTML string before sending, which requires the complete flight payload. Objects skip SSR and stream rows as they arrive. This is a tradeoff: top-level elements give instant visible HTML (no flash of empty content), while object payloads give incremental streaming at the cost of no SSR preview.
+
 ## External ESM Components
 
 `RenderFederatedPayload` also works with plain JavaScript modules — any URL that returns `content-type: text/javascript`. The module is dynamically imported in the browser, and its default export (or first function export) is rendered as a React component.

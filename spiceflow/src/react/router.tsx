@@ -3,10 +3,8 @@ import { useMemo, useSyncExternalStore } from 'react'
 import { getBasePath } from '../base-path.js'
 import type { AnySpiceflow } from '../spiceflow.js'
 import type {
-  AllHrefPaths,
   AllLoaderData,
-  ExtractParamsFromPath,
-  HrefArgs,
+  HrefBuilder,
   IsAny,
   MergedLoaderData,
 } from '../types.js'
@@ -142,12 +140,6 @@ export type LoaderDataForPath<
 export type RouterPathArg<App extends AnySpiceflow> =
   RouterPaths<App> | (string & {})
 
-export type RouterHrefArgs<
-  App extends AnySpiceflow,
-  Path extends AllHrefPaths<RouterPaths<App>>,
-  Params extends ExtractParamsFromPath<Path>,
-> = HrefArgs<RouterPaths<App>, RouterQuerySchemas<App>, Path, Params>
-
 export function coerceLoaderData<
   App extends AnySpiceflow,
   Path extends string,
@@ -160,13 +152,7 @@ export type RouterBase<App extends AnySpiceflow = AnySpiceflow> = {
   readonly pathname: string
   readonly searchParams: ReadonlyURLSearchParams
 
-  href<
-    const Path extends AllHrefPaths<RouterPaths<App>>,
-    const Params extends ExtractParamsFromPath<Path> = ExtractParamsFromPath<Path>,
-  >(
-    path: Path,
-    ...rest: RouterHrefArgs<App, Path, Params>
-  ): string
+  href: HrefBuilder<RouterPaths<App>, RouterQuerySchemas<App>>
 
   push(...args: Parameters<typeof history.push>): void
   replace(...args: Parameters<typeof history.replace>): void

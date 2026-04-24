@@ -1,5 +1,55 @@
 # spiceflow
 
+## 1.19.0-rsc.6
+
+1. **Vercel `waitUntil` auto-detection** — Spiceflow now auto-detects Vercel's request context (`globalThis[Symbol.for('@vercel/request-context')]`) for `waitUntil`, forwarding background work to the Vercel execution context automatically. No configuration needed on Vercel deployments.
+
+2. **Graceful shutdown tracks `waitUntil` promises** — `preventProcessExitIfBusy` middleware now waits for pending `waitUntil` promises before exiting, not just in-flight requests. Prevents background work from being dropped during shutdown:
+
+   ```ts
+   import { preventProcessExitIfBusy } from 'spiceflow'
+
+   app.use(preventProcessExitIfBusy({ maxWaitSeconds: 60 }))
+   ```
+
+3. **Type-safe `redirect()` with `SpiceflowRegister`** — when the app type is registered, the exported `redirect()` helper validates route literals and requires `params` for parameterized paths like `` redirect('/users/:id', { params: { id: '42' } }) ``. Handler context `redirect` stays broadly typed to avoid circular app type inference.
+
+## 1.19.0-rsc.5
+
+1. **Automatic `waitUntil` on Cloudflare Workers** — Spiceflow now auto-detects `waitUntil` from `cloudflare:workers` via a conditional package.json import map (`#wait-until`). No need to pass `waitUntil` in the constructor; background work scheduled via `context.waitUntil()` is forwarded to the Cloudflare execution context automatically. On Node.js and Bun, the default runs promises in the background with safe rejection handling so they don't crash the process.
+
+2. **Resolved path type inference in `createSpiceflowFetch()`** — typed fetch calls now accept interpolated route strings like `` `/users/${id}` `` while preserving route-specific request and response inference. Previously only pattern-form paths like `/users/:id` were type-safe.
+
+3. **Shorter Server-Timing descriptions in Chrome DevTools** — child spans no longer repeat the root request prefix on every row, making the waterfall easier to scan.
+
+## 1.19.0-rsc.4
+
+1. **`serverTiming: true` for Chrome DevTools** — add `serverTiming: true` alongside `tracer` to expose request spans as a `Server-Timing` response header. Includes built-in framework spans (middleware, handlers, loaders) and custom spans from `context.tracer.startActiveSpan()`, with nested paths like `GET /users/:id > handler - /users/:id > db.query` so slow queries are visible directly in the browser:
+
+   ```ts
+   import { trace } from '@opentelemetry/api'
+
+   export const app = new Spiceflow({
+     tracer: trace.getTracer('my-app'),
+     serverTiming: true,
+   }).get('/api/users/:id', ({ params, tracer }) => {
+     return tracer.startActiveSpan('db.query', (span) => {
+       span.end()
+       return { id: params.id, name: 'Alice' }
+     })
+   })
+   ```
+
+## 1.19.0-rsc.3
+
+1. **Type-safe `href` on `<Link>` via SpiceflowRegister** — when the app type is registered, `Link` autocompletes route paths and requires `params` for dynamic segments like `/users/:id`. Without registration, `href` stays `string` for full backwards compatibility:
+
+   ```tsx
+   <Link href="/users/:id" params={{ id: '42' }} />
+   ```
+
+2. **Client-safe export for bundler environments** — the `.` export now resolves to a lightweight client-safe subset when bundled in browser or SSR environments, preventing `import.meta.viteRsc.loadCss` from triggering Vite RSC rolldown assertions in non-RSC builds (e.g. Cloudflare with child environments)
+
 ## 1.19.0-rsc.2
 
 1. **`parseFormData` for type-safe form validation** — `import { parseFormData } from 'spiceflow'` validates FormData against any Standard Schema (Zod, Valibot, ArkType) with automatic string→number/boolean coercion and `getAll()` support for array fields. Pair with `schema.keyof().enum` for type-safe input `name` attributes — typos become compile errors:

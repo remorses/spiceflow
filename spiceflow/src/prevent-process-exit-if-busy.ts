@@ -1,64 +1,56 @@
+// Middleware that tracks in-flight requests and pending waitUntil promises,
+// preventing the process from exiting while work is still in progress.
 import { Spiceflow } from './spiceflow.js'
-import type { AnySpiceflow } from './spiceflow.js'
+import { pendingWaitUntilCount } from '#wait-until'
 
 interface GracefulShutdownOptions {
   maxWaitSeconds?: number
   checkIntervalMs?: number
 }
 
-/**
- * Creates a Spiceflow middleware that tracks in-flight requests and prevents
- * the process from exiting while requests are being processed.
- *
- * @param options - Configuration options
- * @param options.maxWaitSeconds - Maximum time to wait for requests to complete (default: 300)
- * @param options.checkIntervalMs - Interval to check if requests are complete (default: 250)
- * @returns Spiceflow app that can be mounted with .use()
- */
 export function preventProcessExitIfBusy(
   options: GracefulShutdownOptions = {},
 ): any {
   const { maxWaitSeconds = 300, checkIntervalMs = 250 } = options
 
-  // Track in-flight requests in closure
   let inFlightRequests = 0
   let isShuttingDown = false
 
-  // Sleep utility
   const sleep = (ms: number) =>
     new Promise<void>((resolve) => setTimeout(resolve, ms))
 
-  // Graceful shutdown handler
+  function isBusy() {
+    return inFlightRequests > 0 || pendingWaitUntilCount() > 0
+  }
+
   async function handleShutdown(signal: NodeJS.Signals) {
-    if (isShuttingDown) return // Prevent multiple shutdown attempts
+    if (isShuttingDown) return
     isShuttingDown = true
 
     const startTime = Date.now()
     const deadline = Date.now() + maxWaitSeconds * 1000
 
-    while (inFlightRequests > 0 && Date.now() < deadline) {
+    while (isBusy() && Date.now() < deadline) {
       await sleep(checkIntervalMs)
     }
 
     const elapsedSeconds = ((Date.now() - startTime) / 1000).toFixed(1)
 
-    if (inFlightRequests > 0) {
+    if (isBusy()) {
       console.error(
-        `[${new Date().toISOString()}] Shutdown timeout reached after ${elapsedSeconds}s; ${inFlightRequests} request(s) still in progress, forcing exit`,
+        `[${new Date().toISOString()}] Shutdown timeout reached after ${elapsedSeconds}s; ${inFlightRequests} request(s) and ${pendingWaitUntilCount()} waitUntil promise(s) still in progress, forcing exit`,
       )
     }
 
-    process.exit(inFlightRequests > 0 ? 1 : 0)
+    process.exit(isBusy() ? 1 : 0)
   }
 
-  // Register shutdown handlers only in Node.js environments
   if (typeof process !== 'undefined' && process.prependListener) {
     ;['SIGINT', 'SIGTERM'].forEach((sig) => {
       process.prependListener(sig as NodeJS.Signals, handleShutdown)
     })
   }
 
-  // Return Spiceflow middleware with scoped: false
   return new Spiceflow({ scoped: false }).use(async (_, next) => {
     inFlightRequests++
     try {

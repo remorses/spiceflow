@@ -1061,9 +1061,27 @@ type PatternToResolved<Path extends string> =
 // Accepts both pattern paths ("/orgs/:orgId/*") and resolved paths ("/orgs/abc/projects")
 export type AllHrefPaths<Paths extends string> = Paths | PatternToResolved<Paths>
 
+export type MatchingPathPattern<
+  Paths extends string,
+  Path extends AllHrefPaths<Paths>,
+> = Path extends Paths
+  ? Extract<Paths, Path>
+  : Paths extends any
+    ? Path extends PatternToResolved<Paths>
+      ? Paths
+      : never
+    : never
+
 type MergeParamsAndQuery<P, Q> = [P] extends [undefined]
   ? Partial<Q>
   : P & Omit<Partial<Q>, keyof P>
+
+type PrimitivePathParam = string | number | boolean
+
+export type PathParamsProp<Path extends string> =
+  [ExtractParamsFromPath<Path>] extends [undefined]
+    ? { params?: Record<string, PrimitivePathParam> }
+    : { params: ExtractParamsFromPath<Path> }
 
 export type HrefArgs<
   Paths extends string,
@@ -1073,13 +1091,24 @@ export type HrefArgs<
 > = [Params] extends [undefined]
   ? Path extends keyof QS
     ? unknown extends QS[Path]
-      ? [] | [allParams?: Record<string, string | number | boolean>]
+      ? [] | [allParams?: Record<string, PrimitivePathParam>]
       : [] | [allParams?: Partial<QS[Path]>]
-    : [] | [allParams?: Record<string, string | number | boolean>]
+    : [] | [allParams?: Record<string, PrimitivePathParam>]
   : Path extends keyof QS
     ? unknown extends QS[Path]
-      ? [allParams: Params & Record<string, string | number | boolean>]
+      ? [allParams: Params & Record<string, PrimitivePathParam>]
       : [allParams: MergeParamsAndQuery<Params, QS[Path]>]
     :
         | [allParams: Params]
-        | [allParams: Params & Record<string, string | number | boolean>]
+        | [allParams: Params & Record<string, PrimitivePathParam>]
+
+export type HrefBuilder<
+  Paths extends string,
+  QS extends object,
+> = <
+  const Path extends AllHrefPaths<Paths>,
+  const Params extends ExtractParamsFromPath<Path> = ExtractParamsFromPath<Path>,
+>(
+  path: Path,
+  ...rest: HrefArgs<Paths, QS, Path, Params>
+) => string

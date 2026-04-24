@@ -44,6 +44,20 @@ export const app = new Spiceflow({ tracer: trace.getTracer('my-app') }).get(
 )
 ```
 
+If you also want the spans visible in Chrome DevTools, enable `serverTiming` too:
+
+```ts
+export const app = new Spiceflow({
+  tracer: trace.getTracer('my-app'),
+  serverTiming: true,
+}).get('/api/users/:id', ({ params, tracer }) => {
+  return tracer.startActiveSpan('db.query', (span) => {
+    span.end()
+    return { id: params.id, name: 'Alice' }
+  })
+})
+```
+
 ## What you get
 
 Every request produces a span tree. For API routes:
@@ -68,6 +82,20 @@ GET /dashboard [server]
 ```
 
 Each span includes standard HTTP attributes (`http.request.method`, `http.route`, `http.response.status_code`, `url.full`) following [OTel semantic conventions](https://opentelemetry.io/docs/specs/semconv/http/http-spans/). Errors are recorded with `recordException` and set the span status to ERROR. If your errors use [errore](https://errore.org) tagged errors, the stable fingerprint is propagated as an `error.fingerprint` attribute for consistent error grouping.
+
+## Server Timing
+
+Set `serverTiming: true` together with `tracer` to emit a `Server-Timing` response header on every request. This makes slow work visible in Chrome DevTools without setting up a trace backend first.
+
+Spiceflow keeps the browser format flat, because `Server-Timing` is flat, but the `desc` value preserves the nested path with ` > `. Child items omit the repeated root request prefix so the list stays easy to scan:
+
+```http
+Server-Timing: get-users-id;dur=42.1;desc="GET /users/:id"
+Server-Timing: handler-users-id;dur=40.3;desc="handler - /users/:id"
+Server-Timing: handler-users-id-db.query;dur=31.8;desc="handler - /users/:id > db.query"
+```
+
+Built-in spans and custom spans created with `context.tracer.startActiveSpan()` are both included. This is useful for debugging slow database queries, cache lookups, or external API calls directly in the browser.
 
 ## Custom spans and attributes
 

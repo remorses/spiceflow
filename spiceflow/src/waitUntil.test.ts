@@ -1,7 +1,33 @@
 import { describe, test, expect, vi } from 'vitest'
 import { Spiceflow } from './spiceflow.js'
+import { pendingWaitUntilCount } from '#wait-until'
 
 describe('waitUntil', () => {
+  test('default waitUntil tracks pending promises', async () => {
+    let resolve!: () => void
+    const slow = new Promise<void>((r) => {
+      resolve = r
+    })
+
+    const app = new Spiceflow().route({
+      method: 'GET',
+      path: '/bg',
+      handler({ waitUntil }) {
+        waitUntil(slow)
+        return { ok: true }
+      },
+    })
+
+    const before = pendingWaitUntilCount()
+    await app.handle(new Request('http://localhost/bg'))
+
+    expect(pendingWaitUntilCount()).toBe(before + 1)
+    resolve()
+    // let microtasks flush
+    await new Promise((r) => setTimeout(r, 10))
+    expect(pendingWaitUntilCount()).toBe(before)
+  })
+
   test('waitUntil is available in handler context', async () => {
     let waitUntilCalled = false
     let waitUntilPromise: Promise<any> | null = null
@@ -83,6 +109,32 @@ describe('waitUntil', () => {
     expect(mockWaitUntil).toHaveBeenCalledTimes(3)
   })
 
+  test('default waitUntil delegates to Vercel request context when present', async () => {
+    const mockVercelWaitUntil = vi.fn()
+    const VERCEL_CONTEXT = Symbol.for('@vercel/request-context')
+    const g = globalThis as any
+
+    // Simulate Vercel's ALS-backed request context
+    g[VERCEL_CONTEXT] = { get: () => ({ waitUntil: mockVercelWaitUntil }) }
+
+    try {
+      const app = new Spiceflow().route({
+        method: 'GET',
+        path: '/vercel',
+        handler({ waitUntil }) {
+          waitUntil(Promise.resolve('vercel bg'))
+          return { vercel: true }
+        },
+      })
+
+      const response = await app.handle(new Request('http://localhost/vercel'))
+      expect(await response.json()).toEqual({ vercel: true })
+      expect(mockVercelWaitUntil).toHaveBeenCalledTimes(1)
+    } finally {
+      delete g[VERCEL_CONTEXT]
+    }
+  })
+
   test('waitUntil works with middleware context', async () => {
     const mockWaitUntil = vi.fn()
 
@@ -112,61 +164,4 @@ describe('waitUntil', () => {
     expect(mockWaitUntil).toHaveBeenCalledTimes(2)
   })
 
-  test('waitUntil uses global waitUntil when available', async () => {
-    // Mock global waitUntil
-    const originalGlobal = globalThis as any
-    const mockGlobalWaitUntil = vi.fn()
-    originalGlobal.waitUntil = mockGlobalWaitUntil
-
-    try {
-      const app = new Spiceflow().route({
-        method: 'GET',
-        path: '/global',
-        handler({ waitUntil }) {
-          waitUntil(Promise.resolve('using global'))
-          return { usingGlobal: true }
-        },
-      })
-
-      const response = await app.handle(new Request('http://localhost/global'))
-      const data = await response.json()
-
-      expect(data).toEqual({ usingGlobal: true })
-      expect(mockGlobalWaitUntil).toHaveBeenCalledTimes(1)
-    } finally {
-      // Clean up
-      delete originalGlobal.waitUntil
-    }
-  })
-
-  test('custom waitUntil overrides global waitUntil', async () => {
-    // Mock global waitUntil
-    const originalGlobal = globalThis as any
-    const mockGlobalWaitUntil = vi.fn()
-    const mockCustomWaitUntil = vi.fn()
-    originalGlobal.waitUntil = mockGlobalWaitUntil
-
-    try {
-      const app = new Spiceflow({
-        waitUntil: mockCustomWaitUntil,
-      }).route({
-        method: 'GET',
-        path: '/custom',
-        handler({ waitUntil }) {
-          waitUntil(Promise.resolve('using custom'))
-          return { usingCustom: true }
-        },
-      })
-
-      const response = await app.handle(new Request('http://localhost/custom'))
-      const data = await response.json()
-
-      expect(data).toEqual({ usingCustom: true })
-      expect(mockCustomWaitUntil).toHaveBeenCalledTimes(1)
-      expect(mockGlobalWaitUntil).not.toHaveBeenCalled()
-    } finally {
-      // Clean up
-      delete originalGlobal.waitUntil
-    }
-  })
 })

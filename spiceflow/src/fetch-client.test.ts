@@ -302,6 +302,14 @@ describe('fetch client', () => {
     expect(result).toEqual('123')
   })
 
+  it('resolved parameterized paths', async () => {
+    const id = '123'
+    const result = await f(`/id/${id}`)
+    if (result instanceof Error) throw result
+
+    expect(result).toEqual('123')
+  })
+
   it('query params', async () => {
     const result = await f('/search', {
       query: { q: 'hello', page: 1 },
@@ -333,6 +341,11 @@ describe('fetch client type safety', () => {
   it('requires params for parameterized paths', () => {
     // @ts-expect-error - missing required params for /id/:id
     void f('/id/:id')
+  })
+
+  it('accepts resolved parameterized paths', () => {
+    const id = '123'
+    void f(`/id/${id}`)
   })
 
   it('requires query when route schema demands it', () => {

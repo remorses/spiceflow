@@ -1,12 +1,45 @@
 // Regression tests for ergonomic `AnySpiceflow` fallbacks across public typed APIs.
+import { rmSync, writeFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
 import { z } from 'zod'
 import { expect, test } from 'vitest'
+import ts from 'typescript'
 
 import { createSpiceflowClient, createSpiceflowFetch } from './client/index.ts'
 import { getRouter, Link, redirect, useLoaderData, useRouterState } from './react/index.ts'
 import type { LinkProps } from './react/index.ts'
 import { AnySpiceflow, createHref, Spiceflow } from './spiceflow.tsx'
 import type { AllHrefPaths, IsAny } from './types.ts'
+
+function getDiagnosticsForSnippet(source: string) {
+  const srcDir = dirname(new URL(import.meta.url).pathname)
+  const tsconfigPath = join(srcDir, '..', 'tsconfig.json')
+  const snippetPath = join(srcDir, '__tmp-redirect-register-check.ts')
+
+  writeFileSync(snippetPath, source)
+
+  try {
+    const configFile = ts.readConfigFile(tsconfigPath, ts.sys.readFile)
+    const parsedConfig = ts.parseJsonConfigFileContent(
+      configFile.config,
+      ts.sys,
+      dirname(tsconfigPath),
+      { noEmit: true },
+      tsconfigPath,
+    )
+    const program = ts.createProgram({
+      rootNames: [snippetPath],
+      options: parsedConfig.options,
+    })
+
+    return ts
+      .getPreEmitDiagnostics(program)
+      .filter((diagnostic) => diagnostic.file?.fileName === snippetPath)
+      .map((diagnostic) => ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n'))
+  } finally {
+    rmSync(snippetPath)
+  }
+}
 
 test('SpiceflowRegister: router import is typed via register pattern', () => {
   // Tests the register mechanism by importing the typed `router` export directly.
@@ -49,7 +82,7 @@ test('AnySpiceflow falls back to ergonomic any types', () => {
     .get('/api/typed', () => ({ ok: true }))
     .loader('/*', async () => ({ session: { user: { name: 'Tommy' } } }))
     .page('/', async () => 'home')
-  const anyApp = app as AnySpiceflow
+  const anyApp: AnySpiceflow = app
 
   // No-generic versions use RegisteredApp which falls back to AnySpiceflow
   const fetchClient = createSpiceflowFetch('http://localhost:3000')
@@ -416,4 +449,38 @@ test('Link: typed app validates href paths and requires params', () => {
 
   // @ts-expect-error - wrong param key rejected
   expectLink({ href: '/users/:id' as const, params: { slug: '1' } })
+})
+
+test('redirect is typed through SpiceflowRegister', () => {
+  const diagnostics = getDiagnosticsForSnippet(`
+import { Spiceflow } from './spiceflow.tsx'
+import { redirect } from './react/index.ts'
+
+const app = new Spiceflow()
+  .page('/login', async () => 'login')
+  .page('/users/:id', async () => 'user')
+
+declare module './react/router.js' {
+  interface SpiceflowRegister {
+    app: typeof app
+  }
+}
+
+redirect('/login')
+redirect('/users/:id', { params: { id: '42' } })
+const id = '42'
+redirect(\`/users/\${id}\`)
+redirect('https://example.com')
+
+// @ts-expect-error missing params
+redirect('/users/:id')
+
+// @ts-expect-error wrong param key
+redirect('/users/:id', { params: { slug: '1' } })
+
+// @ts-expect-error invalid path
+redirect('/missing')
+`)
+
+  expect(diagnostics).toEqual([])
 })
