@@ -1,5 +1,11 @@
 # spiceflow
 
+## 1.19.0-rsc.7
+
+1. **Fixed `require is not defined` on Cloudflare Workers** — explicitly include `@vitejs/plugin-rsc` vendored react-server-dom CJS files in `commonjsOptions.include` for the RSC build environment, preventing bare `require("react")` calls from failing in worker environments. Also updates `@vitejs/plugin-rsc` from 0.5.21 to 0.5.24.
+
+2. **Fixed vite-rsc CSS loader comments** — shared Spiceflow modules no longer contain the static `loadCss` token in comments, avoiding non-RSC environment assertion flashes during Cloudflare development.
+
 ## 1.19.0-rsc.6
 
 1. **Vercel `waitUntil` auto-detection** — Spiceflow now auto-detects Vercel's request context (`globalThis[Symbol.for('@vercel/request-context')]`) for `waitUntil`, forwarding background work to the Vercel execution context automatically. No configuration needed on Vercel deployments.
