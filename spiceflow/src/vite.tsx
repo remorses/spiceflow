@@ -375,6 +375,22 @@ export default function spiceflow({
           config.build ??= {}
           config.build.rollupOptions ??= {}
           config.build.rollupOptions.preserveEntrySignatures = 'allow-extension'
+          // @vitejs/plugin-rsc vendors react-server-dom CJS files that have
+          // bare require("react") / require("react-dom"). The plugin's own
+          // rsc:workaround-linked-dep sets commonjsOptions.include for this
+          // path but only when the plugin is linked (not in node_modules).
+          // For normal installs the bundler must auto-detect CJS, which can
+          // fail when externalized modules (cloudflare:workers) change the
+          // module graph shape. Setting include explicitly here is a safety net.
+          config.build.commonjsOptions ??= {}
+          config.build.commonjsOptions.include = [
+            ...(Array.isArray(config.build.commonjsOptions.include)
+              ? config.build.commonjsOptions.include
+              : config.build.commonjsOptions.include
+                ? [config.build.commonjsOptions.include]
+                : []),
+            /\/vendor\/react-server-dom\//,
+          ]
         }
       },
     },

@@ -27,6 +27,56 @@ When using the typed fetch client (`createSpiceflowFetch`), follow these rules:
 - **Prefer keeping the server package as a `devDependency` of the client package** when the server package is private and only used for typechecking. For example, a publishable CLI can keep a private website package in `devDependencies` and import only `type App` from the website's built `dist` declarations.
 - **Make sure the server package exports its `dist` declarations** and that its `build` script emits them before consumers typecheck. If the client imports `dist/src/app.d.ts`, the server package must actually produce that file.
 - **Route handlers must return plain objects** for the response type to be inferred. Returning `res.json()` or `Response.json()` erases the type to `any`.
-- **Never `return new Response(...)`.** It erases the body type. Use `return json(...)` (preserves type and status) or `throw` anything (`throw new Response(...)` is fine since throws don't affect return type).
+- **Never `return new Response(...)`.** It erases the body type. Use `return json(...)` instead (preserves type and status). `return json({ error: '...' }, { status: 404 })` is perfectly fine for error responses.
 - **`body` is a plain object**, not `JSON.stringify()`. The client serializes it automatically.
 - **Response is `Error | Data`.** Check with `instanceof Error`, then the happy path has the narrowed type.
+
+## App architecture: separate API from main app
+
+Keep API routes in a separate `Spiceflow()` instance, then mount it on the main app with `.use()`. This keeps the entry file focused on middleware, pages, and composition while API logic stays isolated and testable.
+
+**Prefix API routes with `/api/v0/` from the start.** Adding a version prefix later is a breaking change for every client. Starting with `v0` signals "pre-stable" and gives you room to evolve without breaking deployed consumers.
+
+```ts
+// src/api.ts
+import { json, Spiceflow } from 'spiceflow'
+import { z } from 'zod'
+
+export const apiApp = new Spiceflow()
+  .route({
+    method: 'POST',
+    path: '/api/v0/orgs',
+    request: z.object({ name: z.string().min(1) }),
+    async handler({ request }) {
+      const body = await request.json()
+      const org = await createOrg(body.name)
+      return { id: org.id, name: org.name }
+    },
+  })
+  .get('/api/v0/orgs/:orgId/keys', async ({ request, params }) => {
+    // ...
+    return { keys }
+  })
+
+// src/app.tsx (or server.tsx)
+import { Spiceflow } from 'spiceflow'
+import { apiApp } from './api.ts'
+
+export const app = new Spiceflow()
+  .use(authMiddleware)  // middleware on root
+  .use(apiApp)          // API routes composed in
+  .use(docsApp)         // other sub-apps
+```
+
+**Why separate files matter for typed fetch clients.** The CLI or SDK imports the composed `App` type (`typeof app`) to get full type safety on every route. If API routes are inline in the main file, the type still works, but the file becomes hard to navigate. Separate files keep each concern readable while the composed type covers everything.
+
+**Error responses in API routes.** Use `return json(...)` with a non-2xx status for errors. The typed fetch client returns `SpiceflowFetchError` for non-2xx responses, so the caller always gets `Error | Data`.
+
+```ts
+// GOOD: return json() for both success and error responses
+async handler({ request }) {
+  const session = await getSession(request)
+  if (!session) return json({ error: 'unauthorized' }, { status: 401 })
+  return { user: session.user }
+}
+```
