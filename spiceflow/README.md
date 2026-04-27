@@ -1227,6 +1227,8 @@ export function Counter() {
 
 Loaders run on the server before page and layout handlers. They solve a common problem: when you need the same data in both server components and client components, or in both a layout and a page, without prop drilling or React context.
 
+Prefer putting route data in loaders when that data is shared by more than one part of the route tree. This keeps fetching in one place, avoids fetching the same data once in a layout and again in a page, and lets React components read the current route data directly instead of receiving long prop chains.
+
 Loaders only run for requests that also match a `.page()` or `.layout()`. They are not standalone endpoints. If you want to serve content without rendering a page or layout, use `.get()`, `.route()`, or another API handler instead.
 
 ```tsx
@@ -1260,7 +1262,50 @@ export const app = new Spiceflow()
   })
 ```
 
+A Remix-style dashboard can put shared shell data in a parent loader, then page data in loaders placed next to each page. The layout, page, and client components all read from the same request-scoped loader data:
+
+```tsx
+export const app = new Spiceflow()
+  .loader('/dashboard/*', async ({ request }) => {
+    const user = await getUser(request)
+    const projects = await getProjects(user.id)
+    return { user, projects }
+  })
+  .layout('/dashboard/*', async ({ children, loaderData }) => {
+    return <DashboardShell user={loaderData.user}>{children}</DashboardShell>
+  })
+  .loader('/dashboard/projects/:id', async ({ params }) => {
+    const project = await getProject(params.id)
+    return { project }
+  })
+  .page('/dashboard/projects/:id', async () => {
+    return <ProjectPage />
+  })
+
+declare module 'spiceflow/react' {
+  interface SpiceflowRegister { app: typeof app }
+}
+```
+
+```tsx
+'use client'
+
+import { useLoaderData } from 'spiceflow/react'
+
+export function ProjectSwitcher() {
+  const { projects } = useLoaderData('/dashboard/*')
+  return projects.map((project) => <a href={project.href}>{project.name}</a>)
+}
+
+export function ProjectHeader() {
+  const { user, project } = useLoaderData('/dashboard/projects/:id')
+  return <h1>{project.name} for {user.name}</h1>
+}
+```
+
 When multiple loaders match a route (e.g. `/*` and `/dashboard` both match `/dashboard`), their return values are merged into a single flat object. More specific loaders override less specific ones on key conflicts.
+
+Loader data is type safe when the app is registered globally with `SpiceflowRegister`. `useLoaderData('/dashboard/projects/:id')` and `router.getLoaderData('/dashboard/projects/:id')` infer the merged object returned by every matching loader, so renaming a loader field or removing it becomes a TypeScript error in every component that reads it.
 
 **Serialization**: loader return values are serialized through the React RSC flight format, not JSON. You can return JSX (including server components and client component elements with their props), `Promise`, async iterators, `Map`, `Set`, `Date`, `BigInt`, typed arrays, and any client component reference — all deserialized faithfully on the client. This means a loader can return a fully rendered `<Sidebar user={user} />` element and another component can receive it as `loaderData.sidebar` and drop it into the tree.
 
