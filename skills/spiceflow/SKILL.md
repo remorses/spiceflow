@@ -22,6 +22,10 @@ When using the typed fetch client (`createSpiceflowFetch`), follow these rules:
 
 - **Use `:param` paths with a `params` object.** Never interpolate IDs into the path string. `` `/users/${id}` `` is just `string` and breaks all type inference.
 - **All packages in a monorepo must use the exact same spiceflow version.** Mismatched versions cause `Types have separate declarations of a private property` errors. Use `pnpm update -r spiceflow` (without `--latest`) to sync.
+- **Across workspaces, import API types from built `dist/*.d.ts` files, not source files.** This prevents TypeScript from walking into unrelated runtime code like worker-only imports, CSS, raw assets, or framework-specific globals during typechecking.
+- **Use `import type` for cross-workspace API types.** Never value-import the server app just to get fetch client typing.
+- **Prefer keeping the server package as a `devDependency` of the client package** when the server package is private and only used for typechecking. For example, a publishable CLI can keep a private website package in `devDependencies` and import only `type App` from the website's built `dist` declarations.
+- **Make sure the server package exports its `dist` declarations** and that its `build` script emits them before consumers typecheck. If the client imports `dist/src/app.d.ts`, the server package must actually produce that file.
 - **Route handlers must return plain objects** for the response type to be inferred. Returning `res.json()` or `Response.json()` erases the type to `any`.
 - **Never `return new Response(...)`.** It erases the body type. Use `return json(...)` (preserves type and status) or `throw` anything (`throw new Response(...)` is fine since throws don't affect return type).
 - **`body` is a plain object**, not `JSON.stringify()`. The client serializes it automatically.

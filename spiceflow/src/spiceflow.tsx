@@ -1898,9 +1898,9 @@ export class Spiceflow<
       const page = renderRouteResult(pageResult)
 
       // Global CSS: rscCssTransform auto-wraps component exports, but this entry
-      // exports a Spiceflow instance so we call loadCss manually.
-      // The actual import.meta.viteRsc.loadCss call lives in load-global-css.rsc.ts
-      // behind #load-global-css so only the react-server environment sees it.
+      // exports a Spiceflow instance so we call the RSC CSS loader manually.
+      // The real loader lives behind #load-global-css so only the react-server
+      // environment sees the vite-rsc static-analysis token.
       const globalCss = loadGlobalCss()
       let baseUrl = new URL('/', request.url).href
       if (baseUrl.endsWith('/')) {

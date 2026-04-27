@@ -1,7 +1,6 @@
 // RSC-only: loads global CSS via the vite-rsc transform.
-// The import.meta.viteRsc.loadCss call MUST appear exactly as written below
-// because vite-rsc's transform uses a regex to find and replace it at build time.
-// Do not use optional chaining, ternaries, or put the pattern in comments.
+// The static-analysis token below must appear only in executable code, not
+// comments, because vite-rsc scans raw source before asserting the RSC env.
 
 import * as errore from 'errore'
 

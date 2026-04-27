@@ -280,6 +280,40 @@ new Spiceflow().use(({ request }) => {
 })
 ```
 
+### Mounted Apps
+
+Middleware is scoped to the app where you register it. **Parent app middleware runs for child sub-app routes too**, but **sub-app middleware does not run for parent or sibling routes**.
+
+```ts
+import { Spiceflow } from 'spiceflow'
+
+const admin = new Spiceflow({ basePath: '/admin' })
+  .use(() => {
+    console.log('admin only')
+  })
+  .get('/users', () => 'users')
+
+new Spiceflow()
+  .use(() => {
+    console.log('root')
+  })
+  .use(admin)
+  .get('/health', () => 'ok')
+
+// GET /admin/users -> runs "root" and "admin only"
+// GET /health      -> runs only "root"
+```
+
+If you want a mounted app's middleware to run for **every** request, create that mounted app with `scoped: false`:
+
+```ts
+const globalMiddleware = new Spiceflow({ scoped: false }).use(({ request }) => {
+  console.log(request.parsedUrl.pathname)
+})
+
+new Spiceflow().use(globalMiddleware)
+```
+
 ### Response Modification
 
 Call `next()` to get the response from downstream handlers, then modify it before sending:
