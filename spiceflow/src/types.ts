@@ -391,11 +391,12 @@ export type InlineHandler<
   },
   Path extends string = '',
   MacroContext = {},
+  LoaderData = {},
 > = (
   this: This,
   context: MacroContext extends Record<string | number | symbol, unknown>
-    ? Prettify<MacroContext & SpiceflowContext<Path, Route, Singleton>>
-    : SpiceflowContext<Path, Route, Singleton>,
+    ? Prettify<MacroContext & SpiceflowContext<Path, Route, Singleton, LoaderData>>
+    : SpiceflowContext<Path, Route, Singleton, LoaderData>,
 ) =>
   | ResponseLike
   | MaybePromiseIterable<
@@ -639,7 +640,7 @@ export type InternalRoute = {
   method: HTTPMethod
   path: string
   type: ContentType
-  handler: InlineHandler<any, any, any, any>
+  handler: InlineHandler<any, any, any, any, any, any>
   hooks: LocalHook<any, any, any, any, any, any, any>
   validateBody?: ValidationFunction
   validateQuery?: ValidationFunction

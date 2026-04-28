@@ -1362,6 +1362,28 @@ Spiceflow already parallelizes at the framework level — all matched loaders ru
 
 Forms use React 19's `<form action>` with server functions marked `"use server"`. They work before JavaScript loads (progressive enhancement).
 
+Forms also support normal browser submissions when `action` is a string URL. This is standard HTML behavior in Spiceflow: the browser submits the form to the URL and performs a full document navigation.
+
+```tsx
+.page('/search', async () => {
+  return (
+    <form method="get" action="/results">
+      <input name="q" />
+      <button type="submit">Search</button>
+    </form>
+  )
+})
+```
+
+Prefer a server or client action when the form should feel app-like. Passing a function to `action` lets React handle submission in a transition instead of doing a full browser reload. A server action can mutate data, then automatically re-render the current page with fresh server data or `throw redirect()` to navigate. A client action can update local state, call APIs, or schedule a client navigation with `router.push()` / `router.replace()`.
+
+```tsx
+<form action={saveSettings}>
+  <input name="name" />
+  <Button type="submit">Save</Button>
+</form>
+```
+
 **Every server action call automatically re-renders the current page with fresh server data.** This applies to forms, client wrapper functions, and direct imported server action calls. The re-render happens via React reconciliation, so client component state is preserved. No manual `router.refresh()` needed after a server action.
 
 Every submit button should show a loading state while its form action is in progress. Use `useFormStatus` from `react-dom` in your Button component to auto-detect pending forms — the button shows a spinner automatically when it's inside a `<form>` with a pending action:

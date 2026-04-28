@@ -1,5 +1,22 @@
 # spiceflow
 
+## 1.19.0-rsc.8
+
+1. **Typed loader data in page and layout handlers** — `loaderData` is now inferred inside `.page()`, `.staticPage()`, and `.layout()` handlers from every matching loader, including wildcard parent loaders. Shared route data can stay in loaders while server handlers read it directly without casts:
+
+   ```tsx
+   export const app = new Spiceflow()
+     .loader('/*', async () => ({ user: await getUser() }))
+     .loader('/projects/:projectId', async ({ params }) => ({ projectId: params.projectId }))
+     .page('/projects/:projectId', async ({ loaderData }) => {
+       return <ProjectPage user={loaderData.user} projectId={loaderData.projectId} />
+     })
+   ```
+
+2. **Fixed `SpiceflowRegister` circular inference with loader readers** — apps can keep the global register pattern while client components read typed loader data with `useLoaderData('/path')`. Rendering those components from a route handler no longer causes the app initializer to fall back to `any`.
+
+3. **Documented string form actions** — forms with a string `action` are now documented as normal browser submissions that perform a full document navigation, while function actions keep the React transition behavior.
+
 ## 1.19.0-rsc.7
 
 1. **Fixed `require is not defined` on Cloudflare Workers** — explicitly include `@vitejs/plugin-rsc` vendored react-server-dom CJS files in `commonjsOptions.include` for the RSC build environment, preventing bare `require("react")` calls from failing in worker environments. Also updates `@vitejs/plugin-rsc` from 0.5.21 to 0.5.24.

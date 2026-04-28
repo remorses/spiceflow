@@ -38,6 +38,7 @@ import {
   PrefixPaths,
   PrefixQuerySchemas,
   PrefixLoaderData,
+  MergedLoaderData,
 } from './types.js'
 import { buildHref } from './react/loader-utils.js'
 import type { RegisteredApp } from './react/router.js'
@@ -1043,7 +1044,14 @@ export class Spiceflow<
     const Schema extends UnwrapRoute<LocalSchema, Definitions['type']>,
   >(
     path: Path,
-    handler: InlineHandler<this, Schema, Singleton, JoinPath<BasePath, Path>>,
+    handler: InlineHandler<
+      this,
+      Schema,
+      Singleton,
+      JoinPath<BasePath, Path>,
+      {},
+      MergedLoaderData<Metadata['loaderData'], JoinPath<BasePath, Path>>
+    >,
   ): Spiceflow<
     BasePath,
     Scoped,
@@ -1062,7 +1070,9 @@ export class Spiceflow<
       this,
       Schema,
       Singleton,
-      JoinPath<BasePath, Path>
+      JoinPath<BasePath, Path>,
+      {},
+      MergedLoaderData<Metadata['loaderData'], JoinPath<BasePath, Path>>
     >,
   >(
     options: LocalHook<
@@ -1109,7 +1119,14 @@ export class Spiceflow<
     const Schema extends UnwrapRoute<LocalSchema, Definitions['type']>,
   >(
     path: Path,
-    handler?: InlineHandler<this, Schema, Singleton, JoinPath<BasePath, Path>>,
+    handler?: InlineHandler<
+      this,
+      Schema,
+      Singleton,
+      JoinPath<BasePath, Path>,
+      {},
+      MergedLoaderData<Metadata['loaderData'], JoinPath<BasePath, Path>>
+    >,
   ): Spiceflow<
     BasePath,
     Scoped,
@@ -1128,7 +1145,9 @@ export class Spiceflow<
       this,
       Schema,
       Singleton,
-      JoinPath<BasePath, Path>
+      JoinPath<BasePath, Path>,
+      {},
+      MergedLoaderData<Metadata['loaderData'], JoinPath<BasePath, Path>>
     >,
   >(
     options: LocalHook<
@@ -1221,7 +1240,14 @@ export class Spiceflow<
     const Schema extends UnwrapRoute<LocalSchema, Definitions['type']>,
   >(
     path: Path,
-    handler: InlineHandler<this, Schema, Singleton, JoinPath<BasePath, Path>>,
+    handler: InlineHandler<
+      this,
+      Schema,
+      Singleton,
+      JoinPath<BasePath, Path>,
+      {},
+      MergedLoaderData<Metadata['loaderData'], JoinPath<BasePath, Path>>
+    >,
   ): Spiceflow<
     BasePath,
     Scoped,
