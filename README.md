@@ -1266,8 +1266,8 @@ Loaders only run for requests that also match a `.page()` or `.layout()`. They a
 ```tsx
 export const app = new Spiceflow()
   .page('/login', async () => <Login />)
-  // Auth loader for all routes — wildcard pattern matches everything
-  .loader('/*', async ({ request, redirect }) => {
+  // Auth loader for the dashboard route
+  .loader('/dashboard', async ({ request, redirect }) => {
     const user = await getUser(request.headers.get('cookie'))
     if (!user) throw redirect('/login')
     return { user }
@@ -1277,8 +1277,8 @@ export const app = new Spiceflow()
     const stats = await getStats()
     return { stats }
   })
-  .layout('/*', async ({ loaderData, children }) => {
-    // loaderData.user is available here from the wildcard loader
+  .layout('/dashboard', async ({ loaderData, children }) => {
+    // loaderData.user is available here from the dashboard loader
     return (
       <html>
         <body>
@@ -1421,7 +1421,7 @@ Forms also support normal browser submissions when `action` is a string URL. Thi
 })
 ```
 
-Prefer a server or client action when the form should feel app-like. Passing a function to `action` lets React handle submission in a transition instead of doing a full browser reload. A server action can mutate data, then automatically re-render the current page with fresh server data or `throw redirect()` to navigate. A client action can update local state, call APIs, or schedule a client navigation with `router.push()` / `router.replace()`.
+Prefer a server or client action when the form should feel app-like. Passing a function to `action` lets React handle submission in a transition instead of doing a full browser reload. A server action can mutate data, then automatically re-render the current page with fresh server data or throw the handler context `redirect` to navigate. A client action can update local state, call APIs, or schedule a client navigation with `router.push()` / `router.replace()`.
 
 ```tsx
 <form action={saveSettings}>
@@ -1434,7 +1434,7 @@ Prefer a server or client action when the form should feel app-like. Passing a f
 
 Every submit button should show a loading state while its form action is in progress. Use `useFormStatus` from `react-dom` in your Button component to auto-detect pending forms — the button shows a spinner automatically when it's inside a `<form>` with a pending action:
 
-Prefer file-level `"use server"` (a dedicated file like `src/actions.tsx`) over inline `"use server"` inside function bodies. Inline is fine for simple form actions defined directly in a server component page, but if you find yourself passing actions as props to client components, import them from a `"use server"` file instead — it keeps action logic centralized and reusable. The inline examples below are kept short for readability.
+Prefer file-level `"use server"` (a dedicated file like `src/actions.tsx`) over inline `"use server"` inside function bodies. Inline is fine for simple form actions defined directly in a server component page, or when the action needs the handler context `redirect`. If you find yourself passing actions as props to client components, import them from a `"use server"` file instead — it keeps action logic centralized and reusable.
 
 ```tsx
 // src/app/button.tsx
@@ -1456,13 +1456,14 @@ Then use it in forms — no manual loading state needed. Use `parseFormData` to 
 
 ```tsx
 import { z } from 'zod'
-import { redirect, parseFormData } from 'spiceflow'
+import { parseFormData } from 'spiceflow'
 import { Button } from './app/button'
 
 const subscribeSchema = z.object({ email: z.string().email() })
 const fields = subscribeSchema.keyof().enum
 
-.page('/subscribe', async () => {
+.page('/thank-you', async () => <ThankYou />)
+.page('/subscribe', async ({ redirect }) => {
   async function subscribe(formData: FormData) {
     'use server'
     const { email } = parseFormData(subscribeSchema, formData)
@@ -1706,43 +1707,37 @@ function DeleteButton({ id }: { id: string }) {
 
 ### Redirecting After Actions
 
-When a server action needs to navigate to a different page (e.g. after creating a resource), use `throw redirect()` inside the action instead of `router.push()` on the client. Since every server action triggers a page re-render, calling `router.push()` after the action would briefly flash the re-rendered current page before navigating away.
+When a server action needs to navigate to a different page (e.g. after creating a resource), use the handler context `redirect` inside the action instead of `router.push()` on the client. Since every server action triggers a page re-render, calling `router.push()` after the action would briefly flash the re-rendered current page before navigating away.
 
 ```tsx
-// src/actions.ts
-'use server'
-
+import { Spiceflow, parseFormData } from 'spiceflow'
 import { z } from 'zod'
-import { redirect, parseFormData } from 'spiceflow'
 
-export const projectSchema = z.object({ name: z.string().min(1) })
-
-export async function createProject(orgId: string, formData: FormData) {
-  const { name } = parseFormData(projectSchema, formData)
-  const project = await db.projects.create({ name, orgId })
-  throw redirect(`/orgs/${orgId}/projects/${project.id}`)
-}
-```
-
-```tsx
-// src/app/create-project.tsx
-'use client'
-
-import { ErrorBoundary } from 'spiceflow/react'
-import { createProject, projectSchema } from '../actions'
-
+const projectSchema = z.object({ name: z.string().min(1) })
 const fields = projectSchema.keyof().enum
 
-export function CreateProjectForm({ orgId }: { orgId: string }) {
-  return (
-    <ErrorBoundary fallback={<ErrorBoundary.ErrorMessage />}>
-      <form action={createProject.bind(null, orgId)}>
+export const app = new Spiceflow()
+  .page('/orgs/:orgId/projects/:projectId', async ({ params }) => {
+    const project = await db.projects.find(params.projectId)
+    return <ProjectPage project={project} />
+  })
+  .page('/orgs/:orgId/projects/new', async ({ params, redirect }) => {
+    async function createProject(formData: FormData) {
+      'use server'
+      const { name } = parseFormData(projectSchema, formData)
+      const project = await db.projects.create({ name, orgId: params.orgId })
+      throw redirect('/orgs/:orgId/projects/:projectId', {
+        params: { orgId: params.orgId, projectId: project.id },
+      })
+    }
+
+    return (
+      <form action={createProject}>
         <input name={fields.name} required />
         <button type="submit">Create</button>
       </form>
-    </ErrorBoundary>
-  )
-}
+    )
+  })
 ```
 
 `router.push()`, `router.replace()`, `router.back()`, `router.forward()`, and `router.go()` are still the right choice for pure client-side navigation that doesn't involve a server action (e.g. tab switches, select dropdowns, back buttons). These APIs are all fire-and-forget — do not build awaitable wrappers around navigation commits and then call them inside a React client form action.
@@ -2136,11 +2131,15 @@ Context `redirect()` accepts an optional second argument for custom status codes
 
 ```tsx
 // 301 permanent redirect
-throw redirect('/login', { status: 301 })
+.page('/old-login', async ({ redirect }) => {
+  throw redirect('/login', { status: 301 })
+})
 
 // Redirect with custom headers
-throw redirect('/login', {
-  headers: { 'set-cookie': 'session=; Max-Age=0' },
+.page('/logout', async ({ redirect }) => {
+  throw redirect('/login', {
+    headers: { 'set-cookie': 'session=; Max-Age=0' },
+  })
 })
 ```
 
