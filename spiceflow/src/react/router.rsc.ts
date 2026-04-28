@@ -1,7 +1,7 @@
 import type { Location } from 'history'
 import { getBasePath } from '../base-path.js'
 import type { AnySpiceflow } from '../spiceflow.js'
-import type { ExtractParamsFromPath } from '../types.js'
+import type { ExtractParamsFromPath, ResolvedHref } from '../types.js'
 import { getRouterContext } from '#router-context'
 import { buildHref } from './loader-utils.js'
 import type {
@@ -80,7 +80,7 @@ export const router = {
     return noop
   },
   href(path: string, allParams?: Record<string, any>) {
-    return buildHref(path, allParams)
+    return buildHref(path, allParams) as ResolvedHref
   },
   getLoaderData(_path?: string): Promise<Record<string, unknown>> {
     return Promise.resolve(getRouterContext()?.loaderData ?? {})

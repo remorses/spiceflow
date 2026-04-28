@@ -2,7 +2,7 @@
 
 import React from 'react'
 import type { AnySpiceflow } from '../spiceflow.js'
-import type { AllHrefPaths, PathParamsProp } from '../types.js'
+import type { AllHrefPaths, PathParamsProp, ResolvedHref } from '../types.js'
 import { getBasePath } from '../base-path.js'
 import { buildHref } from './loader-utils.js'
 import { type RegisteredApp, type RouterPaths, router } from './router.js'
@@ -32,7 +32,7 @@ export type LinkProps<
   Path extends AllHrefPaths<Paths> = AllHrefPaths<Paths>,
 > = Omit<React.ComponentPropsWithRef<'a'>, 'href'> & {
   rawHref?: boolean
-  href?: Path
+  href?: Path | ResolvedHref
 } & PathParamsProp<Path>
 
 export function Link<

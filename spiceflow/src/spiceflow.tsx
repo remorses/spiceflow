@@ -39,6 +39,7 @@ import {
   PrefixQuerySchemas,
   PrefixLoaderData,
   MergedLoaderData,
+  ResolvedHref,
 } from './types.js'
 import { buildHref } from './react/loader-utils.js'
 import type { RegisteredApp } from './react/router.js'
@@ -2969,7 +2970,7 @@ export class Spiceflow<
     )
   }
   href: HrefBuilder<RoutePaths, RouteQuerySchemas> = (path, ...rest) => {
-    return buildHref(path, rest[0])
+    return buildHref(path, rest[0]) as ResolvedHref
   }
 }
 
@@ -2989,7 +2990,7 @@ export function createHref<
   type Paths = T['_types']['RoutePaths']
   type QS = T['_types']['RouteQuerySchemas']
   const href: HrefBuilder<Paths, QS> = (path, ...rest) => {
-    return buildHref(path, rest[0])
+    return buildHref(path, rest[0]) as ResolvedHref
   }
 
   return href

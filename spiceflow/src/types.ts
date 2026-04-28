@@ -1062,6 +1062,9 @@ type PatternToResolved<Path extends string> =
 // Accepts both pattern paths ("/orgs/:orgId/*") and resolved paths ("/orgs/abc/projects")
 export type AllHrefPaths<Paths extends string> = Paths | PatternToResolved<Paths>
 
+declare const resolvedHrefSymbol: unique symbol
+export type ResolvedHref = string & { readonly [resolvedHrefSymbol]: true }
+
 export type MatchingPathPattern<
   Paths extends string,
   Path extends AllHrefPaths<Paths>,
@@ -1112,4 +1115,4 @@ export type HrefBuilder<
 >(
   path: Path,
   ...rest: HrefArgs<Paths, QS, Path, Params>
-) => string
+) => ResolvedHref

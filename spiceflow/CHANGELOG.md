@@ -1,5 +1,13 @@
 # spiceflow
 
+## 1.19.0-rsc.9
+
+1. **`router.href()` results work with typed `<Link>`** — links can now receive URLs produced by `router.href()` while raw string `href` values still stay type-checked against registered routes:
+
+   ```tsx
+   <Link href={router.href('/orgs/:orgId/projects/:projectId', { orgId, projectId })} />
+   ```
+
 ## 1.19.0-rsc.8
 
 1. **Typed loader data in page and layout handlers** — `loaderData` is now inferred inside `.page()`, `.staticPage()`, and `.layout()` handlers from every matching loader, including wildcard parent loaders. Shared route data can stay in loaders while server handlers read it directly without casts:
