@@ -2391,6 +2391,14 @@ test.describe("federated payloads", () => {
 		await counter.getByRole("button", { name: "+" }).click();
 		await expect(counter).toContainText("SSR counter: 1");
 	});
+
+	test("renderToStaticMarkup renders JSX inside the RSC environment", async () => {
+		const response = await fetch(baseURL + url("/api/render-html-string"));
+		expect(response.headers.get("content-type")).toContain("text/html");
+		expect(await response.text()).toBe(
+			'<section data-email="welcome"><h1>Welcome, Ada</h1><p>Your invite code is 1234.</p></section>',
+		);
+	});
 });
 
 test.describe("loaders", () => {

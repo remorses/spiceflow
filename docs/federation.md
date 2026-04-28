@@ -109,6 +109,29 @@ export const app = new Spiceflow()
 
 The remote components are SSR-rendered in the host's HTML stream, then hydrated on the client with full interactivity. CSS from the remote is automatically injected.
 
+## Static Markup
+
+Use `renderToStaticMarkup(...)` from `spiceflow/federation` when you need an **HTML string** from JSX inside the RSC environment. This is useful for email HTML, static snippets, and other server-only markup that should not be hydrated.
+
+```tsx
+import { renderToStaticMarkup } from 'spiceflow/federation'
+
+app.get('/api/email-preview', async () => {
+  const html = await renderToStaticMarkup(
+    <section>
+      <h1>Welcome, Ada</h1>
+      <p>Your invite code is 1234.</p>
+    </section>,
+  )
+
+  return new Response(html, {
+    headers: { 'content-type': 'text/html;charset=utf-8' },
+  })
+})
+```
+
+Spiceflow exports this helper because React's `renderToStaticMarkup` from `react-dom/server` does **not** work inside the React Server Components environment. RSC first renders JSX to a Flight stream, then the SSR environment decodes that stream into HTML. This helper uses the same Flight-to-HTML bridge that federation uses internally.
+
 ## Imperative Decode
 
 Use `decodeFederationPayload(response)` when you want to fetch a route manually in a client event handler and use the decoded value yourself. This works for plain objects, JSX, or objects containing JSX. Async iterables are supported when they are fields on an object payload, for example `{ stream }`.

@@ -1,5 +1,20 @@
 # spiceflow
 
+## 1.20.0-rsc.0
+
+1. **Render JSX to static HTML inside RSC** — `spiceflow/federation` now exports `renderToStaticMarkup()` for email HTML, previews, and other server-only markup that should not hydrate. React's `renderToStaticMarkup` from `react-dom/server` does not work in the React Server Components environment because RSC renders JSX to Flight first; Spiceflow's helper uses the same Flight-to-HTML bridge as federation:
+
+   ```tsx
+   import { renderToStaticMarkup } from 'spiceflow/federation'
+
+   const html = await renderToStaticMarkup(
+     <section>
+       <h1>Welcome, Ada</h1>
+       <p>Your invite code is 1234.</p>
+     </section>,
+   )
+   ```
+
 ## 1.19.0-rsc.10
 
 1. **Typed loader data stays inferred with registered routing APIs** — `loaderData`, `useLoaderData()`, and `router.getLoaderData()` keep route-specific types when using the `SpiceflowRegister` pattern, without page and layout components forcing circular app inference.
