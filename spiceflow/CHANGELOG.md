@@ -1,5 +1,11 @@
 # spiceflow
 
+## 1.19.0-rsc.10
+
+1. **Typed loader data stays inferred with registered routing APIs** — `loaderData`, `useLoaderData()`, and `router.getLoaderData()` keep route-specific types when using the `SpiceflowRegister` pattern, without page and layout components forcing circular app inference.
+
+2. **Cleaner redirect typing from reusable UI code** — the exported `redirect()` helper now accepts string paths for shared code, while route handlers keep route-aware `context.redirect()` typing for app-specific redirects.
+
 ## 1.19.0-rsc.9
 
 1. **`router.href()` results work with typed `<Link>`** — links can now receive URLs produced by `router.href()` while raw string `href` values still stay type-checked against registered routes:
