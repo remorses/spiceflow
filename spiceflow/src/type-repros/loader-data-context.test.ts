@@ -35,24 +35,30 @@ function getDiagnosticsForSnippet(source: string) {
   }
 }
 
-test('page and layout handlers receive untyped loader data', () => {
+test('page and layout handlers receive merged loader data', () => {
   const diagnostics = getDiagnosticsForSnippet(`
 import { Spiceflow } from '../spiceflow.tsx'
 
-new Spiceflow()
+const app = new Spiceflow()
   .loader('/*', async () => ({ session: { user: { name: 'Ada' } } }))
   .loader('/orgs/:orgId/projects/:projectId/*', async ({ params }) => ({
     orgId: params.orgId,
     projectId: params.projectId,
   }))
   .layout('/orgs/:orgId/projects/:projectId/*', async ({ loaderData }) => {
-    // @ts-expect-error loaderData is intentionally not inferred from loader handlers
     loaderData.session.user.name
+    loaderData.orgId.toUpperCase()
+    loaderData.projectId.toUpperCase()
+    // @ts-expect-error unknown loader fields stay rejected
+    loaderData.missing
     return null
   })
   .page('/orgs/:orgId/projects/:projectId/settings', async ({ loaderData }) => {
-    // @ts-expect-error loaderData is intentionally not inferred from loader handlers
+    loaderData.session.user.name
+    loaderData.orgId.toUpperCase()
     loaderData.projectId.toUpperCase()
+    // @ts-expect-error unknown loader fields stay rejected
+    loaderData.missing
     return null
   })
 `)
@@ -60,7 +66,7 @@ new Spiceflow()
   expect(diagnostics).toEqual([])
 })
 
-test('loader result can be typed in loader return and useLoaderData', () => {
+test('loader result is inferred in useLoaderData through app register', () => {
   const diagnostics = getDiagnosticsForSnippet(`
 import { Spiceflow } from '../spiceflow.tsx'
 import { useLoaderData } from '../react/index.ts'
@@ -68,18 +74,24 @@ import { useLoaderData } from '../react/index.ts'
 type DashboardData = { user: { name: string } }
 
 function Dashboard() {
-  const loaderData = useLoaderData<DashboardData>('/dashboard')
+  const loaderData = useLoaderData('/dashboard')
   loaderData.user.name.toUpperCase()
   // @ts-expect-error unknown loader fields stay rejected
   loaderData.missing
   return null
 }
 
-new Spiceflow()
+const app = new Spiceflow()
   .loader('/dashboard', async (): Promise<DashboardData> => ({
     user: { name: 'Ada' },
   }))
   .page('/dashboard', async () => <Dashboard />)
+
+declare module '../react/router.js' {
+  interface SpiceflowRegister {
+    app: typeof app
+  }
+}
 `)
 
   expect(diagnostics).toEqual([])

@@ -1,8 +1,14 @@
 import React from 'react'
+import type { AnySpiceflow } from '../spiceflow.js'
 import { ServerPayload } from '../spiceflow.js'
 import { FlightDataContext } from '#flight-data-context'
 import { getRouterContext } from '#router-context'
-import { coerceLoaderData } from './router.js'
+import {
+  coerceLoaderData,
+  type LoaderDataForPath,
+  type RegisteredApp,
+  type RouterPathArg,
+} from './router.js'
 
 export { FlightDataContext }
 
@@ -33,14 +39,15 @@ export function useFlightData() {
   return payload?.root
 }
 
-export function useLoaderData<Data = Record<string, unknown>>(_path?: string): Data {
+export function useLoaderData<
+  App extends AnySpiceflow = RegisteredApp,
+  const Path extends RouterPathArg<App> = string,
+>(_path?: Path): LoaderDataForPath<App, Path> {
   const payloadPromise = readFlightDataContext()
   if (typeof window === 'undefined' && !payloadPromise) {
-    const data: any = coerceLoaderData(getRouterContext()?.loaderData ?? {})
-    return data
+    return coerceLoaderData<App, Path>(getRouterContext()?.loaderData ?? {})
   }
 
   const payload = React.use(assertFlightDataContext(payloadPromise))
-  const data: any = coerceLoaderData(payload?.root?.loaderData ?? {})
-  return data
+  return coerceLoaderData<App, Path>(payload?.root?.loaderData ?? {})
 }

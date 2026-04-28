@@ -4,9 +4,12 @@ import type { AnySpiceflow } from '../spiceflow.js'
 import type { ExtractParamsFromPath, ResolvedHref } from '../types.js'
 import { getRouterContext } from '#router-context'
 import { buildHref } from './loader-utils.js'
+import { coerceLoaderData } from './router.js'
 import type {
+  LoaderDataForPath,
   RegisteredApp,
   RouterBase,
+  RouterPathArg,
 } from './router.js'
 
 const basePath = getBasePath()
@@ -94,9 +97,11 @@ export function useRouterState<_App extends AnySpiceflow = RegisteredApp>() {
   }
 }
 
-export function useLoaderData<Data = Record<string, unknown>>(_path?: string): Data {
-  const data: any = getRouterContext()?.loaderData ?? {}
-  return data
+export function useLoaderData<
+  App extends AnySpiceflow = RegisteredApp,
+  const Path extends RouterPathArg<App> = string,
+>(_path?: Path): LoaderDataForPath<App, Path> {
+  return coerceLoaderData<App, Path>(getRouterContext()?.loaderData ?? {})
 }
 
 export type { SpiceflowRegister, RegisteredApp } from './router.js'

@@ -156,17 +156,17 @@ test('AnySpiceflow falls back to ergonomic any types', () => {
 
   function GlobalLoaderDataComponent() {
     const data = useLoaderData()
-    const dataIsAny: IsAny<typeof data> = false
+    const dataIsAny: IsAny<typeof data> = true
     void dataIsAny
-    void data
+    data.session.user.name
     return null
   }
 
   function PathLoaderDataComponent() {
     const data = useLoaderData('/runtime-route')
-    const dataIsAny: IsAny<typeof data> = false
+    const dataIsAny: IsAny<typeof data> = true
     void dataIsAny
-    void data
+    data.session.user.name
     return null
   }
 
@@ -178,16 +178,16 @@ test('AnySpiceflow falls back to ergonomic any types', () => {
 
   async function assertGetLoaderDataFallbackTypes() {
     const data = await routerApi.getLoaderData()
-    const dataIsAny: IsAny<typeof data> = false
+    const dataIsAny: IsAny<typeof data> = true
     void dataIsAny
-    void data
+    data.session.user.name
   }
 
   async function assertGetLoaderDataWithPathFallbackTypes() {
     const data = await routerApi.getLoaderData('/runtime-route')
-    const dataIsAny: IsAny<typeof data> = false
+    const dataIsAny: IsAny<typeof data> = true
     void dataIsAny
-    void data
+    data.session.user.name
   }
 
   assertFetchFallbackTypes
@@ -243,16 +243,17 @@ test('strict app router types stay narrow', () => {
   noLoaderRouter.href('/missing')
 
   function StrictLoaderDataComponent() {
-    const data = useLoaderData<{ user: { id: string } }>('/users/:id')
+    const data = useLoaderData<typeof app>('/users/:id')
     data.user.id
-    // @ts-expect-error - explicit loader data generic must not widen to any
+    // @ts-expect-error - typed loader data must not widen to any
     data.user.missing
     return null
   }
 
   function NoLoaderDataComponent() {
-    const data = useLoaderData('/plain')
-    void data
+    const data = useLoaderData<typeof noLoaderApp>('/plain')
+    // @ts-expect-error - no-loader routes must not widen to any
+    data.anything
     return null
   }
 
@@ -265,9 +266,9 @@ test('strict app router types stay narrow', () => {
   }
 
   async function assertStrictGetLoaderData() {
-    const data = await strictRouter.getLoaderData<{ user: { id: string } }>('/users/:id')
+    const data = await strictRouter.getLoaderData('/users/:id')
     data.user.id
-    // @ts-expect-error - explicit loader data generic must not widen to any
+    // @ts-expect-error - typed loader data must not widen to any
     data.user.missing
 
     strictRouter.refresh()
@@ -275,7 +276,8 @@ test('strict app router types stay narrow', () => {
 
   async function assertNoLoaderGetLoaderData() {
     const data = await noLoaderRouter.getLoaderData('/plain')
-    void data
+    // @ts-expect-error - no-loader routes must not widen to any
+    data.anything
   }
 
   function assertUntypedRouterStillAllowsArbitraryPaths() {
@@ -389,25 +391,19 @@ test('overlapping loaders merge into typed router data', () => {
   const router = getRouter<typeof app>()
 
   function MergedLoaderDataComponent() {
-    const data = useLoaderData<{
-      session: { user: { name: string } }
-      profile: { id: string }
-    }>('/users/:id')
+    const data = useLoaderData<typeof app>('/users/:id')
     data.session.user.name
     data.profile.id
-    // @ts-expect-error - explicit loader data must stay narrow
+    // @ts-expect-error - merged loader data must stay narrow
     data.profile.slug
     return null
   }
 
   async function assertMergedGetLoaderData() {
-    const data = await router.getLoaderData<{
-      session: { user: { name: string } }
-      profile: { id: string }
-    }>('/users/:id')
+    const data = await router.getLoaderData('/users/:id')
     data.session.user.name
     data.profile.id
-    // @ts-expect-error - explicit loader data must stay narrow
+    // @ts-expect-error - merged loader data must stay narrow
     data.session.user.email
   }
 

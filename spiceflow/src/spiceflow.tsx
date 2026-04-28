@@ -1295,7 +1295,7 @@ export class Spiceflow<
     Singleton,
     Definitions,
     Metadata & {
-      loaderData: Record<JoinPath<BasePath, Path>, Record<string, unknown>>
+      loaderData: Record<JoinPath<BasePath, Path>, Awaited<ReturnType<Handle>>>
     },
     ClientRoutes,
     RoutePaths,

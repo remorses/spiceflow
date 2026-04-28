@@ -34,7 +34,7 @@ type DashboardData = { session: { user: { name: string } } }
 const typedRouter = getRouter<typeof app>()
 
 function HookProbe() {
-  const data = useLoaderData<DashboardData>('/dashboard')
+  const data = useLoaderData<typeof app>('/dashboard')
   const state = useRouterState()
 
   return (
@@ -49,8 +49,8 @@ function HookProbe() {
 }
 
 async function SsrProbe() {
-  const data = await getRouter().getLoaderData<DashboardData>()
-  const typedData = await typedRouter.getLoaderData<DashboardData>('/dashboard')
+  const data = await typedRouter.getLoaderData()
+  const typedData = await typedRouter.getLoaderData('/dashboard')
 
   return (
     <>

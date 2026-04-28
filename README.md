@@ -1264,61 +1264,50 @@ Prefer putting route data in loaders when that data is shared by more than one p
 Loaders only run for requests that also match a `.page()` or `.layout()`. They are not standalone endpoints. If you want to serve content without rendering a page or layout, use `.get()`, `.route()`, or another API handler instead.
 
 ```tsx
-type DashboardData = {
-  user: { name: string }
-  stats: { totalViews: number }
-}
-
 export const app = new Spiceflow()
   .page('/login', async () => <Login />)
   // Auth loader for all routes — wildcard pattern matches everything
-  .loader('/*', async ({ request, redirect }): Promise<Pick<DashboardData, 'user'>> => {
+  .loader('/*', async ({ request, redirect }) => {
     const user = await getUser(request.headers.get('cookie'))
     if (!user) throw redirect('/login')
     return { user }
   })
   // Page-specific loader
-  .loader('/dashboard', async (): Promise<Pick<DashboardData, 'stats'>> => {
+  .loader('/dashboard', async () => {
     const stats = await getStats()
     return { stats }
   })
-  .layout('/*', async ({ children }) => {
+  .layout('/*', async ({ loaderData, children }) => {
+    // loaderData.user is available here from the wildcard loader
     return (
       <html>
         <body>
-          <Sidebar />
+          <nav>{loaderData.user.name}</nav>
           {children}
         </body>
       </html>
     )
   })
-  .page('/dashboard', async () => {
-    return <Dashboard />
+  .page('/dashboard', async ({ loaderData }) => {
+    // Both loaders matched, data is merged by specificity
+    // loaderData = { user: ..., stats: ... }
+    return <Dashboard user={loaderData.user} stats={loaderData.stats} />
   })
 ```
 
 A Remix-style dashboard can put shared shell data in a parent loader, then page data in loaders placed next to each page. The layout, page, and client components all read from the same request-scoped loader data:
 
 ```tsx
-type DashboardShellData = {
-  user: User
-  projects: Project[]
-}
-
-type ProjectPageData = DashboardShellData & {
-  project: Project
-}
-
 export const app = new Spiceflow()
-  .loader('/dashboard/*', async ({ request }): Promise<DashboardShellData> => {
+  .loader('/dashboard/*', async ({ request }) => {
     const user = await getUser(request)
     const projects = await getProjects(user.id)
     return { user, projects }
   })
-  .layout('/dashboard/*', async ({ children }) => {
-    return <DashboardShell>{children}</DashboardShell>
+  .layout('/dashboard/*', async ({ children, loaderData }) => {
+    return <DashboardShell user={loaderData.user}>{children}</DashboardShell>
   })
-  .loader('/dashboard/projects/:id', async ({ params }): Promise<Pick<ProjectPageData, 'project'>> => {
+  .loader('/dashboard/projects/:id', async ({ params }) => {
     const project = await getProject(params.id)
     return { project }
   })
@@ -1337,38 +1326,19 @@ declare module 'spiceflow/react' {
 import { useLoaderData } from 'spiceflow/react'
 
 export function ProjectSwitcher() {
-  const { projects } = useLoaderData<DashboardShellData>('/dashboard/*')
+  const { projects } = useLoaderData('/dashboard/*')
   return projects.map((project) => <a href={project.href}>{project.name}</a>)
 }
 
 export function ProjectHeader() {
-  const { user, project } = useLoaderData<ProjectPageData>('/dashboard/projects/:id')
+  const { user, project } = useLoaderData('/dashboard/projects/:id')
   return <h1>{project.name} for {user.name}</h1>
 }
 ```
 
 When multiple loaders match a route (e.g. `/*` and `/dashboard` both match `/dashboard`), their return values are merged into a single flat object. More specific loaders override less specific ones on key conflicts.
 
-Loader data types are not inferred from loader handlers. This keeps app registration simple and avoids circular TypeScript inference when components use registered routing APIs like `Link`, `router`, or `useLoaderData`. Define a shared data type, annotate the loader return, and pass the same type to `useLoaderData<T>()` or `router.getLoaderData<T>()`.
-
-Use the same type on both sides:
-
-```tsx
-type DashboardData = { user: { name: string } }
-
-export const app = new Spiceflow()
-  .loader('/dashboard', async (): Promise<DashboardData> => {
-    return { user: { name: 'Ada' } }
-  })
-  .page('/dashboard', async () => {
-    return <Dashboard />
-  })
-
-function Dashboard() {
-  const loaderData = useLoaderData<DashboardData>('/dashboard')
-  return <div>{loaderData.user.name}</div>
-}
-```
+Loader data is type safe when the app is registered globally with `SpiceflowRegister`. `useLoaderData('/dashboard/projects/:id')` and `router.getLoaderData('/dashboard/projects/:id')` infer the merged object returned by every matching loader, so renaming a loader field or removing it becomes a TypeScript error in every component that reads it.
 
 **Serialization**: loader return values are serialized through the React RSC flight format, not JSON. You can return JSX (including server components and client component elements with their props), `Promise`, async iterators, `Map`, `Set`, `Date`, `BigInt`, typed arrays, and any client component reference — all deserialized faithfully on the client. This means a loader can return a fully rendered `<Sidebar user={user} />` element and another component can receive it as `loaderData.sidebar` and drop it into the tree.
 
@@ -1381,7 +1351,8 @@ function Dashboard() {
 import { useLoaderData } from 'spiceflow/react'
 
 export function Sidebar() {
-  const { user, stats } = useLoaderData<DashboardData>('/dashboard')
+  // Type-safe: path narrows the return type to the loaders matching '/dashboard'
+  const { user, stats } = useLoaderData('/dashboard')
   return (
     <aside>
       {user.name} — {stats.totalViews} views
@@ -1401,11 +1372,11 @@ Loader data updates automatically on client-side navigation — when the user na
 import { router, useLoaderData } from 'spiceflow/react'
 
 async function readCurrentDocument() {
-  return router.getLoaderData<EditorData>('/editor/:id')
+  return router.getLoaderData('/editor/:id')
 }
 
 export function EditorToolbar() {
-  const { document } = useLoaderData<EditorData>('/editor/:id')
+  const { document } = useLoaderData('/editor/:id')
 
   async function refresh() {
     const next = await readCurrentDocument()
@@ -1967,7 +1938,7 @@ declare module 'spiceflow/react' {
 }
 ```
 
-After this, route-aware APIs are fully typed everywhere. Loader data is the exception: pass its data type explicitly because Spiceflow does not infer loader data from handler returns.
+After this, **all typed APIs** are fully typed everywhere, no generics needed:
 
 ```tsx
 // spiceflow/react exports
@@ -1977,7 +1948,7 @@ router.href('/login')                    // ✅ valid
 router.href('/users/:id', { id: '42' }) // ✅ params validated
 router.href('/nonexistent')              // ❌ compile error
 
-const data = useLoaderData<DashboardData>('/dashboard') // ✅ explicit loader data
+const data = useLoaderData('/dashboard') // ✅ typed loader data
 const state = useRouterState()           // ✅ typed router state
 
 // spiceflow/client exports

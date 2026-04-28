@@ -14,13 +14,10 @@ function getDiagnosticsForCircularFixture() {
   fs.writeFileSync(
     componentPath,
     `
-import { Link, router, useRouterState } from 'spiceflow/react'
-import { useLoaderData } from 'spiceflow/react'
-
-type ProjectLoaderData = { projectId: string }
+import { Link, router, useLoaderData, useRouterState } from 'spiceflow/react'
 
 export function ProjectPage() {
-  const data = useLoaderData<ProjectLoaderData>('/projects/:projectId')
+  const data = useLoaderData('/projects/:projectId')
   const state = useRouterState()
   data.projectId.toUpperCase()
   // @ts-expect-error unknown loader fields stay rejected through the register pattern
