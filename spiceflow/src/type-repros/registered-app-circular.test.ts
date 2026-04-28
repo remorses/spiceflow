@@ -14,14 +14,35 @@ function getDiagnosticsForCircularFixture() {
   fs.writeFileSync(
     componentPath,
     `
+import { Link, router, useRouterState } from 'spiceflow/react'
 import { useLoaderData } from 'spiceflow/react'
 
+type ProjectLoaderData = { projectId: string }
+
 export function ProjectPage() {
-  const data = useLoaderData('/projects/:projectId')
+  const data = useLoaderData<ProjectLoaderData>('/projects/:projectId')
+  const state = useRouterState()
   data.projectId.toUpperCase()
   // @ts-expect-error unknown loader fields stay rejected through the register pattern
   data.missing
-  return null
+  const projectHref = router.href('/projects/:projectId', { projectId: data.projectId })
+  const loginHref = router.href('/login')
+  // @ts-expect-error invalid router hrefs stay rejected
+  router.href('/missing')
+  // @ts-expect-error missing params stay rejected
+  router.href('/projects/:projectId')
+  return (
+    <nav>
+      <Link href={loginHref}>{state.pathname}</Link>
+      <Link href={projectHref}>Project</Link>
+      <Link href="/login">Raw login</Link>
+      <Link href="/projects/:projectId" params={{ projectId: data.projectId }}>Pattern project</Link>
+      {/* @ts-expect-error invalid Link hrefs stay rejected */}
+      <Link href="/missing">Missing</Link>
+      {/* @ts-expect-error Link params stay checked */}
+      <Link href="/projects/:projectId" params={{ slug: data.projectId }}>Bad params</Link>
+    </nav>
+  )
 }
 `,
   )
@@ -33,8 +54,13 @@ import { Spiceflow } from 'spiceflow'
 import { ProjectPage } from './project-page.tsx'
 import type { IsAny } from '../../types.ts'
 
+type ProjectLoaderData = { projectId: string }
+
 export const app = new Spiceflow()
-  .loader('/projects/:projectId', async ({ params }) => ({ projectId: params.projectId }))
+  .page('/login', async () => 'login')
+  .loader('/projects/:projectId', async ({ params }): Promise<ProjectLoaderData> => ({
+    projectId: params.projectId,
+  }))
   .page('/projects/:projectId', async () => <ProjectPage />)
 
 type AppMustNotBecomeAny = IsAny<typeof app>

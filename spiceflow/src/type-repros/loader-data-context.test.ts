@@ -35,7 +35,7 @@ function getDiagnosticsForSnippet(source: string) {
   }
 }
 
-test('page and layout handlers receive merged loader data', () => {
+test('page and layout handlers receive untyped loader data', () => {
   const diagnostics = getDiagnosticsForSnippet(`
 import { Spiceflow } from '../spiceflow.tsx'
 
@@ -46,21 +46,40 @@ new Spiceflow()
     projectId: params.projectId,
   }))
   .layout('/orgs/:orgId/projects/:projectId/*', async ({ loaderData }) => {
+    // @ts-expect-error loaderData is intentionally not inferred from loader handlers
     loaderData.session.user.name
-    loaderData.orgId.toUpperCase()
-    loaderData.projectId.toUpperCase()
-    // @ts-expect-error unknown loader fields stay rejected
-    loaderData.missing
     return null
   })
   .page('/orgs/:orgId/projects/:projectId/settings', async ({ loaderData }) => {
-    loaderData.session.user.name
-    loaderData.orgId.toUpperCase()
+    // @ts-expect-error loaderData is intentionally not inferred from loader handlers
     loaderData.projectId.toUpperCase()
-    // @ts-expect-error unknown loader fields stay rejected
-    loaderData.missing
     return null
   })
+`)
+
+  expect(diagnostics).toEqual([])
+})
+
+test('loader result can be typed in loader return and useLoaderData', () => {
+  const diagnostics = getDiagnosticsForSnippet(`
+import { Spiceflow } from '../spiceflow.tsx'
+import { useLoaderData } from '../react/index.ts'
+
+type DashboardData = { user: { name: string } }
+
+function Dashboard() {
+  const loaderData = useLoaderData<DashboardData>('/dashboard')
+  loaderData.user.name.toUpperCase()
+  // @ts-expect-error unknown loader fields stay rejected
+  loaderData.missing
+  return null
+}
+
+new Spiceflow()
+  .loader('/dashboard', async (): Promise<DashboardData> => ({
+    user: { name: 'Ada' },
+  }))
+  .page('/dashboard', async () => <Dashboard />)
 `)
 
   expect(diagnostics).toEqual([])

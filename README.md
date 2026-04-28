@@ -1264,49 +1264,61 @@ Prefer putting route data in loaders when that data is shared by more than one p
 Loaders only run for requests that also match a `.page()` or `.layout()`. They are not standalone endpoints. If you want to serve content without rendering a page or layout, use `.get()`, `.route()`, or another API handler instead.
 
 ```tsx
+type DashboardData = {
+  user: { name: string }
+  stats: { totalViews: number }
+}
+
 export const app = new Spiceflow()
+  .page('/login', async () => <Login />)
   // Auth loader for all routes — wildcard pattern matches everything
-  .loader('/*', async ({ request }) => {
+  .loader('/*', async ({ request, redirect }): Promise<Pick<DashboardData, 'user'>> => {
     const user = await getUser(request.headers.get('cookie'))
     if (!user) throw redirect('/login')
     return { user }
   })
   // Page-specific loader
-  .loader('/dashboard', async () => {
+  .loader('/dashboard', async (): Promise<Pick<DashboardData, 'stats'>> => {
     const stats = await getStats()
     return { stats }
   })
-  .layout('/*', async ({ loaderData, children }) => {
-    // loaderData.user is available here from the wildcard loader
+  .layout('/*', async ({ children }) => {
     return (
       <html>
         <body>
-          <nav>{loaderData.user.name}</nav>
+          <Sidebar />
           {children}
         </body>
       </html>
     )
   })
-  .page('/dashboard', async ({ loaderData }) => {
-    // Both loaders matched — data is merged by specificity
-    // loaderData = { user: ..., stats: ... }
-    return <Dashboard user={loaderData.user} stats={loaderData.stats} />
+  .page('/dashboard', async () => {
+    return <Dashboard />
   })
 ```
 
 A Remix-style dashboard can put shared shell data in a parent loader, then page data in loaders placed next to each page. The layout, page, and client components all read from the same request-scoped loader data:
 
 ```tsx
+type DashboardShellData = {
+  user: User
+  projects: Project[]
+}
+
+type ProjectPageData = DashboardShellData & {
+  project: Project
+}
+
 export const app = new Spiceflow()
-  .loader('/dashboard/*', async ({ request }) => {
+  .loader('/dashboard/*', async ({ request }): Promise<DashboardShellData> => {
     const user = await getUser(request)
     const projects = await getProjects(user.id)
     return { user, projects }
   })
-  .layout('/dashboard/*', async ({ children, loaderData }) => {
-    return <DashboardShell user={loaderData.user}>{children}</DashboardShell>
+  .layout('/dashboard/*', async ({ children }) => {
+    return <DashboardShell>{children}</DashboardShell>
   })
-  .loader('/dashboard/projects/:id', async ({ params }) => {
+  .loader('/dashboard/projects/:id', async ({ params }): Promise<Pick<ProjectPageData, 'project'>> => {
     const project = await getProject(params.id)
     return { project }
   })
@@ -1325,19 +1337,38 @@ declare module 'spiceflow/react' {
 import { useLoaderData } from 'spiceflow/react'
 
 export function ProjectSwitcher() {
-  const { projects } = useLoaderData('/dashboard/*')
+  const { projects } = useLoaderData<DashboardShellData>('/dashboard/*')
   return projects.map((project) => <a href={project.href}>{project.name}</a>)
 }
 
 export function ProjectHeader() {
-  const { user, project } = useLoaderData('/dashboard/projects/:id')
+  const { user, project } = useLoaderData<ProjectPageData>('/dashboard/projects/:id')
   return <h1>{project.name} for {user.name}</h1>
 }
 ```
 
 When multiple loaders match a route (e.g. `/*` and `/dashboard` both match `/dashboard`), their return values are merged into a single flat object. More specific loaders override less specific ones on key conflicts.
 
-Loader data is type safe when the app is registered globally with `SpiceflowRegister`. `useLoaderData('/dashboard/projects/:id')` and `router.getLoaderData('/dashboard/projects/:id')` infer the merged object returned by every matching loader, so renaming a loader field or removing it becomes a TypeScript error in every component that reads it.
+Loader data types are not inferred from loader handlers. This keeps app registration simple and avoids circular TypeScript inference when components use registered routing APIs like `Link`, `router`, or `useLoaderData`. Define a shared data type, annotate the loader return, and pass the same type to `useLoaderData<T>()` or `router.getLoaderData<T>()`.
+
+Use the same type on both sides:
+
+```tsx
+type DashboardData = { user: { name: string } }
+
+export const app = new Spiceflow()
+  .loader('/dashboard', async (): Promise<DashboardData> => {
+    return { user: { name: 'Ada' } }
+  })
+  .page('/dashboard', async () => {
+    return <Dashboard />
+  })
+
+function Dashboard() {
+  const loaderData = useLoaderData<DashboardData>('/dashboard')
+  return <div>{loaderData.user.name}</div>
+}
+```
 
 **Serialization**: loader return values are serialized through the React RSC flight format, not JSON. You can return JSX (including server components and client component elements with their props), `Promise`, async iterators, `Map`, `Set`, `Date`, `BigInt`, typed arrays, and any client component reference — all deserialized faithfully on the client. This means a loader can return a fully rendered `<Sidebar user={user} />` element and another component can receive it as `loaderData.sidebar` and drop it into the tree.
 
@@ -1350,8 +1381,7 @@ Loader data is type safe when the app is registered globally with `SpiceflowRegi
 import { useLoaderData } from 'spiceflow/react'
 
 export function Sidebar() {
-  // Type-safe: path narrows the return type to the loaders matching '/dashboard'
-  const { user, stats } = useLoaderData('/dashboard')
+  const { user, stats } = useLoaderData<DashboardData>('/dashboard')
   return (
     <aside>
       {user.name} — {stats.totalViews} views
@@ -1371,11 +1401,11 @@ Loader data updates automatically on client-side navigation — when the user na
 import { router, useLoaderData } from 'spiceflow/react'
 
 async function readCurrentDocument() {
-  return router.getLoaderData('/editor/:id')
+  return router.getLoaderData<EditorData>('/editor/:id')
 }
 
 export function EditorToolbar() {
-  const { document } = useLoaderData('/editor/:id')
+  const { document } = useLoaderData<EditorData>('/editor/:id')
 
   async function refresh() {
     const next = await readCurrentDocument()
@@ -1937,7 +1967,7 @@ declare module 'spiceflow/react' {
 }
 ```
 
-After this, **all typed APIs** are fully typed everywhere — no generics needed:
+After this, route-aware APIs are fully typed everywhere. Loader data is the exception: pass its data type explicitly because Spiceflow does not infer loader data from handler returns.
 
 ```tsx
 // spiceflow/react exports
@@ -1947,7 +1977,7 @@ router.href('/login')                    // ✅ valid
 router.href('/users/:id', { id: '42' }) // ✅ params validated
 router.href('/nonexistent')              // ❌ compile error
 
-const data = useLoaderData('/dashboard') // ✅ typed loader data
+const data = useLoaderData<DashboardData>('/dashboard') // ✅ explicit loader data
 const state = useRouterState()           // ✅ typed router state
 
 // spiceflow/client exports
@@ -2088,12 +2118,13 @@ Each yielded element — whether a text paragraph, a weather card, or a stock ch
 
 ### Redirects and Not Found
 
-Use `redirect()` and `response.status` inside `.page()`, `.layout()`, and server action handlers to control navigation and HTTP status codes:
+Use the handler context `redirect` and `response.status` inside `.page()` and `.layout()` handlers to control navigation and HTTP status codes:
 
 ```tsx
-import { Spiceflow, redirect } from 'spiceflow'
+import { Spiceflow } from 'spiceflow'
 
 export const app = new Spiceflow()
+  .page('/login', async () => <Login />)
   .layout('/*', async ({ children, request }) => {
     // When no page matches, children is null — render a custom 404
     return (
@@ -2102,7 +2133,7 @@ export const app = new Spiceflow()
       </AppLayout>
     )
   })
-  .page('/dashboard', async ({ request }) => {
+  .page('/dashboard', async ({ request, redirect }) => {
     const user = await getUser(request)
     if (!user) {
       throw redirect('/login')
@@ -2119,7 +2150,7 @@ export const app = new Spiceflow()
   })
   // Layouts can throw redirect — useful for auth guards that protect
   // an entire section of your app
-  .layout('/admin/*', async ({ children, request }) => {
+  .layout('/admin/*', async ({ children, request, redirect }) => {
     const user = await getUser(request)
     if (!user?.isAdmin) {
       throw redirect('/login')
@@ -2130,11 +2161,11 @@ export const app = new Spiceflow()
 export type App = typeof app
 ```
 
-`redirect()` accepts an optional second argument for custom status codes and headers:
+Context `redirect()` accepts an optional second argument for custom status codes and headers:
 
 ```tsx
 // 301 permanent redirect
-throw redirect('/new-url', { status: 301 })
+throw redirect('/login', { status: 301 })
 
 // Redirect with custom headers
 throw redirect('/login', {
@@ -2149,25 +2180,25 @@ throw redirect('/login', {
 
 **Correct HTTP status codes.** Unlike Next.js, where redirects always return a 200 status with client-side handling, Spiceflow returns the actual HTTP status code in the response — `307` for redirects (with a `Location` header) and whatever you set via `response.status` for pages. This works even when the throw happens after an `await`, because the SSR layer intercepts the error from the RSC stream before flushing the HTML response. Search engines see correct status codes, and `fetch()` calls with `redirect: "manual"` get the real `307` response.
 
-**Client-side navigation.** When a user clicks a `<Link>` that navigates to a page throwing `redirect()`, the router performs the redirect client-side without a full page reload.
+**Client-side navigation.** When a user clicks a `<Link>` that navigates to a page throwing context `redirect()`, the router performs the redirect client-side without a full page reload.
 
 </details>
 
 <details>
 <summary>Authentication: pages vs API routes</summary>
 
-Pages and layouts should always `throw redirect('/login')` when the user is not authenticated. API routes (`.get()`, `.post()`, etc.) should return a JSON error with a 401 status instead. This keeps the experience clean: users visiting a protected page get redirected to login instead of seeing a raw JSON blob, while API consumers get a proper typed error response they can handle programmatically.
+Pages and layouts should always `throw redirect('/login')` from handler context when the user is not authenticated. API routes (`.get()`, `.post()`, etc.) should return a JSON error with a 401 status instead. This keeps the experience clean: users visiting a protected page get redirected to login instead of seeing a raw JSON blob, while API consumers get a proper typed error response they can handle programmatically.
 
 ```tsx
 // Page — redirect to login
-.page('/dashboard', async ({ request }) => {
+.page('/dashboard', async ({ request, redirect }) => {
   const user = await getUser(request)
   if (!user) throw redirect('/login')
   return <Dashboard user={user} />
 })
 
 // Layout — redirect to login (protects all nested pages)
-.layout('/app/*', async ({ children, request }) => {
+.layout('/app/*', async ({ children, request, redirect }) => {
   const user = await getUser(request)
   if (!user) throw redirect('/login')
   return <AppLayout>{children}</AppLayout>

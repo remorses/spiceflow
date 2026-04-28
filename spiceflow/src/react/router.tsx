@@ -164,9 +164,7 @@ export type RouterBase<App extends AnySpiceflow = AnySpiceflow> = {
   refresh(): void
   subscribe(cb: Subscriber): () => void
 
-  getLoaderData<const Path extends RouterPathArg<App> = string>(
-    path?: Path,
-  ): Promise<LoaderDataForPath<App, Path>>
+  getLoaderData<Data = Record<string, unknown>>(path?: string): Promise<Data>
 
   /** @internal */
   __setLoaderData(data: Record<string, unknown> | undefined): void
@@ -528,7 +526,7 @@ export const router: RouterBase<RegisteredApp> = {
       subscribers.delete(cb)
     }
   },
-  getLoaderData(_path?: string): Promise<Record<string, unknown>> {
+  getLoaderData(_path?: string): Promise<any> {
     if (!isBrowser) {
       const serverContext = getRouterContext()
       return Promise.resolve(serverContext?.loaderData ?? loaderDataState.data)

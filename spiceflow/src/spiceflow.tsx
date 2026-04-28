@@ -254,7 +254,7 @@ export class Spiceflow<
     loaderData: {}
   },
   const out ClientRoutes extends RouteBase = {},
-  const out RoutePaths extends string = '',
+  const in out RoutePaths extends string = '',
   const in out RouteQuerySchemas extends object = {},
 > {
   private id: number = globalIndex++
@@ -1051,7 +1051,8 @@ export class Spiceflow<
       Singleton,
       JoinPath<BasePath, Path>,
       {},
-      MergedLoaderData<Metadata['loaderData'], JoinPath<BasePath, Path>>
+      MergedLoaderData<Metadata['loaderData'], JoinPath<BasePath, Path>>,
+      RoutePaths | JoinPath<BasePath, Path>
     >,
   ): Spiceflow<
     BasePath,
@@ -1073,7 +1074,8 @@ export class Spiceflow<
       Singleton,
       JoinPath<BasePath, Path>,
       {},
-      MergedLoaderData<Metadata['loaderData'], JoinPath<BasePath, Path>>
+      MergedLoaderData<Metadata['loaderData'], JoinPath<BasePath, Path>>,
+      RoutePaths | JoinPath<BasePath, Path>
     >,
   >(
     options: LocalHook<
@@ -1126,7 +1128,8 @@ export class Spiceflow<
       Singleton,
       JoinPath<BasePath, Path>,
       {},
-      MergedLoaderData<Metadata['loaderData'], JoinPath<BasePath, Path>>
+      MergedLoaderData<Metadata['loaderData'], JoinPath<BasePath, Path>>,
+      RoutePaths | JoinPath<BasePath, Path>
     >,
   ): Spiceflow<
     BasePath,
@@ -1148,7 +1151,8 @@ export class Spiceflow<
       Singleton,
       JoinPath<BasePath, Path>,
       {},
-      MergedLoaderData<Metadata['loaderData'], JoinPath<BasePath, Path>>
+      MergedLoaderData<Metadata['loaderData'], JoinPath<BasePath, Path>>,
+      RoutePaths | JoinPath<BasePath, Path>
     >,
   >(
     options: LocalHook<
@@ -1247,7 +1251,8 @@ export class Spiceflow<
       Singleton,
       JoinPath<BasePath, Path>,
       {},
-      MergedLoaderData<Metadata['loaderData'], JoinPath<BasePath, Path>>
+      MergedLoaderData<Metadata['loaderData'], JoinPath<BasePath, Path>>,
+      RoutePaths | JoinPath<BasePath, Path>
     >,
   ): Spiceflow<
     BasePath,
@@ -1273,7 +1278,13 @@ export class Spiceflow<
   loader<
     const Path extends string,
     const Handle extends (
-      context: SpiceflowContext<JoinPath<BasePath, Path>, {}, Singleton>,
+      context: SpiceflowContext<
+        JoinPath<BasePath, Path>,
+        {},
+        Singleton,
+        {},
+        RoutePaths | JoinPath<BasePath, Path>
+      >,
     ) => Record<string, unknown> | Promise<Record<string, unknown>>,
   >(
     path: Path,
@@ -1284,7 +1295,7 @@ export class Spiceflow<
     Singleton,
     Definitions,
     Metadata & {
-      loaderData: Record<JoinPath<BasePath, Path>, Awaited<ReturnType<Handle>>>
+      loaderData: Record<JoinPath<BasePath, Path>, Record<string, unknown>>
     },
     ClientRoutes,
     RoutePaths,

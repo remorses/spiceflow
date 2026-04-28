@@ -156,17 +156,17 @@ test('AnySpiceflow falls back to ergonomic any types', () => {
 
   function GlobalLoaderDataComponent() {
     const data = useLoaderData()
-    const dataIsAny: IsAny<typeof data> = true
+    const dataIsAny: IsAny<typeof data> = false
     void dataIsAny
-    data.session.user.name
+    void data
     return null
   }
 
   function PathLoaderDataComponent() {
     const data = useLoaderData('/runtime-route')
-    const dataIsAny: IsAny<typeof data> = true
+    const dataIsAny: IsAny<typeof data> = false
     void dataIsAny
-    data.session.user.name
+    void data
     return null
   }
 
@@ -178,16 +178,16 @@ test('AnySpiceflow falls back to ergonomic any types', () => {
 
   async function assertGetLoaderDataFallbackTypes() {
     const data = await routerApi.getLoaderData()
-    const dataIsAny: IsAny<typeof data> = true
+    const dataIsAny: IsAny<typeof data> = false
     void dataIsAny
-    data.session.user.name
+    void data
   }
 
   async function assertGetLoaderDataWithPathFallbackTypes() {
     const data = await routerApi.getLoaderData('/runtime-route')
-    const dataIsAny: IsAny<typeof data> = true
+    const dataIsAny: IsAny<typeof data> = false
     void dataIsAny
-    data.session.user.name
+    void data
   }
 
   assertFetchFallbackTypes
@@ -243,17 +243,16 @@ test('strict app router types stay narrow', () => {
   noLoaderRouter.href('/missing')
 
   function StrictLoaderDataComponent() {
-    const data = useLoaderData<typeof app>('/users/:id')
+    const data = useLoaderData<{ user: { id: string } }>('/users/:id')
     data.user.id
-    // @ts-expect-error - typed loader data must not widen to any
+    // @ts-expect-error - explicit loader data generic must not widen to any
     data.user.missing
     return null
   }
 
   function NoLoaderDataComponent() {
-    const data = useLoaderData<typeof noLoaderApp>('/plain')
-    // @ts-expect-error - no-loader routes must not widen to any
-    data.anything
+    const data = useLoaderData('/plain')
+    void data
     return null
   }
 
@@ -266,9 +265,9 @@ test('strict app router types stay narrow', () => {
   }
 
   async function assertStrictGetLoaderData() {
-    const data = await strictRouter.getLoaderData('/users/:id')
+    const data = await strictRouter.getLoaderData<{ user: { id: string } }>('/users/:id')
     data.user.id
-    // @ts-expect-error - typed loader data must not widen to any
+    // @ts-expect-error - explicit loader data generic must not widen to any
     data.user.missing
 
     strictRouter.refresh()
@@ -276,8 +275,7 @@ test('strict app router types stay narrow', () => {
 
   async function assertNoLoaderGetLoaderData() {
     const data = await noLoaderRouter.getLoaderData('/plain')
-    // @ts-expect-error - no-loader routes must not widen to any
-    data.anything
+    void data
   }
 
   function assertUntypedRouterStillAllowsArbitraryPaths() {
@@ -391,19 +389,25 @@ test('overlapping loaders merge into typed router data', () => {
   const router = getRouter<typeof app>()
 
   function MergedLoaderDataComponent() {
-    const data = useLoaderData<typeof app>('/users/:id')
+    const data = useLoaderData<{
+      session: { user: { name: string } }
+      profile: { id: string }
+    }>('/users/:id')
     data.session.user.name
     data.profile.id
-    // @ts-expect-error - merged loader data must stay narrow
+    // @ts-expect-error - explicit loader data must stay narrow
     data.profile.slug
     return null
   }
 
   async function assertMergedGetLoaderData() {
-    const data = await router.getLoaderData('/users/:id')
+    const data = await router.getLoaderData<{
+      session: { user: { name: string } }
+      profile: { id: string }
+    }>('/users/:id')
     data.session.user.name
     data.profile.id
-    // @ts-expect-error - merged loader data must stay narrow
+    // @ts-expect-error - explicit loader data must stay narrow
     data.session.user.email
   }
 
@@ -451,14 +455,28 @@ test('Link: typed app validates href paths and requires params', () => {
   expectLink({ href: '/users/:id' as const, params: { slug: '1' } })
 })
 
-test('redirect is typed through SpiceflowRegister', () => {
+test('exported redirect accepts plain strings while context redirect is typed', () => {
   const diagnostics = getDiagnosticsForSnippet(`
 import { Spiceflow } from './spiceflow.tsx'
 import { redirect } from './react/index.ts'
 
 const app = new Spiceflow()
   .page('/login', async () => 'login')
-  .page('/users/:id', async () => 'user')
+  .page('/users/:id', async ({ redirect: routeRedirect }) => {
+    routeRedirect('/login')
+    routeRedirect('/users/:id', { params: { id: '42' } })
+
+    // @ts-expect-error missing params
+    routeRedirect('/users/:id')
+
+    // @ts-expect-error wrong param key
+    routeRedirect('/users/:id', { params: { slug: '1' } })
+
+    // @ts-expect-error invalid literal path
+    routeRedirect('/missing')
+
+    return 'user'
+  })
 
 declare module './react/router.js' {
   interface SpiceflowRegister {
@@ -471,14 +489,8 @@ redirect('/users/:id', { params: { id: '42' } })
 const id = '42'
 redirect(\`/users/\${id}\`)
 redirect('https://example.com')
-
-// @ts-expect-error missing params
 redirect('/users/:id')
-
-// @ts-expect-error wrong param key
 redirect('/users/:id', { params: { slug: '1' } })
-
-// @ts-expect-error invalid path
 redirect('/missing')
 `)
 
