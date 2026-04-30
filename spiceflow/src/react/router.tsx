@@ -583,6 +583,7 @@ export function useRouterState<_App extends AnySpiceflow = RegisteredApp>() {
   return useMemo(
     () => ({
       ...location,
+      pathname: stripBase(location.pathname),
       searchParams: new URLSearchParams(
         location.search,
       ) as ReadonlyURLSearchParams,

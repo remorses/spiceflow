@@ -203,6 +203,10 @@ async function main() {
     payload: Promise<ServerPayload>
     location?: Location
   }
+  type BrowserState = {
+    payload: Promise<ServerPayload>
+    location: Location
+  }
   let setPayload: (v: PayloadArgs) => void = () => undefined
   // Direct setter without startTransition — used by callServer for form actions
   // so the payload update stays in React's form action transition instead of
@@ -242,10 +246,6 @@ async function main() {
       }),
     )
     if (navigationAbort.signal.aborted) return
-    applyPayload({
-      payload,
-      location: event.location,
-    })
     Promise.resolve(payload)
       .then((resolved) => {
         if (currentNavigationAbort !== navigationAbort) return
@@ -257,6 +257,10 @@ async function main() {
         if (currentNavigationRequestId !== (event.requestId ?? null)) return
         currentNavigationRequestId = null
       })
+    applyPayload({
+      payload,
+      location: event.location,
+    })
   }
 
   // Install the navigation subscription before hydration so an early Link click
@@ -378,9 +382,7 @@ async function main() {
     .catch(() => {})
 
   function BrowserRoot() {
-    const [{ payload, location }, setPayload_] = React.useState<
-      PayloadArgs & { location: Location }
-    >({
+    const [{ payload, location }, setPayload_] = React.useState<BrowserState>({
       payload: initialPayload,
       location: router.location,
     })
