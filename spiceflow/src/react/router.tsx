@@ -1,7 +1,8 @@
 import { createBrowserHistory, createMemoryHistory, type Location } from 'history'
-import { useMemo, useSyncExternalStore } from 'react'
+import { useContext, useMemo } from 'react'
 import { getBasePath } from '../base-path.js'
 import type { AnySpiceflow } from '../spiceflow.js'
+import type { FlightDataContextValue } from '#flight-data-context'
 import type {
   AllLoaderData,
   HrefBuilder,
@@ -10,6 +11,7 @@ import type {
   ResolvedHref,
 } from '../types.js'
 import { getRouterContext } from '#router-context'
+import { FlightDataContext } from '#flight-data-context'
 import { buildHref } from './loader-utils.js'
 
 const isBrowser = typeof window !== 'undefined'
@@ -179,7 +181,6 @@ const navigationEvents: RouterEvent[] = []
 const scrollPositions = new Map<string, number>()
 let nextEventId = 0
 let nextRequestId = 0
-
 function cloneLocation(location: Location): Location {
   return {
     pathname: location.pathname,
@@ -399,16 +400,11 @@ function getCurrentLocation(): Location {
   return history.location
 }
 
-function getServerSnapshot(): Location {
-  return getCurrentLocation()
-}
-
-function subscribeRouterState(cb: Subscriber) {
-  return router.subscribe(cb)
-}
-
-function getBrowserSnapshot() {
-  return history.location
+function useRouterDataContext(): FlightDataContextValue['routerData'] | null {
+  if (!FlightDataContext) {
+    return null
+  }
+  return useContext(FlightDataContext)?.routerData ?? null
 }
 
 function hasBasePrefix(path: string, base: string): boolean {
@@ -582,11 +578,8 @@ export const router: RouterBase<RegisteredApp> = {
 }
 
 export function useRouterState<_App extends AnySpiceflow = RegisteredApp>() {
-  const location = useSyncExternalStore(
-    subscribeRouterState,
-    getBrowserSnapshot,
-    getServerSnapshot,
-  )
+  const routerData = useRouterDataContext()
+  const location = routerData?.location ?? getCurrentLocation()
   return useMemo(
     () => ({
       ...location,

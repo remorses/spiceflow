@@ -12,7 +12,7 @@ import {
 
 export { FlightDataContext }
 
-function readFlightDataContext(): Promise<ServerPayload> | undefined {
+function readFlightDataContext() {
   if (!FlightDataContext) {
     return undefined
   }
@@ -20,10 +20,10 @@ function readFlightDataContext(): Promise<ServerPayload> | undefined {
 }
 
 export function assertFlightDataContext(
-  value: Promise<ServerPayload> | undefined,
+  value: ReturnType<typeof readFlightDataContext>,
 ): Promise<ServerPayload> {
   if (value) {
-    return value
+    return value.payload
   }
 
   throw new Error(
@@ -43,11 +43,13 @@ export function useLoaderData<
   App extends AnySpiceflow = RegisteredApp,
   const Path extends RouterPathArg<App> = string,
 >(_path?: Path): LoaderDataForPath<App, Path> {
-  const payloadPromise = readFlightDataContext()
-  if (typeof window === 'undefined' && !payloadPromise) {
-    return coerceLoaderData<App, Path>(getRouterContext()?.loaderData ?? {})
+  const flightData = readFlightDataContext()
+  if (typeof window === 'undefined' && !flightData) {
+    return coerceLoaderData<App, Path>(
+      getRouterContext()?.loaderData ?? {},
+    )
   }
 
-  const payload = React.use(assertFlightDataContext(payloadPromise))
+  const payload = React.use(assertFlightDataContext(flightData))
   return coerceLoaderData<App, Path>(payload?.root?.loaderData ?? {})
 }

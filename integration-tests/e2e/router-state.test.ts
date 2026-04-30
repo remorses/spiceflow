@@ -91,3 +91,21 @@ test("useRouterState works when the client component comes from a package", asyn
 	);
 	expect(hydrationMessages).toEqual([]);
 });
+
+test("useRouterState stays on the committed route while navigation is pending", async ({
+	page,
+}) => {
+	await page.goto(url("/router-state/a"));
+	await expect(page.getByTestId("router-transition-pathname")).toHaveText(
+		url("/router-state/a"),
+	);
+
+	await page.getByTestId("router-transition-button").click();
+	await expect(page).toHaveURL(url("/router-state/b"));
+	await expect(page.getByTestId("router-transition-pathname")).toHaveText(
+		url("/router-state/a"),
+	);
+	await expect(page.getByTestId("router-transition-pathname")).toHaveText(
+		url("/router-state/b"),
+	);
+});

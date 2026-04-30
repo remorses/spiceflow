@@ -26,7 +26,7 @@ import {
 import { formatServerError } from './format-server-error.js'
 import { sanitizeErrorMessage } from './sanitize-error.js'
 import { injectRSCPayload } from './transform.js'
-import { createRouterContextData, routerContextStorage } from '../router-context.js'
+import { createRouterContextData } from '../router-context.js'
 
 const verboseLogs = process.env.SPICEFLOW_VERBOSE === '1'
 
@@ -105,6 +105,7 @@ export async function renderHtml({
   // Keep the first SSR-side createFromReadableStream call inside ReactDOMServer
   // render context so React can register preinit/preload hints for client refs.
   let payloadPromise: Promise<ServerPayload> | undefined
+  const ssrRouterData = createRouterContextData(request)
 
   // Tree structure must match BrowserRoot in entry.client.tsx exactly so
   // React's useId() generates identical IDs during SSR and hydration.
@@ -117,15 +118,16 @@ export async function renderHtml({
   function SsrRoot() {
     payloadPromise ??= createFromReadableStream<ServerPayload>(flightForSsr)
     const payload = React.use(payloadPromise!)
-    const routerContext = routerContextStorage.getStore()
-    if (routerContext) {
-      routerContext.loaderData = payload.root?.loaderData ?? {}
+    ssrRouterData.loaderData = payload.root?.loaderData ?? {}
+    const flightData = {
+      payload: payloadPromise!,
+      routerData: ssrRouterData,
     }
     return (
       <SsrFiberProvider>
         <ErrorBoundary errorComponent={DefaultGlobalErrorPage}>
           <NotFoundBoundary component={DefaultNotFoundPage}>
-            <FlightDataContext.Provider value={payloadPromise!}>
+            <FlightDataContext.Provider value={flightData}>
               <LayoutContent />
             </FlightDataContext.Provider>
           </NotFoundBoundary>
@@ -192,22 +194,14 @@ export async function renderHtml({
     if (flightForFormState) {
       const formStatePayload =
         await createFromReadableStream<ServerPayload>(flightForFormState)
-      htmlStream = await routerContextStorage.run(
-        createRouterContextData(request),
-        () =>
-          ReactDOMServer.renderToReadableStream(<SsrRoot />, {
-            ...renderOptions,
-            formState: formStatePayload.formState,
-          }),
-      )
+      htmlStream = await ReactDOMServer.renderToReadableStream(<SsrRoot />, {
+        ...renderOptions,
+        formState: formStatePayload.formState,
+      })
     } else {
-      htmlStream = await routerContextStorage.run(
-        createRouterContextData(request),
-        () =>
-          ReactDOMServer.renderToReadableStream(
-            <SsrRoot />,
-            renderOptions,
-          ),
+      htmlStream = await ReactDOMServer.renderToReadableStream(
+        <SsrRoot />,
+        renderOptions,
       )
     }
     if (prerender || isbot(request.headers.get('user-agent') || '')) {

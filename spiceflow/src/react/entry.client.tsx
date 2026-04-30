@@ -2,6 +2,7 @@
 // embedded in the HTML, sets up client-side navigation and server action calls.
 import React from 'react'
 import ReactDomClient from 'react-dom/client'
+import type { Location } from 'history'
 import {
   createFromReadableStream,
   createFromFetch,
@@ -200,6 +201,7 @@ async function main() {
   let pendingPayload: PayloadArgs | undefined
   type PayloadArgs = {
     payload: Promise<ServerPayload>
+    location?: Location
   }
   let setPayload: (v: PayloadArgs) => void = () => undefined
   // Direct setter without startTransition — used by callServer for form actions
@@ -242,6 +244,7 @@ async function main() {
     if (navigationAbort.signal.aborted) return
     applyPayload({
       payload,
+      location: event.location,
     })
     Promise.resolve(payload)
       .then((resolved) => {
@@ -375,25 +378,38 @@ async function main() {
     .catch(() => {})
 
   function BrowserRoot() {
-    const [{ payload }, setPayload_] = React.useState<PayloadArgs>({
+    const [{ payload, location }, setPayload_] = React.useState<
+      PayloadArgs & { location: Location }
+    >({
       payload: initialPayload,
+      location: router.location,
     })
     const [_isPending, startTransition] = React.useTransition()
+    const flightData = React.useMemo(
+      () => ({ payload, routerData: { location, loaderData: {} } }),
+      [location, payload],
+    )
+    const commitPayload = React.useCallback((next: PayloadArgs) => {
+      setPayload_((current) => ({
+        payload: next.payload,
+        location: next.location ?? current.location,
+      }))
+    }, [])
 
     React.useEffect(() => {
-      setPayload = (v) => startTransition(() => setPayload_(v))
-      setPayloadDirect = setPayload_
+      setPayload = (v) => startTransition(() => commitPayload(v))
+      setPayloadDirect = commitPayload
       if (!pendingPayload) return
       const nextPayload = pendingPayload
       pendingPayload = undefined
       setPayload(nextPayload)
-    }, [startTransition, setPayload_])
+    }, [commitPayload, startTransition])
 
     return (
       <FiberProvider>
         <ErrorBoundary errorComponent={DefaultGlobalErrorPage}>
           <NotFoundBoundary component={DefaultNotFoundPage}>
-            <FlightDataContext.Provider value={payload}>
+            <FlightDataContext.Provider value={flightData}>
               <LayoutContent />
             </FlightDataContext.Provider>
           </NotFoundBoundary>

@@ -21,6 +21,7 @@ import {
 	ErrorInUseEffect,
 	ErrorRender,
 	RouterPathnameProbe,
+	RouterTransitionStateProbe,
 	RouterRefreshStateTest,
 	GetRedirectNav,
 } from "./app/client";
@@ -191,6 +192,13 @@ export const app = new Spiceflow()
 	})
 	.page("/router-state/package", async () => {
 		return <PackageRouterPathnameProbe />;
+	})
+	.page("/router-state/a", async () => {
+		return <RouterTransitionStateProbe to="/router-state/b" />;
+	})
+	.page("/router-state/b", async () => {
+		await sleep(500);
+		return <RouterTransitionStateProbe to="/router-state/a" />;
 	})
 
 	.get("/hello", () => "Hello, World!")

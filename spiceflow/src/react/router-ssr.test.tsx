@@ -2,6 +2,7 @@ import { describe, expect, test } from 'vitest'
 import React from 'react'
 import ReactDOMServer from 'react-dom/server.edge'
 import { createRouterContextData, routerContextStorage } from '#router-context'
+import { FlightDataContext } from './context.js'
 import { Spiceflow } from '../spiceflow.js'
 import {
   getRouter,
@@ -94,6 +95,28 @@ describe('router APIs in SSR', () => {
     expect(html).toContain('&quot;hookPathname&quot;:&quot;/dashboard&quot;')
     expect(html).toContain('&quot;hookSearchTab&quot;:&quot;profile&quot;')
     expect(html).toContain('&quot;hookUserName&quot;:&quot;Ada&quot;')
+  })
+
+  test('hooks read request data from the SSR provider without AsyncLocalStorage', async () => {
+    const request = new Request('https://example.com/dashboard?tab=provider')
+    const context = createRouterContextData(request)
+    context.loaderData = {
+      session: { user: { name: 'Provider' } },
+    }
+    const payload = Promise.resolve({
+      root: { page: null, layouts: [], loaderData: context.loaderData },
+    })
+
+    const htmlStream = await ReactDOMServer.renderToReadableStream(
+      <FlightDataContext.Provider value={{ payload, routerData: context }}>
+        <HookProbe />
+      </FlightDataContext.Provider>,
+    )
+    const html = await readStream(htmlStream)
+
+    expect(html).toContain('&quot;hookPathname&quot;:&quot;/dashboard&quot;')
+    expect(html).toContain('&quot;hookSearchTab&quot;:&quot;provider&quot;')
+    expect(html).toContain('&quot;hookUserName&quot;:&quot;Provider&quot;')
   })
 
   test('request and loader data stay isolated across concurrent SSR renders', async () => {

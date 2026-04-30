@@ -112,6 +112,25 @@ export function RouterPathnameProbe() {
 	return <div data-testid="router-pathname">{pathname}</div>;
 }
 
+export function RouterTransitionStateProbe({ to }: { to: string }) {
+	const { pathname } = useRouterState();
+	const hydrated = useHydrated();
+
+	return (
+		<div>
+			<div data-testid="router-transition-pathname">{pathname}</div>
+			<button
+				type="button"
+				disabled={!hydrated}
+				data-testid="router-transition-button"
+				onClick={() => router.push(to)}
+			>
+				Navigate
+			</button>
+		</div>
+	);
+}
+
 export function RouterRefreshStateTest({
 	serverRandom,
 	serverRenderCount,
