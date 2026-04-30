@@ -93,6 +93,7 @@ export function useRouterState<_App extends AnySpiceflow = RegisteredApp>() {
   const location = getCurrentLocation()
   return {
     ...location,
+    pathname: stripBase(location.pathname),
     searchParams: new URLSearchParams(location.search) as ReadonlyURLSearchParams,
   }
 }
