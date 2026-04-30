@@ -400,7 +400,15 @@ function getCurrentLocation(): Location {
 }
 
 function getServerSnapshot(): Location {
-  return cloneLocation(getCurrentLocation())
+  return getCurrentLocation()
+}
+
+function subscribeRouterState(cb: Subscriber) {
+  return router.subscribe(cb)
+}
+
+function getBrowserSnapshot() {
+  return history.location
 }
 
 function hasBasePrefix(path: string, base: string): boolean {
@@ -575,8 +583,8 @@ export const router: RouterBase<RegisteredApp> = {
 
 export function useRouterState<_App extends AnySpiceflow = RegisteredApp>() {
   const location = useSyncExternalStore(
-    (cb) => router.subscribe(cb),
-    () => history.location,
+    subscribeRouterState,
+    getBrowserSnapshot,
     getServerSnapshot,
   )
   return useMemo(

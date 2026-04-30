@@ -3,7 +3,7 @@ import "./client.css";
 
 import React, { useActionState } from "react";
 import { add } from "./action-by-client";
-import { router } from "spiceflow/react";
+import { router, useRouterState } from "spiceflow/react";
 import { action } from "./form-action";
 
 type ClientFormState = {
@@ -104,6 +104,12 @@ export function LayoutMountTracker() {
 
 export function CssTestClient() {
 	return <div data-testid="css-test-client">Client component with CSS</div>;
+}
+
+export function RouterPathnameProbe() {
+	const { pathname } = useRouterState();
+
+	return <div data-testid="router-pathname">{pathname}</div>;
 }
 
 export function RouterRefreshStateTest({

@@ -20,6 +20,7 @@ import {
 	Counter,
 	ErrorInUseEffect,
 	ErrorRender,
+	RouterPathnameProbe,
 	RouterRefreshStateTest,
 	GetRedirectNav,
 } from "./app/client";
@@ -74,6 +75,7 @@ import {
 } from "spiceflow/federation";
 import { RenderFederatedPayload } from "spiceflow/react";
 import { z } from "zod";
+import { PackageRouterPathnameProbe } from "router-state-fixture";
 
 const contactSchema = z.object({
 	name: z.string().min(1),
@@ -183,6 +185,12 @@ export const app = new Spiceflow()
 				serverRenderCount={routerRefreshRenderCount}
 			/>
 		);
+	})
+	.page("/router-state/deep", async () => {
+		return <RouterPathnameProbe />;
+	})
+	.page("/router-state/package", async () => {
+		return <PackageRouterPathnameProbe />;
 	})
 
 	.get("/hello", () => "Hello, World!")

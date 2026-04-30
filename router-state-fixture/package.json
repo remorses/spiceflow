@@ -1,0 +1,13 @@
+{
+	"name": "router-state-fixture",
+	"version": "0.0.0",
+	"private": true,
+	"type": "module",
+	"exports": {
+		".": "./index.js"
+	},
+	"dependencies": {
+		"spiceflow": "workspace:^",
+		"react": "19.2.4"
+	}
+}

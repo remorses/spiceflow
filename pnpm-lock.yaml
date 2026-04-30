@@ -510,6 +510,9 @@ importers:
       react-select:
         specifier: ^5.10.0
         version: 5.10.2(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      router-state-fixture:
+        specifier: workspace:^
+        version: link:../router-state-fixture
       sharp:
         specifier: ^0.34.5
         version: 0.34.5
@@ -529,6 +532,15 @@ importers:
       vite-plugin-inspect:
         specifier: ^11.3.3
         version: 11.3.3(vite@8.0.8(@types/node@24.0.15)(esbuild@0.27.4)(jiti@2.6.1)(terser@5.46.1)(tsx@4.20.6)(yaml@2.7.0))
+
+  router-state-fixture:
+    dependencies:
+      react:
+        specifier: 19.2.4
+        version: 19.2.4
+      spiceflow:
+        specifier: workspace:^
+        version: link:../spiceflow
 
   spiceflow:
     dependencies:
