@@ -1,5 +1,9 @@
 # spiceflow
 
+## 1.20.0-rsc.1
+
+1. **Router state commits with the navigation payload** — `useRouterState()` now defers client navigation updates until the matching RSC payload is ready, so components no longer observe the next URL with stale server-rendered content during transitions. Server reads also return base-path-stripped `pathname` values, matching the client router state.
+
 ## 1.20.0-rsc.0
 
 1. **Render JSX to static HTML inside RSC** — `spiceflow/federation` now exports `renderToStaticMarkup()` for email HTML, previews, and other server-only markup that should not hydrate. React's `renderToStaticMarkup` from `react-dom/server` does not work in the React Server Components environment because RSC renders JSX to Flight first; Spiceflow's helper uses the same Flight-to-HTML bridge as federation:
