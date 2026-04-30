@@ -9,6 +9,7 @@ function unavailable(): never {
 }
 
 export const renderToReadableStream: any = unavailable
+export const renderToStaticMarkup: (...args: any[]) => Promise<string> = unavailable
 export const encodeFederationPayload: (...args: any[]) => Promise<Response> = unavailable
 export const renderFlightPayload: (...args: any[]) => Promise<Response> = unavailable
 export const renderComponentPayload: (...args: any[]) => Promise<Response> = unavailable

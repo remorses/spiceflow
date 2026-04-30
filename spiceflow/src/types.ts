@@ -391,11 +391,13 @@ export type InlineHandler<
   },
   Path extends string = '',
   MacroContext = {},
+  LoaderData = {},
+  RedirectPaths extends string = string,
 > = (
   this: This,
   context: MacroContext extends Record<string | number | symbol, unknown>
-    ? Prettify<MacroContext & SpiceflowContext<Path, Route, Singleton>>
-    : SpiceflowContext<Path, Route, Singleton>,
+    ? Prettify<MacroContext & SpiceflowContext<Path, Route, Singleton, LoaderData, RedirectPaths>>
+    : SpiceflowContext<Path, Route, Singleton, LoaderData, RedirectPaths>,
 ) =>
   | ResponseLike
   | MaybePromiseIterable<
@@ -639,7 +641,7 @@ export type InternalRoute = {
   method: HTTPMethod
   path: string
   type: ContentType
-  handler: InlineHandler<any, any, any, any>
+  handler: InlineHandler<any, any, any, any, any, any, any>
   hooks: LocalHook<any, any, any, any, any, any, any>
   validateBody?: ValidationFunction
   validateQuery?: ValidationFunction
@@ -1061,6 +1063,9 @@ type PatternToResolved<Path extends string> =
 // Accepts both pattern paths ("/orgs/:orgId/*") and resolved paths ("/orgs/abc/projects")
 export type AllHrefPaths<Paths extends string> = Paths | PatternToResolved<Paths>
 
+declare const resolvedHrefSymbol: unique symbol
+export type ResolvedHref = string & { readonly [resolvedHrefSymbol]: true }
+
 export type MatchingPathPattern<
   Paths extends string,
   Path extends AllHrefPaths<Paths>,
@@ -1111,4 +1116,4 @@ export type HrefBuilder<
 >(
   path: Path,
   ...rest: HrefArgs<Paths, QS, Path, Params>
-) => string
+) => ResolvedHref

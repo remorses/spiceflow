@@ -22,6 +22,8 @@ debug
 opensrc
 /di
 tmp
+
+# generated from root README.md
 spiceflow/README.md
 website/app/readme.mdx
 website/public/readme.md

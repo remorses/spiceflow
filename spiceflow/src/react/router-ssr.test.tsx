@@ -24,16 +24,17 @@ async function readStream(stream: ReadableStream): Promise<string> {
 }
 
 const app = new Spiceflow()
-  .loader('/dashboard', async () => ({
+  .loader('/dashboard', async (): Promise<DashboardData> => ({
     session: { user: { name: 'Ada' } },
   }))
   .page('/dashboard', async () => 'dashboard')
 
+type DashboardData = { session: { user: { name: string } } }
+
 const typedRouter = getRouter<typeof app>()
 
 function HookProbe() {
-  // No-generic versions default to RegisteredApp (falls back to AnySpiceflow)
-  const data = useLoaderData('/dashboard')
+  const data = useLoaderData<typeof app>('/dashboard')
   const state = useRouterState()
 
   return (
@@ -48,7 +49,7 @@ function HookProbe() {
 }
 
 async function SsrProbe() {
-  const data = await getRouter().getLoaderData()
+  const data = await typedRouter.getLoaderData()
   const typedData = await typedRouter.getLoaderData('/dashboard')
 
   return (
@@ -60,7 +61,7 @@ async function SsrProbe() {
           locationSearch: router.location.search,
           locationHash: router.location.hash,
           searchTab: router.searchParams.get('tab'),
-          userName: (data as any).session.user.name,
+          userName: data.session.user.name,
           typedUserName: typedData.session.user.name,
         })}
       </pre>

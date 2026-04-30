@@ -7,6 +7,7 @@ import type {
   HrefBuilder,
   IsAny,
   MergedLoaderData,
+  ResolvedHref,
 } from '../types.js'
 import { getRouterContext } from '#router-context'
 import { buildHref } from './loader-utils.js'
@@ -471,7 +472,7 @@ export const router: RouterBase<RegisteredApp> = {
     return new URLSearchParams(getCurrentLocation().search)
   },
   href(path: string, allParams?: Record<string, any>) {
-    return buildHref(path, allParams)
+    return buildHref(path, allParams) as ResolvedHref
   },
   push(...args: Parameters<typeof history.push>) {
     if (typeof args[0] === 'string' && isExternalUrl(args[0])) {

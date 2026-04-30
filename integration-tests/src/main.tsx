@@ -68,7 +68,10 @@ import { UseIdTest } from "./app/use-id-test";
 import { AbsoluteUrlTest } from "./app/absolute-url-test";
 import testContentRaw from "./test-content.md?raw";
 import { publicDir, distDir } from "spiceflow";
-import { encodeFederationPayload } from "spiceflow/federation";
+import {
+	encodeFederationPayload,
+	renderToStaticMarkup,
+} from "spiceflow/federation";
 import { RenderFederatedPayload } from "spiceflow/react";
 import { z } from "zod";
 
@@ -715,6 +718,17 @@ export const app = new Spiceflow()
 		const url = new URL(request.url);
 		const label = url.searchParams.get("label") ?? "SSR";
 		return await encodeFederationPayload(<Counter name={label} />);
+	})
+	.get("/api/render-html-string", async () => {
+		const html = await renderToStaticMarkup(
+			<section data-email="welcome">
+				<h1>Welcome, Ada</h1>
+				<p>Your invite code is 1234.</p>
+			</section>,
+		);
+		return new Response(html, {
+			headers: { "content-type": "text/html;charset=utf-8" },
+		});
 	})
 	.page("/federated-payload-decode", async () => {
 		return <FederatedPayloadDecodeTest />;

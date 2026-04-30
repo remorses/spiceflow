@@ -280,6 +280,40 @@ new Spiceflow().use(({ request }) => {
 })
 ```
 
+### Mounted Apps
+
+Middleware is scoped to the app where you register it. **Parent app middleware runs for child sub-app routes too**, but **sub-app middleware does not run for parent or sibling routes**.
+
+```ts
+import { Spiceflow } from 'spiceflow'
+
+const admin = new Spiceflow({ basePath: '/admin' })
+  .use(() => {
+    console.log('admin only')
+  })
+  .get('/users', () => 'users')
+
+new Spiceflow()
+  .use(() => {
+    console.log('root')
+  })
+  .use(admin)
+  .get('/health', () => 'ok')
+
+// GET /admin/users -> runs "root" and "admin only"
+// GET /health      -> runs only "root"
+```
+
+If you want a mounted app's middleware to run for **every** request, create that mounted app with `scoped: false`:
+
+```ts
+const globalMiddleware = new Spiceflow({ scoped: false }).use(({ request }) => {
+  console.log(request.parsedUrl.pathname)
+})
+
+new Spiceflow().use(globalMiddleware)
+```
+
 ### Response Modification
 
 Call `next()` to get the response from downstream handlers, then modify it before sending:
@@ -1307,12 +1341,15 @@ export function Counter() {
 
 Loaders run on the server before page and layout handlers. They solve a common problem: when you need the same data in both server components and client components, or in both a layout and a page, without prop drilling or React context.
 
+Prefer putting route data in loaders when that data is shared by more than one part of the route tree. This keeps fetching in one place, avoids fetching the same data once in a layout and again in a page, and lets React components read the current route data directly instead of receiving long prop chains.
+
 Loaders only run for requests that also match a `.page()` or `.layout()`. They are not standalone endpoints. If you want to serve content without rendering a page or layout, use `.get()`, `.route()`, or another API handler instead.
 
 ```tsx
 export const app = new Spiceflow()
-  // Auth loader for all routes — wildcard pattern matches everything
-  .loader('/*', async ({ request }) => {
+  .page('/login', async () => <Login />)
+  // Auth loader for the dashboard route
+  .loader('/dashboard', async ({ request, redirect }) => {
     const user = await getUser(request.headers.get('cookie'))
     if (!user) throw redirect('/login')
     return { user }
@@ -1322,8 +1359,8 @@ export const app = new Spiceflow()
     const stats = await getStats()
     return { stats }
   })
-  .layout('/*', async ({ loaderData, children }) => {
-    // loaderData.user is available here from the wildcard loader
+  .layout('/dashboard', async ({ loaderData, children }) => {
+    // loaderData.user is available here from the dashboard loader
     return (
       <html>
         <body>
@@ -1334,13 +1371,56 @@ export const app = new Spiceflow()
     )
   })
   .page('/dashboard', async ({ loaderData }) => {
-    // Both loaders matched — data is merged by specificity
+    // Both loaders matched, data is merged by specificity
     // loaderData = { user: ..., stats: ... }
     return <Dashboard user={loaderData.user} stats={loaderData.stats} />
   })
 ```
 
+A Remix-style dashboard can put shared shell data in a parent loader, then page data in loaders placed next to each page. The layout, page, and client components all read from the same request-scoped loader data:
+
+```tsx
+export const app = new Spiceflow()
+  .loader('/dashboard/*', async ({ request }) => {
+    const user = await getUser(request)
+    const projects = await getProjects(user.id)
+    return { user, projects }
+  })
+  .layout('/dashboard/*', async ({ children, loaderData }) => {
+    return <DashboardShell user={loaderData.user}>{children}</DashboardShell>
+  })
+  .loader('/dashboard/projects/:id', async ({ params }) => {
+    const project = await getProject(params.id)
+    return { project }
+  })
+  .page('/dashboard/projects/:id', async () => {
+    return <ProjectPage />
+  })
+
+declare module 'spiceflow/react' {
+  interface SpiceflowRegister { app: typeof app }
+}
+```
+
+```tsx
+'use client'
+
+import { useLoaderData } from 'spiceflow/react'
+
+export function ProjectSwitcher() {
+  const { projects } = useLoaderData('/dashboard/*')
+  return projects.map((project) => <a href={project.href}>{project.name}</a>)
+}
+
+export function ProjectHeader() {
+  const { user, project } = useLoaderData('/dashboard/projects/:id')
+  return <h1>{project.name} for {user.name}</h1>
+}
+```
+
 When multiple loaders match a route (e.g. `/*` and `/dashboard` both match `/dashboard`), their return values are merged into a single flat object. More specific loaders override less specific ones on key conflicts.
+
+Loader data is type safe when the app is registered globally with `SpiceflowRegister`. `useLoaderData('/dashboard/projects/:id')` and `router.getLoaderData('/dashboard/projects/:id')` infer the merged object returned by every matching loader, so renaming a loader field or removing it becomes a TypeScript error in every component that reads it.
 
 **Serialization**: loader return values are serialized through the React RSC flight format, not JSON. You can return JSX (including server components and client component elements with their props), `Promise`, async iterators, `Map`, `Set`, `Date`, `BigInt`, typed arrays, and any client component reference — all deserialized faithfully on the client. This means a loader can return a fully rendered `<Sidebar user={user} />` element and another component can receive it as `loaderData.sidebar` and drop it into the tree.
 
@@ -1410,11 +1490,33 @@ Spiceflow already parallelizes at the framework level — all matched loaders ru
 
 Forms use React 19's `<form action>` with server functions marked `"use server"`. They work before JavaScript loads (progressive enhancement).
 
+Forms also support normal browser submissions when `action` is a string URL. This is standard HTML behavior in Spiceflow: the browser submits the form to the URL and performs a full document navigation.
+
+```tsx
+.page('/search', async () => {
+  return (
+    <form method="get" action="/results">
+      <input name="q" />
+      <button type="submit">Search</button>
+    </form>
+  )
+})
+```
+
+Prefer a server or client action when the form should feel app-like. Passing a function to `action` lets React handle submission in a transition instead of doing a full browser reload. A server action can mutate data, then automatically re-render the current page with fresh server data or throw the handler context `redirect` to navigate. A client action can update local state, call APIs, or schedule a client navigation with `router.push()` / `router.replace()`.
+
+```tsx
+<form action={saveSettings}>
+  <input name="name" />
+  <Button type="submit">Save</Button>
+</form>
+```
+
 **Every server action call automatically re-renders the current page with fresh server data.** This applies to forms, client wrapper functions, and direct imported server action calls. The re-render happens via React reconciliation, so client component state is preserved. No manual `router.refresh()` needed after a server action.
 
 Every submit button should show a loading state while its form action is in progress. Use `useFormStatus` from `react-dom` in your Button component to auto-detect pending forms — the button shows a spinner automatically when it's inside a `<form>` with a pending action:
 
-Prefer file-level `"use server"` (a dedicated file like `src/actions.tsx`) over inline `"use server"` inside function bodies. Inline is fine for simple form actions defined directly in a server component page, but if you find yourself passing actions as props to client components, import them from a `"use server"` file instead — it keeps action logic centralized and reusable. The inline examples below are kept short for readability.
+Prefer file-level `"use server"` (a dedicated file like `src/actions.tsx`) over inline `"use server"` inside function bodies. Inline is fine for simple form actions defined directly in a server component page, or when the action needs the handler context `redirect`. If you find yourself passing actions as props to client components, import them from a `"use server"` file instead — it keeps action logic centralized and reusable.
 
 ```tsx
 // src/app/button.tsx
@@ -1436,13 +1538,14 @@ Then use it in forms — no manual loading state needed. Use `parseFormData` to 
 
 ```tsx
 import { z } from 'zod'
-import { redirect, parseFormData } from 'spiceflow'
+import { parseFormData } from 'spiceflow'
 import { Button } from './app/button'
 
 const subscribeSchema = z.object({ email: z.string().email() })
 const fields = subscribeSchema.keyof().enum
 
-.page('/subscribe', async () => {
+.page('/thank-you', async () => <ThankYou />)
+.page('/subscribe', async ({ redirect }) => {
   async function subscribe(formData: FormData) {
     'use server'
     const { email } = parseFormData(subscribeSchema, formData)
@@ -1686,43 +1789,37 @@ function DeleteButton({ id }: { id: string }) {
 
 ### Redirecting After Actions
 
-When a server action needs to navigate to a different page (e.g. after creating a resource), use `throw redirect()` inside the action instead of `router.push()` on the client. Since every server action triggers a page re-render, calling `router.push()` after the action would briefly flash the re-rendered current page before navigating away.
+When a server action needs to navigate to a different page (e.g. after creating a resource), use the handler context `redirect` inside the action instead of `router.push()` on the client. Since every server action triggers a page re-render, calling `router.push()` after the action would briefly flash the re-rendered current page before navigating away.
 
 ```tsx
-// src/actions.ts
-'use server'
-
+import { Spiceflow, parseFormData } from 'spiceflow'
 import { z } from 'zod'
-import { redirect, parseFormData } from 'spiceflow'
 
-export const projectSchema = z.object({ name: z.string().min(1) })
-
-export async function createProject(orgId: string, formData: FormData) {
-  const { name } = parseFormData(projectSchema, formData)
-  const project = await db.projects.create({ name, orgId })
-  throw redirect(`/orgs/${orgId}/projects/${project.id}`)
-}
-```
-
-```tsx
-// src/app/create-project.tsx
-'use client'
-
-import { ErrorBoundary } from 'spiceflow/react'
-import { createProject, projectSchema } from '../actions'
-
+const projectSchema = z.object({ name: z.string().min(1) })
 const fields = projectSchema.keyof().enum
 
-export function CreateProjectForm({ orgId }: { orgId: string }) {
-  return (
-    <ErrorBoundary fallback={<ErrorBoundary.ErrorMessage />}>
-      <form action={createProject.bind(null, orgId)}>
+export const app = new Spiceflow()
+  .page('/orgs/:orgId/projects/:projectId', async ({ params }) => {
+    const project = await db.projects.find(params.projectId)
+    return <ProjectPage project={project} />
+  })
+  .page('/orgs/:orgId/projects/new', async ({ params, redirect }) => {
+    async function createProject(formData: FormData) {
+      'use server'
+      const { name } = parseFormData(projectSchema, formData)
+      const project = await db.projects.create({ name, orgId: params.orgId })
+      throw redirect('/orgs/:orgId/projects/:projectId', {
+        params: { orgId: params.orgId, projectId: project.id },
+      })
+    }
+
+    return (
+      <form action={createProject}>
         <input name={fields.name} required />
         <button type="submit">Create</button>
       </form>
-    </ErrorBoundary>
-  )
-}
+    )
+  })
 ```
 
 `router.push()`, `router.replace()`, `router.back()`, `router.forward()`, and `router.go()` are still the right choice for pure client-side navigation that doesn't involve a server action (e.g. tab switches, select dropdowns, back buttons). These APIs are all fire-and-forget — do not build awaitable wrappers around navigation commits and then call them inside a React client form action.
@@ -1918,7 +2015,7 @@ declare module 'spiceflow/react' {
 }
 ```
 
-After this, **all typed APIs** are fully typed everywhere — no generics needed:
+After this, **all typed APIs** are fully typed everywhere, no generics needed:
 
 ```tsx
 // spiceflow/react exports
@@ -2069,12 +2166,13 @@ Each yielded element — whether a text paragraph, a weather card, or a stock ch
 
 ### Redirects and Not Found
 
-Use `redirect()` and `response.status` inside `.page()`, `.layout()`, and server action handlers to control navigation and HTTP status codes:
+Use the handler context `redirect` and `response.status` inside `.page()` and `.layout()` handlers to control navigation and HTTP status codes:
 
 ```tsx
-import { Spiceflow, redirect } from 'spiceflow'
+import { Spiceflow } from 'spiceflow'
 
 export const app = new Spiceflow()
+  .page('/login', async () => <Login />)
   .layout('/*', async ({ children, request }) => {
     // When no page matches, children is null — render a custom 404
     return (
@@ -2083,7 +2181,7 @@ export const app = new Spiceflow()
       </AppLayout>
     )
   })
-  .page('/dashboard', async ({ request }) => {
+  .page('/dashboard', async ({ request, redirect }) => {
     const user = await getUser(request)
     if (!user) {
       throw redirect('/login')
@@ -2100,7 +2198,7 @@ export const app = new Spiceflow()
   })
   // Layouts can throw redirect — useful for auth guards that protect
   // an entire section of your app
-  .layout('/admin/*', async ({ children, request }) => {
+  .layout('/admin/*', async ({ children, request, redirect }) => {
     const user = await getUser(request)
     if (!user?.isAdmin) {
       throw redirect('/login')
@@ -2111,15 +2209,19 @@ export const app = new Spiceflow()
 export type App = typeof app
 ```
 
-`redirect()` accepts an optional second argument for custom status codes and headers:
+Context `redirect()` accepts an optional second argument for custom status codes and headers:
 
 ```tsx
 // 301 permanent redirect
-throw redirect('/new-url', { status: 301 })
+.page('/old-login', async ({ redirect }) => {
+  throw redirect('/login', { status: 301 })
+})
 
 // Redirect with custom headers
-throw redirect('/login', {
-  headers: { 'set-cookie': 'session=; Max-Age=0' },
+.page('/logout', async ({ redirect }) => {
+  throw redirect('/login', {
+    headers: { 'set-cookie': 'session=; Max-Age=0' },
+  })
 })
 ```
 
@@ -2130,25 +2232,25 @@ throw redirect('/login', {
 
 **Correct HTTP status codes.** Unlike Next.js, where redirects always return a 200 status with client-side handling, Spiceflow returns the actual HTTP status code in the response — `307` for redirects (with a `Location` header) and whatever you set via `response.status` for pages. This works even when the throw happens after an `await`, because the SSR layer intercepts the error from the RSC stream before flushing the HTML response. Search engines see correct status codes, and `fetch()` calls with `redirect: "manual"` get the real `307` response.
 
-**Client-side navigation.** When a user clicks a `<Link>` that navigates to a page throwing `redirect()`, the router performs the redirect client-side without a full page reload.
+**Client-side navigation.** When a user clicks a `<Link>` that navigates to a page throwing context `redirect()`, the router performs the redirect client-side without a full page reload.
 
 </details>
 
 <details>
 <summary>Authentication: pages vs API routes</summary>
 
-Pages and layouts should always `throw redirect('/login')` when the user is not authenticated. API routes (`.get()`, `.post()`, etc.) should return a JSON error with a 401 status instead. This keeps the experience clean: users visiting a protected page get redirected to login instead of seeing a raw JSON blob, while API consumers get a proper typed error response they can handle programmatically.
+Pages and layouts should always `throw redirect('/login')` from handler context when the user is not authenticated. API routes (`.get()`, `.post()`, etc.) should return a JSON error with a 401 status instead. This keeps the experience clean: users visiting a protected page get redirected to login instead of seeing a raw JSON blob, while API consumers get a proper typed error response they can handle programmatically.
 
 ```tsx
 // Page — redirect to login
-.page('/dashboard', async ({ request }) => {
+.page('/dashboard', async ({ request, redirect }) => {
   const user = await getUser(request)
   if (!user) throw redirect('/login')
   return <Dashboard user={user} />
 })
 
 // Layout — redirect to login (protects all nested pages)
-.layout('/app/*', async ({ children, request }) => {
+.layout('/app/*', async ({ children, request, redirect }) => {
   const user = await getUser(request)
   if (!user) throw redirect('/login')
   return <AppLayout>{children}</AppLayout>

@@ -38,6 +38,8 @@ import {
   PrefixPaths,
   PrefixQuerySchemas,
   PrefixLoaderData,
+  MergedLoaderData,
+  ResolvedHref,
 } from './types.js'
 import { buildHref } from './react/loader-utils.js'
 import type { RegisteredApp } from './react/router.js'
@@ -252,7 +254,7 @@ export class Spiceflow<
     loaderData: {}
   },
   const out ClientRoutes extends RouteBase = {},
-  const out RoutePaths extends string = '',
+  const in out RoutePaths extends string = '',
   const in out RouteQuerySchemas extends object = {},
 > {
   private id: number = globalIndex++
@@ -1043,7 +1045,15 @@ export class Spiceflow<
     const Schema extends UnwrapRoute<LocalSchema, Definitions['type']>,
   >(
     path: Path,
-    handler: InlineHandler<this, Schema, Singleton, JoinPath<BasePath, Path>>,
+    handler: InlineHandler<
+      this,
+      Schema,
+      Singleton,
+      JoinPath<BasePath, Path>,
+      {},
+      MergedLoaderData<Metadata['loaderData'], JoinPath<BasePath, Path>>,
+      RoutePaths | JoinPath<BasePath, Path>
+    >,
   ): Spiceflow<
     BasePath,
     Scoped,
@@ -1062,7 +1072,10 @@ export class Spiceflow<
       this,
       Schema,
       Singleton,
-      JoinPath<BasePath, Path>
+      JoinPath<BasePath, Path>,
+      {},
+      MergedLoaderData<Metadata['loaderData'], JoinPath<BasePath, Path>>,
+      RoutePaths | JoinPath<BasePath, Path>
     >,
   >(
     options: LocalHook<
@@ -1109,7 +1122,15 @@ export class Spiceflow<
     const Schema extends UnwrapRoute<LocalSchema, Definitions['type']>,
   >(
     path: Path,
-    handler?: InlineHandler<this, Schema, Singleton, JoinPath<BasePath, Path>>,
+    handler?: InlineHandler<
+      this,
+      Schema,
+      Singleton,
+      JoinPath<BasePath, Path>,
+      {},
+      MergedLoaderData<Metadata['loaderData'], JoinPath<BasePath, Path>>,
+      RoutePaths | JoinPath<BasePath, Path>
+    >,
   ): Spiceflow<
     BasePath,
     Scoped,
@@ -1128,7 +1149,10 @@ export class Spiceflow<
       this,
       Schema,
       Singleton,
-      JoinPath<BasePath, Path>
+      JoinPath<BasePath, Path>,
+      {},
+      MergedLoaderData<Metadata['loaderData'], JoinPath<BasePath, Path>>,
+      RoutePaths | JoinPath<BasePath, Path>
     >,
   >(
     options: LocalHook<
@@ -1221,7 +1245,15 @@ export class Spiceflow<
     const Schema extends UnwrapRoute<LocalSchema, Definitions['type']>,
   >(
     path: Path,
-    handler: InlineHandler<this, Schema, Singleton, JoinPath<BasePath, Path>>,
+    handler: InlineHandler<
+      this,
+      Schema,
+      Singleton,
+      JoinPath<BasePath, Path>,
+      {},
+      MergedLoaderData<Metadata['loaderData'], JoinPath<BasePath, Path>>,
+      RoutePaths | JoinPath<BasePath, Path>
+    >,
   ): Spiceflow<
     BasePath,
     Scoped,
@@ -1246,7 +1278,13 @@ export class Spiceflow<
   loader<
     const Path extends string,
     const Handle extends (
-      context: SpiceflowContext<JoinPath<BasePath, Path>, {}, Singleton>,
+      context: SpiceflowContext<
+        JoinPath<BasePath, Path>,
+        {},
+        Singleton,
+        {},
+        RoutePaths | JoinPath<BasePath, Path>
+      >,
     ) => Record<string, unknown> | Promise<Record<string, unknown>>,
   >(
     path: Path,
@@ -1898,9 +1936,9 @@ export class Spiceflow<
       const page = renderRouteResult(pageResult)
 
       // Global CSS: rscCssTransform auto-wraps component exports, but this entry
-      // exports a Spiceflow instance so we call loadCss manually.
-      // The actual import.meta.viteRsc.loadCss call lives in load-global-css.rsc.ts
-      // behind #load-global-css so only the react-server environment sees it.
+      // exports a Spiceflow instance so we call the RSC CSS loader manually.
+      // The real loader lives behind #load-global-css so only the react-server
+      // environment sees the vite-rsc static-analysis token.
       const globalCss = loadGlobalCss()
       let baseUrl = new URL('/', request.url).href
       if (baseUrl.endsWith('/')) {
@@ -2943,7 +2981,7 @@ export class Spiceflow<
     )
   }
   href: HrefBuilder<RoutePaths, RouteQuerySchemas> = (path, ...rest) => {
-    return buildHref(path, rest[0])
+    return buildHref(path, rest[0]) as ResolvedHref
   }
 }
 
@@ -2963,7 +3001,7 @@ export function createHref<
   type Paths = T['_types']['RoutePaths']
   type QS = T['_types']['RouteQuerySchemas']
   const href: HrefBuilder<Paths, QS> = (path, ...rest) => {
-    return buildHref(path, rest[0])
+    return buildHref(path, rest[0]) as ResolvedHref
   }
 
   return href

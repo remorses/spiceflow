@@ -1,11 +1,5 @@
 import { getBasePath } from '../base-path.js'
-import type {
-  AllHrefPaths,
-  ExtractParamsFromPath,
-  PathParamsProp,
-} from '../types.js'
 import { buildHref } from './loader-utils.js'
-import type { RegisteredApp, RouterPaths } from './router.js'
 
 export interface ReactServerErrorContext {
   status: number
@@ -17,52 +11,9 @@ type RedirectOptions = {
   headers?: Record<string, string>
 }
 
-type RedirectParamsOptions<Path extends string> = RedirectOptions &
-  PathParamsProp<Path>
-
-type RedirectArgs<Path extends string> = [ExtractParamsFromPath<Path>] extends [undefined]
-  ? [options?: RedirectParamsOptions<Path>]
-  : [options: RedirectParamsOptions<Path>]
-
 type RedirectAnyOptions = RedirectOptions & {
   params?: Record<string, string | number | boolean>
 }
-
-type ExternalRedirectLocation =
-  | `${string}://${string}`
-  | `//${string}`
-  | `?${string}`
-  | `#${string}`
-
-type UnionToIntersection<U> =
-  (U extends any ? (value: U) => void : never) extends (value: infer I) => void
-    ? I
-    : never
-
-type RedirectPatternOverloads<Paths extends string> = UnionToIntersection<
-  {
-    [Path in Paths]: (location: Path, ...rest: RedirectArgs<Path>) => Response
-  }[Paths]
->
-
-type RedirectResolvedOverload<Paths extends string> = <
-  Location extends AllHrefPaths<Paths>,
->(
-  location: Location extends Paths ? never : Location,
-  ...rest: RedirectArgs<Location>
-) => Response
-
-type DynamicStringRedirect = <Location extends string>(
-  location: string extends Location ? Location : never,
-  options?: RedirectAnyOptions,
-) => Response
-
-type RedirectFn = string extends RouterPaths<RegisteredApp>
-  ? (location: string, options?: RedirectAnyOptions) => Response
-  : RedirectPatternOverloads<RouterPaths<RegisteredApp>> &
-      RedirectResolvedOverload<RouterPaths<RegisteredApp>> &
-      DynamicStringRedirect &
-      ((location: ExternalRedirectLocation, options?: RedirectOptions) => Response)
 
 // Normalizes headers from either Record or entries array into a plain
 // object. Used when reading headers from decoded digest contexts where
@@ -123,7 +74,8 @@ const redirectImpl = (location: string, options?: RedirectAnyOptions) => {
   })
 }
 
-export const redirect: RedirectFn = redirectImpl
+export const redirect: (location: string, options?: RedirectAnyOptions) => Response =
+  redirectImpl
 
 export function notFound() {
   return new Response(null, { status: 404 })

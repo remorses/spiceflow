@@ -1,5 +1,57 @@
 # spiceflow
 
+## 1.20.0-rsc.0
+
+1. **Render JSX to static HTML inside RSC** — `spiceflow/federation` now exports `renderToStaticMarkup()` for email HTML, previews, and other server-only markup that should not hydrate. React's `renderToStaticMarkup` from `react-dom/server` does not work in the React Server Components environment because RSC renders JSX to Flight first; Spiceflow's helper uses the same Flight-to-HTML bridge as federation:
+
+   ```tsx
+   import { renderToStaticMarkup } from 'spiceflow/federation'
+
+   const html = await renderToStaticMarkup(
+     <section>
+       <h1>Welcome, Ada</h1>
+       <p>Your invite code is 1234.</p>
+     </section>,
+   )
+   ```
+
+## 1.19.0-rsc.10
+
+1. **Typed loader data stays inferred with registered routing APIs** — `loaderData`, `useLoaderData()`, and `router.getLoaderData()` keep route-specific types when using the `SpiceflowRegister` pattern, without page and layout components forcing circular app inference.
+
+2. **Cleaner redirect typing from reusable UI code** — the exported `redirect()` helper now accepts string paths for shared code, while route handlers keep route-aware `context.redirect()` typing for app-specific redirects.
+
+## 1.19.0-rsc.9
+
+1. **`router.href()` results work with typed `<Link>`** — links can now receive URLs produced by `router.href()` while raw string `href` values still stay type-checked against registered routes:
+
+   ```tsx
+   <Link href={router.href('/orgs/:orgId/projects/:projectId', { orgId, projectId })} />
+   ```
+
+## 1.19.0-rsc.8
+
+1. **Typed loader data in page and layout handlers** — `loaderData` is now inferred inside `.page()`, `.staticPage()`, and `.layout()` handlers from every matching loader, including wildcard parent loaders. Shared route data can stay in loaders while server handlers read it directly without casts:
+
+   ```tsx
+   export const app = new Spiceflow()
+     .loader('/*', async () => ({ user: await getUser() }))
+     .loader('/projects/:projectId', async ({ params }) => ({ projectId: params.projectId }))
+     .page('/projects/:projectId', async ({ loaderData }) => {
+       return <ProjectPage user={loaderData.user} projectId={loaderData.projectId} />
+     })
+   ```
+
+2. **Fixed `SpiceflowRegister` circular inference with loader readers** — apps can keep the global register pattern while client components read typed loader data with `useLoaderData('/path')`. Rendering those components from a route handler no longer causes the app initializer to fall back to `any`.
+
+3. **Documented string form actions** — forms with a string `action` are now documented as normal browser submissions that perform a full document navigation, while function actions keep the React transition behavior.
+
+## 1.19.0-rsc.7
+
+1. **Fixed `require is not defined` on Cloudflare Workers** — explicitly include `@vitejs/plugin-rsc` vendored react-server-dom CJS files in `commonjsOptions.include` for the RSC build environment, preventing bare `require("react")` calls from failing in worker environments. Also updates `@vitejs/plugin-rsc` from 0.5.21 to 0.5.24.
+
+2. **Fixed vite-rsc CSS loader comments** — shared Spiceflow modules no longer contain the static `loadCss` token in comments, avoiding non-RSC environment assertion flashes during Cloudflare development.
+
 ## 1.19.0-rsc.6
 
 1. **Vercel `waitUntil` auto-detection** — Spiceflow now auto-detects Vercel's request context (`globalThis[Symbol.for('@vercel/request-context')]`) for `waitUntil`, forwarding background work to the Vercel execution context automatically. No configuration needed on Vercel deployments.

@@ -36,6 +36,26 @@ async function streamToString({
   }
 }
 
+async function renderFlightStreamToHtml({
+  stream,
+  signal,
+}: {
+  stream: ReadableStream<Uint8Array>
+  signal?: AbortSignal
+}) {
+  const flightPayload = await streamToString({ stream, signal })
+  const ssrModule = await import.meta.viteRsc.loadModule<
+    typeof import('./react/entry.ssr.js')
+  >('ssr', 'index')
+  return await ssrModule.renderFlightToHtml(flightPayload)
+}
+
+export async function renderToStaticMarkup(value: React.ReactNode) {
+  return await renderFlightStreamToHtml({
+    stream: renderToReadableStream(value),
+  })
+}
+
 function formatSSEEvent(event: string, data: string): string {
   return `event: ${event}\ndata: ${data}\n\n`
 }
