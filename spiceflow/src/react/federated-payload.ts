@@ -4,7 +4,14 @@ import { EventSourceParserStream } from 'eventsource-parser/stream'
 import { EsmIsland } from './esm-island.js'
 import { RemoteIsland } from './remote-island.js'
 
-const encoder = new TextEncoder()
+function base64ToBytes(value: string): Uint8Array {
+  const binary = atob(value)
+  const bytes = new Uint8Array(binary.length)
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i)
+  }
+  return bytes
+}
 
 export interface FederatedClientModuleInfo {
   chunks: string[]
@@ -21,6 +28,7 @@ export interface ParsedFederatedFlightPayload {
   metadata: FederatedPayloadMetadata
   ssrHtml: string
   flightPayload: string
+  flightChunks?: string[]
   remoteOrigin: string
 }
 
@@ -175,7 +183,7 @@ async function collectFederationPayload(
   let metadata: FederatedPayloadMetadata | null = null
   let ssrHtml = ''
   let remoteOrigin = ''
-  const flightRows: string[] = []
+  const flightChunks: string[] = []
 
   for await (const event of parseFederationPayload(response)) {
     switch (event.type) {
@@ -187,7 +195,7 @@ async function collectFederationPayload(
         ssrHtml = event.payload
         break
       case 'flight':
-        flightRows.push(event.payload)
+        flightChunks.push(event.payload)
         break
     }
   }
@@ -199,7 +207,8 @@ async function collectFederationPayload(
   return {
     metadata,
     ssrHtml,
-    flightPayload: flightRows.length > 0 ? flightRows.join('\n') + '\n' : '',
+    flightPayload: flightChunks.map((chunk) => new TextDecoder().decode(base64ToBytes(chunk))).join(''),
+    flightChunks,
     remoteOrigin,
   }
 }
@@ -290,9 +299,15 @@ export async function decodeParsedFederationPayload<T = unknown>(
   ensureRequirePatched()
 
   const { createFromFetch } = await getFlightClientBrowser()
+  const chunks = parsed.flightChunks?.length
+    ? parsed.flightChunks.map(base64ToBytes)
+    : [new TextEncoder().encode(parsed.flightPayload)]
+
   const stream = new ReadableStream<Uint8Array>({
     start(controller) {
-      controller.enqueue(new TextEncoder().encode(parsed.flightPayload))
+      for (const chunk of chunks) {
+        controller.enqueue(chunk)
+      }
       controller.close()
     },
   })
@@ -369,11 +384,20 @@ async function decodeFederationPayloadDetails<T = unknown>(
     if (!events.return) return
     await events.return(undefined).catch(() => undefined)
   }
-  const enqueueFlightRow = (row: string) => {
+  const enqueueFlightChunk = (chunk: string) => {
     if (eventsStopped) return false
 
+    const bytes = (() => {
+      try {
+        return base64ToBytes(chunk)
+      } catch (error) {
+        controllerRef?.error(error)
+        throw error
+      }
+    })()
+
     try {
-      controllerRef?.enqueue(encoder.encode(row + '\n'))
+      controllerRef?.enqueue(bytes)
       return true
     } catch {
       return false
@@ -399,7 +423,7 @@ async function decodeFederationPayloadDetails<T = unknown>(
 
     const pump = (async () => {
       if (nextEvent?.type === 'flight') {
-        if (!enqueueFlightRow(nextEvent.payload)) {
+        if (!enqueueFlightChunk(nextEvent.payload)) {
           await stopEvents()
           return
         }
@@ -409,7 +433,7 @@ async function decodeFederationPayloadDetails<T = unknown>(
         if (eventsStopped) return
 
         if (event.type === 'flight') {
-          if (!enqueueFlightRow(event.payload)) {
+          if (!enqueueFlightChunk(event.payload)) {
             await stopEvents()
             return
           }

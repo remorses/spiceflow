@@ -5,6 +5,10 @@ import {
   parseFederationPayload,
 } from './federated-payload.js'
 
+function flightChunk(value: string) {
+  return btoa(value)
+}
+
 afterEach(() => {
   vi.unstubAllGlobals()
 })
@@ -30,7 +34,7 @@ describe('decodeFederationPayload', () => {
           clientModules: {},
           cssLinks: [],
         })}\n`,
-        'event: flight\ndata: 0:{}\n',
+        `event: flight\ndata: ${flightChunk('0:{}\n')}\n`,
         'event: done\ndata: \n',
       ].join('\n'),
       {
@@ -121,7 +125,7 @@ describe('decodeFederationPayload', () => {
                   clientModules: {},
                   cssLinks: [],
                 })}\n\n`,
-                'event: flight\ndata: 0:{}\n\n',
+                `event: flight\ndata: ${flightChunk('0:{}\n')}\n\n`,
               ].join(''),
             ),
           )

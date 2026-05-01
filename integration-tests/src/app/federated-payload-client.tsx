@@ -11,6 +11,8 @@ type ImperativePayload = {
 type StreamPayload = {
 	id: string;
 	label: string;
+	output?: string;
+	content?: React.ReactNode;
 };
 
 type StreamEnvelope = {
@@ -47,6 +49,9 @@ export function FederatedPayloadDecodeTest() {
 	const [streamItems, setStreamItems] = useState<StreamPayload[]>([]);
 	const [streamDone, setStreamDone] = useState(false);
 	const [streamError, setStreamError] = useState<string | null>(null);
+	const [jsxStreamItems, setJsxStreamItems] = useState<StreamPayload[]>([]);
+	const [jsxStreamDone, setJsxStreamDone] = useState(false);
+	const [jsxStreamError, setJsxStreamError] = useState<string | null>(null);
 	const [isPending, startTransition] = useTransition();
 
 	async function handleClick() {
@@ -77,6 +82,26 @@ export function FederatedPayloadDecodeTest() {
 			setStreamDone(true);
 		} catch (err) {
 			setStreamError(err instanceof Error ? err.message : String(err));
+		}
+	}
+
+	async function handleJsxStreamClick() {
+		setJsxStreamItems([]);
+		setJsxStreamDone(false);
+		setJsxStreamError(null);
+		const response = await fetch(withBase("/api/federated-payload-jsx-stream"), {
+			method: "POST",
+			headers: { "content-type": "application/json" },
+			body: JSON.stringify({ label: "JSX stream" }),
+		});
+		try {
+			const decoded = await decodeFederationPayload<StreamEnvelope>(response);
+			for await (const item of decoded.stream) {
+				setJsxStreamItems((prev) => [...prev, item]);
+			}
+			setJsxStreamDone(true);
+		} catch (err) {
+			setJsxStreamError(err instanceof Error ? err.message : String(err));
 		}
 	}
 
@@ -113,6 +138,31 @@ export function FederatedPayloadDecodeTest() {
 			</ul>
 			{streamDone && (
 				<div data-testid="decoded-federated-stream-done">done</div>
+			)}
+			<button
+				data-testid="decode-federated-jsx-stream"
+				onClick={() => {
+					void handleJsxStreamClick();
+				}}
+			>
+				Decode federated JSX stream
+			</button>
+			{jsxStreamError && (
+				<div data-testid="decode-federated-jsx-stream-error">
+					{jsxStreamError}
+				</div>
+			)}
+			<ul data-testid="decoded-federated-jsx-stream">
+				{jsxStreamItems.map((item) => (
+					<li key={item.id} data-testid="decoded-federated-jsx-stream-item">
+						{item.label}
+						{item.output && <pre>{item.output}</pre>}
+						{item.content}
+					</li>
+				))}
+			</ul>
+			{jsxStreamDone && (
+				<div data-testid="decoded-federated-jsx-stream-done">done</div>
 			)}
 		</div>
 	);

@@ -46,7 +46,9 @@ describe('encodeFederationPayload', () => {
     expect(firstChunk).toContain('"clientModules":{}')
     expect(firstChunk).toContain('"cssLinks":[]')
     expect(secondChunk).toBe('event: ssr\ndata: {"html":""}\n\n')
-    expect(thirdChunk).toBe('event: flight\ndata: 0:{"ok":true}\n\n')
+    expect(atob(thirdChunk.match(/^event: flight\ndata: (.*)\n\n$/)?.[1] ?? '')).toBe(
+      '0:{"ok":true}\n1:{"ok":false}\n',
+    )
 
     await reader!.cancel()
   })

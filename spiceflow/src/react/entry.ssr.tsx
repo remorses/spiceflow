@@ -309,11 +309,17 @@ export async function getPrerenderRoutes() {
 // Federation: decode a Flight payload and render it to an HTML string.
 // Called from the RSC environment via loadModule('ssr', 'index').
 export async function renderFlightToHtml(
-  flightPayload: string,
+  flightPayload: string | Uint8Array[],
 ): Promise<string> {
   const stream = new ReadableStream({
     start(controller) {
-      controller.enqueue(new TextEncoder().encode(flightPayload))
+      if (typeof flightPayload === 'string') {
+        controller.enqueue(new TextEncoder().encode(flightPayload))
+      } else {
+        for (const chunk of flightPayload) {
+          controller.enqueue(chunk)
+        }
+      }
       controller.close()
     },
   })

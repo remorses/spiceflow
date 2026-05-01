@@ -110,6 +110,23 @@ async function* createFederatedPayloadStream({
 	yield { id: "3", label: `${label} item 3` };
 }
 
+async function* createFederatedPayloadJsxStream({
+	label,
+}: {
+	label: string;
+}) {
+	yield { id: "1", label: `${label} item 1` };
+	await sleep(50);
+	yield {
+		id: "2",
+		label: `${label} item 2`,
+		output: Array.from({ length: 200 }, (_, i) => `line ${i + 1}`).join("\n"),
+		content: <strong data-testid="decoded-federated-stream-jsx-content">JSX item</strong>,
+	};
+	await sleep(50);
+	yield { id: "3", label: `${label} item 3` };
+}
+
 // In-memory page cache for e2e testing of the README caching middleware pattern.
 // Key = pathname+search (naturally separates HTML and RSC responses).
 const pageCache = new Map<
@@ -728,6 +745,12 @@ export const app = new Spiceflow()
 		const label = getOptionalLabel(await request.json());
 		return await encodeFederationPayload({
 			stream: createFederatedPayloadStream({ label: label ?? "Stream" }),
+		});
+	})
+	.post("/api/federated-payload-jsx-stream", async ({ request }) => {
+		const label = getOptionalLabel(await request.json());
+		return await encodeFederationPayload({
+			stream: createFederatedPayloadJsxStream({ label: label ?? "JSX stream" }),
 		});
 	})
 	.get("/api/federated-render", async ({ request }) => {

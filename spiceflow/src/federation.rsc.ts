@@ -11,6 +11,15 @@ export { renderToReadableStream }
 
 const encoder = new TextEncoder()
 
+function bytesToBase64(bytes: Uint8Array): string {
+  let binary = ''
+  const chunkSize = 0x8000
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize))
+  }
+  return btoa(binary)
+}
+
 async function streamToString({
   stream,
   signal,
@@ -30,6 +39,29 @@ async function streamToString({
     }
     result += decoder.decode()
     return result
+  } finally {
+    unbindAbort()
+    reader.releaseLock()
+  }
+}
+
+async function streamToChunks({
+  stream,
+  signal,
+}: {
+  stream: ReadableStream<Uint8Array>
+  signal?: AbortSignal
+}) {
+  const reader = stream.getReader()
+  const unbindAbort = bindAbortToReader({ reader, signal })
+  const chunks: Uint8Array[] = []
+  try {
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      chunks.push(value)
+    }
+    return chunks
   } finally {
     unbindAbort()
     reader.releaseLock()
@@ -60,7 +92,7 @@ function formatSSEEvent(event: string, data: string): string {
   return `event: ${event}\ndata: ${data}\n\n`
 }
 
-async function* streamFlightRows(
+async function* streamFlightChunks(
   {
     stream,
     signal,
@@ -68,11 +100,9 @@ async function* streamFlightRows(
     stream: ReadableStream<Uint8Array>
     signal?: AbortSignal
   },
-): AsyncGenerator<string> {
+): AsyncGenerator<Uint8Array> {
   const reader = stream.getReader()
   const unbindAbort = bindAbortToReader({ reader, signal })
-  const decoder = new TextDecoder()
-  let buffered = ''
   let finished = false
 
   try {
@@ -83,19 +113,7 @@ async function* streamFlightRows(
         break
       }
 
-      buffered += decoder.decode(value, { stream: true })
-      const rows = buffered.split('\n')
-      buffered = rows.pop() ?? ''
-
-      for (const row of rows) {
-        if (!row) continue
-        yield row
-      }
-    }
-
-    buffered += decoder.decode()
-    if (buffered) {
-      yield buffered
+      yield value
     }
   } finally {
     unbindAbort()
@@ -170,7 +188,7 @@ async function* encodeFederationPayloadEvents({
   )
 
   if (React.isValidElement(value)) {
-    const flightPayload = await streamToString({
+    const flightChunks = await streamToChunks({
       stream: flightStream,
       signal,
     })
@@ -179,7 +197,7 @@ async function* encodeFederationPayloadEvents({
       const ssrModule = await import.meta.viteRsc.loadModule<
         typeof import('./react/entry.ssr.js')
       >('ssr', 'index')
-      ssrHtml = await ssrModule.renderFlightToHtml(flightPayload)
+      ssrHtml = await ssrModule.renderFlightToHtml(flightChunks)
     } catch {
       // SSR HTML is best-effort — degrade to empty string (client decoding
       // still works, the user just sees a brief flash of empty content).
@@ -195,9 +213,8 @@ async function* encodeFederationPayloadEvents({
     }
     yield { type: 'ssr', payload: ssrHtml }
 
-    const flightRows = flightPayload.split('\n').filter(Boolean)
-    for (const row of flightRows) {
-      yield { type: 'flight', payload: row }
+    for (const chunk of flightChunks) {
+      yield { type: 'flight', payload: bytesToBase64(chunk) }
     }
 
     yield { type: 'done' }
@@ -214,11 +231,11 @@ async function* encodeFederationPayloadEvents({
   }
   yield { type: 'ssr', payload: '' }
 
-  for await (const row of streamFlightRows({
+  for await (const chunk of streamFlightChunks({
     stream: flightStream,
     signal,
   })) {
-    yield { type: 'flight', payload: row }
+    yield { type: 'flight', payload: bytesToBase64(chunk) }
   }
 
   yield { type: 'done' }

@@ -2374,6 +2374,41 @@ test.describe("federated payloads", () => {
 		);
 	});
 
+	test("decodeFederationPayload preserves JSX inside async iterable items", async ({
+		page,
+	}) => {
+		await page.goto(url("/federated-payload-decode"));
+		await expect(page.getByTestId("layout-mount-count")).toHaveText("1", {
+			timeout: 10000,
+		});
+
+		await page.getByTestId("decode-federated-jsx-stream").click();
+
+		await expect(page.getByTestId("decoded-federated-jsx-stream")).toContainText(
+			"JSX stream item 1",
+			{ timeout: 10000 },
+		);
+		await expect(page.getByTestId("decoded-federated-jsx-stream-item")).toHaveCount(
+			3,
+			{ timeout: 10000 },
+		);
+		await expect(page.getByTestId("decoded-federated-jsx-stream")).toContainText(
+			"JSX stream item 2",
+		);
+		await expect(page.getByTestId("decoded-federated-jsx-stream")).toContainText(
+			"line 200",
+		);
+		await expect(
+			page.getByTestId("decoded-federated-stream-jsx-content"),
+		).toHaveText("JSX item");
+		await expect(page.getByTestId("decoded-federated-jsx-stream")).toContainText(
+			"JSX stream item 3",
+		);
+		await expect(page.getByTestId("decoded-federated-jsx-stream-done")).toHaveText(
+			"done",
+		);
+	});
+
 	test("RenderFederatedPayload renders same-process response and hydrates client components", async ({
 		page,
 	}) => {
