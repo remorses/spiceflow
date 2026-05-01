@@ -959,12 +959,14 @@ function standaloneTracePlugin(): Plugin {
   let outDir = 'dist'
   let rootDir = process.cwd()
   let skip = false
+  let logger: ResolvedConfig['logger']
 
   return {
     name: 'spiceflow:standalone-trace',
     apply: 'build',
 
     configResolved(config) {
+      logger = config.logger
       outDir = resolveBuildOutDir(config)
       rootDir = config.root
       const isVercel = process.env.VERCEL === '1'
@@ -986,6 +988,7 @@ function standaloneTracePlugin(): Plugin {
           : outDir
 
         await traceAndCopyDependencies({
+          logger,
           outDir: resolvedOutDir,
           rootDir: this.environment?.config?.root ?? rootDir,
           targetDir: resolvedOutDir,

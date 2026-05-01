@@ -11,8 +11,14 @@
 import { cp, mkdir, rm, writeFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import path from 'node:path'
-import type { Plugin } from 'vite'
-import { exists, traceAndCopyDependencies } from './trace-dependencies.js'
+import pc from 'picocolors'
+import type { Logger, Plugin } from 'vite'
+import {
+  exists,
+  formatDuration,
+  formatSpiceflowStep,
+  traceAndCopyDependencies,
+} from './trace-dependencies.js'
 
 interface VercelConfig {
   version: 3
@@ -60,6 +66,7 @@ export function vercelPlugin(): Plugin[] {
   let assetsDir = 'assets'
   let publicDir = 'public'
   let spiceflowVersion: string | undefined
+  let logger: Logger
 
   return [
     {
@@ -67,6 +74,7 @@ export function vercelPlugin(): Plugin[] {
       apply: 'build',
 
       configResolved(config) {
+        logger = config.logger
         outDir = path.resolve(config.root, config.build.outDir)
         root = config.root
         base = config.base?.replace(/\/$/, '') ?? ''
@@ -96,6 +104,7 @@ export function vercelPlugin(): Plugin[] {
             assetsDir,
             publicDir,
             spiceflowVersion,
+            logger,
           })
         },
       },
@@ -110,6 +119,7 @@ async function generateVercelOutput({
   assetsDir,
   publicDir,
   spiceflowVersion,
+  logger,
 }: {
   outDir: string
   root: string
@@ -117,8 +127,10 @@ async function generateVercelOutput({
   assetsDir: string
   publicDir: string
   spiceflowVersion: string | undefined
+  logger: Logger
 }) {
-  console.log('\n[spiceflow] Generating Vercel Build Output...')
+  const start = performance.now()
+  logger.info(formatSpiceflowStep('generating Vercel build output...'))
 
   const vercelOut = path.resolve(root, '.vercel/output')
   const staticDir = path.join(vercelOut, 'static')
@@ -161,7 +173,12 @@ async function generateVercelOutput({
   //    imports remain as bare specifiers (e.g. import "@upstash/redis") and
   //    need node_modules available at runtime. nf3 traces the built server
   //    entries and copies only the runtime-required files into the function.
-  await traceAndCopyDependencies({ outDir, rootDir: root, targetDir: funcDir })
+  await traceAndCopyDependencies({
+    logger,
+    outDir,
+    rootDir: root,
+    targetDir: funcDir,
+  })
 
   // 6. Write package.json so Node.js treats .js files as ESM inside the function
   await writeFile(
@@ -208,6 +225,9 @@ async function generateVercelOutput({
     JSON.stringify(config, null, 2),
   )
 
-  console.log('[spiceflow] Vercel Build Output generated at .vercel/output/')
+  logger.info(
+    `${pc.green('✓')} ${formatSpiceflowStep(
+      `generated Vercel build output in ${formatDuration(performance.now() - start)}`,
+    )}\n  ${pc.dim('.vercel/output')}`,
+  )
 }
-

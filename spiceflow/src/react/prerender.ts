@@ -5,8 +5,13 @@
 import fs from 'node:fs'
 import { mkdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
-import type { Plugin } from 'vite'
-import { resolveBuiltEntry } from '../trace-dependencies.js'
+import pc from 'picocolors'
+import type { Logger, Plugin } from 'vite'
+import {
+  formatDuration,
+  formatSpiceflowStep,
+  resolveBuiltEntry,
+} from '../trace-dependencies.js'
 
 type MaybePromise<T> = Promise<T> | T
 
@@ -27,6 +32,7 @@ export function prerenderPlugin(): Plugin[] {
   let ssrOutDir = 'dist/ssr'
   let clientOutDir = 'dist/client'
   let isCloudflare = false
+  let logger: Logger
 
   return [
     {
@@ -34,6 +40,7 @@ export function prerenderPlugin(): Plugin[] {
       enforce: 'post',
       apply: 'build',
       configResolved(config) {
+        logger = config.logger
         ssrOutDir = path.resolve(
           config.root,
           config.environments.ssr?.build?.outDir ?? 'dist/ssr',
@@ -55,7 +62,7 @@ export function prerenderPlugin(): Plugin[] {
         order: 'post',
         async handler() {
           if (isCloudflare) return
-          await processPrerender({ ssrOutDir, clientOutDir })
+          await processPrerender({ logger, ssrOutDir, clientOutDir })
         },
       },
     },
@@ -87,13 +94,17 @@ function urlPathToHtmlPath(pathname: string) {
 }
 
 async function throwPrerenderError({
+  logger,
   response,
   routePath,
 }: {
+  logger: Logger
   response: Response
   routePath: string
 }) {
-  console.error(`  • Failed to prerender ${routePath}`)
+  logger.error(
+    `${pc.red('✗')} ${formatSpiceflowStep(`failed to prerender ${routePath}`)}`,
+  )
   const body = (await response.text()).trim().replace(/\s+/g, ' ')
   const details = body ? `\n${body}` : ''
   throw new Error(
@@ -102,13 +113,15 @@ async function throwPrerenderError({
 }
 
 async function processPrerender(dirs: {
+  logger: Logger
   ssrOutDir: string
   clientOutDir: string
 }) {
+  const start = performance.now()
   const prev = globalThis.__SPICEFLOW_PRERENDER
   globalThis.__SPICEFLOW_PRERENDER = true
   try {
-    console.log('▶▶▶ PRERENDER')
+    dirs.logger.info(formatSpiceflowStep('prerendering static routes...'))
     const entryPath = await resolveBuiltEntry(dirs.ssrOutDir)
     const entry: typeof import('./entry.ssr.tsx') = await import(
       path.resolve(entryPath)
@@ -121,10 +134,14 @@ async function processPrerender(dirs: {
         path.join(dirs.clientOutDir, '__prerender.json'),
         JSON.stringify(manifest, null, 2),
       )
+      dirs.logger.info(
+        `${pc.green('✓')} ${formatSpiceflowStep(
+          `prerendered 0 static routes in ${formatDuration(performance.now() - start)}`,
+        )}`,
+      )
       return
     }
     for (const route of routes) {
-      console.log(`  • ${route.path}`)
       const prerenderHeaders = {
         'x-react-server-render-mode': 'prerender',
       }
@@ -138,7 +155,11 @@ async function processPrerender(dirs: {
           new Request(url, { headers: prerenderHeaders }),
         )
         if (!response.ok) {
-          await throwPrerenderError({ response, routePath: route.path })
+          await throwPrerenderError({
+            logger: dirs.logger,
+            response,
+            routePath: route.path,
+          })
         }
         const outFile = route.path
         const outPath = path.join(dirs.clientOutDir, outFile)
@@ -161,7 +182,11 @@ async function processPrerender(dirs: {
         new Request(rscUrl, { headers: prerenderHeaders }),
       )
       if (!rscResponse.ok) {
-        await throwPrerenderError({ response: rscResponse, routePath: route.path })
+        await throwPrerenderError({
+          logger: dirs.logger,
+          response: rscResponse,
+          routePath: route.path,
+        })
       }
 
       // Fetch full HTML — without __rsc, fetchHandler SSR-renders the
@@ -171,7 +196,11 @@ async function processPrerender(dirs: {
         new Request(htmlUrl, { headers: prerenderHeaders }),
       )
       if (!htmlResponse.ok) {
-        await throwPrerenderError({ response: htmlResponse, routePath: route.path })
+        await throwPrerenderError({
+          logger: dirs.logger,
+          response: htmlResponse,
+          routePath: route.path,
+        })
       }
 
       const isRoot = route.path === '/'
@@ -195,6 +224,11 @@ async function processPrerender(dirs: {
     await writeFile(
       path.join(dirs.clientOutDir, '__prerender.json'),
       JSON.stringify(manifest, null, 2),
+    )
+    dirs.logger.info(
+      `${pc.green('✓')} ${formatSpiceflowStep(
+        `prerendered ${routes.length} static routes in ${formatDuration(performance.now() - start)}`,
+      )}`,
     )
   } finally {
     if (prev === undefined) delete globalThis.__SPICEFLOW_PRERENDER
