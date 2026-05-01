@@ -5,8 +5,8 @@
 import fs from 'node:fs'
 import { mkdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
-import pc from 'picocolors'
 import type { Logger, Plugin } from 'vite'
+import { colors } from '../colors.js'
 import {
   formatDuration,
   formatSpiceflowStep,
@@ -103,7 +103,10 @@ async function throwPrerenderError({
   routePath: string
 }) {
   logger.error(
-    `${pc.red('✗')} ${formatSpiceflowStep(`failed to prerender ${routePath}`)}`,
+    formatSpiceflowStep({
+      icon: colors.red('✗'),
+      message: `failed to prerender ${routePath}`,
+    }),
   )
   const body = (await response.text()).trim().replace(/\s+/g, ' ')
   const details = body ? `\n${body}` : ''
@@ -121,7 +124,7 @@ async function processPrerender(dirs: {
   const prev = globalThis.__SPICEFLOW_PRERENDER
   globalThis.__SPICEFLOW_PRERENDER = true
   try {
-    dirs.logger.info(formatSpiceflowStep('prerendering static routes...'))
+    dirs.logger.info(formatSpiceflowStep({ message: 'prerendering static routes...' }))
     const entryPath = await resolveBuiltEntry(dirs.ssrOutDir)
     const entry: typeof import('./entry.ssr.tsx') = await import(
       path.resolve(entryPath)
@@ -135,9 +138,10 @@ async function processPrerender(dirs: {
         JSON.stringify(manifest, null, 2),
       )
       dirs.logger.info(
-        `${pc.green('✓')} ${formatSpiceflowStep(
-          `prerendered 0 static routes in ${formatDuration(performance.now() - start)}`,
-        )}`,
+        formatSpiceflowStep({
+          icon: colors.green('✓'),
+          message: `prerendered 0 static routes in ${formatDuration(performance.now() - start)}`,
+        }),
       )
       return
     }
@@ -226,9 +230,10 @@ async function processPrerender(dirs: {
       JSON.stringify(manifest, null, 2),
     )
     dirs.logger.info(
-      `${pc.green('✓')} ${formatSpiceflowStep(
-        `prerendered ${routes.length} static routes in ${formatDuration(performance.now() - start)}`,
-      )}`,
+      formatSpiceflowStep({
+        icon: colors.green('✓'),
+        message: `prerendered ${routes.length} static routes in ${formatDuration(performance.now() - start)}`,
+      }),
     )
   } finally {
     if (prev === undefined) delete globalThis.__SPICEFLOW_PRERENDER

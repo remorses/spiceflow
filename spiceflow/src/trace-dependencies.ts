@@ -3,8 +3,8 @@
 import { access } from 'node:fs/promises'
 import path from 'node:path'
 import { traceNodeModules } from 'nf3'
-import pc from 'picocolors'
 import type { Logger } from 'vite'
+import { colors } from './colors.js'
 
 type BuildLogger = Pick<Logger, 'info'>
 
@@ -13,8 +13,14 @@ export function formatDuration(ms: number) {
   return `${(ms / 1000).toFixed(2).replace(/\.0+$|0+$/g, '')}s`
 }
 
-export function formatSpiceflowStep(message: string) {
-  return `${pc.cyan('spiceflow')} ${message}`
+export function formatSpiceflowStep({
+  icon = colors.cyan('■'),
+  message,
+}: {
+  icon?: string
+  message: string
+}) {
+  return `${icon} ${colors.cyan('spiceflow')} ${message}`
 }
 
 export async function traceAndCopyDependencies({
@@ -29,7 +35,7 @@ export async function traceAndCopyDependencies({
   targetDir: string
 }) {
   const start = performance.now()
-  logger.info(formatSpiceflowStep('tracing standalone dependencies...'))
+  logger.info(formatSpiceflowStep({ message: 'tracing standalone dependencies...' }))
 
   const rscEntry = await resolveBuiltEntry(path.resolve(outDir, 'rsc'))
   const ssrEntry = await resolveBuiltEntry(path.resolve(outDir, 'ssr'), true)
@@ -44,9 +50,10 @@ export async function traceAndCopyDependencies({
 
   const nodeModulesPath = path.relative(rootDir, path.join(targetDir, 'node_modules'))
   logger.info(
-    `${pc.green('✓')} ${formatSpiceflowStep(
-      `traced standalone dependencies in ${formatDuration(performance.now() - start)}`,
-    )}\n  ${pc.dim(nodeModulesPath)}`,
+    `${formatSpiceflowStep({
+      icon: colors.green('✓'),
+      message: `traced standalone dependencies in ${formatDuration(performance.now() - start)}`,
+    })}\n  ${colors.dim(`standalone deps: ${nodeModulesPath}`)}`,
   )
 }
 

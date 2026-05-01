@@ -11,8 +11,8 @@
 import { cp, mkdir, rm, writeFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import path from 'node:path'
-import pc from 'picocolors'
 import type { Logger, Plugin } from 'vite'
+import { colors } from './colors.js'
 import {
   exists,
   formatDuration,
@@ -130,7 +130,7 @@ async function generateVercelOutput({
   logger: Logger
 }) {
   const start = performance.now()
-  logger.info(formatSpiceflowStep('generating Vercel build output...'))
+  logger.info(formatSpiceflowStep({ message: 'generating Vercel build output...' }))
 
   const vercelOut = path.resolve(root, '.vercel/output')
   const staticDir = path.join(vercelOut, 'static')
@@ -226,8 +226,9 @@ async function generateVercelOutput({
   )
 
   logger.info(
-    `${pc.green('✓')} ${formatSpiceflowStep(
-      `generated Vercel build output in ${formatDuration(performance.now() - start)}`,
-    )}\n  ${pc.dim('.vercel/output')}`,
+    `${formatSpiceflowStep({
+      icon: colors.green('✓'),
+      message: `generated Vercel build output in ${formatDuration(performance.now() - start)}`,
+    })}\n  ${colors.dim('output: .vercel/output')}`,
   )
 }
