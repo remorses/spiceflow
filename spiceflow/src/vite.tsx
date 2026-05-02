@@ -67,6 +67,11 @@ function defaultOutputKeepNamesOption<T extends OutputKeepNamesConfig>(
   return defaultOutputKeepNames(output)
 }
 
+function setDefaultOutputKeepNames<T extends OutputKeepNamesConfig>(output: T) {
+  if (output.keepNames !== undefined) return
+  output.keepNames = true
+}
+
 function normalizeEnvironmentOutDirs(userConfig: UserConfig): UserConfig {
   const isCloudflare = hasPluginNamed(
     userConfig.plugins,
@@ -315,6 +320,11 @@ export default function spiceflow({
         resolvedBase = extractBasePathname(rawBase)
         const userOnWarn = userConfig.build?.rollupOptions?.onwarn
         const userBuildOutput = userConfig.build?.rollupOptions?.output
+        if (Array.isArray(userBuildOutput)) {
+          for (const output of userBuildOutput) {
+            setDefaultOutputKeepNames(output)
+          }
+        }
         const isCloudflare = hasPluginNamed(
           userConfig.plugins,
           'vite-plugin-cloudflare',
@@ -340,11 +350,6 @@ export default function spiceflow({
           server: {
             host: userConfig.server?.host ?? '127.0.0.1',
           },
-          ...(userConfig.build?.minify !== 'esbuild' ||
-          userConfig.esbuild === false ||
-          userConfig.esbuild?.keepNames !== undefined
-            ? {}
-            : { esbuild: { keepNames: true } }),
           // Replace process.env.NODE_ENV at build time so React uses its production
           // bundle. Without this, the built output contains runtime checks like
           // `"production" !== process.env.NODE_ENV` that always evaluate to the dev
@@ -360,7 +365,9 @@ export default function spiceflow({
           },
           build: {
             rollupOptions: {
-              output: defaultOutputKeepNamesOption(userBuildOutput),
+              ...(Array.isArray(userBuildOutput)
+                ? {}
+                : { output: defaultOutputKeepNamesOption(userBuildOutput) }),
               onwarn(warning, defaultHandler) {
                 // Suppress IMPORT_IS_UNDEFINED for virtual:app-entry — it uses
                 // `import * as entry` + re-export which Rollup can't statically verify,
@@ -397,7 +404,7 @@ export default function spiceflow({
       configEnvironment(name, config) {
         config.optimizeDeps ??= {}
         config.optimizeDeps.rolldownOptions ??= {}
-        config.optimizeDeps.rolldownOptions.output = defaultOutputKeepNamesOption(
+        config.optimizeDeps.rolldownOptions.output = defaultOutputKeepNames(
           config.optimizeDeps.rolldownOptions.output,
         )
 

@@ -3,7 +3,12 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 
 import { afterEach, describe, expect, test } from 'vitest'
-import { resolveConfig, type PluginOption, type UserConfig } from 'vite'
+import {
+  resolveConfig,
+  type PluginOption,
+  type ResolvedConfig,
+  type UserConfig,
+} from 'vite'
 
 import spiceflow from './vite.js'
 
@@ -57,6 +62,14 @@ async function resolveSpiceflowConfig(options?: {
   )
 
   return { root, config }
+}
+
+function getOptimizeDepsKeepNames(
+  config: ResolvedConfig,
+  name: 'client' | 'rsc' | 'ssr',
+) {
+  return config.environments[name].optimizeDeps.rolldownOptions?.output
+    ?.keepNames
 }
 
 describe('spiceflow outDir normalization', () => {
@@ -143,15 +156,31 @@ describe('spiceflow outDir normalization', () => {
     expect(config.build.rollupOptions.output).toMatchObject({
       keepNames: true,
     })
-    expect(
-      config.environments.client.optimizeDeps.rolldownOptions.output.keepNames,
-    ).toBe(true)
-    expect(config.environments.rsc.optimizeDeps.rolldownOptions.output.keepNames).toBe(
-      true,
-    )
-    expect(config.environments.ssr.optimizeDeps.rolldownOptions.output.keepNames).toBe(
-      true,
-    )
+    expect(getOptimizeDepsKeepNames(config, 'client')).toBe(true)
+    expect(getOptimizeDepsKeepNames(config, 'rsc')).toBe(true)
+    expect(getOptimizeDepsKeepNames(config, 'ssr')).toBe(true)
+  })
+
+  test('preserves output arrays without duplicating entries', async () => {
+    const { config } = await resolveSpiceflowConfig({
+      userConfig: {
+        build: {
+          rollupOptions: {
+            output: [{ format: 'es', entryFileNames: 'one.js' }],
+          },
+        },
+      },
+    })
+
+    expect(config.build.rollupOptions.output).toMatchInlineSnapshot(`
+      [
+        {
+          "entryFileNames": "one.js",
+          "format": "es",
+          "keepNames": true,
+        },
+      ]
+    `)
   })
 
   test('does not override explicit keepNames config', async () => {
@@ -176,14 +205,8 @@ describe('spiceflow outDir normalization', () => {
     expect(config.build.rollupOptions.output).toMatchObject({
       keepNames: false,
     })
-    expect(
-      config.environments.client.optimizeDeps.rolldownOptions.output.keepNames,
-    ).toBe(false)
-    expect(config.environments.rsc.optimizeDeps.rolldownOptions.output.keepNames).toBe(
-      false,
-    )
-    expect(config.environments.ssr.optimizeDeps.rolldownOptions.output.keepNames).toBe(
-      true,
-    )
+    expect(getOptimizeDepsKeepNames(config, 'client')).toBe(false)
+    expect(getOptimizeDepsKeepNames(config, 'rsc')).toBe(false)
+    expect(getOptimizeDepsKeepNames(config, 'ssr')).toBe(true)
   })
 })
