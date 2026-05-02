@@ -55,3 +55,9 @@ When using the typed fetch client (`createSpiceflowFetch`), follow these rules:
 - **Never `return new Response(...)`.** It erases the body type. Use `return json(...)` (preserves type and status) or `throw` anything (`throw new Response(...)` is fine since throws don't affect return type).
 - **`body` is a plain object**, not `JSON.stringify()`. The client serializes it automatically.
 - **Response is `Error | Data`.** Check with `instanceof Error`, then the happy path has the narrowed type.
+
+## Router usage in app entry handlers
+
+`router` from `spiceflow/react` is typed from the globally registered `typeof app`. Do **not** use `router` inside `.loader()`, `.get()`, `.post()`, or `.route()` handlers in the same file that initializes `export const app = new Spiceflow()`. Those handlers feed return types back into `typeof app` through loader data or typed API responses, so `router.href()` can create recursive circular TypeScript errors such as TS7022.
+
+`router.href()` is okay in components, other modules, and for JSX links inside `.page()` / `.layout()` handlers because rendered page/layout JSX is not part of the app metadata. If a loader-heavy app still hits a circular `typeof app` error from page/layout usage, move the link UI into a component module. For redirects inside handlers, prefer context helpers with route strings like `redirect('/login')` instead of `redirect(router.href('/login'))`, because redirect return values participate in handler return inference and can reintroduce the cycle.
