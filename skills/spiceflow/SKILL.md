@@ -37,17 +37,7 @@ export const app = new Spiceflow({ tracer })
   })
 ```
 
-When a project already initializes an OTel SDK, such as `@strada.sh/sdk`, prefer using that package's re-exported `trace` API so the Spiceflow spans go through the configured provider:
-
-```ts
-import { initStrada, trace } from '@strada.sh/sdk'
-import { Spiceflow } from 'spiceflow'
-
-initStrada({ projectId: process.env.STRADA_PROJECT_ID!, service: 'my-app' })
-
-const tracer = trace.getTracer('my-app')
-export const app = new Spiceflow({ tracer })
-```
+When a project uses Strada for observability, read `docs/strada.md` and pass Strada's re-exported `trace` API to Spiceflow so spans go through the configured provider.
 
 Always pass a tracer for production Spiceflow apps unless there is a specific reason not to. The handler context then exposes `span` and `tracer`, so route code can add attributes or create child spans without manual request wrappers.
 

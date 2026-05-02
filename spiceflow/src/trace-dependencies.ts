@@ -6,8 +6,6 @@ import { traceNodeModules } from 'nf3'
 import type { Logger } from 'vite'
 import { colors } from './colors.js'
 
-type BuildLogger = Pick<Logger, 'info'>
-
 export function formatDuration(ms: number) {
   if (ms < 1000) return `${Math.round(ms)}ms`
   return `${(ms / 1000).toFixed(2).replace(/\.0+$|0+$/g, '')}s`
@@ -29,12 +27,11 @@ export async function traceAndCopyDependencies({
   rootDir,
   targetDir,
 }: {
-  logger?: BuildLogger
+  logger?: Pick<Logger, 'info'>
   outDir: string
   rootDir: string
   targetDir: string
 }) {
-  const start = performance.now()
   logger.info(formatSpiceflowStep({ message: 'tracing standalone dependencies...' }))
 
   const rscEntry = await resolveBuiltEntry(path.resolve(outDir, 'rsc'))
@@ -42,6 +39,7 @@ export async function traceAndCopyDependencies({
   const entries = [rscEntry]
   if (ssrEntry) entries.push(ssrEntry)
 
+  const start = performance.now()
   await traceNodeModules(entries, {
     outDir: targetDir,
     rootDir,
@@ -52,7 +50,7 @@ export async function traceAndCopyDependencies({
   logger.info(
     `${formatSpiceflowStep({
       icon: colors.green('✓'),
-      message: `traced standalone dependencies in ${formatDuration(performance.now() - start)}`,
+      message: `nf3 traced standalone dependencies in ${formatDuration(performance.now() - start)}`,
     })}\n  ${colors.dim(`standalone deps: ${nodeModulesPath}`)}`,
   )
 }
