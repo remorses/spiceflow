@@ -950,7 +950,7 @@ Spiceflow works with [shadcn/ui](https://ui.shadcn.com) out of the box. Instead 
 
 ### App Entry
 
-The entry file defines your routes using `.page()` for pages and `.layout()` for layouts. This file runs in the RSC environment on the server. All routes registered with `.page()`, `.get()`, etc. are available via `router.href()` for type-safe URL building — including path params and query params.
+The entry file defines your routes using `.page()` for pages and `.layout()` for layouts. This file runs in the RSC environment on the server. Keep the route chain focused on handlers and move type-safe link building into components or other modules.
 
 ```tsx
 // src/main.tsx
@@ -1026,14 +1026,18 @@ declare module 'spiceflow/react' {
 }
 ```
 
-`router.href()` gives you **type-safe links** — TypeScript validates that the path exists, params are correct, and query values match the schema. Invalid paths or missing params are caught at compile time. The `router` import works in both server and client components.
+`router.href()` gives you **type-safe links** in component modules and other files outside the route chain. TypeScript validates that the path exists, params are correct, and query values match the schema. Invalid paths or missing params are caught at compile time.
 
 Add the `declare module` block at the bottom of your app entry file. This registers your app's routes globally — then `import { router } from 'spiceflow/react'` anywhere in the project gives you a fully typed router without needing to pass generics or import the app type.
 
 <details>
-<summary>Why not app.href() inside the chain?</summary>
+<summary>Avoid router inside loaders and API route handlers</summary>
 
-Using `app.href()` inside page/layout handlers in the chain definition causes TypeScript error TS7022 — `app` references itself during construction, creating circular type inference. Use the `router` import instead, which resolves at request time when `app` is fully constructed. `app.href()` still works in standalone functions defined after the chain, but `import { router }` is the recommended pattern everywhere.
+Do not import or use `router` inside `.loader()`, `.get()`, `.post()`, or `.route()` handlers in the same file that initializes `export const app = new Spiceflow()`. The router type is derived from `typeof app`, while those handlers feed return types back into `typeof app` through loader data or typed API responses, so TypeScript can report recursive circular errors like TS7022.
+
+Using `router.href()` for links inside `.page()` and `.layout()` JSX is okay in simple app entries because their rendered JSX does not feed app route metadata the same way. If a loader-heavy app still hits a circular `typeof app` error, move the link UI into a component module until the router type is split from loader data.
+
+For redirects inside handlers, prefer handler context helpers with route strings such as `redirect('/login')` instead of `redirect(router.href('/login'))`. Redirect return values participate in handler return inference and can reintroduce the circular type path.
 
 </details>
 
@@ -1744,7 +1748,7 @@ export const app = new Spiceflow()
 
 ### Router
 
-Import `router` from `spiceflow/react` for type-safe navigation, URL building, and imperative loader data access. It works in **both client and server components** — in server/RSC code it reads the current request's location from async context, and `router.href()` builds typed URLs the same way. `useLoaderData` and `useRouterState` are exported separately from `spiceflow/react`.
+Import `router` from `spiceflow/react` for type-safe navigation, URL building, and imperative loader data access. It works in **client components, server components, non-route modules, page handlers, and layout handlers**. Avoid using it inside `.loader()`, `.get()`, `.post()`, or `.route()` handlers in the app entry file because those handler return types feed back into `typeof app` and can create recursive circular TypeScript errors while `app` is being inferred. `useLoaderData` and `useRouterState` are exported separately from `spiceflow/react`.
 
 `router` is a **stable singleton** — the same object reference every time. It's safe to use in component bodies, pass to hook dependency arrays, or reference at module scope. The reference never changes between renders, so it won't trigger unnecessary re-renders or effect re-runs.
 
@@ -1772,14 +1776,13 @@ export function Nav() {
 <details>
 <summary>Using router in mounted sub-apps</summary>
 
-`router` sees all routes registered on the root app, regardless of where you import it. Inside a sub-app mounted with `.use()`, it still sees the whole route table — not just the sub-app's own routes:
+`router` sees all routes registered on the root app, regardless of where you import it. Component modules used by mounted sub-apps still see the whole route table — not just the sub-app's own routes:
 
 ```tsx
-// src/features/billing/page.tsx — a sub-app mounted into the main app
-import { Spiceflow } from 'spiceflow'
+// src/features/billing/billing-page.tsx
 import { router, Link } from 'spiceflow/react'
 
-export const billingApp = new Spiceflow().page('/billing', async () => {
+export function BillingPage() {
   // router is typed against the WHOLE app, not just billingApp
   return (
     <div>
@@ -1788,7 +1791,7 @@ export const billingApp = new Spiceflow().page('/billing', async () => {
       <Link href={router.href('/users/:id', { id: '42' })}>Back to profile</Link>
     </div>
   )
-})
+}
 ```
 
 No need to thread `app` through props or imports — every import is still fully type-checked against the root app's route table.
@@ -1837,7 +1840,7 @@ export async function OrgBreadcrumb({ orgId }: { orgId: string }) {
 
 Every `Link` href and every programmatic navigation path should go through `href()`. Raw string paths like `<Link href="/users/42">` bypass type checking — if the route is renamed from `/users/:id` to `/profiles/:id`, the raw string silently becomes a 404 while `href('/users/:id', { id: '42' })` immediately fails `tsc`. When a route path changes or gets removed, `tsc` catches every stale `href()` call at compile time.
 
-This applies to both client and server code. The `router` import is the same typed singleton everywhere — `router.href()` works identically in server components, client components, and the app entry file.
+This applies to client and server component modules. The `router` import is the same typed singleton everywhere outside loaders and API route handlers.
 
 </details>
 
