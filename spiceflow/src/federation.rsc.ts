@@ -11,13 +11,16 @@ export { renderToReadableStream }
 
 const encoder = new TextEncoder()
 
-function bytesToBase64(bytes: Uint8Array): string {
-  let binary = ''
-  const chunkSize = 0x8000
-  for (let i = 0; i < bytes.length; i += chunkSize) {
-    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize))
+function decodeFlightChunks(chunks: Uint8Array[]): string[] {
+  const decoder = new TextDecoder()
+  const textChunks: string[] = []
+  for (const chunk of chunks) {
+    const text = decoder.decode(chunk, { stream: true })
+    if (text) textChunks.push(text)
   }
-  return btoa(binary)
+  const rest = decoder.decode()
+  if (rest) textChunks.push(rest)
+  return textChunks
 }
 
 async function streamToString({
@@ -100,9 +103,10 @@ async function* streamFlightChunks(
     stream: ReadableStream<Uint8Array>
     signal?: AbortSignal
   },
-): AsyncGenerator<Uint8Array> {
+): AsyncGenerator<string> {
   const reader = stream.getReader()
   const unbindAbort = bindAbortToReader({ reader, signal })
+  const decoder = new TextDecoder()
   let finished = false
 
   try {
@@ -113,8 +117,12 @@ async function* streamFlightChunks(
         break
       }
 
-      yield value
+      const chunk = decoder.decode(value, { stream: true })
+      if (chunk) yield chunk
     }
+
+    const rest = decoder.decode()
+    if (rest) yield rest
   } finally {
     unbindAbort()
     if (!finished) {
@@ -213,8 +221,8 @@ async function* encodeFederationPayloadEvents({
     }
     yield { type: 'ssr', payload: ssrHtml }
 
-    for (const chunk of flightChunks) {
-      yield { type: 'flight', payload: bytesToBase64(chunk) }
+    for (const chunk of decodeFlightChunks(flightChunks)) {
+      yield { type: 'flight', payload: JSON.stringify(chunk) }
     }
 
     yield { type: 'done' }
@@ -235,7 +243,7 @@ async function* encodeFederationPayloadEvents({
     stream: flightStream,
     signal,
   })) {
-    yield { type: 'flight', payload: bytesToBase64(chunk) }
+    yield { type: 'flight', payload: JSON.stringify(chunk) }
   }
 
   yield { type: 'done' }

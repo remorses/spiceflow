@@ -6,7 +6,7 @@ import {
 } from './federated-payload.js'
 
 function flightChunk(value: string) {
-  return btoa(value)
+  return JSON.stringify(value)
 }
 
 afterEach(() => {

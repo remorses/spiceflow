@@ -4,13 +4,14 @@ import { EventSourceParserStream } from 'eventsource-parser/stream'
 import { EsmIsland } from './esm-island.js'
 import { RemoteIsland } from './remote-island.js'
 
-function base64ToBytes(value: string): Uint8Array {
-  const binary = atob(value)
-  const bytes = new Uint8Array(binary.length)
-  for (let i = 0; i < binary.length; i++) {
-    bytes[i] = binary.charCodeAt(i)
+const encoder = new TextEncoder()
+
+function parseFlightChunk(value: string): string {
+  const chunk = JSON.parse(value) as unknown
+  if (typeof chunk !== 'string') {
+    throw new Error('[decodeFederationPayload] Invalid flight chunk')
   }
-  return bytes
+  return chunk
 }
 
 export interface FederatedClientModuleInfo {
@@ -207,7 +208,7 @@ async function collectFederationPayload(
   return {
     metadata,
     ssrHtml,
-    flightPayload: flightChunks.map((chunk) => new TextDecoder().decode(base64ToBytes(chunk))).join(''),
+    flightPayload: flightChunks.map(parseFlightChunk).join(''),
     flightChunks,
     remoteOrigin,
   }
@@ -300,8 +301,8 @@ export async function decodeParsedFederationPayload<T = unknown>(
 
   const { createFromFetch } = await getFlightClientBrowser()
   const chunks = parsed.flightChunks?.length
-    ? parsed.flightChunks.map(base64ToBytes)
-    : [new TextEncoder().encode(parsed.flightPayload)]
+    ? parsed.flightChunks.map((chunk) => encoder.encode(parseFlightChunk(chunk)))
+    : [encoder.encode(parsed.flightPayload)]
 
   const stream = new ReadableStream<Uint8Array>({
     start(controller) {
@@ -389,7 +390,7 @@ async function decodeFederationPayloadDetails<T = unknown>(
 
     const bytes = (() => {
       try {
-        return base64ToBytes(chunk)
+        return encoder.encode(parseFlightChunk(chunk))
       } catch (error) {
         controllerRef?.error(error)
         throw error
