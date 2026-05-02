@@ -1037,7 +1037,7 @@ Do not import or use `router` inside `.loader()`, `.get()`, `.post()`, or `.rout
 
 Using `router.href()` for links inside `.page()` and `.layout()` JSX is okay in simple app entries because their rendered JSX does not feed app route metadata the same way. If a loader-heavy app still hits a circular `typeof app` error, move the link UI into a component module until the router type is split from loader data.
 
-For redirects inside handlers, prefer handler context helpers with route strings such as `redirect('/login')` instead of `redirect(router.href('/login'))`. Redirect return values participate in handler return inference and can reintroduce the circular type path.
+Context `redirect()` intentionally accepts a plain `string`. Do not pass `router.href()` into redirects inside app-entry handlers. Redirect return values participate in handler return inference and can reintroduce the circular type path in loader-heavy apps.
 
 </details>
 
@@ -2211,7 +2211,7 @@ export const app = new Spiceflow()
 export type App = typeof app
 ```
 
-Context `redirect()` accepts an optional second argument for custom status codes and headers:
+Context `redirect()` accepts a plain string URL plus an optional second argument for custom status codes and headers. It is intentionally not type-safe against the route table, so it does not pull `typeof app` back into handler context inference:
 
 ```tsx
 // 301 permanent redirect

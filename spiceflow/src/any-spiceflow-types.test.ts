@@ -451,7 +451,7 @@ test('Link: typed app validates href paths and requires params', () => {
   expectLink({ href: '/users/:id' as const, params: { slug: '1' } })
 })
 
-test('exported redirect accepts plain strings while context redirect is typed', () => {
+test('exported and context redirect accept plain strings', () => {
   const diagnostics = getDiagnosticsForSnippet(`
 import { Spiceflow } from './spiceflow.tsx'
 import { redirect } from './react/index.ts'
@@ -461,14 +461,8 @@ const app = new Spiceflow()
   .page('/users/:id', async ({ redirect: routeRedirect }) => {
     routeRedirect('/login')
     routeRedirect('/users/:id', { params: { id: '42' } })
-
-    // @ts-expect-error missing params
     routeRedirect('/users/:id')
-
-    // @ts-expect-error wrong param key
     routeRedirect('/users/:id', { params: { slug: '1' } })
-
-    // @ts-expect-error invalid literal path
     routeRedirect('/missing')
 
     return 'user'

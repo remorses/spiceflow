@@ -121,26 +121,31 @@ type LoaderDataReturn<LD extends object, Path extends string> = IsAny<LD> extend
     ? AllLoaderData<LD>
     : MergedLoaderData<LD, Path>
 
-export type RouterPaths<App extends AnySpiceflow> = IsAny<
-  App['_types']['RoutePaths']
+type AppTypes<App> = App extends { _types: infer Types } ? Types : AnySpiceflow['_types']
+
+export type RouterPaths<App> = IsAny<
+  AppTypes<App> extends { RoutePaths: infer Paths } ? Paths : string
 > extends true
   ? string
-  : App['_types']['RoutePaths']
+  : AppTypes<App> extends { RoutePaths: infer Paths extends string } ? Paths : string
 
-type RouterQuerySchemas<App extends AnySpiceflow> = IsAny<
-  App['_types']['RoutePaths']
+type RouterQuerySchemas<App> = IsAny<
+  AppTypes<App> extends { RoutePaths: infer Paths } ? Paths : string
 > extends true
   ? Record<string, any>
-  : App['_types']['RouteQuerySchemas']
+  : AppTypes<App> extends { RouteQuerySchemas: infer Schemas extends object } ? Schemas : Record<string, any>
 
 export type LoaderDataForPath<
-  App extends AnySpiceflow,
+  App,
   Path extends string,
-> = IsAny<App['_types']['RoutePaths']> extends true
+> = IsAny<AppTypes<App> extends { RoutePaths: infer Paths } ? Paths : string> extends true
   ? any
-  : LoaderDataReturn<App['_types']['Metadata']['loaderData'], Path>
+  : LoaderDataReturn<
+      AppTypes<App> extends { Metadata: { loaderData: infer LoaderData extends object } } ? LoaderData : {},
+      Path
+    >
 
-export type RouterPathArg<App extends AnySpiceflow> =
+export type RouterPathArg<App> =
   RouterPaths<App> | (string & {})
 
 export function coerceLoaderData<
@@ -150,7 +155,7 @@ export function coerceLoaderData<
   return data
 }
 
-export type RouterBase<App extends AnySpiceflow = AnySpiceflow> = {
+export type RouterBase<App = AnySpiceflow> = {
   readonly location: Location
   readonly pathname: string
   readonly searchParams: ReadonlyURLSearchParams
@@ -603,7 +608,7 @@ export function useRouterState<_App extends AnySpiceflow = RegisteredApp>() {
 export interface SpiceflowRegister {}
 
 export type RegisteredApp = SpiceflowRegister extends {
-  app: infer App extends AnySpiceflow
+  app: infer App
 }
   ? App
   : AnySpiceflow

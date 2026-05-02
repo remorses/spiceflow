@@ -194,7 +194,7 @@ function getAllSchemas(openapi: OpenAPIV3.Document): SchemaLocation[] {
         continue
       }
 
-      const op = operation as OpenAPIV3.OperationObject
+      const op = operation
 
       // Get request body schemas
       if (op.requestBody && !Array.isArray(op.requestBody)) {
@@ -221,7 +221,7 @@ function getAllSchemas(openapi: OpenAPIV3.Document): SchemaLocation[] {
       if (op.responses) {
         for (const [responseCode, response] of Object.entries(op.responses)) {
           if (response && 'content' in response) {
-            const responseObj = response as OpenAPIV3.ResponseObject
+            const responseObj = response
             if (responseObj.content) {
               for (const [contentType, mediaType] of Object.entries(
                 responseObj.content,
@@ -247,7 +247,7 @@ function getAllSchemas(openapi: OpenAPIV3.Document): SchemaLocation[] {
       if (op.parameters) {
         for (const param of op.parameters) {
           if (!Array.isArray(param) && 'schema' in param) {
-            const paramObj = param as OpenAPIV3.ParameterObject
+            const paramObj = param
             if (paramObj.schema && !('$ref' in paramObj.schema)) {
               schemas.push({
                 schema: paramObj.schema,

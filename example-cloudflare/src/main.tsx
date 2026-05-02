@@ -5,6 +5,7 @@ import { Spiceflow } from 'spiceflow'
 import { Suspense } from 'react'
 import { Link, ProgressBar } from 'spiceflow/react'
 import { env } from 'cloudflare:workers'
+import { isTruthy } from 'spiceflow/src/utils'
 
 type Pokemon = {
   id: number
@@ -28,7 +29,7 @@ export const app = new Spiceflow()
     const shuffled = allIds.sort(() => Math.random() - 0.5).slice(0, 12)
     const pokemon = (await Promise.all(
       shuffled.map((id) => kv.get<Pokemon>(`pokemon:${id}`, 'json')),
-    )).filter((pokemon): pokemon is Pokemon => pokemon !== null)
+    )).filter(isTruthy)
 
     return (
       <PokemonList>

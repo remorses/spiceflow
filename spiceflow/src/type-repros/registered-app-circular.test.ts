@@ -152,6 +152,30 @@ declare module 'spiceflow/react' {
 `)
 })
 
+test('router.href inside page handlers with context and loaders does not make the app initializer circular', () => {
+  expect(getDiagnosticsForCircularFixture(`
+import { Spiceflow } from 'spiceflow'
+import { router } from 'spiceflow/react'
+import type { IsAny } from '../../types.ts'
+
+export const app = new Spiceflow()
+  .page('/login', async () => 'login')
+  .loader('/dashboard/:id', async () => ({ user: { id: '1' } }))
+  .page('/dashboard/:id', async ({ params }) => {
+    const href = router.href('/login')
+    return <a href={href}>{params.id}</a>
+  })
+
+type AppMustNotBecomeAny = IsAny<typeof app>
+const appMustNotBecomeAny: AppMustNotBecomeAny = false
+void appMustNotBecomeAny
+
+declare module 'spiceflow/react' {
+  interface SpiceflowRegister { app: typeof app }
+}
+`)).toEqual([])
+})
+
 test('router.href inside layout handlers does not make the app initializer circular', () => {
   expect(getDiagnosticsForCircularFixture(`
 import { Spiceflow } from 'spiceflow'

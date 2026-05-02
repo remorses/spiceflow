@@ -7,46 +7,16 @@ import type {
   SingletonBase,
   HTTPHeaders,
   GetRequestSchema,
-  AllHrefPaths,
-  ExtractParamsFromPath,
-  PathParamsProp,
 } from './types.js'
 
 import { SpiceflowRequest, WaitUntil } from './spiceflow.js'
 import type { SpiceflowSpan, SpiceflowTracer } from './instrumentation.js'
 
-type RedirectOptions = {
+type Redirect = (location: string, options?: {
   status?: number
   headers?: Record<string, string>
-}
-
-type RedirectArgs<Path extends string> = [ExtractParamsFromPath<Path>] extends [undefined]
-  ? [options?: RedirectOptions & PathParamsProp<Path>]
-  : [options: RedirectOptions & PathParamsProp<Path>]
-
-type RedirectAnyOptions = RedirectOptions & {
   params?: Record<string, string | number | boolean>
-}
-
-type ExternalRedirectLocation =
-  | `${string}://${string}`
-  | `//${string}`
-  | `?${string}`
-  | `#${string}`
-
-type DynamicStringRedirect = <Location extends string>(
-  location: string extends Location ? Location : never,
-  options?: RedirectAnyOptions,
-) => Response
-
-type Redirect<Paths extends string = string> = string extends Paths
-  ? (location: string, options?: RedirectAnyOptions) => Response
-  : (<Location extends AllHrefPaths<Paths>>(
-      location: Location,
-      ...rest: RedirectArgs<Location>
-    ) => Response) &
-      ((location: ExternalRedirectLocation, options?: RedirectOptions) => Response) &
-      DynamicStringRedirect
+}) => Response
 
 // Mutable response object passed to page, layout, and API handlers via
 // context.response. Unlike the Web Response class (whose status is readonly),
@@ -66,7 +36,6 @@ export type ErrorContext<
     derive: {}
     resolve: {}
   },
-  RedirectPaths extends string = string,
 > = Prettify<{
   // body: Route['body']
   query: undefined extends Route['query']
@@ -79,7 +48,7 @@ export type ErrorContext<
     : Route['params']
 
   // server: Server | null
-  redirect: Redirect<RedirectPaths>
+  redirect: Redirect
 
   /**
    * Path extracted from incoming URL
@@ -114,7 +83,6 @@ export type SpiceflowContext<
     resolve: {}
   },
   LoaderData = {},
-  RedirectPaths extends string = string,
 > = Prettify<{
   query: undefined extends Route['query']
     ? Record<string, string>
@@ -126,7 +94,7 @@ export type SpiceflowContext<
     : Route['params']
 
   // server: Server | null
-  redirect: Redirect<RedirectPaths>
+  redirect: Redirect
 
   path: string
 

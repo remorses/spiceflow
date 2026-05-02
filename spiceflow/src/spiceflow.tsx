@@ -1282,8 +1282,7 @@ export class Spiceflow<
         JoinPath<BasePath, Path>,
         {},
         Singleton,
-        {},
-        RoutePaths | JoinPath<BasePath, Path>
+        {}
       >,
     ) => Record<string, unknown> | Promise<Record<string, unknown>>,
   >(

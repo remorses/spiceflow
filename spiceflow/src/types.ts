@@ -396,8 +396,8 @@ export type InlineHandler<
 > = (
   this: This,
   context: MacroContext extends Record<string | number | symbol, unknown>
-    ? Prettify<MacroContext & SpiceflowContext<Path, Route, Singleton, LoaderData, RedirectPaths>>
-    : SpiceflowContext<Path, Route, Singleton, LoaderData, RedirectPaths>,
+    ? Prettify<MacroContext & SpiceflowContext<Path, Route, Singleton, LoaderData>>
+    : SpiceflowContext<Path, Route, Singleton, LoaderData>,
 ) =>
   | ResponseLike
   | MaybePromiseIterable<
