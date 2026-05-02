@@ -1265,6 +1265,10 @@ Loaders run on the server before page and layout handlers. They solve a common p
 
 Prefer putting route data in loaders when that data is shared by more than one part of the route tree. This keeps fetching in one place, avoids fetching the same data once in a layout and again in a page, and lets React components read the current route data directly instead of receiving long prop chains.
 
+**Use loaders instead of passing route data through props.** Props are still great for local UI state, callbacks, and reusable primitives like `<Button variant="ghost" />`, but route data should usually come from `useLoaderData()`. This avoids prop drilling, keeps components movable, and stays type safe because the hook is inferred from the route loader path.
+
+Split data by route ownership instead of making one parent loader parse every URL. Put data that every dashboard page needs in `/dashboard/*`, data that every project page needs in `/dashboard/projects/:projectId/*`, and page-only data next to the page route. Components can call `useLoaderData()` multiple times when they need data from multiple loader levels.
+
 Loaders only run for requests that also match a `.page()` or `.layout()`. They are not standalone endpoints. If you want to serve content without rendering a page or layout, use `.get()`, `.route()`, or another API handler instead.
 
 ```tsx
@@ -1295,11 +1299,11 @@ export const app = new Spiceflow()
   .page('/dashboard', async ({ loaderData }) => {
     // Both loaders matched, data is merged by specificity
     // loaderData = { user: ..., stats: ... }
-    return <Dashboard user={loaderData.user} stats={loaderData.stats} />
+    return <Dashboard />
   })
 ```
 
-A Remix-style dashboard can put shared shell data in a parent loader, then page data in loaders placed next to each page. The layout, page, and client components all read from the same request-scoped loader data:
+A Remix-style dashboard can put shared shell data in a parent loader, project data in a nested loader, then page data in loaders placed next to each page. The layout, page, and client components all read from the same request-scoped loader data without threading props through every layer:
 
 ```tsx
 export const app = new Spiceflow()
@@ -1308,15 +1312,20 @@ export const app = new Spiceflow()
     const projects = await getProjects(user.id)
     return { user, projects }
   })
-  .layout('/dashboard/*', async ({ children, loaderData }) => {
-    return <DashboardShell user={loaderData.user}>{children}</DashboardShell>
+  .layout('/dashboard/*', async ({ children }) => {
+    return <DashboardShell>{children}</DashboardShell>
   })
-  .loader('/dashboard/projects/:id', async ({ params }) => {
-    const project = await getProject(params.id)
-    return { project }
+  .loader('/dashboard/projects/:projectId/*', async ({ params }) => {
+    const project = await getProject(params.projectId)
+    const environments = await getProjectEnvironments(params.projectId)
+    return { project, environments }
   })
-  .page('/dashboard/projects/:id', async () => {
-    return <ProjectPage />
+  .loader('/dashboard/projects/:projectId/secrets', async ({ params }) => {
+    const secrets = await getSecrets(params.projectId)
+    return { secrets }
+  })
+  .page('/dashboard/projects/:projectId/secrets', async () => {
+    return <SecretsPage />
   })
 
 declare module 'spiceflow/react' {
@@ -1325,20 +1334,92 @@ declare module 'spiceflow/react' {
 ```
 
 ```tsx
+// src/app/dashboard-shell.tsx
+'use client'
+
+import { useLoaderData } from 'spiceflow/react'
+import type { ReactNode } from 'react'
+
+export function DashboardShell({ children }: { children: ReactNode }) {
+  const { user, projects } = useLoaderData('/dashboard/*')
+  return (
+    <div>
+      <aside>
+        <p>{user.name}</p>
+        {projects.map((project) => <a key={project.id} href={project.href}>{project.name}</a>)}
+      </aside>
+      <main>{children}</main>
+    </div>
+  )
+}
+```
+
+```tsx
+// src/app/secrets-page.tsx
 'use client'
 
 import { useLoaderData } from 'spiceflow/react'
 
+export function SecretsPage() {
+  const { project, environments } = useLoaderData('/dashboard/projects/:projectId/*')
+  const { secrets } = useLoaderData('/dashboard/projects/:projectId/secrets')
+
+  return (
+    <section>
+      <h1>{project.name}</h1>
+      <p>{environments.length} environments</p>
+      <SecretsTable />
+    </section>
+  )
+}
+
+export function SecretsTable() {
+  const { secrets } = useLoaderData('/dashboard/projects/:projectId/secrets')
+  return secrets.map((secret) => <div key={secret.id}>{secret.name}</div>)
+}
+```
+
+Prefer this over prop drilling route data through every component:
+
+```tsx
+// Avoid this for route data. It grows brittle as pages get deeper.
+export function SecretsPage({ project, environments, secrets }) {
+  return <SecretsTable secrets={secrets} />
+}
+```
+
+The loader version is type safe end to end. If you rename `secrets` to `secretRows` in the loader, every `useLoaderData('/dashboard/projects/:projectId/secrets')` call that still reads `secrets` becomes a TypeScript error.
+
+```tsx
+// More specific loaders can still read merged data when that is simpler.
+export function ProjectHeader() {
+  const { user, project } = useLoaderData('/dashboard/projects/:projectId/*')
+  return <h1>{project.name} for {user.name}</h1>
+}
+```
+
+When you need only one loader level, read only that level:
+
+```tsx
 export function ProjectSwitcher() {
   const { projects } = useLoaderData('/dashboard/*')
   return projects.map((project) => <a href={project.href}>{project.name}</a>)
 }
-
-export function ProjectHeader() {
-  const { user, project } = useLoaderData('/dashboard/projects/:id')
-  return <h1>{project.name} for {user.name}</h1>
-}
 ```
+
+```tsx
+// Server routes can still read loaderData directly when rendering simple markup.
+export const app = new Spiceflow()
+  .loader('/account', async ({ request }) => {
+    const user = await getUser(request)
+    return { user }
+  })
+  .page('/account', async ({ loaderData }) => {
+    return <h1>{loaderData.user.name}</h1>
+  })
+```
+
+Loaders are a route-data boundary, not a replacement for every prop. Keep props for local state and component options. Use loaders for server data tied to the current route.
 
 When multiple loaders match a route (e.g. `/*` and `/dashboard` both match `/dashboard`), their return values are merged into a single flat object. More specific loaders override less specific ones on key conflicts.
 
