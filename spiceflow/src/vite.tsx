@@ -47,11 +47,24 @@ function extractBasePathname(base: string): string {
 }
 
 type BuildOutDirConfig = Pick<ResolvedConfig, 'root' | 'build'>
+type OutputKeepNamesConfig = { keepNames?: boolean }
 
 function resolveBuildOutDir(config: BuildOutDirConfig) {
   return path.isAbsolute(config.build.outDir)
     ? config.build.outDir
     : path.resolve(config.root, config.build.outDir)
+}
+
+function defaultOutputKeepNames<T extends OutputKeepNamesConfig>(output?: T) {
+  if (output?.keepNames !== undefined) return output
+  return { ...(output ?? ({} as T)), keepNames: true }
+}
+
+function defaultOutputKeepNamesOption<T extends OutputKeepNamesConfig>(
+  output?: T | T[],
+) {
+  if (Array.isArray(output)) return output.map(defaultOutputKeepNames)
+  return defaultOutputKeepNames(output)
 }
 
 function normalizeEnvironmentOutDirs(userConfig: UserConfig): UserConfig {
@@ -84,14 +97,16 @@ function normalizeEnvironmentOutDirs(userConfig: UserConfig): UserConfig {
           outDir: userConfig.environments?.rsc?.build?.outDir ?? rscOutDir,
           rollupOptions: {
             output: Array.isArray(rscOutput)
-              ? rscOutput.map((output) => ({
-                  ...output,
-                  entryFileNames: output.entryFileNames ?? '[name].js',
-                }))
-              : {
+              ? rscOutput.map((output) =>
+                  defaultOutputKeepNames({
+                    ...output,
+                    entryFileNames: output.entryFileNames ?? '[name].js',
+                  }),
+                )
+              : defaultOutputKeepNames({
                   ...(rscOutput ?? {}),
                   entryFileNames: rscOutput?.entryFileNames ?? '[name].js',
-                },
+                }),
           },
         },
       },
@@ -100,14 +115,16 @@ function normalizeEnvironmentOutDirs(userConfig: UserConfig): UserConfig {
           outDir: userConfig.environments?.ssr?.build?.outDir ?? ssrOutDir,
           rollupOptions: {
             output: Array.isArray(ssrOutput)
-              ? ssrOutput.map((output) => ({
-                  ...output,
-                  entryFileNames: output.entryFileNames ?? '[name].js',
-                }))
-              : {
+              ? ssrOutput.map((output) =>
+                  defaultOutputKeepNames({
+                    ...output,
+                    entryFileNames: output.entryFileNames ?? '[name].js',
+                  }),
+                )
+              : defaultOutputKeepNames({
                   ...(ssrOutput ?? {}),
                   entryFileNames: ssrOutput?.entryFileNames ?? '[name].js',
-                },
+                }),
           },
         },
       },
@@ -297,6 +314,7 @@ export default function spiceflow({
         }
         resolvedBase = extractBasePathname(rawBase)
         const userOnWarn = userConfig.build?.rollupOptions?.onwarn
+        const userBuildOutput = userConfig.build?.rollupOptions?.output
         const isCloudflare = hasPluginNamed(
           userConfig.plugins,
           'vite-plugin-cloudflare',
@@ -322,6 +340,11 @@ export default function spiceflow({
           server: {
             host: userConfig.server?.host ?? '127.0.0.1',
           },
+          ...(userConfig.build?.minify !== 'esbuild' ||
+          userConfig.esbuild === false ||
+          userConfig.esbuild?.keepNames !== undefined
+            ? {}
+            : { esbuild: { keepNames: true } }),
           // Replace process.env.NODE_ENV at build time so React uses its production
           // bundle. Without this, the built output contains runtime checks like
           // `"production" !== process.env.NODE_ENV` that always evaluate to the dev
@@ -337,6 +360,7 @@ export default function spiceflow({
           },
           build: {
             rollupOptions: {
+              output: defaultOutputKeepNamesOption(userBuildOutput),
               onwarn(warning, defaultHandler) {
                 // Suppress IMPORT_IS_UNDEFINED for virtual:app-entry — it uses
                 // `import * as entry` + re-export which Rollup can't statically verify,
@@ -371,6 +395,12 @@ export default function spiceflow({
       // named exports (Durable Objects, Workflows, Queue consumers, etc.)
       // survive Rollup's tree-shaking and appear in the built Worker output.
       configEnvironment(name, config) {
+        config.optimizeDeps ??= {}
+        config.optimizeDeps.rolldownOptions ??= {}
+        config.optimizeDeps.rolldownOptions.output = defaultOutputKeepNamesOption(
+          config.optimizeDeps.rolldownOptions.output,
+        )
+
         if (name === 'rsc') {
           config.build ??= {}
           config.build.rollupOptions ??= {}

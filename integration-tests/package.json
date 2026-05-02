@@ -38,7 +38,7 @@
 		"radix-ui": "^1.1.3",
 		"react": "19.2.4",
 		"react-dom": "19.2.4",
-		"router-state-fixture": "workspace:^",
+		"router-state-fixture": "file:./fixtures/router-state-fixture",
 		"react-select": "^5.10.0",
 		"sharp": "^0.34.5",
 		"spiceflow": "workspace:^",

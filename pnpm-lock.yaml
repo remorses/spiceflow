@@ -511,8 +511,8 @@ importers:
         specifier: ^5.10.0
         version: 5.10.2(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       router-state-fixture:
-        specifier: workspace:^
-        version: link:../router-state-fixture
+        specifier: file:./fixtures/router-state-fixture
+        version: file:integration-tests/fixtures/router-state-fixture(react@19.2.4)(spiceflow@spiceflow)
       sharp:
         specifier: ^0.34.5
         version: 0.34.5
@@ -532,15 +532,6 @@ importers:
       vite-plugin-inspect:
         specifier: ^11.3.3
         version: 11.3.3(vite@8.0.8(@types/node@24.0.15)(esbuild@0.27.4)(jiti@2.6.1)(terser@5.46.1)(tsx@4.20.6)(yaml@2.7.0))
-
-  router-state-fixture:
-    dependencies:
-      react:
-        specifier: 19.2.4
-        version: 19.2.4
-      spiceflow:
-        specifier: workspace:^
-        version: link:../spiceflow
 
   spiceflow:
     dependencies:
@@ -5942,6 +5933,12 @@ packages:
     resolution: {integrity: sha512-WMmLFI+Boh6xbop+OAGo9cQ3OgX9MIg7xOQjn+pTCwOkk+FNDAeAemXkJ3HzDJrVXleLOFVa1ipuc1AmEx1Dwg==}
     engines: {node: '>=18.0.0', npm: '>=8.0.0'}
     hasBin: true
+
+  router-state-fixture@file:integration-tests/fixtures/router-state-fixture:
+    resolution: {directory: integration-tests/fixtures/router-state-fixture, type: directory}
+    peerDependencies:
+      react: 19.2.4
+      spiceflow: '>=0.0.0'
 
   router@2.2.0:
     resolution: {integrity: sha512-nLTrUKm2UyiL7rlhapu/Zl45FwNgkZGaCpZbIHajDYgwlJCOzLSk+cIPAnsEqV955GjILJnKbdQC1nVPz+gAYQ==}
@@ -13136,6 +13133,11 @@ snapshots:
       '@rollup/rollup-win32-ia32-msvc': 4.46.2
       '@rollup/rollup-win32-x64-msvc': 4.46.2
       fsevents: 2.3.3
+
+  router-state-fixture@file:integration-tests/fixtures/router-state-fixture(react@19.2.4)(spiceflow@spiceflow):
+    dependencies:
+      react: 19.2.4
+      spiceflow: link:spiceflow
 
   router@2.2.0:
     dependencies:

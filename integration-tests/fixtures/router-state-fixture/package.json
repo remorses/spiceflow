@@ -6,8 +6,8 @@
 	"exports": {
 		".": "./index.js"
 	},
-	"dependencies": {
-		"spiceflow": "workspace:^",
+	"peerDependencies": {
+		"spiceflow": ">=0.0.0",
 		"react": "19.2.4"
 	}
 }

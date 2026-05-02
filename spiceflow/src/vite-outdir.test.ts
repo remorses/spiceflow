@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 
 import { afterEach, describe, expect, test } from 'vitest'
-import { resolveConfig, type PluginOption } from 'vite'
+import { resolveConfig, type PluginOption, type UserConfig } from 'vite'
 
 import spiceflow from './vite.js'
 
@@ -34,7 +34,10 @@ async function createTempApp() {
   return root
 }
 
-async function resolveSpiceflowConfig(options?: { cloudflare?: boolean }) {
+async function resolveSpiceflowConfig(options?: {
+  cloudflare?: boolean
+  userConfig?: UserConfig
+}) {
   const root = await createTempApp()
   const plugins: PluginOption[] = [spiceflow({ entry: './src/main.tsx' })]
 
@@ -44,9 +47,10 @@ async function resolveSpiceflowConfig(options?: { cloudflare?: boolean }) {
 
   const config = await resolveConfig(
     {
+      ...options?.userConfig,
       root,
-      build: { outDir: '.custom-build' },
-      plugins,
+      build: { ...options?.userConfig?.build, outDir: '.custom-build' },
+      plugins: [...(options?.userConfig?.plugins ?? []), ...plugins],
     },
     'build',
     'production',
@@ -95,10 +99,10 @@ describe('spiceflow outDir normalization', () => {
     expect(config.plugins.some((plugin) => plugin.name === 'spiceflow:output-module-package')).toBe(
       true,
     )
-    expect(config.environments.rsc.build.rollupOptions.output).toEqual({
+    expect(config.environments.rsc.build.rollupOptions.output).toMatchObject({
       entryFileNames: '[name].js',
     })
-    expect(config.environments.ssr.build.rollupOptions.output).toEqual({
+    expect(config.environments.ssr.build.rollupOptions.output).toMatchObject({
       entryFileNames: '[name].js',
     })
   })
@@ -130,6 +134,56 @@ describe('spiceflow outDir normalization', () => {
     )
     expect(config.environments.ssr.optimizeDeps.entries).toContain(
       './src/main.{js,jsx,ts,tsx,mjs,mts,cjs,cts}',
+    )
+  })
+
+  test('preserves function names by default', async () => {
+    const { config } = await resolveSpiceflowConfig()
+
+    expect(config.build.rollupOptions.output).toMatchObject({
+      keepNames: true,
+    })
+    expect(
+      config.environments.client.optimizeDeps.rolldownOptions.output.keepNames,
+    ).toBe(true)
+    expect(config.environments.rsc.optimizeDeps.rolldownOptions.output.keepNames).toBe(
+      true,
+    )
+    expect(config.environments.ssr.optimizeDeps.rolldownOptions.output.keepNames).toBe(
+      true,
+    )
+  })
+
+  test('does not override explicit keepNames config', async () => {
+    const { config } = await resolveSpiceflowConfig({
+      userConfig: {
+        build: {
+          rollupOptions: { output: { keepNames: false } },
+        },
+        environments: {
+          rsc: {
+            optimizeDeps: {
+              rolldownOptions: { output: { keepNames: false } },
+            },
+          },
+        },
+        optimizeDeps: {
+          rolldownOptions: { output: { keepNames: false } },
+        },
+      },
+    })
+
+    expect(config.build.rollupOptions.output).toMatchObject({
+      keepNames: false,
+    })
+    expect(
+      config.environments.client.optimizeDeps.rolldownOptions.output.keepNames,
+    ).toBe(false)
+    expect(config.environments.rsc.optimizeDeps.rolldownOptions.output.keepNames).toBe(
+      false,
+    )
+    expect(config.environments.ssr.optimizeDeps.rolldownOptions.output.keepNames).toBe(
+      true,
     )
   })
 })
