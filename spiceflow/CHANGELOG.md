@@ -1,5 +1,11 @@
 # spiceflow
 
+## 1.20.0-rsc.2
+
+1. **Fixed RSC federation corrupting multiline Flight payloads** — federated async iterable payloads containing multiline strings or JSX no longer corrupt React's internal chunk state. Flight data is now relayed as JSON-encoded text chunks instead of splitting on newlines, preventing `chunk.reason.enqueueModel` crashes.
+
+2. **Build logs aligned with Vite's logger style** — prerender and standalone dependency tracing output now uses Vite's logger, respects log levels, and shows timed success summaries with dimmed relative paths. Removed `picocolors` runtime dependency in favor of vendored color helpers.
+
 ## 1.20.0-rsc.1
 
 1. **Router state commits with the navigation payload** — `useRouterState()` now defers client navigation updates until the matching RSC payload is ready, so components no longer observe the next URL with stale server-rendered content during transitions. Server reads also return base-path-stripped `pathname` values, matching the client router state.
