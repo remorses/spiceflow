@@ -1,5 +1,13 @@
 # spiceflow
 
+## 1.20.0-rsc.3
+
+1. **Preserved function and class names in build output** — Spiceflow's Vite plugin now sets `keepNames: true` by default in Rollup output and the dependency optimizer, so function names survive minification for better stack traces and debugging. Explicit user `keepNames` config is still respected.
+
+2. **Simplified context redirect typing** — `context.redirect()` in page and layout handlers now accepts plain strings, removing overly strict path validation that caused false type errors when redirecting to dynamic or external URLs.
+
+3. **Standalone trace timing logged separately** — the `nf3` dependency tracing step now logs its own duration instead of including resolve time, giving clearer build performance visibility.
+
 ## 1.20.0-rsc.2
 
 1. **Fixed RSC federation corrupting multiline Flight payloads** — federated async iterable payloads containing multiline strings or JSX no longer corrupt React's internal chunk state. Flight data is now relayed as JSON-encoded text chunks instead of splitting on newlines, preventing `chunk.reason.enqueueModel` crashes.
