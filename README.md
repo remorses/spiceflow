@@ -1269,6 +1269,30 @@ Prefer putting route data in loaders when that data is shared by more than one p
 
 Split data by route ownership instead of making one parent loader parse every URL. Put data that every dashboard page needs in `/dashboard/*`, data that every project page needs in `/dashboard/projects/:projectId/*`, and page-only data next to the page route. Components can call `useLoaderData()` multiple times when they need data from multiple loader levels.
 
+Calling `useLoaderData()` is cheap. It reads the already-loaded request data from React context, so different components and different React trees can call it directly without causing extra loader executions or extra network requests. Do not centralize loader data into a custom props object just to pass it back down through the tree. That pattern repeats the loader return type by hand and can drift out of sync. Prefer calling `useLoaderData('/route/pattern')` where the data is needed, so TypeScript keeps the component shape linked to the real loader return value.
+
+If a parent layout rarely needs to know a child route param, use the web-standard `URLPattern` API instead of a hand-written regex. This is most useful for parent chrome that must sit above several child layouts, like tabs that span both the sidebar and content frame. Prefer splitting layouts and loaders cleanly so you do not need this pattern in normal route trees.
+
+```tsx
+export const app = new Spiceflow()
+  .loader('/dashboard/*', async ({ request }) => {
+    const projectId = new URLPattern({ pathname: '/dashboard/projects/:projectId/*' })
+      .exec(request.url)?.pathname.groups.projectId ?? null
+
+    const user = await getUser(request)
+
+    return { user, projectId }
+  })
+  .layout('/dashboard/*', async ({ loaderData, children }) => {
+    return (
+      <DashboardShell>
+        {loaderData.projectId && <ProjectTabs projectId={loaderData.projectId} />}
+        {children}
+      </DashboardShell>
+    )
+  })
+```
+
 Loaders only run for requests that also match a `.page()` or `.layout()`. They are not standalone endpoints. If you want to serve content without rendering a page or layout, use `.get()`, `.route()`, or another API handler instead.
 
 ```tsx
