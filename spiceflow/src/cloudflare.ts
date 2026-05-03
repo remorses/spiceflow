@@ -14,7 +14,7 @@ declare global {
   }
 }
 
-type CloudflareCacheOptions = {
+type HeadersCacheOptions = {
   /**
    * Override which requests are cacheable.
    * Defaults to only GET requests with 200 status responses.
@@ -26,18 +26,10 @@ type CloudflareCacheOptions = {
    * Must return an absolute URL string or a Request object.
    */
   cacheKey?: (request: Request) => string | Request
-
-  /**
-   * Headers to include in the Vary key. Useful for caching different
-   * responses per Accept, Accept-Encoding, etc. The specified headers
-   * are copied from the incoming request into the cache key request
-   * so `cache.match()` can distinguish variants.
-   */
-  vary?: string[]
 }
 
 /**
- * Cloudflare edge cache middleware for Spiceflow.
+ * Header-driven edge cache middleware for Cloudflare Workers.
  *
  * Caches Worker-generated responses at the edge using the Cache API,
  * controlled by standard `Cache-Control` headers on the response.
@@ -48,13 +40,17 @@ type CloudflareCacheOptions = {
  * `caches.default`. On cache hits, downstream handlers are skipped — the
  * Worker still executes, but returns the cached response immediately.
  *
+ * Set `Vary` on your response to cache different variants per request header
+ * (e.g. `Vary: Accept, Accept-Language`). The Cache API respects the `Vary`
+ * header on stored responses automatically.
+ *
  * @example
  * ```ts
  * import { Spiceflow } from 'spiceflow'
- * import { cloudflareCache } from 'spiceflow/cloudflare'
+ * import { headersCache } from 'spiceflow/cloudflare'
  *
  * const app = new Spiceflow()
- *   .use(cloudflareCache())
+ *   .use(headersCache())
  *   .route({
  *     method: 'GET',
  *     path: '/api/data',
@@ -69,16 +65,15 @@ type CloudflareCacheOptions = {
  *   })
  * ```
  */
-export const cloudflareCache = (
-  options?: CloudflareCacheOptions,
+export const headersCache = (
+  options?: HeadersCacheOptions,
 ): MiddlewareHandler => {
   const {
     shouldCache: customShouldCache,
     cacheKey: customCacheKey,
-    vary,
   } = options ?? {}
 
-  return async function cloudflareCache(context, next) {
+  return async function headersCache(context, next) {
     const { request, waitUntil } = context
 
     // Only cache GET/HEAD by default
@@ -90,7 +85,6 @@ export const cloudflareCache = (
     const cacheRequest = buildCacheRequest(
       request,
       customCacheKey?.(request) ?? request.url,
-      vary,
     )
 
     // Check cache — serve HIT for both GET and HEAD
@@ -129,10 +123,6 @@ export const cloudflareCache = (
     // Clone before consuming the body for cache storage
     const responseToCache = mutableResponse.clone()
 
-    if (vary?.length) {
-      responseToCache.headers.set('Vary', vary.join(', '))
-    }
-
     mutableResponse.headers.set('X-Cache', 'MISS')
 
     // Store in cache in the background. Catch to avoid noisy unhandled
@@ -145,30 +135,19 @@ export const cloudflareCache = (
 
 /**
  * Build a GET Request to use as the cache key. Always forces method to GET
- * so HEAD requests don't create separate cache entries. When `vary` headers
- * are specified, copies those header values from the original request so
- * `cache.match()` can distinguish variants.
+ * so HEAD requests don't create separate cache entries.
  */
 function buildCacheRequest(
   request: Request,
   key: string | Request,
-  vary?: string[],
 ): Request {
-  const headers = new Headers()
-  if (vary) {
-    for (const name of vary) {
-      const value = request.headers.get(name)
-      if (value) headers.set(name, value)
-    }
-  }
-
   if (key instanceof Request) {
-    return new Request(key.url, { method: 'GET', headers })
+    return new Request(key.url, { method: 'GET' })
   }
 
   // Resolve relative URLs against the request origin
   const url = new URL(key, request.url).toString()
-  return new Request(url, { method: 'GET', headers })
+  return new Request(url, { method: 'GET' })
 }
 
 /**
@@ -196,7 +175,7 @@ function isCacheable(response: Response): boolean {
 
 /**
  * If the response headers are immutable (e.g. from a subrequest fetch()),
- * clone into a mutable Response so we can set X-Cache, Vary, etc.
+ * clone into a mutable Response so we can set X-Cache, etc.
  */
 function cloneIfImmutable(response: Response): Response {
   try {
