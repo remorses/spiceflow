@@ -84,6 +84,11 @@
       "types": "./dist/cors.d.ts",
       "default": "./dist/cors.js"
     },
+    "./cloudflare": {
+      "types": "./dist/cloudflare.d.ts",
+      "workerd": "./dist/cloudflare.js",
+      "default": "./dist/cloudflare.js"
+    },
     "./react": {
       "types": "./dist/react/index.d.ts",
       "react-server": "./dist/react/index.rsc.js",
