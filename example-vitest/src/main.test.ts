@@ -1,9 +1,9 @@
 // Tests that call app.handle() directly on page and API routes.
-// Uses the spiceflow-vitest condition to bypass RSC Flight serialization
-// and get JSX responses that can be rendered to HTML via res.text().
+// Uses the spiceflow-vitest condition to bypass RSC Flight serialization.
+// res.text() renders the full page (layouts + page) to HTML.
+// res.page gives raw JSX for inline snapshot serialization.
 import { describe, test, expect } from 'vitest'
-import { renderToStaticMarkup } from 'react-dom/server'
-import { SpiceflowTestResponse, runAction, replaceLayoutContent } from 'spiceflow/testing'
+import { SpiceflowTestResponse, runAction } from 'spiceflow/testing'
 import { router } from 'spiceflow/react'
 import { createSpiceflowFetch } from 'spiceflow/client'
 import { app } from './main.js'
@@ -12,7 +12,9 @@ import {
   signalAwareAction,
   headerReaderAction,
   redirectAction,
+  createProject,
 } from './actions.js'
+import { projectStore } from './main.js'
 
 const f = createSpiceflowFetch(app)
 
@@ -36,32 +38,47 @@ describe('API routes (typed fetch)', () => {
   })
 })
 
-describe('Page routes (typed href)', () => {
-  test('GET / returns page HTML', async () => {
+describe('Page routes', () => {
+  test('GET / renders full page with layout', async () => {
     const res = await app.handle(new Request(`http://localhost${router.href('/')}`))
     if (!(res instanceof SpiceflowTestResponse)) throw new Error('expected SpiceflowTestResponse')
     expect(res.status).toBe(200)
     expect(await res.text()).toMatchInlineSnapshot(`"<html lang="en"><head></head><body><div><h1>Home</h1><p>Welcome to spiceflow</p></div></body></html>"`)
   })
 
-  test('GET /about returns page HTML', async () => {
+  test('GET /about renders page content', async () => {
     const res = await app.handle(new Request(`http://localhost${router.href('/about')}`))
     if (!(res instanceof SpiceflowTestResponse)) throw new Error('expected SpiceflowTestResponse')
     expect(res.status).toBe(200)
     expect(await res.text()).toMatchInlineSnapshot(`"<html lang="en"><head></head><body><div><h1>About</h1><p>This is the about page</p></div></body></html>"`)
   })
 
-  test('GET /users/:id returns page HTML with params', async () => {
+  test('GET /users/:id renders with params', async () => {
     const res = await app.handle(new Request(`http://localhost${router.href('/users/:id', { id: '42' })}`))
     if (!(res instanceof SpiceflowTestResponse)) throw new Error('expected SpiceflowTestResponse')
     expect(res.status).toBe(200)
     expect(await res.text()).toMatchInlineSnapshot(`"<html lang="en"><head></head><body><div><h1>User 42</h1><p>Profile page for user 42</p></div></body></html>"`)
   })
 
-  test('layouts are accessible on test response', async () => {
+  test('res.page gives raw JSX for inline snapshots', async () => {
+    const res = await app.handle(new Request(`http://localhost${router.href('/about')}`))
+    if (!(res instanceof SpiceflowTestResponse)) throw new Error('expected SpiceflowTestResponse')
+    expect(res.page).toMatchInlineSnapshot(`
+      <div>
+        <h1>
+          About
+        </h1>
+        <p>
+          This is the about page
+        </p>
+      </div>
+    `)
+  })
+
+  test('res.text(layout) renders layout element with context', async () => {
     const res = await app.handle(new Request(`http://localhost${router.href('/')}`))
     if (!(res instanceof SpiceflowTestResponse)) throw new Error('expected SpiceflowTestResponse')
-    expect(res.layouts.length).toBeGreaterThan(0)
+    expect(await res.text(res.layouts[0]!.element)).toMatchInlineSnapshot(`"<html lang="en"><head></head><body><div><h1>Home</h1><p>Welcome to spiceflow</p></div></body></html>"`)
   })
 
   test('GET /nonexistent returns 404', async () => {
@@ -69,20 +86,21 @@ describe('Page routes (typed href)', () => {
     expect(res.status).toBe(404)
   })
 
-  test('page-only JSX snapshot (without layout)', async () => {
-    const res = await app.handle(new Request(`http://localhost${router.href('/about')}`))
-    if (!(res instanceof SpiceflowTestResponse)) throw new Error('expected SpiceflowTestResponse')
-    expect(renderToStaticMarkup(res.page)).toMatchInlineSnapshot(
-      `"<div><h1>About</h1><p>This is the about page</p></div>"`,
-    )
+  test('middleware blocks unauthenticated access to /admin', async () => {
+    const res = await app.handle(new Request('http://localhost/admin'))
+    expect(res.status).toBe(401)
+    expect(await res.text()).toBe('Unauthorized')
   })
 
-  test('layout-only JSX snapshot (without page)', async () => {
-    const res = await app.handle(new Request(`http://localhost${router.href('/')}`))
+  test('middleware allows authenticated access to /admin', async () => {
+    const res = await app.handle(
+      new Request('http://localhost/admin', {
+        headers: { authorization: 'Bearer token' },
+      }),
+    )
     if (!(res instanceof SpiceflowTestResponse)) throw new Error('expected SpiceflowTestResponse')
-    expect(res.layouts).toHaveLength(1)
-    const layoutWithoutChildren = replaceLayoutContent(res.layouts[0]!.element, null)
-    expect(renderToStaticMarkup(layoutWithoutChildren)).toMatchInlineSnapshot(`"<html lang="en"><head></head><body></body></html>"`)
+    expect(res.status).toBe(200)
+    expect(await res.text()).toContain('Admin Panel')
   })
 
   test('page that throws redirect returns 307 with location', async () => {
@@ -139,6 +157,53 @@ describe('Server actions', () => {
     if (!(error instanceof Response)) throw new Error('expected Response')
     expect(error.status).toBe(307)
     expect(error.headers.get('location')).toBe('/about')
+  })
+})
+
+describe('Stateful page + action workflow', () => {
+  test('dashboard starts empty, action creates project, page shows it', async () => {
+    projectStore.length = 0
+
+    // Dashboard starts with no projects
+    const empty = await app.handle(new Request(`http://localhost${router.href('/dashboard')}`))
+    if (!(empty instanceof SpiceflowTestResponse)) throw new Error('expected SpiceflowTestResponse')
+    expect(await empty.text()).toContain('No projects yet')
+
+    // Call action to create a project
+    const project = await createProject('My New App')
+    expect(project).toMatchInlineSnapshot(`
+      {
+        "id": "1",
+        "name": "My New App",
+      }
+    `)
+
+    // Dashboard now shows the project (server + client component with loader data)
+    const filled = await app.handle(new Request(`http://localhost${router.href('/dashboard')}`))
+    if (!(filled instanceof SpiceflowTestResponse)) throw new Error('expected SpiceflowTestResponse')
+    const html = await filled.text()
+    expect(html).toContain('My New App')
+    expect(html).toContain('Count: 1')
+  })
+})
+
+describe('Authenticated fetch', () => {
+  test('API route with bearer token via createSpiceflowFetch headers', async () => {
+    const authedFetch = createSpiceflowFetch(app, {
+      headers: { authorization: 'Bearer my-secret-token' },
+    })
+    const result = await authedFetch('/api/me')
+    expect(result).toMatchInlineSnapshot(`
+      {
+        "token": "my-secret-token",
+        "user": "tommy",
+      }
+    `)
+  })
+
+  test('API route without token returns 401', async () => {
+    const result = await f('/api/me')
+    expect(result).toBeInstanceOf(Error)
   })
 })
 

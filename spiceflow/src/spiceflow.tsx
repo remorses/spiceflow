@@ -4,10 +4,12 @@ import { copy } from './copy-anything.js'
 import superjson from 'superjson'
 import * as errore from 'errore'
 import { loadGlobalCss } from '#load-global-css'
+import { FlightDataContext } from '#flight-data-context'
+
 
 import { SpiceflowFetchError } from './client/errors.js'
 import { actionRequestStorage } from './action-context.js'
-import { createRouterContextData, routerContextStorage } from './router-context.js'
+import { createRouterContextData, routerContextStorage, type RouterContextData } from './router-context.js'
 import { coerceQueryWithSchema } from './query-coerce.js'
 import { ValidationError } from './error.js'
 import {
@@ -1970,6 +1972,9 @@ export class Spiceflow<
         for (let i = root.layouts.length - 1; i >= 0; i--) {
           element = replaceLayoutContent(root.layouts[i]!.element, element)
         }
+        // Capture the current router context so .text() can restore it
+        // when rendering client components that call useLoaderData/getRouterContext.
+        const routerContext = routerContextStorage.getStore()
         return new SpiceflowTestResponse({
           page: root.page,
           layouts: root.layouts,
@@ -1978,6 +1983,7 @@ export class Spiceflow<
           element,
           status,
           headers,
+          routerContext,
         })
       }
 
@@ -3489,8 +3495,9 @@ export interface ServerPayload {
 
 // Vitest-only response that carries the route JSX directly instead of a Flight
 // stream. Returned by renderReact when the spiceflow-vitest condition is active.
-// Call res.text() to get the full page (layouts + page) rendered as HTML,
-// or inspect page, layouts, loaderData, and status directly.
+// All JSX getters (page, layouts, element) wrap content in FlightDataContext.Provider
+// so client components using useLoaderData/useFlightData work in inline snapshots.
+// Call res.text() for the full composed HTML (layouts + page).
 export class SpiceflowTestResponse extends globalThis.Response {
   readonly page: React.ReactNode
   readonly layouts: Array<{ id: string; element: React.ReactNode }>
@@ -3498,6 +3505,8 @@ export class SpiceflowTestResponse extends globalThis.Response {
   readonly head: React.ReactNode
   /** Full composed tree: layouts wrapping the page, with LayoutContent resolved. */
   readonly element: React.ReactNode
+  /** @internal */
+  private _routerContext: RouterContextData | undefined
 
   constructor({
     page,
@@ -3507,6 +3516,7 @@ export class SpiceflowTestResponse extends globalThis.Response {
     element,
     status,
     headers,
+    routerContext,
   }: {
     page: React.ReactNode
     layouts: Array<{ id: string; element: React.ReactNode }>
@@ -3515,6 +3525,7 @@ export class SpiceflowTestResponse extends globalThis.Response {
     element: React.ReactNode
     status: number
     headers: Headers
+    routerContext: RouterContextData | undefined
   }) {
     super(null, { status, headers })
     this.page = page
@@ -3522,11 +3533,56 @@ export class SpiceflowTestResponse extends globalThis.Response {
     this.loaderData = loaderData
     this.head = head
     this.element = element
+    this._routerContext = routerContext
   }
 
-  async text(): Promise<string> {
+  /**
+   * Render to HTML with full context (FlightDataContext + router context).
+   * Without arguments, renders the full composed page (layouts + page).
+   * With a node argument, renders that specific node (e.g. a single layout).
+   *
+   * ```ts
+   * await res.text()                        // full page with layouts
+   * await res.text(res.page)                // page only
+   * await res.text(res.layouts[0].element)  // single layout
+   * ```
+   */
+  async text(node?: React.ReactNode): Promise<string> {
+    node ??= this.element
     const { renderToStaticMarkup } = await import('react-dom/server')
-    return renderToStaticMarkup(this.element)
+
+    // Wrap in FlightDataContext.Provider with a resolved thenable so
+    // React.use() reads it synchronously (no suspend in renderToStaticMarkup).
+    let wrapped = node
+    if (FlightDataContext && this._routerContext) {
+      const resolvedPayload = {
+        status: 'fulfilled' as const,
+        value: {
+          root: {
+            page: this.page,
+            layouts: this.layouts,
+            loaderData: this.loaderData,
+            head: this.head,
+          },
+        },
+        then() {},
+      }
+      wrapped = React.createElement(
+        FlightDataContext.Provider,
+        { value: { payload: resolvedPayload as any, routerData: this._routerContext } },
+        node,
+      )
+    }
+
+    // Restore the router context so useLoaderData/getRouterContext work
+    // via the AsyncLocalStorage server path too.
+    if (this._routerContext) {
+      this._routerContext.loaderData = this.loaderData
+      return routerContextStorage.run(this._routerContext, () =>
+        renderToStaticMarkup(wrapped),
+      )
+    }
+    return renderToStaticMarkup(wrapped)
   }
 }
 
