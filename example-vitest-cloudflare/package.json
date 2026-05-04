@@ -14,6 +14,7 @@
     "vite": "^8.0.8"
   },
   "devDependencies": {
+    "@cloudflare/vite-plugin": "^1.28.0",
     "@cloudflare/vitest-pool-workers": "^0.15.2",
     "@cloudflare/workers-types": "^4.20260504.1",
     "@vitejs/plugin-react": "^6.0.1",
