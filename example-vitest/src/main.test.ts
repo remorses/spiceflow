@@ -119,6 +119,30 @@ describe('Authentication', () => {
     const result = await f('/api/me')
     expect(result).toBeInstanceOf(Error)
   })
+
+  test('mutable .headers field overrides auth after creation', async () => {
+    const client = createSpiceflowFetch(app)
+
+    // starts unauthenticated
+    const before = await client('/api/me')
+    expect(before).toBeInstanceOf(Error)
+
+    // set auth headers after creation
+    client.headers = { authorization: 'Bearer late-token' }
+
+    const after = await client('/api/me')
+    expect(after).toMatchInlineSnapshot(`
+      {
+        "token": "late-token",
+        "user": "tommy",
+      }
+    `)
+
+    // clear headers
+    client.headers = undefined
+    const cleared = await client('/api/me')
+    expect(cleared).toBeInstanceOf(Error)
+  })
 })
 
 describe('Server actions', () => {

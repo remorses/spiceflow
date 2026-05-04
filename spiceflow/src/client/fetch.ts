@@ -330,6 +330,18 @@ export interface SpiceflowFetch<App extends AnySpiceflow> {
       ? [path: Path, options: ResolveOptions<App, Path, Method>]
       : [path: Path, options?: ResolveOptions<App, Path, Method>]
   ): Promise<ResolveResult<App, Path, Method>>
+
+  /**
+   * Mutable headers applied to every request. Set this after creation to
+   * add auth tokens or other headers without recreating the client.
+   *
+   * ```ts
+   * const f = createSpiceflowFetch(app)
+   * // later, after getting a token:
+   * f.headers = { authorization: `Bearer ${token}` }
+   * ```
+   */
+  headers: Record<string, string> | undefined
 }
 
 // ─── Factory ─────────────────────────────────────────────────────────────────
@@ -338,7 +350,7 @@ export function createSpiceflowFetch(
   domain: string,
   config?: SpiceflowClient.Config,
 ): SpiceflowFetch<RegisteredApp>
-/** @deprecated Use SpiceflowRegister instead of passing an explicit generic. */
+
 export function createSpiceflowFetch<const App extends AnySpiceflow>(
   domain: App | string,
   config?: SpiceflowClient.Config &
@@ -381,6 +393,11 @@ export function createSpiceflowFetch(
       onResponse,
       retries = 0,
     } = config as SpiceflowClient.Config
+
+    // Merge mutable .headers field into config headers
+    if (spiceflowFetch.headers) {
+      configHeaders = { ...processHeaders(configHeaders, path, {}), ...spiceflowFetch.headers }
+    }
 
     const {
       method: rawMethod = 'GET',
@@ -529,6 +546,8 @@ export function createSpiceflowFetch(
 
     return data
   }
+
+  spiceflowFetch.headers = undefined
 
   return spiceflowFetch
 }

@@ -379,7 +379,7 @@ export async function createAuthedUser(overrides?: {
 
 ### Usage in tests
 
-Create a user in `beforeAll`, build an authed fetch client with the real token, and delete the user in `afterAll`. Each describe block gets its own user so tests don't interfere with each other.
+Create the fetch client at the **top level** of your test file. Set the `.headers` field in `beforeAll` after creating the user and getting a token. Delete the user in `afterAll` to avoid leaking test data.
 
 ```ts
 import { describe, test, expect, afterAll, beforeAll } from 'vitest'
@@ -388,25 +388,25 @@ import { SpiceflowTestResponse } from 'spiceflow/testing'
 import { app } from './main.js'
 import { createAuthedUser } from './test-utils'
 
+const f = createSpiceflowFetch(app)
+
 describe('authenticated routes', () => {
-  let authed: ReturnType<typeof createSpiceflowFetch<typeof app>>
   let cleanup: () => Promise<void>
 
   beforeAll(async () => {
     const { token, deleteUser } = await createAuthedUser({ name: 'Alice' })
     cleanup = deleteUser
-    authed = createSpiceflowFetch(app, {
-      headers: { authorization: `Bearer ${token}` },
-    })
+    f.headers = { authorization: `Bearer ${token}` }
   })
 
   afterAll(async () => {
+    f.headers = undefined
     // Cascade deletes clean up sessions, accounts, and related rows
     await cleanup()
   })
 
   test('GET /api/me returns current user', async () => {
-    const result = await authed('/api/me')
+    const result = await f('/api/me')
     expect(result).toMatchInlineSnapshot(`
       {
         "name": "Alice",
@@ -415,15 +415,9 @@ describe('authenticated routes', () => {
   })
 
   test('protected page renders for authed user', async () => {
-    const res = await authed('/dashboard')
+    const res = await f('/dashboard')
     if (!(res instanceof SpiceflowTestResponse)) throw new Error('expected page')
     expect(await res.text()).toContain('Dashboard')
-  })
-
-  test('unauthenticated request returns error', async () => {
-    const f = createSpiceflowFetch(app)
-    const result = await f('/api/me')
-    expect(result).toBeInstanceOf(Error)
   })
 })
 ```
