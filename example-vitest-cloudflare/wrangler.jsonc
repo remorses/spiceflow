@@ -1,12 +1,18 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "example-vitest-cloudflare",
-  // Spiceflow's RSC entry re-exports the user Worker default export.
   "main": "spiceflow/cloudflare-entrypoint",
   "compatibility_date": "2026-03-15",
   // Note: do NOT add "no_handle_cross_request_promise_resolution" here.
   // The cloudflare vitest pool adds it automatically and workerd rejects
   // duplicates. This flag is only needed at deploy time (wrangler deploy
   // adds it too).
-  "compatibility_flags": ["nodejs_compat"]
+  "compatibility_flags": ["nodejs_compat"],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "test-db",
+      "database_id": "00000000-0000-0000-0000-000000000000"
+    }
+  ]
 }
