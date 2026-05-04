@@ -144,6 +144,26 @@ async function stopProcess({ child }: { child: ChildProcessWithoutNullStreams })
 	]);
 }
 
+// Warm up the dev server so the Vite dep optimizer settles before real tests run.
+// The first request can trigger a "program reload" that races with assertions.
+test.beforeAll(async () => {
+	if (isStart) return;
+	for (let i = 0; i < 5; i++) {
+		try {
+			const res = await fetch(baseURL + url("/"));
+			await res.text();
+			// After a successful response, do one more request to absorb any
+			// in-flight dep optimization reload.
+			await new Promise((r) => setTimeout(r, 500));
+			const res2 = await fetch(baseURL + url("/"));
+			await res2.text();
+			return;
+		} catch {
+			await new Promise((r) => setTimeout(r, 500));
+		}
+	}
+});
+
 test.describe("not found", () => {
 	test("not found in outer route scope", async ({ page }) => {
 		await page.goto(url("/not-found"));
