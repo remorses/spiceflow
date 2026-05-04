@@ -1,7 +1,7 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "example-vitest-cloudflare",
-  "main": "spiceflow/cloudflare-entrypoint",
+  "main": "./src/main.tsx",
   "compatibility_date": "2026-03-15",
   // Note: do NOT add "no_handle_cross_request_promise_resolution" here.
   // The cloudflare vitest pool adds it automatically and workerd rejects

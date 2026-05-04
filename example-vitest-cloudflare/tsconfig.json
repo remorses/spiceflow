@@ -12,9 +12,8 @@
     "jsx": "react-jsx",
     "types": [
       "vite/client",
-      "@cloudflare/workers-types",
       "@cloudflare/vitest-pool-workers/types"
     ]
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx"]
+  "include": ["src/**/*.ts", "src/**/*.tsx", "worker-configuration.d.ts"]
 }

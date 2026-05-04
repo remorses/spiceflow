@@ -1,6 +1,6 @@
 // Tests running inside the Cloudflare Workers runtime (workerd) via
 // @cloudflare/vitest-pool-workers. Validates Spiceflow pages, API routes,
-// and cloudflare:workers APIs all work correctly inside workerd.
+// cloudflare:workers APIs, and D1 database behavior inside workerd.
 import { describe, test, expect, beforeEach } from 'vitest'
 import { waitUntil, env } from 'cloudflare:workers'
 import { SpiceflowTestResponse } from 'spiceflow/testing'
@@ -180,5 +180,30 @@ describe('middleware auth', () => {
         "secret": 42,
       }
     `)
+  })
+})
+
+describe('D1 database', () => {
+  // Migrations are applied automatically by the setup file (apply-migrations.ts)
+  // which reads SQL files from the migrations/ folder via readD1Migrations()
+
+  test('insert and query a user', async () => {
+    await env.DB.prepare('INSERT INTO users (name, email) VALUES (?, ?)')
+      .bind('Alice', 'alice@test.com')
+      .run()
+
+    const result = await env.DB.prepare('SELECT * FROM users WHERE email = ?')
+      .bind('alice@test.com')
+      .first()
+
+    expect(result).toMatchObject({ name: 'Alice', email: 'alice@test.com' })
+  })
+
+  test('D1 starts clean each run (count is always 1)', async () => {
+    // Alice was inserted in the previous test within this run.
+    // If D1 leaked across runs the count would accumulate.
+    // Run `pnpm test` multiple times — this should always be 1.
+    const count = await env.DB.prepare('SELECT COUNT(*) as count FROM users').first<{ count: number }>()
+    expect(count!.count).toBe(1)
   })
 })
