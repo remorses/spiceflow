@@ -187,6 +187,55 @@ describe('Stateful workflow', () => {
   })
 })
 
+describe('Dependency injection with state', () => {
+  const store = new Map<string, any>()
+  const fakeKV = {
+    async get(key: string) { return store.get(key) },
+    async put(key: string, value: any) { store.set(key, value) },
+  }
+
+  const withKV = createSpiceflowFetch(app, { state: { kv: fakeKV } })
+
+  test('GET /api/settings reads from injected KV', async () => {
+    store.clear()
+    store.set('settings', { theme: 'dark', language: 'en' })
+
+    const result = await withKV('/api/settings')
+    expect(result).toMatchInlineSnapshot(`
+      {
+        "settings": {
+          "language": "en",
+          "theme": "dark",
+        },
+      }
+    `)
+  })
+
+  test('GET /api/settings returns default when KV is empty', async () => {
+    store.clear()
+
+    const result = await withKV('/api/settings')
+    expect(result).toMatchInlineSnapshot(`
+      {
+        "settings": {
+          "theme": "light",
+        },
+      }
+    `)
+  })
+
+  test('POST /api/settings writes to injected KV', async () => {
+    store.clear()
+
+    await withKV('/api/settings', {
+      method: 'POST',
+      body: { theme: 'dark', fontSize: 16 },
+    })
+
+    expect(store.get('settings')).toEqual({ theme: 'dark', fontSize: 16 })
+  })
+})
+
 // Type safety: invalid paths are compile errors
 // @ts-expect-error - path does not exist on this app
 void f('/this/path/does/not/exist')

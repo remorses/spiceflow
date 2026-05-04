@@ -74,12 +74,22 @@ export const app = new Spiceflow()
       </div>
     )
   })
+  .state('kv', null as unknown as KVStore)
   .get('/api/me', ({ request }) => {
     const auth = request.headers.get('authorization')
     if (!auth?.startsWith('Bearer ')) {
       return new Response('Unauthorized', { status: 401 })
     }
     return { user: 'tommy', token: auth.slice(7) }
+  })
+  .get('/api/settings', async ({ state }) => {
+    const settings = await state.kv.get('settings')
+    return { settings: settings ?? { theme: 'light' } }
+  })
+  .post('/api/settings', async ({ state, request }) => {
+    const body = await request.json()
+    await state.kv.put('settings', body)
+    return { ok: true }
   })
   .page('/admin', async function Admin() {
     return (
@@ -96,6 +106,11 @@ export const app = new Spiceflow()
   .page('/error-page', async () => {
     throw new Error('page exploded')
   })
+
+export interface KVStore {
+  get(key: string): Promise<any>
+  put(key: string, value: any): Promise<void>
+}
 
 declare module 'spiceflow/react' {
   interface SpiceflowRegister {

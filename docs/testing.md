@@ -220,6 +220,101 @@ test('dashboard shows projects after creation', async () => {
 
 Client components using `useLoaderData` get correct data in `res.text()` because the loader runs on each `app.handle()` call and the result is provided to the rendering context.
 
+## Dependency Injection with State
+
+Use `.state()` to register dependencies your handlers need (database clients, KV stores, auth services). In tests, pass overrides via `createSpiceflowFetch(app, { state })` to swap real services for test doubles.
+
+```ts
+// main.tsx
+import { Spiceflow } from 'spiceflow'
+
+// Define the app with typed state for a KV store and auth
+export const app = new Spiceflow()
+  .state('kv', null as unknown as KVStore)
+  .state('user', null as unknown as User | null)
+  .get('/api/projects', async ({ state }) => {
+    if (!state.user) return new Response('Unauthorized', { status: 401 })
+    const projects = await state.kv.get(`projects:${state.user.id}`)
+    return { projects: projects ?? [] }
+  })
+  .get('/api/projects/:id', async ({ state, params }) => {
+    if (!state.user) return new Response('Unauthorized', { status: 401 })
+    const project = await state.kv.get(`project:${params.id}`)
+    if (!project) return new Response('Not Found', { status: 404 })
+    return project
+  })
+  .post('/api/projects', async ({ state, request }) => {
+    if (!state.user) return new Response('Unauthorized', { status: 401 })
+    const body = await request.json()
+    await state.kv.put(`project:${body.id}`, body)
+    return body
+  })
+
+interface KVStore {
+  get(key: string): Promise<any>
+  put(key: string, value: any): Promise<void>
+}
+
+interface User {
+  id: string
+  name: string
+}
+```
+
+In tests, create a fake KV store and pass it as state. No mocking modules, no patching globals. The typed state ensures your test doubles match the expected interface.
+
+```ts
+// main.test.ts
+import { test, expect } from 'vitest'
+import { createSpiceflowFetch } from 'spiceflow/client'
+import { app } from './main.js'
+
+// In-memory KV for tests
+const store = new Map<string, any>()
+const fakeKV = {
+  async get(key: string) { return store.get(key) },
+  async put(key: string, value: any) { store.set(key, value) },
+}
+
+const testUser = { id: 'u1', name: 'Tommy' }
+
+// Typed fetch with test state injected
+const f = createSpiceflowFetch(app, {
+  state: { kv: fakeKV, user: testUser },
+})
+
+// Unauthenticated client (user: null)
+const anon = createSpiceflowFetch(app, {
+  state: { kv: fakeKV, user: null },
+})
+
+test('authenticated user can create and list projects', async () => {
+  store.clear()
+
+  // Create a project
+  await f('/api/projects', {
+    method: 'POST',
+    body: { id: 'p1', name: 'My App' },
+  })
+
+  // Verify KV was written
+  expect(store.get('project:p1')).toEqual({ id: 'p1', name: 'My App' })
+})
+
+test('unauthenticated user gets 401', async () => {
+  const result = await anon('/api/projects')
+  expect(result).toBeInstanceOf(Error)
+})
+```
+
+**When to use state for DI:**
+
+- **External services** (KV, database, email, storage) you want to replace with in-memory fakes in tests
+- **Auth context** (current user, session) so you don't need to set up real auth flows
+- **Feature flags** or config that varies between tests
+
+State is deep-cloned per request by default, so each `app.handle()` call gets its own copy. Overrides via `createSpiceflowFetch` or `app.handle(req, { state })` replace the defaults for that call only.
+
 ## Type Safety
 
 Register your app type once so `router.href()` and `createSpiceflowFetch()` paths are fully typed.
