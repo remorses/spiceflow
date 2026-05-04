@@ -849,6 +849,30 @@ The `preventProcessExitIfBusy` middleware prevents platforms like Fly.io from ki
 
 Spiceflow has built-in OpenTelemetry tracing. Pass a `tracer` to the constructor and every request gets automatic spans for middleware, handlers, loaders, layouts, pages, and RSC serialization. Set `serverTiming: true` too if you want those spans exposed as a `Server-Timing` response header in Chrome DevTools, with nested descriptions like `handler - /users/:id > db.query`. Zero overhead when disabled. Handlers can also read `traceId` and `spanId` from `span.spanContext?.()` when the tracer supports it. See [Tracing docs](docs/tracing.md) for setup, span trees, custom spans, and examples. If you use Strada as your OTel backend, see [Observability with Strada](docs/strada.md).
 
+## Testing
+
+Test your spiceflow app directly with vitest. No browser, no build step, sub-second feedback. Call `app.handle()` on routes, call server actions as plain functions, and assert on responses.
+
+```ts
+import { createSpiceflowFetch } from 'spiceflow/client'
+import { SpiceflowTestResponse } from 'spiceflow/testing'
+import { app } from './main.js'
+
+const f = createSpiceflowFetch(app)
+
+// API routes return typed JSON
+const data = await f('/api/hello')
+expect(data).toEqual({ message: 'Hello, World!' })
+
+// Page routes return SpiceflowTestResponse with rendered HTML
+const res = await f('/about')
+if (!(res instanceof SpiceflowTestResponse)) throw new Error('expected page')
+expect(await res.text()).toContain('About')
+expect(res.loaderData).toEqual({ ... })
+```
+
+The spiceflow Vite plugin auto-detects vitest and configures everything. Server actions become plain callable functions, middleware runs before pages, and `.state()` lets you inject test doubles for databases and services without mocking modules. See the full [Testing guide](docs/testing.md) for authentication patterns, stateful workflows, and dependency injection.
+
 ## React Framework (RSC)
 
 Spiceflow includes a full-stack React framework built on React Server Components (RSC). It uses Vite with `@vitejs/plugin-rsc` under the hood. Server components run on the server by default, and you use `"use client"` to mark interactive components that need to run in the browser.

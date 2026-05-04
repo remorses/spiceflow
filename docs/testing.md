@@ -230,8 +230,8 @@ import { Spiceflow } from 'spiceflow'
 
 // Define the app with typed state for a KV store and auth
 export const app = new Spiceflow()
-  .state('kv', null as unknown as KVStore)
-  .state('user', null as unknown as User | null)
+  .state('kv', productionKV as KVStore)
+  .state('user', null as User | null)
   .get('/api/projects', async ({ state }) => {
     if (!state.user) return new Response('Unauthorized', { status: 401 })
     const projects = await state.kv.get(`projects:${state.user.id}`)

@@ -236,6 +236,41 @@ describe('Dependency injection with state', () => {
   })
 })
 
+describe('Tracing', () => {
+  test('tracer captures spans during app.handle()', async () => {
+    const spans: Array<{ name: string; attributes: Record<string, any>; ended: boolean }> = []
+    const stack: typeof spans = []
+
+    const tracer = {
+      startActiveSpan(name: string, ...args: any[]) {
+        const fn = args[args.length - 1]
+        const options = args.length > 1 ? args[0] : {}
+        const testSpan = { name, attributes: { ...options.attributes }, ended: false }
+        spans.push(testSpan)
+        stack.push(testSpan)
+        const span = {
+          setAttribute(k: string, v: any) { testSpan.attributes[k] = v; return span },
+          setStatus() { return span },
+          recordException() {},
+          updateName(n: string) { testSpan.name = n; return span },
+          spanContext() { return { traceId: '1', spanId: '1' } },
+          end() { testSpan.ended = true; stack.pop() },
+        }
+        return fn(span)
+      },
+    }
+
+    const traced = new (await import('spiceflow')).Spiceflow({ tracer })
+      .get('/api/traced', () => ({ ok: true }))
+
+    const res = await traced.handle(new Request('http://localhost/api/traced'))
+    expect(res.status).toBe(200)
+    expect(spans.length).toBeGreaterThan(0)
+    expect(spans[0]!.name).toContain('/api/traced')
+    expect(spans.every((s) => s.ended)).toBe(true)
+  })
+})
+
 // Type safety: invalid paths are compile errors
 // @ts-expect-error - path does not exist on this app
 void f('/this/path/does/not/exist')

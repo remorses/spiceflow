@@ -6,6 +6,12 @@ import { Head } from 'spiceflow/react'
 // In-memory store for testing stateful page renders
 export const projectStore: { id: string; name: string }[] = []
 
+// Production KV store (replaced with a fake in tests via state injection)
+export const productionKV: KVStore = {
+  async get() { return null },
+  async put() {},
+}
+
 export const app = new Spiceflow()
   .use(({ request }) => {
     const url = new URL(request.url)
@@ -74,7 +80,7 @@ export const app = new Spiceflow()
       </div>
     )
   })
-  .state('kv', null as unknown as KVStore)
+  .state('kv', productionKV)
   .get('/api/me', ({ request }) => {
     const auth = request.headers.get('authorization')
     if (!auth?.startsWith('Bearer ')) {
