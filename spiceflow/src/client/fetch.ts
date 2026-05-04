@@ -7,7 +7,7 @@ import type {
   IsAny,
   MatchingPathPattern,
 } from '../types.ts'
-import type { RegisteredApp } from '../react/router.js'
+import type { RegisteredApp, RouterPaths } from '../react/router.js'
 
 import type { SpiceflowClient } from './types.ts'
 import type { ReplaceGeneratorWithAsyncGenerator } from './types.ts'
@@ -75,7 +75,11 @@ type AppClientPaths<App extends AnySpiceflow> = App extends {
     : FlattenClientRoutes<Routes>
   : string
 
-type AppClientFetchPaths<App extends AnySpiceflow> = AllHrefPaths<AppClientPaths<App>>
+// Combine API routes (typed responses) with all route paths (page routes
+// fall back to `any` response type). RouterPaths includes page, layout,
+// loader, and API paths — allows createSpiceflowFetch to be used for
+// page route testing (returns SpiceflowTestResponse in vitest mode).
+type AppClientFetchPaths<App extends AnySpiceflow> = AllHrefPaths<AppClientPaths<App> | RouterPaths<App>>
 
 // Navigate the nested ClientRoutes tree given a path string.
 // Reverses what CreateClient does: `/users/:id` → Routes['users'][':id']
@@ -282,7 +286,9 @@ type ResolveOptions<
 }
   ? IsAny<Routes> extends true
     ? FetchOptionsFallback
-    : FetchOptions<Routes, AppClientPaths<App>, Path, Method>
+    : Path extends AllHrefPaths<AppClientPaths<App>>
+      ? FetchOptions<Routes, AppClientPaths<App>, Path, Method>
+      : FetchOptionsFallback
   : FetchOptionsFallback
 
 // Resolves the result type for a given App/Path/Method combination.
@@ -295,7 +301,9 @@ type ResolveResult<
 }
   ? IsAny<Routes> extends true
     ? SpiceflowFetchError<number, any> | any
-    : FetchResult<Routes, AppClientPaths<App>, Path, Method>
+    : Path extends AllHrefPaths<AppClientPaths<App>>
+      ? FetchResult<Routes, AppClientPaths<App>, Path, Method>
+      : any
   : SpiceflowFetchError<number, any> | any
 
 // Check if options are required for a given App/Path/Method
@@ -308,9 +316,11 @@ type IsOptionsRequired<
 }
   ? IsAny<Routes> extends true
     ? false
-    : [RouteAtFetchPath<Routes, AppClientPaths<App>, Path>] extends [never]
-      ? false
-      : HasRequiredFields<Routes, AppClientPaths<App>, Path, Method>
+    : Path extends AllHrefPaths<AppClientPaths<App>>
+      ? [RouteAtFetchPath<Routes, AppClientPaths<App>, Path>] extends [never]
+        ? false
+        : HasRequiredFields<Routes, AppClientPaths<App>, Path, Method>
+      : false
   : false
 
 export interface SpiceflowFetch<App extends AnySpiceflow> {
