@@ -364,6 +364,8 @@ we also try to work well with the cloudflare vite plugin. the source code of tha
 
 we have an example `example-cloudflare` that we can use to make sure pnpm dev, build, preview and deployment work well.
 
+in wrangler.jsonc, `"main"` must always point to the actual app entry file (e.g. `"./src/main.tsx"`). Never use `"spiceflow/cloudflare-entrypoint"` or any virtual/package entrypoint. The spiceflow vite plugin handles RSC wiring regardless of what main points to, and bare package specifiers break `@cloudflare/vitest-pool-workers` static analysis.
+
 Waku (`opensrc dai-shi/waku`, packages/waku/) is another Vite RSC framework we use as reference for Vite integration patterns. It uses the same `@vitejs/plugin-rsc` plugin and has a similar multi-environment setup (client, ssr, rsc). Useful to check how they handle `optimizeDeps`, `resolve.noExternal`, SSR middleware, and RSC environment config. Their Vite plugins live in `packages/waku/src/lib/vite-plugins/`.
 
 ## import.meta.env
