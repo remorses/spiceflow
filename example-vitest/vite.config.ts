@@ -11,7 +11,5 @@ export default defineConfig({
     }),
     react(),
   ],
-  test: {
-    fileParallelism: false,
-  },
+  test: {},
 })

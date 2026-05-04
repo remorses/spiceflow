@@ -1,45 +1,26 @@
-// Tests for the better-auth spiceflow app. Creates a test auth instance with
-// an in-memory SQLite database, applies drizzle migrations, then uses the
-// native auth.api.signUpEmail to create real users and get bearer tokens.
-// No testUtils plugin needed.
+// Tests for the better-auth spiceflow app. Auth uses an in-memory SQLite
+// database (AUTH_DB=:memory: set in vite.config.ts). Migrations are applied
+// by the setup file before tests run. Uses the real auth.api.signUpEmail
+// to create users and get bearer tokens.
 import { describe, test, expect, afterAll, beforeAll } from 'vitest'
 import { createSpiceflowFetch } from 'spiceflow/client'
 import { SpiceflowTestResponse } from 'spiceflow/testing'
-import { DatabaseSync } from 'node:sqlite'
-import { drizzle } from 'drizzle-orm/node-sqlite'
-import { migrate } from 'drizzle-orm/node-sqlite/migrator'
-import { join, dirname } from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { app } from './main.js'
-import { createAuth } from './auth.js'
+import { auth } from './auth.js'
 
-// In-memory SQLite with drizzle migrations applied
-const testDb = new DatabaseSync(':memory:')
-const db = drizzle({ client: testDb })
-migrate(db, {
-  migrationsFolder: join(dirname(fileURLToPath(import.meta.url)), '../drizzle'),
-})
-
-// Same createAuth as production, just with in-memory DB
-const testAuth = createAuth(testDb)
-
-// Create a user via the real signUp API, returns bearer token
 async function createAuthedUser(overrides?: {
   email?: string
   name?: string
 }) {
   const email = overrides?.email ?? `test-${Date.now()}@example.com`
   const name = overrides?.name ?? 'Test User'
-  const res = await testAuth.api.signUpEmail({
+  const res = await auth.api.signUpEmail({
     body: { email, name, password: 'test-password-123' },
   })
   return { user: res.user, token: res.token! }
 }
 
-// Fetch client with test auth injected via state
-const f = createSpiceflowFetch(app, {
-  state: { auth: testAuth },
-})
+const f = createSpiceflowFetch(app)
 
 describe('public routes', () => {
   test('home page renders without auth', async () => {
@@ -89,17 +70,13 @@ describe('protected routes', () => {
 
 describe('unauthenticated access', () => {
   test('GET /api/me returns 401', async () => {
-    const unauthed = createSpiceflowFetch(app, {
-      state: { auth: testAuth },
-    })
+    const unauthed = createSpiceflowFetch(app)
     const result = await unauthed('/api/me')
     expect(result).toBeInstanceOf(Error)
   })
 
   test('dashboard redirects to login', async () => {
-    const unauthed = createSpiceflowFetch(app, {
-      state: { auth: testAuth },
-    })
+    const unauthed = createSpiceflowFetch(app)
     const result = await unauthed('/dashboard')
     expect(result).toBeInstanceOf(Error)
   })
@@ -114,11 +91,9 @@ describe('multiple users', () => {
     })
 
     const f1 = createSpiceflowFetch(app, {
-      state: { auth: testAuth },
       headers: { authorization: `Bearer ${user1.token}` },
     })
     const f2 = createSpiceflowFetch(app, {
-      state: { auth: testAuth },
       headers: { authorization: `Bearer ${user2.token}` },
     })
 

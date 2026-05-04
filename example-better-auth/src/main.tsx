@@ -1,19 +1,17 @@
 // Spiceflow app with better-auth authentication.
-// The auth instance is injected via .state() so tests can swap it for a
-// test-only instance with an in-memory database and testUtils plugin.
+// Auth is a static import — the database path is configured via AUTH_DB env
+// variable (defaults to 'auth.sqlite', set to ':memory:' in vitest config).
 import { Spiceflow } from 'spiceflow'
 import { Head } from 'spiceflow/react'
-import { auth, type Auth } from './auth.js'
+import { auth } from './auth.js'
 
 type AuthSession = typeof auth.$Infer.Session | null
 
 export const app = new Spiceflow()
-  // Auth instance as state — tests override this with a test auth instance
-  .state('auth', auth as Auth)
   // Auth middleware — forward /api/auth/* to better-auth
-  .use(async ({ request, state }, next) => {
+  .use(async ({ request }, next) => {
     if (request.parsedUrl.pathname.startsWith('/api/auth')) {
-      const response = await state.auth.handler(request)
+      const response = await auth.handler(request)
       if (response.ok || response.status !== 404) return response
     }
     return next()
@@ -21,7 +19,7 @@ export const app = new Spiceflow()
   // Session state — resolved once per request
   .state('session', null as AuthSession)
   .use(async ({ request, state }) => {
-    state.session = await state.auth.api.getSession({
+    state.session = await auth.api.getSession({
       headers: request.headers,
     })
   })

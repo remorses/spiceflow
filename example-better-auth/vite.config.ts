@@ -12,6 +12,9 @@ export default defineConfig({
     react(),
   ],
   test: {
-    fileParallelism: false,
+    env: {
+      AUTH_DB: ':memory:',
+    },
+    setupFiles: ['./src/apply-migrations.ts'],
   },
 })
