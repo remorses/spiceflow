@@ -9,7 +9,7 @@ For Cloudflare Workers, keep the worker-specific SSR output and child environmen
 ```jsonc
 // wrangler.jsonc
 {
-  "main": "spiceflow/cloudflare-entrypoint",
+  "main": "./src/main.tsx",
 }
 ```
 
