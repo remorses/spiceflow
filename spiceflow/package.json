@@ -12,6 +12,7 @@
       "default": "./dist/load-global-css.js"
     },
     "#rsc-runtime": {
+      "spiceflow-vitest": "./dist/rsc-runtime.vitest.js",
       "react-server": "./dist/rsc-runtime.js",
       "default": "./dist/rsc-runtime.default.js"
     },
@@ -101,6 +102,10 @@
     "./vite": {
       "types": "./dist/vite.d.ts",
       "default": "./dist/vite.js"
+    },
+    "./testing": {
+      "types": "./dist/testing.d.ts",
+      "default": "./dist/testing.js"
     },
     "./client": {
       "types": "./dist/client/index.d.ts",

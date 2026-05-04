@@ -69,6 +69,7 @@ import {
 } from './react/deployment.js'
 
 import {
+  __spiceflowVitestMode,
   createTemporaryReferenceSet,
   decodeAction,
   decodeFormState,
@@ -1953,6 +1954,33 @@ export class Spiceflow<
         head: <CollectedHead baseUrl={baseUrl} />,
       }
 
+      // In vitest mode, skip RSC Flight serialization and return the JSX
+      // directly via SpiceflowTestResponse so tests can inspect page/layout
+      // elements and loader data without needing a full RSC environment.
+      if (__spiceflowVitestMode) {
+        const pageHandlerStatus = getRouteStatus(pageResult)
+        const layoutHandlerStatus = findLastLayoutValue(getRouteStatus)
+        const status =
+          pageHandlerStatus ?? layoutHandlerStatus ?? loaderStatus ?? (isNotFound ? 404 : 200)
+        const headers = new Headers()
+        appendHeaders(headers, routeHeaders)
+        // Compose layouts around the page from innermost to outermost,
+        // replacing LayoutContent placeholders with the actual nested content.
+        let element: React.ReactNode = root.page
+        for (let i = root.layouts.length - 1; i >= 0; i--) {
+          element = replaceLayoutContent(root.layouts[i]!.element, element)
+        }
+        return new SpiceflowTestResponse({
+          page: root.page,
+          layouts: root.layouts,
+          loaderData: mergedLoaderData,
+          head: root.head,
+          element,
+          status,
+          headers,
+        })
+      }
+
       const payload =
         request.method === 'GET' || request.method === 'HEAD'
           ? ({ root } satisfies ServerPayload)
@@ -3458,3 +3486,78 @@ export interface ServerPayload {
   actionError?: Error
   actionErrorDigest?: string
 }
+
+// Vitest-only response that carries the route JSX directly instead of a Flight
+// stream. Returned by renderReact when the spiceflow-vitest condition is active.
+// Call res.text() to get the full page (layouts + page) rendered as HTML,
+// or inspect page, layouts, loaderData, and status directly.
+export class SpiceflowTestResponse extends globalThis.Response {
+  readonly page: React.ReactNode
+  readonly layouts: Array<{ id: string; element: React.ReactNode }>
+  readonly loaderData: Record<string, unknown>
+  readonly head: React.ReactNode
+  /** Full composed tree: layouts wrapping the page, with LayoutContent resolved. */
+  readonly element: React.ReactNode
+
+  constructor({
+    page,
+    layouts,
+    loaderData,
+    head,
+    element,
+    status,
+    headers,
+  }: {
+    page: React.ReactNode
+    layouts: Array<{ id: string; element: React.ReactNode }>
+    loaderData: Record<string, unknown>
+    head: React.ReactNode
+    element: React.ReactNode
+    status: number
+    headers: Headers
+  }) {
+    super(null, { status, headers })
+    this.page = page
+    this.layouts = layouts
+    this.loaderData = loaderData
+    this.head = head
+    this.element = element
+  }
+
+  async text(): Promise<string> {
+    const { renderToStaticMarkup } = await import('react-dom/server')
+    return renderToStaticMarkup(this.element)
+  }
+}
+
+// Walk a React element tree and replace LayoutContent nodes with the given
+// replacement. Used to compose layouts around the page for SpiceflowTestResponse,
+// and exported for tests that need to render individual layout elements.
+export function replaceLayoutContent(
+  node: React.ReactNode,
+  replacement: React.ReactNode,
+): React.ReactNode {
+  if (!React.isValidElement(node)) return node
+  if (node.type === LayoutContent) return replacement
+
+  const { children } = node.props as { children?: React.ReactNode }
+  if (children == null) return node
+
+  if (Array.isArray(children)) {
+    let changed = false
+    const mapped = children.map((child: React.ReactNode) => {
+      const result = replaceLayoutContent(child, replacement)
+      if (result !== child) changed = true
+      return result
+    })
+    return changed ? React.cloneElement(node, {}, ...mapped) : node
+  }
+
+  const replaced = replaceLayoutContent(children, replacement)
+  if (replaced !== children) {
+    return React.cloneElement(node, {}, replaced)
+  }
+  return node
+}
+
+

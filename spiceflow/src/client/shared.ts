@@ -351,6 +351,12 @@ export async function parseResponseData({
   executeRequest: () => Promise<Response>
   retries: number
 }): Promise<{ data: any; error: any }> {
+  // In vitest mode, SpiceflowTestResponse carries JSX directly.
+  // Return it as-is so createSpiceflowFetch(app) can be used in tests.
+  if (response.constructor.name === 'SpiceflowTestResponse') {
+    return { data: response, error: null }
+  }
+
   let data = null as any
   let error = null as any
 

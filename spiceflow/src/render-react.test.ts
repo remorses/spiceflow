@@ -6,6 +6,7 @@ import { test, expect, vi } from 'vitest'
 let lastPayload: any
 
 vi.mock('#rsc-runtime', () => ({
+  __spiceflowVitestMode: false,
   renderToReadableStream(value: any) {
     lastPayload = value
     return new ReadableStream({

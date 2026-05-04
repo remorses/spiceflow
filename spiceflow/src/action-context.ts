@@ -34,3 +34,34 @@ export function getActionRequest(): Request {
   }
   return request
 }
+
+/**
+ * Run a server action with request context populated so `getActionRequest()`
+ * works inside the action. Useful for testing actions that read the request
+ * (e.g. for abort signals, headers, cookies).
+ *
+ * Actions that don't call `getActionRequest()` can be called directly without
+ * this wrapper.
+ *
+ * ```ts
+ * import { runAction } from 'spiceflow/testing'
+ *
+ * const result = await runAction(myAction)
+ * const result = await runAction(() => myAction('arg1', 'arg2'))
+ * const result = await runAction(myAction, {
+ *   request: new Request('http://localhost', {
+ *     method: 'POST',
+ *     headers: { cookie: 'session=abc' },
+ *   }),
+ * })
+ * ```
+ */
+export async function runAction<T>(
+  action: () => T | Promise<T>,
+  options?: { request?: Request },
+): Promise<T> {
+  const request =
+    options?.request ??
+    new Request('http://localhost', { method: 'POST' })
+  return actionRequestStorage.run(request, () => action())
+}

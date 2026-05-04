@@ -435,6 +435,18 @@ export default function spiceflow({
         config.optimizeDeps ??= {}
         config.optimizeDeps.holdUntilCrawlEnd = true
 
+        // When running under Vitest, inject the spiceflow-vitest condition so
+        // #rsc-runtime resolves to the vitest shim instead of the real RSC
+        // runtime (which depends on Vite RSC APIs not available in test).
+        // Placed before other conditions so it takes priority in the
+        // package.json imports field key order.
+        if (process.env.VITEST) {
+          config.resolve.conditions = mergeUnique(
+            ['spiceflow-vitest'],
+            config.resolve.conditions ?? [],
+          )
+        }
+
         // Package private `#imports` can target different runtime entry points
         // than public `exports`. The RSC environment already resolves with the
         // `react-server` condition, but the plain SSR environment uses the normal
@@ -553,6 +565,30 @@ export default function spiceflow({
         ])
       },
     },
+
+    // In vitest mode, strip "use server" and "use client" directives so the
+    // RSC plugin doesn't transform action files into server references.
+    // Actions become plain functions that tests can import and call directly.
+    ...(process.env.VITEST
+      ? [
+          {
+            name: 'spiceflow:strip-directives',
+            enforce: 'pre' as const,
+            transform(code: string, id: string) {
+              if (!/\.[cm]?[jt]sx?$/.test(id)) return
+              // Match "use server" or "use client" as the first statement.
+              // Replace with same-length whitespace to preserve source maps.
+              const directiveRe = /^(["']use (?:server|client)["'];?)/
+              const match = code.match(directiveRe)
+              if (!match) return
+              return {
+                code: code.slice(0, match.index!) + ' '.repeat(match[0].length) + code.slice(match.index! + match[0].length),
+                map: null,
+              }
+            },
+          },
+        ]
+      : []),
 
     // SSR middleware for dev and preview servers
     {

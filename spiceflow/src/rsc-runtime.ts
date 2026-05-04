@@ -8,3 +8,5 @@ export {
   decodeFormState,
   loadServerAction,
 } from '@vitejs/plugin-rsc/rsc'
+
+export const __spiceflowVitestMode = false

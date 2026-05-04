@@ -16,6 +16,7 @@ declare module '#rsc-runtime' {
     decodeFormState,
     loadServerAction,
   } from '@vitejs/plugin-rsc/rsc'
+  export const __spiceflowVitestMode: boolean
 }
 
 declare module 'virtual:spiceflow-deployment-id' {

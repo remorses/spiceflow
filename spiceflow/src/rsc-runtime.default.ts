@@ -10,6 +10,8 @@ function unavailable(): never {
   )
 }
 
+export const __spiceflowVitestMode = false
+
 export const renderToReadableStream: any = unavailable
 export const createTemporaryReferenceSet: any = unavailable
 export const decodeReply: any = unavailable
