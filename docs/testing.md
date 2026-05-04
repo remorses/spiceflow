@@ -58,18 +58,18 @@ Paths and params are fully typed. Invalid paths or missing required params are c
 
 ## Testing Page Routes
 
-Use `app.handle()` with `router.href()` for type-safe URL building. Page routes return a `SpiceflowTestResponse` with the rendered JSX.
+Page routes also work with `createSpiceflowFetch`. They return a `SpiceflowTestResponse` with the rendered JSX.
 
 ```ts
 import { test, expect } from 'vitest'
+import { createSpiceflowFetch } from 'spiceflow/client'
 import { SpiceflowTestResponse } from 'spiceflow/testing'
-import { router } from 'spiceflow/react'
 import { app } from './main.js'
 
+const f = createSpiceflowFetch(app)
+
 test('GET /dashboard renders page with layout', async () => {
-  const res = await app.handle(
-    new Request(`http://localhost${router.href('/dashboard')}`),
-  )
+  const res = await f('/dashboard')
   if (!(res instanceof SpiceflowTestResponse)) throw new Error('expected page')
   expect(res.status).toBe(200)
 
@@ -81,6 +81,12 @@ test('GET /dashboard renders page with layout', async () => {
 
   // Loader data
   expect(res.loaderData).toEqual({ projects: [] })
+})
+
+test('page with params', async () => {
+  const res = await f('/users/:id', { params: { id: '42' } })
+  if (!(res instanceof SpiceflowTestResponse)) throw new Error('expected page')
+  expect(await res.text()).toContain('User 42')
 })
 ```
 
@@ -105,17 +111,13 @@ const authed = createSpiceflowFetch(app, {
   headers: { authorization: 'Bearer test-token' },
 })
 
-test('unauthenticated request to protected route returns 401', async () => {
-  const res = await app.handle(new Request('http://localhost/admin'))
-  expect(res.status).toBe(401)
+test('unauthenticated request returns error', async () => {
+  const result = await f('/admin')
+  expect(result).toBeInstanceOf(Error)
 })
 
 test('authenticated request renders admin page', async () => {
-  const res = await app.handle(
-    new Request('http://localhost/admin', {
-      headers: { authorization: 'Bearer test-token' },
-    }),
-  )
+  const res = await authed('/admin')
   if (!(res instanceof SpiceflowTestResponse)) throw new Error('expected page')
   expect(await res.text()).toContain('Admin Panel')
 })
@@ -189,18 +191,18 @@ Test full user workflows: render a page, call an action, render again, verify th
 
 ```ts
 import { test, expect } from 'vitest'
+import { createSpiceflowFetch } from 'spiceflow/client'
 import { SpiceflowTestResponse } from 'spiceflow/testing'
-import { router } from 'spiceflow/react'
 import { app, projectStore } from './main.js'
 import { createProject } from './actions.js'
+
+const f = createSpiceflowFetch(app)
 
 test('dashboard shows projects after creation', async () => {
   projectStore.length = 0
 
   // Empty state
-  const empty = await app.handle(
-    new Request(`http://localhost${router.href('/dashboard')}`),
-  )
+  const empty = await f('/dashboard')
   if (!(empty instanceof SpiceflowTestResponse)) throw new Error('expected page')
   expect(await empty.text()).toContain('No projects yet')
 
@@ -208,9 +210,7 @@ test('dashboard shows projects after creation', async () => {
   await createProject('My New App')
 
   // Page now shows the project
-  const filled = await app.handle(
-    new Request(`http://localhost${router.href('/dashboard')}`),
-  )
+  const filled = await f('/dashboard')
   if (!(filled instanceof SpiceflowTestResponse)) throw new Error('expected page')
   const html = await filled.text()
   expect(html).toContain('My New App')
@@ -218,7 +218,7 @@ test('dashboard shows projects after creation', async () => {
 })
 ```
 
-Client components using `useLoaderData` get correct data in `res.text()` because the loader runs on each `app.handle()` call and the result is provided to the rendering context.
+Client components using `useLoaderData` get correct data because the loader runs on each request and the result is provided to the rendering context.
 
 ## Dependency Injection with State
 
@@ -317,101 +317,107 @@ State is deep-cloned per request by default, so each `app.handle()` call gets it
 
 ## Testing with better-auth
 
-When your app uses [better-auth](https://better-auth.com) for authentication, you can test protected routes with **real database sessions** instead of hardcoded tokens. The `testUtils` plugin creates users and sessions directly in the database, giving you a real bearer token to pass via `createSpiceflowFetch`.
+When your app uses [better-auth](https://better-auth.com) for authentication, make the database path configurable via an **environment variable** so tests run against an in-memory SQLite database. No test-only auth instances, no state injection.
 
-### Auth config for tests
+### Auth config
 
-Create a test-only auth instance that includes the `testUtils()` and `bearer()` plugins. Keep `testUtils()` out of your production config since it exposes privileged helpers for creating sessions and deleting users.
+Read the database path from an env variable, defaulting to a file for production. The `bearer()` plugin enables `Authorization: Bearer <token>` headers for API clients and testing. `emailAndPassword` lets tests create real users via `auth.api.signUpEmail`.
 
 ```ts
-// lib/auth.test.ts
+// auth.ts
 import { betterAuth } from 'better-auth'
-import { testUtils, bearer } from 'better-auth/plugins'
-import { drizzleAdapter } from '@better-auth/drizzle-adapter'
-import { db } from 'db'
+import { bearer } from 'better-auth/plugins'
+import { DatabaseSync } from 'node:sqlite'
 
-export const testAuth = betterAuth({
-  database: drizzleAdapter(db, { provider: 'pg' }),
-  secret: 'test-secret-at-least-32-chars-long!!',
-  baseURL: 'http://localhost:3000',
+const dbPath = process.env.AUTH_DB || 'auth.sqlite'
+export const database = new DatabaseSync(dbPath)
+
+export const auth = betterAuth({
+  database,
+  secret: 'spiceflow-example-secret-at-least-32-chars!!',
+  baseURL: 'http://localhost:5173',
   emailAndPassword: { enabled: true },
-  plugins: [testUtils(), bearer()],
+  plugins: [bearer()],
 })
 ```
 
-Your production auth config must also include `bearer()` so that `Authorization: Bearer <token>` headers are recognized by `auth.api.getSession()`.
+### Vitest config
+
+Set `AUTH_DB=:memory:` in the test environment and add a setup file that applies drizzle migrations to the in-memory database before tests run.
+
+```ts
+// vite.config.ts
+export default defineConfig({
+  plugins: [spiceflow({ entry: './src/main.tsx' }), react()],
+  test: {
+    env: {
+      AUTH_DB: ':memory:',
+    },
+    setupFiles: ['./src/apply-migrations.ts'],
+  },
+})
+```
+
+```ts
+// src/apply-migrations.ts
+import { drizzle } from 'drizzle-orm/node-sqlite'
+import { migrate } from 'drizzle-orm/node-sqlite/migrator'
+import { join, dirname } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { database } from './auth.js'
+
+const db = drizzle({ client: database })
+migrate(db, {
+  migrationsFolder: join(dirname(fileURLToPath(import.meta.url)), '../drizzle'),
+})
+```
 
 ### Test helper
 
-Write a small helper that creates a user, saves it to the database, and logs in to get a session token. Use `afterAll` to delete the user and avoid leaking test data.
-
-Design your database schema with **cascade deletes** on foreign keys (e.g. `onDelete: 'cascade'` in Drizzle). This way, deleting the user row automatically cleans up sessions, accounts, and any app-specific rows that reference it.
+Write a small helper that creates a user via the real `signUpEmail` API and returns a bearer token. Use unique emails per test to avoid collisions.
 
 ```ts
-// test-utils.ts
-import { testAuth } from './lib/auth.test'
-import type { TestHelpers } from 'better-auth/plugins'
+import { auth } from './auth.js'
 
-let helpers: TestHelpers
-
-async function getHelpers() {
-  if (!helpers) {
-    const ctx = await testAuth.$context
-    helpers = ctx.test
-  }
-  return helpers
-}
-
-export async function createAuthedUser(overrides?: {
+async function createAuthedUser(overrides?: {
   email?: string
   name?: string
 }) {
-  const t = await getHelpers()
-  const user = t.createUser({
-    email: overrides?.email ?? `test-${Date.now()}@example.com`,
-    name: overrides?.name ?? 'Test User',
+  const email = overrides?.email ?? `test-${Date.now()}@example.com`
+  const name = overrides?.name ?? 'Test User'
+  const res = await auth.api.signUpEmail({
+    body: { email, name, password: 'test-password-123' },
   })
-  await t.saveUser(user)
-  const { token, session } = await t.login({ userId: user.id })
-  return { user, token, session, deleteUser: () => t.deleteUser(user.id) }
+  return { user: res.user, token: res.token! }
 }
 ```
 
 ### Usage in tests
 
-Create the fetch client at the **top level** of your test file. Set the `.headers` field in `beforeAll` after creating the user and getting a token. Delete the user in `afterAll` to avoid leaking test data.
+Create the fetch client at the **top level**. Set the mutable `.headers` field in `beforeAll` after creating a user and getting a token.
 
 ```ts
 import { describe, test, expect, afterAll, beforeAll } from 'vitest'
 import { createSpiceflowFetch } from 'spiceflow/client'
 import { SpiceflowTestResponse } from 'spiceflow/testing'
 import { app } from './main.js'
-import { createAuthedUser } from './test-utils'
 
 const f = createSpiceflowFetch(app)
 
 describe('authenticated routes', () => {
-  let cleanup: () => Promise<void>
-
   beforeAll(async () => {
-    const { token, deleteUser } = await createAuthedUser({ name: 'Alice' })
-    cleanup = deleteUser
+    const { token } = await createAuthedUser({ name: 'Alice' })
     f.headers = { authorization: `Bearer ${token}` }
   })
 
-  afterAll(async () => {
+  afterAll(() => {
     f.headers = undefined
-    // Cascade deletes clean up sessions, accounts, and related rows
-    await cleanup()
   })
 
   test('GET /api/me returns current user', async () => {
     const result = await f('/api/me')
-    expect(result).toMatchInlineSnapshot(`
-      {
-        "name": "Alice",
-      }
-    `)
+    if (result instanceof Error) throw result
+    expect(result).toHaveProperty('name', 'Alice')
   })
 
   test('protected page renders for authed user', async () => {
@@ -422,44 +428,92 @@ describe('authenticated routes', () => {
 })
 ```
 
-### Database cleanup
+### Server actions with auth
 
-`test.deleteUser(id)` deletes the user row from the database. If your schema has **cascade deletes** on foreign keys, this automatically removes all related rows (sessions, accounts, posts, etc.).
+Server actions that call `getActionRequest()` to read auth headers need the `runAction` wrapper. Pass a request with the bearer token to authenticate.
 
 ```ts
-// Drizzle schema example with cascade deletes
-import { pgTable, text, timestamp } from 'drizzle-orm/pg-core'
+// actions.ts
+"use server"
+import { getActionRequest, redirect } from 'spiceflow'
+import { auth } from './auth.js'
 
-export const user = pgTable('user', {
-  id: text('id').primaryKey(),
-  name: text('name').notNull(),
-  email: text('email').notNull().unique(),
-  // ...
-})
+export async function getCurrentUser() {
+  const request = getActionRequest()
+  const session = await auth.api.getSession({ headers: request.headers })
+  if (!session) throw new Error('unauthorized')
+  return {
+    id: session.user.id,
+    name: session.user.name,
+    email: session.user.email,
+  }
+}
 
-export const session = pgTable('session', {
-  id: text('id').primaryKey(),
-  userId: text('user_id')
-    .notNull()
-    .references(() => user.id, { onDelete: 'cascade' }),
-  token: text('token').notNull().unique(),
-  expiresAt: timestamp('expires_at').notNull(),
-  // ...
-})
+export async function updateProfile(name: string) {
+  const request = getActionRequest()
+  const session = await auth.api.getSession({ headers: request.headers })
+  if (!session) throw new Error('unauthorized')
+  await auth.api.updateUser({ body: { name }, headers: request.headers })
+  return { updated: true, name }
+}
 
-export const post = pgTable('post', {
-  id: text('id').primaryKey(),
-  authorId: text('author_id')
-    .notNull()
-    .references(() => user.id, { onDelete: 'cascade' }),
-  title: text('title').notNull(),
-  // ...
-})
+export async function requireAuthOrRedirect() {
+  const request = getActionRequest()
+  const session = await auth.api.getSession({ headers: request.headers })
+  if (!session) throw redirect('/login')
+  return { userId: session.user.id }
+}
 ```
 
-With this schema, `deleteUser(user.id)` is the only cleanup call you need. No orphaned sessions or dangling references.
+Test these actions with `runAction`, passing a request with the bearer token.
 
-Use unique emails per test (e.g. `test-${Date.now()}@example.com`) so tests can run in parallel without colliding. Set `fileParallelism: false` in your vitest config if tests share mutable state beyond the database.
+```ts
+import { test, expect, beforeAll } from 'vitest'
+import { runAction } from 'spiceflow/testing'
+import { getCurrentUser, updateProfile, requireAuthOrRedirect } from './actions.js'
+
+let token: string
+
+beforeAll(async () => {
+  const user = await createAuthedUser({ name: 'Dave', email: 'dave@test.com' })
+  token = user.token
+})
+
+function authedRequest() {
+  return new Request('http://localhost', {
+    method: 'POST',
+    headers: { authorization: `Bearer ${token}` },
+  })
+}
+
+test('getCurrentUser returns user data', async () => {
+  const result = await runAction(() => getCurrentUser(), {
+    request: authedRequest(),
+  })
+  expect(result).toHaveProperty('name', 'Dave')
+  expect(result).toHaveProperty('email', 'dave@test.com')
+})
+
+test('updateProfile changes the user name', async () => {
+  const result = await runAction(() => updateProfile('Dave Updated'), {
+    request: authedRequest(),
+  })
+  expect(result).toEqual({ updated: true, name: 'Dave Updated' })
+})
+
+test('unauthenticated action throws error', async () => {
+  const error = await runAction(() => getCurrentUser()).catch((e) => e)
+  expect(error).toBeInstanceOf(Error)
+  expect(error.message).toBe('unauthorized')
+})
+
+test('redirect action throws Response when unauthenticated', async () => {
+  const error = await runAction(() => requireAuthOrRedirect()).catch((e) => e)
+  if (!(error instanceof Response)) throw new Error('expected Response')
+  expect(error.status).toBe(307)
+  expect(error.headers.get('location')).toBe('/login')
+})
+```
 
 ## Type Safety
 

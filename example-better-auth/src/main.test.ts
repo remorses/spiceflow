@@ -4,9 +4,10 @@
 // to create users and get bearer tokens.
 import { describe, test, expect, afterAll, beforeAll } from 'vitest'
 import { createSpiceflowFetch } from 'spiceflow/client'
-import { SpiceflowTestResponse } from 'spiceflow/testing'
+import { SpiceflowTestResponse, runAction } from 'spiceflow/testing'
 import { app } from './main.js'
 import { auth } from './auth.js'
+import { updateProfile, getCurrentUser, requireAuthOrRedirect } from './actions.js'
 
 async function createAuthedUser(overrides?: {
   email?: string
@@ -106,5 +107,62 @@ describe('multiple users', () => {
     expect(me1).toHaveProperty('name', 'Bob')
     expect(me2).toHaveProperty('name', 'Carol')
     expect(me1.id).not.toBe(me2.id)
+  })
+})
+
+describe('server actions with auth', () => {
+  let token: string
+
+  beforeAll(async () => {
+    const user = await createAuthedUser({ name: 'Dave', email: 'dave@test.com' })
+    token = user.token
+  })
+
+  function authedRequest() {
+    return new Request('http://localhost', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}` },
+    })
+  }
+
+  test('getCurrentUser returns user data', async () => {
+    const result = await runAction(() => getCurrentUser(), {
+      request: authedRequest(),
+    })
+    expect(result).toHaveProperty('name', 'Dave')
+    expect(result).toHaveProperty('email', 'dave@test.com')
+    expect(result).toHaveProperty('id')
+  })
+
+  test('updateProfile changes the user name', async () => {
+    const result = await runAction(() => updateProfile('Dave Updated'), {
+      request: authedRequest(),
+    })
+    expect(result).toEqual({ updated: true, name: 'Dave Updated' })
+
+    const user = await runAction(() => getCurrentUser(), {
+      request: authedRequest(),
+    })
+    expect(user).toHaveProperty('name', 'Dave Updated')
+  })
+
+  test('unauthenticated action throws error', async () => {
+    const error = await runAction(() => getCurrentUser()).catch((e) => e)
+    expect(error).toBeInstanceOf(Error)
+    expect(error.message).toBe('unauthorized')
+  })
+
+  test('requireAuthOrRedirect throws redirect when unauthenticated', async () => {
+    const error = await runAction(() => requireAuthOrRedirect()).catch((e) => e)
+    if (!(error instanceof Response)) throw new Error('expected Response')
+    expect(error.status).toBe(307)
+    expect(error.headers.get('location')).toBe('/login')
+  })
+
+  test('requireAuthOrRedirect returns userId when authenticated', async () => {
+    const result = await runAction(() => requireAuthOrRedirect(), {
+      request: authedRequest(),
+    })
+    expect(result).toHaveProperty('userId')
   })
 })
