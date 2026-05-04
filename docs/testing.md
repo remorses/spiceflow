@@ -315,6 +315,158 @@ test('unauthenticated user gets 401', async () => {
 
 State is deep-cloned per request by default, so each `app.handle()` call gets its own copy. Overrides via `createSpiceflowFetch` or `app.handle(req, { state })` replace the defaults for that call only.
 
+## Testing with better-auth
+
+When your app uses [better-auth](https://better-auth.com) for authentication, you can test protected routes with **real database sessions** instead of hardcoded tokens. The `testUtils` plugin creates users and sessions directly in the database, giving you a real bearer token to pass via `createSpiceflowFetch`.
+
+### Auth config for tests
+
+Create a test-only auth instance that includes the `testUtils()` and `bearer()` plugins. Keep `testUtils()` out of your production config since it exposes privileged helpers for creating sessions and deleting users.
+
+```ts
+// lib/auth.test.ts
+import { betterAuth } from 'better-auth'
+import { testUtils, bearer } from 'better-auth/plugins'
+import { drizzleAdapter } from '@better-auth/drizzle-adapter'
+import { db } from 'db'
+
+export const testAuth = betterAuth({
+  database: drizzleAdapter(db, { provider: 'pg' }),
+  secret: 'test-secret-at-least-32-chars-long!!',
+  baseURL: 'http://localhost:3000',
+  emailAndPassword: { enabled: true },
+  plugins: [testUtils(), bearer()],
+})
+```
+
+Your production auth config must also include `bearer()` so that `Authorization: Bearer <token>` headers are recognized by `auth.api.getSession()`.
+
+### Test helper
+
+Write a small helper that creates a user, saves it to the database, and logs in to get a session token. Use `afterAll` to delete the user and avoid leaking test data.
+
+Design your database schema with **cascade deletes** on foreign keys (e.g. `onDelete: 'cascade'` in Drizzle). This way, deleting the user row automatically cleans up sessions, accounts, and any app-specific rows that reference it.
+
+```ts
+// test-utils.ts
+import { testAuth } from './lib/auth.test'
+import type { TestHelpers } from 'better-auth/plugins'
+
+let helpers: TestHelpers
+
+async function getHelpers() {
+  if (!helpers) {
+    const ctx = await testAuth.$context
+    helpers = ctx.test
+  }
+  return helpers
+}
+
+export async function createAuthedUser(overrides?: {
+  email?: string
+  name?: string
+}) {
+  const t = await getHelpers()
+  const user = t.createUser({
+    email: overrides?.email ?? `test-${Date.now()}@example.com`,
+    name: overrides?.name ?? 'Test User',
+  })
+  await t.saveUser(user)
+  const { token, session } = await t.login({ userId: user.id })
+  return { user, token, session, deleteUser: () => t.deleteUser(user.id) }
+}
+```
+
+### Usage in tests
+
+Create a user in `beforeAll`, build an authed fetch client with the real token, and delete the user in `afterAll`. Each describe block gets its own user so tests don't interfere with each other.
+
+```ts
+import { describe, test, expect, afterAll, beforeAll } from 'vitest'
+import { createSpiceflowFetch } from 'spiceflow/client'
+import { SpiceflowTestResponse } from 'spiceflow/testing'
+import { app } from './main.js'
+import { createAuthedUser } from './test-utils'
+
+describe('authenticated routes', () => {
+  let authed: ReturnType<typeof createSpiceflowFetch<typeof app>>
+  let cleanup: () => Promise<void>
+
+  beforeAll(async () => {
+    const { token, deleteUser } = await createAuthedUser({ name: 'Alice' })
+    cleanup = deleteUser
+    authed = createSpiceflowFetch(app, {
+      headers: { authorization: `Bearer ${token}` },
+    })
+  })
+
+  afterAll(async () => {
+    // Cascade deletes clean up sessions, accounts, and related rows
+    await cleanup()
+  })
+
+  test('GET /api/me returns current user', async () => {
+    const result = await authed('/api/me')
+    expect(result).toMatchInlineSnapshot(`
+      {
+        "name": "Alice",
+      }
+    `)
+  })
+
+  test('protected page renders for authed user', async () => {
+    const res = await authed('/dashboard')
+    if (!(res instanceof SpiceflowTestResponse)) throw new Error('expected page')
+    expect(await res.text()).toContain('Dashboard')
+  })
+
+  test('unauthenticated request returns error', async () => {
+    const f = createSpiceflowFetch(app)
+    const result = await f('/api/me')
+    expect(result).toBeInstanceOf(Error)
+  })
+})
+```
+
+### Database cleanup
+
+`test.deleteUser(id)` deletes the user row from the database. If your schema has **cascade deletes** on foreign keys, this automatically removes all related rows (sessions, accounts, posts, etc.).
+
+```ts
+// Drizzle schema example with cascade deletes
+import { pgTable, text, timestamp } from 'drizzle-orm/pg-core'
+
+export const user = pgTable('user', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  email: text('email').notNull().unique(),
+  // ...
+})
+
+export const session = pgTable('session', {
+  id: text('id').primaryKey(),
+  userId: text('user_id')
+    .notNull()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  token: text('token').notNull().unique(),
+  expiresAt: timestamp('expires_at').notNull(),
+  // ...
+})
+
+export const post = pgTable('post', {
+  id: text('id').primaryKey(),
+  authorId: text('author_id')
+    .notNull()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  title: text('title').notNull(),
+  // ...
+})
+```
+
+With this schema, `deleteUser(user.id)` is the only cleanup call you need. No orphaned sessions or dangling references.
+
+Use unique emails per test (e.g. `test-${Date.now()}@example.com`) so tests can run in parallel without colliding. Set `fileParallelism: false` in your vitest config if tests share mutable state beyond the database.
+
 ## Type Safety
 
 Register your app type once so `router.href()` and `createSpiceflowFetch()` paths are fully typed.
@@ -341,6 +493,33 @@ router.href('/nonexistent')
 // @ts-expect-error - missing required params
 f('/api/projects/:id')
 ```
+
+## Tracing
+
+Use `createTestTracer()` to capture spans during `app.handle()` and snapshot the trace tree.
+
+```ts
+import { test, expect } from 'vitest'
+import { Spiceflow } from 'spiceflow'
+import { createTestTracer } from 'spiceflow/testing'
+
+const tracer = createTestTracer()
+const app = new Spiceflow({ tracer })
+  .use(async (ctx, next) => { await next() }) // auth middleware
+  .get('/api/projects', () => ({ projects: [] }))
+
+test('request spans', async () => {
+  tracer.clear()
+  await app.handle(new Request('http://localhost/api/projects'))
+  expect(tracer.text()).toMatchInlineSnapshot(`
+    "GET /api/projects (200)
+    ├── middleware - anonymous
+    └── handler - /api/projects"
+  `)
+})
+```
+
+`tracer.text()` renders the span tree as ASCII. `tracer.spans` gives raw access to span objects. `tracer.clear()` resets between tests.
 
 ## What's Not Supported
 
