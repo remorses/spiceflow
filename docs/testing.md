@@ -544,7 +544,7 @@ f('/api/projects/:id')
 
 ## Tracing
 
-Use `createTestTracer()` to capture spans during `app.handle()` and snapshot the trace tree.
+Use `createTestTracer()` to capture spans during `app.handle()` and snapshot the trace tree. The tracer records every span created by spiceflow's instrumentation and renders them as an ASCII tree via `.text()`.
 
 ```ts
 import { test, expect } from 'vitest'
@@ -567,7 +567,8 @@ test('request spans', async () => {
 })
 ```
 
-`tracer.text()` renders the span tree as ASCII. `tracer.spans` gives raw access to span objects. `tracer.clear()` resets between tests.
+`tracer.text()` renders the span tree as ASCII with status codes on the root span. `tracer.spans` gives raw access to span objects. `tracer.clear()` resets between tests.
+
 
 ## Formatting HTML for Snapshots
 
