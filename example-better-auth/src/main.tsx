@@ -1,9 +1,9 @@
 // Spiceflow app with better-auth authentication.
 // Auth is a static import — the database path is configured via AUTH_DB env
 // variable (defaults to 'auth.sqlite', set to ':memory:' in vitest config).
-import { Spiceflow } from 'spiceflow'
+import { Spiceflow, redirect } from 'spiceflow'
 import { Head } from 'spiceflow/react'
-import { auth } from './auth.js'
+import { auth, db } from './auth.js'
 
 type AuthSession = typeof auth.$Infer.Session | null
 
@@ -49,10 +49,7 @@ export const app = new Spiceflow()
   })
   // Protected page — redirects if not authenticated
   .page('/dashboard', async ({ loaderData }) => {
-    if (!loaderData.session) {
-      const { redirect } = await import('spiceflow')
-      throw redirect('/login')
-    }
+    if (!loaderData.session) throw redirect('/login')
     return (
       <div>
         <h1>Dashboard</h1>
@@ -63,10 +60,7 @@ export const app = new Spiceflow()
   })
   // Login page placeholder
   .page('/login', async ({ loaderData }) => {
-    if (loaderData.session) {
-      const { redirect } = await import('spiceflow')
-      throw redirect('/dashboard')
-    }
+    if (loaderData.session) throw redirect('/dashboard')
     return (
       <div>
         <h1>Login</h1>
@@ -87,6 +81,58 @@ export const app = new Spiceflow()
       name: state.session.user.name,
       email: state.session.user.email,
     }
+  })
+  // Org creation page
+  .page('/orgs/new', async ({ loaderData }) => {
+    if (!loaderData.session) throw redirect('/login')
+    return (
+      <div>
+        <h1>Create Organization</h1>
+        <p>Fill in the form to create your org</p>
+      </div>
+    )
+  })
+  // Org dashboard with loader
+  .loader('/orgs/:orgId/dashboard', async ({ params, state }) => {
+    if (!state.session) return { org: null, projects: [] }
+    const org = await db.query.organization.findFirst({
+      where: { id: params.orgId },
+    })
+    if (!org || org.ownerId !== state.session.user.id) return { org: null, projects: [] }
+    const projects = await db.query.project.findMany({
+      where: { orgId: params.orgId },
+    })
+    return {
+      org: { id: org.id, name: org.name },
+      projects: projects.map((p) => ({ id: p.id, name: p.name })),
+    }
+  })
+  .page('/orgs/:orgId/dashboard', async ({ loaderData, state }) => {
+    if (!state.session) throw redirect('/login')
+    if (!loaderData.org) {
+      return (
+        <div>
+          <h1>Not Found</h1>
+          <p>Organization not found or access denied</p>
+        </div>
+      )
+    }
+    return (
+      <div>
+        <h1 data-testid="org-name">{loaderData.org.name}</h1>
+        <div data-testid="org-projects">
+          {loaderData.projects.length === 0 ? (
+            <p>No projects yet</p>
+          ) : (
+            <ul>
+              {loaderData.projects.map((p: { id: string; name: string }) => (
+                <li key={p.id}>{p.name}</li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+    )
   })
 
 declare module 'spiceflow/react' {

@@ -3,7 +3,9 @@
 // the bearer token from the request headers, then validates the session via
 // better-auth. Actions that modify data check auth before proceeding.
 import { getActionRequest, redirect } from 'spiceflow'
-import { auth } from './auth.js'
+import * as orm from 'drizzle-orm'
+import { auth, db } from './auth.js'
+import * as schema from './schema.js'
 
 async function getSession() {
   const request = getActionRequest()
@@ -32,4 +34,46 @@ export async function requireAuthOrRedirect() {
   const session = await getSession()
   if (!session) throw redirect('/login')
   return { userId: session.user.id }
+}
+
+export async function createOrg(name: string) {
+  const session = await getSession()
+  if (!session) throw new Error('unauthorized')
+  const id = crypto.randomUUID()
+  await db.insert(schema.organization).values({
+    id,
+    name,
+    ownerId: session.user.id,
+    createdAt: new Date(),
+  })
+  throw redirect(`/orgs/${id}/dashboard`)
+}
+
+export async function createProject(orgId: string, name: string) {
+  const session = await getSession()
+  if (!session) throw new Error('unauthorized')
+  const org = await db.query.organization.findFirst({
+    where: { id: orgId },
+  })
+  if (!org || org.ownerId !== session.user.id) throw new Error('forbidden')
+  const id = crypto.randomUUID()
+  await db.insert(schema.project).values({
+    id,
+    name,
+    orgId,
+    createdAt: new Date(),
+  })
+  return { id, name, orgId }
+}
+
+export async function deleteProject(orgId: string, projectId: string) {
+  const session = await getSession()
+  if (!session) throw new Error('unauthorized')
+  const org = await db.query.organization.findFirst({
+    where: { id: orgId },
+  })
+  if (!org || org.ownerId !== session.user.id) throw new Error('forbidden')
+  await db.delete(schema.project)
+    .where(orm.and(orm.eq(schema.project.id, projectId), orm.eq(schema.project.orgId, orgId)))
+  throw redirect(`/orgs/${orgId}/dashboard`)
 }

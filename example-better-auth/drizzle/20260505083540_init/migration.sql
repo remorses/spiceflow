@@ -15,6 +15,22 @@ CREATE TABLE `account` (
 	CONSTRAINT `fk_account_userId_user_id_fk` FOREIGN KEY (`userId`) REFERENCES `user`(`id`) ON DELETE CASCADE
 );
 --> statement-breakpoint
+CREATE TABLE `organization` (
+	`id` text PRIMARY KEY,
+	`name` text NOT NULL,
+	`ownerId` text NOT NULL,
+	`createdAt` integer NOT NULL,
+	CONSTRAINT `fk_organization_ownerId_user_id_fk` FOREIGN KEY (`ownerId`) REFERENCES `user`(`id`) ON DELETE CASCADE
+);
+--> statement-breakpoint
+CREATE TABLE `project` (
+	`id` text PRIMARY KEY,
+	`name` text NOT NULL,
+	`orgId` text NOT NULL,
+	`createdAt` integer NOT NULL,
+	CONSTRAINT `fk_project_orgId_organization_id_fk` FOREIGN KEY (`orgId`) REFERENCES `organization`(`id`) ON DELETE CASCADE
+);
+--> statement-breakpoint
 CREATE TABLE `session` (
 	`id` text PRIMARY KEY,
 	`expiresAt` integer NOT NULL,

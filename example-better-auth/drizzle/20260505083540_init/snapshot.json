@@ -1,13 +1,21 @@
 {
   "version": "7",
   "dialect": "sqlite",
-  "id": "6e0339a8-2e6e-4f10-a6dd-10ab1c6f5234",
+  "id": "964440b8-1bfa-4592-bd54-c493955dc6e6",
   "prevIds": [
     "00000000-0000-0000-0000-000000000000"
   ],
   "ddl": [
     {
       "name": "account",
+      "entityType": "tables"
+    },
+    {
+      "name": "organization",
+      "entityType": "tables"
+    },
+    {
+      "name": "project",
       "entityType": "tables"
     },
     {
@@ -151,6 +159,86 @@
       "name": "updatedAt",
       "entityType": "columns",
       "table": "account"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "organization"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "name",
+      "entityType": "columns",
+      "table": "organization"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "ownerId",
+      "entityType": "columns",
+      "table": "organization"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "createdAt",
+      "entityType": "columns",
+      "table": "organization"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "project"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "name",
+      "entityType": "columns",
+      "table": "project"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "orgId",
+      "entityType": "columns",
+      "table": "project"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "createdAt",
+      "entityType": "columns",
+      "table": "project"
     },
     {
       "type": "text",
@@ -379,6 +467,36 @@
     },
     {
       "columns": [
+        "ownerId"
+      ],
+      "tableTo": "user",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "name": "fk_organization_ownerId_user_id_fk",
+      "entityType": "fks",
+      "table": "organization"
+    },
+    {
+      "columns": [
+        "orgId"
+      ],
+      "tableTo": "organization",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "name": "fk_project_orgId_organization_id_fk",
+      "entityType": "fks",
+      "table": "project"
+    },
+    {
+      "columns": [
         "userId"
       ],
       "tableTo": "user",
@@ -399,6 +517,24 @@
       "nameExplicit": false,
       "name": "account_pk",
       "table": "account",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "organization_pk",
+      "table": "organization",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "project_pk",
+      "table": "project",
       "entityType": "pks"
     },
     {

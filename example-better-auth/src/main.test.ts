@@ -7,7 +7,14 @@ import { createSpiceflowFetch } from 'spiceflow/client'
 import { SpiceflowTestResponse, runAction } from 'spiceflow/testing'
 import { app } from './main.js'
 import { auth } from './auth.js'
-import { updateProfile, getCurrentUser, requireAuthOrRedirect } from './actions.js'
+import {
+  updateProfile,
+  getCurrentUser,
+  requireAuthOrRedirect,
+  createOrg,
+  createProject,
+  deleteProject,
+} from './actions.js'
 
 async function createAuthedUser(overrides?: {
   email?: string
@@ -166,5 +173,113 @@ describe('server actions with auth', () => {
       request: authedRequest(),
     })
     expect(result).toHaveProperty('userId')
+  })
+})
+
+describe('Org workflow', () => {
+  test('create user → create org → redirect to dashboard → create project → dashboard shows it → delete → empty again', async () => {
+    const { token } = await createAuthedUser({ name: 'Eve', email: 'eve@test.com' })
+
+    function authedRequest() {
+      return new Request('http://localhost', {
+        method: 'POST',
+        headers: { authorization: `Bearer ${token}` },
+      })
+    }
+    const authedClient = createSpiceflowFetch(app, {
+      headers: { authorization: `Bearer ${token}` },
+    })
+
+    // 1. Create org via action — should redirect to org dashboard
+    const orgRedirect = await runAction(() => createOrg('Acme Inc'), {
+      request: authedRequest(),
+    }).catch((e) => e)
+    if (!(orgRedirect instanceof Response)) throw new Error('expected redirect Response')
+    expect(orgRedirect.status).toBe(307)
+    const dashboardUrl = orgRedirect.headers.get('location')!
+    expect(dashboardUrl).toMatch(/^\/orgs\/[\w-]+\/dashboard$/)
+    const orgId = dashboardUrl.split('/')[2]!
+
+    // 2. Fetch org dashboard — empty state
+    const emptyDashboard = await authedClient('/orgs/:orgId/dashboard', { params: { orgId } })
+    if (!(emptyDashboard instanceof SpiceflowTestResponse)) throw new Error('expected page')
+    expect(emptyDashboard.status).toBe(200)
+    expect(emptyDashboard.loaderData).toHaveProperty('org', { id: orgId, name: 'Acme Inc' })
+    expect(emptyDashboard.loaderData).toHaveProperty('projects', [])
+    expect(emptyDashboard.loaderData).toHaveProperty('session')
+    expect(await emptyDashboard.text()).toContain('No projects yet')
+
+    // 3. Create a project under the org
+    const project = await runAction(() => createProject(orgId, 'Landing Page'), {
+      request: authedRequest(),
+    })
+    expect(project).toHaveProperty('name', 'Landing Page')
+    expect(project).toHaveProperty('orgId', orgId)
+    if (project instanceof Error) throw project
+    const projectId = project.id
+
+    // 4. Dashboard now shows the project
+    const filledDashboard = await authedClient('/orgs/:orgId/dashboard', { params: { orgId } })
+    if (!(filledDashboard instanceof SpiceflowTestResponse)) throw new Error('expected page')
+    const html = await filledDashboard.text()
+    expect(html).toContain('Landing Page')
+    expect(html).not.toContain('No projects yet')
+    expect(filledDashboard.loaderData).toHaveProperty('org', { id: orgId, name: 'Acme Inc' })
+    expect(filledDashboard.loaderData).toHaveProperty('projects', [
+      { id: projectId, name: 'Landing Page' },
+    ])
+
+    // 5. Delete the project — redirects back to dashboard
+    const deleteRedirect = await runAction(() => deleteProject(orgId, projectId), {
+      request: authedRequest(),
+    }).catch((e) => e)
+    if (!(deleteRedirect instanceof Response)) throw new Error('expected redirect Response')
+    expect(deleteRedirect.status).toBe(307)
+    expect(deleteRedirect.headers.get('location')).toBe(`/orgs/${orgId}/dashboard`)
+
+    // 6. Dashboard is empty again
+    const emptyAgain = await authedClient('/orgs/:orgId/dashboard', { params: { orgId } })
+    if (!(emptyAgain instanceof SpiceflowTestResponse)) throw new Error('expected page')
+    expect(await emptyAgain.text()).toContain('No projects yet')
+  })
+
+  test('user cannot access another user org dashboard', async () => {
+    // User A creates an org
+    const userA = await createAuthedUser({ name: 'Frank', email: 'frank@test.com' })
+    const orgRedirect = await runAction(() => createOrg('Frank Corp'), {
+      request: new Request('http://localhost', {
+        method: 'POST',
+        headers: { authorization: `Bearer ${userA.token}` },
+      }),
+    }).catch((e) => e)
+    if (!(orgRedirect instanceof Response)) throw new Error('expected redirect')
+    const orgId = orgRedirect.headers.get('location')!.split('/')[2]!
+
+    // User B tries to access Frank's org
+    const userB = await createAuthedUser({ name: 'Grace', email: 'grace@test.com' })
+    const graceClient = createSpiceflowFetch(app, {
+      headers: { authorization: `Bearer ${userB.token}` },
+    })
+    const result = await graceClient('/orgs/:orgId/dashboard', { params: { orgId } })
+    if (!(result instanceof SpiceflowTestResponse)) throw new Error('expected page')
+    // Should render "not found" since Grace doesn't own this org
+    expect(await result.text()).toContain('access denied')
+  })
+
+  test('unauthenticated user gets redirected from org dashboard', async () => {
+    const userA = await createAuthedUser({ name: 'Heidi', email: 'heidi@test.com' })
+    const orgRedirect = await runAction(() => createOrg('Heidi Corp'), {
+      request: new Request('http://localhost', {
+        method: 'POST',
+        headers: { authorization: `Bearer ${userA.token}` },
+      }),
+    }).catch((e) => e)
+    if (!(orgRedirect instanceof Response)) throw new Error('expected redirect')
+    const orgId = orgRedirect.headers.get('location')!.split('/')[2]!
+
+    const anon = createSpiceflowFetch(app)
+    const result = await anon('/orgs/:orgId/dashboard', { params: { orgId } })
+    // Unauthenticated — page throws redirect to /login
+    expect(result).toBeInstanceOf(Error)
   })
 })

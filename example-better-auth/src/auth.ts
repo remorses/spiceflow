@@ -6,10 +6,13 @@
 // via auth.api.signUpEmail without needing the testUtils plugin.
 import { betterAuth } from 'better-auth'
 import { bearer } from 'better-auth/plugins'
+import { drizzle } from 'drizzle-orm/node-sqlite'
 import { DatabaseSync } from 'node:sqlite'
+import * as schema from './schema.js'
 
 const dbPath = process.env.AUTH_DB || 'auth.sqlite'
 export const database = new DatabaseSync(dbPath)
+export const db = drizzle({ client: database, schema, relations: schema.relations })
 
 export const auth = betterAuth({
   database,
