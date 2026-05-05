@@ -16,6 +16,21 @@ curl -s https://raw.githubusercontent.com/remorses/spiceflow/main/docs/fetch-cli
 
 NEVER use `head`, `tail`, or any other command to truncate the output. Read the full README every time, then read any referenced subdocuments that are relevant to the task. They contain API details, examples, and framework conventions that are easy to miss if you only read the top-level README.
 
+## Testing spiceflow apps
+
+Before writing any vitest tests for a spiceflow app, ALWAYS read the testing guide first:
+
+```bash
+curl -s https://raw.githubusercontent.com/remorses/spiceflow/main/docs/testing.md
+```
+
+It covers setup, API route testing, page route testing, server actions, `createTestTracer` for span snapshots, HTML formatting with posthtml, DI with `.state()`, and better-auth integration patterns.
+
+Reference examples for real-world usage:
+
+- **[example-vitest](https://github.com/remorses/spiceflow/tree/main/example-vitest)** — tests API routes, page routes, server actions, DI with state, tracing spans, and HTML snapshot formatting
+- **[example-vitest-cloudflare](https://github.com/remorses/spiceflow/tree/main/example-vitest-cloudflare)** — tests running inside Cloudflare Workers runtime (workerd) via `@cloudflare/vitest-pool-workers`, covering D1 database, KV, and `cloudflare:workers` APIs
+
 ## Client navigation links
 
 Always import and use `Link` from `spiceflow/react` for navigational links in Spiceflow apps. Do not render raw `<a>` elements for links. `Link` enables client-side navigation while preserving normal anchor behavior for external URLs, hashes, `target`, `rel`, styling, and event handlers. `Link` supports external URLs too, so it is fine to use for ambiguous or user-provided links when you do not know ahead of time whether they are internal or external.
