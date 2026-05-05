@@ -1,5 +1,43 @@
 # spiceflow
 
+## 1.21.0-rsc.0
+
+1. **Vitest support for testing page routes, API routes, and server actions** — the Vite plugin auto-detects Vitest and injects a `spiceflow-vitest` resolve condition that swaps RSC Flight serialization for a lightweight shim. No manual config needed. New `spiceflow/testing` export provides `SpiceflowTestResponse` (with `.text()` for rendered HTML, `.loaderData`, `.page` JSX) and `runAction` for testing actions that use `getActionRequest()`:
+
+   ```ts
+   import { SpiceflowTestResponse, runAction } from 'spiceflow/testing'
+   import { app } from './main.js'
+
+   const res = await app.handle(new Request('http://localhost/about'))
+   if (res instanceof SpiceflowTestResponse) {
+     expect(await res.text()).toContain('About')
+     expect(res.loaderData).toEqual({ title: 'About' })
+   }
+   ```
+
+2. **Cloudflare edge cache middleware** — new `spiceflow/cloudflare` export with `headersCache()` that uses the Workers Cache API to cache responses based on `Cache-Control` headers (`s-maxage`). Workers run before Cloudflare's CDN cache, so this bridges the gap:
+
+   ```ts
+   import { headersCache } from 'spiceflow/cloudflare'
+
+   app.use(headersCache())
+   app.get('/data', (ctx) => {
+     ctx.set.headers['cache-control'] = 's-maxage=60'
+     return { fresh: true }
+   })
+   ```
+
+3. **Page routes available in `createSpiceflowFetch`** — the typed fetch client now accepts page route paths (not just API routes), returning `any` response type for pages. Useful for e2e-style testing from Node.js without a browser.
+
+4. **Mutable `.headers` field on `createSpiceflowFetch`** — set default headers (like auth tokens) that persist across all requests:
+
+   ```ts
+   const f = createSpiceflowFetch({ baseUrl })
+   f.headers = { authorization: `Bearer ${token}` }
+   ```
+
+5. **`createTestTracer` for OTel span snapshots** — new helper in `spiceflow/testing` that records spans and provides `.text()` for readable span tree inline snapshots.
+
 ## 1.20.0-rsc.3
 
 1. **Preserved function and class names in build output** — Spiceflow's Vite plugin now sets `keepNames: true` by default in Rollup output and the dependency optimizer, so function names survive minification for better stack traces and debugging. Explicit user `keepNames` config is still respected.
