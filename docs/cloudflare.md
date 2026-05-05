@@ -6,6 +6,8 @@ Cloudflare Workers setup, background tasks, and KV page caching.
 
 For Cloudflare Workers, keep the worker-specific SSR output and child environment wiring in Vite, then let your Worker default export delegate to `app.handle(request)`.
 
+**Every Cloudflare Worker entry file must have a `default export` with a `fetch` handler.** Spiceflow does not generate this implicitly. Without it, the Worker has no entry point and requests will fail.
+
 ```jsonc
 // wrangler.jsonc
 {
@@ -251,6 +253,12 @@ export const app = new Spiceflow()
     response.headers.set('Cache-Control', 's-maxage=600, max-age=60')
     return <div>Cached at the edge</div>
   })
+
+export default {
+  fetch(request: Request) {
+    return app.handle(request)
+  },
+}
 ```
 
 Any response with `s-maxage` (or `public, max-age`) in its `Cache-Control` header will be stored in the edge cache. On cache hits the Worker still executes, but downstream handlers are skipped — the middleware returns the cached response immediately before reaching your route handlers.
@@ -270,6 +278,12 @@ export const app = new Spiceflow()
     response.headers.set('Cache-Control', 's-maxage=600, max-age=60')
     return <div>Cached page</div>
   })
+
+export default {
+  fetch(request: Request) {
+    return app.handle(request)
+  },
+}
 ```
 
 ### Setting Cache-Control on API routes
@@ -292,6 +306,12 @@ export const app = new Spiceflow()
       })
     },
   })
+
+export default {
+  fetch(request: Request) {
+    return app.handle(request)
+  },
+}
 ```
 
 ### Vary
