@@ -105,6 +105,19 @@ export const app = new Spiceflow()
       </div>
     )
   })
+  .page('/styled', async function StyledPage() {
+    return (
+      <div className="container mx-auto p-4" style={{ color: 'red' }}>
+        <h1 className="text-2xl font-bold mb-2">Styled Page</h1>
+        <p className="text-gray-600" style={{ fontSize: '14px' }}>
+          This page has lots of styling attributes
+        </p>
+        <button className="bg-blue-500 text-white px-4 py-2 rounded">
+          Click me
+        </button>
+      </div>
+    )
+  })
   .page('/redirect-page', async () => {
     const { redirect } = await import('spiceflow')
     throw redirect('/about')

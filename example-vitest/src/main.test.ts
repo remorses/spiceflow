@@ -2,6 +2,8 @@
 // Uses the spiceflow-vitest condition to bypass RSC Flight serialization.
 // res.text() renders the full page (layouts + page) to HTML.
 // res.page gives raw JSX for inline snapshot serialization.
+import posthtml from 'posthtml'
+import beautify from 'posthtml-beautify'
 import { describe, test, expect } from 'vitest'
 import { SpiceflowTestResponse, runAction, createTestTracer } from 'spiceflow/testing'
 import { createSpiceflowFetch } from 'spiceflow/client'
@@ -272,6 +274,89 @@ describe('Tracing', () => {
     expect(tracer.text()).toMatchInlineSnapshot(`
       "GET /api/traced (200)
       └── handler - /api/traced"
+    `)
+  })
+})
+
+/** posthtml plugin that removes specified attributes from all nodes */
+function removeAttrs(attrs: string[]) {
+  return (tree: any) => {
+    tree.walk((node: any) => {
+      if (node.attrs) {
+        for (const attr of attrs) delete node.attrs[attr]
+      }
+      return node
+    })
+    return tree
+  }
+}
+
+describe('HTML formatting for snapshots', () => {
+  test('strip class and style from page HTML', async () => {
+    const res = await f('/styled')
+    if (!(res instanceof SpiceflowTestResponse)) throw new Error('expected SpiceflowTestResponse')
+
+    const html = await res.text()
+    const { html: clean } = await posthtml([removeAttrs(['class', 'style']), beautify({ rules: { blankLines: '' } })]).process(html)
+
+    expect(clean).toMatchInlineSnapshot(`
+      "<html lang="en">
+        <head></head>
+        <body>
+          <div>
+            <h1>Styled Page</h1>
+            <p>This page has lots of styling attributes</p>
+            <button>Click me</button>
+          </div>
+        </body>
+      </html>
+      "
+    `)
+  })
+
+  test('raw HTML preserves all attributes', async () => {
+    const res = await f('/styled')
+    if (!(res instanceof SpiceflowTestResponse)) throw new Error('expected SpiceflowTestResponse')
+
+    const html = await res.text()
+    expect(html).toContain('class="container mx-auto p-4"')
+    expect(html).toContain('style="color:red"')
+  })
+
+  test('match element by tag and assert attributes, text, children', async () => {
+    const res = await f('/styled')
+    if (!(res instanceof SpiceflowTestResponse)) throw new Error('expected SpiceflowTestResponse')
+
+    const html = await res.text()
+    const matched: { tag: string; attrs: Record<string, string>; text: string; childCount: number }[] = []
+
+    await posthtml()
+      .use((tree) => {
+        tree.match({ tag: 'button' }, (node) => {
+          const text = (node.content || []).filter((c): c is string => typeof c === 'string').join('')
+          matched.push({
+            tag: node.tag!,
+            attrs: node.attrs || {},
+            text,
+            childCount: (node.content || []).length,
+          })
+          return node
+        })
+        return tree
+      })
+      .process(html)
+
+    expect(matched).toMatchInlineSnapshot(`
+      [
+        {
+          "attrs": {
+            "class": "bg-blue-500 text-white px-4 py-2 rounded",
+          },
+          "childCount": 1,
+          "tag": "button",
+          "text": "Click me",
+        },
+      ]
     `)
   })
 })

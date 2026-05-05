@@ -569,6 +569,114 @@ test('request spans', async () => {
 
 `tracer.text()` renders the span tree as ASCII. `tracer.spans` gives raw access to span objects. `tracer.clear()` resets between tests.
 
+## Formatting HTML for Snapshots
+
+Raw HTML from `res.text()` is a single long string with all attributes. For readable inline snapshots, use **posthtml** to strip noisy attributes and **posthtml-beautify** to indent the output.
+
+```bash
+pnpm add -D posthtml posthtml-beautify
+```
+
+### Strip attributes and format
+
+```ts
+import { test, expect } from 'vitest'
+import posthtml from 'posthtml'
+import beautify from 'posthtml-beautify'
+import { createSpiceflowFetch } from 'spiceflow/client'
+import { SpiceflowTestResponse } from 'spiceflow/testing'
+import { app } from './main.js'
+
+const f = createSpiceflowFetch(app)
+
+/** posthtml plugin that removes specified attributes from all nodes */
+function removeAttrs(attrs: string[]) {
+  return (tree: any) => {
+    tree.walk((node: any) => {
+      if (node.attrs) {
+        for (const attr of attrs) delete node.attrs[attr]
+      }
+      return node
+    })
+    return tree
+  }
+}
+
+test('page structure without styling noise', async () => {
+  const res = await f('/dashboard')
+  if (!(res instanceof SpiceflowTestResponse)) throw new Error('expected page')
+
+  const html = await res.text()
+  const { html: clean } = await posthtml([
+    removeAttrs(['class', 'style']),
+    beautify({ rules: { blankLines: '' } }),
+  ]).process(html)
+
+  expect(clean).toMatchInlineSnapshot(`
+    "<html lang="en">
+      <head></head>
+      <body>
+        <div>
+          <h1>Dashboard</h1>
+          <p>No projects yet</p>
+        </div>
+      </body>
+    </html>
+    "
+  `)
+})
+```
+
+The `blankLines: ''` option removes empty lines between sibling elements that `posthtml-beautify` adds by default.
+
+### Find elements with tree.match
+
+Use `tree.match()` to locate specific elements by tag or attributes, then assert on their properties.
+
+```ts
+test('button has correct attributes and text', async () => {
+  const res = await f('/settings')
+  if (!(res instanceof SpiceflowTestResponse)) throw new Error('expected page')
+
+  const html = await res.text()
+  const buttons: { tag: string; attrs: Record<string, string>; text: string; childCount: number }[] = []
+
+  await posthtml()
+    .use((tree) => {
+      tree.match({ tag: 'button' }, (node) => {
+        const text = (node.content || [])
+          .filter((c): c is string => typeof c === 'string')
+          .join('')
+        buttons.push({
+          tag: node.tag!,
+          attrs: node.attrs || {},
+          text,
+          childCount: (node.content || []).length,
+        })
+        return node
+      })
+      return tree
+    })
+    .process(html)
+
+  expect(buttons).toMatchInlineSnapshot(`
+    [
+      {
+        "attrs": {
+          "class": "btn-primary",
+          "type": "submit",
+        },
+        "childCount": 1,
+        "tag": "button",
+        "text": "Save",
+      },
+    ]
+  `)
+})
+```
+
+`tree.match()` accepts matcher objects: `{ tag: 'div' }`, `{ attrs: { id: 'main' } }`, or both combined. It walks the full tree recursively.
+
 ## What's Not Supported
 
 Vitest mode bypasses RSC Flight serialization. Some features require the full RSC environment and should be tested with e2e tests (Playwright).
