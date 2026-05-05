@@ -1,7 +1,7 @@
 import './globals.css'
 import { Spiceflow, serveStatic } from 'spiceflow'
 import { Head, ProgressBar } from 'spiceflow/react'
-import PTable from 'example-shadcn/src/components/p-table-4.tsx'
+import PTable from 'example-shadcn/src/components/p-table-4'
 
 export const app = new Spiceflow()
   .use(serveStatic({ root: './public' }))

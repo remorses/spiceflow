@@ -1,19 +1,24 @@
 {
   "compilerOptions": {
-    "target": "esnext",
-    "lib": ["esnext"],
-    "module": "esnext",
+    "rootDir": "src",
+    "outDir": "dist",
+    "target": "ESNext",
+    "lib": ["ESNext", "DOM"],
+    "module": "ESNext",
     "moduleResolution": "Bundler",
+    "allowImportingTsExtensions": true,
+    "rewriteRelativeImportExtensions": true,
+    "declaration": true,
+    "declarationMap": true,
     "strict": true,
-    "skipLibCheck": true,
-    "noEmit": true,
-    "isolatedModules": true,
     "noImplicitAny": false,
+    "skipLibCheck": true,
+    "isolatedModules": true,
     "jsx": "react-jsx",
     "types": [
       "vite/client",
       "@cloudflare/vitest-pool-workers/types"
     ]
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx", "worker-configuration.d.ts"]
+  "include": ["src", "worker-configuration.d.ts"]
 }
