@@ -29,6 +29,36 @@ jobs:
         working-directory: spiceflow
       - run: pnpm build
       - run: pnpm test
+
+      # Build examples
+      - run: pnpm build
+        working-directory: example-nodejs
+      - run: pnpm build
+        working-directory: example-shadcn
+      - run: pnpm build
+        working-directory: example-better-auth
+      - run: pnpm build
+        working-directory: example-vitest
+      - run: pnpm build
+        working-directory: example-x402
+      - run: pnpm build
+        working-directory: example-cloudflare
+      - run: pnpm build
+        working-directory: example-federation/remote
+      - run: pnpm build
+        working-directory: example-federation/host
+
+      # Test examples
+      - run: pnpm test --run
+        working-directory: example-better-auth
+      - run: pnpm test --run
+        working-directory: example-vitest
+      - run: pnpm test
+        working-directory: example-x402
+      - run: pnpm test
+        working-directory: example-vitest-cloudflare
+
+      # E2E tests
       - run: pnpm --dir integration-tests exec playwright install --with-deps chromium
       - run: pnpm test-e2e
         working-directory: integration-tests
