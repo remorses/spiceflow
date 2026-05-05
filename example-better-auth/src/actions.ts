@@ -3,7 +3,7 @@
 // the bearer token from the request headers, then validates the session via
 // better-auth. Actions that modify data check auth before proceeding.
 import { getActionRequest, redirect } from 'spiceflow'
-import * as orm from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import { auth, db } from './auth.js'
 import * as schema from './schema.js'
 
@@ -73,7 +73,10 @@ export async function deleteProject(orgId: string, projectId: string) {
     where: { id: orgId },
   })
   if (!org || org.ownerId !== session.user.id) throw new Error('forbidden')
-  await db.delete(schema.project)
-    .where(orm.and(orm.eq(schema.project.id, projectId), orm.eq(schema.project.orgId, orgId)))
+  const project = await db.query.project.findFirst({
+    where: { id: projectId, orgId },
+  })
+  if (!project) throw new Error('not found')
+  await db.delete(schema.project).where(eq(schema.project.id, projectId))
   throw redirect(`/orgs/${orgId}/dashboard`)
 }
