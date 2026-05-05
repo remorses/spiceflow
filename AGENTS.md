@@ -40,7 +40,7 @@ try to use early returns and breaks, try nesting code as little as possible, fol
 
 # example-* folders must typecheck
 
-After editing any `example-*` folder, run `npx tsc --noEmit` from that folder and fix any errors before finishing. The only exception is `example-vitest-cloudflare` which has pre-existing `cloudflare:workers` module errors that only resolve inside the workerd runtime.
+After editing any `example-*` folder, run `npx tsc --noEmit` from that folder and fix any errors before finishing.
 
 # testing
 

@@ -90,6 +90,12 @@ export function resetStore() {
   store.clear()
 }
 
+export default {
+  async fetch(request: Request): Promise<Response> {
+    return app.handle(request)
+  },
+} satisfies ExportedHandler<Env>
+
 declare module 'spiceflow/react' {
   interface SpiceflowRegister {
     app: typeof app
