@@ -115,6 +115,7 @@ const app = new Spiceflow()
   .get('/search', ({ query }) => query, {
     query: z.object({ q: z.string(), page: z.coerce.number().optional() }),
   })
+  .onError(() => {})
 
 const f = createSpiceflowFetch(app)
 

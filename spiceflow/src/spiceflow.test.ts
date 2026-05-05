@@ -281,15 +281,17 @@ describe('cloneDeep', () => {
 })
 
 test('can encode superjson types', async () => {
-  const app = new Spiceflow().post('/superjson', () => {
-    const item = {
-      date: new Date('2025-01-20T18:01:57.852Z'),
-      map: new Map([['a', 1]]),
-      set: new Set([1, 2, 3]),
-      bigint: BigInt(123),
-    }
-    return { items: Array(2).fill(item) }
-  })
+  const app = new Spiceflow()
+    .post('/superjson', () => {
+      const item = {
+        date: new Date('2025-01-20T18:01:57.852Z'),
+        map: new Map([['a', 1]]),
+        set: new Set([1, 2, 3]),
+        bigint: BigInt(123),
+      }
+      return { items: Array(2).fill(item) }
+    })
+    .onError(() => {})
   // Plain request without RPC header gets regular JSON (BigInt can't be serialized)
   const plainRes = await app.handle(
     new Request('http://localhost/superjson', { method: 'POST' }),
@@ -525,9 +527,11 @@ test('HEAD uses GET route metadata but does not add body', async () => {
 })
 
 test('HEAD keeps GET error status instead of forcing 200', async () => {
-  const app = new Spiceflow().get('/boom', () => {
-    throw Object.assign(new Error('boom'), { status: 418 })
-  })
+  const app = new Spiceflow()
+    .get('/boom', () => {
+      throw Object.assign(new Error('boom'), { status: 418 })
+    })
+    .onError(() => {})
 
   const res = await app.handle(
     new Request('http://localhost/boom', { method: 'HEAD' }),
@@ -560,6 +564,7 @@ test('GET with query, zod, fails validation', async () => {
         }),
       },
     )
+    .onError(() => {})
     .handle(new Request('http://localhost/query?id=hi', { method: 'GET' }))
   expect(res.status).toBe(422)
 })
@@ -712,6 +717,7 @@ test('query coercion: invalid number stays string and fails validation', async (
         page: z.number(),
       }),
     })
+    .onError(() => {})
     .handle(
       new Request('http://localhost/query?page=abc', { method: 'GET' }),
     )
@@ -725,6 +731,7 @@ test('query coercion: invalid boolean stays string and fails validation', async 
         active: z.boolean(),
       }),
     })
+    .onError(() => {})
     .handle(
       new Request('http://localhost/query?active=yes', { method: 'GET' }),
     )
@@ -738,6 +745,7 @@ test('query coercion: missing required query param fails validation', async () =
         page: z.number(),
       }),
     })
+    .onError(() => {})
     .handle(new Request('http://localhost/query', { method: 'GET' }))
   expect(res.status).toBe(422)
 })
@@ -749,6 +757,7 @@ test('query coercion: repeated scalar key fails validation', async () => {
         id: z.string(),
       }),
     })
+    .onError(() => {})
     .handle(
       new Request('http://localhost/query?id=a&id=b', { method: 'GET' }),
     )
@@ -1194,7 +1203,6 @@ test('validate body works, request success', async () => {
 
 test('validate body works, request fails', async () => {
   const res = await new Spiceflow()
-
     .post(
       '/post',
       async ({ request, redirect }) => {
@@ -1209,6 +1217,7 @@ test('validate body works, request fails', async () => {
         }),
       },
     )
+    .onError(() => {})
     .handle(
       new Request('http://localhost/post', {
         method: 'POST',
@@ -2433,11 +2442,13 @@ test('error status validation', async () => {
   ]
 
   for (const { status, expected } of testCases) {
-    const app = new Spiceflow().get('/test', () => {
-      const error: any = new Error('Test error')
-      error.status = status
-      throw error
-    })
+    const app = new Spiceflow()
+      .get('/test', () => {
+        const error: any = new Error('Test error')
+        error.status = status
+        throw error
+      })
+      .onError(() => {})
 
     const res = await app.handle(
       new Request('http://localhost/test', { method: 'GET' }),
@@ -2455,12 +2466,14 @@ test('error statusCode fallback', async () => {
   ]
 
   for (const { statusCode, expected, status } of testCases) {
-    const app = new Spiceflow().get('/test', () => {
-      const error: any = new Error('Test error')
-      if (status !== undefined) error.status = status
-      if (statusCode !== undefined) error.statusCode = statusCode
-      throw error
-    })
+    const app = new Spiceflow()
+      .get('/test', () => {
+        const error: any = new Error('Test error')
+        if (status !== undefined) error.status = status
+        if (statusCode !== undefined) error.statusCode = statusCode
+        throw error
+      })
+      .onError(() => {})
 
     const res = await app.handle(
       new Request('http://localhost/test', { method: 'GET' }),
@@ -2470,9 +2483,11 @@ test('error statusCode fallback', async () => {
 })
 
 test('returning Error from handler behaves like throwing it', async () => {
-  const app = new Spiceflow().get('/test', () => {
-    return new Error('something went wrong')
-  })
+  const app = new Spiceflow()
+    .get('/test', () => {
+      return new Error('something went wrong')
+    })
+    .onError(() => {})
 
   const res = await app.handle(
     new Request('http://localhost/test', { method: 'GET' }),
@@ -2485,9 +2500,11 @@ test('returning Error from handler behaves like throwing it', async () => {
 })
 
 test('returning Error with status property uses that status', async () => {
-  const app = new Spiceflow().get('/test', () => {
-    return Object.assign(new Error('bad request'), { status: 400 })
-  })
+  const app = new Spiceflow()
+    .get('/test', () => {
+      return Object.assign(new Error('bad request'), { status: 400 })
+    })
+    .onError(() => {})
 
   const res = await app.handle(
     new Request('http://localhost/test', { method: 'GET' }),
@@ -2521,9 +2538,11 @@ test('returning Error triggers onError handlers', async () => {
 })
 
 test('throwing Error from handler gives status 500 with message', async () => {
-  const app = new Spiceflow().get('/test', () => {
-    throw new Error('something went wrong')
-  })
+  const app = new Spiceflow()
+    .get('/test', () => {
+      throw new Error('something went wrong')
+    })
+    .onError(() => {})
 
   const res = await app.handle(
     new Request('http://localhost/test', { method: 'GET' }),
@@ -2536,9 +2555,11 @@ test('throwing Error from handler gives status 500 with message', async () => {
 })
 
 test('throwing Error with status property uses that status', async () => {
-  const app = new Spiceflow().get('/test', () => {
-    throw Object.assign(new Error('bad request'), { status: 400 })
-  })
+  const app = new Spiceflow()
+    .get('/test', () => {
+      throw Object.assign(new Error('bad request'), { status: 400 })
+    })
+    .onError(() => {})
 
   const res = await app.handle(
     new Request('http://localhost/test', { method: 'GET' }),
@@ -3586,7 +3607,7 @@ describe('use preserves type safety', () => {
 })
 
 test('.page() without Vite plugin throws a clear error', async () => {
-  const app = new Spiceflow().page('/', () => 'hello')
+  const app = new Spiceflow().page('/', () => 'hello').onError(() => {})
   const res = await app.handle(
     new Request('http://localhost/', {
       method: 'GET',
@@ -3605,6 +3626,7 @@ test('.layout() without Vite plugin throws a clear error', async () => {
   const app = new Spiceflow()
     .layout('/', ({ children }) => children)
     .page('/', () => 'hello')
+    .onError(() => {})
   const res = await app.handle(
     new Request('http://localhost/', {
       method: 'GET',
@@ -3710,7 +3732,7 @@ describe('.use() with page and layout routes', () => {
       async () => 'Dashboard',
     )
 
-    const app = new Spiceflow().use(subApp)
+    const app = new Spiceflow().use(subApp).onError(() => {})
 
     const res = await app.handle(
       new Request('http://localhost/admin/dashboard', {
@@ -3730,7 +3752,7 @@ describe('.use() with page and layout routes', () => {
       .layout('/', ({ children }) => children)
       .page('/dashboard', async () => 'Dashboard')
 
-    const app = new Spiceflow().use(subApp)
+    const app = new Spiceflow().use(subApp).onError(() => {})
 
     const res = await app.handle(
       new Request('http://localhost/admin/dashboard', {
@@ -3749,7 +3771,7 @@ describe('.use() with page and layout routes', () => {
       async () => 'Users',
     )
 
-    const app = new Spiceflow({ basePath: '/api' }).use(subApp)
+    const app = new Spiceflow({ basePath: '/api' }).use(subApp).onError(() => {})
 
     const res = await app.handle(
       new Request('http://localhost/api/v1/users', {
@@ -3768,7 +3790,7 @@ describe('.use() with page and layout routes', () => {
       async () => 'Dashboard',
     )
 
-    const app = new Spiceflow().use(subApp)
+    const app = new Spiceflow().use(subApp).onError(() => {})
 
     const res = await app.handle(
       new Request('http://localhost/dashboard', {
@@ -3789,7 +3811,7 @@ describe('.use() with page and layout routes', () => {
       .get('/api/data', () => ({ data: 'hello' }))
       .page('/dashboard', async () => 'Dashboard')
 
-    const app = new Spiceflow().use(subApp)
+    const app = new Spiceflow().use(subApp).onError(() => {})
 
     const apiRes = await app.handle(
       new Request('http://localhost/admin/api/data', { method: 'GET' }),
@@ -3868,7 +3890,7 @@ describe('.use() with page and layout routes', () => {
       async () => 'Getting Started',
     )
 
-    const app = new Spiceflow().use(adminApp).use(docsApp)
+    const app = new Spiceflow().use(adminApp).use(docsApp).onError(() => {})
 
     const allRoutes = app.getAllRoutes()
     const pagePaths = [

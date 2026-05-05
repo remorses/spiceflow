@@ -399,6 +399,7 @@ test('each middleware and route is called exactly once if an error is thrown', a
       callOrder.push('middleware3')
       await next()
     })
+    .onError(() => {})
 
   const res = await app.handle(new Request('http://localhost/test'))
 
@@ -466,6 +467,7 @@ test('middleware with try/finally correctly tracks operations even when errors a
     .get('/error', () => {
       throw new Error('Route error')
     })
+    .onError(() => {})
 
   const res2 = await app2.handle(new Request('http://localhost/error'))
   expect(res2.status).toBe(500)
@@ -745,6 +747,7 @@ test('middleware with try/finally tracks operations correctly with child apps', 
   const parentApp2 = new Spiceflow()
     .use(createTrackingMiddleware())
     .use(childApp2)
+    .onError(() => {})
 
   const res2 = await parentApp2.handle(
     new Request('http://localhost/child/error'),

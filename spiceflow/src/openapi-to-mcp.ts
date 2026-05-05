@@ -295,7 +295,6 @@ export function createMCPServer({
         : cookieHeader
     }
 
-    console.error(`using headers ${JSON.stringify(finalHeaders, null, 2)}`)
 
     return await fetch!(new URL(u, baseUrl), {
       ...options,

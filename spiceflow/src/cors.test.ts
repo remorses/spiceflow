@@ -49,10 +49,13 @@ describe('cors middleware', () => {
 
 test('CORS headers are set when an error is thrown', async () => {
   let errorRouteCallCount = 0
-  const errorApp = new Spiceflow().use(cors()).get('/error', () => {
-    errorRouteCallCount++
-    throw new Error('Test error')
-  })
+  const errorApp = new Spiceflow()
+    .use(cors())
+    .get('/error', () => {
+      errorRouteCallCount++
+      throw new Error('Test error')
+    })
+    .onError(() => {})
 
   const res = await errorApp.handle(request('error'))
   expect(res.status).toBe(500)
@@ -63,10 +66,13 @@ test('CORS headers are set when an error is thrown', async () => {
 
 test('CORS headers are set for OPTIONS request when an error is thrown', async () => {
   let errorRouteCallCount = 0
-  const errorApp = new Spiceflow().use(cors()).options('/error', () => {
-    errorRouteCallCount++
-    throw new Error('Test error')
-  })
+  const errorApp = new Spiceflow()
+    .use(cors())
+    .options('/error', () => {
+      errorRouteCallCount++
+      throw new Error('Test error')
+    })
+    .onError(() => {})
 
   const res = await errorApp.handle(request('error', 'OPTIONS'))
   expect(res.status).toBe(204)
@@ -89,6 +95,7 @@ test('CORS headers are set when an error is thrown in middleware', async () => {
       errorRouteCallCount++
       throw new Error('Test error')
     })
+    .onError(() => {})
 
   const res = await errorApp.handle(request('error'))
   expect(res.status).toBe(500)

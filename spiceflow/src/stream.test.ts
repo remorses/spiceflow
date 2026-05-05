@@ -60,12 +60,14 @@ describe('Stream', () => {
     expect(response).toBe(textEventStream(['a', 'b', 'c']))
   })
   it('handle errors after yield', async () => {
-    const app = new Spiceflow().get('/', async function* () {
-      yield 'a'
-      await sleep(10)
+    const app = new Spiceflow()
+      .get('/', async function* () {
+        yield 'a'
+        await sleep(10)
 
-      throw new Error('an error')
-    })
+        throw new Error('an error')
+      })
+      .onError(() => {})
 
     const response = await app.handle(req('/')).then((x) => x.text())
 
@@ -207,13 +209,15 @@ describe('Stream', () => {
   })
 
   it('rpc client throws errors from async generator routes', async () => {
-    const app = new Spiceflow().get('/stream', async function* () {
-      yield 'first'
-      await sleep(10)
-      yield 'second'
-      await sleep(10)
-      throw new Error('Stream error after yielding')
-    })
+    const app = new Spiceflow()
+      .get('/stream', async function* () {
+        yield 'first'
+        await sleep(10)
+        yield 'second'
+        await sleep(10)
+        throw new Error('Stream error after yielding')
+      })
+      .onError(() => {})
 
     // Import the client functions
     const { createSpiceflowClient, streamSSEResponse } = await import(
