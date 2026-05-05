@@ -11,7 +11,6 @@ import {
 } from './test-server.js'
 
 const cwd = process.cwd()
-const spiceflowCwd = path.resolve(cwd, '../spiceflow')
 const deployedUrl =
   process.env.CLOUDFLARE_DEPLOYED_URL ??
   'https://spiceflow-cloudflare-example-1.remorses.workers.dev'
@@ -29,7 +28,6 @@ afterEach(async () => {
 
 describe('cloudflare example', () => {
   test('build emits worker-compatible SSR output', async () => {
-    await rebuildSpiceflow()
     await runCommand({
       command: 'pnpm',
       args: ['build'],
@@ -56,7 +54,6 @@ describe('cloudflare example', () => {
   })
 
   test('dev serves the home page', async () => {
-    await rebuildSpiceflow()
     const server = await startServer({
       command: 'pnpm',
       args: [
@@ -90,7 +87,6 @@ describe('cloudflare example', () => {
   })
 
   test('preview serves the home page', async () => {
-    await rebuildSpiceflow()
     await runCommand({
       command: 'pnpm',
       args: ['build'],
@@ -147,11 +143,3 @@ describe('cloudflare example', () => {
     `)
   })
 })
-
-async function rebuildSpiceflow() {
-  await runCommand({
-    command: 'pnpm',
-    args: ['tsc', '--noCheck'],
-    cwd: spiceflowCwd,
-  })
-}

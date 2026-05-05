@@ -640,7 +640,7 @@ test('button has correct attributes and text', async () => {
   if (!(res instanceof SpiceflowTestResponse)) throw new Error('expected page')
 
   const html = await res.text()
-  const buttons: { tag: string; attrs: Record<string, string>; text: string; childCount: number }[] = []
+  const buttons: { tag: string; attrs: any; text: string; childCount: number }[] = []
 
   await posthtml()
     .use((tree) => {
@@ -677,6 +677,130 @@ test('button has correct attributes and text', async () => {
 ```
 
 `tree.match()` accepts matcher objects: `{ tag: 'div' }`, `{ attrs: { id: 'main' } }`, or both combined. It walks the full tree recursively.
+
+## Full Workflow Tests
+
+For realistic apps, structure tests as **multi-step user journeys**: sign up, create resources, validate redirects, snapshot pages, mutate state, verify the page reflects the change. This pattern exercises the full page→action→page cycle.
+
+The key pattern: each step in the workflow uses the result of the previous step. Sign up returns a token, the token authenticates action calls, actions redirect to pages, pages render the new state.
+
+```ts
+import { describe, test, expect } from 'vitest'
+import { createSpiceflowFetch } from 'spiceflow/client'
+import { SpiceflowTestResponse, runAction } from 'spiceflow/testing'
+import { app, resetAuthStores } from './main.js'
+import { createOrg, createOrgProject, deleteOrgProject } from './actions.js'
+
+const f = createSpiceflowFetch(app)
+
+describe('Auth workflow', () => {
+  test('signup → create org → dashboard → create project → dashboard shows project → delete → empty again', async () => {
+    resetAuthStores()
+
+    // 1. Sign up via API
+    const signup = await f('/api/signup', {
+      method: 'POST',
+      body: { name: 'Alice', email: 'alice@test.com' },
+    })
+    if (signup instanceof Error) throw signup
+    expect(signup).toHaveProperty('userId', '1')
+    const token = signup.token
+
+    const authedClient = createSpiceflowFetch(app, {
+      headers: { authorization: `Bearer ${token}` },
+    })
+
+    // 2. Create org (action redirects to dashboard)
+    const orgRedirect = await runAction(() => createOrg('Acme Inc'), {
+      request: new Request('http://localhost', {
+        method: 'POST',
+        headers: { authorization: `Bearer ${token}` },
+      }),
+    }).catch((e) => e)
+    if (!(orgRedirect instanceof Response)) throw new Error('expected redirect')
+    expect(orgRedirect.status).toBe(307)
+    expect(orgRedirect.headers.get('location')).toBe('/orgs/1/dashboard')
+
+    // 3. Dashboard renders empty state + loader data
+    const empty = await authedClient('/orgs/:orgId/dashboard', { params: { orgId: '1' } })
+    if (!(empty instanceof SpiceflowTestResponse)) throw new Error('expected page')
+    expect(empty.loaderData).toMatchInlineSnapshot(`
+      {
+        "orgName": "Acme Inc",
+        "projects": [],
+      }
+    `)
+    expect(empty.page).toMatchInlineSnapshot(`
+      <div>
+        <h1>Acme Inc Dashboard</h1>
+        <p>No projects yet</p>
+      </div>
+    `)
+
+    // 4. Create a project
+    const project = await runAction(() => createOrgProject('1', 'Landing Page'), {
+      request: new Request('http://localhost', {
+        method: 'POST',
+        headers: { authorization: `Bearer ${token}` },
+      }),
+    })
+    expect(project).toMatchInlineSnapshot(`
+      {
+        "id": "1",
+        "name": "Landing Page",
+        "orgId": "1",
+      }
+    `)
+
+    // 5. Dashboard now shows the project
+    const filled = await authedClient('/orgs/:orgId/dashboard', { params: { orgId: '1' } })
+    if (!(filled instanceof SpiceflowTestResponse)) throw new Error('expected page')
+    const html = await filled.text()
+    expect(html).toContain('Landing Page')
+    expect(html).not.toContain('No projects yet')
+
+    // 6. Delete project (redirects back)
+    const del = await runAction(() => deleteOrgProject('1', '1'), {
+      request: new Request('http://localhost', {
+        method: 'POST',
+        headers: { authorization: `Bearer ${token}` },
+      }),
+    }).catch((e) => e)
+    if (!(del instanceof Response)) throw new Error('expected redirect')
+    expect(del.headers.get('location')).toBe('/orgs/1/dashboard')
+
+    // 7. Dashboard is empty again
+    const emptyAgain = await authedClient('/orgs/:orgId/dashboard', { params: { orgId: '1' } })
+    if (!(emptyAgain instanceof SpiceflowTestResponse)) throw new Error('expected page')
+    expect(await emptyAgain.text()).toContain('No projects yet')
+  })
+
+  test('unauthenticated user cannot access org dashboard', async () => {
+    // ... setup org, then:
+    const result = await f('/orgs/:orgId/dashboard', { params: { orgId: '1' } })
+    expect(result).toBeInstanceOf(Error)
+  })
+
+  test('user cannot access another user org', async () => {
+    // User A creates org, User B tries to access it
+    const forbidden = createSpiceflowFetch(app, {
+      headers: { authorization: `Bearer ${userBToken}` },
+    })
+    const result = await forbidden('/orgs/:orgId/dashboard', { params: { orgId: '1' } })
+    expect(result).toBeInstanceOf(Error)
+  })
+})
+```
+
+**Key techniques shown:**
+
+- **`createSpiceflowFetch` with auth headers** to simulate an authenticated user
+- **`runAction` with a custom request** to pass auth tokens to server actions that call `getActionRequest()`
+- **Catching redirect responses** with `.catch((e) => e)` and asserting on `status` and `location` header
+- **`res.loaderData`** to verify the loader returned the correct data for the page
+- **`res.page`** for inline JSX snapshots of the page content (without layout wrapping)
+- **`res.text()`** for full HTML assertions with `.toContain()` checks
+- **`resetAuthStores()`** at the start of each test to ensure isolation between tests
 
 ## What's Not Supported
 

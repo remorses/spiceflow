@@ -162,6 +162,7 @@ export default function spiceflow({
   let resolvedBase = ''
   let isCloudflareProject = false
   let isCloudflareRuntime = false
+  let isVitestRuntime = false
   let importMapJson = ''
   const rscOptions: RscPluginOptions = {
     entries: spiceflowEntries,
@@ -305,6 +306,7 @@ export default function spiceflow({
     {
       name: 'spiceflow:config',
       config(userConfig, env) {
+        isVitestRuntime = Boolean(process.env.VITEST && env.mode === 'test')
         // Capture base early — Vite normalizes it to '/' by default, but the
         // raw user value is available here before configResolved runs.
         const rawBase = userConfig.base || '/'
@@ -440,7 +442,7 @@ export default function spiceflow({
         // runtime (which depends on Vite RSC APIs not available in test).
         // Placed before other conditions so it takes priority in the
         // package.json imports field key order.
-        if (process.env.VITEST) {
+        if (isVitestRuntime) {
           config.resolve.conditions = mergeUnique(
             ['spiceflow-vitest'],
             config.resolve.conditions ?? [],
@@ -569,26 +571,26 @@ export default function spiceflow({
     // In vitest mode, strip "use server" and "use client" directives so the
     // RSC plugin doesn't transform action files into server references.
     // Actions become plain functions that tests can import and call directly.
-    ...(process.env.VITEST
-      ? [
-          {
-            name: 'spiceflow:strip-directives',
-            enforce: 'pre' as const,
-            transform(code: string, id: string) {
-              if (!/\.[cm]?[jt]sx?$/.test(id)) return
-              // Match "use server" or "use client" as the first statement.
-              // Replace with same-length whitespace to preserve source maps.
-              const directiveRe = /^(["']use (?:server|client)["'];?)/
-              const match = code.match(directiveRe)
-              if (!match) return
-              return {
-                code: code.slice(0, match.index!) + ' '.repeat(match[0].length) + code.slice(match.index! + match[0].length),
-                map: null,
-              }
-            },
-          },
-        ]
-      : []),
+    {
+      name: 'spiceflow:strip-directives',
+      enforce: 'pre' as const,
+      transform(code: string, id: string) {
+        if (!isVitestRuntime) return
+        if (!/\.[cm]?[jt]sx?$/.test(id)) return
+        // Match "use server" or "use client" as the first statement.
+        // Replace with same-length whitespace to preserve source maps.
+        const directiveRe = /^(["']use (?:server|client)["'];?)/
+        const match = code.match(directiveRe)
+        if (!match) return
+        return {
+          code:
+            code.slice(0, match.index!) +
+            ' '.repeat(match[0].length) +
+            code.slice(match.index! + match[0].length),
+          map: null,
+        }
+      },
+    },
 
     // SSR middleware for dev and preview servers
     {

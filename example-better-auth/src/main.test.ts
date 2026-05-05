@@ -103,6 +103,8 @@ describe('multiple users', () => {
 
     if (me1 instanceof Error) throw me1
     if (me2 instanceof Error) throw me2
+    if (me1 instanceof Response) throw new Error('expected object, got Response')
+    if (me2 instanceof Response) throw new Error('expected object, got Response')
 
     expect(me1).toHaveProperty('name', 'Bob')
     expect(me2).toHaveProperty('name', 'Carol')

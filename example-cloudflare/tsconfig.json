@@ -15,7 +15,7 @@
     "skipLibCheck": true,
     "isolatedModules": true,
     "jsx": "react-jsx",
-    "types": ["@cloudflare/workers-types", "node"]
+    "types": ["vite/client", "@cloudflare/workers-types", "node"]
   },
   "include": ["src", "worker-configuration.d.ts"]
 }

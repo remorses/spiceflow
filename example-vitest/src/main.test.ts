@@ -14,8 +14,11 @@ import {
   headerReaderAction,
   redirectAction,
   createProject,
+  createOrg,
+  createOrgProject,
+  deleteOrgProject,
 } from './actions.js'
-import { projectStore } from './main.js'
+import { projectStore, resetAuthStores } from './main.js'
 
 const f = createSpiceflowFetch(app)
 const authed = createSpiceflowFetch(app, {
@@ -253,10 +256,11 @@ describe('Dependency injection with state', () => {
   test('POST /api/settings writes to injected KV', async () => {
     store.clear()
 
-    await withKV('/api/settings', {
+    const result = await withKV('/api/settings', {
       method: 'POST',
       body: { theme: 'dark', fontSize: 16 },
     })
+    if (result instanceof Error) throw result
 
     expect(store.get('settings')).toEqual({ theme: 'dark', fontSize: 16 })
   })
@@ -328,7 +332,7 @@ describe('HTML formatting for snapshots', () => {
     if (!(res instanceof SpiceflowTestResponse)) throw new Error('expected SpiceflowTestResponse')
 
     const html = await res.text()
-    const matched: { tag: string; attrs: Record<string, string>; text: string; childCount: number }[] = []
+    const matched: { tag: string; attrs: any; text: string; childCount: number }[] = []
 
     await posthtml()
       .use((tree) => {
@@ -336,7 +340,7 @@ describe('HTML formatting for snapshots', () => {
           const text = (node.content || []).filter((c): c is string => typeof c === 'string').join('')
           matched.push({
             tag: node.tag!,
-            attrs: node.attrs || {},
+            attrs: (node.attrs || {}),
             text,
             childCount: (node.content || []).length,
           })
@@ -358,6 +362,168 @@ describe('HTML formatting for snapshots', () => {
         },
       ]
     `)
+  })
+})
+
+describe('Auth workflow', () => {
+  test('signup → create org → redirects to dashboard → create project → dashboard shows project → delete project → redirects back', async () => {
+    resetAuthStores()
+
+    // 1. Sign up
+    const signup = await f('/api/signup', {
+      method: 'POST',
+      body: { name: 'Alice', email: 'alice@test.com' },
+    })
+    if (signup instanceof Error) throw signup
+    expect(signup).toHaveProperty('userId', '1')
+    expect(signup).toHaveProperty('token')
+    const token = signup.token
+    expect(token).toMatch(/^tok_/)
+
+    const authedClient = createSpiceflowFetch(app, {
+      headers: { authorization: `Bearer ${token}` },
+    })
+
+    // 2. Create org via action (redirects to /orgs/:orgId/dashboard)
+    const orgRedirect = await runAction(() => createOrg('Acme Inc'), {
+      request: new Request('http://localhost', {
+        method: 'POST',
+        headers: { authorization: `Bearer ${token}` },
+      }),
+    }).catch((e) => e)
+    if (!(orgRedirect instanceof Response)) throw new Error('expected redirect Response')
+    expect(orgRedirect.status).toBe(307)
+    expect(orgRedirect.headers.get('location')).toBe('/orgs/1/dashboard')
+
+    // 3. Fetch the org dashboard — empty state
+    const emptyDashboard = await authedClient('/orgs/:orgId/dashboard', { params: { orgId: '1' } })
+    if (!(emptyDashboard instanceof SpiceflowTestResponse)) throw new Error('expected page')
+    expect(emptyDashboard.status).toBe(200)
+    expect(emptyDashboard.loaderData).toMatchInlineSnapshot(`
+      {
+        "orgName": "Acme Inc",
+        "projects": [],
+      }
+    `)
+    expect(emptyDashboard.page).toMatchInlineSnapshot(`
+      <div>
+        <h1>
+          Acme Inc
+           Dashboard
+        </h1>
+        <div
+          data-testid="org-projects"
+        >
+          <p>
+            No projects yet
+          </p>
+        </div>
+      </div>
+    `)
+
+    // 4. Create a project under the org
+    const project = await runAction(() => createOrgProject('1', 'Landing Page'), {
+      request: new Request('http://localhost', {
+        method: 'POST',
+        headers: { authorization: `Bearer ${token}` },
+      }),
+    })
+    expect(project).toMatchInlineSnapshot(`
+      {
+        "id": "1",
+        "name": "Landing Page",
+        "orgId": "1",
+      }
+    `)
+
+    // 5. Dashboard now shows the project
+    const filledDashboard = await authedClient('/orgs/:orgId/dashboard', { params: { orgId: '1' } })
+    if (!(filledDashboard instanceof SpiceflowTestResponse)) throw new Error('expected page')
+    expect(filledDashboard.loaderData).toMatchInlineSnapshot(`
+      {
+        "orgName": "Acme Inc",
+        "projects": [
+          {
+            "id": "1",
+            "name": "Landing Page",
+          },
+        ],
+      }
+    `)
+    const html = await filledDashboard.text()
+    expect(html).toContain('Landing Page')
+    expect(html).not.toContain('No projects yet')
+
+    // 6. Delete the project (redirects back to dashboard)
+    const deleteRedirect = await runAction(() => deleteOrgProject('1', '1'), {
+      request: new Request('http://localhost', {
+        method: 'POST',
+        headers: { authorization: `Bearer ${token}` },
+      }),
+    }).catch((e) => e)
+    if (!(deleteRedirect instanceof Response)) throw new Error('expected redirect Response')
+    expect(deleteRedirect.status).toBe(307)
+    expect(deleteRedirect.headers.get('location')).toBe('/orgs/1/dashboard')
+
+    // 7. Dashboard is empty again
+    const emptyAgain = await authedClient('/orgs/:orgId/dashboard', { params: { orgId: '1' } })
+    if (!(emptyAgain instanceof SpiceflowTestResponse)) throw new Error('expected page')
+    expect(await emptyAgain.text()).toContain('No projects yet')
+  })
+
+  test('unauthenticated user cannot access org dashboard', async () => {
+    resetAuthStores()
+
+    // Create a user and org first
+    const signup = await f('/api/signup', {
+      method: 'POST',
+      body: { name: 'Bob', email: 'bob@test.com' },
+    })
+    if (signup instanceof Error) throw signup
+    const bobToken = signup.token
+    await runAction(() => createOrg('Bob Corp'), {
+      request: new Request('http://localhost', {
+        method: 'POST',
+        headers: { authorization: `Bearer ${bobToken}` },
+      }),
+    }).catch(() => {})
+
+    // Unauthenticated request should fail
+    const result = await f('/orgs/:orgId/dashboard', { params: { orgId: '1' } })
+    expect(result).toBeInstanceOf(Error)
+  })
+
+  test('user cannot access another user org', async () => {
+    resetAuthStores()
+
+    // User A creates an org
+    const userA = await f('/api/signup', {
+      method: 'POST',
+      body: { name: 'Alice', email: 'alice@test.com' },
+    })
+    if (userA instanceof Error) throw userA
+    const aliceToken = userA.token
+    await runAction(() => createOrg('Alice Corp'), {
+      request: new Request('http://localhost', {
+        method: 'POST',
+        headers: { authorization: `Bearer ${aliceToken}` },
+      }),
+    }).catch(() => {})
+
+    // User B signs up
+    const userB = await f('/api/signup', {
+      method: 'POST',
+      body: { name: 'Bob', email: 'bob@test.com' },
+    })
+    if (userB instanceof Error) throw userB
+    const bobToken = userB.token
+
+    // User B tries to access Alice's org dashboard
+    const forbidden = createSpiceflowFetch(app, {
+      headers: { authorization: `Bearer ${bobToken}` },
+    })
+    const result = await forbidden('/orgs/:orgId/dashboard', { params: { orgId: '1' } })
+    expect(result).toBeInstanceOf(Error)
   })
 })
 

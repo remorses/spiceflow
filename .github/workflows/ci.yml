@@ -26,6 +26,8 @@ jobs:
       - run: pnpm install --frozen-lockfile=false
 
       - run: pnpm build
+        working-directory: spiceflow
+      - run: pnpm build
       - run: pnpm test
       - run: pnpm --dir integration-tests exec playwright install --with-deps chromium
       - run: pnpm test-e2e
