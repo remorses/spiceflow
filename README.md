@@ -424,13 +424,41 @@ For authorization, proxy, non-blocking auth, cookies, and graceful shutdown patt
 
 ## Error Handling
 
+When a route handler or middleware throws an error, Spiceflow catches it and returns a JSON response with the error message and stack trace. **By default, unhandled errors are also logged to the console** with `Spiceflow unhandled error:` so you can see what went wrong during development.
+
+Use `.onError()` to customize error handling. Registering an `.onError` callback **replaces the default logging**, so errors are only handled by your callback:
+
 ```ts
 import { Spiceflow } from 'spiceflow'
 
-new Spiceflow().onError(({ error }) => {
-  console.error(error)
-  return new Response('An error occurred', { status: 500 })
-})
+const app = new Spiceflow()
+  .get('/users/:id', async ({ params }) => {
+    const user = await findUser(params.id)
+    if (!user) throw Object.assign(new Error('User not found'), { status: 404 })
+    return user
+  })
+  .onError(({ error, path }) => {
+    // Custom error handling replaces default console.error logging
+    console.error(`Error on ${path}:`, error.message)
+    return new Response('Something went wrong', { status: 500 })
+  })
+```
+
+If you return a `Response` from `.onError`, it becomes the response for that request. If you don't return anything, Spiceflow falls back to its default JSON error response (but skips the default logging since you have a handler registered).
+
+To silence error logs entirely (useful in tests), register a no-op handler:
+
+```ts
+const app = new Spiceflow()
+  .get('/test', () => { throw new Error('expected') })
+  .onError(() => {})
+```
+
+Errors with a `status` property (or `statusCode`) are used as the HTTP status code. Invalid or out-of-range status codes are normalized to 500:
+
+```ts
+// Returns 400 Bad Request
+throw Object.assign(new Error('Invalid input'), { status: 400 })
 ```
 
 ## Async Generators (Streaming)
