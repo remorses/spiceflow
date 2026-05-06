@@ -26,6 +26,7 @@ export async function requireSession() {
 ```ts
 // src/actions.ts
 'use server'
+import { ulid } from 'ulid'
 import { requireSession } from './auth-helpers.js'
 
 export async function deleteProject(orgId: string, projectId: string) {
@@ -103,7 +104,7 @@ export async function createProject(orgId: string, name: string) {
   })
   if (!membership) throw new Error('forbidden')
 
-  const id = crypto.randomUUID()
+  const id = ulid()
   await db.insert(schema.project).values({ id, name, orgId, createdAt: new Date() })
   return { id, name, orgId }
 }
