@@ -1083,16 +1083,32 @@ type MergeParamsAndQuery<P, Q> = [P] extends [undefined]
 
 type PrimitivePathParam = string | number | boolean
 
+// When Path is the wide `string` type (from a variable) or has no literal : or *
+// segments, params are optional. Only require params for pattern paths with
+// unresolved :param or * segments.
 export type PathParamsProp<Path extends string> =
-  [ExtractParamsFromPath<Path>] extends [undefined]
+  string extends Path
     ? { params?: Record<string, PrimitivePathParam> }
-    : { params: ExtractParamsFromPath<Path> }
+    : Path extends `${string}:${string}` | `${string}*${string}`
+      ? [ExtractParamsFromPath<Path>] extends [undefined]
+        ? { params?: Record<string, PrimitivePathParam> }
+        : { params: ExtractParamsFromPath<Path> }
+      : { params?: Record<string, PrimitivePathParam> }
 
-export type HrefArgs<
-  Paths extends string,
+// Smart href validation: accept wide `string` (from variables), accept valid
+// route literals, reject invalid string literals at compile time.
+export type ValidatedHref<Paths extends string, Path extends string> =
+  string extends Path
+    ? string
+    : Path extends AllHrefPaths<Paths>
+      ? Path | ResolvedHref
+      : never
+
+// Same guard as PathParamsProp: resolved paths (no : or *) never require params.
+type HrefArgsInner<
   QS extends object,
-  Path extends AllHrefPaths<Paths>,
-  Params extends ExtractParamsFromPath<Path>,
+  Path extends string,
+  Params,
 > = [Params] extends [undefined]
   ? Path extends keyof QS
     ? unknown extends QS[Path]
@@ -1106,6 +1122,19 @@ export type HrefArgs<
     :
         | [allParams: Params]
         | [allParams: Params & Record<string, PrimitivePathParam>]
+
+export type HrefArgs<
+  Paths extends string,
+  QS extends object,
+  Path extends AllHrefPaths<Paths>,
+  Params extends ExtractParamsFromPath<Path>,
+> = Path extends `${string}:${string}` | `${string}*${string}`
+  ? HrefArgsInner<QS, Path, Params>
+  : Path extends keyof QS
+    ? unknown extends QS[Path]
+      ? [] | [allParams?: Record<string, PrimitivePathParam>]
+      : [] | [allParams?: Partial<QS[Path]>]
+    : [] | [allParams?: Record<string, PrimitivePathParam>]
 
 export type HrefBuilder<
   Paths extends string,

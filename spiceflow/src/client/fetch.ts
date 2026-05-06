@@ -127,11 +127,16 @@ type RouteInfoForMethod<
 
 // ─── Options type ────────────────────────────────────────────────────────────
 
-// Params option: required if path has :params, omitted otherwise
+// Params option: required only when the path still has unresolved :param or * segments.
+// Wide `string` (from variables) always gets optional params.
 type ParamsOption<Path extends string> =
-  ExtractParamsFromPath<Path> extends undefined
+  string extends Path
     ? { params?: Record<string, string> }
-    : { params: ExtractParamsFromPath<Path> }
+    : Path extends `${string}:${string}` | `${string}*${string}`
+      ? ExtractParamsFromPath<Path> extends undefined
+        ? { params?: Record<string, string> }
+        : { params: ExtractParamsFromPath<Path> }
+      : { params?: Record<string, string> }
 
 // Query option: typed from route schema if available
 type QueryOption<
@@ -165,7 +170,17 @@ type BodyOption<
         : { body: Body }
       : { body?: unknown }
 
-// Check if options has any required fields
+// Check if options has any required fields.
+// Resolved paths (no : or *) never require params, so skip straight to query/body checks.
+type HasRequiredParamsCheck<Path extends string> =
+  string extends Path
+    ? false
+    : Path extends `${string}:${string}` | `${string}*${string}`
+      ? ExtractParamsFromPath<Path> extends undefined
+        ? false
+        : true
+      : false
+
 type HasRequiredFields<
   Routes extends Record<string, any>,
   Paths extends string,
@@ -173,8 +188,9 @@ type HasRequiredFields<
   Method extends string,
 > =
   // params required?
-  ExtractParamsFromPath<Path> extends undefined
-    ? // query required?
+  HasRequiredParamsCheck<Path> extends true
+    ? true
+    : // query required?
       RouteInfoForMethod<Routes, Paths, Path, Method> extends { query: infer Q }
       ? undefined extends Q
         ? // body required?
@@ -198,7 +214,6 @@ type HasRequiredFields<
             ? false
             : true
           : false
-    : true
 
 type FetchOptionsTyped<
   Routes extends Record<string, any>,

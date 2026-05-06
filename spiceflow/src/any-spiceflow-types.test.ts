@@ -8,7 +8,7 @@ import ts from 'typescript'
 import { createSpiceflowClient, createSpiceflowFetch } from './client/index.ts'
 import { getRouter, Link, redirect, useLoaderData, useRouterState } from './react/index.ts'
 import type { LinkProps } from './react/index.ts'
-import { AnySpiceflow, createHref, Spiceflow } from './spiceflow.tsx'
+import { AnySpiceflow, Spiceflow } from './spiceflow.tsx'
 import type { AllHrefPaths, IsAny } from './types.ts'
 
 function getDiagnosticsForSnippet(source: string) {
@@ -89,7 +89,6 @@ test('AnySpiceflow falls back to ergonomic any types', () => {
   const fetchFromApp = createSpiceflowFetch(anyApp)
   const proxyClient = createSpiceflowClient('http://localhost:3000')
   const proxyClientFromApp = createSpiceflowClient(anyApp)
-  const href = createHref()
   const routerApi = getRouter()
 
   function assertFetchFallbackTypes() {
@@ -200,7 +199,7 @@ test('AnySpiceflow falls back to ergonomic any types', () => {
   assertGetLoaderDataFallbackTypes
   assertGetLoaderDataWithPathFallbackTypes
 
-  expect(href('/runtime-route', { slug: 'docs', page: 1 })).toBe(
+  expect(routerApi.href('/runtime-route', { slug: 'docs', page: 1 })).toBe(
     '/runtime-route?slug=docs&page=1',
   )
   expect(anyApp.href('/runtime-route', { slug: 'docs', page: 1 })).toBe(
@@ -449,6 +448,97 @@ test('Link: typed app validates href paths and requires params', () => {
 
   // @ts-expect-error - wrong param key rejected
   expectLink({ href: '/users/:id' as const, params: { slug: '1' } })
+})
+
+test('Link: resolved paths do not require params', () => {
+  const app = new Spiceflow()
+    .layout('/*', async ({ children }) => children)
+    .page('/dash/projects/:projectId', async () => 'project')
+    .page('/files/*', async () => 'files')
+    .page('/login', async () => 'login')
+
+  type App = typeof app
+  type Paths = App['_types']['RoutePaths']
+
+  function expectLink<P extends string>(_props: LinkProps<App, Paths, P>) {}
+
+  // Static path — no params needed
+  expectLink({ href: '/login' as const })
+
+  // Resolved path — params already baked into the string, should NOT require params
+  expectLink({ href: '/dash/projects/abc123' as const })
+
+  // Resolved wildcard path — no params needed
+  expectLink({ href: '/files/a/b.txt' as const })
+
+  // Pattern path — params still required
+  expectLink({ href: '/dash/projects/:projectId' as const, params: { projectId: 'abc' } })
+
+  // Wildcard pattern — params still required
+  expectLink({ href: '/files/*' as const, params: { '*': 'some/path' } })
+
+  // @ts-expect-error - pattern path missing params
+  expectLink({ href: '/dash/projects/:projectId' as const })
+
+  // @ts-expect-error - wildcard pattern missing params
+  expectLink({ href: '/files/*' as const })
+})
+
+test('Link: string variables accepted, invalid literals rejected', () => {
+  const app = new Spiceflow()
+    .page('/dash/projects/:projectId', async () => 'project')
+    .page('/login', async () => 'login')
+
+  type App = typeof app
+  type Paths = App['_types']['RoutePaths']
+
+  function expectLink<P extends string>(_props: LinkProps<App, Paths, P>) {}
+
+  // String variable — wide `string` type, accepted without params
+  const dynamicHref: string = '/dash/projects/abc123'
+  expectLink({ href: dynamicHref })
+
+  // Template literal producing string — accepted
+  const id = 'abc' as string
+  expectLink({ href: `/dash/projects/${id}` })
+
+  // Valid literal — accepted
+  expectLink({ href: '/login' as const })
+
+  // @ts-expect-error - invalid literal rejected
+  expectLink({ href: '/nonexistent' as const })
+})
+
+test('router.push/replace: string variables accepted, invalid literals rejected', () => {
+  const app = new Spiceflow()
+    .page('/dash/projects/:projectId', async () => 'project')
+    .page('/login', async () => 'login')
+
+  type App = typeof app
+  const r = getRouter<App>()
+
+  // String variable — wide string, accepted
+  const dynamicPath: string = '/dash/projects/abc123'
+  r.push(dynamicPath)
+  r.replace(dynamicPath)
+
+  // Template literal — accepted (matches resolved pattern)
+  const id = 'abc' as string
+  r.push(`/dash/projects/${id}`)
+  r.replace(`/dash/projects/${id}`)
+
+  // Valid literal — accepted
+  r.push('/login')
+  r.replace('/login')
+
+  // Partial<Path> object form — still works
+  r.push({ pathname: '/login', search: '?foo=1' })
+
+  // @ts-expect-error - invalid literal rejected
+  r.push('/nonexistent')
+
+  // @ts-expect-error - invalid literal rejected
+  r.replace('/nonexistent')
 })
 
 test('exported and context redirect accept plain strings', () => {

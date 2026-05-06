@@ -3018,27 +3018,6 @@ export class Spiceflow<
   }
 }
 
-/**
- * Create a standalone type-safe path builder. When `SpiceflowRegister` is set,
- * no arguments are needed. Pass your app instance for automatic type inference,
- * or call with explicit type params. The app value is not used at runtime.
- *
- * ```ts
- * const href = createHref()
- * href('/users/:id', { id: '123', page: 1 })
- * ```
- */
-export function createHref<
-  T extends { _types: { RoutePaths: string; RouteQuerySchemas: object } } = RegisteredApp,
->(_app?: T): HrefBuilder<T['_types']['RoutePaths'], T['_types']['RouteQuerySchemas']> {
-  type Paths = T['_types']['RoutePaths']
-  type QS = T['_types']['RouteQuerySchemas']
-  const href: HrefBuilder<Paths, QS> = (path, ...rest) => {
-    return buildHref(path, rest[0]) as ResolvedHref
-  }
-
-  return href
-}
 
 const METHODS = [
   'ALL',

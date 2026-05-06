@@ -27,14 +27,12 @@ This registers your app's route types **globally** within the TypeScript project
 ```tsx
 import { router, useLoaderData } from 'spiceflow/react'
 import { createSpiceflowFetch } from 'spiceflow/client'
-import { createHref } from 'spiceflow'
 
 router.href('/users/:id', { id: '42' }) // params validated
 router.href('/nonexistent')              // compile error
 
 const data = useLoaderData('/login')     // typed loader data
 const f = createSpiceflowFetch('http://localhost:3000') // typed fetch
-const href = createHref()                // typed path builder
 ```
 
 Without the `declare module` block, all APIs still work at runtime. They just accept any string without compile-time validation.
@@ -50,7 +48,6 @@ import type { app } from './main'
 // old way: pass the app type everywhere
 const f = createSpiceflowFetch<typeof app>('http://localhost:3000')
 useLoaderData<typeof app>('/login')
-createHref<typeof app>()
 ```
 
 Problems with the generic approach:
@@ -219,7 +216,6 @@ Every typed API defaults its generic parameter to `RegisteredApp`:
 export const router: RouterBase<RegisteredApp> = { ... }
 export function useLoaderData<App extends AnySpiceflow = RegisteredApp>() { ... }
 export function createSpiceflowFetch(domain: string): SpiceflowFetch<RegisteredApp>
-export function createHref<T = RegisteredApp>() { ... }
 ```
 
 This is why the register pattern is "register once, typed everywhere". The conditional type `RegisteredApp` threads the app type through every API automatically.

@@ -4,11 +4,13 @@ import { getBasePath } from '../base-path.js'
 import type { AnySpiceflow } from '../spiceflow.js'
 import type { FlightDataContextValue } from '#flight-data-context'
 import type {
+  AllHrefPaths,
   AllLoaderData,
   HrefBuilder,
   IsAny,
   MergedLoaderData,
   ResolvedHref,
+  ValidatedHref,
 } from '../types.js'
 import { getRouterContext } from '#router-context'
 import { FlightDataContext } from '#flight-data-context'
@@ -155,6 +157,15 @@ export function coerceLoaderData<
   return data
 }
 
+// Typed navigation target: validates string literals against route paths,
+// accepts wide `string` variables, and keeps the history Partial<Path> object form.
+type NavigationTo<App> = {
+  <const P extends string>(
+    to: ValidatedHref<RouterPaths<App>, P> | Partial<import('history').Path>,
+    state?: any,
+  ): void
+}
+
 export type RouterBase<App = AnySpiceflow> = {
   readonly location: Location
   readonly pathname: string
@@ -162,8 +173,8 @@ export type RouterBase<App = AnySpiceflow> = {
 
   href: HrefBuilder<RouterPaths<App>, RouterQuerySchemas<App>>
 
-  push(...args: Parameters<typeof history.push>): void
-  replace(...args: Parameters<typeof history.replace>): void
+  push: NavigationTo<App>
+  replace: NavigationTo<App>
   go(...args: Parameters<typeof history.go>): void
   back(...args: Parameters<typeof history.back>): void
   forward(...args: Parameters<typeof history.forward>): void

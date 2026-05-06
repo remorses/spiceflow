@@ -33,9 +33,6 @@ export const Spiceflow: any = new Proxy(function () {}, {
     serverOnly('Spiceflow')
   },
 })
-export function createHref(..._: any[]): any {
-  serverOnly('createHref')
-}
 export function serveStatic(..._: any[]): any {
   serverOnly('serveStatic')
 }

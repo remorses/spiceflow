@@ -3,7 +3,6 @@ import { test, describe, expect } from 'vitest'
 import {
   bfs,
   cloneDeep,
-  createHref,
   extractWildcardParam,
   Spiceflow,
   SpiceflowRequest,
@@ -2177,175 +2176,7 @@ describe('href', () => {
   })
 })
 
-describe('createHref', () => {
-  test('works with simple paths', () => {
-    const app = new Spiceflow()
-      .get('/users', () => 'users')
-      .get('/posts', () => 'posts')
 
-    const href = createHref(app)
-    expect(href('/users')).toBe('/users')
-    expect(href('/posts')).toBe('/posts')
-    // @ts-expect-error - invalid path
-    href('/nonexistent')
-  })
-
-  test('works with path params', () => {
-    const app = new Spiceflow()
-      .get('/users/:id', ({ params }) => params.id)
-      .get('/posts/:postId/comments/:commentId', ({ params }) => params)
-
-    const href = createHref(app)
-    expect(href('/users/:id', { id: '123' })).toBe('/users/123')
-    expect(
-      href('/posts/:postId/comments/:commentId', {
-        postId: 'abc',
-        commentId: '456',
-      }),
-    ).toBe('/posts/abc/comments/456')
-    // @ts-expect-error - wrong path
-    href('/wrong/:id', { id: '1' })
-  })
-
-  test('works with query params and rejects invalid keys', () => {
-    const app = new Spiceflow().get('/search', () => 'results', {
-      query: z.object({ q: z.string(), page: z.coerce.number() }),
-    })
-
-    const href = createHref(app)
-    expect(href('/search', { q: 'hello', page: 1 })).toBe(
-      '/search?q=hello&page=1',
-    )
-
-    // @ts-expect-error - invalid query key
-    href('/search', { invalid: 'x' })
-  })
-
-  test('works with both path and query params', () => {
-    const app = new Spiceflow().get('/users/:id', ({ params }) => params.id, {
-      query: z.object({ fields: z.string() }),
-    })
-
-    const href = createHref(app)
-    expect(href('/users/:id', { id: '42', fields: 'name' })).toBe(
-      '/users/42?fields=name',
-    )
-
-    href('/users/:id', { id: '1', wrong: 'x' })
-  })
-
-  test('works with wildcard paths', () => {
-    const app = new Spiceflow().get('/files/*', () => 'files')
-
-    const href = createHref(app)
-    expect(href('/files/*', { '*': 'a/b.txt' })).toBe('/files/a/b.txt')
-  })
-
-  test('rejects invalid query keys across multiple routes', () => {
-    const app = new Spiceflow()
-      .get('/items', () => 'items', {
-        query: z.object({ sort: z.string(), limit: z.coerce.number() }),
-      })
-      .post('/create', () => 'created', {
-        query: z.object({ dryRun: z.boolean() }),
-      })
-
-    const href = createHref(app)
-
-    expect(href('/items', { sort: 'name', limit: 10 })).toBe(
-      '/items?sort=name&limit=10',
-    )
-    expect(href('/create', { dryRun: true })).toBe('/create?dryRun=true')
-
-    // @ts-expect-error - 'order' not in /items query schema
-    href('/items', { order: 'asc' })
-
-    // @ts-expect-error - 'verbose' not in /create query schema
-    href('/create', { verbose: true })
-  })
-
-  test('works with .route and rejects invalid query keys', () => {
-    const app = new Spiceflow().route({
-      method: 'GET',
-      path: '/api/data',
-      query: z.object({ format: z.string() }),
-      handler: () => 'data',
-    })
-
-    const href = createHref(app)
-    expect(href('/api/data', { format: 'json' })).toBe('/api/data?format=json')
-
-    // @ts-expect-error - invalid query key on .route
-    href('/api/data', { type: 'csv' })
-
-    // @ts-expect-error - invalid path
-    href('/api/other')
-  })
-
-  test('works with basePath and rejects invalid query keys', () => {
-    const app = new Spiceflow({ basePath: '/v2' }).get(
-      '/users',
-      () => 'users',
-      {
-        query: z.object({ active: z.boolean() }),
-      },
-    )
-
-    const href = createHref(app)
-    expect(href('/v2/users', { active: true })).toBe('/v2/users?active=true')
-
-    // @ts-expect-error - invalid query key
-    href('/v2/users', { status: 'active' })
-
-    // @ts-expect-error - path without basePath prefix
-    href('/users')
-  })
-
-  test('without query schema allows arbitrary query', () => {
-    const app = new Spiceflow().get('/free', () => 'ok')
-
-    const href = createHref(app)
-    expect(href('/free', { any: 'value', works: 'here' })).toBe(
-      '/free?any=value&works=here',
-    )
-  })
-
-  test('partial query params are accepted', () => {
-    const app = new Spiceflow().get('/filter', () => 'filter', {
-      query: z.object({ a: z.string(), b: z.string(), c: z.string() }),
-    })
-
-    const href = createHref(app)
-    expect(href('/filter', { a: 'only-a' })).toBe('/filter?a=only-a')
-    expect(href('/filter', { a: '1', c: '3' })).toBe('/filter?a=1&c=3')
-  })
-
-  test('mixed routes with and without query schemas', () => {
-    const app = new Spiceflow()
-      .get('/typed', () => 'typed', {
-        query: z.object({ x: z.string() }),
-      })
-      .get('/untyped', () => 'untyped')
-      .get('/also-typed/:id', ({ params }) => params.id, {
-        query: z.object({ verbose: z.boolean() }),
-      })
-
-    const href = createHref(app)
-
-    expect(href('/typed', { x: 'val' })).toBe('/typed?x=val')
-    expect(href('/untyped', { anything: 'goes' })).toBe(
-      '/untyped?anything=goes',
-    )
-    expect(href('/also-typed/:id', { id: '1', verbose: true })).toBe(
-      '/also-typed/1?verbose=true',
-    )
-
-    // @ts-expect-error - wrong key on typed route
-    href('/typed', { wrong: 'x' })
-
-    href('/also-typed/:id', { id: '1', wrong: true })
-  })
-})
 
 test('composition with .use() works with state and onError - child app gets same state, errors caught by root', async () => {
   let rootErrorCalled = false
@@ -3359,21 +3190,6 @@ describe('use preserves type safety', () => {
     expect(app.href('/sitemap.xml')).toBe('/sitemap.xml')
     // @ts-expect-error - invalid path
     app.href('/nonexistent')
-  })
-
-  test('createHref works with mounted subapps', () => {
-    const child = new Spiceflow({ basePath: '/api' })
-      .get('/users', () => [])
-      .get('/users/:id', () => ({}))
-
-    const app = new Spiceflow().get('/health', () => 'ok').use(child)
-
-    const href = createHref(app)
-    expect(href('/health')).toBe('/health')
-    expect(href('/api/users')).toBe('/api/users')
-    expect(href('/api/users/:id', { id: '7' })).toBe('/api/users/7')
-    // @ts-expect-error - nonexistent
-    href('/nonexistent')
   })
 
   test('client sees routes from mounted subapp', async () => {
