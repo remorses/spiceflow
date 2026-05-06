@@ -127,16 +127,21 @@ type RouteInfoForMethod<
 
 // ─── Options type ────────────────────────────────────────────────────────────
 
-// Params option: required only when the path still has unresolved :param or * segments.
-// Wide `string` (from variables) always gets optional params.
-type ParamsOption<Path extends string> =
+// Params option: required only when the path has unresolved /:param or /* segments.
+// Uses /:` segment boundary to avoid false positives from colons in resolved values.
+type HasUnresolvedParams<Path extends string> =
   string extends Path
-    ? { params?: Record<string, string> }
-    : Path extends `${string}:${string}` | `${string}*${string}`
-      ? ExtractParamsFromPath<Path> extends undefined
-        ? { params?: Record<string, string> }
-        : { params: ExtractParamsFromPath<Path> }
-      : { params?: Record<string, string> }
+    ? false
+    : Path extends `${string}/:${string}` | `${string}/*${string}` | '*'
+      ? true
+      : false
+
+type ParamsOption<Path extends string> =
+  HasUnresolvedParams<Path> extends true
+    ? ExtractParamsFromPath<Path> extends undefined
+      ? { params?: Record<string, string> }
+      : { params: ExtractParamsFromPath<Path> }
+    : { params?: Record<string, string> }
 
 // Query option: typed from route schema if available
 type QueryOption<
@@ -171,15 +176,12 @@ type BodyOption<
       : { body?: unknown }
 
 // Check if options has any required fields.
-// Resolved paths (no : or *) never require params, so skip straight to query/body checks.
 type HasRequiredParamsCheck<Path extends string> =
-  string extends Path
-    ? false
-    : Path extends `${string}:${string}` | `${string}*${string}`
-      ? ExtractParamsFromPath<Path> extends undefined
-        ? false
-        : true
-      : false
+  HasUnresolvedParams<Path> extends true
+    ? ExtractParamsFromPath<Path> extends undefined
+      ? false
+      : true
+    : false
 
 type HasRequiredFields<
   Routes extends Record<string, any>,

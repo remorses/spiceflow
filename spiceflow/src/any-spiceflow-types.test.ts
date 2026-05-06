@@ -487,10 +487,12 @@ test('Link: resolved paths do not require params', () => {
 test('Link: string variables accepted, invalid literals rejected', () => {
   const app = new Spiceflow()
     .page('/dash/projects/:projectId', async () => 'project')
+    .page('/events/:stamp', async () => 'event')
     .page('/login', async () => 'login')
 
   type App = typeof app
   type Paths = App['_types']['RoutePaths']
+  const r = getRouter<App>()
 
   function expectLink<P extends string>(_props: LinkProps<App, Paths, P>) {}
 
@@ -504,6 +506,12 @@ test('Link: string variables accepted, invalid literals rejected', () => {
 
   // Valid literal — accepted
   expectLink({ href: '/login' as const })
+
+  // ResolvedHref from router.href() — accepted
+  expectLink({ href: r.href('/login') })
+
+  // Resolved path with colon in value (ISO timestamp) — no false positive
+  expectLink({ href: '/events/2026-05-06T12:00:00Z' as const })
 
   // @ts-expect-error - invalid literal rejected
   expectLink({ href: '/nonexistent' as const })
@@ -531,14 +539,25 @@ test('router.push/replace: string variables accepted, invalid literals rejected'
   r.push('/login')
   r.replace('/login')
 
-  // Partial<Path> object form — still works
+  // ResolvedHref from router.href() — accepted
+  const href = r.href('/login')
+  r.push(href)
+  r.replace(href)
+
+  // Object form with valid literal — accepted
   r.push({ pathname: '/login', search: '?foo=1' })
+
+  // Object form with string variable — accepted
+  r.push({ pathname: dynamicPath })
 
   // @ts-expect-error - invalid literal rejected
   r.push('/nonexistent')
 
   // @ts-expect-error - invalid literal rejected
   r.replace('/nonexistent')
+
+  // @ts-expect-error - invalid literal rejected in object form too
+  r.push({ pathname: '/nonexistent' as const })
 })
 
 test('exported and context redirect accept plain strings', () => {

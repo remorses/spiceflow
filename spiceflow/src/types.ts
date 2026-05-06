@@ -1083,28 +1083,36 @@ type MergeParamsAndQuery<P, Q> = [P] extends [undefined]
 
 type PrimitivePathParam = string | number | boolean
 
-// When Path is the wide `string` type (from a variable) or has no literal : or *
-// segments, params are optional. Only require params for pattern paths with
-// unresolved :param or * segments.
-export type PathParamsProp<Path extends string> =
+// Segment-aware check for unresolved route params. Uses `/:` (segment boundary)
+// instead of bare `:` to avoid false positives from colons in resolved values
+// like ISO timestamps (/events/2026-05-06T12:00:00Z).
+type HasUnresolvedParams<Path extends string> =
   string extends Path
-    ? { params?: Record<string, PrimitivePathParam> }
-    : Path extends `${string}:${string}` | `${string}*${string}`
-      ? [ExtractParamsFromPath<Path>] extends [undefined]
-        ? { params?: Record<string, PrimitivePathParam> }
-        : { params: ExtractParamsFromPath<Path> }
-      : { params?: Record<string, PrimitivePathParam> }
+    ? false
+    : Path extends `${string}/:${string}` | `${string}/*${string}` | '*'
+      ? true
+      : false
+
+// When Path is the wide `string` type (from a variable) or has no unresolved
+// route segments (/:param or /*), params are optional.
+export type PathParamsProp<Path extends string> =
+  HasUnresolvedParams<Path> extends true
+    ? [ExtractParamsFromPath<Path>] extends [undefined]
+      ? { params?: Record<string, PrimitivePathParam> }
+      : { params: ExtractParamsFromPath<Path> }
+    : { params?: Record<string, PrimitivePathParam> }
 
 // Smart href validation: accept wide `string` (from variables), accept valid
 // route literals, reject invalid string literals at compile time.
+// ResolvedHref (from router.href()) is always accepted.
 export type ValidatedHref<Paths extends string, Path extends string> =
-  string extends Path
-    ? string
-    : Path extends AllHrefPaths<Paths>
-      ? Path | ResolvedHref
-      : never
+  | ResolvedHref
+  | (string extends Path
+      ? string
+      : Path extends AllHrefPaths<Paths>
+        ? Path
+        : never)
 
-// Same guard as PathParamsProp: resolved paths (no : or *) never require params.
 type HrefArgsInner<
   QS extends object,
   Path extends string,
@@ -1128,7 +1136,7 @@ export type HrefArgs<
   QS extends object,
   Path extends AllHrefPaths<Paths>,
   Params extends ExtractParamsFromPath<Path>,
-> = Path extends `${string}:${string}` | `${string}*${string}`
+> = HasUnresolvedParams<Path> extends true
   ? HrefArgsInner<QS, Path, Params>
   : Path extends keyof QS
     ? unknown extends QS[Path]

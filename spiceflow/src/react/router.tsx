@@ -157,11 +157,17 @@ export function coerceLoaderData<
   return data
 }
 
+// Object form with typed pathname (validates literals, accepts string variables).
+type NavigationPathObject<App, P extends string> =
+  Omit<Partial<import('history').Path>, 'pathname'> & {
+    pathname?: ValidatedHref<RouterPaths<App>, P>
+  }
+
 // Typed navigation target: validates string literals against route paths,
-// accepts wide `string` variables, and keeps the history Partial<Path> object form.
+// accepts wide `string` variables, and keeps the history object form.
 type NavigationTo<App> = {
   <const P extends string>(
-    to: ValidatedHref<RouterPaths<App>, P> | Partial<import('history').Path>,
+    to: ValidatedHref<RouterPaths<App>, P> | NavigationPathObject<App, P>,
     state?: any,
   ): void
 }
