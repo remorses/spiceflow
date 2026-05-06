@@ -2230,6 +2230,125 @@ test.describe("server actions", () => {
 		await expect(page.getByTestId("eb-form")).toBeVisible({ timeout: 5000 });
 	});
 
+	test("ErrorBoundary reset allows resubmitting form successfully after error", async ({
+		page,
+	}) => {
+		await page.goto(url("/error-boundary-form-test"));
+		await expect(page.getByTestId("layout-mount-count")).toHaveText("1", {
+			timeout: 10000,
+		});
+		// Trigger error first
+		await page.getByTestId("eb-form-input").fill("fail");
+		await page.getByTestId("eb-form-submit").click();
+		await expect(page.getByTestId("eb-error-message")).toHaveText(
+			"Validation failed: bad input",
+			{ timeout: 10000 },
+		);
+		// Reset
+		await page.getByTestId("eb-reset-button").click();
+		await expect(page.getByTestId("eb-form")).toBeVisible({ timeout: 5000 });
+		// Submit with valid input (not "fail") — should not show error
+		await page.getByTestId("eb-form-input").fill("valid");
+		await page.getByTestId("eb-form-submit").click();
+		// Form should still be visible (action succeeds), no error container
+		await expect(page.getByTestId("eb-form")).toBeVisible({ timeout: 5000 });
+		await expect(page.getByTestId("eb-error-container")).not.toBeVisible();
+	});
+
+	test("ErrorBoundary inline mode keeps form visible and interactive alongside error", async ({
+		page,
+	}) => {
+		await page.goto(url("/error-boundary-inline-test"));
+		await expect(page.getByTestId("layout-mount-count")).toHaveText("1", {
+			timeout: 10000,
+		});
+		await expect(page.getByTestId("inline-eb-form")).toBeVisible();
+		// Trigger the error
+		await page.getByTestId("inline-eb-form-input").fill("fail");
+		await page.getByTestId("inline-eb-form-submit").click();
+		// Error should appear below the form (default inline = bottom)
+		await expect(page.getByTestId("inline-eb-error-message")).toHaveText(
+			"Inline boundary: action failed",
+			{ timeout: 10000 },
+		);
+		// Form should STILL be visible and interactive (no dimming, no pointer-events:none)
+		await expect(page.getByTestId("inline-eb-form")).toBeVisible();
+		// User can fix the input and resubmit without clicking reset
+		await page.getByTestId("inline-eb-form-input").fill("valid");
+		await page.getByTestId("inline-eb-form-submit").click();
+		// After successful submit the error should clear (reset happens via re-render)
+		// But since the action only throws on "fail", the form action succeeds,
+		// and the page re-renders — the error boundary auto-resets via the server re-render.
+		// The form should be visible and the error container gone.
+		await expect(page.getByTestId("inline-eb-form")).toBeVisible({ timeout: 5000 });
+		// Reset button also works to clear the error manually
+		await page.getByTestId("inline-eb-form-input").fill("fail");
+		await page.getByTestId("inline-eb-form-submit").click();
+		await expect(page.getByTestId("inline-eb-error-message")).toBeVisible({ timeout: 10000 });
+		await page.getByTestId("inline-eb-reset-button").click();
+		await expect(page.getByTestId("inline-eb-error-container")).not.toBeVisible({ timeout: 5000 });
+	});
+
+	test("ErrorBoundary.ErrorMessage truncates long messages and supports expand/collapse", async ({
+		page,
+	}) => {
+		await page.goto(url("/error-boundary-long-message"));
+		await expect(page.getByTestId("layout-mount-count")).toHaveText("1", {
+			timeout: 10000,
+		});
+		await page.getByTestId("eb-form-input").fill("fail");
+		await page.getByTestId("eb-form-submit").click();
+		// ErrorBoundary should show
+		await expect(page.getByTestId("eb-error-message")).toBeVisible({ timeout: 10000 });
+		// Should have pre-wrap whitespace
+		const whiteSpace = await page.getByTestId("eb-error-message").evaluate(
+			(el) => getComputedStyle(el).whiteSpace,
+		);
+		expect(whiteSpace).toBe("pre-wrap");
+		// The message has 30 lines, default maxLines is 10, so "Show more" should appear
+		const showMore = page.getByTestId("eb-error-container").getByText("Show more");
+		await expect(showMore).toBeVisible();
+		// Click "Show more" to expand
+		await showMore.click();
+		// Now "Show less" should appear
+		await expect(
+			page.getByTestId("eb-error-container").getByText("Show less"),
+		).toBeVisible();
+		// Line 30 should now be visible in the expanded message
+		await expect(page.getByTestId("eb-error-message")).toContainText("Line 30");
+	});
+
+	test("parseFormData ValidationError is caught by ErrorBoundary", async ({
+		page,
+	}) => {
+		await page.goto(url("/parse-form-data-error-boundary"));
+		await expect(page.getByTestId("layout-mount-count")).toHaveText("1", {
+			timeout: 10000,
+		});
+		// Form is visible initially
+		await expect(page.getByTestId("pfd-eb-form")).toBeVisible();
+		// Submit with empty name and invalid email to trigger ValidationError
+		await page.getByTestId("pfd-eb-name").fill("");
+		await page.getByTestId("pfd-eb-email").fill("not-an-email");
+		await page.getByTestId("pfd-eb-submit").click();
+		// ErrorBoundary should catch the ValidationError and show the message
+		await expect(page.getByTestId("pfd-eb-error-message")).toBeVisible({ timeout: 10000 });
+		const errorText = await page.getByTestId("pfd-eb-error-message").textContent();
+		// The ValidationError message contains the Zod validation messages
+		expect(errorText).toBeTruthy();
+		expect(errorText!.length).toBeGreaterThan(0);
+		// Reset should restore the form
+		await page.getByTestId("pfd-eb-reset-button").click();
+		await expect(page.getByTestId("pfd-eb-form")).toBeVisible({ timeout: 5000 });
+		// Submit with valid data — should not trigger error
+		await page.getByTestId("pfd-eb-name").fill("Alice");
+		await page.getByTestId("pfd-eb-email").fill("alice@example.com");
+		await page.getByTestId("pfd-eb-submit").click();
+		// Form should remain visible, no error
+		await expect(page.getByTestId("pfd-eb-form")).toBeVisible({ timeout: 5000 });
+		await expect(page.getByTestId("pfd-eb-error-container")).not.toBeVisible();
+	});
+
 	test("parseFormData validates and coerces form fields with schema", async ({
 		page,
 	}) => {

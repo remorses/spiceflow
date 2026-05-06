@@ -56,7 +56,7 @@ import {
 } from "./app/loader-global-client";
 import { ServerGuardTestClient } from "./app/server-guard-test-client";
 import { ActionFormTest } from "./app/action-form-test";
-import { ErrorBoundaryFormTest } from "./app/error-boundary-form-test";
+import { ErrorBoundaryFormTest, InlineErrorBoundaryFormTest, ParseFormDataErrorBoundaryTest } from "./app/error-boundary-form-test";
 import { ParseFormDataTest } from "./app/parse-form-data-test";
 import {
 	AbortActionTest,
@@ -84,6 +84,12 @@ const contactSchema = z.object({
 	tags: z.array(z.string()),
 });
 const contactFields = contactSchema.keyof().enum;
+
+const ebFormSchema = z.object({
+	name: z.string().min(1, "Name is required"),
+	email: z.string().email("Invalid email address"),
+});
+const ebFormFields = ebFormSchema.keyof().enum;
 
 // Increments on every RSC render of the home page. Used by e2e tests to detect
 // unwanted server re-renders (e.g. client HMR should not trigger a server render).
@@ -892,6 +898,31 @@ export const app = new Spiceflow()
 			// success — no return needed
 		}
 		return <ErrorBoundaryFormTest action={handleSubmit} />;
+	})
+	.page("/error-boundary-inline-test", async () => {
+		async function handleSubmit(formData: FormData) {
+			"use server";
+			const message = formData.get("message") as string;
+			if (message === "fail") throw new Error("Inline boundary: action failed");
+		}
+		return <InlineErrorBoundaryFormTest action={handleSubmit} />;
+	})
+	.page("/error-boundary-long-message", async () => {
+		async function handleSubmit(formData: FormData) {
+			"use server";
+			throw new Error(
+				Array.from({ length: 30 }, (_, i) => `Line ${i + 1}: error detail here`).join("\n"),
+			);
+		}
+		return <ErrorBoundaryFormTest action={handleSubmit} />;
+	})
+	.page("/parse-form-data-error-boundary", async () => {
+		async function handleSubmit(formData: FormData) {
+			"use server";
+			// No try/catch: ValidationError from parseFormData propagates to ErrorBoundary
+			parseFormData(ebFormSchema, formData);
+		}
+		return <ParseFormDataErrorBoundaryTest action={handleSubmit} fields={ebFormFields} />;
 	})
 	.page("/parse-form-data-test", async () => {
 		async function handleSubmit(prev: string, formData: FormData) {
