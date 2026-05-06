@@ -71,6 +71,36 @@ When using the typed fetch client (`createSpiceflowFetch`), follow these rules:
 - **`body` is a plain object**, not `JSON.stringify()`. The client serializes it automatically.
 - **Response is `Error | Data`.** Check with `instanceof Error`, then the happy path has the narrowed type.
 
+## Duplicate spiceflow in monorepos
+
+Spiceflow must be a single copy in `node_modules`. Duplicates cause type errors (`Types have separate declarations of a private property`) and Vite resolution bugs.
+
+**Always use `-r` (recursive) when updating spiceflow in a monorepo:**
+
+```bash
+# pnpm
+pnpm update -r spiceflow
+
+# npm
+npm update spiceflow --workspaces
+
+# bun
+bun update -r spiceflow
+```
+
+**When you hit weird type errors or Vite/spiceflow resolution issues, deduplicate first:**
+
+```bash
+# pnpm
+pnpm dedupe
+
+# npm
+npm dedupe --workspaces
+
+# bun (re-install deduplicates automatically)
+bun install
+```
+
 ## Router usage in app entry handlers
 
 `router` from `spiceflow/react` is typed from the globally registered `typeof app`. Do **not** use `router` inside `.loader()`, `.get()`, `.post()`, or `.route()` handlers in the same file that initializes `export const app = new Spiceflow()`. Those handlers feed return types back into `typeof app` through loader data or typed API responses, so `router.href()` can create recursive circular TypeScript errors such as TS7022.
