@@ -379,7 +379,43 @@ test('getRouter() with pre-declared type avoids circular widening', () => {
   expect(router.href('/users/:id', { id: '42' })).toBe('/users/42')
 })
 
+test('router.href() type-safe query params', () => {
+  const app = new Spiceflow()
+    .get('/search', () => 'results', {
+      query: z.object({ q: z.string(), page: z.coerce.number() }),
+    })
+    .get('/users/:id', ({ params }) => params.id, {
+      query: z.object({ fields: z.string() }),
+    })
+    .get('/free', () => 'ok')
+    .page('/login', async () => 'login')
 
+  type App = typeof app
+  const router = getRouter<App>()
+
+  // Query params on static path — typed
+  expect(router.href('/search', { q: 'hello', page: 1 })).toBe('/search?q=hello&page=1')
+
+  // Mixed path + query params
+  expect(router.href('/users/:id', { id: '42', fields: 'name' })).toBe('/users/42?fields=name')
+
+  // No query schema — accepts arbitrary query at runtime
+  expect(router.href('/free', { anything: 'works' })).toBe('/free?anything=works')
+
+  // Partial query — only some fields provided
+  expect(router.href('/search', { q: 'hello' })).toBe('/search?q=hello')
+
+  // Path without query — no params needed
+  expect(router.href('/login')).toBe('/login')
+
+  // @ts-expect-error - invalid query key rejected
+  router.href('/search', { invalid: 'x' })
+
+  // router.push accepts the ResolvedHref from router.href with query params
+  router.push(router.href('/search', { q: 'hello', page: 1 }))
+  router.push(router.href('/users/:id', { id: '42', fields: 'name' }))
+  router.replace(router.href('/search', { q: 'test' }))
+})
 
 test('overlapping loaders merge into typed router data', () => {
   const app = new Spiceflow()
