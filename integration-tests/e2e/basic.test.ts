@@ -2277,6 +2277,8 @@ test.describe("server actions", () => {
 		await page.getByTestId("inline-eb-form-input").fill("valid");
 		await page.getByTestId("inline-eb-form-submit").click();
 		await expect(page.getByTestId("inline-eb-form")).toBeVisible({ timeout: 5000 });
+		// Error should auto-clear after a successful submission
+		await expect(page.getByTestId("inline-eb-error-container")).not.toBeVisible({ timeout: 10000 });
 		// Reset button also works to clear the error manually
 		await page.getByTestId("inline-eb-form-input").fill("fail");
 		await page.getByTestId("inline-eb-form-submit").click();

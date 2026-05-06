@@ -144,6 +144,13 @@ class ErrorBoundaryInner extends React.Component<
     })
   }
 
+  // Synchronous reset used by onSubmitCapture in above/below mode.
+  // Clears the error before the new form action runs. If the action
+  // throws again, getDerivedStateFromError sets the error right back.
+  resetSync = () => {
+    this.setState({ error: null })
+  }
+
   override render() {
     const error = this.state.error
     if (error) {
@@ -152,7 +159,9 @@ class ErrorBoundaryInner extends React.Component<
         return (
           <ErrorBoundaryContext.Provider value={context}>
             {this.props.fallback}
-            {this.props.children}
+            <div onSubmitCapture={this.resetSync} style={{ display: 'contents' }}>
+              {this.props.children}
+            </div>
             <ErrorAutoReset reset={this.reset} />
           </ErrorBoundaryContext.Provider>
         )
@@ -160,7 +169,9 @@ class ErrorBoundaryInner extends React.Component<
       if (this.props.below) {
         return (
           <ErrorBoundaryContext.Provider value={context}>
-            {this.props.children}
+            <div onSubmitCapture={this.resetSync} style={{ display: 'contents' }}>
+              {this.props.children}
+            </div>
             {this.props.fallback}
             <ErrorAutoReset reset={this.reset} />
           </ErrorBoundaryContext.Provider>
