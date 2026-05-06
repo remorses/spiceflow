@@ -68,7 +68,7 @@ export const app = new Spiceflow()
           <RedirectForm />
         </Section>
 
-        <Section title="5. Inline ErrorBoundary (No Layout Shift)">
+        <Section title="5. ErrorBoundary below (No Layout Shift)">
           <InlineErrorForm />
         </Section>
 

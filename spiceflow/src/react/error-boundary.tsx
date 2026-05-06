@@ -2,11 +2,9 @@
 // Uses context so sub-components (ErrorMessage, ResetButton) can access
 // the error and reset function from anywhere in the fallback tree.
 //
-// `inline` mode keeps children visible and interactive alongside the fallback
-// so there is no layout shift when a form action throws. The user can fix
-// their inputs and resubmit without clicking reset first.
-// `inline` or `inline="bottom"` puts the error below children (default).
-// `inline="top"` puts the error above children.
+// `above` / `below` props keep children visible and interactive alongside
+// the fallback so there is no layout shift when a form action throws.
+// The user can fix their inputs and resubmit without clicking reset first.
 
 'use client'
 
@@ -106,10 +104,12 @@ function ResetButton({
 interface ErrorBoundaryProps {
   children?: React.ReactNode
   fallback: React.ReactNode
-  /** Keep children visible alongside the fallback when an error occurs.
-   *  `true` or `"bottom"` puts the error below children.
-   *  `"top"` puts the error above children. */
-  inline?: boolean | 'top' | 'bottom'
+  /** Show the error fallback above children instead of replacing them.
+   *  Children stay visible and interactive so users can fix inputs and resubmit. */
+  above?: boolean
+  /** Show the error fallback below children instead of replacing them.
+   *  Children stay visible and interactive so users can fix inputs and resubmit. */
+  below?: boolean
 }
 
 interface ErrorBoundaryState {
@@ -148,13 +148,20 @@ class ErrorBoundaryInner extends React.Component<
     const error = this.state.error
     if (error) {
       const context = { error, reset: this.reset }
-      const { inline } = this.props
-      if (inline) {
-        const isTop = inline === 'top'
+      if (this.props.above) {
         return (
           <ErrorBoundaryContext.Provider value={context}>
-            {isTop ? this.props.fallback : this.props.children}
-            {isTop ? this.props.children : this.props.fallback}
+            {this.props.fallback}
+            {this.props.children}
+            <ErrorAutoReset reset={this.reset} />
+          </ErrorBoundaryContext.Provider>
+        )
+      }
+      if (this.props.below) {
+        return (
+          <ErrorBoundaryContext.Provider value={context}>
+            {this.props.children}
+            {this.props.fallback}
             <ErrorAutoReset reset={this.reset} />
           </ErrorBoundaryContext.Provider>
         )
@@ -189,13 +196,13 @@ function ErrorAutoReset({ reset }: { reset: () => void }) {
 //     <form action={myAction}>...</form>
 //   </ErrorBoundary>
 //
-// Usage (inline — error below form, form stays interactive):
-//   <ErrorBoundary inline fallback={<ErrorFallback />}>
+// Usage (error above form, form stays interactive):
+//   <ErrorBoundary above fallback={<ErrorFallback />}>
 //     <form action={myAction}>...</form>
 //   </ErrorBoundary>
 //
-// Usage (inline top — error above form):
-//   <ErrorBoundary inline="top" fallback={<ErrorFallback />}>
+// Usage (error below form, form stays interactive):
+//   <ErrorBoundary below fallback={<ErrorFallback />}>
 //     <form action={myAction}>...</form>
 //   </ErrorBoundary>
 function ErrorBoundary(props: ErrorBoundaryProps) {

@@ -1836,9 +1836,66 @@ export function CreatePostForm() {
 }
 ```
 
-`ErrorBoundary.ErrorMessage` renders a `<div>` and `ErrorBoundary.ResetButton` renders a `<button>` — both accept all their respective HTML element props via `...props` spread, so you can pass `className`, `style`, `data-testid`, etc.
+`ErrorBoundary.ErrorMessage` renders a `<div>` with `white-space: pre-wrap` and `ErrorBoundary.ResetButton` renders a `<button>`. Both accept all their respective HTML element props via `...props` spread, so you can pass `className`, `style`, `data-testid`, etc. Long error messages are **truncated** to 10 lines by default with a "Show more" toggle. Override with `<ErrorBoundary.ErrorMessage maxLines={5} />`.
+
+**ErrorBoundary catches errors from three sources:**
+
+| Source | Where it runs | ErrorBoundary catches? |
+|---|---|---|
+| Server action throws | Server | Yes |
+| `parseFormData` in a server action (no try/catch) | Server | Yes (`ValidationError` propagates) |
+| `parseFormData` in a client form action | Browser | Yes (thrown inside React's form action transition) |
 
 When the form action throws, the `ErrorBoundary` catches the error, hides the form, and renders the `fallback` with the error message and a reset button. Clicking "Try again" restores the form. The error boundary also auto-resets when the user navigates to a different page.
+
+The recommended pattern is to run `parseFormData` **client-side** inside the form action, then call the server action with the validated data. This gives instant validation feedback without a server round-trip, and the `ValidationError` is still caught by `ErrorBoundary`:
+
+```tsx
+// src/app/create-contact.tsx
+'use client'
+
+import { parseFormData } from 'spiceflow'
+import { ErrorBoundary } from 'spiceflow/react'
+import { contactSchema } from '../schemas'
+import { createContact } from '../actions'
+
+const fields = contactSchema.keyof().enum
+
+export function CreateContactForm() {
+  return (
+    <ErrorBoundary fallback={...}>
+      <form action={async (formData: FormData) => {
+        const data = parseFormData(contactSchema, formData) // client-side validation
+        await createContact(data)                           // server action
+      }}>
+        <input name={fields.name} />
+        <input name={fields.email} type="email" />
+        <Button type="submit">Create</Button>
+      </form>
+    </ErrorBoundary>
+  )
+}
+```
+
+#### Error Position: `above` and `below`
+
+By default, `ErrorBoundary` **replaces** the form with the fallback when an error occurs. This causes layout shift and the user loses sight of their filled inputs. Use `above` or `below` to keep the form visible and interactive alongside the error message:
+
+```tsx
+<ErrorBoundary below fallback={
+  <div className="text-red-500">
+    <ErrorBoundary.ErrorMessage />
+    <ErrorBoundary.ResetButton>Dismiss</ErrorBoundary.ResetButton>
+  </div>
+}>
+  <form action={submitForm}>
+    <input name={fields.name} />
+    <Button type="submit">Save</Button>
+  </form>
+</ErrorBoundary>
+```
+
+`below` puts the error **below** the form. `above` puts it **above**. The form stays fully interactive; the user can fix their inputs and resubmit directly without clicking reset first. This works because form action errors don't invalidate the children's render tree; the error comes from the action, not from rendering.
 
 For **direct action calls** (onClick handlers, not forms), use try/catch since the error doesn't propagate through React's rendering. Wrap in `startTransition` if you want pending state (`isPending`) and non-blocking behavior while the server data loads:
 
@@ -2136,6 +2193,8 @@ export async function submitForm(formData: FormData) {
 ```
 
 On the client, `getActionAbortController()` returns the `AbortController` for the most recent in-flight call to a server action, or `undefined` if nothing is in-flight. Call `.abort()` to cancel the fetch.
+
+**Server actions are public POST endpoints.** Any HTTP client can call them — not just your own browser. CSRF protection (Origin header check) prevents cross-site form submissions, but it does not authenticate the caller. If a server action mutates data, creates resources, or does anything user-specific, it must authenticate and authorize the request explicitly. The same rule applies to all API routes (`.get()`, `.post()`, etc.) and any middleware that modifies state. See the [Security guide](docs/security.md) for patterns.
 
 Server actions include CSRF protection. The `Origin` header of POST requests is checked against the app's origin. This check is **disabled in development** (when `vite dev` is running) so tunnels and proxies work without issues. In production, the origin check works automatically on any hosting platform (Cloudflare Workers, Node.js, Vercel, etc.) because the browser's `Origin` header matches the server's URL.
 

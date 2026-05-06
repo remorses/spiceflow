@@ -55,7 +55,7 @@ export function InlineErrorBoundaryFormTest({
 }) {
 	return (
 		<ErrorBoundary
-			inline
+			below
 			fallback={
 				<div data-testid="inline-eb-error-container">
 					<ErrorBoundary.ErrorMessage data-testid="inline-eb-error-message" />

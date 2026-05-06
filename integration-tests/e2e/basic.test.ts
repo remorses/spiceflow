@@ -2255,7 +2255,7 @@ test.describe("server actions", () => {
 		await expect(page.getByTestId("eb-error-container")).not.toBeVisible();
 	});
 
-	test("ErrorBoundary inline mode keeps form visible and interactive alongside error", async ({
+	test("ErrorBoundary below keeps form visible and interactive alongside error", async ({
 		page,
 	}) => {
 		await page.goto(url("/error-boundary-inline-test"));
@@ -2266,20 +2266,16 @@ test.describe("server actions", () => {
 		// Trigger the error
 		await page.getByTestId("inline-eb-form-input").fill("fail");
 		await page.getByTestId("inline-eb-form-submit").click();
-		// Error should appear below the form (default inline = bottom)
+		// Error should appear below the form
 		await expect(page.getByTestId("inline-eb-error-message")).toHaveText(
 			"Inline boundary: action failed",
 			{ timeout: 10000 },
 		);
-		// Form should STILL be visible and interactive (no dimming, no pointer-events:none)
+		// Form should STILL be visible and interactive
 		await expect(page.getByTestId("inline-eb-form")).toBeVisible();
 		// User can fix the input and resubmit without clicking reset
 		await page.getByTestId("inline-eb-form-input").fill("valid");
 		await page.getByTestId("inline-eb-form-submit").click();
-		// After successful submit the error should clear (reset happens via re-render)
-		// But since the action only throws on "fail", the form action succeeds,
-		// and the page re-renders — the error boundary auto-resets via the server re-render.
-		// The form should be visible and the error container gone.
 		await expect(page.getByTestId("inline-eb-form")).toBeVisible({ timeout: 5000 });
 		// Reset button also works to clear the error manually
 		await page.getByTestId("inline-eb-form-input").fill("fail");

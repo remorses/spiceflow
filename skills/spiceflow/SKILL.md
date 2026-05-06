@@ -101,6 +101,27 @@ npm dedupe --workspaces
 bun install
 ```
 
+## Security: server actions and routes are public endpoints
+
+Server actions (`"use server"`) are **public POST endpoints**. Any HTTP client can call them directly, not just the app's own browser. CSRF protection (Origin header check) blocks cross-site form submissions but does NOT authenticate the caller. Every server action that mutates data, creates resources, or reads user-specific data MUST authenticate and authorize the request explicitly, for example by reading a session from cookies or a bearer token from headers. The same rule applies to all API routes (`.get()`, `.post()`, etc.) and middleware that modifies state.
+
+```tsx
+'use server'
+
+import { getActionRequest } from 'spiceflow'
+import { getUser } from './auth'
+
+export async function deleteProject(id: string) {
+  const { request } = getActionRequest()
+  const user = await getUser(request)
+  if (!user) throw new Error('Not authenticated')
+  if (!user.canDelete(id)) throw new Error('Not authorized')
+  await db.project.delete({ where: { id } })
+}
+```
+
+Never assume a server action is only reachable through your own UI. Treat every server action like a public API endpoint.
+
 ## Router usage in app entry handlers
 
 `router` from `spiceflow/react` is typed from the globally registered `typeof app`. Do **not** use `router` inside `.loader()`, `.get()`, `.post()`, or `.route()` handlers in the same file that initializes `export const app = new Spiceflow()`. Those handlers feed return types back into `typeof app` through loader data or typed API responses, so `router.href()` can create recursive circular TypeScript errors such as TS7022.

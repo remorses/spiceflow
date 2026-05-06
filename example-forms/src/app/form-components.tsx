@@ -241,7 +241,7 @@ export function RedirectForm() {
 export function InlineErrorForm() {
   return (
     <ErrorBoundary
-      inline
+      below
       fallback={
         <div className="rounded-lg border border-red-200 bg-red-50 p-4 flex flex-col gap-2">
           <ErrorBoundary.ErrorMessage className="text-sm text-red-600 font-medium" />
@@ -259,7 +259,7 @@ export function InlineErrorForm() {
         }}
       >
         <p className="text-sm text-gray-500">
-          Uses <code className="text-xs bg-gray-100 px-1 rounded">inline</code> mode.
+          Uses <code className="text-xs bg-gray-100 px-1 rounded">below</code> prop.
           When validation fails, the error shows below the form. The form
           stays fully interactive so you can fix inputs and resubmit. No layout shift.
         </p>
