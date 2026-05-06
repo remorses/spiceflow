@@ -1,6 +1,12 @@
 // Public ErrorBoundary for handling server action errors and render errors.
 // Uses context so sub-components (ErrorMessage, ResetButton) can access
 // the error and reset function from anywhere in the fallback tree.
+//
+// `inline` mode keeps children visible and interactive alongside the fallback
+// so there is no layout shift when a form action throws. The user can fix
+// their inputs and resubmit without clicking reset first.
+// `inline` or `inline="bottom"` puts the error below children (default).
+// `inline="top"` puts the error above children.
 
 'use client'
 
@@ -28,13 +34,59 @@ function useErrorBoundary() {
 }
 
 // Sub-component: renders the error message from the nearest ErrorBoundary.
-// Renders a <div> by default. Passes through all HTML div props.
-function ErrorMessage(props: React.ComponentProps<'div'>) {
+// Renders a <div> with white-space:pre-wrap by default so multiline errors
+// render correctly. Supports maxLines to truncate long messages with an
+// expand toggle. Passes through all HTML div props.
+function ErrorMessage({
+  maxLines = 10,
+  style,
+  ...props
+}: React.ComponentProps<'div'> & { maxLines?: number }) {
   const { error } = useErrorBoundary()
+  const [expanded, setExpanded] = React.useState(false)
   if (!error) return null
   const message = error.digest || error.message
   if (!message) return null
-  return <div {...props}>{message}</div>
+  const lineCount = message.split('\n').length
+  const isTruncated = !expanded && lineCount > maxLines
+  return (
+    <div {...props} style={{ whiteSpace: 'pre-wrap', ...style }}>
+      <span
+        style={
+          isTruncated
+            ? {
+                display: '-webkit-box',
+                WebkitLineClamp: maxLines,
+                WebkitBoxOrient: 'vertical',
+                overflow: 'hidden',
+              }
+            : undefined
+        }
+      >
+        {message}
+      </span>
+      {lineCount > maxLines && (
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          style={{
+            background: 'none',
+            border: 'none',
+            padding: 0,
+            cursor: 'pointer',
+            textDecoration: 'underline',
+            font: 'inherit',
+            color: 'inherit',
+            opacity: 0.7,
+            display: 'block',
+            marginTop: '0.25rem',
+          }}
+        >
+          {expanded ? 'Show less' : 'Show more'}
+        </button>
+      )}
+    </div>
+  )
 }
 
 // Sub-component: renders a reset button for the nearest ErrorBoundary.
@@ -54,6 +106,10 @@ function ResetButton({
 interface ErrorBoundaryProps {
   children?: React.ReactNode
   fallback: React.ReactNode
+  /** Keep children visible alongside the fallback when an error occurs.
+   *  `true` or `"bottom"` puts the error below children.
+   *  `"top"` puts the error above children. */
+  inline?: boolean | 'top' | 'bottom'
 }
 
 interface ErrorBoundaryState {
@@ -91,10 +147,20 @@ class ErrorBoundaryInner extends React.Component<
   override render() {
     const error = this.state.error
     if (error) {
+      const context = { error, reset: this.reset }
+      const { inline } = this.props
+      if (inline) {
+        const isTop = inline === 'top'
+        return (
+          <ErrorBoundaryContext.Provider value={context}>
+            {isTop ? this.props.fallback : this.props.children}
+            {isTop ? this.props.children : this.props.fallback}
+            <ErrorAutoReset reset={this.reset} />
+          </ErrorBoundaryContext.Provider>
+        )
+      }
       return (
-        <ErrorBoundaryContext.Provider
-          value={{ error, reset: this.reset }}
-        >
+        <ErrorBoundaryContext.Provider value={context}>
           {this.props.fallback}
           <ErrorAutoReset reset={this.reset} />
         </ErrorBoundaryContext.Provider>
@@ -118,13 +184,18 @@ function ErrorAutoReset({ reset }: { reset: () => void }) {
 
 // Public ErrorBoundary component with sub-components for error display and reset.
 //
-// Usage:
-//   <ErrorBoundary fallback={
-//     <div>
-//       <ErrorBoundary.ErrorMessage className="text-red-500" />
-//       <ErrorBoundary.ResetButton className="btn">Retry</ErrorBoundary.ResetButton>
-//     </div>
-//   }>
+// Usage (default — replaces children with fallback):
+//   <ErrorBoundary fallback={<ErrorFallback />}>
+//     <form action={myAction}>...</form>
+//   </ErrorBoundary>
+//
+// Usage (inline — error below form, form stays interactive):
+//   <ErrorBoundary inline fallback={<ErrorFallback />}>
+//     <form action={myAction}>...</form>
+//   </ErrorBoundary>
+//
+// Usage (inline top — error above form):
+//   <ErrorBoundary inline="top" fallback={<ErrorFallback />}>
 //     <form action={myAction}>...</form>
 //   </ErrorBoundary>
 function ErrorBoundary(props: ErrorBoundaryProps) {
