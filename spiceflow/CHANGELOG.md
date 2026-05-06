@@ -1,5 +1,28 @@
 # spiceflow
 
+## 1.22.0-rsc.0
+
+1. **Type-safe `router.push()` and `router.replace()`** — navigation methods now validate path literals against your route definitions. Invalid literal paths are rejected at compile time, while `string` variables and `router.href()` return values are always accepted:
+
+   ```ts
+   router.push('/login')                    // valid literal
+   router.push('/nonexistent')              // type error
+   router.push(router.href('/users/:id', { id: '42' })) // ResolvedHref always works
+
+   const path: string = getDynamicPath()
+   router.push(path)                        // string variables accepted
+   ```
+
+   Object form with `{ pathname, search, hash }` is also typed.
+
+2. **Smarter `Link` and fetch client type inference for resolved paths** — paths like `/users/123` (where params are already baked in) no longer falsely require a `params` prop. The type system uses segment-boundary detection (`/:`) instead of bare `:` matching, so colons in values like ISO timestamps (`/events/2026-05-06T12:00:00Z`) don't trigger false positives.
+
+3. **Removed `createHref()`** — use `router.href()` instead, which has the same API but lives on the router object and works with the `SpiceflowRegister` type registry pattern.
+
+4. **Fixed vitest-only transforms leaking into Cloudflare builds** — the `spiceflow:strip-directives` plugin now checks `isVitestRuntime` at transform time instead of using a top-level `process.env.VITEST` check. This prevents `"use server"` and `"use client"` directives from being stripped during `wrangler build` when Vitest happens to be installed.
+
+5. **Removed stray `console.error` in MCP transport** — `openapi-to-mcp.ts` no longer logs request headers to stderr.
+
 ## 1.21.0-rsc.0
 
 1. **Vitest support for testing page routes, API routes, and server actions** — the Vite plugin auto-detects Vitest and injects a `spiceflow-vitest` resolve condition that swaps RSC Flight serialization for a lightweight shim. No manual config needed. New `spiceflow/testing` export provides `SpiceflowTestResponse` (with `.text()` for rendered HTML, `.loaderData`, `.page` JSX) and `runAction` for testing actions that use `getActionRequest()`:
