@@ -115,15 +115,22 @@ type RouteAtFetchPath<
   ? RouteAtPath<Routes, Pattern>
   : never
 
+// Distributive over the route union so that when multiple patterns match
+// (e.g. GET and PUT routes with the same segment structure but different param names),
+// we extract only the branch that actually has the requested method.
+// The `R extends R` triggers TypeScript's distributive conditional type behavior
+// over the union, checking each member individually instead of taking keyof(A|B).
 type RouteInfoForMethod<
   Routes extends Record<string, any>,
   Paths extends string,
   Path extends AllHrefPaths<Paths>,
   Method extends string,
-> =
-  Lowercase<Method> extends keyof RouteAtFetchPath<Routes, Paths, Path>
-    ? RouteAtFetchPath<Routes, Paths, Path>[Lowercase<Method>]
+  R = RouteAtFetchPath<Routes, Paths, Path>,
+> = R extends R
+  ? Lowercase<Method> extends keyof R
+    ? R[Lowercase<Method>]
     : never
+  : never
 
 // ─── Options type ────────────────────────────────────────────────────────────
 
@@ -143,7 +150,8 @@ type ParamsOption<Path extends string> =
       : { params: ExtractParamsFromPath<Path> }
     : { params?: Record<string, string> }
 
-// Query option: typed from route schema if available
+// Query option: typed from route schema if available.
+// When all query fields are optional ({} extends Q), the query option itself is optional.
 type QueryOption<
   Routes extends Record<string, any>,
   Paths extends string,
@@ -155,7 +163,9 @@ type QueryOption<
   }
     ? undefined extends Q
       ? { query?: Record<string, unknown> }
-      : { query: Q }
+      : {} extends Q
+        ? { query?: Q }
+        : { query: Q }
     : { query?: Record<string, unknown> }
 
 // Body option: typed from route schema, only for non-GET/HEAD/SUBSCRIBE methods
@@ -183,6 +193,26 @@ type HasRequiredParamsCheck<Path extends string> =
       : true
     : false
 
+// Check if a query/body type has any required fields.
+// {} extends T is true when all keys in T are optional.
+type IsBodyRequired<
+  Routes extends Record<string, any>,
+  Paths extends string,
+  Path extends AllHrefPaths<Paths>,
+  Method extends string,
+> =
+  Lowercase<Method> extends 'get' | 'head' | 'subscribe'
+    ? false
+    : RouteInfoForMethod<Routes, Paths, Path, Method> extends {
+          request: infer Body
+        }
+      ? undefined extends Body
+        ? false
+        : {} extends Body
+          ? false
+          : true
+      : false
+
 type HasRequiredFields<
   Routes extends Record<string, any>,
   Paths extends string,
@@ -195,27 +225,11 @@ type HasRequiredFields<
     : // query required?
       RouteInfoForMethod<Routes, Paths, Path, Method> extends { query: infer Q }
       ? undefined extends Q
-        ? // body required?
-          Lowercase<Method> extends 'get' | 'head' | 'subscribe'
-          ? false
-          : RouteInfoForMethod<Routes, Paths, Path, Method> extends {
-                request: infer Body
-              }
-            ? undefined extends Body
-              ? false
-              : true
-            : false
-        : true
-      : // body required?
-        Lowercase<Method> extends 'get' | 'head' | 'subscribe'
-        ? false
-        : RouteInfoForMethod<Routes, Paths, Path, Method> extends {
-              request: infer Body
-            }
-          ? undefined extends Body
-            ? false
-            : true
-          : false
+        ? IsBodyRequired<Routes, Paths, Path, Method>
+        : {} extends Q
+          ? IsBodyRequired<Routes, Paths, Path, Method>
+          : true
+      : IsBodyRequired<Routes, Paths, Path, Method>
 
 type FetchOptionsTyped<
   Routes extends Record<string, any>,

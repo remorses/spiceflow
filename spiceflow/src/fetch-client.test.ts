@@ -364,6 +364,25 @@ describe('fetch client type safety', () => {
     if (result instanceof Error) throw result
     expect(result).toEqual(1)
   })
+
+  it('allows omitting second arg when all query fields are optional', async () => {
+    const optionalQueryApp = new Spiceflow().get(
+      '/projects',
+      ({ query }) => ({ items: [], org: query.orgId ?? 'all' }),
+      { query: z.object({ orgId: z.string().optional() }) },
+    )
+    const optF = createSpiceflowFetch(optionalQueryApp)
+    // Should compile without second arg since all query fields are optional
+    const result = await optF('/projects')
+    if (result instanceof Error) throw result
+    expect(result).toEqual({ items: [], org: 'all' })
+  })
+
+  it('still requires second arg when query has required fields', () => {
+    // /search has required query field q: z.string() — already tested above
+    // @ts-expect-error - missing required query for /search
+    void f('/search')
+  })
 })
 
 describe('fetch client with state', () => {
@@ -498,5 +517,54 @@ describe('json() typed response', () => {
     const result = await f('/free')
     if (result instanceof Error) throw result
     expect(result).toEqual({ anything: true })
+  })
+})
+
+// ── Overlapping param routes via .use() ─────────────────────────────────────
+
+describe('overlapping param routes via .use()', () => {
+  const apiApp = new Spiceflow({ basePath: '/api' })
+    .get('/projects/:id', () => ({ name: 'proj', orgName: 'org' }))
+    .get('/projects/:pid/environments/:id', () => ({
+      slug: 'dev',
+      envName: 'Development',
+    }))
+    .put('/projects/:pid/environments/:eid', () => ({ updated: true }))
+
+  const app = new Spiceflow().use(apiApp)
+  const f = createSpiceflowFetch(app)
+
+  it('pattern path resolves to specific route, not union', async () => {
+    const result = await f('/api/projects/:pid/environments/:id', {
+      params: { pid: 'p1', id: 'dev' },
+    })
+    if (result instanceof Error) throw result
+    expect(result.slug).toBe('dev')
+    expect(result.envName).toBe('Development')
+  })
+
+  it('resolved path resolves to specific route', async () => {
+    const result = await f('/api/projects/p1/environments/dev')
+    if (result instanceof Error) throw result
+    expect(result.slug).toBe('dev')
+    expect(result.envName).toBe('Development')
+  })
+
+  it('PUT method returns typed response, not unknown', async () => {
+    const result = await f('/api/projects/:pid/environments/:eid', {
+      method: 'PUT',
+      params: { pid: 'p1', eid: 'dev' },
+    })
+    if (result instanceof Error) throw result
+    expect(result.updated).toBe(true)
+  })
+
+  it('short param path still resolves correctly', async () => {
+    const result = await f('/api/projects/:id', {
+      params: { id: 'p1' },
+    })
+    if (result instanceof Error) throw result
+    expect(result.name).toBe('proj')
+    expect(result.orgName).toBe('org')
   })
 })

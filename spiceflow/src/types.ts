@@ -980,12 +980,12 @@ export type LoaderMatchesPath<
 > = Pattern extends `${infer Prefix}/*`
   ? Prefix extends ''
     ? true
-    : LoaderSegmentsMatch<Split<Prefix, '/'>, Split<Path, '/'>> extends true
+    : SegmentsMatch<Split<Prefix, '/'>, Split<Path, '/'>> extends true
       ? true
       : Path extends Prefix | `${Prefix}/${string}`
         ? true
         : false
-  : LoaderSegmentsMatch<Split<Pattern, '/'>, Split<Path, '/'>>
+  : SegmentsMatch<Split<Pattern, '/'>, Split<Path, '/'>>
 
 // Split a string by delimiter
 type Split<
@@ -993,20 +993,24 @@ type Split<
   D extends string,
 > = S extends `${infer Head}${D}${infer Tail}` ? [Head, ...Split<Tail, D>] : [S]
 
-// Match pattern segments against path segments, supporting :param
-type LoaderSegmentsMatch<P extends string[], T extends string[]> = P extends [
+// Match pattern segments against path segments one-by-one.
+// :param matches any single non-empty segment, * matches any remaining segments.
+// Used by both loader matching and route path matching in createSpiceflowFetch.
+type SegmentsMatch<P extends string[], T extends string[]> = P extends [
   infer PH extends string,
   ...infer PR extends string[],
 ]
-  ? T extends [infer TH extends string, ...infer TR extends string[]]
-    ? PH extends `:${string}`
-      ? TH extends ''
-        ? false
-        : LoaderSegmentsMatch<PR, TR>
-      : PH extends TH
-        ? LoaderSegmentsMatch<PR, TR>
-        : false
-    : false
+  ? PH extends '*'
+    ? true
+    : T extends [infer TH extends string, ...infer TR extends string[]]
+      ? PH extends `:${string}`
+        ? TH extends ''
+          ? false
+          : SegmentsMatch<PR, TR>
+        : PH extends TH
+          ? SegmentsMatch<PR, TR>
+          : false
+      : false
   : T extends []
     ? true
     : false
@@ -1072,7 +1076,7 @@ export type MatchingPathPattern<
 > = Path extends Paths
   ? Extract<Paths, Path>
   : Paths extends any
-    ? Path extends PatternToResolved<Paths>
+    ? SegmentsMatch<Split<Paths, '/'>, Split<Path, '/'>> extends true
       ? Paths
       : never
     : never
