@@ -1,7 +1,7 @@
 /// <reference types="vitest/config" />
 import path from 'node:path'
 import { cloudflare } from '@cloudflare/vite-plugin'
-import { cloudflareTest, readD1Migrations } from '@cloudflare/vitest-pool-workers'
+import { cloudflareTest,  readD1Migrations } from '@cloudflare/vitest-pool-workers'
 import react from '@vitejs/plugin-react'
 import spiceflow from 'spiceflow/vite'
 import { defineConfig } from 'vite'

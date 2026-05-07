@@ -1,5 +1,9 @@
 # spiceflow
 
+## 1.23.1-rsc.0
+
+1. **Fixed `createSpiceflowFetch` type inference for overlapping parameterized routes** — when a sub-app had routes like `/projects/:id` and `/projects/:pid/environments/:id`, resolved paths returned a union of all matching route response types instead of the specific one. Routes with the same path depth but different HTTP methods (e.g. GET and PUT) now correctly return their respective types instead of `unknown`. Routes with all-optional query schemas no longer force a second argument on the fetch call.
+
 ## 1.23.0-rsc.0
 
 1. **ErrorBoundary `above` and `below` props** — keep the form visible and interactive alongside the error fallback instead of replacing it. `above` puts the error above the children; `below` puts it below. The form stays fully interactive so users can fix inputs and resubmit directly without clicking reset first:
