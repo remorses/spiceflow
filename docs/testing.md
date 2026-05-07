@@ -502,7 +502,7 @@ test('button has correct attributes and text', async () => {
 
 ## Testing on Cloudflare Workers
 
-Run tests **inside the real workerd runtime** with [`@cloudflare/vitest-pool-workers`](https://developers.cloudflare.com/workers/testing/vitest-integration/). This gives you access to `cloudflare:workers` APIs (`env`, `waitUntil`, D1, KV, etc.) in your test files — the same environment as production.
+Run tests **inside the real workerd runtime** with [`@cloudflare/vitest-pool-workers`](https://developers.cloudflare.com/workers/testing/vitest-integration/). This gives you access to `cloudflare:workers` APIs (`env`, `waitUntil`, D1, KV, etc.) in your test files — the same environment as production. D1 is simulated locally as an **in-memory SQLite database** by Miniflare; no real Cloudflare infrastructure is involved.
 
 See the complete working example: [example-vitest-cloudflare](https://github.com/remorses/spiceflow/tree/main/example-vitest-cloudflare)
 
@@ -514,7 +514,9 @@ Install the pool workers package alongside the Cloudflare Vite plugin:
 pnpm add -D @cloudflare/vitest-pool-workers @cloudflare/vite-plugin wrangler
 ```
 
-Configure `vite.config.ts` to swap between `cloudflareTest()` (vitest) and `cloudflare()` (dev/build) based on the `VITEST` env variable. Pass your `wrangler.jsonc` path and any extra miniflare bindings (like D1 migration data).
+Configure `vite.config.ts` to swap between `cloudflareTest()` (vitest) and `cloudflare()` (dev/build) based on the `VITEST` env variable.
+
+`readD1Migrations()` runs on the **Node.js side** (at config time), reads the SQL files from your `migrations/` folder, and passes them as a miniflare binding called `TEST_MIGRATIONS`. The actual migration application happens later inside workerd via the setup file.
 
 ```ts
 // vite.config.ts
@@ -525,6 +527,8 @@ import spiceflow from 'spiceflow/vite'
 import { defineConfig } from 'vite'
 
 export default defineConfig(async () => {
+  // Reads .sql files from migrations/ on the Node.js side, before workerd starts.
+  // Passed to miniflare as the TEST_MIGRATIONS binding so workerd can apply them.
   const migrations = await readD1Migrations(path.join(__dirname, 'migrations')).catch(() => [])
 
   return {
@@ -548,43 +552,135 @@ export default defineConfig(async () => {
 
 ### Applying D1 Migrations
 
-Create a setup file that applies migrations before tests run. `applyD1Migrations()` is idempotent — safe to call multiple times.
+The setup file runs **inside workerd** before each test file. It applies the SQL migrations to the fresh in-memory D1 using two APIs from Cloudflare's virtual modules:
+
+- **`env` from `cloudflare:workers`** — the same bindings object available in production handlers (`env.DB`, `env.KV`, etc.), wired to Miniflare's in-memory implementations
+- **`applyD1Migrations` from `cloudflare:test`** — test-only helper that runs pending SQL migrations against a D1 binding; tracks which have been applied so it is safe to call multiple times
 
 ```ts
 // src/apply-migrations.ts
 import { applyD1Migrations } from 'cloudflare:test'
 import { env } from 'cloudflare:workers'
 
+// Applies all .sql files passed via TEST_MIGRATIONS to the in-memory env.DB.
+// Idempotent: skips migrations already applied.
 await applyD1Migrations(env.DB, env.TEST_MIGRATIONS)
 ```
 
+### Storage Isolation Model
+
+**All storage** — D1, KV, R2, and Durable Objects — follows the same isolation model: **per test file, shared within a file**.
+
+Each test file gets a completely fresh storage snapshot. workerd implements this by pushing a new SQLite snapshot onto an on-disk stack at the start of each file, then popping it at the end — discarding every write. Tests within the same file share state; different files are completely isolated and run concurrently.
+
+This is why `apply-migrations.ts` runs once per file: the fresh snapshot has no tables yet, so migrations are applied to each file's clean DB before its tests start.
+
+```
+pnpm test
+│
+├─ vite.config.ts (Node.js)
+│   └─ readD1Migrations() → SQL strings → TEST_MIGRATIONS binding
+│
+├─ users.test.ts                      ├─ posts.test.ts
+│   Fresh D1 + KV + DO storage            Fresh D1 + KV + DO storage
+│   ├─ setup: apply migrations             ├─ setup: apply migrations
+│   ├─ test 1 → INSERT, create DO          ├─ test 1 → INSERT, create DO
+│   └─ test 2 → sees test 1's state        └─ test 2 → sees test 1's state
+│   (file ends → snapshot discarded)      (file ends → snapshot discarded)
+│
+│   Files run concurrently, each sees only its own storage.
+```
+
+**Durable Objects** follow the exact same model. DO instances created in one test file don't exist in another. `listDurableObjectIds(namespace)` from `cloudflare:test` only returns IDs created within the current file's snapshot.
+
+**If you need per-test isolation within a file:** clean up manually in `beforeEach`/`afterEach` — e.g. `DELETE FROM table` for D1 or `env.KV.delete(key)` for KV.
+
+**If you need shared state across files** (e.g. integration tests that build up accumulated data): run with `--max-workers=1 --no-isolate`.
+
+**WebSockets + Durable Objects** don't work with per-file isolation. Use `--max-workers=1 --no-isolate` as a workaround.
+
 ### Writing Tests
 
-Import `env` and other Workers APIs directly from `cloudflare:workers`. Use the same `createSpiceflowFetch` pattern for pages and API routes.
+Import `env` and `waitUntil` directly from `cloudflare:workers` — the same virtual module available in your Worker handlers. `env` gives typed access to all bindings declared in `wrangler.jsonc`.
 
 ```ts
-import { describe, test, expect, beforeEach } from 'vitest'
-import { env } from 'cloudflare:workers'
+import { test, expect } from 'vitest'
+import { env, waitUntil } from 'cloudflare:workers'
 import { SpiceflowTestResponse } from 'spiceflow/testing'
 import { createSpiceflowFetch } from 'spiceflow/client'
 import { app } from './main.js'
 
 const f = createSpiceflowFetch(app)
 
+// Pages work the same as in Node.js tests
 test('GET / renders home page', async () => {
   const res = await f('/')
   if (!(res instanceof SpiceflowTestResponse)) throw new Error('expected page')
   expect(await res.text()).toContain('Home')
 })
 
+// D1 is available via env — same API as production
 test('D1: insert and query a user', async () => {
   await env.DB.prepare('INSERT INTO users (name) VALUES (?)').bind('Alice').run()
   const row = await env.DB.prepare('SELECT * FROM users WHERE name = ?').bind('Alice').first()
   expect(row).toMatchObject({ name: 'Alice' })
 })
+
+// waitUntil works inside workerd
+test('waitUntil is callable', () => {
+  expect(() => waitUntil(Promise.resolve('done'))).not.toThrow()
+})
 ```
 
-The `env` binding from `cloudflare:workers` is the same object declared in your `wrangler.jsonc`. D1, KV, R2, and other bindings are all available. Per-test file storage isolation resets D1 data between test files automatically.
+**Cloudflare virtual module imports used in tests:**
+
+| Import | Module | Purpose |
+|---|---|---|
+| `env` | `cloudflare:workers` | Bindings from `wrangler.jsonc` (D1, KV, R2, etc.) |
+| `waitUntil` | `cloudflare:workers` | Extend Worker lifetime for background tasks |
+| `applyD1Migrations` | `cloudflare:test` | Apply SQL migrations to a D1 binding in tests |
+
+### Type Safety for Bindings
+
+`env` from `cloudflare:workers` is typed via the `Cloudflare.Env` interface. Run `wrangler types` to auto-generate `worker-configuration.d.ts` from your `wrangler.jsonc` bindings:
+
+```bash
+wrangler types
+```
+
+This produces a file like:
+
+```ts
+// worker-configuration.d.ts  (generated, do not edit)
+declare namespace Cloudflare {
+  interface Env {
+    DB: D1Database
+    MY_KV: KVNamespace
+  }
+}
+// makes `env` from cloudflare:workers typed as Cloudflare.Env
+interface Env extends Cloudflare.Env {}
+```
+
+For **test-only bindings** that only exist in miniflare (like `TEST_MIGRATIONS`), augment `Cloudflare.Env` manually in a separate `.d.ts` file so you don't touch the generated file:
+
+```ts
+// src/env.d.ts
+declare namespace Cloudflare {
+  interface Env {
+    TEST_MIGRATIONS: D1Migration[]
+  }
+}
+
+interface D1Migration {
+  name: string
+  queries: string[]
+}
+```
+
+After this, `env.DB`, `env.MY_KV`, and `env.TEST_MIGRATIONS` are all fully typed everywhere — in test files, setup files, and Worker handlers alike. The `Cloudflare.Env` namespace is open for augmentation, so TypeScript merges all declarations.
+
+For testing Durable Objects, Queues, Workflows, and the full list of available test helpers, see the [Cloudflare Workers Vitest test APIs reference](https://developers.cloudflare.com/workers/testing/vitest-integration/test-apis/).
 
 ## What's Not Supported
 
