@@ -193,8 +193,6 @@ type HasRequiredParamsCheck<Path extends string> =
       : true
     : false
 
-// Check if a query/body type has any required fields.
-// {} extends T is true when all keys in T are optional.
 type IsBodyRequired<
   Routes extends Record<string, any>,
   Paths extends string,
@@ -208,9 +206,7 @@ type IsBodyRequired<
         }
       ? undefined extends Body
         ? false
-        : {} extends Body
-          ? false
-          : true
+        : true
       : false
 
 type HasRequiredFields<
