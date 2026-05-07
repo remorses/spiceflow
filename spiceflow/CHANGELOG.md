@@ -1,5 +1,27 @@
 # spiceflow
 
+## 1.23.0-rsc.0
+
+1. **ErrorBoundary `above` and `below` props** — keep the form visible and interactive alongside the error fallback instead of replacing it. `above` puts the error above the children; `below` puts it below. The form stays fully interactive so users can fix inputs and resubmit directly without clicking reset first:
+
+   ```tsx
+   <ErrorBoundary below fallback={
+     <div className="text-red-500">
+       <ErrorBoundary.ErrorMessage />
+       <ErrorBoundary.ResetButton>Dismiss</ErrorBoundary.ResetButton>
+     </div>
+   }>
+     <form action={submitForm}>
+       <input name="name" />
+       <button type="submit">Save</button>
+     </form>
+   </ErrorBoundary>
+   ```
+
+2. **`ErrorBoundary.ErrorMessage` `maxLines` truncation** — long error messages are truncated to 10 lines by default with a "Show more / Show less" toggle. Override with `<ErrorBoundary.ErrorMessage maxLines={5} />`. Error text is also rendered with `white-space: pre-wrap` so multiline stack traces preserve formatting.
+
+3. **Fixed ErrorBoundary above/below not clearing on successful resubmit** — when using `above` or `below` mode the error state now clears automatically when the user fixes their inputs and resubmits successfully. Previously the error persisted even after the action succeeded.
+
 ## 1.22.0-rsc.0
 
 1. **Type-safe `router.push()` and `router.replace()`** — navigation methods now validate path literals against your route definitions. Invalid literal paths are rejected at compile time, while `string` variables and `router.href()` return values are always accepted:
