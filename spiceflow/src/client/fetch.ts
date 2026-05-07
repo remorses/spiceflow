@@ -23,6 +23,12 @@ import {
 
 // ─── Type utilities ──────────────────────────────────────────────────────────
 
+// Forces TypeScript to fully resolve conditional/mapped types in IDE hovers.
+// Scalars and nullish pass through unchanged to avoid `null & {}` = never (TS 4.8+).
+type Simplify<T> = T extends null | undefined | string | number | boolean | symbol | bigint
+  ? T
+  : T & {}
+
 type HttpMethodLower =
   | 'get'
   | 'post'
@@ -300,6 +306,7 @@ type FetchResult<
   | FetchResultError<Routes, Paths, Path, Method>
   | FetchResultData<Routes, Paths, Path, Method>
 
+
 // ─── Public type ─────────────────────────────────────────────────────────────
 
 // Resolves options for a given App/Path/Method combination.
@@ -329,7 +336,7 @@ type ResolveResult<
   ? IsAny<Routes> extends true
     ? SpiceflowFetchError<number, any> | any
     : Path extends AllHrefPaths<AppClientPaths<App>>
-      ? FetchResult<Routes, AppClientPaths<App>, Path, Method>
+      ? Simplify<FetchResult<Routes, AppClientPaths<App>, Path, Method>>
       : any
   : SpiceflowFetchError<number, any> | any
 
