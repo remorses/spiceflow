@@ -500,6 +500,92 @@ test('button has correct attributes and text', async () => {
 
 `tree.match()` accepts matcher objects: `{ tag: 'div' }`, `{ attrs: { id: 'main' } }`, or both combined. It walks the full tree recursively.
 
+## Testing on Cloudflare Workers
+
+Run tests **inside the real workerd runtime** with [`@cloudflare/vitest-pool-workers`](https://developers.cloudflare.com/workers/testing/vitest-integration/). This gives you access to `cloudflare:workers` APIs (`env`, `waitUntil`, D1, KV, etc.) in your test files — the same environment as production.
+
+See the complete working example: [example-vitest-cloudflare](https://github.com/remorses/spiceflow/tree/main/example-vitest-cloudflare)
+
+### Setup
+
+Install the pool workers package alongside the Cloudflare Vite plugin:
+
+```bash
+pnpm add -D @cloudflare/vitest-pool-workers @cloudflare/vite-plugin wrangler
+```
+
+Configure `vite.config.ts` to swap between `cloudflareTest()` (vitest) and `cloudflare()` (dev/build) based on the `VITEST` env variable. Pass your `wrangler.jsonc` path and any extra miniflare bindings (like D1 migration data).
+
+```ts
+// vite.config.ts
+import path from 'node:path'
+import { cloudflare } from '@cloudflare/vite-plugin'
+import { cloudflareTest, readD1Migrations } from '@cloudflare/vitest-pool-workers'
+import spiceflow from 'spiceflow/vite'
+import { defineConfig } from 'vite'
+
+export default defineConfig(async () => {
+  const migrations = await readD1Migrations(path.join(__dirname, 'migrations')).catch(() => [])
+
+  return {
+    plugins: [
+      process.env.VITEST
+        ? cloudflareTest({
+            wrangler: { configPath: './wrangler.jsonc' },
+            miniflare: { bindings: { TEST_MIGRATIONS: migrations } },
+          })
+        : cloudflare({
+            viteEnvironment: { name: 'rsc', childEnvironments: ['ssr'] },
+          }),
+      spiceflow({ entry: './src/main.tsx' }),
+    ],
+    test: {
+      setupFiles: ['./src/apply-migrations.ts'],
+    },
+  }
+})
+```
+
+### Applying D1 Migrations
+
+Create a setup file that applies migrations before tests run. `applyD1Migrations()` is idempotent — safe to call multiple times.
+
+```ts
+// src/apply-migrations.ts
+import { applyD1Migrations } from 'cloudflare:test'
+import { env } from 'cloudflare:workers'
+
+await applyD1Migrations(env.DB, env.TEST_MIGRATIONS)
+```
+
+### Writing Tests
+
+Import `env` and other Workers APIs directly from `cloudflare:workers`. Use the same `createSpiceflowFetch` pattern for pages and API routes.
+
+```ts
+import { describe, test, expect, beforeEach } from 'vitest'
+import { env } from 'cloudflare:workers'
+import { SpiceflowTestResponse } from 'spiceflow/testing'
+import { createSpiceflowFetch } from 'spiceflow/client'
+import { app } from './main.js'
+
+const f = createSpiceflowFetch(app)
+
+test('GET / renders home page', async () => {
+  const res = await f('/')
+  if (!(res instanceof SpiceflowTestResponse)) throw new Error('expected page')
+  expect(await res.text()).toContain('Home')
+})
+
+test('D1: insert and query a user', async () => {
+  await env.DB.prepare('INSERT INTO users (name) VALUES (?)').bind('Alice').run()
+  const row = await env.DB.prepare('SELECT * FROM users WHERE name = ?').bind('Alice').first()
+  expect(row).toMatchObject({ name: 'Alice' })
+})
+```
+
+The `env` binding from `cloudflare:workers` is the same object declared in your `wrangler.jsonc`. D1, KV, R2, and other bindings are all available. Per-test file storage isolation resets D1 data between test files automatically.
+
 ## What's Not Supported
 
 Vitest mode bypasses RSC Flight serialization. Some features require the full RSC environment and should be tested with e2e tests (Playwright).
