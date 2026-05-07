@@ -1548,6 +1548,49 @@ export function EditorToolbar() {
 }
 ```
 
+### Streaming with `use()`
+
+Loaders can return an unawaited `Promise` to start a slow fetch without blocking the page render. The promise travels through the RSC flight stream to the client, where a `'use client'` component calls `use(promise)` inside a `<Suspense>` boundary. The page HTML is sent immediately with the fallback; the real content streams in once the promise settles.
+
+```tsx
+// src/main.tsx
+import { Suspense } from 'react'
+import { HeavyStats } from './app/heavy-stats'
+
+app
+  .loader('/dashboard', async ({ request }) => {
+    const user = await getUser(request)         // fast, awaited — blocks nothing
+    const statsPromise = getExpensiveStats()    // slow, NOT awaited — streams later
+    return { user, statsPromise }
+  })
+  .page('/dashboard', async ({ loaderData }) => {
+    return (
+      <div>
+        <h1>Welcome {loaderData.user.name}</h1>
+        <Suspense fallback={<p>Loading stats…</p>}>
+          <HeavyStats statsPromise={loaderData.statsPromise} />
+        </Suspense>
+      </div>
+    )
+  })
+```
+
+```tsx
+// src/app/heavy-stats.tsx
+'use client'
+
+import { use } from 'react'
+
+export function HeavyStats({ statsPromise }: { statsPromise: Promise<Stats> }) {
+  const stats = use(statsPromise)   // suspends here until the promise resolves
+  return <div>{stats.totalViews} views</div>
+}
+```
+
+The mechanics: the loader finishes immediately after `getUser()`, so the page server component renders and the RSC flight stream starts. The `statsPromise` is serialized into the stream as a pending promise reference. On the client, `use(statsPromise)` suspends `HeavyStats` and React shows the `<Suspense>` fallback. When the promise resolves on the server, the result is flushed into the same flight stream and React replaces the fallback with the real component — no extra HTTP round-trip.
+
+This is faster than `await getExpensiveStats()` in the loader because the page skeleton reaches the browser immediately instead of waiting for the slow fetch to finish before any HTML is sent.
+
 **Error handling**: if a loader throws a `redirect()` or `notFound()`, the entire request short-circuits — the page handler never runs. If a loader throws any other error, it renders through the nearest error boundary instead of showing a blank page.
 
 ### Parallel Data Fetching

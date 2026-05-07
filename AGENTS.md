@@ -19,6 +19,7 @@ When adding or editing content in the root `README.md`, follow these rules:
 - **Short headings.** Keep section headings concise (3-5 words). Move explanatory content into the opening paragraph below the heading.
 - **Extend existing examples.** For new APIs, prefer adding them to an existing section's code examples rather than creating a new section. Only add a new `##` section for a genuinely new core API or concept.
 - **Think about placement.** Before adding content, review the overall section hierarchy and choose the best location. Don't just append at the end — find the section where the topic fits logically.
+- **Split long sections.** If a `##` section grows beyond ~5 paragraphs or ~3 code blocks, split it into `###` subsections with short headings. Readers should never have to scroll through a wall of content under a single heading.
 
 # package manager: pnpm with workspace
 
