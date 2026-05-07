@@ -23,6 +23,12 @@ import {
 
 // ─── Type utilities ──────────────────────────────────────────────────────────
 
+// Forces TypeScript to fully resolve conditional/mapped types in IDE hovers.
+// Scalars and nullish pass through unchanged to avoid `null & {}` = never (TS 4.8+).
+type Simplify<T> = T extends null | undefined | string | number | boolean | symbol | bigint
+  ? T
+  : T & {}
+
 type HttpMethodLower =
   | 'get'
   | 'post'
@@ -296,9 +302,10 @@ type FetchResult<
   Paths extends string,
   Path extends AllHrefPaths<Paths>,
   Method extends string,
-> =
+> = Simplify<
   | FetchResultError<Routes, Paths, Path, Method>
   | FetchResultData<Routes, Paths, Path, Method>
+>
 
 // ─── Public type ─────────────────────────────────────────────────────────────
 
