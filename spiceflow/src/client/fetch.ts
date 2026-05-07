@@ -23,6 +23,13 @@ import {
 
 // ─── Type utilities ──────────────────────────────────────────────────────────
 
+// Applies `& {}` to force eager evaluation of conditional types in hovers,
+// but only for non-scalar types. Scalars, null, undefined pass through unchanged
+// so `T & {}` doesn't strip nullish values (TS 4.8+ treats `null & {}` as never).
+type Simplify<T> = T extends null | undefined | string | number | boolean | symbol | bigint
+  ? T
+  : T & {}
+
 type HttpMethodLower =
   | 'get'
   | 'post'
@@ -266,30 +273,34 @@ type FetchResultData<
   Paths extends string,
   Path extends AllHrefPaths<Paths>,
   Method extends string,
-> = [RouteAtFetchPath<Routes, Paths, Path>] extends [never]
-  ? any
-  : RouteInfoForMethod<Routes, Paths, Path, Method> extends {
-        response: infer Res extends Record<number, unknown>
-      }
-    ? ReplaceGeneratorWithAsyncGenerator<Res>[200]
-    : any
+> = Simplify<
+  [RouteAtFetchPath<Routes, Paths, Path>] extends [never]
+    ? any
+    : RouteInfoForMethod<Routes, Paths, Path, Method> extends {
+          response: infer Res extends Record<number, unknown>
+        }
+      ? ReplaceGeneratorWithAsyncGenerator<Res>[200]
+      : any
+>
 
 type FetchResultError<
   Routes extends Record<string, any>,
   Paths extends string,
   Path extends AllHrefPaths<Paths>,
   Method extends string,
-> = [RouteAtFetchPath<Routes, Paths, Path>] extends [never]
-  ? SpiceflowFetchError<number, any>
-  : RouteInfoForMethod<Routes, Paths, Path, Method> extends {
-        response: infer Res extends Record<number, unknown>
-      }
-    ? Exclude<keyof Res, 200> extends never
-      ? SpiceflowFetchError<number, any>
-      : {
-          [Status in keyof Res]: SpiceflowFetchError<Status, Res[Status]>
-        }[Exclude<keyof Res, 200>]
-    : SpiceflowFetchError<number, any>
+> = Simplify<
+  [RouteAtFetchPath<Routes, Paths, Path>] extends [never]
+    ? SpiceflowFetchError<number, any>
+    : RouteInfoForMethod<Routes, Paths, Path, Method> extends {
+          response: infer Res extends Record<number, unknown>
+        }
+      ? Exclude<keyof Res, 200> extends never
+        ? SpiceflowFetchError<number, any>
+        : {
+            [Status in keyof Res]: SpiceflowFetchError<Status, Res[Status]>
+          }[Exclude<keyof Res, 200>]
+      : SpiceflowFetchError<number, any>
+>
 
 type FetchResult<
   Routes extends Record<string, any>,
@@ -308,30 +319,34 @@ type ResolveOptions<
   App extends AnySpiceflow,
   Path extends AppClientFetchPaths<App>,
   Method extends string,
-> = App extends {
-  _types: { ClientRoutes: infer Routes extends Record<string, any> }
-}
-  ? IsAny<Routes> extends true
-    ? FetchOptionsFallback
-    : Path extends AllHrefPaths<AppClientPaths<App>>
-      ? FetchOptions<Routes, AppClientPaths<App>, Path, Method>
-      : FetchOptionsFallback
-  : FetchOptionsFallback
+> = Simplify<
+  App extends {
+    _types: { ClientRoutes: infer Routes extends Record<string, any> }
+  }
+    ? IsAny<Routes> extends true
+      ? FetchOptionsFallback
+      : Path extends AllHrefPaths<AppClientPaths<App>>
+        ? FetchOptions<Routes, AppClientPaths<App>, Path, Method>
+        : FetchOptionsFallback
+    : FetchOptionsFallback
+>
 
 // Resolves the result type for a given App/Path/Method combination.
 type ResolveResult<
   App extends AnySpiceflow,
   Path extends AppClientFetchPaths<App>,
   Method extends string,
-> = App extends {
-  _types: { ClientRoutes: infer Routes extends Record<string, any> }
-}
-  ? IsAny<Routes> extends true
-    ? SpiceflowFetchError<number, any> | any
-    : Path extends AllHrefPaths<AppClientPaths<App>>
-      ? FetchResult<Routes, AppClientPaths<App>, Path, Method>
-      : any
-  : SpiceflowFetchError<number, any> | any
+> = Simplify<
+  App extends {
+    _types: { ClientRoutes: infer Routes extends Record<string, any> }
+  }
+    ? IsAny<Routes> extends true
+      ? SpiceflowFetchError<number, any> | any
+      : Path extends AllHrefPaths<AppClientPaths<App>>
+        ? FetchResult<Routes, AppClientPaths<App>, Path, Method>
+        : any
+    : SpiceflowFetchError<number, any> | any
+>
 
 // Check if options are required for a given App/Path/Method
 type IsOptionsRequired<
