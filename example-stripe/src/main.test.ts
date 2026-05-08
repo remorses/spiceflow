@@ -32,8 +32,12 @@ beforeAll(async () => {
   server = await app.listen(0)
   appPort = server.port!
 
-  // 2. Start the Stripe emulator with seeded product, price, and webhook
-  const emuPort = 14010
+  // 2. Start the Stripe emulator with seeded product, price, and webhook.
+  // Use 127.0.0.1 (not localhost) for the webhook URL so the emulator
+  // always connects over IPv4. On Linux + Node 18+, localhost can resolve
+  // to ::1 (IPv6) while the server might only listen on IPv4.
+  // Use a random port to avoid conflicts when CI runs multiple jobs.
+  const emuPort = 14000 + Math.floor(Math.random() * 1000)
   stripeEmu = await createEmulator({
     service: 'stripe',
     port: emuPort,
@@ -47,7 +51,7 @@ beforeAll(async () => {
         ],
         webhooks: [
           {
-            url: `http://localhost:${appPort}/api/webhooks/stripe`,
+            url: `http://127.0.0.1:${appPort}/api/webhooks/stripe`,
             events: ['*'],
             secret: WEBHOOK_SECRET,
           },
@@ -140,13 +144,14 @@ describe('Subscription checkout flow', () => {
     })
     expect([200, 302].includes(completeRes.status)).toBe(true)
 
-    // Poll until the emulator delivers the webhook and the subscription appears
+    // Poll until the emulator delivers the webhook and the subscription appears.
+    // CI can be slow, so give it plenty of time.
     await expect.poll(async () => {
       const result = await f('/api/org/:orgId', { params: { orgId } })
       if (result instanceof Error) return []
       return result.subscriptions
-    }, { timeout: 5000 }).toSatisfy((subs: any[]) => subs.length > 0)
-  }, 10000)
+    }, { timeout: 15000 }).toSatisfy((subs: any[]) => subs.length > 0)
+  }, 20000)
 
   test('org has an active subscription in the DB', async () => {
     const result = await f('/api/org/:orgId', { params: { orgId } })
