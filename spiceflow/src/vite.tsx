@@ -533,7 +533,9 @@ export default function spiceflow({
               'spiceflow > superjson',
               'spiceflow > history',
               'spiceflow > eventsource-parser/stream',
-              'spiceflow > errore', //
+              'spiceflow > errore',
+              'react-dom/server',
+              'zod',
             ],
           )
         }
