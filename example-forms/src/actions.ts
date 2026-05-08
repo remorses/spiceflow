@@ -4,6 +4,7 @@
 'use server'
 
 import { redirect } from 'spiceflow'
+import { router } from 'spiceflow/react'
 import type { z } from 'zod'
 import type { contactSchema, projectSchema, feedbackSchema } from './schemas.ts'
 
@@ -15,7 +16,7 @@ export async function createContact(data: z.infer<typeof contactSchema>) {
 export async function createProject(data: z.infer<typeof projectSchema>) {
   console.log('Creating project:', data)
   const id = crypto.randomUUID().slice(0, 8)
-  throw redirect(`/success?name=${encodeURIComponent(data.name)}&id=${id}`)
+  throw redirect(router.href('/success', { name: data.name, id }))
 }
 
 export async function submitFeedback(data: z.infer<typeof feedbackSchema>) {

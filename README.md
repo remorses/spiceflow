@@ -1089,7 +1089,7 @@ Do not import or use `router` inside `.loader()`, `.get()`, `.post()`, or `.rout
 
 Using `router.href()` for links inside `.page()` and `.layout()` JSX is okay in simple app entries because their rendered JSX does not feed app route metadata the same way. If a loader-heavy app still hits a circular `typeof app` error, move the link UI into a component module until the router type is split from loader data.
 
-Context `redirect()` intentionally accepts a plain `string`. Do not pass `router.href()` into redirects inside app-entry handlers. Redirect return values participate in handler return inference and can reintroduce the circular type path in loader-heavy apps.
+Context `redirect()` intentionally accepts a plain `string`. Do not pass `router.href()` into redirects inside app-entry handlers (`.page()`, `.layout()`, etc.) — redirect return values participate in handler return inference and can reintroduce the circular type path in loader-heavy apps. Standalone `"use server"` action files (separate from the app entry) are safe to use `router.href()` since they do not feed return types back into `typeof app`.
 
 </details>
 
@@ -1968,7 +1968,32 @@ function DeleteButton({ id }: { id: string }) {
 
 ### Redirecting After Actions
 
-When a server action needs to navigate to a different page (e.g. after creating a resource), use the handler context `redirect` inside the action instead of `router.push()` on the client. Since every server action triggers a page re-render, calling `router.push()` after the action would briefly flash the re-rendered current page before navigating away.
+When a server action needs to navigate to a different page (e.g. after creating a resource), use `redirect` inside the action instead of `router.push()` on the client. Since every server action triggers a page re-render, calling `router.push()` after the action would briefly flash the re-rendered current page before navigating away.
+
+In standalone `"use server"` action files, always wrap the redirect target with `router.href()` for type safety — TypeScript will catch invalid paths and missing params at compile time:
+
+```tsx
+// src/actions.ts
+'use server'
+
+import { redirect } from 'spiceflow'
+import { router } from 'spiceflow/react'
+import { parseFormData } from 'spiceflow'
+import type { z } from 'zod'
+import { projectSchema } from './schemas.ts'
+
+export async function createProject(formData: FormData) {
+  const { name } = parseFormData(projectSchema, formData)
+  const project = await db.projects.create({ name })
+  // router.href validates the path and params against the route table at compile time
+  throw redirect(router.href('/orgs/:orgId/projects/:projectId', {
+    orgId: project.orgId,
+    projectId: project.id,
+  }))
+}
+```
+
+For inline actions defined directly inside a `.page()` or `.layout()` handler (in the same file as `export const app`), use the handler context `redirect` with a plain string or the `params` option instead. The `router.href()` type reads from `typeof app`, which can create a circular TypeScript error when used inside an app-entry handler:
 
 ```tsx
 import { Spiceflow, parseFormData } from 'spiceflow'
@@ -1987,6 +2012,7 @@ export const app = new Spiceflow()
       'use server'
       const { name } = parseFormData(projectSchema, formData)
       const project = await db.projects.create({ name, orgId: params.orgId })
+      // Use plain string redirect inside app-entry inline actions to avoid circular types
       throw redirect('/orgs/:orgId/projects/:projectId', {
         params: { orgId: params.orgId, projectId: project.id },
       })
