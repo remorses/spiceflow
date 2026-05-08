@@ -3,6 +3,7 @@
 // the bearer token from the request headers, then validates the session via
 // better-auth. Actions that modify data check auth before proceeding.
 import { getActionRequest, redirect } from 'spiceflow'
+import { router } from 'spiceflow/react'
 import { eq } from 'drizzle-orm'
 import { auth, db } from './auth.js'
 import * as schema from './schema.js'
@@ -32,7 +33,7 @@ export async function getCurrentUser() {
 
 export async function requireAuthOrRedirect() {
   const session = await getSession()
-  if (!session) throw redirect('/login')
+  if (!session) throw redirect(router.href('/login'))
   return { userId: session.user.id }
 }
 
@@ -46,7 +47,7 @@ export async function createOrg(name: string) {
     ownerId: session.user.id,
     createdAt: new Date(),
   })
-  throw redirect(`/orgs/${id}/dashboard`)
+  throw redirect(router.href('/orgs/:orgId/dashboard', { orgId: id }))
 }
 
 export async function createProject(orgId: string, name: string) {
@@ -78,5 +79,5 @@ export async function deleteProject(orgId: string, projectId: string) {
   })
   if (!project) throw new Error('not found')
   await db.delete(schema.project).where(eq(schema.project.id, projectId))
-  throw redirect(`/orgs/${orgId}/dashboard`)
+  throw redirect(router.href('/orgs/:orgId/dashboard', { orgId }))
 }

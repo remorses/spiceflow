@@ -307,6 +307,7 @@ type FetchResult<
   | FetchResultData<Routes, Paths, Path, Method>
 >
 
+
 // ─── Public type ─────────────────────────────────────────────────────────────
 
 // Resolves options for a given App/Path/Method combination.
@@ -336,7 +337,7 @@ type ResolveResult<
   ? IsAny<Routes> extends true
     ? SpiceflowFetchError<number, any> | any
     : Path extends AllHrefPaths<AppClientPaths<App>>
-      ? FetchResult<Routes, AppClientPaths<App>, Path, Method>
+      ? Simplify<FetchResult<Routes, AppClientPaths<App>, Path, Method>>
       : any
   : SpiceflowFetchError<number, any> | any
 

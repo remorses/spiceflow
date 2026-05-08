@@ -1,8 +1,16 @@
 // Spiceflow Vite plugin: integrates @vitejs/plugin-rsc for RSC support,
 // provides SSR middleware, virtual modules, and prerender support.
+import dns from 'node:dns'
 import { createRequire } from 'node:module'
 import path from 'node:path'
 import url from 'node:url'
+
+// Keep localhost resolving to 127.0.0.1 (IPv4) instead of ::1 (IPv6).
+// Node 17+ reorders DNS results and may prefer IPv6, which causes two Vite
+// servers to silently share the same port on different IP families. Setting
+// verbatim prevents reordering so localhost stays on IPv4, while Vite still
+// prints "localhost" in the terminal URL instead of "127.0.0.1".
+dns.setDefaultResultOrder('verbatim')
 
 import rsc, { RscPluginOptions } from '@vitejs/plugin-rsc'
 import {
@@ -345,13 +353,7 @@ export default function spiceflow({
           // Disable Vite's built-in SPA fallback middleware so it doesn't
           // intercept unmatched paths with a 200 before our middleware runs.
           appType: 'custom' as const,
-          // Default to IPv4 loopback to prevent two Vite servers silently
-          // sharing the same port on different IP families (IPv4 vs IPv6).
-          // macOS allows binding to 127.0.0.1 and ::1 on the same port
-          // without EADDRINUSE, so pinning to IPv4 makes collisions visible.
-          server: {
-            host: userConfig.server?.host ?? '127.0.0.1',
-          },
+          server: {},
           // Replace process.env.NODE_ENV at build time so React uses its production
           // bundle. Without this, the built output contains runtime checks like
           // `"production" !== process.env.NODE_ENV` that always evaluate to the dev
@@ -531,7 +533,9 @@ export default function spiceflow({
               'spiceflow > superjson',
               'spiceflow > history',
               'spiceflow > eventsource-parser/stream',
-              'spiceflow > errore', //
+              'spiceflow > errore',
+              'react-dom/server',
+              'zod',
             ],
           )
         }

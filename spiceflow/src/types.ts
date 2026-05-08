@@ -1082,8 +1082,8 @@ export type MatchingPathPattern<
     : never
 
 type MergeParamsAndQuery<P, Q> = [P] extends [undefined]
-  ? Partial<Q>
-  : P & Omit<Partial<Q>, keyof P>
+  ? Q
+  : P & Omit<Q, keyof P>
 
 type PrimitivePathParam = string | number | boolean
 
@@ -1106,15 +1106,33 @@ export type PathParamsProp<Path extends string> =
       : { params: ExtractParamsFromPath<Path> }
     : { params?: Record<string, PrimitivePathParam> }
 
+// True when a path's query schema has at least one required key.
+// {} extends T is true only when all keys are optional.
+// Wrapped in [] to prevent never-distribution when Path is never.
+export type PathHasRequiredQuery<QS extends object, Path> =
+  [Path] extends [never]
+    ? false
+    : Path extends keyof QS
+      ? unknown extends QS[Path]
+        ? false
+        : {} extends QS[Path]
+          ? false
+          : true
+      : false
+
 // Smart href validation: accept wide `string` (from variables), accept valid
 // route literals, reject invalid string literals at compile time.
 // ResolvedHref (from router.href()) is always accepted.
-export type ValidatedHref<Paths extends string, Path extends string> =
+// Paths with required query params reject bare string literals so callers
+// must use router.href() which enforces the query args.
+export type ValidatedHref<Paths extends string, Path extends string, QS extends object = {}> =
   | ResolvedHref
   | (string extends Path
       ? string
       : Path extends AllHrefPaths<Paths>
-        ? Path
+        ? [PathHasRequiredQuery<QS, MatchingPathPattern<Paths, Path>>] extends [true]
+          ? never
+          : Path
         : never)
 
 type HrefArgsInner<
@@ -1125,7 +1143,9 @@ type HrefArgsInner<
   ? Path extends keyof QS
     ? unknown extends QS[Path]
       ? [] | [allParams?: Record<string, PrimitivePathParam>]
-      : [] | [allParams?: Partial<QS[Path]>]
+      : {} extends QS[Path]
+        ? [] | [allParams?: QS[Path]]
+        : [allParams: QS[Path]]
     : [] | [allParams?: Record<string, PrimitivePathParam>]
   : Path extends keyof QS
     ? unknown extends QS[Path]
@@ -1135,6 +1155,20 @@ type HrefArgsInner<
         | [allParams: Params]
         | [allParams: Params & Record<string, PrimitivePathParam>]
 
+// Resolve a query schema for a path, looking up via MatchingPathPattern
+// so resolved paths like `/users/123` find the schema from `/users/:id`.
+type QueryForPath<
+  Paths extends string,
+  QS extends object,
+  Path extends AllHrefPaths<Paths>,
+> = MatchingPathPattern<Paths, Path> extends infer Pattern
+  ? [Pattern] extends [never]
+    ? unknown
+    : Pattern extends keyof QS
+      ? QS[Pattern]
+      : unknown
+  : unknown
+
 export type HrefArgs<
   Paths extends string,
   QS extends object,
@@ -1142,10 +1176,14 @@ export type HrefArgs<
   Params extends ExtractParamsFromPath<Path>,
 > = HasUnresolvedParams<Path> extends true
   ? HrefArgsInner<QS, Path, Params>
-  : Path extends keyof QS
-    ? unknown extends QS[Path]
+  : QueryForPath<Paths, QS, Path> extends infer Q
+    ? unknown extends Q
       ? [] | [allParams?: Record<string, PrimitivePathParam>]
-      : [] | [allParams?: Partial<QS[Path]>]
+      : [Q] extends [never]
+        ? [] | [allParams?: Record<string, PrimitivePathParam>]
+        : {} extends Q
+          ? [] | [allParams?: Q]
+          : [allParams: Q]
     : [] | [allParams?: Record<string, PrimitivePathParam>]
 
 export type HrefBuilder<

@@ -1,0 +1,187 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "id": "10333871-613a-4caa-be29-7d4fa11ba767",
+  "prevIds": [
+    "00000000-0000-0000-0000-000000000000"
+  ],
+  "ddl": [
+    {
+      "name": "org",
+      "entityType": "tables"
+    },
+    {
+      "name": "subscription",
+      "entityType": "tables"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "org_id",
+      "entityType": "columns",
+      "table": "org"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "name",
+      "entityType": "columns",
+      "table": "org"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "email",
+      "entityType": "columns",
+      "table": "org"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "stripe_customer_id",
+      "entityType": "columns",
+      "table": "org"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "table": "org"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "subscription_id",
+      "entityType": "columns",
+      "table": "subscription"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "variant_id",
+      "entityType": "columns",
+      "table": "subscription"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "product_id",
+      "entityType": "columns",
+      "table": "subscription"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "customer_id",
+      "entityType": "columns",
+      "table": "subscription"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "org_id",
+      "entityType": "columns",
+      "table": "subscription"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "status",
+      "entityType": "columns",
+      "table": "subscription"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "table": "subscription"
+    },
+    {
+      "columns": [
+        "org_id"
+      ],
+      "tableTo": "org",
+      "columnsTo": [
+        "org_id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "name": "fk_subscription_org_id_org_org_id_fk",
+      "entityType": "fks",
+      "table": "subscription"
+    },
+    {
+      "columns": [
+        "subscription_id",
+        "variant_id"
+      ],
+      "nameExplicit": false,
+      "name": "subscription_pk",
+      "entityType": "pks",
+      "table": "subscription"
+    },
+    {
+      "columns": [
+        "org_id"
+      ],
+      "nameExplicit": false,
+      "name": "org_pk",
+      "table": "org",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        {
+          "value": "org_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "name": "subscription_org_id_idx",
+      "entityType": "indexes",
+      "table": "subscription"
+    }
+  ],
+  "renames": []
+}

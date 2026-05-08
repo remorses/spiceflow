@@ -866,6 +866,25 @@ test('query type safety: page object API query is typed', async () => {
   })
 })
 
+test('API route with required query DOES error at runtime when params missing', async () => {
+  const app = new Spiceflow().get(
+    '/api/search',
+    ({ query }) => ({ q: query.q }),
+    { query: z.object({ q: z.string() }) },
+  )
+
+  // Missing required query — API routes should return 422
+  const res = await app.handle(new Request('http://localhost/api/search'))
+  expect(res.status).toBe(422)
+
+  // With valid query — works fine
+  const res2 = await app.handle(
+    new Request('http://localhost/api/search?q=hello'),
+  )
+  expect(res2.status).toBe(200)
+  expect(await res2.json()).toEqual({ q: 'hello' })
+})
+
 test('GET dynamic route, params are typed', async () => {
   const res = await new Spiceflow()
     .get('/ids/:id', ({ params }) => {
@@ -1904,7 +1923,7 @@ describe('href', () => {
     // @ts-expect-error - invalid query key 'invalid' not in schema
     app.href('/search', { invalid: 'x' })
 
-    app.href('/users/:id', { id: '1', nonexistent: 'x' })
+    app.href('/users/:id', { id: '1', nonexistent: 'x', fields: 'name' })
   })
 
   test('href with query params and no path params', () => {
@@ -1920,15 +1939,15 @@ describe('href', () => {
     app.href('/items', { order: 'asc' })
   })
 
-  test('href without query still works', () => {
+  test('href without query still works for routes without query schema', () => {
     const app = new Spiceflow()
       .get('/simple', () => 'simple')
-      .get('/with-query', () => 'q', {
-        query: z.object({ x: z.string() }),
+      .get('/with-optional-query', () => 'q', {
+        query: z.object({ x: z.string().optional() }),
       })
 
     expect(app.href('/simple')).toBe('/simple')
-    expect(app.href('/with-query')).toBe('/with-query')
+    expect(app.href('/with-optional-query')).toBe('/with-optional-query')
   })
 
   test('href with .route and query', () => {
@@ -2100,6 +2119,82 @@ describe('href', () => {
     expect(app.href('/docs', { section: 'api' })).toBe('/docs?section=api')
     // @ts-expect-error - invalid query param
     app.href('/docs', { wrong: 'x' })
+  })
+
+  test('href requires required query params', () => {
+    const app = new Spiceflow()
+      .get('/search', () => 'results', {
+        query: z.object({ q: z.string(), page: z.coerce.number() }),
+      })
+      .get('/filter', () => 'filtered', {
+        query: z.object({ category: z.string(), limit: z.number().optional() }),
+      })
+      .get('/list', () => 'list', {
+        query: z.object({ sort: z.string().optional() }),
+      })
+      .get('/plain', () => 'plain')
+
+    // @ts-expect-error - /search requires { q, page }, missing both
+    app.href('/search')
+
+    // @ts-expect-error - /search requires { q, page }, missing page
+    app.href('/search', { q: 'hello' })
+
+    // valid: all required provided
+    expect(app.href('/search', { q: 'hello', page: 1 })).toBe(
+      '/search?q=hello&page=1',
+    )
+
+    // @ts-expect-error - /filter requires { category }
+    app.href('/filter')
+
+    // valid: required provided, optional omitted
+    expect(app.href('/filter', { category: 'books' })).toBe(
+      '/filter?category=books',
+    )
+
+    // valid: both provided
+    expect(app.href('/filter', { category: 'books', limit: 10 })).toBe(
+      '/filter?category=books&limit=10',
+    )
+
+    // /list has all optional query — no args required
+    expect(app.href('/list')).toBe('/list')
+    expect(app.href('/list', { sort: 'date' })).toBe('/list?sort=date')
+
+    // /plain has no query schema — no args required
+    expect(app.href('/plain')).toBe('/plain')
+  })
+
+  test('href requires required query for resolved dynamic paths', () => {
+    const app = new Spiceflow()
+      .get('/users/:id', ({ params }) => params.id, {
+        query: z.object({ tab: z.string() }),
+      })
+      .get('/items/:itemId', () => 'item', {
+        query: z.object({ expand: z.string().optional() }),
+      })
+
+    // Pattern path — query required alongside params
+    expect(app.href('/users/:id', { id: '42', tab: 'profile' })).toBe(
+      '/users/42?tab=profile',
+    )
+
+    // Resolved path `/users/123` — still requires query because the
+    // matching pattern `/users/:id` has a required query schema.
+    // @ts-expect-error - resolved path still needs required query
+    app.href('/users/123')
+
+    // valid: resolved path with query
+    expect(app.href('/users/123', { tab: 'settings' })).toBe(
+      '/users/123?tab=settings',
+    )
+
+    // Resolved path with all-optional query — no args required
+    expect(app.href('/items/abc')).toBe('/items/abc')
+    expect(app.href('/items/abc', { expand: 'details' })).toBe(
+      '/items/abc?expand=details',
+    )
   })
 
   test('href with wildcard page route accepts template literal with interpolated params', () => {

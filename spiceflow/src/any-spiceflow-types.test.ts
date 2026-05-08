@@ -402,19 +402,19 @@ test('router.href() type-safe query params', () => {
   // No query schema — accepts arbitrary query at runtime
   expect(router.href('/free', { anything: 'works' })).toBe('/free?anything=works')
 
-  // Partial query — only some fields provided
-  expect(router.href('/search', { q: 'hello' })).toBe('/search?q=hello')
-
   // Path without query — no params needed
   expect(router.href('/login')).toBe('/login')
 
   // @ts-expect-error - invalid query key rejected
   router.href('/search', { invalid: 'x' })
 
+  // @ts-expect-error - missing required query param 'page'
+  router.href('/search', { q: 'hello' })
+
   // router.push accepts the ResolvedHref from router.href with query params
   router.push(router.href('/search', { q: 'hello', page: 1 }))
   router.push(router.href('/users/:id', { id: '42', fields: 'name' }))
-  router.replace(router.href('/search', { q: 'test' }))
+  router.replace(router.href('/search', { q: 'test', page: 1 }))
 })
 
 test('overlapping loaders merge into typed router data', () => {
@@ -465,8 +465,10 @@ test('Link: typed app validates href paths and requires params', () => {
   type App = typeof app
   type Paths = App['_types']['RoutePaths']
 
+  type QS = App['_types']['RouteQuerySchemas']
+
   // Helper to check LinkProps assignability via function call (catches missing props)
-  function expectLink<P extends AllHrefPaths<Paths>>(_props: LinkProps<App, Paths, P>) {}
+  function expectLink<P extends AllHrefPaths<Paths>>(_props: LinkProps<App, Paths, QS, P>) {}
 
   // Valid static paths
   expectLink({ href: '/login' as const })
@@ -495,8 +497,9 @@ test('Link: resolved paths do not require params', () => {
 
   type App = typeof app
   type Paths = App['_types']['RoutePaths']
+  type QS = App['_types']['RouteQuerySchemas']
 
-  function expectLink<P extends string>(_props: LinkProps<App, Paths, P>) {}
+  function expectLink<P extends string>(_props: LinkProps<App, Paths, QS, P>) {}
 
   // Static path — no params needed
   expectLink({ href: '/login' as const })
@@ -528,9 +531,10 @@ test('Link: string variables accepted, invalid literals rejected', () => {
 
   type App = typeof app
   type Paths = App['_types']['RoutePaths']
+  type QS = App['_types']['RouteQuerySchemas']
   const r = getRouter<App>()
 
-  function expectLink<P extends string>(_props: LinkProps<App, Paths, P>) {}
+  function expectLink<P extends string>(_props: LinkProps<App, Paths, QS, P>) {}
 
   // String variable — wide `string` type, accepted without params
   const dynamicHref: string = '/dash/projects/abc123'
@@ -594,6 +598,116 @@ test('router.push/replace: string variables accepted, invalid literals rejected'
 
   // @ts-expect-error - invalid literal rejected in object form too
   r.push({ pathname: '/nonexistent' as const })
+})
+
+test('required query params enforced on href, Link, router.push, and fetch', () => {
+  const app = new Spiceflow()
+    .page({
+      path: '/search',
+      query: z.object({ q: z.string(), page: z.coerce.number() }),
+      handler: async ({ query }) => `Results for: ${query.q} page ${query.page}`,
+    })
+    .page({
+      path: '/filter',
+      query: z.object({ category: z.string(), limit: z.number().optional() }),
+      handler: async ({ query }) => `Filter: ${query.category}`,
+    })
+    .page('/about', async () => 'About')
+    .get('/api/items', () => 'items', {
+      query: z.object({ sort: z.string() }),
+    })
+
+  type App = typeof app
+  type Paths = App['_types']['RoutePaths']
+  type QS = App['_types']['RouteQuerySchemas']
+  const r = getRouter<App>()
+  const f = createSpiceflowFetch(app)
+
+  function expectLink<P extends string>(_props: LinkProps<App, Paths, QS, P>) {}
+
+  // ── href: required query params are required ──
+
+  // @ts-expect-error - /search requires { q, page }, missing both
+  r.href('/search')
+
+  // @ts-expect-error - /search requires { q, page }, missing page
+  r.href('/search', { q: 'hello' })
+
+  // @ts-expect-error - /api/items requires { sort }, missing
+  r.href('/api/items')
+
+  // valid: all required query params provided
+  r.href('/search', { q: 'hello', page: 1 })
+  r.href('/api/items', { sort: 'date' })
+
+  // /filter has one required (category) and one optional (limit)
+  // @ts-expect-error - /filter requires { category }, missing
+  r.href('/filter')
+
+  // valid: required provided, optional omitted
+  r.href('/filter', { category: 'books' })
+
+  // valid: both provided
+  r.href('/filter', { category: 'books', limit: 10 })
+
+  // /about has no query schema — no params needed
+  r.href('/about')
+
+  // ── Link: bare string href rejected for paths with required query ──
+
+  // @ts-expect-error - /search has required query, must use router.href()
+  expectLink({ href: '/search' as const })
+
+  // @ts-expect-error - /api/items has required query, must use router.href()
+  expectLink({ href: '/api/items' as const })
+
+  // valid: using ResolvedHref from router.href()
+  expectLink({ href: r.href('/search', { q: 'hello', page: 1 }) })
+  expectLink({ href: r.href('/api/items', { sort: 'date' }) })
+
+  // /about has no query — bare string accepted
+  expectLink({ href: '/about' as const })
+
+  // /filter has required query — bare string rejected
+  // @ts-expect-error - /filter has required query param category
+  expectLink({ href: '/filter' as const })
+
+  // valid: resolved href
+  expectLink({ href: r.href('/filter', { category: 'books' }) })
+
+  // ── router.push: bare string rejected for paths with required query ──
+
+  // @ts-expect-error - /search has required query, must use router.href()
+  r.push('/search')
+
+  // @ts-expect-error - /api/items has required query
+  r.push('/api/items')
+
+  // valid: using ResolvedHref
+  r.push(r.href('/search', { q: 'hello', page: 1 }))
+  r.push(r.href('/api/items', { sort: 'date' }))
+
+  // /about has no query — bare string accepted
+  r.push('/about')
+
+  // ── router.replace: same enforcement as push ──
+
+  // @ts-expect-error - /search has required query
+  r.replace('/search')
+
+  // valid
+  r.replace(r.href('/search', { q: 'hello', page: 1 }))
+
+  // ── fetch: required query enforced in options ──
+
+  // @ts-expect-error - /api/items requires { sort } query
+  void f('/api/items')
+
+  // valid: query provided
+  void f('/api/items', { query: { sort: 'date' } })
+
+  // /about has no query — no options needed
+  void f('/about')
 })
 
 test('exported and context redirect accept plain strings', () => {
