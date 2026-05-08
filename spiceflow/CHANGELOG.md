@@ -1,5 +1,31 @@
 # spiceflow
 
+## 1.24.0-rsc.0
+
+1. **Enforce required query parameters at compile time** — routes with required query fields (non-optional in the Zod schema) now produce type errors when called without providing those fields. This applies to `app.href()`, `router.href()`, `Link`, `router.push()`, `router.replace()`, and `createSpiceflowFetch()`:
+
+   ```ts
+   const app = new Spiceflow().page({
+     path: '/search',
+     query: z.object({ q: z.string(), page: z.number().optional() }),
+     handler: async ({ query }) => `Results for ${query.q}`,
+   })
+
+   app.href('/search')                  // type error: missing required { q }
+   app.href('/search', { q: 'hello' })  // ok: page is optional
+
+   router.push('/search')               // type error: use router.href()
+   router.push(router.href('/search', { q: 'hello' }))  // ok
+   ```
+
+   Resolved dynamic paths like `/users/123` also enforce required query when the matching pattern (`/users/:id`) declares one. Page routes skip query validation at runtime so missing query params render the page instead of showing a 422 error; API routes still return 422 for invalid query.
+
+2. **Simpler typed fetch hover types** — `createSpiceflowFetch` return types now show clean, readable types in IDE hover tooltips instead of deeply nested conditional type expressions.
+
+3. **Fixed `IsBodyRequired` for all-optional body schemas** — all-optional body schemas now correctly require the body argument to be passed explicitly. Previously the `{} extends Body` check incorrectly made body optional, but omitting body is not the same as passing an empty object.
+
+4. **Dev server shows `localhost` instead of `127.0.0.1`** — uses `dns.setDefaultResultOrder('verbatim')` instead of overriding the Vite host, so the terminal URL matches what you expect.
+
 ## 1.23.1-rsc.0
 
 1. **Fixed `createSpiceflowFetch` type inference for overlapping parameterized routes** — when a sub-app had routes like `/projects/:id` and `/projects/:pid/environments/:id`, resolved paths returned a union of all matching route response types instead of the specific one. Routes with the same path depth but different HTTP methods (e.g. GET and PUT) now correctly return their respective types instead of `unknown`. Routes with all-optional query schemas no longer force a second argument on the fetch call.
