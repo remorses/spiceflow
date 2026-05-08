@@ -2257,9 +2257,13 @@ export class Spiceflow<
         context,
         onErrorHandlers,
         async () => {
+          // Pages skip query validation so missing params don't show error pages.
+          // Coercion still runs (string→number etc.) but validation errors are swallowed.
+          // API routes (.get, .post, etc.) still throw ValidationError on invalid query.
+          const isPageRoute = route?.route?.kind === 'page' || route?.route?.kind === 'staticPage'
           context.query = await runValidation(
             coerceQueryWithSchema(context.query, route?.route?.hooks?.query),
-            route?.route?.validateQuery,
+            isPageRoute ? undefined : route?.route?.validateQuery,
           )
           context.params = await runValidation(
             context.params,
@@ -3014,7 +3018,7 @@ export class Spiceflow<
     )
   }
   href: HrefBuilder<RoutePaths, RouteQuerySchemas> = (path, ...rest) => {
-    return buildHref(path, rest[0]) as ResolvedHref
+    return buildHref(path, rest[0] as object | undefined) as ResolvedHref
   }
 }
 

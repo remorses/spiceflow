@@ -131,7 +131,7 @@ export type RouterPaths<App> = IsAny<
   ? string
   : AppTypes<App> extends { RoutePaths: infer Paths extends string } ? Paths : string
 
-type RouterQuerySchemas<App> = IsAny<
+export type RouterQuerySchemas<App> = IsAny<
   AppTypes<App> extends { RoutePaths: infer Paths } ? Paths : string
 > extends true
   ? Record<string, any>
@@ -160,14 +160,15 @@ export function coerceLoaderData<
 // Object form with typed pathname (validates literals, accepts string variables).
 type NavigationPathObject<App, P extends string> =
   Omit<Partial<import('history').Path>, 'pathname'> & {
-    pathname?: ValidatedHref<RouterPaths<App>, P>
+    pathname?: ValidatedHref<RouterPaths<App>, P, RouterQuerySchemas<App>>
   }
 
 // Typed navigation target: validates string literals against route paths,
 // accepts wide `string` variables, and keeps the history object form.
+// Bare string paths with required query params are rejected; use router.href().
 type NavigationTo<App> = {
   <const P extends string>(
-    to: ValidatedHref<RouterPaths<App>, P> | NavigationPathObject<App, P>,
+    to: ValidatedHref<RouterPaths<App>, P, RouterQuerySchemas<App>> | NavigationPathObject<App, P>,
     state?: any,
   ): void
 }

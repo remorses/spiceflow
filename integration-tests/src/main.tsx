@@ -1127,6 +1127,17 @@ void app
 		const _ = (await import("lodash")).default;
 		return { result: _.chunk([1, 2, 3, 4, 5, 6], 2) };
 	})
+	.page({
+		path: "/page-query-test",
+		query: z.object({ q: z.string(), page: z.coerce.number() }),
+		handler: async ({ query }) => {
+			return (
+				<div data-testid="page-query-test">
+					q={String(query.q ?? "none")} page={String(query.page ?? "none")}
+				</div>
+			);
+		},
+	})
 	.listen(Number(process.env.PORT || 3000));
 
 declare module "spiceflow/react" {

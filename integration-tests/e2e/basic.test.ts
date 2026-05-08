@@ -2985,3 +2985,18 @@ test("Link with external href lets browser handle navigation", async ({
 	});
 	expect(wasDefaultPrevented).toBe(false);
 });
+
+test("page with required query params renders without error when params missing", async ({
+	page,
+}) => {
+	// Navigate to a page that has required query params but don't provide them.
+	// The page should render (not show a 422 error page).
+	await page.goto(url("/page-query-test"));
+	await expect(page.getByTestId("page-query-test")).toBeVisible();
+
+	// With valid query params, coerced values are passed to handler
+	await page.goto(url("/page-query-test?q=hello&page=2"));
+	await expect(page.getByTestId("page-query-test")).toHaveText(
+		"q=hello page=2",
+	);
+});
