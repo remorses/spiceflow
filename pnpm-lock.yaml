@@ -387,6 +387,52 @@ importers:
         specifier: ^6.0.1
         version: 6.0.1(vite@8.0.8(@types/node@24.0.15)(esbuild@0.27.4)(jiti@2.6.1)(terser@5.46.1)(tsx@4.20.6)(yaml@2.7.0))
 
+  example-stripe:
+    dependencies:
+      '@types/react':
+        specifier: 19.2.14
+        version: 19.2.14
+      '@types/react-dom':
+        specifier: 19.2.3
+        version: 19.2.3(@types/react@19.2.14)
+      drizzle-orm:
+        specifier: beta
+        version: 1.0.0-beta.22(@cloudflare/workers-types@4.20260504.1)(@opentelemetry/api@1.9.0)(@upstash/redis@1.37.0)(bun-types@1.2.16)(zod@4.3.6)
+      react:
+        specifier: 19.2.4
+        version: 19.2.4
+      react-dom:
+        specifier: 19.2.4
+        version: 19.2.4(react@19.2.4)
+      spiceflow:
+        specifier: workspace:^
+        version: link:../spiceflow
+      stripe:
+        specifier: ^18.1.0
+        version: 18.5.0(@types/node@24.0.15)
+      typescript:
+        specifier: 5.7.3
+        version: 5.7.3
+      ulid:
+        specifier: ^2.3.0
+        version: 2.4.0
+      vite:
+        specifier: ^8.0.8
+        version: 8.0.8(@types/node@24.0.15)(esbuild@0.27.4)(jiti@2.6.1)(terser@5.46.1)(tsx@4.20.6)(yaml@2.7.0)
+    devDependencies:
+      '@vitejs/plugin-react':
+        specifier: ^6.0.1
+        version: 6.0.1(vite@8.0.8(@types/node@24.0.15)(esbuild@0.27.4)(jiti@2.6.1)(terser@5.46.1)(tsx@4.20.6)(yaml@2.7.0))
+      drizzle-kit:
+        specifier: beta
+        version: 1.0.0-beta.22
+      emulate:
+        specifier: ^0.5.0
+        version: 0.5.0(hono@4.12.8)
+      vitest:
+        specifier: ^4.1.5
+        version: 4.1.5(@opentelemetry/api@1.9.0)(@types/node@24.0.15)(vite@8.0.8(@types/node@24.0.15)(esbuild@0.27.4)(jiti@2.6.1)(terser@5.46.1)(tsx@4.20.6)(yaml@2.7.0))
+
   example-vitest:
     dependencies:
       '@types/react':
@@ -4273,6 +4319,10 @@ packages:
     resolution: {integrity: sha512-y4Mg2tXshplEbSGzx7amzPwKKOCGuoSRP/CjEdwwk0FOGlUbq6lKuoyDZTNZkmxHdJtp54hdfY/JUrdL7Xfdug==}
     engines: {node: '>=14'}
 
+  commander@14.0.3:
+    resolution: {integrity: sha512-H+y0Jo/T1RZ9qPP4Eh1pkcQcLRglraJaSLoyOtHxu6AapkjWVCy2Sit1QQ4x3Dng8qDlSsZEet7g5Pq06MvTgw==}
+    engines: {node: '>=20'}
+
   commander@2.20.3:
     resolution: {integrity: sha512-GpVkmM8vF2vQUkj2LvZmD35JxeJOLCwJ9cUkugyk2nuhbv3+mJvpLYYt+0+USMxE+oj+ey/lJEnhZw75x/OMcQ==}
 
@@ -4642,6 +4692,10 @@ packages:
 
   emoji-regex@9.2.2:
     resolution: {integrity: sha512-L18DaJsXSUk2+42pv8mLs5jJT2hqFkFE4j21wOmgbUqsZ2hL72NsUU785g9RXgo3s0ZNgVl42TiHp3ZtOv/Vyg==}
+
+  emulate@0.5.0:
+    resolution: {integrity: sha512-2LrOE8sqa1ITQ1aRR3kZhAhOCNz8hu+Kea9oBKdG/jEK6I/RYlMgHbsvQmbTTtr+nx6+fOOWkL6wqvfLeF5vuA==}
+    hasBin: true
 
   encodeurl@2.0.0:
     resolution: {integrity: sha512-Q0n9HRi4m6JuGIV1eFlmvJB7ZEVxu93IrMyiMsGC0lrMJMWzRgx6WGquyfQgZVb31vhGgXnfmPNNXmxnOkRBrg==}
@@ -6338,10 +6392,6 @@ packages:
     resolution: {integrity: sha512-vYt7UD1U9Wg6138shLtLOvdAu+8DsC/ilFtEVHcH+wydcSpNE20AfSOduf6MkRFahL5FY7X1oU7nKVZFtfq8Fg==}
     engines: {node: '>=6'}
 
-  qs@6.14.0:
-    resolution: {integrity: sha512-YWWTjgABSKcvs/nWBi9PycY/JiPJqOD4JA6o9Sej2AtvSGarXxKC3OQSk4pAarbdQlKAh5D4FCQkJNkW+GAn3w==}
-    engines: {node: '>=0.6'}
-
   qs@6.15.0:
     resolution: {integrity: sha512-mAZTtNCeetKMH+pSjrb76NAM8V9a05I9aBZOHztWy/UqcJdQYNsf59vrRKWnojAT9Y+GbIvoTBC++CPHqpDBhQ==}
     engines: {node: '>=0.6'}
@@ -6817,6 +6867,15 @@ packages:
   strip-literal@3.1.0:
     resolution: {integrity: sha512-8r3mkIM/2+PpjHoOtiAW8Rg3jJLHaV7xPwG+YRGrv6FP0wwk/toTpATxWYOW0BKdWwl82VT2tFYi5DlROa0Mxg==}
 
+  stripe@18.5.0:
+    resolution: {integrity: sha512-Hp+wFiEQtCB0LlNgcFh5uVyKznpDjzyUZ+CNVEf+I3fhlYvh7rZruIg+jOwzJRCpy0ZTPMjlzm7J2/M2N6d+DA==}
+    engines: {node: '>=12.*'}
+    peerDependencies:
+      '@types/node': '>=12.x.x'
+    peerDependenciesMeta:
+      '@types/node':
+        optional: true
+
   stripe@21.0.1:
     resolution: {integrity: sha512-ocv0j7dWttswDWV2XL/kb6+yiLpDXNXL3RQAOB5OB2kr49z0cEatdQc12+zP/j5nrXk6rAsT4N3y/NUvBbK7Pw==}
     engines: {node: '>=18'}
@@ -7063,6 +7122,10 @@ packages:
   typical@7.3.0:
     resolution: {integrity: sha512-ya4mg/30vm+DOWfBg4YK3j2WD6TWtRkCbasOJr40CseYENzCUby/7rIvXA99JGsQHeNxLbnXdyLLxKSv3tauFw==}
     engines: {node: '>=12.17'}
+
+  ulid@2.4.0:
+    resolution: {integrity: sha512-fIRiVTJNcSRmXKPZtGzFQv9WRrZ3M9eoptl/teFJvjOzmpU+/K/JH6HZ8deBfb5vMEpicJcLn7JmvdknlMq7Zg==}
+    hasBin: true
 
   unbox-primitive@1.1.0:
     resolution: {integrity: sha512-nWJ91DjeOkej/TA8pXQ3myruKpKEYgqvpw9lz4OPHj/NWFNluYrjbz9j01CJ8yKQd2g4jFoOkINCTW2I5LEEyw==}
@@ -11262,6 +11325,8 @@ snapshots:
 
   commander@10.0.1: {}
 
+  commander@14.0.3: {}
+
   commander@2.20.3:
     optional: true
 
@@ -11502,6 +11567,15 @@ snapshots:
   emoji-regex@8.0.0: {}
 
   emoji-regex@9.2.2: {}
+
+  emulate@0.5.0(hono@4.12.8):
+    dependencies:
+      '@hono/node-server': 1.19.11(hono@4.12.8)
+      commander: 14.0.3
+      picocolors: 1.1.1
+      yaml: 2.7.0
+    transitivePeerDependencies:
+      - hono
 
   encodeurl@2.0.0: {}
 
@@ -12016,7 +12090,7 @@ snapshots:
       once: 1.4.0
       parseurl: 1.3.3
       proxy-addr: 2.0.7
-      qs: 6.14.0
+      qs: 6.15.0
       range-parser: 1.2.1
       router: 2.2.0
       send: 1.2.0
@@ -13637,10 +13711,6 @@ snapshots:
 
   punycode@2.3.1: {}
 
-  qs@6.14.0:
-    dependencies:
-      side-channel: 1.1.0
-
   qs@6.15.0:
     dependencies:
       side-channel: 1.1.0
@@ -14416,6 +14486,12 @@ snapshots:
     dependencies:
       js-tokens: 9.0.1
 
+  stripe@18.5.0(@types/node@24.0.15):
+    dependencies:
+      qs: 6.15.0
+    optionalDependencies:
+      '@types/node': 24.0.15
+
   stripe@21.0.1(@types/node@24.0.15):
     optionalDependencies:
       '@types/node': 24.0.15
@@ -14649,6 +14725,8 @@ snapshots:
   typical@4.0.0: {}
 
   typical@7.3.0: {}
+
+  ulid@2.4.0: {}
 
   unbox-primitive@1.1.0:
     dependencies:
