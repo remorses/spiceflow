@@ -1,5 +1,11 @@
 # spiceflow
 
+## 1.24.1-rsc.0
+
+1. **Fixed `import.meta.filename` fallback for non-Node bundlers** — production RSC entries mounted inside bundlers like Next.js (webpack) no longer crash or silently skip static asset serving. When `import.meta.filename` is undefined, spiceflow now falls back to `import.meta.url` + `fileURLToPath()` to resolve `serveStatic` and `distDir`/`publicDir`.
+
+2. **Fixed Cloudflare Workers dev server startup** — `react-dom/server` and `zod` are now pre-included in RSC `optimizeDeps`, preventing Vite from discovering them at runtime and triggering a module reload that raced with the Cloudflare worker module runner (causing "file does not exist" errors).
+
 ## 1.24.0-rsc.0
 
 1. **Enforce required query parameters at compile time** — routes with required query fields (non-optional in the Zod schema) now produce type errors when called without providing those fields. This applies to `app.href()`, `router.href()`, `Link`, `router.push()`, `router.replace()`, and `createSpiceflowFetch()`:
