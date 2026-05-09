@@ -177,8 +177,16 @@ app.listen(3000)`}</pre>
     )
   })
 
-if ((import.meta as ImportMeta & { main?: boolean }).main) {
+if (import.meta.main) {
   void app.listen(Number(process.env.PORT || 3000))
+}
+
+// Node.js 24.2+ / 22.18+ added import.meta.main but @types/node
+// doesn't include it yet. Augment the global ImportMeta interface.
+declare global {
+  interface ImportMeta {
+    main?: boolean
+  }
 }
 
 declare module 'spiceflow/react' {
