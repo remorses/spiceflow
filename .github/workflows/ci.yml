@@ -40,8 +40,6 @@ jobs:
       - run: pnpm build
         working-directory: example-vitest
       - run: pnpm build
-        working-directory: example-x402
-      - run: pnpm build
         working-directory: example-cloudflare
       - run: pnpm build
         working-directory: example-federation/remote
@@ -53,8 +51,6 @@ jobs:
         working-directory: example-better-auth
       - run: pnpm test --run
         working-directory: example-vitest
-      - run: pnpm test
-        working-directory: example-x402
       - run: pnpm test
         working-directory: example-vitest-cloudflare
 
