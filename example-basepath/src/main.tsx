@@ -177,7 +177,7 @@ app.listen(3000)`}</pre>
     )
   })
 
-if (import.meta.main) {
+if ((import.meta as ImportMeta & { main?: boolean }).main) {
   void app.listen(Number(process.env.PORT || 3000))
 }
 
