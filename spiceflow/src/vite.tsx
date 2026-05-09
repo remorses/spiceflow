@@ -692,16 +692,28 @@ export default function spiceflow({
       )
       return [
         `import { resolve, dirname, basename } from 'node:path'`,
+        `import { fileURLToPath as __fileURLToPath } from 'node:url'`,
         `let publicDir = ''`,
         `let distDir = ''`,
+        // Resolve the dist directory from the current module's location.
+        // import.meta.filename is available in Node.js 20.11+; fall back to
+        // import.meta.url (which webpack, Bun, and older Node ESM provide).
+        `function __resolveFilename() {`,
+        `  if (typeof import.meta.filename === 'string') return import.meta.filename`,
+        `  if (typeof import.meta.url === 'string' && import.meta.url.startsWith('file:')) return __fileURLToPath(import.meta.url)`,
+        `  return ''`,
+        `}`,
         `if (import.meta.hot) {`,
         `  publicDir = resolve(process.cwd(), 'public')`,
         `  distDir = process.cwd()`,
-        `} else if (typeof import.meta.filename === 'string') {`,
-        `  const thisDir = dirname(import.meta.filename)`,
-        `  const rscDir = basename(thisDir) === 'assets' ? dirname(thisDir) : thisDir`,
-        `  publicDir = resolve(rscDir, ${JSON.stringify(clientRelativeFromRsc)})`,
-        `  distDir = resolve(rscDir, ${JSON.stringify(distRelativeFromRsc)})`,
+        `} else {`,
+        `  const __fn = __resolveFilename()`,
+        `  if (__fn) {`,
+        `    const thisDir = dirname(__fn)`,
+        `    const rscDir = basename(thisDir) === 'assets' ? dirname(thisDir) : thisDir`,
+        `    publicDir = resolve(rscDir, ${JSON.stringify(clientRelativeFromRsc)})`,
+        `    distDir = resolve(rscDir, ${JSON.stringify(distRelativeFromRsc)})`,
+        `  }`,
         `}`,
         `export { publicDir, distDir }`,
       ].join('\n')
@@ -752,8 +764,12 @@ export default function spiceflow({
         lines.push(
           `import { serveStatic as __serveStatic } from 'spiceflow'`,
           `import { resolve as __resolve, dirname as __dirname } from 'node:path'`,
-          `if (!import.meta.hot) {`,
-          `  const __clientDir = __resolve(__dirname(import.meta.filename), '${clientRelative}')`,
+          `import { fileURLToPath as __toPath } from 'node:url'`,
+          // Resolve the current module's filename from import.meta.filename
+          // (Node 20.11+) or import.meta.url (webpack, Bun, older Node ESM).
+          `const __thisFile = typeof import.meta.filename === 'string' ? import.meta.filename : (typeof import.meta.url === 'string' && import.meta.url.startsWith('file:') ? __toPath(import.meta.url) : '')`,
+          `if (!import.meta.hot && __thisFile) {`,
+          `  const __clientDir = __resolve(__dirname(__thisFile), '${clientRelative}')`,
           // Strip base path prefix from request paths so serveStatic can find
           // files on disk (e.g. /base/assets/style.css → /assets/style.css)
           ...(resolvedBase
