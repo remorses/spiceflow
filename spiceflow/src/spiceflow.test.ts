@@ -3790,6 +3790,64 @@ describe('.use() with page and layout routes', () => {
     `)
   })
 
+  test('browser document request to .rsc URL redirects to clean URL', async () => {
+    const app = new Spiceflow().get('/page', () => 'ok')
+
+    const res = await app.handle(
+      new Request('http://localhost/page.rsc?__rsc=', {
+        headers: { 'sec-fetch-dest': 'document' },
+      }),
+    )
+    expect(res.status).toBe(302)
+    expect(res.headers.get('location')).toBe('/page')
+  })
+
+  test('browser document request to .rsc URL preserves other query params', async () => {
+    const app = new Spiceflow().get('/dashboard', () => 'ok')
+
+    const res = await app.handle(
+      new Request('http://localhost/dashboard.rsc?__rsc=&tab=settings&v=2', {
+        headers: { 'sec-fetch-dest': 'document' },
+      }),
+    )
+    expect(res.status).toBe(302)
+    expect(res.headers.get('location')).toBe('/dashboard?tab=settings&v=2')
+  })
+
+  test('browser document request to __rsc query without .rsc suffix redirects', async () => {
+    const app = new Spiceflow().get('/page', () => 'ok')
+
+    const res = await app.handle(
+      new Request('http://localhost/page?__rsc=', {
+        headers: { 'accept': 'text/html' },
+      }),
+    )
+    expect(res.status).toBe(302)
+    expect(res.headers.get('location')).toBe('/page')
+  })
+
+  test('programmatic RSC fetch without document headers is not redirected', async () => {
+    const app = new Spiceflow().get('/page', () => 'ok')
+
+    const res = await app.handle(
+      new Request('http://localhost/page.rsc?__rsc='),
+    )
+    expect(res.status).toBe(200)
+  })
+
+  test('POST request with __rsc (server action) is not redirected', async () => {
+    const app = new Spiceflow().post('/page', () => 'ok')
+
+    const res = await app.handle(
+      new Request('http://localhost/page?__rsc=action-id', {
+        method: 'POST',
+        headers: { 'sec-fetch-dest': 'document' },
+        body: 'test',
+      }),
+    )
+    expect(res.status).toBe(200)
+  })
+
   test('multiple sub-apps with pages at different basePaths', async () => {
     const adminApp = new Spiceflow({ basePath: '/admin' }).page(
       '/dashboard',

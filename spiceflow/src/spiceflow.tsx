@@ -68,6 +68,7 @@ import { sanitizeErrorMessage } from './react/sanitize-error.js'
 import {
   isDocumentRequest,
   isRscRequest,
+  stripRscUrl,
 } from './react/deployment.js'
 
 import {
@@ -2079,6 +2080,23 @@ export class Spiceflow<
       const normalizedUrl = new URL(request.url)
       normalizedUrl.pathname = path
       request.overrideUrl(normalizedUrl.toString())
+    }
+
+    // Redirect browser document requests away from internal .rsc/__rsc URLs.
+    // The client appends .rsc and __rsc for programmatic RSC fetches, but if a
+    // user lands on one of these URLs directly (e.g. pasted link, bad redirect),
+    // they'd see raw flight payload. Redirect them to the clean document URL.
+    if (
+      request.method === 'GET' &&
+      isRscRequest(u) &&
+      (isDocumentRequest(request) ||
+        request.headers.get('accept')?.includes('text/html'))
+    ) {
+      const cleanUrl = stripRscUrl(u)
+      return new Response(null, {
+        status: 302,
+        headers: { location: `${cleanUrl.pathname}${cleanUrl.search}` },
+      })
     }
 
     const requestTracing = createRequestTracing({
