@@ -2,6 +2,9 @@
   "name": "example-basepath",
   "private": true,
   "type": "module",
+  "exports": {
+    "./dist/rsc": "./dist/rsc/index.js"
+  },
   "scripts": {
     "dev": "vite dev",
     "build": "vite build",
