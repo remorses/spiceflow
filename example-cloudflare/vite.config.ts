@@ -8,9 +8,7 @@ export default defineConfig(() => ({
   clearScreen: false,
   plugins: [
     react(),
-    spiceflow({
-      entry: './src/main.tsx',
-    }),
+
     tailwindcss(),
     cloudflare({
       viteEnvironment: {
@@ -18,6 +16,9 @@ export default defineConfig(() => ({
         // Keep dev, preview, and deploy on the same worker child-env shape.
         childEnvironments: ['ssr'],
       },
+    }),
+    spiceflow({
+      entry: './src/main.tsx',
     }),
   ],
 }))
