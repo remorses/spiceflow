@@ -5,6 +5,18 @@ const remotePort = 3051
 const baseURL = `http://localhost:${hostPort}`
 const remoteURL = `http://localhost:${remotePort}`
 
+interface FederationPayloadMetadata {
+  remoteId: string
+  clientModules: Record<string, { chunks: string[]; css: string[] }>
+  cssLinks: string[]
+}
+
+declare global {
+  interface Window {
+    __spiceflow_createFromReadableStream?: unknown
+  }
+}
+
 // Parse an SSE response body into typed events.
 // Returns { metadata, ssrHtml, flightRows } for easy assertions.
 async function parseFederationSSE(response: Response) {
@@ -29,9 +41,14 @@ async function parseFederationSSE(response: Response) {
   const ssrEvent = events.find((e) => e.event === 'ssr')
   const flightEvents = events.filter((e) => e.event === 'flight')
 
-  const metadata = metadataEvent ? JSON.parse(metadataEvent.data) : {}
+  const metadata: FederationPayloadMetadata = metadataEvent
+    ? JSON.parse(metadataEvent.data)
+    : { remoteId: '', clientModules: {}, cssLinks: [] }
   const ssrHtml = ssrEvent ? JSON.parse(ssrEvent.data).html : ''
-  const flightRows = flightEvents.map((e) => e.data)
+  const flightRows = flightEvents.flatMap((e) => {
+    const chunk: string = JSON.parse(e.data)
+    return chunk.split('\n').filter(Boolean)
+  })
 
   return { metadata, ssrHtml, flightRows }
 }
@@ -239,14 +256,16 @@ test.describe('federation', () => {
     }, undefined, { timeout: 10000 })
 
     const { headCssHrefs, shadowCssHrefs } = await page.evaluate(() => {
-      const headLinks = Array.from(document.head.querySelectorAll('link[rel="stylesheet"]'))
-        .map((l) => l.getAttribute('href'))
-        .filter(Boolean) as string[]
+      const headLinks = Array.from(
+        document.head.querySelectorAll<HTMLLinkElement>('link[rel="stylesheet"]'),
+        (l) => l.href,
+      ).filter(Boolean)
 
       const host = document.querySelector('[data-isolate-styles]')!
-      const shadowLinks = Array.from(host.shadowRoot!.querySelectorAll('link[rel="stylesheet"]'))
-        .map((l) => l.getAttribute('href'))
-        .filter(Boolean) as string[]
+      const shadowLinks = Array.from(
+        host.shadowRoot!.querySelectorAll<HTMLLinkElement>('link[rel="stylesheet"]'),
+        (l) => l.href,
+      ).filter(Boolean)
 
       return { headCssHrefs: headLinks, shadowCssHrefs: shadowLinks }
     })
@@ -319,8 +338,10 @@ test.describe('federation', () => {
     await expect(async () => {
       await shadowHost.evaluate((el) => {
         const shadow = el.shadowRoot!
-        const btn = shadow.querySelector('[data-testid="remote-counter"] button')
-        if (btn) (btn as HTMLButtonElement).click()
+        const btn = shadow.querySelector<HTMLButtonElement>(
+          '[data-testid="remote-counter"] button',
+        )
+        if (btn) btn.click()
       })
       const text = await shadowHost.evaluate((el) => {
         const counter = el.shadowRoot?.querySelector('[data-testid="remote-counter"]')
@@ -387,7 +408,7 @@ test.describe('federation', () => {
     await page.goto('/no-remote')
     await expect(page.getByTestId('no-remote-title')).toBeVisible({ timeout: 10000 })
     await page.waitForFunction(
-      () => typeof (window as any).__spiceflow_createFromReadableStream === 'function',
+      () => typeof window.__spiceflow_createFromReadableStream === 'function',
       undefined,
       { timeout: 10000 },
     )
@@ -416,8 +437,10 @@ test.describe('federation', () => {
     await expect(async () => {
       await page.evaluate(() => {
         const host = document.querySelector('[data-isolate-styles]')!
-        const btn = host.shadowRoot!.querySelector('[data-testid="remote-counter"] button')
-        if (btn) (btn as HTMLButtonElement).click()
+        const btn = host.shadowRoot!.querySelector<HTMLButtonElement>(
+          '[data-testid="remote-counter"] button',
+        )
+        if (btn) btn.click()
       })
       const text = await page.evaluate(() => {
         const host = document.querySelector('[data-isolate-styles]')
@@ -440,7 +463,7 @@ test.describe('federation', () => {
     await page.goto('/no-remote')
     await expect(page.getByTestId('no-remote-title')).toBeVisible({ timeout: 10000 })
     await page.waitForFunction(
-      () => typeof (window as any).__spiceflow_createFromReadableStream === 'function',
+      () => typeof window.__spiceflow_createFromReadableStream === 'function',
       undefined,
       { timeout: 10000 },
     )
@@ -471,7 +494,7 @@ test.describe('federation', () => {
     await page.goto('/no-remote')
     await expect(page.getByTestId('no-remote-title')).toBeVisible({ timeout: 10000 })
     await page.waitForFunction(
-      () => typeof (window as any).__spiceflow_createFromReadableStream === 'function',
+      () => typeof window.__spiceflow_createFromReadableStream === 'function',
       undefined,
       { timeout: 10000 },
     )
@@ -489,14 +512,16 @@ test.describe('federation', () => {
 
     // Remote CSS should be inside shadow root only, not in document.head
     const { headRemoteCss, shadowCss } = await page.evaluate(() => {
-      const headLinks = Array.from(document.head.querySelectorAll('link[rel="stylesheet"]'))
-        .map((l) => l.getAttribute('href'))
-        .filter((h) => h && h.includes('localhost:3051')) as string[]
+      const headLinks = Array.from(
+        document.head.querySelectorAll<HTMLLinkElement>('link[rel="stylesheet"]'),
+        (l) => l.href,
+      ).filter((h) => h.includes('localhost:3051'))
 
       const host = document.querySelector('[data-isolate-styles]')!
-      const shadowLinks = Array.from(host.shadowRoot!.querySelectorAll('link[rel="stylesheet"]'))
-        .map((l) => l.getAttribute('href'))
-        .filter(Boolean) as string[]
+      const shadowLinks = Array.from(
+        host.shadowRoot!.querySelectorAll<HTMLLinkElement>('link[rel="stylesheet"]'),
+        (l) => l.href,
+      ).filter(Boolean)
 
       return { headRemoteCss: headLinks, shadowCss: shadowLinks }
     })
@@ -515,7 +540,7 @@ test.describe('federation', () => {
     await page.goto('/no-remote')
     await expect(page.getByTestId('no-remote-title')).toBeVisible({ timeout: 10000 })
     await page.waitForFunction(
-      () => typeof (window as any).__spiceflow_createFromReadableStream === 'function',
+      () => typeof window.__spiceflow_createFromReadableStream === 'function',
       undefined,
       { timeout: 10000 },
     )
