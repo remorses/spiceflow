@@ -5,6 +5,7 @@ import path from 'node:path'
 import { afterEach, describe, expect, test } from 'vitest'
 import {
   resolveConfig,
+  type Plugin,
   type PluginOption,
   type ResolvedConfig,
   type UserConfig,
@@ -242,5 +243,97 @@ describe('spiceflow outDir normalization', () => {
     expect(getOptimizeDepsKeepNames(config, 'client')).toBe(false)
     expect(getOptimizeDepsKeepNames(config, 'rsc')).toBe(false)
     expect(getOptimizeDepsKeepNames(config, 'ssr')).toBe(true)
+  })
+})
+
+describe('spiceflow:rewrite-loadcss-entry', () => {
+  // Must match the real load-global-css.rsc.ts code shape
+  const loadCssSource = `import.meta.viteRsc.loadCss('virtual:app-entry')`
+
+  function findRewritePlugin(config: ResolvedConfig): Plugin {
+    const plugin = config.plugins.find(
+      (p) => p.name === 'spiceflow:rewrite-loadcss-entry',
+    )
+    if (!plugin) throw new Error('rewrite-loadcss-entry plugin not found')
+    return plugin
+  }
+
+  test('replaces virtual:app-entry with the resolved virtual entry, stripping \\0 prefix', async () => {
+    const root = await createTempApp()
+
+    // Simulates an external plugin (like holocron) registering a virtual module
+    // as the app entry. Vite resolves virtual modules to \0-prefixed IDs.
+    const virtualEntryPlugin = {
+      name: 'test-virtual-entry',
+      resolveId(id: string) {
+        if (id === 'virtual:my-test-entry') return '\0virtual:my-test-entry'
+      },
+      load(id: string) {
+        if (id === '\0virtual:my-test-entry') {
+          return `import { Spiceflow } from 'spiceflow'\nexport const app = new Spiceflow()`
+        }
+      },
+    }
+
+    const config = await resolveConfig(
+      {
+        root,
+        plugins: [virtualEntryPlugin, spiceflow({ entry: 'virtual:my-test-entry' })],
+      },
+      'build',
+      'production',
+    )
+
+    const plugin = findRewritePlugin(config)
+    const transform = (plugin.transform as Function).bind({
+      // Mock the PluginContext.resolve — Vite resolves virtual modules to \0-prefixed IDs
+      resolve: async (id: string) => {
+        if (id === 'virtual:my-test-entry') {
+          return { id: '\0virtual:my-test-entry' }
+        }
+        return null
+      },
+    })
+
+    const fakeId = path.join(root, 'node_modules/spiceflow/src/load-global-css.rsc.ts')
+    const result = await transform(loadCssSource, fakeId)
+
+    // The rewrite must strip the \0 prefix — downstream this.resolve('\0...')
+    // fails because Vite treats \0-prefixed IDs as already-resolved and won't
+    // re-resolve them, breaking CSS collection entirely.
+    expect(result).not.toContain('\0')
+    expect(result).toContain("loadCss('virtual:my-test-entry')")
+  })
+
+  test('leaves non-virtual file entries unchanged (no \\0 in resolved path)', async () => {
+    const root = await createTempApp()
+
+    const config = await resolveConfig(
+      {
+        root,
+        plugins: [spiceflow({ entry: './src/main.tsx' })],
+      },
+      'build',
+      'production',
+    )
+
+    const plugin = findRewritePlugin(config)
+    const absoluteEntry = path.resolve(root, 'src/main.tsx')
+    const transform = (plugin.transform as Function).bind({
+      resolve: async (id: string) => {
+        if (id === './src/main.tsx') {
+          return { id: absoluteEntry }
+        }
+        return null
+      },
+    })
+
+    const fakeId = path.join(root, 'node_modules/spiceflow/src/load-global-css.rsc.ts')
+    const result = await transform(loadCssSource, fakeId)
+
+    // For real file entries, resolved.id is an absolute path without \0.
+    expect(result).not.toContain('\0')
+    expect(result).not.toContain('virtual:app-entry')
+    expect(result).toContain(absoluteEntry)
   })
 })
