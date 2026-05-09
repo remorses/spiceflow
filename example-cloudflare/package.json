@@ -6,7 +6,7 @@
     "dev": "vite dev",
     "build": "vite build",
     "preview": "vite preview",
-    "deploy": "vite build && wrangler deploy",
+    "deployment": "vite build && wrangler deploy",
     "seed": "tsx scripts/seed.ts",
     "test": "tsx tests/run-tests.ts"
   },
