@@ -1,5 +1,13 @@
 # spiceflow
 
+## 1.24.2-rsc.0
+
+1. **Fixed CSS not loading in Cloudflare dev mode** — `collectCss` was looking up CSS through `virtual:app-entry`, which isn't in the RSC module graph when using the Cloudflare vite plugin (workerd uses its own `worker-entry`). CSS is now collected via the actual resolved entry file path, which is always present in the module graph.
+
+2. **Fixed `ssr.build.outDir` being overridden by `@cloudflare/vite-plugin`** — the Cloudflare plugin unconditionally set `outDir: dist/ssr` (sibling), causing workerd module resolution errors (`No such module "../ssr/index.js"`). Spiceflow now uses a `configResolved` hook to enforce the correct nested `dist/rsc/ssr` path after all config merging, so the fix works regardless of whether `cloudflare()` is registered before or after `spiceflow()` in the Vite config.
+
+3. **Fixed `findSourceMapURL` leaking into production builds** — the dev-only `findSourceMapURL` function referenced `/__vite_rsc_findSourceMapURL`, a Vite dev endpoint that caused webpack/turbopack to fail when built output was consumed by another bundler (e.g. a Next.js catch-all route). It is now replaced with a no-op during `vite build`.
+
 ## 1.24.1-rsc.0
 
 1. **Fixed `import.meta.filename` fallback for non-Node bundlers** — production RSC entries mounted inside bundlers like Next.js (webpack) no longer crash or silently skip static asset serving. When `import.meta.filename` is undefined, spiceflow now falls back to `import.meta.url` + `fileURLToPath()` to resolve `serveStatic` and `distDir`/`publicDir`.
