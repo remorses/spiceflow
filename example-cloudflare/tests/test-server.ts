@@ -116,6 +116,7 @@ export async function getPageSummary({ url }: { url: string }) {
     hasHeading: html.includes('How is this not illegal?'),
     hasKvText: html.includes('POKEMON_KV'),
     hasRscText: html.includes('React Server Components'),
+    hasCssLink: html.includes('globals.css') || html.includes('stylesheet'),
     pokemonLinks: html.match(/href="\/pokemon\/\d+"/g)?.length ?? 0,
     hasMissingModuleError: html.includes('No such module'),
     hasWorkerException: html.includes('Worker threw exception'),

@@ -246,6 +246,32 @@ export default function spiceflow({
         })
       },
     },
+    // In cloudflare mode, the `virtual:app-entry` module doesn't exist in the
+    // RSC environment's module graph (workerd uses its own worker-entry). This
+    // breaks loadCss('virtual:app-entry') because collectCss can't walk the
+    // graph. Fix: replace 'virtual:app-entry' with the actual entry file path
+    // which IS in the module graph. Must run before rsc() so vite-rsc's loadCss
+    // transform sees the resolved path.
+    {
+      name: 'spiceflow:rewrite-loadcss-entry',
+      async transform(code, id) {
+        if (!id.includes('load-global-css.rsc')) return
+        if (!code.includes('loadCss(')) return
+        if (!code.includes('virtual:app-entry')) return
+        const resolved = await this.resolve(entry)
+        if (!resolved) return
+        // Handle both single and double quotes (tsc may change quote style)
+        return code
+          .replace(
+            `loadCss('virtual:app-entry')`,
+            `loadCss('${resolved.id}')`,
+          )
+          .replace(
+            `loadCss("virtual:app-entry")`,
+            `loadCss("${resolved.id}")`,
+          )
+      },
+    },
     rsc(rscOptions),
     // Inject $$id on server reference functions so getActionAbortController()
     // can map a function back to its action ID.
