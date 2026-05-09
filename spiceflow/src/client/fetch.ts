@@ -302,9 +302,10 @@ type FetchResult<
   Paths extends string,
   Path extends AllHrefPaths<Paths>,
   Method extends string,
-> =
+> = Simplify<
   | FetchResultError<Routes, Paths, Path, Method>
   | FetchResultData<Routes, Paths, Path, Method>
+>
 
 
 // ─── Public type ─────────────────────────────────────────────────────────────
