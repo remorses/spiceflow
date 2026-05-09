@@ -260,16 +260,19 @@ export default function spiceflow({
         if (!code.includes('virtual:app-entry')) return
         const resolved = await this.resolve(entry)
         if (!resolved) return
-        // Use the raw entry string, not resolved.id — resolved IDs for virtual
-        // modules start with \0 which breaks downstream rsc:importer-resources resolution
+        // Use resolved.id (absolute path) so rsc:importer-resources can resolve
+        // it regardless of importer context. Strip the \0 prefix that Vite adds
+        // to resolved virtual module IDs — downstream this.resolve('\0...') fails
+        // because Vite doesn't re-resolve already-resolved IDs.
+        const resolvedId = resolved.id.replace(/^\0/, '')
         return code
           .replace(
             `loadCss('virtual:app-entry')`,
-            `loadCss('${entry}')`,
+            `loadCss('${resolvedId}')`,
           )
           .replace(
             `loadCss("virtual:app-entry")`,
-            `loadCss("${entry}")`,
+            `loadCss("${resolvedId}")`,
           )
       },
     },
