@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite dev",
+    "dev": "pnpm vite dev",
     "build": "vite build",
     "preview": "vite preview",
     "deployment": "vite build && wrangler deploy",
@@ -25,7 +25,6 @@
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "^1.28.0",
-    "@cloudflare/workers-types": "^4.20260226.1",
     "@vitejs/plugin-react": "^6.0.1",
     "tsx": "^4.19.0",
     "vitest": "^4.1.4",
