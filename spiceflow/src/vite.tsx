@@ -260,15 +260,16 @@ export default function spiceflow({
         if (!code.includes('virtual:app-entry')) return
         const resolved = await this.resolve(entry)
         if (!resolved) return
-        // Handle both single and double quotes (tsc may change quote style)
+        // Use the raw entry string, not resolved.id — resolved IDs for virtual
+        // modules start with \0 which breaks downstream rsc:importer-resources resolution
         return code
           .replace(
             `loadCss('virtual:app-entry')`,
-            `loadCss('${resolved.id}')`,
+            `loadCss('${entry}')`,
           )
           .replace(
             `loadCss("virtual:app-entry")`,
-            `loadCss("${resolved.id}")`,
+            `loadCss("${entry}")`,
           )
       },
     },
