@@ -206,6 +206,23 @@ export default function spiceflow({
       config(userConfig) {
         return normalizeEnvironmentOutDirs(userConfig)
       },
+      configResolved(resolvedConfig) {
+        // The cloudflare plugin unconditionally sets ssr.build.outDir to a
+        // sibling path (dist/ssr) regardless of plugin order. If it ran after
+        // our config hook, it overwrote our nested path. Re-apply the correct
+        // nested outDir so workerd can resolve "../ssr/index.js" imports.
+        const isCloudflare = resolvedConfig.plugins.some(
+          (p) => p.name === 'vite-plugin-cloudflare',
+        )
+        if (!isCloudflare) return
+        const rootOutDir = resolvedConfig.build.outDir
+        const nestedSsrOutDir = path.resolve(
+          resolvedConfig.root,
+          rootOutDir,
+          'rsc/ssr',
+        )
+        resolvedConfig.environments.ssr.build.outDir = nestedSsrOutDir
+      },
     },
     // Must run BEFORE rsc() — strips the base path from plugin-rsc's internal
     // RPC requests. plugin-rsc's loadModuleDevProxy builds endpoint URLs using

@@ -106,6 +106,40 @@ describe('spiceflow outDir normalization', () => {
       path.resolve(root, '.custom-build/rsc/ssr'),
     )
   })
+
+  test('cloudflare outDir override wins even when cloudflare plugin sets ssr outDir first', async () => {
+    // Simulates the real @cloudflare/vite-plugin behavior: it registers before
+    // spiceflow and unconditionally sets ssr.build.outDir to a sibling path.
+    // spiceflow's enforce:'post' config hook must override it to the nested path.
+    const root = await createTempApp()
+    const cloudflarePlugin = {
+      name: 'vite-plugin-cloudflare',
+      config() {
+        return {
+          environments: {
+            ssr: {
+              build: {
+                outDir: '.custom-build/ssr',
+              },
+            },
+          },
+        }
+      },
+    }
+    const config = await resolveConfig(
+      {
+        root,
+        build: { outDir: '.custom-build' },
+        plugins: [cloudflarePlugin, spiceflow({ entry: './src/main.tsx' })],
+      },
+      'build',
+      'production',
+    )
+
+    expect(config.environments.ssr.build.outDir).toBe(
+      path.resolve(root, '.custom-build/rsc/ssr'),
+    )
+  })
   test('server environments normalize to js entry filenames', async () => {
     const { config } = await resolveSpiceflowConfig()
 
