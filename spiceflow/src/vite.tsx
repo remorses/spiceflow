@@ -274,6 +274,27 @@ export default function spiceflow({
         )
       },
     },
+    // Strip dev-only findSourceMapURL from production client/SSR builds.
+    // @vitejs/plugin-rsc/browser defines findSourceMapURL() which references
+    // /__vite_rsc_findSourceMapURL (a dev-only Vite endpoint). React never
+    // calls it in production, but the code survives tree-shaking because it's
+    // passed as an option to createFromReadableStream/createFromFetch.
+    // When the dist output is later consumed by webpack/turbopack (e.g. via
+    // a Next.js catch-all route), they treat the URL as a module specifier
+    // and fail to resolve it. Replacing the function body with a no-op fixes
+    // the downstream bundler error without affecting runtime behavior.
+    {
+      name: 'spiceflow:strip-find-source-map-url',
+      apply: 'build' as const,
+      transform(code, id) {
+        if (!id.includes('@vitejs/plugin-rsc')) return
+        if (!code.includes('findSourceMapURL')) return
+        return code.replace(
+          /function findSourceMapURL\([^)]*\)\s*\{[^}]*__vite_rsc_findSourceMapURL[^}]*\}/,
+          'function findSourceMapURL() {}',
+        )
+      },
+    },
     prerenderPlugin(),
     serverFileGuardPlugin(),
     outputModulePackagePlugin(),
