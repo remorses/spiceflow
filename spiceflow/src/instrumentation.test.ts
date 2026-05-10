@@ -640,9 +640,9 @@ describe('instrumentation', () => {
     const spanNames = spans.map((s) => s.name)
     expect(spanNames).toMatchInlineSnapshot(`
       [
-        "GET /users/:id",
+        "GET /api/users/:id",
         "middleware - authMiddleware",
-        "handler - /users/:id",
+        "handler - /api/users/:id",
         "db.query",
       ]
     `)
@@ -651,23 +651,23 @@ describe('instrumentation', () => {
     expect(getServerTimingDescriptions(res.headers.get('server-timing')))
       .toMatchInlineSnapshot(`
         [
-          "GET /users/:id",
+          "GET /api/users/:id",
           "middleware - authMiddleware",
-          "middleware - authMiddleware > handler - /users/:id",
-          "middleware - authMiddleware > handler - /users/:id > db.query",
+          "middleware - authMiddleware > handler - /api/users/:id",
+          "middleware - authMiddleware > handler - /api/users/:id > db.query",
         ]
       `)
 
     // Parent middleware span is a child of the root span
     const mwSpan = spans.find((s) => s.name === 'middleware - authMiddleware')!
-    expect(mwSpan.parent?.name).toBe('GET /users/:id')
+    expect(mwSpan.parent?.name).toBe('GET /api/users/:id')
 
     // Handler span is a child of the middleware span (middleware wraps handler)
-    const handlerSpan = spans.find((s) => s.name === 'handler - /users/:id')!
+    const handlerSpan = spans.find((s) => s.name === 'handler - /api/users/:id')!
     expect(handlerSpan.parent?.name).toBe('middleware - authMiddleware')
 
     // Custom span is a child of the handler span
     const dbSpan = spans.find((s) => s.name === 'db.query')!
-    expect(dbSpan.parent?.name).toBe('handler - /users/:id')
+    expect(dbSpan.parent?.name).toBe('handler - /api/users/:id')
   })
 })

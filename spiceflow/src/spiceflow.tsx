@@ -2203,9 +2203,12 @@ export class Spiceflow<
       const resolved = this.resolveRoutes(request, routes)
 
       if (resolved.react) {
-        const reactRoute = resolved.reactRoutes.find(
+        const reactMatchedRoute = resolved.reactRoutes.find(
           (r) => r.route.kind === 'page' || r.route.kind === 'staticPage',
-        )?.route.path
+        )
+        const reactRoute = reactMatchedRoute
+          ? this.getFullRoutePath(reactMatchedRoute.route.path, reactMatchedRoute.app)
+          : undefined
         if (rootSpan && reactRoute)
           rootSpan.updateName(`${request.method} ${reactRoute}`)
 
@@ -2248,7 +2251,9 @@ export class Spiceflow<
 
       const { route } = resolved
       const isRealRoute = route?.route?.handler !== notFoundHandler
-      const routeTemplate = isRealRoute ? route?.route?.path : undefined
+      const routeTemplate = isRealRoute
+        ? this.getFullRoutePath(route.route.path, route.app)
+        : undefined
       if (rootSpan && routeTemplate)
         rootSpan.updateName(`${request.method} ${routeTemplate}`)
 
@@ -2306,9 +2311,12 @@ export class Spiceflow<
             }
             return this.turnHandlerResultIntoResponse(res, route?.route, request)
           }
+          const fullHandlerPath = route?.route?.path
+            ? this.getFullRoutePath(route.route.path, route.app)
+            : path
           return withSpan(
             tracer,
-            `handler - ${route?.route?.path || path}`,
+            `handler - ${fullHandlerPath}`,
             {},
             async (handlerSpan) => {
               const prevSpan = context.span
@@ -2692,6 +2700,16 @@ export class Spiceflow<
         }
       }
     }
+  }
+
+  /** Prepend the basePath prefix for a route's owning app to get the full path template. */
+  private getFullRoutePath(routePath: string, app?: AnySpiceflow): string {
+    if (!app) return routePath
+    const prefix = this.joinBasePaths(
+      this.getAppAndParents(app).map((x) => x.basePath),
+    )
+    const joined = prefix + routePath
+    return joined.replace(/\/$/, '') || '/'
   }
 
   private joinBasePaths(basePaths: (string | undefined)[]): string {
