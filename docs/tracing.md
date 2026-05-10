@@ -199,6 +199,30 @@ import { openai } from '@ai-sdk/openai'
 
 The `ai.generateText` and `ai.toolCall` spans appear as children of `handler - /api/chat` automatically. This applies to any OTel-instrumented library — HTTP clients, database drivers, queue publishers, etc.
 
+## Sentry
+
+Sentry's Node.js SDK is built on OpenTelemetry, so all spiceflow spans flow to Sentry automatically. Initialize Sentry before creating your app, then pass the tracer from the Sentry client:
+
+```ts
+import * as Sentry from '@sentry/node'
+import { Spiceflow } from 'spiceflow'
+
+Sentry.init({
+  dsn: 'https://examplePublicKey@o0.ingest.sentry.io/0',
+  tracesSampleRate: 1.0,
+})
+
+export const app = new Spiceflow({
+  tracer: Sentry.getClient()!.tracer,
+}).get('/api/users/:id', ({ params }) => {
+  return { id: params.id, name: 'Alice' }
+})
+```
+
+Every request span, middleware span, handler span, and custom child span created with `context.tracer.startActiveSpan()` shows up in Sentry's Performance dashboard. Errors recorded with `span.recordException()` are captured as Sentry issues with the full trace context attached.
+
+If you already use the generic OTel setup from the section above, Sentry picks up those spans too. The difference is that with `Sentry.getClient()!.tracer` you skip installing `@opentelemetry/api` as a direct dependency.
+
 ## Zero overhead without tracer
 
 When no `tracer` is passed, every instrumentation point is skipped entirely — no strings allocated, no objects created, no extra async wrappers. The `span` and `tracer` on the handler context use no-op implementations whose empty methods V8 inlines away.
