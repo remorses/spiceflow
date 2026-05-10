@@ -517,7 +517,7 @@ export class Spiceflow<
     this.disableSuperJsonUnlessRpc = options.disableSuperJsonUnlessRpc ?? true
     this.allowedActionOrigins = options.allowedActionOrigins
     this.tracer = options.tracer
-    this.serverTiming = options.serverTiming
+    this.serverTiming = options.serverTiming ?? true
 
     this.waitUntilFn = options.waitUntil || defaultWaitUntil
 

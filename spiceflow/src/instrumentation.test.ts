@@ -426,7 +426,7 @@ describe('instrumentation', () => {
     expect(capturedTracer).toBe(noopTracer)
   })
 
-  test('context.tracer is the real tracer when tracer is set', async () => {
+  test('context.tracer is available when tracer is set', async () => {
     const { tracer } = createTestTracer()
     let capturedTracer: SpiceflowTracer | undefined
 
@@ -436,7 +436,8 @@ describe('instrumentation', () => {
     })
 
     await app.handle(new Request('http://localhost/hello'))
-    expect(capturedTracer).toBe(tracer)
+    expect(capturedTracer).toBeDefined()
+    expect(capturedTracer!.startActiveSpan).toBeInstanceOf(Function)
   })
 
   test('context.span is the handler span when tracer is set', async () => {
@@ -561,7 +562,7 @@ describe('instrumentation', () => {
 
   test('server timing emits nested descriptions for built-in and custom spans', async () => {
     const { tracer } = createTestTracer()
-    const app = new Spiceflow({ tracer, serverTiming: true }).get(
+    const app = new Spiceflow({ tracer }).get(
       '/users/:id',
       ({ tracer }) => {
         return tracer.startActiveSpan('db.query', (dbSpan) => {
@@ -584,12 +585,89 @@ describe('instrumentation', () => {
     `)
   })
 
-  test('server timing is omitted when disabled', async () => {
+  test('server timing is omitted when explicitly disabled', async () => {
+    const { tracer } = createTestTracer()
+    const app = new Spiceflow({ tracer, serverTiming: false }).get(
+      '/hello',
+      () => 'world',
+    )
+
+    const res = await app.handle(new Request('http://localhost/hello'))
+
+    expect(res.headers.get('server-timing')).toBeNull()
+  })
+
+  test('server timing is enabled by default when tracer is provided', async () => {
     const { tracer } = createTestTracer()
     const app = new Spiceflow({ tracer }).get('/hello', () => 'world')
 
     const res = await app.handle(new Request('http://localhost/hello'))
 
-    expect(res.headers.get('server-timing')).toBeNull()
+    expect(res.headers.get('server-timing')).not.toBeNull()
+  })
+
+  test('tracing and server timing work across parent app with middleware and child subapp mounted with .use()', async () => {
+    const { tracer, spans } = createTestTracer()
+
+    const child = new Spiceflow({ basePath: '/api' }).get(
+      '/users/:id',
+      ({ tracer }) => {
+        return tracer.startActiveSpan('db.query', (dbSpan) => {
+          dbSpan.end()
+          return { id: '1', name: 'Alice' }
+        })
+      },
+    )
+
+    const app = new Spiceflow({ tracer })
+    app.use(async function authMiddleware(ctx: any, next: any) {
+      ctx.state = { ...ctx.state, user: 'tommy' }
+      return next()
+    })
+    app.use(child)
+
+    const res = await app.handle(
+      new Request('http://localhost/api/users/1'),
+    )
+
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({ id: '1', name: 'Alice' })
+
+    // All spans are created: root request, parent middleware, child handler, custom span
+    const rootSpans = spans.filter((s) => !s.parent)
+    expect(rootSpans).toHaveLength(1)
+
+    const spanNames = spans.map((s) => s.name)
+    expect(spanNames).toMatchInlineSnapshot(`
+      [
+        "GET /users/:id",
+        "middleware - authMiddleware",
+        "handler - /users/:id",
+        "db.query",
+      ]
+    `)
+
+    // Server timing shows parent middleware wrapping child handler and custom spans
+    expect(getServerTimingDescriptions(res.headers.get('server-timing')))
+      .toMatchInlineSnapshot(`
+        [
+          "GET /users/:id",
+          "middleware - authMiddleware",
+          "middleware - authMiddleware > handler - /users/:id",
+          "middleware - authMiddleware > handler - /users/:id > db.query",
+        ]
+      `)
+
+    // Parent middleware span is a child of the root span
+    const mwSpan = spans.find((s) => s.name === 'middleware - authMiddleware')!
+    expect(mwSpan.parent?.name).toBe('GET /users/:id')
+
+    // Handler span is a child of the middleware span (middleware wraps handler)
+    const handlerSpan = spans.find((s) => s.name === 'handler - /users/:id')!
+    expect(handlerSpan.parent?.name).toBe('middleware - authMiddleware')
+
+    // Custom span is a child of the handler span
+    const dbSpan = spans.find((s) => s.name === 'db.query')!
+    expect(dbSpan.parent?.name).toBe('handler - /users/:id')
   })
 })

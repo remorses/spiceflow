@@ -44,12 +44,11 @@ export const app = new Spiceflow({ tracer: trace.getTracer('my-app') }).get(
 )
 ```
 
-If you also want the spans visible in Chrome DevTools, enable `serverTiming` too:
+Server timing is enabled by default, so spans are automatically visible in Chrome DevTools:
 
 ```ts
 export const app = new Spiceflow({
   tracer: trace.getTracer('my-app'),
-  serverTiming: true,
 }).get('/api/users/:id', ({ params, tracer }) => {
   return tracer.startActiveSpan('db.query', (span) => {
     span.end()
@@ -85,7 +84,7 @@ Each span includes standard HTTP attributes (`http.request.method`, `http.route`
 
 ## Server Timing
 
-Set `serverTiming: true` together with `tracer` to emit a `Server-Timing` response header on every request. This makes slow work visible in Chrome DevTools without setting up a trace backend first.
+When a `tracer` is provided, spiceflow automatically emits a `Server-Timing` response header on every request. This makes slow work visible in Chrome DevTools without setting up a trace backend first. Set `serverTiming: false` to disable it.
 
 Spiceflow keeps the browser format flat, because `Server-Timing` is flat, but the `desc` value preserves the nested path with ` > `. Child items omit the repeated root request prefix so the list stays easy to scan:
 
