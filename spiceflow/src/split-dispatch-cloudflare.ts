@@ -60,13 +60,15 @@ export async function resolveSplitHandler(
     )
   }
 
-  // Use the content-hashed id so LOADER.get() doesn't serve stale code
-  // after a new deployment with different sub-app code.
   // NOTE: Cloudflare bindings (KV, D1, R2, etc.) cannot be passed directly
   // to Dynamic Workers because they are not serializable. Split sub-apps
   // can use outbound fetch() but not parent bindings.
-  const worker = env.LOADER.get(manifest.id, async () => {
-    // Fetch all module chunks from ASSETS in parallel
+  //
+  // LOADER.get() must be called per-request because the returned worker stub
+  // is an I/O object bound to the request context that created it. Cloudflare
+  // doesn't allow using I/O objects across request boundaries. The content-hashed
+  // id ensures LOADER internally caches the compiled worker code across requests.
+  const loaderFactory = async () => {
     const moduleEntries = await Promise.all(
       manifest.modules.map(async (filename: string) => {
         const res = await env.ASSETS.fetch(
@@ -87,9 +89,12 @@ export async function resolveSplitHandler(
       compatibilityDate: '2026-03-24',
       compatibilityFlags: ['nodejs_compat'],
     }
-  })
+  }
 
   return {
-    handle: (request: Request) => worker.getEntrypoint().fetch(request),
+    handle: async (request: Request) => {
+      const worker = env.LOADER.get(manifest.id, loaderFactory)
+      return worker.getEntrypoint().fetch(request)
+    },
   }
 }

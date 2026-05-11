@@ -6,7 +6,8 @@
     "dev": "pnpm vite dev",
     "build": "vite build",
     "preview": "vite preview",
-    "deploy": "vite build && wrangler deploy"
+    "deploy": "vite build && wrangler deploy",
+    "test": "vitest --config vitest.config.ts"
   },
   "dependencies": {
     "@types/node": "18.16.3",
@@ -21,6 +22,7 @@
   "devDependencies": {
     "@cloudflare/vite-plugin": "^1.28.0",
     "@vitejs/plugin-react": "^6.0.1",
+    "vitest": "^4.1.5",
     "wrangler": "^4.71.0"
   }
 }
