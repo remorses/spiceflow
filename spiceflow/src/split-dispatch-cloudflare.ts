@@ -5,6 +5,12 @@
 // The Vite plugin embeds manifest data (entry, modules, content-hashed id)
 // directly in the replaced import() call, so no separate manifest.json
 // file or name-based lookup is needed.
+//
+// Cloudflare bindings (KV, D1, R2, etc.) cannot be passed directly to
+// Dynamic Workers because they are not structured-clonable. To give a
+// split sub-app access to parent bindings, wrap them in WorkerEntrypoint
+// RPC classes via ctx.exports and pass those stubs in the env field.
+// See: https://developers.cloudflare.com/dynamic-workers/usage/bindings/
 
 interface SplitChild {
   pattern: string
@@ -60,10 +66,6 @@ export async function resolveSplitHandler(
     )
   }
 
-  // NOTE: Cloudflare bindings (KV, D1, R2, etc.) cannot be passed directly
-  // to Dynamic Workers because they are not serializable. Split sub-apps
-  // can use outbound fetch() but not parent bindings.
-  //
   // LOADER.get() must be called per-request because the returned worker stub
   // is an I/O object bound to the request context that created it. Cloudflare
   // doesn't allow using I/O objects across request boundaries. The content-hashed

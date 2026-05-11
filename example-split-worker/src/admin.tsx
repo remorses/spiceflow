@@ -1,7 +1,7 @@
-// Lazy sub-app: loaded on demand when a request matches /admin/*
+// Split sub-app: loaded on demand when a request matches /admin/*
 // On Cloudflare, this runs as an isolated Dynamic Worker via LOADER.
-// NOTE: Cloudflare bindings (KV, D1, R2) are not available in Dynamic
-// Workers because they are not serializable. Use outbound fetch() for
+// Cloudflare bindings (KV, D1, R2) are not available in Dynamic Workers
+// because they are not structured-clonable. Use outbound fetch() for
 // external API calls instead.
 import { Spiceflow } from 'spiceflow'
 import { formatUser, getDefaultUsers } from './admin-utils'
