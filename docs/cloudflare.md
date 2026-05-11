@@ -463,3 +463,5 @@ Split sub-apps on Cloudflare run in **isolated V8 isolates**. This provides secu
 - **No parent bindings.** KV, D1, R2, and other Cloudflare bindings from the parent Worker are not available inside the Dynamic Worker. The sub-app can use outbound `fetch()` for external API calls. To share bindings, wrap them in `WorkerEntrypoint` RPC classes; see the [Dynamic Workers bindings docs](https://developers.cloudflare.com/dynamic-workers/usage/bindings/).
 - **No shared state.** Module-level variables in the parent are not visible to the sub-app. Each Dynamic Worker has its own module scope.
 - **Network access.** By default, the sub-app inherits the parent's network access. The parent can restrict this if needed.
+
+See also: [Splitting Large Workers with Service Bindings](./service-bindings.md) for when your bundle exceeds the 10 MiB limit.
