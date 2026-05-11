@@ -126,6 +126,7 @@ export type MiddlewareContext<
   tracer: SpiceflowTracer
 
   redirect: Redirect
+  response: ContextResponse
   // server: Server | null
 
   // set: {
