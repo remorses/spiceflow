@@ -4,6 +4,10 @@
 import { Spiceflow } from 'spiceflow'
 
 export const app = new Spiceflow()
+  .use((ctx, next) => {
+    ctx.response.headers.set('x-app', 'split-worker')
+    return next()
+  })
   .get('/', () => ({ message: 'root app' }))
   .get('/health', () => ({ status: 'ok' }))
   .split('/admin/*', () => import('./admin'))

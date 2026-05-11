@@ -1132,10 +1132,11 @@ function splitWorkerPlugin({
   let pendingWorkerFiles: Map<string, string> | undefined
   let resolvedClientOutDir = 'dist/client'
 
-  // Regex to find .split('pattern', () => import('specifier')) calls.
-  // Captures the import specifier so we can resolve it and track it as a split entry.
+  // Regex to find .split() calls with inline import() and extract the specifier.
+  // Handles single quotes, double quotes, and backticks (static template literals).
+  // Also handles block-body arrows: () => { return import('...') }
   const splitImportRe =
-    /\.split\(\s*['"][^'"]*['"]\s*,\s*(?:async\s*)?\(\s*\)\s*=>\s*import\(\s*['"]([^'"]+)['"]\s*\)/g
+    /\.split\(\s*(?:['"`][^'"`]*['"`])\s*,\s*(?:async\s*)?\(\s*\)\s*=>\s*(?:\{\s*return\s+)?import\(\s*['"`]([^'"`]+)['"`]\s*\)/g
 
   return [
     {
@@ -1150,29 +1151,19 @@ function splitWorkerPlugin({
       },
 
       async transform(code, id) {
-        if (!code.includes('new Spiceflow')) return
-        const hasSplitCall = code.includes('.split(')
-        if (!hasSplitCall) return
+        // Cheap guard: only process files that contain .split( — avoids
+        // running the regex on every file in the project.
+        if (!code.includes('.split(')) return
 
         // Find all .split() calls with inline import() and resolve the specifiers
         let match: RegExpExecArray | null
-        let found = false
         splitImportRe.lastIndex = 0
         while ((match = splitImportRe.exec(code)) !== null) {
-          found = true
           const specifier = match[1]
           const resolved = await this.resolve(specifier, id)
           if (resolved) {
             splitEntries.add(resolved.id)
           }
-        }
-
-        if (!found) {
-          this.warn(
-            `.split() call found in ${id} but no inline import() detected. ` +
-              `.split() requires an inline import() for code splitting, e.g. ` +
-              `.split('/admin/*', () => import('./admin'))`,
-          )
         }
       },
 
@@ -1231,9 +1222,12 @@ function splitWorkerPlugin({
           // Generate a thin wrapper that re-exports the sub-app's fetch()
           // as the Worker default export. Cloudflare Dynamic Workers expect
           // export default { fetch(request) {...} } on the entry module.
+          // Uses namespace import + fallback chain to support both
+          // `export default new Spiceflow()` and `export const app = new Spiceflow()`.
           const wrapperName = `__entry-${contentHash}.js`
           const wrapperCode = [
-            `import app from "./${fileName}";`,
+            `import * as mod from "./${fileName}";`,
+            `const app = mod.default ?? mod.app ?? mod;`,
             `export default { fetch: (r) => app.fetch(r) };`,
           ].join('\n')
 
