@@ -68,7 +68,7 @@ The typed fetch client only feels good when the server app exposes a clean type 
 
 ```ts
 import { createSpiceflowFetch } from 'spiceflow/client'
-import type { App } from '@my-org/website/dist/src/app.d.ts'
+import type { App } from '@my-org/website/src/app.tsx'
 
 export const safeFetch = createSpiceflowFetch<App>('https://example.com', {
   headers: {
@@ -137,25 +137,27 @@ Do not skip the `instanceof Error` check.
 
 ### Cross-workspace imports
 
-In a monorepo, prefer this pattern:
-
-```ts
-import type { App } from '@my-org/website/dist/src/app.d.ts'
-```
-
-Not this:
+In a monorepo, import API types from **source files**, not built `dist/*.d.ts` files:
 
 ```ts
 import type { App } from '@my-org/website/src/app.tsx'
 ```
 
-Why:
+This avoids build-order dependencies. The server doesn't need to build before the client can typecheck, which matters in CI where packages build in parallel.
 
-- `dist/*.d.ts` keeps the dependency boundary **type-only**
-- TypeScript does not crawl into unrelated runtime modules like CSS, `cloudflare:workers`, raw asset imports, or framework-specific globals
-- client packages stay easier to typecheck and easier to publish
+The tradeoff is that tsc walks the server's full import graph and may hit unresolvable modules like `cloudflare:workers` or CSS imports. Fix these with a small ambient `.d.ts` stub in the client package:
 
-If the server package is private, keep it in the client package's `devDependencies` when possible.
+```ts
+// client/src/server-ambient.d.ts
+declare module 'cloudflare:workers' {
+  const env: any
+  export { env }
+}
+declare module '*.css' {}
+type ExportedHandler = any
+```
+
+Keep the server package as a `devDependency` of the client package for typechecking.
 
 ### Server-side requirements for good fetch inference
 
@@ -195,9 +197,8 @@ return new Response('ok')
 When typed fetch gets weird, check these first:
 
 - server and client packages use the **same Spiceflow version**
-- client imports the app type from **built `dist/*.d.ts`**, not source
-- server package exports the `dist` path in `package.json`
-- server build actually emits declarations before client typecheck runs
+- client imports the app type from **source files** with `import type`
+- add ambient `.d.ts` stubs for unresolvable server-only modules (e.g. `cloudflare:workers`, `*.css`)
 - client uses route patterns like `'/users/:id'` with `params`, never interpolated strings
 
 </details>
