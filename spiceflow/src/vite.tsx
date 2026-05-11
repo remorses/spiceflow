@@ -352,6 +352,12 @@ export default function spiceflow({
     // Skipped for Vercel (has its own tracing) and Cloudflare (bundles everything).
     standaloneTracePlugin(),
 
+    // Handle ?split suffix for lazy sub-app code splitting.
+    // Strips the suffix during resolution so Rollup creates a normal dynamic-import
+    // chunk, then in generateBundle collects those chunks + deps into __workers/
+    // for Cloudflare's LOADER binding.
+    ...splitWorkerPlugin({ isCloudflareProject: () => isCloudflareProject }),
+
     // Rewrite optimizeDeps entries so @vitejs/plugin-rsc vendor CJS files
     // resolve through the spiceflow framework package (where the plugin is installed)
     // rather than from the app root where the plugin isn't a direct dependency.
@@ -1110,6 +1116,306 @@ function addNoExternal(
       ? [existing]
       : []
   config.resolve.noExternal = Array.from(new Set([...arr, pkg]))
+}
+
+function splitWorkerPlugin({
+  isCloudflareProject,
+}: {
+  isCloudflareProject: () => boolean
+}): Plugin[] {
+  const splitEntries = new Set<string>()
+  const SPLIT_SUFFIX = '?split'
+  // Stored during generateBundle, written to the client output dir in buildApp post
+  let pendingWorkerFiles: Map<string, string> | undefined
+  let resolvedClientOutDir = 'dist/client'
+
+  return [
+    {
+      name: 'spiceflow:split-worker',
+      enforce: 'pre' as const,
+
+      configResolved(config) {
+        resolvedClientOutDir = path.resolve(
+          config.root,
+          config.environments.client?.build?.outDir ?? 'dist/client',
+        )
+      },
+
+      async resolveId(source, importer, options) {
+        if (!source.endsWith(SPLIT_SUFFIX)) return
+        const cleanSource = source.slice(0, -SPLIT_SUFFIX.length)
+        const resolved = await this.resolve(cleanSource, importer, {
+          ...options,
+          skipSelf: true,
+        })
+        if (resolved) {
+          splitEntries.add(resolved.id)
+        }
+        return resolved
+      },
+
+      async generateBundle(_options, bundle) {
+        if (!isCloudflareProject() || splitEntries.size === 0) return
+
+        // Collect info for each split entry: its chunks, content hash, etc.
+        // Uses an array (not a name-keyed object) to avoid basename collisions
+        // when two split files have the same name in different directories.
+        const workerInfos: {
+          id: string
+          originalEntry: string
+          entry: string
+          modules: string[]
+        }[] = []
+
+        const { createHash } = await import('node:crypto')
+
+        for (const [fileName, chunk] of Object.entries(bundle)) {
+          if (chunk.type !== 'chunk' || !chunk.isDynamicEntry) continue
+          if (!chunk.facadeModuleId) continue
+          const cleanFacadeId = chunk.facadeModuleId.replace(/\?split$/, '')
+          if (
+            !splitEntries.has(chunk.facadeModuleId) &&
+            !splitEntries.has(cleanFacadeId)
+          )
+            continue
+
+          // Collect transitive dependency chunks including dynamic imports.
+          // Only follows real chunks in the bundle, not external modules like
+          // node:*, cloudflare:*, or virtual: modules.
+          const allModules = new Set<string>([fileName])
+          const queue = [
+            ...(chunk.imports || []),
+            ...(chunk.dynamicImports || []),
+          ]
+          while (queue.length) {
+            const dep = queue.shift()!
+            if (allModules.has(dep)) continue
+            const depChunk = bundle[dep]
+            if (!depChunk || depChunk.type !== 'chunk') continue
+            allModules.add(dep)
+            if (depChunk.imports) queue.push(...depChunk.imports)
+            if (depChunk.dynamicImports) queue.push(...depChunk.dynamicImports)
+          }
+
+          // Compute a content hash from all module sources so LOADER.get()
+          // uses a deployment-unique key.
+          const hasher = createHash('sha256')
+          for (const mod of [...allModules].sort()) {
+            const src = bundle[mod]
+            if (src?.type === 'chunk') {
+              hasher.update(mod)
+              hasher.update('\0')
+              hasher.update(src.code)
+              hasher.update('\0')
+            }
+          }
+          const contentHash = hasher.digest('hex').slice(0, 12)
+
+          // Generate a thin wrapper that re-exports the sub-app's fetch()
+          // as the Worker default export. Cloudflare Dynamic Workers expect
+          // export default { fetch(request) {...} } on the entry module.
+          const wrapperName = `__entry-${contentHash}.js`
+          const wrapperCode = [
+            `import app from "./${fileName}";`,
+            `export default { fetch: (r) => app.fetch(r) };`,
+          ].join('\n')
+
+          workerInfos.push({
+            id: `split:${contentHash}`,
+            // originalEntry is the Rollup chunk filename used in import() calls
+            // in the built code. entry is the wrapper module for LOADER.
+            originalEntry: fileName,
+            entry: wrapperName,
+            modules: [wrapperName, ...allModules],
+          })
+
+          pendingWorkerFiles ??= new Map()
+          pendingWorkerFiles.set(wrapperName, wrapperCode)
+
+          pendingWorkerFiles ??= new Map()
+          for (const mod of allModules) {
+            const src = bundle[mod]
+            if (src?.type === 'chunk') {
+              pendingWorkerFiles.set(mod, src.code)
+            }
+          }
+        }
+
+        if (workerInfos.length === 0) return
+
+        // Collect ALL modules used by split sub-apps
+        const allSplitModules = new Set<string>()
+        for (const w of workerInfos) {
+          for (const m of w.modules) allSplitModules.add(m)
+        }
+
+        // Walk the main entry's full import graph (excluding split entry
+        // chunks) to find which modules the main worker actually uses.
+        // Shared deps like the spiceflow framework chunk will be reachable.
+        // Use originalEntry (the Rollup chunk) for removal and rewriting.
+        // The wrapper (entry) is generated, not in the bundle.
+        const splitEntryFiles = new Set(
+          workerInfos.map((w) => w.originalEntry),
+        )
+        const reachableFromMain = new Set<string>()
+        const mainQueue: string[] = []
+
+        for (const [fileName, chunk] of Object.entries(bundle)) {
+          if (chunk.type !== 'chunk' || !chunk.isEntry) continue
+          reachableFromMain.add(fileName)
+          if (chunk.imports) mainQueue.push(...chunk.imports)
+          if (chunk.dynamicImports) {
+            for (const d of chunk.dynamicImports) {
+              if (!splitEntryFiles.has(d)) mainQueue.push(d)
+            }
+          }
+        }
+        while (mainQueue.length) {
+          const dep = mainQueue.shift()!
+          if (reachableFromMain.has(dep)) continue
+          reachableFromMain.add(dep)
+          const depChunk = bundle[dep]
+          if (!depChunk || depChunk.type !== 'chunk') continue
+          if (depChunk.imports) mainQueue.push(...depChunk.imports)
+          if (depChunk.dynamicImports) {
+            for (const d of depChunk.dynamicImports) {
+              if (!splitEntryFiles.has(d)) mainQueue.push(d)
+            }
+          }
+        }
+
+        // Remove split-only modules from the main worker bundle
+        for (const mod of allSplitModules) {
+          if (!reachableFromMain.has(mod)) {
+            delete bundle[mod]
+          }
+        }
+
+        // Rewrite import() calls: replace each split entry's import() with
+        // an inline manifest object containing the entry, modules, and
+        // content-hashed id. The cloudflare lazy dispatch reads
+        // __workerManifest from the loader result to create the Dynamic Worker.
+        // Map original chunk filenames to their worker info for rewriting
+        // import() calls. Rollup's built code references originalEntry, not
+        // the generated wrapper.
+        const entryToInfo = new Map(
+          workerInfos.map((info) => [info.originalEntry, info]),
+        )
+        for (const [, chunk] of Object.entries(bundle)) {
+          if (chunk.type !== 'chunk') continue
+          let modified = false
+          for (const [entryFile, info] of entryToInfo) {
+            const escaped = entryFile.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+            const re = new RegExp(
+              `import\\(\\s*(['"])\\.?\\/?${escaped}\\1\\s*\\)`,
+              'g',
+            )
+            if (re.test(chunk.code)) {
+              re.lastIndex = 0
+              const inlineManifest = JSON.stringify({
+                __workerManifest: info,
+              })
+              chunk.code = chunk.code.replace(
+                re,
+                `Promise.resolve(${inlineManifest})`,
+              )
+              modified = true
+            }
+          }
+          if (modified) {
+            chunk.dynamicImports = chunk.dynamicImports.filter(
+              (d) => !splitEntryFiles.has(d),
+            )
+          }
+        }
+      },
+    },
+    {
+      name: 'spiceflow:split-worker-write',
+      apply: 'build' as const,
+      // Write worker chunks to the client output dir AFTER all environments
+      // are built, so the client build doesn't clean our files.
+      // Also scans worker chunks for imports to non-bundle files (like
+      // __vite_rsc_assets_manifest.js generated by the RSC plugin) and
+      // copies them into __workers/ so Dynamic Workers can resolve them.
+      buildApp: {
+        order: 'post' as const,
+        async handler() {
+          if (!pendingWorkerFiles || pendingWorkerFiles.size === 0) return
+
+          const fs = await import('node:fs/promises')
+          const workersDir = path.resolve(resolvedClientOutDir, '__workers')
+
+          // Write all pending worker files
+          await Promise.all(
+            [...pendingWorkerFiles.entries()].map(
+              async ([fileName, content]) => {
+                const filePath = path.join(workersDir, fileName)
+                await fs.mkdir(path.dirname(filePath), { recursive: true })
+                await fs.writeFile(filePath, content)
+              },
+            ),
+          )
+
+          // Scan written chunks for imports to files outside the bundle
+          // (e.g. __vite_rsc_assets_manifest.js) and copy them into
+          // __workers/ so LOADER's module resolution can find them.
+          // Also update the inline __workerManifest modules lists in index.js.
+          const rscOutDir = path.resolve(resolvedClientOutDir, '../rsc')
+          const extraModules: string[] = []
+          const importRe =
+            /\bimport\s+[^'"]*['"](\.\.\/.+?\.js)['"]/g
+
+          for (const [fileName, content] of pendingWorkerFiles.entries()) {
+            if (!fileName.endsWith('.js')) continue
+            let match: RegExpExecArray | null
+            importRe.lastIndex = 0
+            while ((match = importRe.exec(content)) !== null) {
+              const importPath = match[1]
+              // Resolve relative to the chunk's directory
+              const chunkDir = path.dirname(
+                path.join(rscOutDir, fileName),
+              )
+              const absPath = path.resolve(chunkDir, importPath)
+              const relToRsc = path.relative(rscOutDir, absPath)
+              // Only copy files from the RSC output dir
+              if (relToRsc.startsWith('..')) continue
+              const destPath = path.join(workersDir, relToRsc)
+              try {
+                await fs.access(absPath)
+                await fs.mkdir(path.dirname(destPath), { recursive: true })
+                await fs.copyFile(absPath, destPath)
+                extraModules.push(relToRsc)
+              } catch {
+                // File doesn't exist yet or can't be copied, skip
+              }
+            }
+          }
+
+          // If extra modules were found, update the inline manifests in
+          // the built index.js to include them
+          if (extraModules.length > 0) {
+            const indexPath = path.join(rscOutDir, 'index.js')
+            try {
+              let indexCode = await fs.readFile(indexPath, 'utf-8')
+              // Find each __workerManifest and add extra modules
+              for (const extraMod of extraModules) {
+                indexCode = indexCode.replace(
+                  /"__workerManifest":\{([^}]*"modules":\[)/g,
+                  `"__workerManifest":{$1"${extraMod}",`,
+                )
+              }
+              await fs.writeFile(indexPath, indexCode)
+            } catch {
+              // index.js not found or can't be updated
+            }
+          }
+
+          pendingWorkerFiles = undefined
+        },
+      },
+    },
+  ]
 }
 
 function standaloneTracePlugin(): Plugin {
