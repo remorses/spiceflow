@@ -291,6 +291,14 @@ export class Spiceflow<
   /** @internal */
   childrenApps: AnySpiceflow[] = []
 
+  /** @internal Lazy sub-apps registered via .lazy('/prefix/*', () => import('./x?split')) */
+  lazyChildren: {
+    pattern: string
+    loader: () => Promise<any>
+    cachedHandler?: { handle: (req: Request) => Promise<Response> }
+    _pendingResolve?: Promise<{ handle: (req: Request) => Promise<Response> }>
+  }[] = []
+
   /** @internal */
   getAllRoutes() {
     let root = this.topLevelApp || this
@@ -1392,6 +1400,20 @@ export class Spiceflow<
     return this
   }
 
+  /**
+   * Register a lazy sub-app that loads on demand when a request matches the prefix.
+   * On Node/Bun the module is loaded via dynamic import. On Cloudflare Workers it
+   * runs as an isolated Dynamic Worker via the LOADER binding.
+   *
+   * ```ts
+   * app.lazy('/admin/*', () => import('./admin?split'))
+   * ```
+   */
+  lazy(pattern: string, loader: () => Promise<any>) {
+    this.lazyChildren.push({ pattern, loader })
+    return this
+  }
+
   onError<const Schema extends RouteSchema>(
     handler: ErrorHandler<Definitions['error'], Schema, Singleton>,
   ): this {
@@ -2061,6 +2083,9 @@ export class Spiceflow<
     }
   }
 
+  /** Alias for handle(), matches the Cloudflare Worker fetch() signature. */
+  fetch = (request: Request) => this.handle(request)
+
   handle = async (
     incomingRequest: Request,
     { state: customState }: { state?: Singleton['state'] } = {},
@@ -2255,6 +2280,18 @@ export class Spiceflow<
 
       const { route } = resolved
       const isRealRoute = route?.route?.handler !== notFoundHandler
+
+      // Lazy sub-app dispatch: if no static route matched, check lazy children.
+      if (!isRealRoute) {
+        const lazyResult = await this.dispatchLazy({
+          request,
+          context,
+          rootSpan,
+          tracer,
+        })
+        if (lazyResult) return lazyResult
+      }
+
       const routeTemplate = isRealRoute
         ? this.getFullRoutePath(route.route.path, route.app)
         : undefined
@@ -2379,6 +2416,120 @@ export class Spiceflow<
       finalizeRequestSpan(rootSpan, result, routeTemplate)
       return result
     })
+  }
+
+  /**
+   * Dispatch a request to a matching lazy sub-app. Returns the finalized
+   * Response if a lazy child matched, or undefined to fall through to the
+   * normal not-found handler.
+   *
+   * Lazy resolution is deferred into the middleware chain's final callback
+   * so that short-circuiting middleware (e.g. auth returning 401) avoids
+   * loading the sub-app module entirely.
+   */
+  private async dispatchLazy({
+    request,
+    context,
+    rootSpan,
+    tracer,
+  }: {
+    request: Request
+    context: any
+    rootSpan: any
+    tracer: any
+  }): Promise<Response | undefined> {
+    const u = new URL(request.url)
+    const path = u.pathname
+    const shouldStripHeadBody =
+      request.method === 'HEAD'
+
+    const allApps = bfs(this)
+    for (const app of allApps) {
+      if (!app.lazyChildren.length) continue
+      const appPrefix = this
+        .joinBasePaths(
+          this.getAppAndParents(app).map((x: AnySpiceflow) => x.basePath),
+        )
+        .replace(/\/$/, '')
+
+      for (const lazy of app.lazyChildren) {
+        const routePrefix =
+          lazy.pattern.replace(/\/?\*$/, '').replace(/\/$/, '') || '/'
+        const fullPrefix = appPrefix ? appPrefix + routePrefix : routePrefix
+
+        // Strict boundary: /admin must be followed by / or end of path
+        if (fullPrefix !== '/') {
+          if (path !== fullPrefix && !path.startsWith(fullPrefix + '/'))
+            continue
+        }
+
+        const strippedPath = path.slice(fullPrefix.length) || '/'
+        const subUrl = new URL(strippedPath + u.search, u.origin)
+        const subRequest = new Request(subUrl, request)
+
+        const appsInScope = this.getAppsInScope(app)
+        const onErrorHandlers = appsInScope.flatMap((x) => x.onErrorHandlers)
+        const scopedMiddlewares = appsInScope.flatMap((x) => x.middlewares)
+        const middlewares = scopedMiddlewares.filter(
+          (x) => !isStaticMiddleware(x),
+        )
+
+        let response = await this.runMiddlewareChain(
+          middlewares,
+          context,
+          onErrorHandlers,
+          async () => {
+            // Resolve the lazy handler inside the final callback so
+            // short-circuiting middleware avoids loading the sub-app.
+            if (!lazy.cachedHandler) {
+              const pending = (lazy._pendingResolve ??= import(
+                '#lazy-dispatch'
+              ).then(({ resolveLazyHandler }) => resolveLazyHandler(lazy)))
+              try {
+                lazy.cachedHandler = await pending
+              } finally {
+                if (lazy._pendingResolve === pending) {
+                  lazy._pendingResolve = undefined
+                }
+              }
+            }
+            return lazy.cachedHandler!.handle(subRequest)
+          },
+          undefined,
+          tracer,
+        )
+
+        // Apply parent ctx.response headers/status the same way regular
+        // routes do, so middleware that sets headers or status works.
+        const ctxRes: ContextResponse = context.response
+        response = mergeHeadersIntoResponse({
+          response,
+          source: ctxRes.headers,
+        })
+        if (
+          ctxRes.status &&
+          ctxRes.status !== 200 &&
+          response.status === 200
+        ) {
+          response = new Response(response.body, {
+            status: ctxRes.status,
+            statusText: response.statusText,
+            headers: response.headers,
+          })
+        }
+
+        const finalizeResponse = (res: Response, stripBody: boolean) =>
+          this.finalizeHeadResponse(
+            res,
+            stripBody,
+            request.method === 'HEAD',
+          )
+        const result = finalizeResponse(response, shouldStripHeadBody)
+        finalizeRequestSpan(rootSpan, result, `${fullPrefix}/*`)
+        return result
+      }
+    }
+    return undefined
   }
 
   private resolveRoutes(

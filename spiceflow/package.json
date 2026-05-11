@@ -46,6 +46,10 @@
       "node": "./dist/router-context.js",
       "default": "./dist/router-context.default.js"
     },
+    "#lazy-dispatch": {
+      "workerd": "./dist/lazy-dispatch-cloudflare.js",
+      "default": "./dist/lazy-dispatch-default.js"
+    },
     "#wait-until": {
       "workerd": "./dist/wait-until.workerd.js",
       "default": "./dist/wait-until.js"
