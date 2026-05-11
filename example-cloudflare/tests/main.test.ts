@@ -134,7 +134,7 @@ describe('cloudflare example', () => {
       {
         "contentType": "text/html;charset=utf-8",
         "has1101": false,
-        "hasCssLink": false,
+        "hasCssLink": true,
         "hasHeading": true,
         "hasKvText": true,
         "hasMissingModuleError": false,
