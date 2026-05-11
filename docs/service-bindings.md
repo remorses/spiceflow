@@ -2,7 +2,7 @@
 
 When your Worker bundle exceeds the **10 MiB free tier** (or 25 MiB paid) limit, usually because of WASM modules, image libraries, or other heavy dependencies, you can extract the expensive code into a **separate dedicated Worker** and call it from the main Worker via a [Cloudflare service binding](https://developers.cloudflare.com/workers/runtime-apis/bindings/service-bindings/). Service binding calls execute on the same thread with near-zero latency; there is no network hop.
 
-Service bindings connect **two independently deployed Workers**, each with its own bundle size budget.
+This is different from [`.split()`](./cloudflare.md#split-sub-apps-dynamic-workers). `.split()` breaks a single Worker into dynamically-loaded sub-apps sharing the same deployment. Service bindings connect **two independently deployed Workers**, each with its own bundle size budget.
 
 ```
 ┌──────────────────────────────────────────────┐       ┌─────────────────────────────────────────────┐
