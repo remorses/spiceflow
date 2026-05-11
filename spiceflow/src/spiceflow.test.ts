@@ -3961,15 +3961,15 @@ describe('.use() with page and layout routes', () => {
   })
 })
 
-describe('lazy .lazy() with dynamic import', () => {
-  test('dispatches to lazy sub-app when path matches prefix', async () => {
+describe('.split() with dynamic import', () => {
+  test('dispatches to split sub-app when path matches prefix', async () => {
     const adminApp = new Spiceflow()
       .get('/users', () => ({ users: ['alice', 'bob'] }))
       .get('/users/:id', ({ params }) => ({ id: params.id }))
 
     const app = new Spiceflow()
       .get('/', () => 'root')
-      .lazy('/admin/*', () => Promise.resolve({ default: adminApp }))
+      .split('/admin/*', () => Promise.resolve({ default: adminApp }))
 
     const res = await app.handle(
       new Request('http://localhost/admin/users'),
@@ -3983,7 +3983,7 @@ describe('lazy .lazy() with dynamic import', () => {
       id: params.id,
     }))
 
-    const app = new Spiceflow().lazy(
+    const app = new Spiceflow().split(
       '/admin/*',
       () => Promise.resolve({ default: adminApp }),
     )
@@ -3995,11 +3995,11 @@ describe('lazy .lazy() with dynamic import', () => {
     expect(await res.json()).toEqual({ id: '42' })
   })
 
-  test('caches the lazy handler after first resolution', async () => {
+  test('caches the split handler after first resolution', async () => {
     let loadCount = 0
     const adminApp = new Spiceflow().get('/info', () => 'ok')
 
-    const app = new Spiceflow().lazy('/admin/*', () => {
+    const app = new Spiceflow().split('/admin/*', () => {
       loadCount++
       return Promise.resolve({ default: adminApp })
     })
@@ -4012,7 +4012,7 @@ describe('lazy .lazy() with dynamic import', () => {
   test('sub-app 404 is returned when sub-app has no matching route', async () => {
     const adminApp = new Spiceflow().get('/users', () => 'users')
 
-    const app = new Spiceflow().lazy(
+    const app = new Spiceflow().split(
       '/admin/*',
       () => Promise.resolve({ default: adminApp }),
     )
@@ -4023,12 +4023,12 @@ describe('lazy .lazy() with dynamic import', () => {
     expect(res.status).toBe(404)
   })
 
-  test('static routes take precedence over lazy children', async () => {
-    const adminApp = new Spiceflow().get('/users', () => 'from-lazy')
+  test('static routes take precedence over split children', async () => {
+    const adminApp = new Spiceflow().get('/users', () => 'from-split')
 
     const app = new Spiceflow()
       .get('/admin/users', () => 'from-static')
-      .lazy('/admin/*', () => Promise.resolve({ default: adminApp }))
+      .split('/admin/*', () => Promise.resolve({ default: adminApp }))
 
     const res = await app.handle(
       new Request('http://localhost/admin/users'),
@@ -4042,7 +4042,7 @@ describe('lazy .lazy() with dynamic import', () => {
       q: query.q,
     }))
 
-    const app = new Spiceflow().lazy(
+    const app = new Spiceflow().split(
       '/admin/*',
       () => Promise.resolve({ default: adminApp }),
     )
@@ -4057,7 +4057,7 @@ describe('lazy .lazy() with dynamic import', () => {
   test('works with sub-app that exports app directly (no default)', async () => {
     const billing = new Spiceflow().get('/invoices', () => [1, 2, 3])
 
-    const app = new Spiceflow().lazy(
+    const app = new Spiceflow().split(
       '/billing/*',
       () => Promise.resolve(billing),
     )
@@ -4072,7 +4072,7 @@ describe('lazy .lazy() with dynamic import', () => {
   test('prefix matching has strict boundary: /admin does not match /administrator', async () => {
     const adminApp = new Spiceflow().get('/users', () => 'admin-users')
 
-    const app = new Spiceflow().lazy(
+    const app = new Spiceflow().split(
       '/admin/*',
       () => Promise.resolve({ default: adminApp }),
     )
@@ -4083,7 +4083,7 @@ describe('lazy .lazy() with dynamic import', () => {
     expect(res.status).toBe(404)
   })
 
-  test('parent middleware runs before lazy sub-app dispatch', async () => {
+  test('parent middleware runs before split sub-app dispatch', async () => {
     const calls: string[] = []
     const adminApp = new Spiceflow().get('/users', () => {
       calls.push('handler')
@@ -4095,18 +4095,18 @@ describe('lazy .lazy() with dynamic import', () => {
         calls.push('middleware')
         return next()
       })
-      .lazy('/admin/*', () => Promise.resolve({ default: adminApp }))
+      .split('/admin/*', () => Promise.resolve({ default: adminApp }))
 
     await app.handle(new Request('http://localhost/admin/users'))
     expect(calls).toEqual(['middleware', 'handler'])
   })
 
-  test('parent middleware can short-circuit before lazy dispatch', async () => {
+  test('parent middleware can short-circuit before split dispatch', async () => {
     const adminApp = new Spiceflow().get('/users', () => 'should-not-reach')
 
     const app = new Spiceflow()
       .use(() => new Response('blocked', { status: 401 }))
-      .lazy('/admin/*', () => Promise.resolve({ default: adminApp }))
+      .split('/admin/*', () => Promise.resolve({ default: adminApp }))
 
     const res = await app.handle(
       new Request('http://localhost/admin/users'),
@@ -4115,10 +4115,10 @@ describe('lazy .lazy() with dynamic import', () => {
     expect(await res.text()).toBe('blocked')
   })
 
-  test('lazy child in nested sub-app with basePath', async () => {
+  test('split child in nested sub-app with basePath', async () => {
     const adminApp = new Spiceflow().get('/users', () => 'nested-admin')
 
-    const child = new Spiceflow({ basePath: '/api' }).lazy(
+    const child = new Spiceflow({ basePath: '/api' }).split(
       '/admin/*',
       () => Promise.resolve({ default: adminApp }),
     )
@@ -4132,9 +4132,9 @@ describe('lazy .lazy() with dynamic import', () => {
     expect(await res.json()).toBe('nested-admin')
   })
 
-  test('zero-arg middleware is not confused with lazy loader', async () => {
-    // With .lazy() as a separate method, zero-arg functions passed to .use()
-    // remain middleware and are not misinterpreted as lazy loaders.
+  test('zero-arg middleware is not confused with split loader', async () => {
+    // With .split() as a separate method, zero-arg functions passed to .use()
+    // remain middleware and are not misinterpreted as split loaders.
     const app = new Spiceflow()
       .use('/health/*', () => new Response('maintenance', { status: 503 }))
       .get('/health/check', () => 'ok')
@@ -4147,7 +4147,7 @@ describe('lazy .lazy() with dynamic import', () => {
     expect(await res.text()).toBe('maintenance')
   })
 
-  test('parent middleware ctx.response headers apply to lazy responses', async () => {
+  test('parent middleware ctx.response headers apply to split responses', async () => {
     const adminApp = new Spiceflow().get('/data', () => ({ ok: true }))
 
     const app = new Spiceflow()
@@ -4156,7 +4156,7 @@ describe('lazy .lazy() with dynamic import', () => {
         ctx.response.headers.set('x-custom', 'value')
         return next()
       })
-      .lazy('/admin/*', () => Promise.resolve({ default: adminApp }))
+      .split('/admin/*', () => Promise.resolve({ default: adminApp }))
 
     const res = await app.handle(
       new Request('http://localhost/admin/data'),
@@ -4167,7 +4167,7 @@ describe('lazy .lazy() with dynamic import', () => {
     expect(await res.json()).toEqual({ ok: true })
   })
 
-  test('parent middleware ctx.response.status applies to lazy responses', async () => {
+  test('parent middleware ctx.response.status applies to split responses', async () => {
     const adminApp = new Spiceflow().get('/data', () => ({ ok: true }))
 
     const app = new Spiceflow()
@@ -4175,7 +4175,7 @@ describe('lazy .lazy() with dynamic import', () => {
         ctx.response.status = 201
         return next()
       })
-      .lazy('/admin/*', () => Promise.resolve({ default: adminApp }))
+      .split('/admin/*', () => Promise.resolve({ default: adminApp }))
 
     const res = await app.handle(
       new Request('http://localhost/admin/data'),
