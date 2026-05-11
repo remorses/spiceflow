@@ -1090,6 +1090,21 @@ test('specific wildcard route wins over root catch-all', async () => {
   `)
 })
 
+test('named wildcard *filePath does NOT work, use bare * instead', async () => {
+  // Frameworks like Express support *filePath as a named wildcard param,
+  // but spiceflow's trie router only recognizes bare `*`. Using `*filePath`
+  // makes the segment a literal string match, so the route never matches.
+  const app = new Spiceflow().get('/files/*filePath', ({ params }) => {
+    return params
+  })
+
+  const res = await app.handle(
+    new Request('http://localhost/files/path/to/file.txt'),
+  )
+  // Route does not match — returns 404
+  expect(res.status).toBe(404)
+})
+
 test('regex constrained route is more specific than a generic param route', async () => {
   const app = new Spiceflow()
     .get('/:id{[0-9]+}', () => 'digits')

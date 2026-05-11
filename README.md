@@ -553,6 +553,9 @@ export const app = new Spiceflow()
 // GET /unknown returns 'Page not found' with 404 status
 ```
 
+> [!IMPORTANT]
+> Do **not** use named wildcards like `*filePath`. Only bare `*` is supported. Named wildcards silently fail to match any request. Access the wildcard value via `params['*']` instead.
+
 ## Mounting Sub-Apps
 
 ```ts
