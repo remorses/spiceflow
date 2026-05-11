@@ -352,10 +352,8 @@ export default function spiceflow({
     // Skipped for Vercel (has its own tracing) and Cloudflare (bundles everything).
     standaloneTracePlugin(),
 
-    // Handle ?split suffix for lazy sub-app code splitting.
-    // Strips the suffix during resolution so Rollup creates a normal dynamic-import
-    // chunk, then in generateBundle collects those chunks + deps into __workers/
-    // for Cloudflare's LOADER binding.
+    // Auto-detect .split() calls via transform and collect split entries for
+    // Cloudflare Dynamic Worker isolation in generateBundle.
     ...splitWorkerPlugin({ isCloudflareProject: () => isCloudflareProject }),
 
     // Rewrite optimizeDeps entries so @vitejs/plugin-rsc vendor CJS files
@@ -1130,10 +1128,14 @@ function splitWorkerPlugin({
   isCloudflareProject: () => boolean
 }): Plugin[] {
   const splitEntries = new Set<string>()
-  const SPLIT_SUFFIX = '?split'
   // Stored during generateBundle, written to the client output dir in buildApp post
   let pendingWorkerFiles: Map<string, string> | undefined
   let resolvedClientOutDir = 'dist/client'
+
+  // Regex to find .split('pattern', () => import('specifier')) calls.
+  // Captures the import specifier so we can resolve it and track it as a split entry.
+  const splitImportRe =
+    /\.split\(\s*['"][^'"]*['"]\s*,\s*(?:async\s*)?\(\s*\)\s*=>\s*import\(\s*['"]([^'"]+)['"]\s*\)/g
 
   return [
     {
@@ -1147,17 +1149,31 @@ function splitWorkerPlugin({
         )
       },
 
-      async resolveId(source, importer, options) {
-        if (!source.endsWith(SPLIT_SUFFIX)) return
-        const cleanSource = source.slice(0, -SPLIT_SUFFIX.length)
-        const resolved = await this.resolve(cleanSource, importer, {
-          ...options,
-          skipSelf: true,
-        })
-        if (resolved) {
-          splitEntries.add(resolved.id)
+      async transform(code, id) {
+        if (!code.includes('new Spiceflow')) return
+        const hasSplitCall = code.includes('.split(')
+        if (!hasSplitCall) return
+
+        // Find all .split() calls with inline import() and resolve the specifiers
+        let match: RegExpExecArray | null
+        let found = false
+        splitImportRe.lastIndex = 0
+        while ((match = splitImportRe.exec(code)) !== null) {
+          found = true
+          const specifier = match[1]
+          const resolved = await this.resolve(specifier, id)
+          if (resolved) {
+            splitEntries.add(resolved.id)
+          }
         }
-        return resolved
+
+        if (!found) {
+          this.warn(
+            `.split() call found in ${id} but no inline import() detected. ` +
+              `.split() requires an inline import() for code splitting, e.g. ` +
+              `.split('/admin/*', () => import('./admin'))`,
+          )
+        }
       },
 
       async generateBundle(_options, bundle) {
@@ -1178,12 +1194,7 @@ function splitWorkerPlugin({
         for (const [fileName, chunk] of Object.entries(bundle)) {
           if (chunk.type !== 'chunk' || !chunk.isDynamicEntry) continue
           if (!chunk.facadeModuleId) continue
-          const cleanFacadeId = chunk.facadeModuleId.replace(/\?split$/, '')
-          if (
-            !splitEntries.has(chunk.facadeModuleId) &&
-            !splitEntries.has(cleanFacadeId)
-          )
-            continue
+          if (!splitEntries.has(chunk.facadeModuleId)) continue
 
           // Collect transitive dependency chunks including dynamic imports.
           // Only follows real chunks in the bundle, not external modules like
