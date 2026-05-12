@@ -835,13 +835,19 @@ export default function spiceflow({
         const baseLen = resolvedBase.length
         lines.push(
           `import { serveStatic as __serveStatic } from 'spiceflow'`,
-          `import { resolve as __resolve, dirname as __dirname } from 'node:path'`,
+          `import { resolve as __resolve, dirname as __dirname, basename as __basename } from 'node:path'`,
           `import { fileURLToPath as __toPath } from 'node:url'`,
           // Resolve the current module's filename from import.meta.filename
           // (Node 20.11+) or import.meta.url (webpack, Bun, older Node ESM).
           `const __thisFile = typeof import.meta.filename === 'string' ? import.meta.filename : (typeof import.meta.url === 'string' && import.meta.url.startsWith('file:') ? __toPath(import.meta.url) : '')`,
           `if (!import.meta.hot && __thisFile) {`,
-          `  const __clientDir = __resolve(__dirname(__thisFile), '${clientRelative}')`,
+          // Vite may code-split the entry into rsc/assets/*.js instead of
+          // rsc/index.js. Detect the assets/ nesting and walk up so the
+          // relative path to client/ resolves correctly. Same pattern used
+          // by virtual:spiceflow-dirs for publicDir/distDir.
+          `  const __thisDir = __dirname(__thisFile)`,
+          `  const __rscDir = __basename(__thisDir) === 'assets' ? __dirname(__thisDir) : __thisDir`,
+          `  const __clientDir = __resolve(__rscDir, '${clientRelative}')`,
           // Strip base path prefix from request paths so serveStatic can find
           // files on disk (e.g. /base/assets/style.css → /assets/style.css)
           ...(resolvedBase
