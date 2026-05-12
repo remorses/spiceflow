@@ -1,31 +1,24 @@
 # spiceflow
 
+## 1.25.1-rsc.0
+
+Reverted the `.split()` feature from this release. It will ship in a future version from its own branch.
+
 ## 1.25.0-rsc.0
 
-1. **`.split()` for lazy-loaded sub-apps** — break a single app into dynamically-loaded sub-apps that are only imported when a request matches their prefix. On Cloudflare Workers, each split sub-app runs as an isolated Dynamic Worker via the `LOADER` binding. On Node.js and Bun, they load via regular dynamic `import()`:
+1. **`serverTiming` enabled by default when tracer is provided** — passing a `tracer` to `new Spiceflow({ tracer })` now automatically adds `Server-Timing` headers to responses. Set `serverTiming: false` to opt out.
 
-   ```ts
-   const app = new Spiceflow()
-     .get('/', () => 'home')
-     .split('/admin/*', () => import('./admin'))
-     .split('/billing/*', () => import('./billing'))
-   ```
+2. **Added `response` field to `MiddlewareContext`** — middleware can now set response headers via `ctx.response.headers.set('x-custom', 'value')` and they propagate to the final response.
 
-   The split handler is cached after first resolution. Parent middleware runs before the split dispatch, and static routes on the parent take precedence over split children. See [Split Sub-Apps docs](./docs/service-bindings.md) for the full Cloudflare Dynamic Workers setup.
+3. **Decode URL-encoded route params** — named params (`:id`, `:name`) and wildcard `*` params are now decoded like Express does. Malformed percent sequences like `%ZZ` pass through unchanged instead of crashing with a `URIError`.
 
-2. **`serverTiming` enabled by default when tracer is provided** — passing a `tracer` to `new Spiceflow({ tracer })` now automatically adds `Server-Timing` headers to responses. Set `serverTiming: false` to opt out.
+4. **Redirect browser document requests away from internal RSC URLs** — if a user lands on a `.rsc` / `__rsc` URL directly (e.g. pasted link, bad redirect), they get a 302 redirect to the clean document URL instead of seeing raw RSC payload. Programmatic RSC fetches from client-side navigation and server actions are unaffected.
 
-3. **Added `response` field to `MiddlewareContext`** — middleware can now set response headers via `ctx.response.headers.set('x-custom', 'value')` and they propagate to the final response, including through split sub-app dispatches.
+5. **Fixed basePath prefix in tracing span names** — child subapp routes mounted with `.use()` now include the parent basePath in their span names (e.g. `GET /api/users/:id` instead of `GET /users/:id`).
 
-4. **Decode URL-encoded route params** — named params (`:id`, `:name`) and wildcard `*` params are now decoded like Express does. Malformed percent sequences like `%ZZ` pass through unchanged instead of crashing with a `URIError`.
+6. **Fixed serveStatic resolving wrong client dir** — when Vite/Rolldown code-splits the RSC entry into `rsc/assets/*.js`, the `serveStatic` middleware now detects the `assets/` nesting and walks up to find the correct client build directory.
 
-5. **Redirect browser document requests away from internal RSC URLs** — if a user lands on a `.rsc` / `__rsc` URL directly (e.g. pasted link, bad redirect), they get a 302 redirect to the clean document URL instead of seeing raw RSC payload. Programmatic RSC fetches from client-side navigation and server actions are unaffected.
-
-6. **Fixed basePath prefix in tracing span names** — child subapp routes mounted with `.use()` now include the parent basePath in their span names (e.g. `GET /api/users/:id` instead of `GET /users/:id`).
-
-7. **Fixed serveStatic resolving wrong client dir** — when Vite/Rolldown code-splits the RSC entry into `rsc/assets/*.js`, the `serveStatic` middleware now detects the `assets/` nesting and walks up to find the correct client build directory.
-
-8. **Fixed loadCss rewrite for virtual module entries** — the `rewrite-loadcss-entry` plugin now strips the `\0` prefix from resolved module IDs, fixing CSS loading when the entry is a Vite virtual module.
+7. **Fixed loadCss rewrite for virtual module entries** — the `rewrite-loadcss-entry` plugin now strips the `\0` prefix from resolved module IDs, fixing CSS loading when the entry is a Vite virtual module.
 
 ## 1.24.2-rsc.0
 
