@@ -164,8 +164,8 @@ async function generateVercelOutput({
 
   // 4. Copy client assets inside the function too, so serveStatic
   //    can find .rsc files and other assets at the expected relative path.
-  //    The auto-injected serveStatic resolves: dirname(import.meta.filename) + '../client'
-  //    which from funcDir/rsc/index.js = funcDir/client/
+  //    The auto-injected serveStatic detects assets/ nesting and walks up
+  //    to rsc/, then resolves '../client' → funcDir/client/.
   await cp(clientDir, path.join(funcDir, 'client'), { recursive: true })
 
   // 5. Trace and copy externalized node_modules dependencies.
