@@ -375,3 +375,21 @@ Waku (`opensrc dai-shi/waku`, packages/waku/) is another Vite RSC framework we u
 ## import.meta.env
 
 do not use import.meta.env to get env variables. this is not always available. instead to know if we are in development you can use `import.meta.hot` instead
+
+## Code-split entry and `import.meta.filename` resolution
+
+Vite/Rolldown code-splits `virtual:app-entry` into `rsc/assets/*.js` chunks. The actual `rsc/index.js` becomes a tiny re-export stub. Any code inside the entry that uses `import.meta.filename` to compute relative paths will resolve from `rsc/assets/`, not `rsc/`.
+
+When computing paths relative to the rsc output dir, always detect the `assets/` nesting and walk up:
+
+```ts
+const thisDir = dirname(import.meta.filename)
+const rscDir = basename(thisDir) === 'assets' ? dirname(thisDir) : thisDir
+const target = resolve(rscDir, relativePathFromRsc)
+```
+
+This pattern is used in two places in `vite.tsx`:
+- `virtual:spiceflow-dirs` for `publicDir`/`distDir`
+- `virtual:app-entry` for the auto-injected `serveStatic` client dir
+
+If you add any new code to these virtual modules that resolves paths relative to the rsc output, apply the same `basename === 'assets'` guard. Without it, the path resolves one directory too deep and points to a nonexistent location.
