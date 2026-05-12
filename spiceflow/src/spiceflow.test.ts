@@ -913,6 +913,61 @@ test('GET wildcard path param is typed as optional', async () => {
   expect(await res.json()).toEqual('path/to/file.txt')
 })
 
+test('URL-encoded named params are decoded', async () => {
+  const app = new Spiceflow().get('/users/:name', ({ params }) => {
+    return params.name
+  })
+
+  const res = await app.handle(
+    new Request('http://localhost/users/hello%20world', { method: 'GET' }),
+  )
+  expect(res.status).toBe(200)
+  expect(await res.json()).toEqual('hello world')
+})
+
+test('URL-encoded wildcard param is decoded', async () => {
+  const app = new Spiceflow().get('/files/*', ({ params }) => {
+    return params['*']
+  })
+
+  const res = await app.handle(
+    new Request('http://localhost/files/my%20doc/file%20name.txt', {
+      method: 'GET',
+    }),
+  )
+  expect(res.status).toBe(200)
+  expect(await res.json()).toEqual('my doc/file name.txt')
+})
+
+test('malformed percent encoding in params passes through unchanged', async () => {
+  const app = new Spiceflow().get('/users/:name', ({ params }) => {
+    return params.name
+  })
+
+  const res = await app.handle(
+    new Request('http://localhost/users/bad%ZZvalue', { method: 'GET' }),
+  )
+  expect(res.status).toBe(200)
+  expect(await res.json()).toEqual('bad%ZZvalue')
+})
+
+test('malformed percent encoding in wildcard params passes through unchanged', async () => {
+  const app = new Spiceflow().get('/files/*', ({ params }) => params['*'])
+
+  const res = await app.handle(
+    new Request('http://localhost/files/bad%ZZvalue/file.txt'),
+  )
+  expect(res.status).toBe(200)
+  expect(await res.json()).toEqual('bad%ZZvalue/file.txt')
+})
+
+test('encoded percent values are only decoded once', async () => {
+  const app = new Spiceflow().get('/users/:name', ({ params }) => params.name)
+
+  const res = await app.handle(new Request('http://localhost/users/%2520'))
+  expect(await res.json()).toEqual('%20')
+})
+
 test('GET trailing optional path param is typed as optional', async () => {
   const res = await new Spiceflow()
     .get('/users/:id?', ({ params }) => {

@@ -407,7 +407,11 @@ export class Spiceflow<
     for (const key of keys) {
       const value = matches[routeIndex][1][key]
       if (value) {
-        decoded[key] = /\%/.test(value) ? decodeURIComponent_(value) : value
+        try {
+          decoded[key] = /\%/.test(value) ? decodeURIComponent_(value) : value
+        } catch {
+          decoded[key] = value
+        }
       }
     }
 
@@ -3519,9 +3523,16 @@ export function extractWildcardParam(
     return null
   }
 
-  // Join segments with / to get full wildcard path
+  // Join segments with / to get full wildcard path, then decode like named params
+  const raw = wildcardSegments.join('/')
+  let decoded: string
+  try {
+    decoded = /\%/.test(raw) ? decodeURIComponent_(raw) : raw
+  } catch {
+    decoded = raw
+  }
   return {
-    '*': wildcardSegments.join('/'),
+    '*': decoded,
   }
 }
 
