@@ -1,3 +1,6 @@
-// Ambient type declarations for example-split-worker.
-// The ?split suffix is no longer needed — the Vite transform
-// auto-detects .split() calls with inline import().
+// Ambient types for ?split imports
+declare module '*?split' {
+  const mod: { default: any; [key: string]: any }
+  export default mod.default
+  export = mod
+}

@@ -291,8 +291,8 @@ export class Spiceflow<
   /** @internal */
   childrenApps: AnySpiceflow[] = []
 
-  /** @internal Split sub-apps registered via .split('/prefix/*', () => import('./x')) */
-  splitChildren: {
+  /** @internal Lazy sub-apps registered via .lazy('/prefix/*', () => import('./x?split')) */
+  lazyChildren: {
     pattern: string
     loader: () => Promise<any>
     cachedHandler?: { handle: (req: Request) => Promise<Response> }
@@ -1401,16 +1401,16 @@ export class Spiceflow<
   }
 
   /**
-   * Register a split sub-app that loads on demand when a request matches the prefix.
+   * Register a lazy sub-app that loads on demand when a request matches the prefix.
    * On Node/Bun the module is loaded via dynamic import. On Cloudflare Workers it
    * runs as an isolated Dynamic Worker via the LOADER binding.
    *
    * ```ts
-   * app.split('/admin/*', () => import('./admin'))
+   * app.lazy('/admin/*', () => import('./admin?split'))
    * ```
    */
-  split(pattern: string, loader: () => Promise<any>) {
-    this.splitChildren.push({ pattern, loader })
+  lazy(pattern: string, loader: () => Promise<any>) {
+    this.lazyChildren.push({ pattern, loader })
     return this
   }
 
@@ -2445,16 +2445,16 @@ export class Spiceflow<
 
     const allApps = bfs(this)
     for (const app of allApps) {
-      if (!app.splitChildren.length) continue
+      if (!app.lazyChildren.length) continue
       const appPrefix = this
         .joinBasePaths(
           this.getAppAndParents(app).map((x: AnySpiceflow) => x.basePath),
         )
         .replace(/\/$/, '')
 
-      for (const child of app.splitChildren) {
+      for (const lazy of app.lazyChildren) {
         const routePrefix =
-          child.pattern.replace(/\/?\*$/, '').replace(/\/$/, '') || '/'
+          lazy.pattern.replace(/\/?\*$/, '').replace(/\/$/, '') || '/'
         const fullPrefix = appPrefix ? appPrefix + routePrefix : routePrefix
 
         // Strict boundary: /admin must be followed by / or end of path
@@ -2479,21 +2479,21 @@ export class Spiceflow<
           context,
           onErrorHandlers,
           async () => {
-            // Resolve the split handler inside the final callback so
+            // Resolve the lazy handler inside the final callback so
             // short-circuiting middleware avoids loading the sub-app.
-            if (!child.cachedHandler) {
-              const pending = (child._pendingResolve ??= import(
-                '#split-dispatch'
-              ).then(({ resolveSplitHandler }) => resolveSplitHandler(child)))
+            if (!lazy.cachedHandler) {
+              const pending = (lazy._pendingResolve ??= import(
+                '#lazy-dispatch'
+              ).then(({ resolveLazyHandler }) => resolveLazyHandler(lazy)))
               try {
-                child.cachedHandler = await pending
+                lazy.cachedHandler = await pending
               } finally {
-                if (child._pendingResolve === pending) {
-                  child._pendingResolve = undefined
+                if (lazy._pendingResolve === pending) {
+                  lazy._pendingResolve = undefined
                 }
               }
             }
-            return child.cachedHandler!.handle(subRequest)
+            return lazy.cachedHandler!.handle(subRequest)
           },
           undefined,
           tracer,
