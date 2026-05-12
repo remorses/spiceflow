@@ -90,5 +90,3 @@ describe('parent middleware applies to split sub-apps', () => {
     expect(res.headers.get('x-app')).toBe('split-worker')
   })
 })
-
-
