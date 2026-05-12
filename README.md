@@ -2628,7 +2628,28 @@ export default {
 
 ## Background Tasks (`waitUntil`)
 
-Spiceflow provides a `waitUntil` function in the handler context for scheduling background tasks in a cross-platform way. It uses Cloudflare Workers' `waitUntil` if present, and is a no-op in Node.js. See [Cloudflare docs](docs/cloudflare.md#background-tasks-waituntil) for full examples including Cloudflare integration and custom implementations.
+All background promises (fire-and-forget work like analytics, logging, cache writes) **must** use `waitUntil` from the handler context. Never do `void somePromise()` or `somePromise().catch(...)` directly; the runtime may kill the process before the promise settles.
+
+```ts
+export const app = new Spiceflow().route({
+  method: 'POST',
+  path: '/process',
+  async handler({ request, waitUntil }) {
+    const data = await request.json()
+
+    waitUntil(
+      fetch('https://analytics.example.com/track', {
+        method: 'POST',
+        body: JSON.stringify({ event: 'processed', data }),
+      }),
+    )
+
+    return { success: true }
+  },
+})
+```
+
+On Cloudflare Workers, `waitUntil` automatically delegates to the Workers `ExecutionContext.waitUntil`. On Node.js it is a no-op by default; pass a custom implementation via `new Spiceflow({ waitUntil: (p) => { ... } })` if you need background work to be tracked. See [Cloudflare docs](docs/cloudflare.md#background-tasks-waituntil) for full examples including Cloudflare integration and custom implementations.
 
 ## KV Page Caching
 
