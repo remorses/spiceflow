@@ -45,6 +45,7 @@ describe('router event selectors', () => {
         location: location('/page-b', { key: 'b' }),
         previousLocation: location('/page-a', { key: 'a' }),
         previousScrollY: 1200,
+        savedScrollY: null,
         source: 'navigate',
       },
       {
@@ -112,6 +113,7 @@ describe('router event selectors', () => {
         location: location('/page-b', { key: 'b' }),
         previousLocation: location('/page-a', { key: 'a' }),
         previousScrollY: 100,
+        savedScrollY: null,
         source: 'navigate',
       },
       {
@@ -130,6 +132,7 @@ describe('router event selectors', () => {
         location: location('/page-b', { key: 'b' }),
         previousLocation: location('/page-b', { key: 'b' }),
         previousScrollY: 250,
+        savedScrollY: null,
         source: 'refresh',
       },
     ]
@@ -154,6 +157,7 @@ describe('router event selectors', () => {
         },
         "previousScrollY": 250,
         "requestId": 2,
+        "savedScrollY": null,
         "source": "refresh",
         "type": "navigation-committed",
       }

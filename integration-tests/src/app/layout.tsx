@@ -1,4 +1,4 @@
-import { Link, ProgressBar, ScrollRestoration } from "spiceflow/react";
+import { Link, ProgressBar } from "spiceflow/react";
 import { Counter, LayoutMountTracker } from "./client";
 
 export function Layout(props: React.PropsWithChildren) {
@@ -10,7 +10,6 @@ export function Layout(props: React.PropsWithChildren) {
 					name="viewport"
 					content="width=device-width, height=device-height, initial-scale=1.0"
 				/>
-				<ScrollRestoration />
 			</head>
 			<body className="px-4 bg-gray-100">
 				<ProgressBar />

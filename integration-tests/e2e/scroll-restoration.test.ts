@@ -1,9 +1,6 @@
 import { expect, test } from "@playwright/test";
 
 const basePath = process.env.BASEPATH || "";
-const baseURL =
-	process.env.E2E_BASE_URL ||
-	`http://localhost:${Number(process.env.E2E_PORT || 6174)}`;
 
 function url(path: string): string {
 	return basePath + path;
@@ -11,8 +8,11 @@ function url(path: string): string {
 
 test.describe("scroll restoration", () => {
 	test("scrolls to top on PUSH navigation", async ({ page }) => {
-		await page.goto(url("/"));
+		await page.goto(url("/"), { waitUntil: "domcontentloaded" });
 		await page.getByText("[hydrated: 1]").click();
+		expect(await page.evaluate(() => window.history.scrollRestoration)).toBe(
+			"manual",
+		);
 
 		// Navigate to page A using layout link
 		await page.getByRole("link", { name: "Scroll A" }).click();
@@ -25,7 +25,7 @@ test.describe("scroll restoration", () => {
 			.toBeGreaterThan(500);
 
 		// Navigate to page B via Link in layout nav (PUSH)
-		await page.getByRole("link", { name: "Scroll B" }).click();
+		await page.getByRole("link", { name: "Scroll B", exact: true }).click();
 		await expect(page.getByRole("heading", { name: "Page B" })).toBeVisible();
 
 		// Should scroll to top
@@ -36,7 +36,7 @@ test.describe("scroll restoration", () => {
 		page,
 	}) => {
 		// Start from home to ensure proper hydration and SPA navigation
-		await page.goto(url("/"));
+		await page.goto(url("/"), { waitUntil: "domcontentloaded" });
 		await page.getByText("[hydrated: 1]").click();
 
 		// Navigate to page A via layout Link
@@ -50,8 +50,8 @@ test.describe("scroll restoration", () => {
 			.poll(() => page.evaluate(() => window.scrollY))
 			.toBeGreaterThan(1000);
 
-		// Navigate to page B via layout Link (PUSH)
-		await page.getByRole("link", { name: "Scroll B" }).click();
+		// Navigate with a link that is already visible at the saved scroll position.
+		await page.getByRole("link", { name: "Scroll B from middle" }).click();
 		await expect(page.getByRole("heading", { name: "Page B" })).toBeVisible();
 
 		// Go back
@@ -76,10 +76,4 @@ test.describe("scroll restoration", () => {
 		await expect(page.getByTestId("scroll-bottom")).toBeVisible();
 	});
 
-	test("SSR HTML contains scroll restoration inline script", async () => {
-		const response = await fetch(`${baseURL}${basePath}/scroll-restoration/page-a`);
-		const html = await response.text();
-		expect(html).toContain("spiceflow-scroll-positions");
-		expect(html).toContain("scrollRestoration");
-	});
 });

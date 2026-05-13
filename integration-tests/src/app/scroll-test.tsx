@@ -1,5 +1,7 @@
 "use client";
 
+import { Link } from "spiceflow/react";
+
 export function ScrollTestPage({ name }: { name: string }) {
 	return (
 		<div
@@ -15,6 +17,9 @@ export function ScrollTestPage({ name }: { name: string }) {
 				style={{ position: "absolute", top: "1500px", padding: "20px" }}
 			>
 				Middle of {name}
+				{name === "Page A" && (
+					<Link href="/scroll-restoration/page-b">Scroll B from middle</Link>
+				)}
 			</div>
 			<div
 				data-testid="scroll-bottom"

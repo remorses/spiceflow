@@ -1,7 +1,6 @@
 export { Link } from './link.tsx'
 export type { LinkProps } from './link.tsx'
 export { ProgressBar } from './progress.tsx'
-export { ScrollRestoration } from './scroll-restoration.tsx'
 export { getRouter, router, useRouterState } from './router.tsx'
 export type {
   NavigationEvent,

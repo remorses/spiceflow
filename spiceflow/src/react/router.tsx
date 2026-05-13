@@ -38,6 +38,7 @@ if (isBrowser) {
 
 const MAX_NAVIGATION_EVENTS = 100
 const DEFAULT_MAX_SCROLL_ENTRIES = 200
+const SCROLL_STATE_KEY = '__spiceflowScrollY'
 
 type LoaderDataState = {
   data: Record<string, unknown>
@@ -97,6 +98,7 @@ type NavigationCommittedEvent = {
   location: Location
   previousLocation: Location
   previousScrollY: number
+  savedScrollY: number | null
   source: 'navigate' | 'refresh'
 }
 
@@ -109,6 +111,7 @@ export type NavigationEvent = {
   location: Location
   previousLocation: Location
   previousScrollY: number
+  savedScrollY: number | null
   source: 'navigate' | 'refresh'
 }
 
@@ -316,12 +319,14 @@ function requestNavigation(method: NavigationMethod) {
     return null
   }
 
+  saveScrollState(window.scrollY)
+
   return appendNavigationEvent<NavigationRequestedEvent>({
     type: 'navigation-requested',
     requestId: ++nextRequestId,
     method,
     location: cloneLocation(history.location),
-    scrollY: cachedScrollY,
+    scrollY: window.scrollY,
   })
 }
 
@@ -362,6 +367,20 @@ export function getScrollPositions({
   return Object.fromEntries(scrollPositions)
 }
 
+export function saveScrollState(scrollY: number) {
+  if (!isBrowser) return
+  window.history.replaceState(
+    { ...window.history.state, [SCROLL_STATE_KEY]: scrollY },
+    '',
+  )
+}
+
+export function getSavedScrollState() {
+  if (!isBrowser) return null
+  const scrollY = window.history.state?.[SCROLL_STATE_KEY]
+  return typeof scrollY === 'number' ? scrollY : null
+}
+
 export function getLastNavigationEvent(): NavigationEvent | null {
   return getLastCommittedNavigationEvent(navigationEvents)
 }
@@ -393,7 +412,17 @@ if (isBrowser) {
       previousLocation,
       previousScrollY:
         action === 'POP' ? cachedScrollY : (pendingRequest?.scrollY ?? 0),
+      savedScrollY: action === 'POP' ? getSavedScrollState() : null,
       source: pendingRequest?.method === 'refresh' ? 'refresh' : 'navigate',
+    })
+
+    recordScrollPosition({
+      locationKey: previousLocation.key,
+      scrollY: event.previousScrollY,
+    })
+    recordScrollPosition({
+      locationKey: previousLocation.pathname + previousLocation.search,
+      scrollY: event.previousScrollY,
     })
 
     for (const cb of subscribers) {
@@ -592,6 +621,7 @@ export const router: RouterBase<RegisteredApp> = {
       location,
       previousLocation: location,
       previousScrollY: cachedScrollY,
+      savedScrollY: null,
       source: 'navigate',
     }
     for (const cb of subscribers) {

@@ -1,6 +1,5 @@
 export { Link } from './link.tsx'
 export { ProgressBar } from './progress.tsx'
-export { ScrollRestoration } from './scroll-restoration.tsx'
 export { getRouter, router, useLoaderData, useRouterState } from './router.rsc.ts'
 export type { SpiceflowRegister } from './router.rsc.ts'
 export type { NavigationEvent } from './router.tsx'

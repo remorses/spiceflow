@@ -12,7 +12,15 @@ import {
 } from '@vitejs/plugin-rsc/browser'
 import { FiberProvider } from 'its-fine'
 import type { NavigationEvent } from './router.js'
-import { isHashOnlyLocationChange, router } from './router.js'
+import {
+  getLastNavigationEvent,
+  getSavedScrollState,
+  getScrollPositions,
+  isHashOnlyLocationChange,
+  recordScrollPosition,
+  router,
+  saveScrollState,
+} from './router.js'
 import {
   DefaultGlobalErrorPage,
   DefaultNotFoundPage,
@@ -20,14 +28,126 @@ import {
   LayoutContent,
   NotFoundBoundary,
 } from './components.js'
-import { ServerPayload } from '../spiceflow.js'
-import { FlightDataContext, useFlightData } from './context.js'
+import type { ServerPayload } from '../spiceflow.js'
+import { FlightDataContext } from './context.js'
 import {
   getDocumentLocationFromResponse,
   isFlightResponse,
 } from './deployment.js'
 import { getErrorContext, isRedirectError } from './errors.js'
 import { actionAbortControllers } from './action-abort.js'
+
+const MAX_SCROLL_ENTRIES = 200
+
+function getScrollKey(location: { pathname: string; search: string; key?: string }) {
+  return location.key || location.pathname + location.search
+}
+
+function DefaultScrollRestoration({
+  payload,
+}: {
+  payload: Promise<ServerPayload>
+}) {
+  const lastHandledNavigationIdRef = React.useRef(0)
+
+  React.useEffect(() => {
+    window.history.scrollRestoration = 'manual'
+    return () => {
+      window.history.scrollRestoration = 'auto'
+    }
+  }, [])
+
+  React.useEffect(() => {
+    function onScroll() {
+      const event = getLastNavigationEvent()
+      if (event?.action === 'POP' && event.id !== lastHandledNavigationIdRef.current) return
+      const location = router.location
+      recordScrollPosition({
+        locationKey: getScrollKey(location),
+        scrollY: window.scrollY,
+      })
+      recordScrollPosition({
+        locationKey: location.pathname + location.search,
+        scrollY: window.scrollY,
+      })
+    }
+
+    onScroll()
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
+
+  React.useLayoutEffect(() => {
+    const event = getLastNavigationEvent()
+    if (!event) return
+    if (event.id === lastHandledNavigationIdRef.current) return
+    lastHandledNavigationIdRef.current = event.id
+
+    if (event.source === 'refresh') return
+
+    const savedPositions = getScrollPositions({ maxEntries: MAX_SCROLL_ENTRIES })
+
+    if (event.action === 'POP') {
+      const savedY = [
+        event.savedScrollY,
+        getSavedScrollState(),
+        savedPositions[getScrollKey(event.location)],
+        savedPositions[event.location.pathname + event.location.search],
+      ]
+        .find((scrollY) => typeof scrollY === 'number')
+      if (typeof savedY === 'number') {
+        window.scrollTo(0, savedY)
+        return
+      }
+    }
+
+    if (event.location.hash) {
+      try {
+        const id = decodeURIComponent(event.location.hash.slice(1))
+        const el = document.getElementById(id)
+        if (el) {
+          el.scrollIntoView()
+          return
+        }
+      } catch {
+        // bad hash encoding, fall through to scroll to top
+      }
+    }
+
+    window.scrollTo(0, 0)
+  }, [payload])
+
+  React.useEffect(() => {
+    function onPageHide() {
+      const location = router.location
+      saveScrollState(window.scrollY)
+      recordScrollPosition({
+        locationKey: getScrollKey(location),
+        scrollY: window.scrollY,
+      })
+      recordScrollPosition({
+        locationKey: location.pathname + location.search,
+        scrollY: window.scrollY,
+      })
+      window.history.scrollRestoration = 'auto'
+    }
+
+    function onPageShow(e: PageTransitionEvent) {
+      if (e.persisted) {
+        window.history.scrollRestoration = 'manual'
+      }
+    }
+
+    window.addEventListener('pagehide', onPageHide)
+    window.addEventListener('pageshow', onPageShow)
+    return () => {
+      window.removeEventListener('pagehide', onPageHide)
+      window.removeEventListener('pageshow', onPageShow)
+    }
+  }, [])
+
+  return null
+}
 
 // Reads the RSC flight payload that the server injected as <script> tags via
 // transform.ts. Chunks already pushed before this module runs are drained,
@@ -412,6 +532,7 @@ async function main() {
         <ErrorBoundary errorComponent={DefaultGlobalErrorPage}>
           <NotFoundBoundary component={DefaultNotFoundPage}>
             <FlightDataContext.Provider value={flightData}>
+              <DefaultScrollRestoration payload={payload} />
               <LayoutContent />
             </FlightDataContext.Provider>
           </NotFoundBoundary>

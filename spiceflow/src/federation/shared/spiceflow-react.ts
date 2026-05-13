@@ -1,7 +1,6 @@
 export {
   Link,
   ProgressBar,
-  ScrollRestoration,
   getRouter,
   router,
   useRouterState,
