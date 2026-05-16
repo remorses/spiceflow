@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "pnpm vite dev",
+    "dev": "FORCE_COLOR=1 pnpm vite dev",
     "build": "vite build",
     "preview": "vite preview",
     "deployment": "vite build && wrangler deploy",

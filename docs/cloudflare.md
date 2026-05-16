@@ -55,6 +55,19 @@ export default {
 
 See [`example-cloudflare/`](../example-cloudflare) for a complete working example.
 
+### Terminal colors
+
+The Cloudflare Vite plugin runs your worker code inside workerd, which doesn't expose a TTY. Color libraries like `picocolors` and `chalk` disable colors when they detect no TTY, so terminal output loses all formatting. Set `FORCE_COLOR=1` in your dev and build scripts to restore colors:
+
+```json
+{
+  "scripts": {
+    "dev": "FORCE_COLOR=1 vite dev",
+    "build": "FORCE_COLOR=1 vite build"
+  }
+}
+```
+
 When you add or change bindings in `wrangler.jsonc`, run `wrangler types`. Wrangler regenerates `worker-configuration.d.ts`, which provides the global `Env` type and the typed `env` export from `cloudflare:workers`.
 
 ### Wrangler Environments
