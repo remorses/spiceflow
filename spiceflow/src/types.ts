@@ -211,9 +211,7 @@ export type UnwrapSchema<
 export type GetRequestSchema<Schema extends InputSchema<any>> =
   'request' extends keyof Schema
     ? Schema['request']
-    : 'body' extends keyof Schema
-      ? Schema['body']
-      : undefined
+    : undefined
 
 export interface UnwrapRoute<
   in out Schema extends InputSchema<any>,
@@ -301,10 +299,6 @@ export type HTTPMethod =
   | '*'
 
 export interface InputSchema<Name extends string = string> {
-  /**
-   * @deprecated The 'body' property is deprecated, use request instead.
-   */
-  body?: TypeSchema | Name
   request?: TypeSchema | Name
   query?: TypeObject | Name
   params?: TypeObject | Name

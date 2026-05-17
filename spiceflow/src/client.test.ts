@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { createSpiceflowClient } from './client/index.js'
+import { createSpiceflowFetch } from './client/index.js'
 import { Spiceflow } from './spiceflow.js'
 import { SpiceflowFetchError } from './client/errors.js'
 
@@ -13,7 +13,7 @@ const app = new Spiceflow()
   .get('/true', () => true)
   .get('/false', () => false)
   .post('/array', async ({ request }) => await request.json(), {
-    body: z.array(z.string()),
+    request: z.array(z.string()),
   })
   .route({
     method: 'POST',
@@ -24,13 +24,13 @@ const app = new Spiceflow()
     method: 'POST',
     path: '/body',
     handler: async ({ request }) => await request.text(),
-    body: z.string(),
+    request: z.string(),
   })
   .route({
     method: 'POST',
     path: '/zodAny',
     handler: async ({ request }) => await request.json(),
-    body: z.object({ body: z.array(z.any()) }),
+    request: z.object({ body: z.array(z.any()) }),
   })
   .route({
     method: 'DELETE',
@@ -44,7 +44,7 @@ const app = new Spiceflow()
     method: 'POST',
     path: '/deep/nested/mirror',
     handler: async ({ request }) => await request.json(),
-    body: z.object({
+    request: z.object({
       username: z.string(),
       password: z.string(),
     }),
@@ -106,7 +106,7 @@ const app = new Spiceflow()
   .get('/dateObject', () => ({ date: new Date() }))
   .get('/redirect', ({ redirect }) => redirect('http://localhost:8083/true'))
   .post('/redirect', ({ redirect }) => redirect('http://localhost:8083/true'), {
-    body: z.object({
+    request: z.object({
       username: z.string(),
     }),
   })
@@ -132,57 +132,55 @@ const app = new Spiceflow()
   })
   .get('/id/:id', ({ params: { id } }) => id)
 
-const client = createSpiceflowClient(app)
+const f = createSpiceflowFetch(app)
 
 describe('client can pass state to app', () => {
-  const client = createSpiceflowClient(app, { state: { someState: 3 } })
+  const f = createSpiceflowFetch(app, { state: { someState: 3 } })
   it('should return state value 3', async () => {
-    const { data } = await client.someState.get({})
+    const data = await f('/someState')
     expect(data).toBe(3)
   })
 })
 
 describe('client', () => {
   it('get index', async () => {
-    const { data, error } = await client.index.get({})
+    const data = await f('/')
 
     expect(data).toBe('a')
-    expect(error).toBeNull()
   })
 
   it('post index', async () => {
-    const { data, error } = await client.index.post()
+    const data = await f('/', { method: 'POST' })
 
     expect(data).toBe('a')
-    expect(error).toBeNull()
   })
 
   it('parse number', async () => {
-    const { data } = await client.number.get()
+    const data = await f('/number')
 
     expect(data).toEqual(1)
   })
 
   it('parse true', async () => {
-    const { data } = await client.true.get()
+    const data = await f('/true')
 
     expect(data).toEqual(true)
   })
 
   it('parse false', async () => {
-    const { data } = await client.false.get()
+    const data = await f('/false')
 
     expect(data).toEqual(false)
   })
 
   it('post array', async () => {
-    const { data } = await client.array.post(['a', 'b'])
+    const data = await f('/array', { method: 'POST', body: ['a', 'b'] })
 
     expect(data).toEqual(['a', 'b'])
   })
 
   it('post body', async () => {
-    const { data } = await client.body.post('a')
+    const data = await f('/body', { method: 'POST', body: 'a' })
 
     expect(data).toEqual('a')
   })
@@ -190,13 +188,13 @@ describe('client', () => {
   it('post mirror', async () => {
     const body = { username: 'A', password: 'B' }
 
-    const { data } = await client.mirror.post(body)
+    const data = await f('/mirror', { method: 'POST', body })
 
     expect(data).toEqual(body)
   })
 
   it('delete empty', async () => {
-    const { data } = await client.empty.delete()
+    const data = await f('/empty', { method: 'DELETE' })
 
     expect(data).toEqual({ body: null })
   })
@@ -204,86 +202,83 @@ describe('client', () => {
   it('post deep nested mirror', async () => {
     const body = { username: 'A', password: 'B' }
 
-    const { data } = await client.deep.nested.mirror.post(body)
+    const data = await f('/deep/nested/mirror', { method: 'POST', body })
 
     expect(data).toEqual(body)
   })
 
   it('get nested data', async () => {
-    const { data } = await client.nested.data.get()
+    const data = await f('/nested/data')
 
     expect(data).toEqual('hi')
   })
 
   it('handles thrown response', async () => {
-    const { data, error } = await client.throws.get()
+    const result = await f('/throws')
 
-    expect(data).toBeNull()
-    expect(error).toBeDefined()
-    expect(error?.status).toBe(400)
-    expect(error?.message).toBe('Custom error')
+    expect(result).toBeInstanceOf(SpiceflowFetchError)
+    if (result instanceof SpiceflowFetchError) {
+      expect(result.status).toBe(400)
+      expect(result.message).toBe('Custom error')
+    }
   })
 
   it('handles thrown response with 307', async () => {
-    const { data, error } = await client['throws-307'].get()
+    const result = await f('/throws-307')
 
-    expect(data).toBeNull()
-    expect(error).toBeDefined()
-    expect(error?.status).toBe(307)
-    expect(error?.message).toBe('Redirect')
+    expect(result).toBeInstanceOf(SpiceflowFetchError)
+    if (result instanceof SpiceflowFetchError) {
+      expect(result.status).toBe(307)
+      expect(result.message).toBe('Redirect')
+    }
   })
 
   it('handles thrown response with 200', async () => {
-    const { data, error } = await client['throws-200'].get()
-    // @ts-expect-error data should not be AsyncGenerator type
-    data satisfies AsyncGenerator
+    const data = await f('/throws-200')
     expect(data).toMatchInlineSnapshot(
       `"this string will not be parsed as json"`,
     )
-    expect(error).toMatchInlineSnapshot(`null`)
   })
 
   it('surfaces json payload in error value for 402 responses', async () => {
-    const { data, error } = await client['throws-402-json'].get()
+    const result = await f('/throws-402-json')
 
-    expect(data).toBeNull()
-    expect(error).toBeDefined()
-    expect(error?.status).toBe(402)
-    expect(error).toBeInstanceOf(SpiceflowFetchError)
-    expect(error?.value).toEqual({ reason: 'Payment required', code: 4021 })
+    expect(result).toBeInstanceOf(SpiceflowFetchError)
+    if (result instanceof SpiceflowFetchError) {
+      expect(result.status).toBe(402)
+      expect(result.value).toEqual({ reason: 'Payment required', code: 4021 })
+    }
   })
 
   it('stream ', async () => {
-    const { data } = await client.stream.get()
+    const data = await f('/stream')
     let all = ''
-    for await (const chunk of data!) {
-      // console.log(chunk)
+    for await (const chunk of data as any) {
       all += chunk + '-'
     }
     expect(all).toEqual('a-b-c-')
   })
   it('stream async', async () => {
-    const { data } = await client['stream-async'].get()
+    const data = await f('/stream-async')
     let all = ''
-    for await (const chunk of data!) {
-      // console.log(chunk)
+    for await (const chunk of data as any) {
       all += chunk + '-'
     }
     expect(all).toEqual('a-b-c-')
   })
 
   it('stream return', async () => {
-    const { data } = await client['stream-return'].get()
+    const data = await f('/stream-return')
     let all = ''
-    for await (const chunk of data!) {
+    for await (const chunk of data as any) {
       all += chunk
     }
     expect(all).toEqual('a')
   })
   it('stream return async', async () => {
-    const { data } = await client['stream-return-async'].get()
+    const data = await f('/stream-return-async')
     let all = ''
-    for await (const chunk of data!) {
+    for await (const chunk of data as any) {
       all += chunk
     }
     expect(all).toEqual('a')
@@ -291,7 +286,7 @@ describe('client', () => {
   it('post zodAny', async () => {
     const body = [{ key: 'value' }, 123, 'string', true, null]
 
-    const { data } = await client.zodAny.post({ body })
+    const data = await f('/zodAny', { method: 'POST', body: { body } })
 
     expect(data).toEqual({ body })
   })
@@ -319,8 +314,8 @@ describe('client', () => {
 
 describe('client as promise', () => {
   it('should work with async client', async () => {
-    const asyncClient = Promise.resolve(client)
-    const { data } = await (await asyncClient).mirror.post({ test: 'value' })
+    const asyncF = Promise.resolve(f)
+    const data = await (await asyncF)('/mirror', { method: 'POST', body: { test: 'value' } })
     expect(data).toEqual({ test: 'value' })
   }, 200)
 })
@@ -336,10 +331,10 @@ describe('client retries', () => {
       return { success: true, attempts: attemptCount }
     })
 
-    const retryClient = createSpiceflowClient(retryApp, { retries: 2 })
-    const { data, error } = await retryClient['retry-success'].get()
+    const retryF = createSpiceflowFetch(retryApp, { retries: 2 })
+    const data = await retryF('/retry-success')
 
-    expect(error).toBeNull()
+    expect(data).not.toBeInstanceOf(Error)
     expect(data).toEqual({ success: true, attempts: 3 })
     expect(attemptCount).toBe(3)
   })
@@ -351,12 +346,13 @@ describe('client retries', () => {
       throw new Response('Server error', { status: 500 })
     })
 
-    const retryClient = createSpiceflowClient(retryApp, { retries: 2 })
-    const { data, error } = await retryClient['retry-fail'].get()
+    const retryF = createSpiceflowFetch(retryApp, { retries: 2 })
+    const result = await retryF('/retry-fail')
 
-    expect(data).toBeNull()
-    expect(error).toBeDefined()
-    expect(error?.status).toBe(500)
+    expect(result).toBeInstanceOf(SpiceflowFetchError)
+    if (result instanceof SpiceflowFetchError) {
+      expect(result.status).toBe(500)
+    }
     expect(attemptCount).toBe(3)
   })
 
@@ -367,12 +363,13 @@ describe('client retries', () => {
       throw new Response('Bad request', { status: 400 })
     })
 
-    const retryClient = createSpiceflowClient(retryApp, { retries: 2 })
-    const { data, error } = await retryClient['retry-400'].get()
+    const retryF = createSpiceflowFetch(retryApp, { retries: 2 })
+    const result = await retryF('/retry-400')
 
-    expect(data).toBeNull()
-    expect(error).toBeDefined()
-    expect(error?.status).toBe(400)
+    expect(result).toBeInstanceOf(SpiceflowFetchError)
+    if (result instanceof SpiceflowFetchError) {
+      expect(result.status).toBe(400)
+    }
     expect(attemptCount).toBe(1)
   })
 })

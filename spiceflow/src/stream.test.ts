@@ -208,7 +208,7 @@ describe('Stream', () => {
     )
   })
 
-  it('rpc client throws errors from async generator routes', async () => {
+  it('fetch client throws errors from async generator routes', async () => {
     const app = new Spiceflow()
       .get('/stream', async function* () {
         yield 'first'
@@ -219,28 +219,21 @@ describe('Stream', () => {
       })
       .onError(() => {})
 
-    // Import the client functions
-    const { createSpiceflowClient, streamSSEResponse } = await import(
-      './client/index.ts'
-    )
+    const { createSpiceflowFetch } = await import('./client/index.ts')
 
-    // Create a client using the app instance
-    const client = createSpiceflowClient(app)
+    const f = createSpiceflowFetch(app)
 
-    // Call the streaming endpoint
-    const { data: stream, error } = await client.stream.get()
+    const stream = await f('/stream')
 
-    expect(error).toBeNull()
-    expect(stream).toBeDefined()
+    expect(stream).not.toBeInstanceOf(Error)
 
     // Collect streamed values
     const values: any[] = []
     let streamError: Error | undefined
 
     try {
-      // TypeScript guard - we already checked stream is defined above
-      if (stream) {
-        for await (const value of stream) {
+      if (stream && !(stream instanceof Error)) {
+        for await (const value of stream as AsyncIterable<any>) {
           values.push(value)
         }
       }
@@ -256,7 +249,7 @@ describe('Stream', () => {
     expect(streamError?.message).toContain('Stream error after yielding')
   })
 
-  it('rpc client throws errors from async generator routes before any yield', async () => {
+  it('fetch client throws errors from async generator routes before any yield', async () => {
     const app = new Spiceflow()
       .onError(({ error }) => {
         return new Response(JSON.stringify({ message: error.message }), {
@@ -268,19 +261,15 @@ describe('Stream', () => {
         throw new Error('Immediate stream error')
       })
 
-    // Import the client functions
-    const { createSpiceflowClient } = await import('./client/index.ts')
+    const { createSpiceflowFetch } = await import('./client/index.ts')
 
-    // Create a client using the app instance
-    const client = createSpiceflowClient(app)
+    const f = createSpiceflowFetch(app)
 
-    // Call the streaming endpoint
-    const { data, error } = await client.stream.get()
+    const result = await f('/stream')
 
-    // When error happens before yield, it should be caught by error handler
-    expect(data).toBeNull()
-    expect(error).toBeDefined()
-    expect(error?.message).toContain('Immediate stream error')
+    // When error happens before yield, it should be returned as an error
+    expect(result).toBeInstanceOf(Error)
+    expect((result as Error).message).toContain('Immediate stream error')
   })
 
   // it('mutate set before yield is called', async () => {
@@ -419,11 +408,7 @@ describe('Stream', () => {
       yield 'third'
     })
 
-    // Import the client functions
-    const { createSpiceflowClient } = await import('./client/index.ts')
-
-    // Create a client using the app instance
-    const client = createSpiceflowClient(app)
+    const { streamSSEResponse } = await import('./client/index.ts')
 
     // Create an AbortController to simulate abort
     const controller = new AbortController()
@@ -434,9 +419,6 @@ describe('Stream', () => {
         signal: controller.signal,
       }),
     )
-
-    // Simulate client-side SSE parsing
-    const { streamSSEResponse } = await import('./client/index.ts')
 
     // Abort after first value
     setTimeout(() => controller.abort(), 50)

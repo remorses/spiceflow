@@ -108,7 +108,7 @@ const app = new Spiceflow()
     },
     {
       detail: {},
-      body: z.object({
+      request: z.object({
         name: z.string(),
         email: z.string().email(),
         age: z.number().min(0).max(120),
@@ -162,7 +162,7 @@ const app = new Spiceflow()
     },
     {
       detail: {},
-      body: z.object({
+      request: z.object({
         file: z.string().base64(),
       }),
       bodyType: 'multipart/form-data',

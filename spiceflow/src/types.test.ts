@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { createSpiceflowClient } from './client/index.js'
+import { createSpiceflowFetch } from './client/index.js'
 import { Spiceflow } from './spiceflow.js'
 import { Prettify } from './types.js'
 
@@ -12,11 +12,11 @@ test('`use` on non Spiceflow return', async () => {
     new Request('http://localhost/xxx', { method: 'POST' }),
   )
 
-  let client = createSpiceflowClient(app)
+  let f = createSpiceflowFetch(app)
 
-  type ClientType = Prettify<typeof client>
+  type FetchType = Prettify<typeof f>
 
-  void client.xxx.post()
+  void f('/xxx', { method: 'POST' })
   expect(res.status).toBe(200)
   expect(await res.json()).toEqual('hi')
 })
@@ -50,13 +50,13 @@ test('`use` on Spiceflow return', async () => {
     new Request('http://localhost/xxx', { method: 'POST' }),
   )
 
-  let client = createSpiceflowClient(app)
-  void client.xxx.post()
-  void client.usePost.post()
+  let f = createSpiceflowFetch(app)
+  void f('/xxx', { method: 'POST' })
+  void f('/usePost', { method: 'POST' })
 
-  type ClientType = Prettify<typeof client>
+  type FetchType = Prettify<typeof f>
   // @ts-expect-error
-  client.something
+  f('/something')
 
   expect(res.status).toBe(200)
   expect(await res.json()).toEqual('hi')
@@ -68,15 +68,15 @@ test('async generator type with client', async () => {
     yield { message: 'World' }
   })
 
-  const client = createSpiceflowClient(app)
+  const f = createSpiceflowFetch(app)
 
-  const streamResponse = await client.stream.get()
-  if (streamResponse.error) {
-    throw streamResponse.error
+  const streamResponse = await f('/stream')
+  if (streamResponse instanceof Error) {
+    throw streamResponse
   }
 
   // Type check: each yielded item should have the 'message' property
-  for await (const item of streamResponse.data) {
+  for await (const item of streamResponse) {
     // @ts-expect-error
     item.something
 

@@ -342,7 +342,7 @@ export class Spiceflow<
     [key: string]: unknown
   }) {
     const kind = rest.kind
-    let bodySchema: TypeSchema = hooks?.request || hooks?.body
+    let bodySchema: TypeSchema = hooks?.request
     let validateBody = getValidateFunction(bodySchema)
     let validateQuery = getValidateFunction(hooks?.query)
     let validateParams = getValidateFunction(hooks?.params)
@@ -2829,33 +2829,12 @@ export class Spiceflow<
     return listenForNode(handler, port, hostname)
   }
 
-  /**
-   * @deprecated Use `handleForNode` instead.
-   */
-  async handleNode(
-    req: IncomingMessage,
-    res: ServerResponse,
-    context: { state?: Singleton['state'] } = {},
-  ) {
-    return this.handleForNode(req, res, context)
-  }
-
   handleForNode = (
     req: IncomingMessage,
     res: ServerResponse,
     context: { state?: Singleton['state'] } = {},
   ) => {
     return handleForNode(this, req, res, context)
-  }
-
-  /* @deprecated */
-  async listenForNode(port: number, hostname: string = '0.0.0.0') {
-    if (typeof Bun !== 'undefined') {
-      console.warn(
-        "Server is being started with node:http but the current runtime is Bun, not Node. Consider using the method 'handle' with 'Bun.serve' instead.",
-      )
-    }
-    return listenForNode((request) => this.handle(request), port, hostname)
   }
 
   private async handleStream({

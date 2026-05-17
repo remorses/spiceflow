@@ -2,18 +2,18 @@ import fs from 'fs'
 import path from 'path'
 import yaml from 'js-yaml'
 
-import { createSpiceflowClient } from '../src/client/index.js'
+import { createSpiceflowFetch } from '../src/client/index.js'
 import { app } from './example-app.js'
 
 async function main() {
-  console.log('Creating Spiceflow client...')
-  const client = createSpiceflowClient(app)
+  console.log('Creating Spiceflow fetch client...')
+  const f = createSpiceflowFetch(app)
 
   console.log('Fetching OpenAPI spec...')
-  const { data: openapiJson, error } = await client.openapi.get()
-  if (error) {
-    console.error('Failed to fetch OpenAPI spec:', error)
-    throw error
+  const openapiJson = await f('/openapi')
+  if (openapiJson instanceof Error) {
+    console.error('Failed to fetch OpenAPI spec:', openapiJson)
+    throw openapiJson
   }
 
   const outputPath = path.resolve('./scripts/openapi.yml')

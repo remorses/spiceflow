@@ -2695,7 +2695,7 @@ In user-facing code, you should almost never convert a Node.js `req`/`res` pair 
 <summary>Which adapter to use</summary>
 
 - If you want to run your app on a port in Node.js or Bun, use `app.listen(3000)`. Spiceflow sets up the server adapter for you. Cloudflare Workers are the main exception because there is no port-based server to listen on there.
-- If you need to plug a Spiceflow app into a classic Node.js handler API that gives you `req` and `res` (for example a Next.js pages API route), use `app.handleForNode(req, res)`. The older `app.handleNode(req, res)` alias also exists, but `handleForNode` is the current API.
+- If you need to plug a Spiceflow app into a classic Node.js handler API that gives you `req` and `res` (for example a Next.js pages API route), use `app.handleForNode(req, res)`.
 - If you are already inside a modern WHATWG-style handler that gives you a standard `Request`, just delegate with `return app.handle(request)`.
 
 If you find yourself writing manual request-conversion glue in app code, that is usually a sign that you should use one of these Spiceflow entrypoints instead.
@@ -2737,8 +2737,8 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse,
 ) {
-  // IMPORTANT! nothing should be run before calling handleNode that could read the request body!
-  await mcpAuthApp.handleNode(req, res)
+  // IMPORTANT! nothing should be run before calling handleForNode that could read the request body!
+  await mcpAuthApp.handleForNode(req, res)
 }
 
 export const config = {

@@ -22,26 +22,11 @@ const app = new Spiceflow().get('/hello', () => 'Hello, World!')
 app.listen(Number(port))
 `.trim()
 
-const listenForNodeScript = `
-import { Spiceflow } from 'spiceflow'
-const port = process.env.SPICEFLOW_PORT
-if (!port) throw new Error('SPICEFLOW_PORT environment variable is not set')
-const app = new Spiceflow().get('/hello', () => 'Hello, World!')
-app.listenForNode(Number(port))
-`.trim()
-
 describe('smoke test with node', () => {
   test('running app.listen()', async () => {
     await smokeTestServer({
       command: process.execPath,
       args: ['--input-type=module', '-e', listenScript],
-      port: await getAvailablePort(0),
-    })
-  })
-  test('running app.listenForNode()', async () => {
-    await smokeTestServer({
-      command: process.execPath,
-      args: ['--input-type=module', '-e', listenForNodeScript],
       port: await getAvailablePort(0),
     })
   })
@@ -52,14 +37,6 @@ describe.skipIf(!bunPath)('smoke test with bun', () => {
     await smokeTestServer({
       command: bunPath!,
       args: ['-e', listenScript],
-      port: await getAvailablePort(0),
-    })
-  })
-
-  test('running app.listenForNode()', async () => {
-    await smokeTestServer({
-      command: bunPath!,
-      args: ['-e', listenForNodeScript],
       port: await getAvailablePort(0),
     })
   })

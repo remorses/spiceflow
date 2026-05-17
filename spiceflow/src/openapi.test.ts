@@ -43,7 +43,7 @@ test('openapi response', async () => {
         return body
       },
       {
-        body: z.object({
+        request: z.object({
           name: z.string(),
         }),
         response: z.object({
@@ -78,7 +78,7 @@ test('openapi response', async () => {
           description: 'This is a post',
           operationId: 'postQueryParamsXXX',
         },
-        body: z.object({
+        request: z.object({
           name: z.string(),
         }),
         response: z.object({

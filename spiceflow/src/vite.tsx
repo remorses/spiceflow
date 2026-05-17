@@ -145,9 +145,6 @@ function normalizeEnvironmentOutDirs(userConfig: UserConfig): UserConfig {
   }
 }
 
-/** @deprecated Use the default export instead: `import spiceflow from 'spiceflow/vite'` */
-export const spiceflowPlugin = spiceflow
-
 export default function spiceflow({
   entry,
   federation,

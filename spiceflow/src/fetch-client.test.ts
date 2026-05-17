@@ -17,7 +17,7 @@ const app = new Spiceflow()
   .get('/true', () => true)
   .get('/false', () => false)
   .post('/array', async ({ request }) => await request.json(), {
-    body: z.array(z.string()),
+    request: z.array(z.string()),
   })
   .route({
     method: 'POST',
@@ -28,7 +28,7 @@ const app = new Spiceflow()
     method: 'POST',
     path: '/body',
     handler: async ({ request }) => await request.text(),
-    body: z.string(),
+    request: z.string(),
   })
   .route({
     method: 'DELETE',
@@ -42,7 +42,7 @@ const app = new Spiceflow()
     method: 'POST',
     path: '/deep/nested/mirror',
     handler: async ({ request }) => await request.json(),
-    body: z.object({
+    request: z.object({
       username: z.string(),
       password: z.string(),
     }),
@@ -90,7 +90,7 @@ const app = new Spiceflow()
   .get('/dateObject', () => ({ date: new Date() }))
   .get('/redirect', ({ redirect }) => redirect('http://localhost:8083/true'))
   .post('/redirect', ({ redirect }) => redirect('http://localhost:8083/true'), {
-    body: z.object({
+    request: z.object({
       username: z.string(),
     }),
   })

@@ -8,7 +8,6 @@ import {
   SpiceflowRequest,
 } from './spiceflow.tsx'
 import { z } from 'zod'
-import { createSpiceflowClient } from './client/index.js'
 import { createSpiceflowFetch } from './client/fetch.ts'
 
 async function expectJsonErrorResponse({
@@ -408,7 +407,7 @@ test('onError fires on validation errors', async () => {
         return 'Success'
       },
       {
-        body: z.object({
+        request: z.object({
           name: z.string(),
         }),
       },
@@ -1237,7 +1236,7 @@ test('validate body works, request success', async () => {
         return 'ok'
       },
       {
-        body: z.object({
+        request: z.object({
           name: z.string(),
         }),
       },
@@ -1713,26 +1712,26 @@ test('async generators handle non-ASCII characters correctly', async () => {
       yield { text: 'КΚ' } // Cyrillic and Greek K
     })
 
-  const client = createSpiceflowClient(app)
+  const f = createSpiceflowFetch(app)
 
-  const { data: cyrillicData } = await client.cyrillic.get()
+  const cyrillicData = await f('/cyrillic') as AsyncIterable<any>
   let cyrillicText = ''
-  for await (const chunk of cyrillicData!) {
+  for await (const chunk of cyrillicData) {
     cyrillicText += chunk
   }
   expect(cyrillicText).toBe('ПриветΚόσμος')
 
-  const { data: mixedData } = await client['mixed-scripts'].get()
+  const mixedData = await f('/mixed-scripts') as AsyncIterable<any>
   const mixedResults: unknown[] = []
-  for await (const chunk of mixedData!) {
+  for await (const chunk of mixedData) {
     mixedResults.push(chunk)
   }
   expect(mixedResults).toEqual([{ text: 'РΡ' }, { text: 'ΟО' }, { text: 'КΚ' }])
 })
 
-test('can pass additional props to body schema', async () => {
+test('can pass additional props to request schema', async () => {
   const app = new Spiceflow().post('/user', ({ request }) => request.json(), {
-    body: z
+    request: z
       .object({
         name: z.string(),
         age: z.number(),
@@ -3262,24 +3261,19 @@ describe('use preserves type safety', () => {
 
     const app = new Spiceflow().get('/health', () => 'ok').use(child)
 
-    const client = createSpiceflowClient(app)
-    const getRes = await client.api.items.get()
-    if (getRes.error) throw getRes.error
-    expect(getRes.data).toEqual([1, 2, 3])
+    const f = createSpiceflowFetch(app)
+    const getRes = await f('/api/items')
+    expect(getRes).toEqual([1, 2, 3])
 
-    const postRes = await client.api.items.post()
-    if (postRes.error) throw postRes.error
-    expect(postRes.data).toEqual({ created: true })
-
-    // @ts-expect-error - nonexistent route on client
-    client.api.nonexistent
+    const postRes = await f('/api/items', { method: 'POST' })
+    expect(postRes).toEqual({ created: true })
   })
 
   test('fetch client sees routes from mounted subapp', async () => {
     const child = new Spiceflow({ basePath: '/v2' })
       .get('/status', () => ({ ok: true }))
       .post('/echo', async ({ request }) => await request.json(), {
-        body: z.object({ msg: z.string() }),
+        request: z.object({ msg: z.string() }),
       })
 
     const app = new Spiceflow().get('/health', () => 'ok').use(child)
@@ -3392,51 +3386,6 @@ describe('use preserves type safety', () => {
     app.href('/nonexistent')
   })
 
-  test('page routes excluded from proxy client types', () => {
-    const child = new Spiceflow({ basePath: '/app' })
-      .page('/dashboard', async () => 'Dashboard')
-      .get('/api/data', () => ({ items: [] }))
-
-    const app = new Spiceflow().use(child)
-    const client = createSpiceflowClient(app)
-
-    // API route is accessible on client
-    void client.app.api.data.get()
-
-    // @ts-expect-error - page route not in ClientRoutes
-    client.app.dashboard
-  })
-
-  test('staticPage routes excluded from proxy client types', () => {
-    const child = new Spiceflow({ basePath: '/docs' })
-      .staticPage('/intro')
-      .get('/api/versions', () => [1, 2])
-
-    const app = new Spiceflow().use(child)
-    const client = createSpiceflowClient(app)
-
-    // API route is accessible
-    void client.docs.api.versions.get()
-
-    // @ts-expect-error - staticPage route not in ClientRoutes
-    client.docs.intro
-  })
-
-  test('staticGet routes excluded from proxy client types', () => {
-    const child = new Spiceflow({ basePath: '/docs' })
-      .staticGet('/data', () => ({ name: 'app' }))
-      .get('/api/users', () => [])
-
-    const app = new Spiceflow().use(child)
-    const client = createSpiceflowClient(app)
-
-    // API route is accessible
-    void client.docs.api.users.get()
-
-    // @ts-expect-error - staticGet route not in ClientRoutes
-    client.docs.data
-  })
-
   test('page routes excluded from fetch client ClientRoutes', () => {
     const child = new Spiceflow({ basePath: '/app' })
       .page('/dashboard', async () => 'Dashboard')
@@ -3468,15 +3417,12 @@ describe('use preserves type safety', () => {
     app.href('/app/')
   })
 
-  test('layout paths excluded from proxy client and fetch client', () => {
+  test('layout paths excluded from fetch client', () => {
     const child = new Spiceflow({ basePath: '/app' })
       .layout('/', ({ children }) => children)
       .get('/api/data', () => 'data')
 
     const app = new Spiceflow().use(child)
-
-    const client = createSpiceflowClient(app)
-    void client.app.api.data.get()
 
     const f = createSpiceflowFetch(app)
     void f('/app/api/data')

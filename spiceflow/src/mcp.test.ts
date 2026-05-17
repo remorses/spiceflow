@@ -41,7 +41,7 @@ describe('MCP Plugin', () => {
             .required(),
         },
       )
-    await app.listenForNode(port)
+    await app.listen(port)
 
     let transport = new FetchMCPCLientTransport({
       url: 'http://localhost/api/mcp',
@@ -262,7 +262,7 @@ describe('addMcpTools', () => {
           return { created: id, data: await request.json() }
         },
         {
-          body: z.object({ name: z.string() }),
+          request: z.object({ name: z.string() }),
         },
       )
 
@@ -353,7 +353,7 @@ describe('addMcpTools', () => {
           return { updated: id, data: await request.json() }
         },
         {
-          body: z.object({ value: z.string() }),
+          request: z.object({ value: z.string() }),
         },
       )
 

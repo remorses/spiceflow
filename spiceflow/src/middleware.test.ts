@@ -11,7 +11,7 @@ test('middleware can read request body text before handler reads json', async ()
       return next()
     })
     .post('/echo', ({ request }) => request.json(), {
-      body: z.object({ name: z.string() }),
+      request: z.object({ name: z.string() }),
     })
 
   const res = await app.handle(
@@ -36,7 +36,7 @@ test('middleware can read validated json before handler reads it again', async (
       return next()
     })
     .post('/echo', ({ request }) => request.json(), {
-      body: z.object({ name: z.string() }),
+      request: z.object({ name: z.string() }),
     })
 
   const res = await app.handle(

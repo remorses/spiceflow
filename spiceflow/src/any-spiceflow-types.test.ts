@@ -5,7 +5,7 @@ import { z } from 'zod'
 import { expect, test } from 'vitest'
 import ts from 'typescript'
 
-import { createSpiceflowClient, createSpiceflowFetch } from './client/index.ts'
+import { createSpiceflowFetch } from './client/index.ts'
 import { getRouter, Link, redirect, useLoaderData, useRouterState } from './react/index.ts'
 import type { LinkProps } from './react/index.ts'
 import { AnySpiceflow, Spiceflow } from './spiceflow.tsx'
@@ -87,8 +87,6 @@ test('AnySpiceflow falls back to ergonomic any types', () => {
   // No-generic versions use RegisteredApp which falls back to AnySpiceflow
   const fetchClient = createSpiceflowFetch('http://localhost:3000')
   const fetchFromApp = createSpiceflowFetch(anyApp)
-  const proxyClient = createSpiceflowClient('http://localhost:3000')
-  const proxyClientFromApp = createSpiceflowClient(anyApp)
   const routerApi = getRouter()
 
   function assertFetchFallbackTypes() {
@@ -125,32 +123,6 @@ test('AnySpiceflow falls back to ergonomic any types', () => {
     }
 
     readResult
-  }
-
-  function assertProxyClientFallbackTypes() {
-    const result = proxyClient.api.runtime.route.post(
-      { arbitrary: true },
-      { query: { search: 'hello' } },
-    )
-    const dataIsAny: IsAny<Awaited<typeof result>['data']> = true
-    void dataIsAny
-
-    result.then((value) => {
-      value.data.deep.property
-      value.error?.value?.deep?.property
-    })
-  }
-
-  function assertProxyClientFromAppFallbackTypes() {
-    const result = proxyClientFromApp.api.runtime.route.get({
-      query: { search: 'hello' },
-    })
-    const dataIsAny: IsAny<Awaited<typeof result>['data']> = true
-    void dataIsAny
-
-    result.then((value) => {
-      value.data.deep.property
-    })
   }
 
   function GlobalLoaderDataComponent() {
@@ -191,8 +163,6 @@ test('AnySpiceflow falls back to ergonomic any types', () => {
 
   assertFetchFallbackTypes
   assertFetchFromAppFallbackTypes
-  assertProxyClientFallbackTypes
-  assertProxyClientFromAppFallbackTypes
   GlobalLoaderDataComponent
   PathLoaderDataComponent
   UntypedRouterStateComponent

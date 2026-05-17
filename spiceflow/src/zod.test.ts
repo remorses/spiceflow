@@ -22,7 +22,7 @@ test('body is parsed as json', async () => {
         }
       },
       {
-        body: z.object({
+        request: z.object({
           name: z.string(),
         }),
         response: z.object({
@@ -44,7 +44,7 @@ test('body is parsed as json', async () => {
         }
       },
       {
-        body: z.object({
+        request: z.object({
           name: z.string(),
         }),
         response: {

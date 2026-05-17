@@ -668,3 +668,4 @@ export function getRouter<App extends AnySpiceflow>(): RouterBase<App>
 export function getRouter(): any {
   return router
 }
+
