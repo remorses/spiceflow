@@ -585,7 +585,6 @@ export default function spiceflow({
               'react-dom',
               'react-dom/client',
               'spiceflow > superjson',
-              'spiceflow > history',
               'spiceflow > its-fine',
               'spiceflow > eventsource-parser/stream',
             ],
@@ -595,15 +594,19 @@ export default function spiceflow({
 
 
         if (name === 'rsc') {
+          const include = [
+            'spiceflow > superjson',
+            'spiceflow > eventsource-parser/stream',
+            'react-dom/server',
+          ]
+
+          if (canResolveDependency('zod')) {
+            include.push('zod')
+          }
+
           config.optimizeDeps.include = mergeUnique(
             config.optimizeDeps.include,
-            [
-              'spiceflow > superjson',
-              'spiceflow > history',
-              'spiceflow > eventsource-parser/stream',
-              'react-dom/server',
-              'zod',
-            ],
+            include,
           )
         }
 
@@ -611,7 +614,6 @@ export default function spiceflow({
           config.optimizeDeps.include = mergeUnique(
             config.optimizeDeps.include,
             [
-              'spiceflow > history',
               'spiceflow > eventsource-parser/stream',
               'react-dom/server',
               'react-dom/client',
@@ -1098,6 +1100,15 @@ function mergeUnique<T>(base: T[] | undefined, add: T[]): T[] {
 function toArray(value: string | string[] | undefined): string[] {
   if (!value) return []
   return Array.isArray(value) ? value : [value]
+}
+
+function canResolveDependency(id: string): boolean {
+  try {
+    require.resolve(id, { paths: [process.cwd()] })
+    return true
+  } catch {
+    return false
+  }
 }
 
 function addNoExternal(
