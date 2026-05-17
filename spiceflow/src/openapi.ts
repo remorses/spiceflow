@@ -1,7 +1,7 @@
 import { isZod4, isZodSchema, Spiceflow } from './spiceflow.js'
 import type { InternalRoute } from './types.js'
 
-import type { OpenAPIV3 } from 'openapi-types'
+import type { OpenAPIV3 } from './openapi-types.js'
 
 let excludeMethods = ['OPTIONS']
 

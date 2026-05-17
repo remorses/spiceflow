@@ -8,7 +8,7 @@ import {
   ListToolsRequestSchema,
   ReadResourceRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js'
-import { OpenAPIV3 } from 'openapi-types'
+import { OpenAPIV3 } from './openapi-types.js'
 
 function isReferenceObject(value: unknown): value is OpenAPIV3.ReferenceObject {
   if (!value || typeof value !== 'object') return false

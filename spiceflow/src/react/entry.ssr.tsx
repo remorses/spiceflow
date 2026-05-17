@@ -1,6 +1,6 @@
 // SSR entry point. Receives RSC flight stream from the RSC environment,
 // SSR-renders it to HTML, and injects the RSC payload inline for client hydration.
-import { isbot } from 'isbot'
+import { isbot } from './isbot.js'
 
 import React from 'react'
 import ReactDOMServer from 'react-dom/server.edge'

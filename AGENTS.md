@@ -33,7 +33,7 @@ Try to use object arguments for new typescript functions if the function would a
 
 Always run `pnpm tsc` (or the package build script) from the package you changed after code edits, and fix any reported issues before finishing. This both type-checks and emits dist files. Never use `--noEmit` — we always want dist to stay in sync with source. Stale dist files are the most common cause of test failures.
 
-Read the `errore` skill before editing code in this repo. This project uses errore for error handling (errors as values, not exceptions).
+This project follows the errors-as-values philosophy (return errors instead of throwing, check with instanceof, use early returns). We do NOT use the `errore` npm package as a dependency; the pattern is inlined where needed. Do not install errore.
 
 do not add useless comments if the code is self descriptive. only add comments if requested or if this was a change that i asked for, meaning it is not obvious code and needs some inline documentation.
 

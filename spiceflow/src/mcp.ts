@@ -1,4 +1,4 @@
-import { OpenAPIV3 } from 'openapi-types'
+import { OpenAPIV3 } from './openapi-types.js'
 import { SSEServerTransportSpiceflow } from './mcp-transport.js'
 import { createMCPServer } from './openapi-to-mcp.js'
 import { openapi } from './openapi.js'

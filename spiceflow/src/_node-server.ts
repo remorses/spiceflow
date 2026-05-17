@@ -4,7 +4,6 @@ import {
   type ServerResponse,
   createServer,
 } from 'node:http'
-import * as errore from 'errore'
 import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import { AddressInfo } from 'node:net'
@@ -17,8 +16,20 @@ function getErrorCode(error: unknown): string | undefined {
   return code
 }
 
+function isAbortError(error: unknown): boolean {
+  let current: unknown = error
+  const seen = new Set()
+  while (current instanceof Error) {
+    if (seen.has(current)) break
+    seen.add(current)
+    if (current.name === 'AbortError') return true
+    current = current.cause
+  }
+  return false
+}
+
 export function shouldIgnoreRequestError(error: unknown): boolean {
-  if (errore.isAbortError(error)) return true
+  if (isAbortError(error)) return true
 
   const code = getErrorCode(error)
   if (code === 'ERR_STREAM_PREMATURE_CLOSE') return true

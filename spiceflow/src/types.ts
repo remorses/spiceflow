@@ -2,7 +2,7 @@
 import { StandardSchemaV1 } from './standard-schema.js'
 import z from 'zod'
 
-import type { OpenAPIV3 } from 'openapi-types'
+import type { OpenAPIV3 } from './openapi-types.js'
 
 import { ZodTypeAny } from 'zod'
 import type {

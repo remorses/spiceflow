@@ -601,7 +601,6 @@ export default function spiceflow({
               'spiceflow > superjson',
               'spiceflow > history',
               'spiceflow > eventsource-parser/stream',
-              'spiceflow > errore',
               'react-dom/server',
               'zod',
             ],
@@ -612,7 +611,6 @@ export default function spiceflow({
           config.optimizeDeps.include = mergeUnique(
             config.optimizeDeps.include,
             [
-              'spiceflow > isbot',
               'spiceflow > history',
               'spiceflow > eventsource-parser/stream',
               'react-dom/server',
