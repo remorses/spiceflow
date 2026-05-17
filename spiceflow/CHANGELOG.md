@@ -1,5 +1,33 @@
 # spiceflow
 
+## 1.25.3-rsc.0
+
+1. **Remove superjson dependency** — all API responses now use plain `JSON.stringify` instead of superjson serialization. The `disableSuperJsonUnlessRpc` constructor option and the `x-spiceflow-agent` header are removed since they were only used for superjson detection. If you relied on superjson to serialize `Date`, `Map`, `Set`, or `BigInt` in API responses, serialize these values explicitly before returning them (e.g. `.toISOString()` on dates, convert maps to plain objects). See [docs/custom-serialization.md](docs/custom-serialization.md) for the userland pattern using `onResponse`.
+
+2. **Remove deprecated APIs** — the following exports have been removed to simplify the public surface area:
+
+   - `createSpiceflowClient` from `spiceflow/client` → use `createSpiceflowFetch` instead
+   - `app.handleNode(req, res)` → use `app.handleForNode(req, res)`
+   - `app.listenForNode(port)` → use `app.listen(port)`
+   - `InputSchema.body` property → use `request` instead when defining request body schemas
+
+   ```ts
+   // before
+   const client = createSpiceflowClient(app)
+   const { data, error } = await client.users.get()
+
+   // after
+   const f = createSpiceflowFetch(app)
+   const result = await f('/users')
+   if (result instanceof Error) {
+     // handle error
+   }
+   ```
+
+3. **Vendor internal dependencies** — `history`, `isbot`, `openapi-types`, and `errore` are now vendored directly into spiceflow, reducing the install footprint and eliminating transitive dependencies. `react` and `react-dom` are now optional peer dependencies so API-only projects don't need to install them.
+
+4. **Fix unresolved dependency warnings in Vite dev** — spiceflow no longer asks Vite to pre-bundle the vendored `history` package, and `zod` is only pre-bundled when the app actually has it installed. This removes noisy warnings in federation and other projects that don't use these packages.
+
 ## 1.25.2-rsc.0
 
 1. **Scroll restoration enabled by default** — client-side navigation now automatically scrolls new pages to the top, restores saved scroll positions for back/forward navigation, and scrolls to hash targets. Apps no longer need to render a `<ScrollRestoration />` component; the `ScrollRestoration` export has been removed. Scroll positions are saved to `history.state` for reliable restoration even after the session ends.
