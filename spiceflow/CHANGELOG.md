@@ -1,5 +1,11 @@
 # spiceflow
 
+## 1.25.2-rsc.0
+
+1. **Scroll restoration enabled by default** — client-side navigation now automatically scrolls new pages to the top, restores saved scroll positions for back/forward navigation, and scrolls to hash targets. Apps no longer need to render a `<ScrollRestoration />` component; the `ScrollRestoration` export has been removed. Scroll positions are saved to `history.state` for reliable restoration even after the session ends.
+
+2. **Added `FORCE_COLOR=1` workaround for Cloudflare dev** — documented the fix for `@cloudflare/vite-plugin` stripping terminal colors in dev mode because workerd has no TTY.
+
 ## 1.25.1-rsc.0
 
 Reverted the `.split()` feature from this release. It will ship in a future version from its own branch.
