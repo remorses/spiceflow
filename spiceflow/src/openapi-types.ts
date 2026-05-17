@@ -1,4 +1,5 @@
-// Vendored from openapi-types@12.1.3 (https://github.com/kogosoftwarellc/open-api)
+// Vendored from openapi-types@12.1.3
+// https://github.com/kogosoftwarellc/open-api/blob/main/packages/openapi-types/index.ts
 // Only the OpenAPIV3 namespace is used; OpenAPI, OpenAPIV2, and OpenAPIV3_1 are omitted.
 
 export namespace OpenAPIV3 {
