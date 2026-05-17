@@ -35,6 +35,8 @@ Reference examples for real-world usage:
 
 Always import and use `Link` from `spiceflow/react` for navigational links in Spiceflow apps. Do not render raw `<a>` elements for links. `Link` enables client-side navigation while preserving normal anchor behavior for external URLs, hashes, `target`, `rel`, styling, and event handlers. `Link` supports external URLs too, so it is fine to use for ambiguous or user-provided links when you do not know ahead of time whether they are internal or external.
 
+**`Link` auto-prepends the Vite `base` path.** Never manually prepend the base path to `Link` href values. `<Link href="/dashboard" />` automatically renders as `<a href="/my-app/dashboard">` when the Vite base is `/my-app/`. Manually prepending causes double-prefixing. This only applies to `Link`; raw `fetch()` calls, `Response.redirect()`, and other non-Link URL construction still need manual base path handling.
+
 ## OpenTelemetry instrumentation
 
 Spiceflow supports automatic route instrumentation when you pass an OpenTelemetry-compatible tracer to the constructor:
