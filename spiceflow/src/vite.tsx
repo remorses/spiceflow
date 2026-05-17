@@ -145,6 +145,8 @@ function normalizeEnvironmentOutDirs(userConfig: UserConfig): UserConfig {
   }
 }
 
+export const spiceflowPlugin = spiceflow
+
 export default function spiceflow({
   entry,
   federation,
