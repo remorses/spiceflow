@@ -2,7 +2,7 @@
 // embedded in the HTML, sets up client-side navigation and server action calls.
 import React from 'react'
 import ReactDomClient from 'react-dom/client'
-import type { Location } from 'history'
+import type { Location } from '../history.js'
 import {
   createFromReadableStream,
   createFromFetch,

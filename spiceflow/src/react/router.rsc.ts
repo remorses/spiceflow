@@ -1,4 +1,4 @@
-import type { Location } from 'history'
+import type { Location } from '../history.js'
 import { getBasePath } from '../base-path.js'
 import type { AnySpiceflow } from '../spiceflow.js'
 import type { ExtractParamsFromPath, ResolvedHref } from '../types.js'

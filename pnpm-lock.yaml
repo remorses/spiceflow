@@ -698,9 +698,6 @@ importers:
       eventsource-parser:
         specifier: ^3.0.2
         version: 3.0.3
-      history:
-        specifier: ^5.3.0
-        version: 5.3.0
       its-fine:
         specifier: ^2.0.0
         version: 2.0.0(@types/react@19.2.14)(react@19.2.4)
@@ -5225,9 +5222,6 @@ packages:
 
   hast-util-whitespace@3.0.0:
     resolution: {integrity: sha512-88JUN06ipLwsnv+dVn+OIYOvAuvBMy/Qoi6O7mQHxdPXpjy+Cd6xRkWwux7DKO+4sYILtLBRIKgsdpS2gQc7qw==}
-
-  history@5.3.0:
-    resolution: {integrity: sha512-ZqaKwjjrAYUYfLG+htGaIIZ4nioX2L70ZUMIFysS3xvBsSG4x/n1V6TXV3N8ZYNuFGlDirFg32T7B6WOUPDYcQ==}
 
   hoist-non-react-statics@3.3.2:
     resolution: {integrity: sha512-/gGivxi8JPKWNm/W0jSmzcMPpfpPLc3dY/6GxhX2hQ9iGj3aDfklV4ET7NjKpSinLpJ5vafa9iiGIEZg10SfBw==}
@@ -12407,10 +12401,6 @@ snapshots:
   hast-util-whitespace@3.0.0:
     dependencies:
       '@types/hast': 3.0.4
-
-  history@5.3.0:
-    dependencies:
-      '@babel/runtime': 7.22.6
 
   hoist-non-react-statics@3.3.2:
     dependencies:

@@ -1,5 +1,5 @@
 import { AsyncLocalStorage } from 'node:async_hooks'
-import type { Location } from 'history'
+import type { Location } from './history.js'
 import { stripRscUrl } from './react/deployment.js'
 
 export type RouterLocation = Location

@@ -1,4 +1,4 @@
-import { createBrowserHistory, createMemoryHistory, type Location } from 'history'
+import { createBrowserHistory, createMemoryHistory, type Location } from '../history.js'
 import { useContext, useMemo } from 'react'
 import { getBasePath } from '../base-path.js'
 import type { AnySpiceflow } from '../spiceflow.js'
@@ -162,7 +162,7 @@ export function coerceLoaderData<
 
 // Object form with typed pathname (validates literals, accepts string variables).
 type NavigationPathObject<App, P extends string> =
-  Omit<Partial<import('history').Path>, 'pathname'> & {
+   Omit<Partial<import('../history.js').Path>, 'pathname'> & {
     pathname?: ValidatedHref<RouterPaths<App>, P, RouterQuerySchemas<App>>
   }
 

@@ -1,5 +1,5 @@
 // Tests event-sourced router selectors for navigation source and scroll projections.
-import type { Location } from 'history'
+import type { Location } from '../history.js'
 import { describe, expect, test } from 'vitest'
 import {
   getLastCommittedNavigationEvent,
