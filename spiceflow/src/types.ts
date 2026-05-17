@@ -182,7 +182,6 @@ export interface MetadataBase {
 }
 
 export type RouteSchema = {
-  body?: unknown
   request?: unknown
   query?: unknown
   params?: unknown

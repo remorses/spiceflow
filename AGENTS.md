@@ -273,7 +273,6 @@ This registers the app type globally so all typed APIs work without generics:
 - `router` and `getRouter()` from `spiceflow/react`
 - `useLoaderData()` and `useRouterState()` from `spiceflow/react`
 - `createSpiceflowFetch()` from `spiceflow/client`
-- `createSpiceflowClient()` from `spiceflow/client`
 
 Never use explicit generics like `getRouter<typeof app>()`, `useLoaderData<typeof app>()`, or `createSpiceflowFetch<typeof app>()` in new code or documentation — the register pattern replaces them.
 

@@ -148,7 +148,7 @@ const registerSchemaPath = ({
 
   const path = toOpenAPIPath(route.path)
 
-  const bodySchema = getJsonSchema(hooks?.request || hooks?.body)
+  const bodySchema = getJsonSchema(hooks?.request)
   let paramsSchema = hooks?.params
   if (route.path.includes(':') && !paramsSchema) {
     const paramNames = extractParamNames(route.path)
