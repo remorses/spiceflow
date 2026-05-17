@@ -279,101 +279,67 @@ describe('cloneDeep', () => {
   })
 })
 
-test('can encode superjson types', async () => {
+test('returns plain JSON for object responses', async () => {
   const app = new Spiceflow()
-    .post('/superjson', () => {
-      const item = {
-        date: new Date('2025-01-20T18:01:57.852Z'),
-        map: new Map([['a', 1]]),
-        set: new Set([1, 2, 3]),
-        bigint: BigInt(123),
+    .post('/json', () => {
+      return {
+        date: new Date('2025-01-20T18:01:57.852Z').toISOString(),
+        name: 'test',
+        count: 42,
       }
-      return { items: Array(2).fill(item) }
     })
-    .onError(() => {})
-  // Plain request without RPC header gets regular JSON (BigInt can't be serialized)
-  const plainRes = await app.handle(
-    new Request('http://localhost/superjson', { method: 'POST' }),
-  )
-  expect(plainRes.status).toBe(500)
 
-  // RPC request with x-spiceflow-agent header gets superjson
   const res = await app.handle(
-    new Request('http://localhost/superjson', {
-      method: 'POST',
-      headers: { 'x-spiceflow-agent': 'spiceflow-client' },
-    }),
+    new Request('http://localhost/json', { method: 'POST' }),
   )
   expect(res.status).toBe(200)
-  const client = createSpiceflowClient(app)
-  expect(await client.superjson.post().then((x) => x.data))
-    .toMatchInlineSnapshot(`
-      {
-        "items": [
-          {
-            "bigint": 123n,
-            "date": 2025-01-20T18:01:57.852Z,
-            "map": Map {
-              "a" => 1,
-            },
-            "set": Set {
-              1,
-              2,
-              3,
-            },
-          },
-          {
-            "bigint": 123n,
-            "date": 2025-01-20T18:01:57.852Z,
-            "map": Map {
-              "a" => 1,
-            },
-            "set": Set {
-              1,
-              2,
-              3,
-            },
-          },
-        ],
-      }
-    `)
-  const payload = await res.json()
-  expect(payload).toMatchObject({
-    __superjsonMeta: {
-      referentialEqualities: {
-        'items.0': ['items.1'],
-      },
-      values: {
-        'items.0.bigint': ['bigint'],
-        'items.0.date': ['Date'],
-        'items.0.map': ['map'],
-        'items.0.set': ['set'],
-        'items.1.bigint': ['bigint'],
-        'items.1.date': ['Date'],
-        'items.1.map': ['map'],
-        'items.1.set': ['set'],
-      },
-    },
-    items: [
-      {
-        bigint: '123',
-        date: '2025-01-20T18:01:57.852Z',
-        map: [['a', 1]],
-        set: [1, 2, 3],
-      },
-      {
-        bigint: '123',
-        date: '2025-01-20T18:01:57.852Z',
-        map: [['a', 1]],
-        set: [1, 2, 3],
-      },
-    ],
-  })
-  const payloadMetaVersion = payload.__superjsonMeta.v
-  if (payloadMetaVersion !== undefined) {
-    expect(payloadMetaVersion).toBe(1)
-  }
+  expect(await res.json()).toMatchInlineSnapshot(`
+    {
+      "count": 42,
+      "date": "2025-01-20T18:01:57.852Z",
+      "name": "test",
+    }
+  `)
 })
+
+test('superjson via response helper and fetch client onResponse', async () => {
+  const superjson = await import('superjson')
+
+  function superjsonResponse(data: any): Response {
+    const { json, meta } = superjson.default.serialize(data)
+    if (meta) (json as any).__superjsonMeta = meta
+    return new Response(JSON.stringify(json), {
+      headers: { 'content-type': 'application/superjson' },
+    })
+  }
+
+  const app = new Spiceflow().get('/date', () =>
+    superjsonResponse({
+      date: new Date('2025-01-20T18:01:57.852Z'),
+      name: 'test',
+    }),
+  )
+
+  const f = createSpiceflowFetch<typeof app>(app, {
+    onResponse: async (response) => {
+      if (!response.headers.get('content-type')?.includes('application/superjson')) {
+        return undefined
+      }
+      const data = await response.json()
+      if (!data?.__superjsonMeta) return data
+      const { __superjsonMeta, ...rest } = data
+      return superjson.default.deserialize({ json: rest, meta: __superjsonMeta })
+    },
+  })
+
+  const result = await f('/date')
+  expect((result as any).date).toBeInstanceOf(Date)
+  expect(result).toEqual({
+    date: new Date('2025-01-20T18:01:57.852Z'),
+    name: 'test',
+  })
+})
+
 test('dynamic route', async () => {
   const res = await new Spiceflow()
     .post('/ids/:id', () => 'hi')
@@ -2739,75 +2705,7 @@ test('child app specific routes beat parent wildcard routes', async () => {
   expect(await sharedRes.json()).toBe('parent shared')
 })
 
-test('disableSuperJsonUnlessRpc is inherited by child apps', async () => {
-  // Test that child apps inherit the flag from parent
-  const childApp = new Spiceflow().get('/date', () => ({
-    date: new Date('2024-01-01'),
-  }))
 
-  const parentApp = new Spiceflow({ disableSuperJsonUnlessRpc: true }).use(
-    childApp,
-  )
-
-  // Regular request should not use superjson
-  const regularRes = await parentApp.handle(
-    new Request('http://localhost/date', { method: 'GET' }),
-  )
-  expect(regularRes.status).toBe(200)
-  const regularData = await regularRes.text()
-  expect(regularData).not.toContain('__superjsonMeta')
-  expect(regularData).toMatchInlineSnapshot(
-    `"{"date":"2024-01-01T00:00:00.000Z"}"`,
-  )
-
-  // RPC request should use superjson
-  const rpcRes = await parentApp.handle(
-    new Request('http://localhost/date', {
-      method: 'GET',
-      headers: { 'x-spiceflow-agent': 'spiceflow-client' },
-    }),
-  )
-  expect(rpcRes.status).toBe(200)
-  const rpcData = await rpcRes.text()
-  expect(rpcData).toContain('__superjsonMeta')
-  const rpcJson = JSON.parse(rpcData)
-  expect(rpcJson).toMatchObject({
-    date: '2024-01-01T00:00:00.000Z',
-    __superjsonMeta: {
-      values: {
-        date: ['Date'],
-      },
-    },
-  })
-  const rpcMetaVersion = rpcJson.__superjsonMeta.v
-  if (rpcMetaVersion !== undefined) {
-    expect(rpcMetaVersion).toBe(1)
-  }
-})
-
-test('child app inherits disableSuperJsonUnlessRpc from parent even if set to false', async () => {
-  // Parent has the flag set to true
-  const parentApp = new Spiceflow({ disableSuperJsonUnlessRpc: true })
-
-  // Child explicitly sets the flag to false (wants to keep using superjson)
-  const childApp = new Spiceflow().get('/date', () => ({
-    date: new Date('2024-01-01'),
-  }))
-
-  parentApp.use(childApp)
-
-  // After being mounted, child should inherit parent's setting
-  // Regular request should not use superjson because parent has flag set
-  const regularRes = await parentApp.handle(
-    new Request('http://localhost/date', { method: 'GET' }),
-  )
-  expect(regularRes.status).toBe(200)
-  const regularData = await regularRes.text()
-  expect(regularData).not.toContain('__superjsonMeta')
-  expect(regularData).toMatchInlineSnapshot(
-    `"{"date":"2024-01-01T00:00:00.000Z"}"`,
-  )
-})
 
 test('/* as not-found handler - registered first', async () => {
   const app = new Spiceflow()

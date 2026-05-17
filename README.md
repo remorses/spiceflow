@@ -774,7 +774,7 @@ const safeFetch2 = createSpiceflowFetch('http://localhost:3000', {
 })
 ```
 
-The client also supports **onRequest/onResponse hooks**, **retries**, and a **custom fetch** function:
+The client also supports **onRequest/onResponse hooks**, **retries**, and a **custom fetch** function. If `onResponse` returns a non-undefined value, it replaces the default response parsing (useful for [custom serialization](docs/custom-serialization.md)):
 
 ```ts
 const safeFetch = createSpiceflowFetch('http://localhost:3000', {
@@ -797,7 +797,7 @@ const greeting = await safeFetch('/hello')
 if (greeting instanceof Error) throw greeting
 ```
 
-For path matching patterns, error handling, server-side fetch, type-safe RPC, and path building, see **[Fetch Client (Advanced)](docs/fetch-client.md)**.
+For path matching patterns, error handling, server-side fetch, type-safe RPC, and path building, see **[Fetch Client (Advanced)](docs/fetch-client.md)**. To support types like `Date`, `Map`, `Set`, and `BigInt` across the wire, see **[Custom Serialization](docs/custom-serialization.md)**.
 
 ## OpenAPI
 

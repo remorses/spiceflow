@@ -248,6 +248,8 @@ const multiFetch = createSpiceflowFetch('http://localhost:3000', {
 
 Use `onRequest` and `onResponse` hooks for logging, retries, auth refresh, or response transformation. Both accept a single function or an array of functions.
 
+`onResponse` receives a cloned `Response`. If the hook returns a **non-undefined value**, that value becomes the final result and default response parsing is skipped. Return `undefined` (or nothing) to fall through to normal parsing. This is useful for [custom serialization](custom-serialization.md) like superjson.
+
 ```ts
 const safeFetch = createSpiceflowFetch('http://localhost:3000', {
   retries: 3,

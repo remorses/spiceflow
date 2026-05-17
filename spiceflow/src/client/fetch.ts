@@ -523,9 +523,7 @@ export function createSpiceflowFetch(
       delete fetchInit.body
     }
 
-    fetchInit.headers = processHeaders(fetchInit.headers, resolvedPath, fetchInit, {
-      'x-spiceflow-agent': 'spiceflow-client',
-    })
+    fetchInit.headers = processHeaders(fetchInit.headers, resolvedPath, fetchInit)
 
     // Apply onRequest hooks (second pass, after body serialization — matches proxy client behavior)
     if (onRequest) {
@@ -558,11 +556,15 @@ export function createSpiceflowFetch(
 
     const response = await executeRequest()
 
-    // Process onResponse hooks
+    // Process onResponse hooks — if a hook returns a non-undefined value,
+    // use it as the final result and skip default response parsing.
     if (onResponse) {
       const hooks = Array.isArray(onResponse) ? onResponse : [onResponse]
       for (const hook of hooks) {
-        await hook(response.clone())
+        const result = await hook(response.clone())
+        if (result !== undefined) {
+          return result
+        }
       }
     }
 

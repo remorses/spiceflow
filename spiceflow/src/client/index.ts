@@ -1,6 +1,5 @@
 import type { AnySpiceflow, Spiceflow } from '../spiceflow.ts'
 import type { RegisteredApp } from '../react/router.js'
-import superjson from 'superjson'
 import { EventSourceParserStream } from 'eventsource-parser/stream'
 
 import type { SpiceflowClient } from './types.js'
@@ -19,7 +18,6 @@ import {
   processHeaders,
   streamSSEResponse,
   tryParsingSSEJson,
-  superjsonDeserialize,
   TextDecoderStream,
   isAbortError,
   type SSEEvent,
@@ -226,10 +224,6 @@ const createProxy = (
           if (isGetOrHead)
             delete fetchInit.body
 
-            // Add x-spiceflow-agent header
-          ;(fetchInit.headers as Record<string, string>)['x-spiceflow-agent'] =
-            'spiceflow-client'
-
           if (onRequest) {
             if (!Array.isArray(onRequest)) onRequest = [onRequest]
 
@@ -332,7 +326,6 @@ const createProxy = (
 
             case 'application/json':
               data = await response.json()
-              data = superjsonDeserialize(data)
               break
             case 'application/octet-stream':
               data = await response.arrayBuffer()

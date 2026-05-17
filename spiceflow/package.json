@@ -163,8 +163,7 @@
     "@vitejs/plugin-rsc": "0.5.21",
     "eventsource-parser": "^3.0.2",
     "its-fine": "^2.0.0",
-    "nf3": "0.3.16",
-    "superjson": "^2.2.2"
+    "nf3": "0.3.16"
   },
   "peerDependencies": {
     "@modelcontextprotocol/sdk": "*",
@@ -197,6 +196,7 @@
     "js-yaml": "^4.1.0",
     "ps-tree": "^1.2.0",
     "rimraf": "^6.1.3",
+    "superjson": "^2.2.2",
     "vite": "^8.0.8",
     "zod": "^4.3.6"
   }

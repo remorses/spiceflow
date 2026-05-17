@@ -584,7 +584,6 @@ export default function spiceflow({
               'react/jsx-dev-runtime',
               'react-dom',
               'react-dom/client',
-              'spiceflow > superjson',
               'spiceflow > its-fine',
               'spiceflow > eventsource-parser/stream',
             ],
@@ -595,7 +594,6 @@ export default function spiceflow({
 
         if (name === 'rsc') {
           const include = [
-            'spiceflow > superjson',
             'spiceflow > eventsource-parser/stream',
             'react-dom/server',
           ]

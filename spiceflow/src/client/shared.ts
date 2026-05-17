@@ -1,5 +1,4 @@
 // Shared utilities used by both the proxy client and the fetch client
-import superjson from 'superjson'
 import { EventSourceParserStream } from 'eventsource-parser/stream'
 
 import type { SpiceflowClient } from './types.ts'
@@ -186,7 +185,12 @@ export async function* streamSSEResponse({
         }
 
         if (event?.event === 'error') {
-          const error = superjsonDeserialize(event.data)
+          let error: any
+          try {
+            error = JSON.parse(event.data)
+          } catch {
+            error = event.data
+          }
           throw new SpiceflowFetchError(500, error)
         }
 
@@ -241,21 +245,10 @@ export async function* streamSSEResponse({
 
 export function tryParsingSSEJson(data: string): any {
   try {
-    return superjsonDeserialize(JSON.parse(data))
+    return JSON.parse(data)
   } catch (error) {
     return data
   }
-}
-
-export function superjsonDeserialize(data: any) {
-  if (data?.__superjsonMeta) {
-    const { __superjsonMeta, ...rest } = data
-    return superjson.deserialize({
-      json: rest,
-      meta: __superjsonMeta,
-    })
-  }
-  return data
 }
 
 export function buildQueryString(
@@ -372,7 +365,6 @@ export async function parseResponseData({
 
     case 'application/json':
       data = await response.json()
-      data = superjsonDeserialize(data)
       break
 
     case 'application/octet-stream':
