@@ -1,4 +1,5 @@
-// Vendored from isbot@4.4.0 (https://github.com/omrilotan/isbot)
+// Vendored from isbot@4.4.0
+// https://github.com/omrilotan/isbot/blob/v4.4.0/src/index.ts
 // Only the isbot() function is used; all other exports are omitted.
 
 const fullPattern =
