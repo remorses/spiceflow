@@ -23,7 +23,10 @@ import {
 } from 'vite'
 import { prerenderPlugin } from './react/prerender.js'
 import { serverFileGuardPlugin } from './server-file-guard.js'
-import { traceAndCopyDependencies } from './trace-dependencies.js'
+import {
+  formatSpiceflowStep,
+  traceAndCopyDependencies,
+} from './trace-dependencies.js'
 import { vercelPlugin } from './vercel.js'
 
 const require = createRequire(import.meta.url)
@@ -408,7 +411,9 @@ export default function spiceflow({
         )
         isCloudflareProject = isCloudflare
         if (isCloudflare) {
-          console.log('[spiceflow] detected Cloudflare plugin')
+          console.log(
+            formatSpiceflowStep({ message: 'detected Cloudflare plugin' }),
+          )
           // Cloudflare child environments already expose worker-side module imports.
           // Using plugin-rsc's Node dev proxy here makes child `ssr` call
           // `.runner.import(...)` on a non-runnable CloudflareDevEnvironment.
