@@ -1,3 +1,9 @@
+---
+title: OpenAPI
+description: Generate OpenAPI 3.1 docs from your Zod schemas.
+icon: file-json
+---
+
 # OpenAPI
 
 Spiceflow generates a full OpenAPI 3.1 document from your routes without you writing a single line of schema by hand. The `openapi` plugin walks every registered route and uses the Zod schemas you already passed to `request`, `query`, `params`, and `response` to produce the `paths`, `parameters`, `requestBody`, and `responses` sections for you.

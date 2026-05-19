@@ -1,3 +1,9 @@
+---
+title: Observability with Strada
+description: OpenTelemetry backend with error tracking and traces.
+icon: activity
+---
+
 # Observability with Strada
 
 [Strada](https://strada.sh) is an OpenTelemetry backend with error tracking, logs, traces, metrics, analytics, and a SQL CLI. Use `@strada.sh/sdk` to configure OTel once, pass its tracer to Spiceflow, then use the same SDK for logs and handled exceptions.

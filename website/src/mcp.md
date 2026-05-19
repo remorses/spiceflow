@@ -1,3 +1,9 @@
+---
+title: Model Context Protocol (MCP)
+description: Expose API routes as tools for AI language models.
+icon: bot
+---
+
 # Model Context Protocol (MCP)
 
 Spiceflow includes a Model Context Protocol (MCP) plugin that exposes your API routes as tools and resources that can be used by AI language models like Claude. The MCP plugin makes it easy to let AI assistants interact with your API endpoints in a controlled way.

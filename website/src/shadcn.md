@@ -1,3 +1,9 @@
+---
+title: shadcn/ui
+description: Use shadcn/ui components with Spiceflow.
+icon: palette
+---
+
 # shadcn/ui
 
 How to use [shadcn/ui](https://ui.shadcn.com) with Spiceflow. See [`example-shadcn/`](../example-shadcn) for a working example.

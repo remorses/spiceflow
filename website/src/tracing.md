@@ -1,3 +1,9 @@
+---
+title: Tracing (OpenTelemetry)
+description: Built-in OpenTelemetry tracing for every request.
+icon: scan-line
+---
+
 # Tracing (OpenTelemetry)
 
 Spiceflow has built-in OpenTelemetry tracing. Pass a `tracer` to the constructor and every request gets automatic spans for middleware, handlers, loaders, layouts, pages, and RSC serialization — no monkey-patching, no plugins.

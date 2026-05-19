@@ -1,6 +1,7 @@
 ---
 title: Testing with Vitest
 description: Unit test spiceflow routes, pages, actions, and middleware with vitest.
+icon: test-tube
 ---
 
 # Testing with Vitest

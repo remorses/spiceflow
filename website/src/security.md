@@ -1,3 +1,9 @@
+---
+title: Security Guide
+description: CSRF, authentication, and authorization patterns.
+icon: shield
+---
+
 # Security Guide
 
 CSRF protection (the Origin header check on server actions) blocks cross-site form submissions. It does **not** authenticate the caller. Any HTTP client can call a server action or API route directly. Treat every `"use server"` function and every `.get()`/`.post()` route as a public endpoint.

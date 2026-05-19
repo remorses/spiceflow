@@ -1,3 +1,9 @@
+---
+title: Deployment Skew
+description: How Spiceflow handles old clients talking to new servers.
+icon: git-branch
+---
+
 # Deployment Skew
 
 How Spiceflow handles the case where the client is running code from an old deployment while the server has already been updated to a new one.

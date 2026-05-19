@@ -1,3 +1,9 @@
+---
+title: Type-Safe Routing
+description: Compile-time route validation with the register pattern.
+icon: check-check
+---
+
 # Type-Safe Routing
 
 Spiceflow provides **compile-time route validation** for paths, params, query schemas, and loader data. This document explains how the type registry works, when to use it, and how to handle workspaces with multiple apps.

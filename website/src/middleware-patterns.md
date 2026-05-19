@@ -1,3 +1,9 @@
+---
+title: Middleware Patterns
+description: Authorization, proxying, cookies, and graceful shutdown.
+icon: layers
+---
+
 # Middleware Patterns
 
 Advanced middleware patterns for authentication, proxying, cookies, and graceful shutdown.

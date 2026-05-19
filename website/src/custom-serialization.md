@@ -1,3 +1,9 @@
+---
+title: Custom Serialization
+description: Serialize Date, Map, Set, and BigInt across the wire.
+icon: arrow-left-right
+---
+
 # Custom Serialization
 
 Spiceflow uses plain `JSON.stringify` for API route responses. Types like `Date`, `Map`, `Set`, and `BigInt` are **not** preserved across the wire by default. `Date` becomes an ISO string, `Map` and `Set` are dropped, and `BigInt` throws.

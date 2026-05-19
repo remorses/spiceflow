@@ -1,3 +1,9 @@
+---
+title: Docker Deployment
+description: Self-contained builds with traced dependencies for Docker.
+icon: container
+---
+
 # Docker Deployment
 
 The build output is self-contained — `dist/` includes all traced runtime dependencies in `dist/node_modules/`, so you can copy it directly into a Docker image without installing packages at deploy time. The dependency tracing uses `@vercel/nft` to find exactly which files from `node_modules/` are needed at runtime, copying only those into `dist/node_modules/`. This keeps the image small — typically 5-50MB of dependencies instead of hundreds of megabytes. On Vercel and Cloudflare, this step is skipped since those platforms have their own bundling.

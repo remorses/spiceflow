@@ -1,0 +1,92 @@
+{
+  "$schema": "https://unpkg.com/@holocron.so/vite/src/schema.json",
+  "name": "Spiceflow",
+  "description": "Type safe API and React Server Components framework",
+  "favicon": "/favicon.ico",
+  // "logo": "/logo.jpg",
+  "colors": {
+    "primary": "#e85d04"
+  },
+  "appearance": {
+    "default": "system"
+  },
+  "icons": {
+    "library": "lucide"
+  },
+  "navbar": {
+    "links": [
+      {
+        "type": "github",
+        "href": "https://github.com/remorses/spiceflow"
+      }
+    ]
+  },
+  "navigation": {
+    "global": {
+      "anchors": [
+        { "anchor": "GitHub", "href": "https://github.com/remorses/spiceflow", "icon": "github" },
+        { "anchor": "Changelog", "href": "https://github.com/remorses/spiceflow/releases", "icon": "newspaper" }
+      ]
+    },
+    "groups": [
+      {
+        "group": "Overview",
+        "icon": "home",
+        "pages": ["index"]
+      },
+      {
+        "group": "Guides",
+        "icon": "book-open",
+        "pages": [
+          "testing",
+          "middleware-patterns",
+          "shadcn",
+          "security",
+          "docker"
+        ]
+      },
+      {
+        "group": "Features",
+        "icon": "sparkles",
+        "pages": [
+          "openapi",
+          "mcp",
+          "fetch-client",
+          "tracing",
+          "strada",
+          "federation",
+          "type-safety",
+          "custom-serialization"
+        ]
+      },
+      {
+        "group": "Deployment",
+        "icon": "cloud-upload",
+        "pages": [
+          "cloudflare",
+          "deployment-skew",
+          "service-bindings"
+        ]
+      }
+    ]
+  },
+  "redirects": [
+    { "source": "/docs/cloudflare.md", "destination": "/cloudflare" },
+    { "source": "/docs/custom-serialization.md", "destination": "/custom-serialization" },
+    { "source": "/docs/deployment-skew.md", "destination": "/deployment-skew" },
+    { "source": "/docs/docker.md", "destination": "/docker" },
+    { "source": "/docs/federation.md", "destination": "/federation" },
+    { "source": "/docs/fetch-client.md", "destination": "/fetch-client" },
+    { "source": "/docs/mcp.md", "destination": "/mcp" },
+    { "source": "/docs/middleware-patterns.md", "destination": "/middleware-patterns" },
+    { "source": "/docs/openapi.md", "destination": "/openapi" },
+    { "source": "/docs/security.md", "destination": "/security" },
+    { "source": "/docs/service-bindings.md", "destination": "/service-bindings" },
+    { "source": "/docs/shadcn.md", "destination": "/shadcn" },
+    { "source": "/docs/strada.md", "destination": "/strada" },
+    { "source": "/docs/testing.md", "destination": "/testing" },
+    { "source": "/docs/tracing.md", "destination": "/tracing" },
+    { "source": "/docs/type-safety.md", "destination": "/type-safety" },
+    { "source": "/docs/use-client-trap.md", "destination": "https://github.com/remorses/spiceflow-rsc/blob/main/docs/use-client-trap.md" }
+  ]
+}

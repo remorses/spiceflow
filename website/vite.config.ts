@@ -1,59 +1,21 @@
-import { remarkCodeHike } from '@code-hike/mdx'
-import withSlugs from 'rehype-slug'
-import withToc from '@stefanprobst/rehype-extract-toc'
-import withTocExport from '@stefanprobst/rehype-extract-toc/mdx'
-
-import mdx from '@mdx-js/rollup'
-import remarkMdxFrontmatter from 'remark-mdx-frontmatter'
-import remarkFrontmatter from 'remark-frontmatter'
-import rehypeMdxImportMedia from 'rehype-mdx-import-media'
-import { remarkGithubLinks } from './app/remark-github-links'
 import { defineConfig } from 'vite'
+import { holocron } from '@holocron.so/vite'
 import { cloudflare } from '@cloudflare/vite-plugin'
-import react from '@vitejs/plugin-react'
-import spiceflow from 'spiceflow/vite'
-import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig({
-  resolve: {
-    tsconfigPaths: true,
-  },
   plugins: [
-    react(),
-    {
-      enforce: 'pre',
-      ...mdx({
-        remarkPlugins: [
-          remarkFrontmatter,
-          remarkMdxFrontmatter,
-          remarkGithubLinks,
-          [
-            remarkCodeHike,
-            {
-              theme: 'github-light',
-              showCopyButton: true,
+    holocron({ entry: './src/server.tsx', pagesDir: './src' }),
+    // Cloudflare plugin only for builds — dev mode works without it
+    // and it avoids miniflare's node:worker_threads fallback issues
+    ...(process.argv.includes('build')
+      ? [
+          cloudflare({
+            viteEnvironment: {
+              name: 'rsc',
+              childEnvironments: ['ssr'],
             },
-          ],
-        ],
-        rehypePlugins: [
-          withSlugs,
-          withToc,
-          withTocExport,
-          rehypeMdxImportMedia,
-        ],
-        mdxExtensions: ['.md', '.mdx'],
-        mdExtensions: [],
-      }),
-    },
-    spiceflow({
-      entry: './app/main.tsx',
-    }),
-    tailwindcss(),
-    cloudflare({
-      viteEnvironment: {
-        name: 'rsc',
-        childEnvironments: ['ssr'],
-      },
-    }),
+          }),
+        ]
+      : []),
   ],
 })

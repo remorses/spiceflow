@@ -1,3 +1,9 @@
+---
+title: Cloudflare
+description: Cloudflare Workers setup, background tasks, and KV page caching.
+icon: cloud
+---
+
 # Cloudflare
 
 Cloudflare Workers setup, background tasks, and KV page caching.

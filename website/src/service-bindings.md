@@ -1,3 +1,9 @@
+---
+title: Service Bindings
+description: Split large Workers with Cloudflare service bindings.
+icon: split
+---
+
 # Splitting Large Workers with Service Bindings
 
 When your Worker bundle exceeds the **10 MiB free tier** (or 25 MiB paid) limit, usually because of WASM modules, image libraries, or other heavy dependencies, you can extract the expensive code into a **separate dedicated Worker** and call it from the main Worker via a [Cloudflare service binding](https://developers.cloudflare.com/workers/runtime-apis/bindings/service-bindings/). Service binding calls execute on the same thread with near-zero latency; there is no network hop.

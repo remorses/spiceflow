@@ -1,3 +1,9 @@
+---
+title: Federation
+description: Compose multiple spiceflow apps at the RSC level.
+icon: puzzle
+---
+
 # Federation
 
 Federation lets you compose multiple spiceflow apps at the React Server Component level. A **remote** app exposes components, and a **host** app embeds them — with full SSR, hydration, and client interactivity.
