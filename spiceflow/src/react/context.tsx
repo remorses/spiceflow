@@ -28,9 +28,9 @@ export function assertFlightDataContext(
 
   throw new Error(
     '[spiceflow] FlightDataContext is missing. This usually means the ' +
-      'spiceflow module was loaded twice (e.g. one copy bundled by Vite dep ' +
-      'optimizer and another loaded raw from node_modules). Make sure ' +
-      '"spiceflow" is in optimizeDeps.exclude for the client environment.',
+      'spiceflow module was loaded twice. Make sure only one copy of ' +
+      'spiceflow is present in node_modules. Dedupe your dependencies, ' +
+      'for example with `pnpm dedupe spiceflow`, `npm dedupe`, or `bun install`.',
   )
 }
 
