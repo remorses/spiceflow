@@ -23,10 +23,8 @@ import {
 } from 'vite'
 import { prerenderPlugin } from './react/prerender.js'
 import { serverFileGuardPlugin } from './server-file-guard.js'
-import {
-  formatSpiceflowStep,
-  traceAndCopyDependencies,
-} from './trace-dependencies.js'
+import { logger } from './logger.js'
+import { traceAndCopyDependencies } from './trace-dependencies.js'
 import { vercelPlugin } from './vercel.js'
 
 const require = createRequire(import.meta.url)
@@ -411,9 +409,7 @@ export default function spiceflow({
         )
         isCloudflareProject = isCloudflare
         if (isCloudflare) {
-          console.log(
-            formatSpiceflowStep({ message: 'detected Cloudflare plugin' }),
-          )
+          logger.info('detected Cloudflare plugin')
           // Cloudflare child environments already expose worker-side module imports.
           // Using plugin-rsc's Node dev proxy here makes child `ssr` call
           // `.runner.import(...)` on a non-runnable CloudflareDevEnvironment.
@@ -1140,14 +1136,12 @@ function standaloneTracePlugin(): Plugin {
   let outDir = 'dist'
   let rootDir = process.cwd()
   let skip = false
-  let logger: ResolvedConfig['logger']
 
   return {
     name: 'spiceflow:standalone-trace',
     apply: 'build',
 
     configResolved(config) {
-      logger = config.logger
       outDir = resolveBuildOutDir(config)
       rootDir = config.root
       const isVercel = process.env.VERCEL === '1'
@@ -1169,7 +1163,6 @@ function standaloneTracePlugin(): Plugin {
           : outDir
 
         await traceAndCopyDependencies({
-          logger,
           outDir: resolvedOutDir,
           rootDir: this.environment?.config?.root ?? rootDir,
           targetDir: resolvedOutDir,

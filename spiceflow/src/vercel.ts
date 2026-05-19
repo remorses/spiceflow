@@ -11,12 +11,10 @@
 import { cp, mkdir, rm, writeFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import path from 'node:path'
-import type { Logger, Plugin } from 'vite'
-import { colors } from './colors.js'
+import type { Plugin } from 'vite'
+import { formatDuration, logger } from './logger.js'
 import {
   exists,
-  formatDuration,
-  formatSpiceflowStep,
   traceAndCopyDependencies,
 } from './trace-dependencies.js'
 
@@ -66,7 +64,6 @@ export function vercelPlugin(): Plugin[] {
   let assetsDir = 'assets'
   let publicDir = 'public'
   let spiceflowVersion: string | undefined
-  let logger: Logger
 
   return [
     {
@@ -74,7 +71,6 @@ export function vercelPlugin(): Plugin[] {
       apply: 'build',
 
       configResolved(config) {
-        logger = config.logger
         outDir = path.resolve(config.root, config.build.outDir)
         root = config.root
         base = config.base?.replace(/\/$/, '') ?? ''
@@ -104,7 +100,6 @@ export function vercelPlugin(): Plugin[] {
             assetsDir,
             publicDir,
             spiceflowVersion,
-            logger,
           })
         },
       },
@@ -119,7 +114,6 @@ async function generateVercelOutput({
   assetsDir,
   publicDir,
   spiceflowVersion,
-  logger,
 }: {
   outDir: string
   root: string
@@ -127,10 +121,9 @@ async function generateVercelOutput({
   assetsDir: string
   publicDir: string
   spiceflowVersion: string | undefined
-  logger: Logger
 }) {
   const start = performance.now()
-  logger.info(formatSpiceflowStep({ message: 'generating Vercel build output...' }))
+  logger.info('generating Vercel build output...')
 
   const vercelOut = path.resolve(root, '.vercel/output')
   const staticDir = path.join(vercelOut, 'static')
@@ -174,7 +167,6 @@ async function generateVercelOutput({
   //    need node_modules available at runtime. nf3 traces the built server
   //    entries and copies only the runtime-required files into the function.
   await traceAndCopyDependencies({
-    logger,
     outDir,
     rootDir: root,
     targetDir: funcDir,
@@ -225,10 +217,8 @@ async function generateVercelOutput({
     JSON.stringify(config, null, 2),
   )
 
-  logger.info(
-    `${formatSpiceflowStep({
-      icon: colors.green('✓'),
-      message: `generated Vercel build output in ${formatDuration(performance.now() - start)}`,
-    })}\n  ${colors.dim('output: .vercel/output')}`,
+  logger.success(
+    `generated Vercel build output in ${formatDuration(performance.now() - start)}`,
+    'output: .vercel/output',
   )
 }
