@@ -2537,78 +2537,28 @@ export { Map } from './map'
 
 ### Resource Preloading
 
-React 19 provides `preload`, `preinit`, `prefetchDNS`, and `preconnect` functions from `react-dom` that emit `<link>` tags into the SSR HTML when called during render. This lets the browser start downloading resources immediately with the initial page load, before any JavaScript executes.
-
-Call these functions in your component render body (not in effects or event handlers):
+React 19 exports `preload`, `preinit`, `prefetchDNS`, and `preconnect` from `react-dom`. Call them in your component render body and they emit `<link>` tags into SSR HTML so the browser starts fetching before any JS runs. Works in both server and client components; duplicates are auto-deduplicated.
 
 ```tsx
 import { preload, preinit, prefetchDNS, preconnect } from 'react-dom'
 
-function HeroSection() {
-  // Emits <link rel="preload" as="video" href="/assets/hero.mp4">
-  preload('/assets/hero.mp4', { as: 'video' })
-
-  // Emits <link rel="preload" as="image" href="/og.png">
-  preload('/og.png', { as: 'image' })
-
-  return <div>{/* ... */}</div>
-}
-```
-
-**Fonts** need `crossOrigin` set (fonts are always CORS requests):
-
-```tsx
-function Layout({ children }: { children: React.ReactNode }) {
-  // Preload font file, emits <link rel="preload" as="font" crossorigin ...>
-  preload('/fonts/Inter-Regular.woff2', {
-    as: 'font',
-    type: 'font/woff2',
-    crossOrigin: 'anonymous',
-  })
-
-  return <html>{children}</html>
-}
-```
-
-**`preinit`** goes further than `preload`; it downloads AND executes the resource (stylesheets are inserted, scripts are run):
-
-```tsx
-function Dashboard() {
-  // Download and insert this stylesheet immediately
-  preinit('/styles/dashboard.css', { as: 'style' })
-
-  // Download and execute this script immediately
-  preinit('/analytics.js', { as: 'script' })
-
-  return <div>{/* ... */}</div>
-}
-```
-
-**DNS and connection hints** for external resources:
-
-```tsx
 function App() {
-  // Resolve DNS for the API domain early
+  preload('/assets/hero.mp4', { as: 'video' })
+  preload('/fonts/Inter.woff2', { as: 'font', type: 'font/woff2', crossOrigin: 'anonymous' })
+  preinit('/styles/dashboard.css', { as: 'style' })   // downloads AND inserts
   prefetchDNS('https://api.example.com')
-
-  // Open a connection (DNS + TCP + TLS) to the CDN
-  preconnect('https://cdn.example.com')
-
-  // preconnect without credentials (no cookies sent)
-  preconnect('https://analytics.example.com', { crossOrigin: 'anonymous' })
+  preconnect('https://cdn.example.com', { crossOrigin: 'anonymous' })
 
   return <div>{/* ... */}</div>
 }
 ```
 
-These calls work in both server components and client components. During SSR they emit the `<link>` tags into the HTML `<head>`. During client-side navigation they insert the tags into the live DOM. Duplicate calls with the same href are automatically deduplicated.
-
-| Function | What it does | Common use |
+| Function | Effect | Use for |
 |---|---|---|
-| `preload` | Download and cache (don't execute) | Videos, images, fonts, large scripts |
-| `preinit` | Download, cache, and execute | Stylesheets, analytics scripts |
-| `prefetchDNS` | Resolve DNS for a domain | API servers, third-party services |
-| `preconnect` | DNS + TCP + TLS handshake | CDNs, auth providers |
+| `preload` | Download and cache | Videos, images, fonts |
+| `preinit` | Download and execute | Stylesheets, scripts |
+| `prefetchDNS` | DNS lookup | API domains |
+| `preconnect` | DNS + TCP + TLS | CDNs, auth providers |
 
 ### Directory Paths
 
