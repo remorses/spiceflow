@@ -389,8 +389,13 @@ async function main() {
 
   // bfcache lifecycle: abort in-flight fetches on pagehide so the browser can
   // freeze the page, and refresh stale RSC data when restored from bfcache.
+  // Both navigation and action fetches must be aborted; any open fetch()
+  // prevents the browser from putting the page in bfcache.
   window.addEventListener('pagehide', () => {
     currentNavigationAbort.abort()
+    for (const controller of actionAbortControllers.values()) {
+      controller.abort()
+    }
   })
   window.addEventListener('pageshow', (e: PageTransitionEvent) => {
     if (e.persisted) {
