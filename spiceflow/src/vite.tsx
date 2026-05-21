@@ -932,6 +932,11 @@ export default function spiceflow({
               if (name !== 'client') return
               config.build ??= {}
               config.build.rollupOptions ??= {}
+              // Federation chunks are imported by a different app at runtime.
+              // Rolldown may otherwise put shared modules in the remote client
+              // entry and add side-effect imports from user component chunks to
+              // that entry, which executes the remote app bootstrap in the host.
+              config.build.rollupOptions.preserveEntrySignatures = 'strict'
               config.build.rollupOptions.external = REACT_EXTERNALS
             },
           } satisfies Plugin,

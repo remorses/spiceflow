@@ -91,6 +91,14 @@ if (!depForEntryFileName[chunk.fileName]) {
 **Upstream:** this is a Vite/rolldown bug. `flattenId` should escape `+` or
 rolldown shouldn't normalize it.
 
+## Vite 8.0.13 federation remotes
+
+Vite 8.0.13 makes federation remote `user-components` chunks import the remote
+client entry chunk, which executes `@vitejs/plugin-rsc/browser` and crashes in
+the host browser with `require("react-dom")` missing. Set client build
+`preserveEntrySignatures = 'strict'` for federation remotes so remote component
+chunks never depend on the remote app entry.
+
 ## Wrapper plugin architecture
 
 `@holocron.so/vite` (at ~/Documents/GitHub/holocron) wraps spiceflow and bundles
