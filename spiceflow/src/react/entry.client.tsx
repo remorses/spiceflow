@@ -387,6 +387,17 @@ async function main() {
   // cannot update the URL without also fetching the next flight payload.
   router.subscribe(handleNavigation)
 
+  // bfcache lifecycle: abort in-flight fetches on pagehide so the browser can
+  // freeze the page, and refresh stale RSC data when restored from bfcache.
+  window.addEventListener('pagehide', () => {
+    currentNavigationAbort.abort()
+  })
+  window.addEventListener('pageshow', (e: PageTransitionEvent) => {
+    if (e.persisted) {
+      router.refresh()
+    }
+  })
+
   const callServer = async (id: string, args: unknown[]) => {
     const isFormAction =
       args.length > 0 && args[args.length - 1] instanceof FormData
