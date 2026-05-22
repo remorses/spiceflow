@@ -1,4 +1,4 @@
-<div align='center' className='w-full'>
+<div align='center' className='hidden w-full'>
     <br/>
     <br/>
     <br/>
@@ -839,6 +839,26 @@ export const app = new Spiceflow()
 const openapiSchema = await (
   await app.handle(new Request('http://localhost:3000/openapi.json'))
 ).json()
+```
+
+Every route accepts a **`detail`** field that is spread as-is into the OpenAPI operation object. Use it to add tags, summaries, descriptions, or any other [OpenAPI Operation](https://spec.openapis.org/oas/v3.1.0#operation-object) field:
+
+```ts
+app.route({
+  method: 'POST',
+  path: '/users',
+  request: z.object({ name: z.string() }),
+  response: z.object({ id: z.string() }),
+  detail: {
+    tags: ['users'],
+    summary: 'Create a user',
+    description: 'Creates a new user in the current organization.',
+    operationId: 'createUser',
+  },
+  handler({ request }) {
+    return { id: 'usr_123' }
+  },
+})
 ```
 
 For status-code response maps, centralized error responses with `onError`, shared Zod schemas across routes, hiding internal routes from the document, writing markdown descriptions with `string-dedent`, generating a local `openapi.json` file from a script, and preserving fetch client type safety with thrown error responses, see [OpenAPI docs](docs/openapi.md).
