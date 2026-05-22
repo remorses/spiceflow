@@ -24,8 +24,8 @@
   "navigation": {
     "global": {
       "anchors": [
-        { "anchor": "GitHub", "href": "https://github.com/remorses/spiceflow", "icon": "github" },
-        { "anchor": "Changelog", "href": "https://github.com/remorses/spiceflow/releases", "icon": "newspaper" }
+        { "anchor": "GitHub", "href": "https://github.com/remorses/spiceflow", "icon": "github", "placement": "tabs" },
+        { "anchor": "Changelog", "href": "https://github.com/remorses/spiceflow/releases", "icon": "newspaper", "placement": "tabs" }
       ]
     },
     "groups": [
