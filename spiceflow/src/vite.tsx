@@ -829,7 +829,12 @@ export default function spiceflow({
       if (!isCloudflareRuntime) {
         const baseLen = resolvedBase.length
         lines.push(
-          `import { serveStatic as __serveStatic } from 'spiceflow'`,
+          // Use absolute path instead of bare 'spiceflow' specifier.
+          // Virtual modules have no filesystem location, so Vite resolves
+          // bare imports from the project root. In strict pnpm workspaces,
+          // spiceflow may not be hoisted there (it's a transitive dep of
+          // the consumer's framework plugin like @holocron.so/vite).
+          `import { serveStatic as __serveStatic } from '${require.resolve('spiceflow').replace(/\\/g, '/')}'`,
           `import { resolve as __resolve, dirname as __dirname, basename as __basename } from 'node:path'`,
           `import { fileURLToPath as __toPath } from 'node:url'`,
           // Resolve the current module's filename from import.meta.filename
