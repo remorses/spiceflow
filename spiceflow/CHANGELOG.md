@@ -1,5 +1,34 @@
 # spiceflow
 
+## 1.25.5-rsc.2
+
+### Patch Changes
+
+- Prebundle `@vitejs/plugin-rsc`'s browser RSC client in development so Vite serves the ESM-optimized dependency instead of the raw CommonJS vendor file.
+
+  This prevents browser crashes like `ReferenceError: module is not defined` when wrapper packages load Spiceflow through their own Vite plugin.
+
+## 1.25.5-rsc.1
+
+### Patch Changes
+
+- Add a `serveStaticImport` option to the Vite plugin so framework wrappers can control where the production virtual app entry imports `serveStatic` from.
+
+  ```ts
+  import { spiceflowPlugin } from 'spiceflow/vite'
+
+  export default {
+    plugins: [
+      spiceflowPlugin({
+        entry: './src/app.tsx',
+        serveStaticImport: '@my-framework/runtime/serve-static',
+      }),
+    ],
+  }
+  ```
+
+  The default remains `spiceflow`, while wrappers can point the import at their own package so Vite resolves transitive dependencies through the wrapper package instead of leaking raw CommonJS vendor files into the browser.
+
 ## 1.25.4-rsc.0
 
 1. **bfcache support** — in-flight RSC navigation and server action fetches are now aborted on `pagehide`, allowing the browser to freeze the page into bfcache. On restore (`pageshow` with `persisted=true`), `router.refresh()` re-fetches fresh server data so the user never sees a stale frozen snapshot. This is fully automatic with no API changes.
@@ -15,7 +44,6 @@
 1. **Remove superjson dependency** — all API responses now use plain `JSON.stringify` instead of superjson serialization. The `disableSuperJsonUnlessRpc` constructor option and the `x-spiceflow-agent` header are removed since they were only used for superjson detection. If you relied on superjson to serialize `Date`, `Map`, `Set`, or `BigInt` in API responses, serialize these values explicitly before returning them (e.g. `.toISOString()` on dates, convert maps to plain objects). See [docs/custom-serialization.md](docs/custom-serialization.md) for the userland pattern using `onResponse`.
 
 2. **Remove deprecated APIs** — the following exports have been removed to simplify the public surface area:
-
    - `createSpiceflowClient` from `spiceflow/client` → use `createSpiceflowFetch` instead
    - `app.handleNode(req, res)` → use `app.handleForNode(req, res)`
    - `app.listenForNode(port)` → use `app.listen(port)`
@@ -89,11 +117,11 @@ Reverted the `.split()` feature from this release. It will ship in a future vers
      handler: async ({ query }) => `Results for ${query.q}`,
    })
 
-   app.href('/search')                  // type error: missing required { q }
-   app.href('/search', { q: 'hello' })  // ok: page is optional
+   app.href('/search') // type error: missing required { q }
+   app.href('/search', { q: 'hello' }) // ok: page is optional
 
-   router.push('/search')               // type error: use router.href()
-   router.push(router.href('/search', { q: 'hello' }))  // ok
+   router.push('/search') // type error: use router.href()
+   router.push(router.href('/search', { q: 'hello' })) // ok
    ```
 
    Resolved dynamic paths like `/users/123` also enforce required query when the matching pattern (`/users/:id`) declares one. Page routes skip query validation at runtime so missing query params render the page instead of showing a 422 error; API routes still return 422 for invalid query.
@@ -113,12 +141,15 @@ Reverted the `.split()` feature from this release. It will ship in a future vers
 1. **ErrorBoundary `above` and `below` props** — keep the form visible and interactive alongside the error fallback instead of replacing it. `above` puts the error above the children; `below` puts it below. The form stays fully interactive so users can fix inputs and resubmit directly without clicking reset first:
 
    ```tsx
-   <ErrorBoundary below fallback={
-     <div className="text-red-500">
-       <ErrorBoundary.ErrorMessage />
-       <ErrorBoundary.ResetButton>Dismiss</ErrorBoundary.ResetButton>
-     </div>
-   }>
+   <ErrorBoundary
+     below
+     fallback={
+       <div className="text-red-500">
+         <ErrorBoundary.ErrorMessage />
+         <ErrorBoundary.ResetButton>Dismiss</ErrorBoundary.ResetButton>
+       </div>
+     }
+   >
      <form action={submitForm}>
        <input name="name" />
        <button type="submit">Save</button>
@@ -135,12 +166,12 @@ Reverted the `.split()` feature from this release. It will ship in a future vers
 1. **Type-safe `router.push()` and `router.replace()`** — navigation methods now validate path literals against your route definitions. Invalid literal paths are rejected at compile time, while `string` variables and `router.href()` return values are always accepted:
 
    ```ts
-   router.push('/login')                    // valid literal
-   router.push('/nonexistent')              // type error
+   router.push('/login') // valid literal
+   router.push('/nonexistent') // type error
    router.push(router.href('/users/:id', { id: '42' })) // ResolvedHref always works
 
    const path: string = getDynamicPath()
-   router.push(path)                        // string variables accepted
+   router.push(path) // string variables accepted
    ```
 
    Object form with `{ pathname, search, hash }` is also typed.
@@ -235,7 +266,12 @@ Reverted the `.split()` feature from this release. It will ship in a future vers
 1. **`router.href()` results work with typed `<Link>`** — links can now receive URLs produced by `router.href()` while raw string `href` values still stay type-checked against registered routes:
 
    ```tsx
-   <Link href={router.href('/orgs/:orgId/projects/:projectId', { orgId, projectId })} />
+   <Link
+     href={router.href('/orgs/:orgId/projects/:projectId', {
+       orgId,
+       projectId,
+     })}
+   />
    ```
 
 ## 1.19.0-rsc.8
@@ -245,9 +281,13 @@ Reverted the `.split()` feature from this release. It will ship in a future vers
    ```tsx
    export const app = new Spiceflow()
      .loader('/*', async () => ({ user: await getUser() }))
-     .loader('/projects/:projectId', async ({ params }) => ({ projectId: params.projectId }))
+     .loader('/projects/:projectId', async ({ params }) => ({
+       projectId: params.projectId,
+     }))
      .page('/projects/:projectId', async ({ loaderData }) => {
-       return <ProjectPage user={loaderData.user} projectId={loaderData.projectId} />
+       return (
+         <ProjectPage user={loaderData.user} projectId={loaderData.projectId} />
+       )
      })
    ```
 
@@ -273,7 +313,7 @@ Reverted the `.split()` feature from this release. It will ship in a future vers
    app.use(preventProcessExitIfBusy({ maxWaitSeconds: 60 }))
    ```
 
-3. **Type-safe `redirect()` with `SpiceflowRegister`** — when the app type is registered, the exported `redirect()` helper validates route literals and requires `params` for parameterized paths like `` redirect('/users/:id', { params: { id: '42' } }) ``. Handler context `redirect` stays broadly typed to avoid circular app type inference.
+3. **Type-safe `redirect()` with `SpiceflowRegister`** — when the app type is registered, the exported `redirect()` helper validates route literals and requires `params` for parameterized paths like `redirect('/users/:id', { params: { id: '42' } })`. Handler context `redirect` stays broadly typed to avoid circular app type inference.
 
 ## 1.19.0-rsc.5
 
@@ -396,8 +436,7 @@ Reverted the `.split()` feature from this release. It will ship in a future vers
 
    ```tsx
    import { ErrorBoundary } from 'spiceflow/react'
-
-   <ErrorBoundary
+   ;<ErrorBoundary
      fallback={
        <div>
          <ErrorBoundary.ErrorMessage className="text-red-500" />
@@ -414,11 +453,10 @@ Reverted the `.split()` feature from this release. It will ship in a future vers
 3. **Path-scoped middleware with `.use(path, handler)`** — middleware can now be limited to a specific exact path or wildcard prefix instead of running globally:
 
    ```ts
-   new Spiceflow()
-     .use('/api/*', async ({ request }, next) => {
-       console.log('only API routes hit this middleware')
-       return next()
-     })
+   new Spiceflow().use('/api/*', async ({ request }, next) => {
+     console.log('only API routes hit this middleware')
+     return next()
+   })
    ```
 
 4. **React pages and layouts can return raw HTTP responses** — non-404 `Response` values returned from `.page()` and `.layout()` now short-circuit as normal document responses, while 404 responses still flow through the existing not-found rendering path.
@@ -902,7 +940,6 @@ Reverted the `.split()` feature from this release. It will ship in a future vers
 
    ```tsx
    import { Head } from 'spiceflow/react'
-
    ;<Head>
      <Head.Title>My App</Head.Title>
      <Head.Meta name="description" content="My page" />
