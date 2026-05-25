@@ -56,7 +56,7 @@ test('`use` on Spiceflow return', async () => {
 
   type FetchType = Prettify<typeof f>
   // @ts-expect-error
-  f('/something')
+  void f('/something')
 
   expect(res.status).toBe(200)
   expect(await res.json()).toEqual('hi')
