@@ -1,5 +1,15 @@
 # spiceflow
 
+## 1.25.4-rsc.0
+
+1. **bfcache support** — in-flight RSC navigation and server action fetches are now aborted on `pagehide`, allowing the browser to freeze the page into bfcache. On restore (`pageshow` with `persisted=true`), `router.refresh()` re-fetches fresh server data so the user never sees a stale frozen snapshot. This is fully automatic with no API changes.
+
+2. **Fix federation remote client chunks with newer Vite 8 builds** — remote user component chunks now keep strict entry signatures during the client build, preventing them from importing and executing the remote app entry when loaded inside a host application.
+
+3. **Fix zod resolution for optimize deps** — zod is now correctly detected in the project before adding it to Vite's `optimizeDeps.include`, fixing resolution warnings in projects that don't use zod.
+
+4. **Improve the duplicate spiceflow runtime error message** — the error now points users toward deduping their install instead of changing `optimizeDeps.exclude`, which Spiceflow already configures automatically.
+
 ## 1.25.3-rsc.0
 
 1. **Remove superjson dependency** — all API responses now use plain `JSON.stringify` instead of superjson serialization. The `disableSuperJsonUnlessRpc` constructor option and the `x-spiceflow-agent` header are removed since they were only used for superjson detection. If you relied on superjson to serialize `Date`, `Map`, `Set`, or `BigInt` in API responses, serialize these values explicitly before returning them (e.g. `.toISOString()` on dates, convert maps to plain objects). See [docs/custom-serialization.md](docs/custom-serialization.md) for the userland pattern using `onResponse`.
