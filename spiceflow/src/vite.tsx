@@ -600,7 +600,7 @@ export default function spiceflow({
           ]
 
           if (canResolveDependency('zod')) {
-            include.push('zod')
+            include.push('spiceflow > zod')
           }
 
           config.optimizeDeps.include = mergeUnique(
