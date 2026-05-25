@@ -15,11 +15,11 @@
   "dependencies": {
     "@cloudflare/vite-plugin": "^1.37.2",
     "@cloudflare/workers-types": "^4.20260519.1",
-    "@holocron.so/vite": "^0.10.2",
+    "@holocron.so/vite": "^0.14.5",
     "@tailwindcss/vite": "^4.3.0",
     "react": "19.2.6",
     "react-dom": "19.2.6",
-    "spiceflow": "1.25.3-rsc.0",
+    "spiceflow": "workspace:^",
     "zod": "^4.4.3"
   },
   "devDependencies": {

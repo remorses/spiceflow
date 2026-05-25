@@ -769,8 +769,8 @@ importers:
         specifier: ^4.20260519.1
         version: 4.20260519.1
       '@holocron.so/vite':
-        specifier: ^0.10.2
-        version: 0.10.2(@modelcontextprotocol/sdk@1.29.0(zod@4.4.3))(@types/react@19.2.14)(babel-plugin-macros@3.1.0)(bufferutil@4.0.7)(react-server-dom-webpack@19.2.4(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(webpack@5.105.4(esbuild@0.28.0)))(use-sync-external-store@1.6.0(react@19.2.6))(utf-8-validate@6.0.3)(vite@8.0.13(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1)(tsx@4.22.3)(yaml@2.9.0))(workerd@1.20260518.1)(wrangler@4.93.0(@cloudflare/workers-types@4.20260519.1)(bufferutil@4.0.7)(utf-8-validate@6.0.3))
+        specifier: ^0.14.5
+        version: 0.14.5(@emotion/is-prop-valid@1.4.0)(@modelcontextprotocol/sdk@1.29.0(zod@4.4.3))(@types/react@19.2.14)(babel-plugin-macros@3.1.0)(bufferutil@4.0.7)(react-server-dom-webpack@19.2.4(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(webpack@5.105.4(esbuild@0.28.0)))(use-sync-external-store@1.6.0(react@19.2.6))(utf-8-validate@6.0.3)(vite@8.0.13(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1)(tsx@4.22.3)(yaml@2.9.0))(workerd@1.20260518.1)(wrangler@4.93.0(@cloudflare/workers-types@4.20260519.1)(bufferutil@4.0.7)(utf-8-validate@6.0.3))
       '@tailwindcss/vite':
         specifier: ^4.3.0
         version: 4.3.0(vite@8.0.13(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1)(tsx@4.22.3)(yaml@2.9.0))
@@ -781,8 +781,8 @@ importers:
         specifier: 19.2.6
         version: 19.2.6(react@19.2.6)
       spiceflow:
-        specifier: 1.25.3-rsc.0
-        version: 1.25.3-rsc.0(@modelcontextprotocol/sdk@1.29.0(zod@4.4.3))(@types/react@19.2.14)(react-dom@19.2.6(react@19.2.6))(react-server-dom-webpack@19.2.4(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(webpack@5.105.4(esbuild@0.28.0)))(react@19.2.6)(vite@8.0.13(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1)(tsx@4.22.3)(yaml@2.9.0))(zod@4.4.3)
+        specifier: workspace:^
+        version: link:../spiceflow
       zod:
         specifier: ^4.4.3
         version: 4.4.3
@@ -1961,12 +1961,12 @@ packages:
   '@glideapps/ts-necessities@2.3.2':
     resolution: {integrity: sha512-tOXo3SrEeLu+4X2q6O2iNPXdGI1qoXEz/KrbkElTsWiWb69tFH4GzWz2K++0nBD6O3qO2Ft1C4L4ZvUfE2QDlQ==}
 
-  '@holocron.so/cli@0.12.2':
-    resolution: {integrity: sha512-aJ15Nc8SykC04qAWmd0prvPaIG1QGakT/r9TK0ttHAFimHztpWB75UZzS2QR2ZzYh6ukj6cafg7U0zgYtnZk5Q==}
+  '@holocron.so/cli@0.14.0':
+    resolution: {integrity: sha512-iwSzs1Ttd5sOkhBvmV4vxj5ewbWX415MbVSSKZkWNYfzfX08/3x9cJ8eODnoKB73baKR2Jtu62nh/scBThI89w==}
     hasBin: true
 
-  '@holocron.so/vite@0.10.2':
-    resolution: {integrity: sha512-M0blMhHMR1BI0+wYo5y9DUp2KCsNYnHDA7XTUn0RkNqBZgR/XOiRPXH6xpWkjZ1lCnZZ/a9+e9UnCwCd2JcxHg==}
+  '@holocron.so/vite@0.14.5':
+    resolution: {integrity: sha512-HPZG2fzH50jgZW/kAdqBHe8RFrB3DUnoqm0iGMNK6BjYUrC8fIk4NjKwJzRRgDJjUofq5EmTw/eX6tKR0CiE+w==}
     hasBin: true
 
   '@hono/node-server@1.19.14':
@@ -4880,6 +4880,30 @@ packages:
   devlop@1.1.0:
     resolution: {integrity: sha512-RWmIqhcFf1lRYBvNmr7qTNuyCt/7/ns2jbpp1+PalgE/rDQcBT0fioSMUpJ93irlUhC5hrg4cYqe6U+0ImW0rA==}
 
+  dialkit@1.2.0:
+    resolution: {integrity: sha512-VRPpFegBQwrXclLFc+qgMchoby+IoJuRjoWjYKSRV2I1cxpvIpAv1WsgO1PiiNhKAGmymKx5ivRBJIZPv1tqGg==}
+    peerDependencies:
+      motion: '>=11.0.0'
+      motion-v: '>=2.0.0'
+      react: '>=18.0.0'
+      react-dom: '>=18.0.0'
+      solid-js: '>=1.6.0'
+      svelte: '>=5.8.0'
+      vue: '>=3.3.0'
+    peerDependenciesMeta:
+      motion-v:
+        optional: true
+      react:
+        optional: true
+      react-dom:
+        optional: true
+      solid-js:
+        optional: true
+      svelte:
+        optional: true
+      vue:
+        optional: true
+
   diff-match-patch@1.0.5:
     resolution: {integrity: sha512-IayShXAgj/QMXgB0IWmKx+rOPuGMhqm5w6jvFxmVenXKIzRqTAAsbBPT3kWQeGANj3jGgvcvv4yK6SxqYmikgw==}
 
@@ -5492,6 +5516,20 @@ packages:
   forwarded@0.2.0:
     resolution: {integrity: sha512-buRG0fpBtRHSTCOASe6hD258tEubFoRLb4ZNA6NxMVHNw2gOcwHo9wyablzMzOA5z9xA9L1KNjk/Nt6MT9aYow==}
     engines: {node: '>= 0.6'}
+
+  framer-motion@12.40.0:
+    resolution: {integrity: sha512-uaBd3qC1v3KQqBEjwTUd183K6PbS+j0yR9w9VmEOLWA/tnUcSn8Xa3uck7t4dgpDoUss8xQTcj8W2L07lrnLFg==}
+    peerDependencies:
+      '@emotion/is-prop-valid': '*'
+      react: ^18.0.0 || ^19.0.0
+      react-dom: ^18.0.0 || ^19.0.0
+    peerDependenciesMeta:
+      '@emotion/is-prop-valid':
+        optional: true
+      react:
+        optional: true
+      react-dom:
+        optional: true
 
   fresh@2.0.0:
     resolution: {integrity: sha512-Rx/WycZ60HOaqLKAi6cHRKKI7zxWbJ31MhntmtwMoaTeF7XFH9hhBp8vITaMidfljRQ6eYWCKkaTK+ykVJHP2A==}
@@ -6453,6 +6491,26 @@ packages:
   moment@2.30.1:
     resolution: {integrity: sha512-uEmtNhbDOrWPFS+hdjFCBfy9f2YoyzRpwcl+DqpC6taX21FzsTLQVbMV/W7PzNSX6x/bhC1zA3c2UQ5NzH6how==}
 
+  motion-dom@12.40.0:
+    resolution: {integrity: sha512-HxU3ZaBwNPVQUBQf1xxgq+7JrPNZvjLVxgbpEZL7RrWJnsxOf0/OM+yrHG9ogLQ31Do/r57Oz2gQWPK+6q62mg==}
+
+  motion-utils@12.39.0:
+    resolution: {integrity: sha512-8nadJAJjTtqRkmRF36FoJTrywK9nnFmnPwnSMyxaOCU7GDjN9RTMJIxx9De8ErM+vpPhMccr/6fo5WciyQLnMQ==}
+
+  motion@12.40.0:
+    resolution: {integrity: sha512-yjrHUrBFW6kQvjJwRsoiPSAhC5tRwRqNGJWmiJ4CrGnbKp0V88AdzkhBmDoqIsIPfarOe0Uddd37Xq43/gIocA==}
+    peerDependencies:
+      '@emotion/is-prop-valid': '*'
+      react: ^18.0.0 || ^19.0.0
+      react-dom: ^18.0.0 || ^19.0.0
+    peerDependenciesMeta:
+      '@emotion/is-prop-valid':
+        optional: true
+      react:
+        optional: true
+      react-dom:
+        optional: true
+
   mri@1.2.0:
     resolution: {integrity: sha512-tzzskb3bG8LvYGFF/mDTpq3jpI6Q9wc3LEmBaghu+DdCssd1FakN7Bc0hVNmEyGq1bq3RgfkCb3cmQLpNPOroA==}
     engines: {node: '>=4'}
@@ -7233,6 +7291,21 @@ packages:
 
   spiceflow@1.25.3-rsc.0:
     resolution: {integrity: sha512-Ah2prKclJ1G031g9DXG+zrP5kXusVa3PKSshZVXgg3tfYZY5MXlXuklaZOnHOoAIgZzmCQYeI5WbGvkJSGi3lw==}
+    peerDependencies:
+      '@modelcontextprotocol/sdk': '*'
+      react: '*'
+      react-dom: '*'
+      zod: ^4.0.0
+    peerDependenciesMeta:
+      '@modelcontextprotocol/sdk':
+        optional: true
+      react:
+        optional: true
+      react-dom:
+        optional: true
+
+  spiceflow@1.25.5-rsc.2:
+    resolution: {integrity: sha512-xNX3ZKz8CaJFFNPOUN9ZYEd8npUH8Q9TuAjTNt6HxcexQMiw93XZFay4rb08x3e+8KNQmRhEH7L/M3dTKnZVLw==}
     peerDependencies:
       '@modelcontextprotocol/sdk': '*'
       react: '*'
@@ -9118,7 +9191,7 @@ snapshots:
 
   '@glideapps/ts-necessities@2.3.2': {}
 
-  '@holocron.so/cli@0.12.2(@modelcontextprotocol/sdk@1.29.0(zod@4.4.3))(@types/react@19.2.14)(react-dom@19.2.6(react@19.2.6))(react-server-dom-webpack@19.2.4(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(webpack@5.105.4(esbuild@0.28.0)))(react@19.2.6)(vite@8.0.13(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1)(tsx@4.22.3)(yaml@2.9.0))':
+  '@holocron.so/cli@0.14.0(@modelcontextprotocol/sdk@1.29.0(zod@4.4.3))(@types/react@19.2.14)(react-dom@19.2.6(react@19.2.6))(react-server-dom-webpack@19.2.4(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(webpack@5.105.4(esbuild@0.28.0)))(react@19.2.6)(vite@8.0.13(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1)(tsx@4.22.3)(yaml@2.9.0))':
     dependencies:
       '@clack/prompts': 1.4.0
       dotenv: 17.4.2
@@ -9136,13 +9209,13 @@ snapshots:
       - react-server-dom-webpack
       - vite
 
-  '@holocron.so/vite@0.10.2(@modelcontextprotocol/sdk@1.29.0(zod@4.4.3))(@types/react@19.2.14)(babel-plugin-macros@3.1.0)(bufferutil@4.0.7)(react-server-dom-webpack@19.2.4(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(webpack@5.105.4(esbuild@0.28.0)))(use-sync-external-store@1.6.0(react@19.2.6))(utf-8-validate@6.0.3)(vite@8.0.13(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1)(tsx@4.22.3)(yaml@2.9.0))(workerd@1.20260518.1)(wrangler@4.93.0(@cloudflare/workers-types@4.20260519.1)(bufferutil@4.0.7)(utf-8-validate@6.0.3))':
+  '@holocron.so/vite@0.14.5(@emotion/is-prop-valid@1.4.0)(@modelcontextprotocol/sdk@1.29.0(zod@4.4.3))(@types/react@19.2.14)(babel-plugin-macros@3.1.0)(bufferutil@4.0.7)(react-server-dom-webpack@19.2.4(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(webpack@5.105.4(esbuild@0.28.0)))(use-sync-external-store@1.6.0(react@19.2.6))(utf-8-validate@6.0.3)(vite@8.0.13(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1)(tsx@4.22.3)(yaml@2.9.0))(workerd@1.20260518.1)(wrangler@4.93.0(@cloudflare/workers-types@4.20260519.1)(bufferutil@4.0.7)(utf-8-validate@6.0.3))':
     dependencies:
       '@cloudflare/vite-plugin': 1.37.2(bufferutil@4.0.7)(utf-8-validate@6.0.3)(vite@8.0.13(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1)(tsx@4.22.3)(yaml@2.9.0))(workerd@1.20260518.1)(wrangler@4.93.0(@cloudflare/workers-types@4.20260519.1)(bufferutil@4.0.7)(utf-8-validate@6.0.3))
       '@fastify/deepmerge': 3.2.1
       '@fontsource-variable/inter': 5.2.8
       '@fontsource-variable/jetbrains-mono': 5.2.8
-      '@holocron.so/cli': 0.12.2(@modelcontextprotocol/sdk@1.29.0(zod@4.4.3))(@types/react@19.2.14)(react-dom@19.2.6(react@19.2.6))(react-server-dom-webpack@19.2.4(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(webpack@5.105.4(esbuild@0.28.0)))(react@19.2.6)(vite@8.0.13(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1)(tsx@4.22.3)(yaml@2.9.0))
+      '@holocron.so/cli': 0.14.0(@modelcontextprotocol/sdk@1.29.0(zod@4.4.3))(@types/react@19.2.14)(react-dom@19.2.6(react@19.2.6))(react-server-dom-webpack@19.2.4(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(webpack@5.105.4(esbuild@0.28.0)))(react@19.2.6)(vite@8.0.13(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1)(tsx@4.22.3)(yaml@2.9.0))
       '@iconify-json/fa6-brands': 1.2.6
       '@iconify-json/fa6-regular': 1.2.4
       '@iconify-json/fa6-solid': 1.2.4
@@ -9176,7 +9249,7 @@ snapshots:
       remark-gfm: 4.0.1
       remark-mdx: 3.1.1
       safe-mdx: 1.11.1(react@19.2.6)
-      spiceflow: 1.25.3-rsc.0(@modelcontextprotocol/sdk@1.29.0(zod@4.4.3))(@types/react@19.2.14)(react-dom@19.2.6(react@19.2.6))(react-server-dom-webpack@19.2.4(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(webpack@5.105.4(esbuild@0.28.0)))(react@19.2.6)(vite@8.0.13(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1)(tsx@4.22.3)(yaml@2.9.0))(zod@4.4.3)
+      spiceflow: 1.25.5-rsc.2(@modelcontextprotocol/sdk@1.29.0(zod@4.4.3))(@types/react@19.2.14)(react-dom@19.2.6(react@19.2.6))(react-server-dom-webpack@19.2.4(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(webpack@5.105.4(esbuild@0.28.0)))(react@19.2.6)(vite@8.0.13(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1)(tsx@4.22.3)(yaml@2.9.0))(zod@4.4.3)
       string-dedent: 3.0.2
       tailwind-merge: 3.6.0
       tailwindcss: 4.3.0
@@ -9184,7 +9257,11 @@ snapshots:
       yaml: 2.9.0
       zod: 4.4.3
       zustand: 5.0.13(@types/react@19.2.14)(react@19.2.6)(use-sync-external-store@1.6.0(react@19.2.6))
+    optionalDependencies:
+      dialkit: 1.2.0(motion@12.40.0(@emotion/is-prop-valid@1.4.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      motion: 12.40.0(@emotion/is-prop-valid@1.4.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
     transitivePeerDependencies:
+      - '@emotion/is-prop-valid'
       - '@modelcontextprotocol/sdk'
       - '@rolldown/plugin-babel'
       - '@types/react'
@@ -9193,11 +9270,15 @@ snapshots:
       - bufferutil
       - canvas
       - immer
+      - motion-v
       - react-server-dom-webpack
+      - solid-js
       - supports-color
+      - svelte
       - use-sync-external-store
       - utf-8-validate
       - vite
+      - vue
       - workerd
       - wrangler
 
@@ -12491,6 +12572,14 @@ snapshots:
     dependencies:
       dequal: 2.0.3
 
+  dialkit@1.2.0(motion@12.40.0(@emotion/is-prop-valid@1.4.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(react-dom@19.2.6(react@19.2.6))(react@19.2.6):
+    dependencies:
+      motion: 12.40.0(@emotion/is-prop-valid@1.4.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+    optionalDependencies:
+      react: 19.2.6
+      react-dom: 19.2.6(react@19.2.6)
+    optional: true
+
   diff-match-patch@1.0.5: {}
 
   diff@4.0.2: {}
@@ -13238,6 +13327,17 @@ snapshots:
   formdata-node@6.0.3: {}
 
   forwarded@0.2.0: {}
+
+  framer-motion@12.40.0(@emotion/is-prop-valid@1.4.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6):
+    dependencies:
+      motion-dom: 12.40.0
+      motion-utils: 12.39.0
+      tslib: 2.8.1
+    optionalDependencies:
+      '@emotion/is-prop-valid': 1.4.0
+      react: 19.2.6
+      react-dom: 19.2.6(react@19.2.6)
+    optional: true
 
   fresh@2.0.0: {}
 
@@ -14453,6 +14553,24 @@ snapshots:
 
   moment@2.30.1: {}
 
+  motion-dom@12.40.0:
+    dependencies:
+      motion-utils: 12.39.0
+    optional: true
+
+  motion-utils@12.39.0:
+    optional: true
+
+  motion@12.40.0(@emotion/is-prop-valid@1.4.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6):
+    dependencies:
+      framer-motion: 12.40.0(@emotion/is-prop-valid@1.4.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      tslib: 2.8.1
+    optionalDependencies:
+      '@emotion/is-prop-valid': 1.4.0
+      react: 19.2.6
+      react-dom: 19.2.6(react@19.2.6)
+    optional: true
+
   mri@1.2.0: {}
 
   mrmime@2.0.1: {}
@@ -15473,6 +15591,22 @@ snapshots:
       signal-exit: 4.1.0
 
   spiceflow@1.25.3-rsc.0(@modelcontextprotocol/sdk@1.29.0(zod@4.4.3))(@types/react@19.2.14)(react-dom@19.2.6(react@19.2.6))(react-server-dom-webpack@19.2.4(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(webpack@5.105.4(esbuild@0.28.0)))(react@19.2.6)(vite@8.0.13(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1)(tsx@4.22.3)(yaml@2.9.0))(zod@4.4.3):
+    dependencies:
+      '@vitejs/plugin-rsc': 0.5.21(react-dom@19.2.6(react@19.2.6))(react-server-dom-webpack@19.2.4(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(webpack@5.105.4(esbuild@0.28.0)))(react@19.2.6)(vite@8.0.13(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1)(tsx@4.22.3)(yaml@2.9.0))
+      eventsource-parser: 3.0.8
+      its-fine: 2.0.0(@types/react@19.2.14)(react@19.2.6)
+      nf3: 0.3.16
+      zod: 4.4.3
+    optionalDependencies:
+      '@modelcontextprotocol/sdk': 1.29.0(zod@4.4.3)
+      react: 19.2.6
+      react-dom: 19.2.6(react@19.2.6)
+    transitivePeerDependencies:
+      - '@types/react'
+      - react-server-dom-webpack
+      - vite
+
+  spiceflow@1.25.5-rsc.2(@modelcontextprotocol/sdk@1.29.0(zod@4.4.3))(@types/react@19.2.14)(react-dom@19.2.6(react@19.2.6))(react-server-dom-webpack@19.2.4(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(webpack@5.105.4(esbuild@0.28.0)))(react@19.2.6)(vite@8.0.13(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1)(tsx@4.22.3)(yaml@2.9.0))(zod@4.4.3):
     dependencies:
       '@vitejs/plugin-rsc': 0.5.21(react-dom@19.2.6(react@19.2.6))(react-server-dom-webpack@19.2.4(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(webpack@5.105.4(esbuild@0.28.0)))(react@19.2.6)(vite@8.0.13(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1)(tsx@4.22.3)(yaml@2.9.0))
       eventsource-parser: 3.0.8
