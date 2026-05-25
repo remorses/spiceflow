@@ -2555,6 +2555,31 @@ export { Map } from './map'
 
 </details>
 
+### Resource Preloading
+
+React 19 exports `preload`, `preinit`, `prefetchDNS`, and `preconnect` from `react-dom`. Call them in your component render body and they emit `<link>` tags into SSR HTML so the browser starts fetching before any JS runs. Works in both server and client components; duplicates are auto-deduplicated.
+
+```tsx
+import { preload, preinit, prefetchDNS, preconnect } from 'react-dom'
+
+function App() {
+  preload('/assets/hero.mp4', { as: 'video' })
+  preload('/fonts/Inter.woff2', { as: 'font', type: 'font/woff2', crossOrigin: 'anonymous' })
+  preinit('/styles/dashboard.css', { as: 'style' })   // downloads AND inserts
+  prefetchDNS('https://api.example.com')
+  preconnect('https://cdn.example.com', { crossOrigin: 'anonymous' })
+
+  return <div>{/* ... */}</div>
+}
+```
+
+| Function | Effect | Use for |
+|---|---|---|
+| `preload` | Download and cache | Videos, images, fonts |
+| `preinit` | Download and execute | Stylesheets, scripts |
+| `prefetchDNS` | DNS lookup | API domains |
+| `preconnect` | DNS + TCP + TLS | CDNs, auth providers |
+
 ### Directory Paths
 
 > Only available when using the Vite plugin.
