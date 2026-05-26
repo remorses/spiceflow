@@ -23,6 +23,11 @@
     "vite": "^8.0.13",
     "vitest": "^4.1.4"
   },
+  "pnpm": {
+    "overrides": {
+      "spiceflow": "workspace:^"
+    }
+  },
   "repository": "https://github.com/remorses/",
   "author": "remorses <beats.by.morse@gmail.com>",
   "license": "MIT",
