@@ -1,3 +1,4 @@
+'use client'
 import React from 'react'
 import type { AnySpiceflow } from '../spiceflow.js'
 import { ServerPayload } from '../spiceflow.js'

@@ -1,17 +1,15 @@
 'use client'
 
-import React, { startTransition, Suspense } from 'react'
+import React from 'react'
 import type { ReactFormState } from 'react-dom/client'
-import { router } from './router.js'
-import { ServerPayload } from '../spiceflow.js'
-import {
-  isRedirectError,
-  isNotFoundError,
-  getErrorContext,
-  contextHeaders,
-} from './errors.js'
 import { useFlightData } from './context.js'
-import { ProgressBar } from './progress.js'
+import {
+    contextHeaders,
+    getErrorContext,
+    isNotFoundError,
+    isRedirectError,
+} from './errors.js'
+import { router } from './router.js'
 
 export function LayoutContent(props: { id?: string }) {
   const data = useFlightData()

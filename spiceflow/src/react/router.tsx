@@ -456,7 +456,7 @@ function useRouterDataContext(): FlightDataContextValue['routerData'] | null {
   if (!FlightDataContext) {
     return null
   }
-  return useContext(FlightDataContext)?.routerData ?? null
+  return useContext?.(FlightDataContext)?.routerData ?? null
 }
 
 function hasBasePrefix(path: string, base: string): boolean {
@@ -668,4 +668,3 @@ export function getRouter<App extends AnySpiceflow>(): RouterBase<App>
 export function getRouter(): any {
   return router
 }
-
