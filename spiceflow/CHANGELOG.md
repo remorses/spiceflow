@@ -1,5 +1,26 @@
 # spiceflow
 
+## 1.26.0-rsc.0
+
+1. **New `setReactErrorHandlers()` API** — set React 19 root error handlers (`onCaughtError`, `onUncaughtError`, `onRecoverableError`) that fire for every React render error globally, even when the user has their own ErrorBoundary. Observability SDKs (like Strada) call this before hydration to capture all React errors with component stack traces.
+
+   ```ts
+   import { setReactErrorHandlers } from 'spiceflow/react'
+
+   setReactErrorHandlers({
+     onCaughtError: (error, errorInfo) => {
+       captureException(error, { componentStack: errorInfo.componentStack })
+     },
+     onUncaughtError: (error, errorInfo) => {
+       captureException(error, { componentStack: errorInfo.componentStack })
+     },
+   })
+   ```
+
+2. **Fix `useContext` call in RSC environment** — `useContext` is now called with optional chaining in the router data hook, preventing crashes when the module is loaded in environments where `useContext` is not available.
+
+3. **Add `'use client'` directive to context module** — `context.tsx` now correctly declares itself as a client module, ensuring proper environment boundaries.
+
 ## 1.25.5-rsc.2
 
 ### Patch Changes
