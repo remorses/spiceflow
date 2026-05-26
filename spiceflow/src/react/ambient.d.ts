@@ -39,3 +39,11 @@ declare module 'virtual:spiceflow-import-map' {
 declare var __spiceflow_createFromReadableStream: (<T>(
   stream: ReadableStream<Uint8Array>,
 ) => PromiseLike<T>) | undefined
+
+// React root error handlers. Set these before hydration (e.g. from an
+// observability SDK like Strada) to receive all React render errors globally,
+// even when the user has their own ErrorBoundary.
+// These map 1:1 to React 19's createRoot/hydrateRoot options.
+declare var __spiceflow_onCaughtError: ((error: unknown, errorInfo: { componentStack?: string }) => void) | undefined
+declare var __spiceflow_onUncaughtError: ((error: unknown, errorInfo: { componentStack?: string }) => void) | undefined
+declare var __spiceflow_onRecoverableError: ((error: unknown, errorInfo: { componentStack?: string }) => void) | undefined

@@ -557,14 +557,25 @@ async function main() {
     )
   }
 
+  // Collect React 19 root error handlers from globalThis. Observability SDKs
+  // (e.g. Strada) set these before hydration via setReactErrorHandlers() to
+  // receive all React render errors globally, even when the user has their
+  // own ErrorBoundary.
+  const rootErrorHandlers = {
+    ...(globalThis.__spiceflow_onCaughtError && { onCaughtError: globalThis.__spiceflow_onCaughtError }),
+    ...(globalThis.__spiceflow_onUncaughtError && { onUncaughtError: globalThis.__spiceflow_onUncaughtError }),
+    ...(globalThis.__spiceflow_onRecoverableError && { onRecoverableError: globalThis.__spiceflow_onRecoverableError }),
+  }
+
   // When SSR fails, the server injects self.__NO_HYDRATE=1 in the bootstrap script.
   // In that case use createRoot (CSR from scratch) instead of hydrateRoot which would
   // throw hydration mismatch errors against the error shell HTML.
   if (Reflect.has(globalThis, '__NO_HYDRATE')) {
-    ReactDomClient.createRoot(document).render(<BrowserRoot />)
+    ReactDomClient.createRoot(document, rootErrorHandlers).render(<BrowserRoot />)
   } else {
     ReactDomClient.hydrateRoot(document, <BrowserRoot />, {
       formState: (await initialPayload).formState,
+      ...rootErrorHandlers,
     })
   }
 

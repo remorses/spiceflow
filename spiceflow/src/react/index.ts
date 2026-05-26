@@ -25,4 +25,6 @@ export {
   RenderFederatedPayload,
 } from './federated-payload.ts'
 export { ErrorBoundary } from './error-boundary.tsx'
+export { setReactErrorHandlers } from './error-handlers.ts'
+export type { ReactErrorHandlers } from './error-handlers.ts'
 export { publicDir, distDir } from '#spiceflow-dirs'
