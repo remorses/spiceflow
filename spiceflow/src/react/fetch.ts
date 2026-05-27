@@ -57,6 +57,12 @@ export function sendResponse(response: Response, res: ServerResponse) {
     delete headers['set-cookie']
     res.setHeader('set-cookie', response.headers.getSetCookie())
   }
+  // HTTP/2 forbids connection-specific headers (transfer-encoding, connection);
+  // forwarding them crashes with ERR_HTTP2_INVALID_CONNECTION_HEADERS.
+  if (res.req?.httpVersion === '2.0') {
+    delete headers['transfer-encoding']
+    delete headers['connection']
+  }
   res.writeHead(response.status, response.statusText, headers)
 
   if (response.body) {
