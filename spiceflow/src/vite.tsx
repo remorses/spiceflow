@@ -1,6 +1,7 @@
 // Spiceflow Vite plugin: integrates @vitejs/plugin-rsc for RSC support,
 // provides SSR middleware, virtual modules, and prerender support.
 import dns from 'node:dns'
+import fs from 'node:fs'
 import { createRequire } from 'node:module'
 import path from 'node:path'
 import url from 'node:url'
@@ -473,6 +474,7 @@ export default function spiceflow({
         isCloudflareRuntime = config.plugins.some((plugin) =>
           plugin.name.startsWith('vite-plugin-cloudflare:'),
         )
+        assertSingleSpiceflowInstance(config.root)
       },
       // Preserve all entry point exports in the RSC environment so user-defined
       // named exports (Durable Objects, Workflows, Queue consumers, etc.)
@@ -1108,6 +1110,42 @@ function mergeUnique<T>(base: T[] | undefined, add: T[]): T[] {
 function toArray(value: string | string[] | undefined): string[] {
   if (!value) return []
   return Array.isArray(value) ? value : [value]
+}
+
+// Detect duplicate spiceflow installations at build time. Two copies of
+// spiceflow means two separate React contexts, two router instances, etc.
+// which causes cryptic runtime errors like "FlightDataContext is missing".
+// Catching this early with a clear message saves hours of debugging.
+function assertSingleSpiceflowInstance(projectRoot: string) {
+  try {
+    const projectRequire = createRequire(
+      path.resolve(projectRoot, 'package.json'),
+    )
+    const resolvedFromProject = path.dirname(
+      projectRequire.resolve('spiceflow/package.json'),
+    )
+    const pluginSpiceflowDir = path.resolve(__spiceflowDir, '..')
+    if (
+      fs.realpathSync(resolvedFromProject) !==
+      fs.realpathSync(pluginSpiceflowDir)
+    ) {
+      throw new Error(
+        '[spiceflow] Duplicate spiceflow installation detected.\n\n' +
+          `  Plugin loaded from: ${pluginSpiceflowDir}\n` +
+          `  Project resolves to: ${resolvedFromProject}\n\n` +
+          'Two copies of spiceflow will cause runtime errors (missing contexts, ' +
+          'broken routing, hydration mismatches). Fix this by deduplicating:\n\n' +
+          '  pnpm dedupe spiceflow   # or npm dedupe / bun install\n\n' +
+          'If you use a wrapper plugin that depends on spiceflow, make sure it ' +
+          'lists spiceflow as a peerDependency, not a regular dependency.',
+      )
+    }
+  } catch (e) {
+    if (e instanceof Error && e.message.startsWith('[spiceflow]')) throw e
+    // If resolution fails entirely (e.g. spiceflow is not in node_modules
+    // because it's linked or the project uses a non-standard layout), skip
+    // the check — the build will fail later with a more specific error.
+  }
 }
 
 function canResolveDependency(id: string): boolean {
