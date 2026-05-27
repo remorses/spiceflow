@@ -29,6 +29,9 @@ Spiceflow is a type-safe API framework and full-stack React RSC framework focuse
 npm install spiceflow@rsc
 ```
 
+> [!IMPORTANT]
+> Spiceflow is still in pre-release. Install with `spiceflow@rsc`, not `spiceflow@latest`.
+
 ## AI Agents
 
 To let your AI coding agent know how to use spiceflow, run:
