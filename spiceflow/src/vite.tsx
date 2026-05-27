@@ -426,7 +426,18 @@ export default function spiceflow({
           // Disable Vite's built-in SPA fallback middleware so it doesn't
           // intercept unmatched paths with a 200 before our middleware runs.
           appType: 'custom' as const,
-          server: {},
+          server: {
+            // Default to strictPort so the dev server fails fast when the port
+            // is taken instead of silently picking a random one. Skip when the
+            // user explicitly opted out or when no custom port was set (5173).
+            ...(userConfig.server?.strictPort === false
+              ? {}
+              : {
+                  strictPort:
+                    userConfig.server?.port != null &&
+                    userConfig.server.port !== 5173,
+                }),
+          },
           // Replace process.env.NODE_ENV at build time so React uses its production
           // bundle. Without this, the built output contains runtime checks like
           // `"production" !== process.env.NODE_ENV` that always evaluate to the dev
