@@ -38,6 +38,7 @@ export async function traceAndCopyDependencies({
   )
 }
 
+// TODO: remove this workaround once https://github.com/unjs/nf3/pull/43 is merged
 export async function pruneMissingTraceReasons(result: {
   reasons: Map<string, { ignored?: boolean; parents: Set<string> }>
 }) {
