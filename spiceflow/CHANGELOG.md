@@ -1,5 +1,17 @@
 # spiceflow
 
+## 1.26.0-rsc.1
+
+1. **Detect duplicate spiceflow installations at build time** — when the Vite plugin resolves to a different copy of spiceflow than the project's `node_modules`, the build now fails immediately with a clear error message showing both paths and how to fix it (`pnpm dedupe spiceflow`). Previously, duplicate installations caused cryptic runtime errors like "FlightDataContext is missing".
+
+2. **Explicit `.post()` routes take priority over `.page()` implicit POST** — `.page()` registers both GET and POST handlers (POST is needed for server actions), but previously an explicit `.post()` on the same path was completely ignored. Now POST requests hit the explicit handler when one is defined, and only fall through to React server actions when there is no explicit route.
+
+3. **Fix HTTP/2 streaming crash** — HTTP/2 forbids `transfer-encoding` and `connection` headers; forwarding them from the Web `Response` to Node's `res.writeHead()` caused `ERR_HTTP2_INVALID_CONNECTION_HEADERS` and crashed the dev server on every streaming response when HTTPS was enabled. `sendResponse()` now detects HTTP/2 and strips the forbidden headers.
+
+4. **Fix standalone builds with missing optional native packages** — when a dependency references optional native packages not installed for the current platform (e.g. `@rollup/rollup-linux-x64-gnu` on macOS), the trace result contained entries pointing to nonexistent files. Spiceflow now prunes missing entries before copying `node_modules`, so standalone builds succeed.
+
+5. **Default to `strictPort` when a custom port is set** — when `server.port` is configured in Vite config, the dev server now fails fast if the port is taken instead of silently picking a random one. Skipped when the user explicitly sets `strictPort: false` or uses the default port.
+
 ## 1.26.0-rsc.0
 
 1. **New `setReactErrorHandlers()` API** — set React 19 root error handlers (`onCaughtError`, `onUncaughtError`, `onRecoverableError`) that fire for every React render error globally, even when the user has their own ErrorBoundary. Observability SDKs (like Strada) call this before hydration to capture all React errors with component stack traces.
