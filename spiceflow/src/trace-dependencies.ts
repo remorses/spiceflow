@@ -1,6 +1,6 @@
 // Trace externalized npm dependencies from Vite server bundles using nf3,
 // then copy the runtime-only node_modules subset into the standalone output.
-import { access } from 'node:fs/promises'
+import { access, readFile, stat } from 'node:fs/promises'
 import path from 'node:path'
 import { traceNodeModules } from 'nf3'
 import { formatDuration, logger } from './logger.js'
@@ -26,6 +26,13 @@ export async function traceAndCopyDependencies({
     outDir: targetDir,
     rootDir,
     writePackageJson: false,
+    nft: {
+      // nf3/nft calls readFile on every traced path including Unix domain sockets
+      // (e.g. Playwright Chromium SingletonSocket in /tmp/). Reading a socket throws
+      // "Unknown system error -102". Return null for non-regular files to skip them.
+      // https://github.com/unjs/nf3/issues/44
+      readFile: safeReadFile,
+    },
     hooks: {
       traceResult: pruneMissingTraceReasons,
     },
@@ -36,6 +43,16 @@ export async function traceAndCopyDependencies({
     `nf3 traced standalone dependencies in ${formatDuration(performance.now() - start)}`,
     `standalone deps: ${nodeModulesPath}`,
   )
+}
+
+async function safeReadFile(path: string): Promise<Buffer | null> {
+  try {
+    const s = await stat(path)
+    if (!s.isFile()) return null
+    return await readFile(path)
+  } catch {
+    return null
+  }
 }
 
 // TODO: remove this workaround once https://github.com/unjs/nf3/pull/43 is merged
