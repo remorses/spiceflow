@@ -5,16 +5,24 @@ description: 'Spiceflow is a super simple, fast, and type-safe API and React Ser
 
 # Spiceflow
 
-Every time you work with spiceflow, you MUST fetch the latest README from the main branch. If that README references relevant subdocuments, you MUST fetch those too:
+Every time you work with spiceflow, you MUST fetch the **entire** README from the main branch. The README is the primary documentation and every section matters. You MUST read it completely, from start to finish, with no truncation. Partial reads cause you to miss critical API details, conventions, and patterns that lead to wrong implementations.
 
 ```bash
-curl -s https://raw.githubusercontent.com/remorses/spiceflow/main/README.md # NEVER pipe to head/tail, read the full output
-
-# Always read the typed fetch client doc when using createSpiceflowFetch
-curl -s https://raw.githubusercontent.com/remorses/spiceflow/main/docs/fetch-client.md
+curl -s https://raw.githubusercontent.com/remorses/spiceflow/main/README.md
 ```
 
-NEVER use `head`, `tail`, or any other command to truncate the output. Read the full README every time, then read any referenced subdocuments that are relevant to the task. They contain API details, examples, and framework conventions that are easy to miss if you only read the top-level README.
+**Do NOT truncate, summarize, or skip sections.** Never pipe to `head`, `tail`, `sed`, or any command that cuts the output short. Never stop reading early because it "looks long enough." The README contains sections on routing, RSC, server actions, layouts, error handling, forms, federation, deployment, and more. Missing any of them means missing framework behavior you will get wrong.
+
+After reading the full README, check if it references any docs/ files relevant to your task. If it does, fetch those too in full:
+
+```bash
+# Always read these when the task involves the corresponding feature
+curl -s https://raw.githubusercontent.com/remorses/spiceflow/main/docs/fetch-client.md
+curl -s https://raw.githubusercontent.com/remorses/spiceflow/main/docs/testing.md
+curl -s https://raw.githubusercontent.com/remorses/spiceflow/main/docs/openapi.md
+```
+
+Read every referenced doc that is relevant to the task. These subdocuments contain API details, caveats, and examples that are not duplicated in the README. Skipping them is the same as skipping the README itself.
 
 ## Testing spiceflow apps
 
