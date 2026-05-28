@@ -2411,8 +2411,14 @@ export class Spiceflow<
     const hasRealApiRoute = nonReactRoutes.some(
       (x) => x.route.handler !== notFoundHandler,
     )
+    // Explicit .post()/.put()/.delete()/.patch() routes on the same path take
+    // priority over the page's implicit POST handler (used for server actions).
+    // Without this, a fetch POST to a page path always returns RSC HTML instead
+    // of hitting the user-defined .post() handler.
     const shouldEnterReact = !!(
-      hasPageMatch || (hasLayoutMatch && !hasRealApiRoute) || shouldRenderReact404
+      (hasPageMatch && (isSafeMethod || !hasRealApiRoute)) ||
+      (hasLayoutMatch && !hasRealApiRoute) ||
+      shouldRenderReact404
     )
 
     if (shouldEnterReact) {

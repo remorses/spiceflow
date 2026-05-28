@@ -3873,4 +3873,51 @@ describe('.use() with page and layout routes', () => {
     )
     expect(res.status).toBe(404)
   })
+
+  test('explicit .post() on same path as .page() takes priority over page implicit POST', async () => {
+    const app = new Spiceflow()
+      .page('/confirm', async () => 'Confirm Page')
+      .post('/confirm', () => {
+        return Response.json({ confirmed: true })
+      })
+
+    const res = await app.handle(
+      new Request('http://localhost/confirm', { method: 'POST' }),
+    )
+    expect(res.status).toBe(200)
+    expect(res.headers.get('content-type')).toContain('application/json')
+    expect(await res.json()).toEqual({ confirmed: true })
+  })
+
+  test('page POST still works for server actions when no explicit .post() exists', async () => {
+    const app = new Spiceflow()
+      .page('/dashboard', async () => 'Dashboard')
+      .onError(() => {})
+
+    // POST without __rsc and without explicit .post() should enter React
+    // rendering path (for server actions). It returns RSC or HTML, not 404.
+    const res = await app.handle(
+      new Request('http://localhost/dashboard', { method: 'POST' }),
+    )
+    // Should not be 404 — the page handler should still process it
+    expect(res.status).not.toBe(404)
+  })
+
+  test('GET to page path still renders page when .post() exists on same path', async () => {
+    const app = new Spiceflow()
+      .page('/confirm', async () => 'Confirm Page')
+      .post('/confirm', () => {
+        return Response.json({ confirmed: true })
+      })
+      .onError(() => {})
+
+    const res = await app.handle(
+      new Request('http://localhost/confirm', {
+        method: 'GET',
+        headers: { accept: 'text/html' },
+      }),
+    )
+    // Should enter React rendering, not return the .post() handler
+    expect(res.status).not.toBe(404)
+  })
 })
