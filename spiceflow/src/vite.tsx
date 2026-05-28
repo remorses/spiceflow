@@ -41,6 +41,21 @@ const spiceflowEntries = {
   client: path.resolve(__spiceflowDir, 'react/entry.client'),
 }
 
+// Packages that must resolve to a single copy across all environments.
+// The resolveId hook in spiceflow:dedupe-singleton re-resolves these from
+// spiceflow's own directory so pnpm transitive deps don't create duplicates.
+const dedupePackages = new Set([
+  'spiceflow',
+  'react',
+  'react-dom',
+])
+
+// Fake importer path anchored inside spiceflow's own directory. When
+// this.resolve() starts resolution from here, it finds the same physical
+// copy of react/react-dom that spiceflow itself uses (peer deps resolve
+// upward from spiceflow's node_modules to the consumer's).
+const dedupeImporter = path.join(__spiceflowDir, '_dedupe_importer_.js')
+
 // Module-level so the timestamp is stable even if spiceflow() is called more than once
 const buildTimestamp = Date.now().toString(36)
 
@@ -638,21 +653,65 @@ export default function spiceflow({
           )
         }
 
-        // Force React packages to resolve from the project root in every
-        // environment so user code, spiceflow internals, and CJS dependencies
-        // all share one React instance. Without this, the client production
-        // bundle can inline a second React copy into a lazy chunk, which trips
-        // React's hook dispatcher (`Cannot read properties of null (reading
-        // 'useState')`) during hydration.
+        // Keep resolve.dedupe for react packages as a baseline hint for
+        // Vite's built-in resolver. The real singleton enforcement happens in
+        // the spiceflow:dedupe-singleton plugin below via resolveId, which
+        // works even when spiceflow is a transitive dep under pnpm.
         config.resolve ??= {}
         config.resolve.dedupe = mergeUnique(config.resolve.dedupe, [
           'react',
           'react-dom',
           'react/jsx-runtime',
           'react/jsx-dev-runtime',
-          'spiceflow',
-          'spiceflow/react',
         ])
+      },
+    },
+
+    // Force spiceflow, react, and react-dom to resolve to a single copy across
+    // all environments, even when spiceflow is a transitive dependency under
+    // pnpm's strict node_modules layout.
+    //
+    // Vite's resolve.dedupe sets basedir=root then walks node_modules/, but
+    // pnpm only symlinks direct deps at the root. Transitive deps are buried
+    // in .pnpm/ and invisible from root, so dedupe silently falls back to
+    // importer-based resolution, producing duplicate module instances.
+    //
+    // This resolveId hook intercepts bare specifiers and re-resolves them from
+    // spiceflow's own directory (the canonical copy loaded by Vite). It uses
+    // this.resolve() so Vite's full resolver still handles package.json exports
+    // conditions (react-server, ssr, browser, etc.) per environment.
+    {
+      name: 'spiceflow:dedupe-singleton',
+      enforce: 'pre' as const,
+      async resolveId(id, importer, options) {
+        // Only intercept bare specifiers, not relative/absolute paths or
+        // virtual modules
+        if (
+          id.startsWith('.') ||
+          id.startsWith('/') ||
+          id.startsWith('\0') ||
+          id.includes('?')
+        ) {
+          return null
+        }
+
+        // Extract bare package name (e.g. 'react' from 'react/jsx-runtime',
+        // '@scope/pkg' from '@scope/pkg/sub')
+        const pkgName = id.startsWith('@')
+          ? id.split('/').slice(0, 2).join('/')
+          : id.split('/')[0]
+
+        if (!dedupePackages.has(pkgName)) return null
+
+        // Re-resolve from spiceflow's own package.json location. This is the
+        // canonical copy Vite loaded, so all importers converge on the same
+        // physical files. skipSelf prevents infinite recursion.
+        const resolved = await this.resolve(id, dedupeImporter, {
+          ...options,
+          skipSelf: true,
+        })
+
+        return resolved
       },
     },
 
