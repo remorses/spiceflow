@@ -26,6 +26,9 @@ export async function traceAndCopyDependencies({
     outDir: targetDir,
     rootDir,
     writePackageJson: false,
+    hooks: {
+      traceResult: pruneMissingTraceReasons,
+    },
   })
 
   const nodeModulesPath = path.relative(rootDir, path.join(targetDir, 'node_modules'))
@@ -33,6 +36,44 @@ export async function traceAndCopyDependencies({
     `nf3 traced standalone dependencies in ${formatDuration(performance.now() - start)}`,
     `standalone deps: ${nodeModulesPath}`,
   )
+}
+
+export async function pruneMissingTraceReasons(result: {
+  reasons: Map<string, { ignored?: boolean; parents: Set<string> }>
+}) {
+  const existingPaths = new Map<string, boolean>()
+
+  for (const [p, reason] of result.reasons) {
+    if (!reason.ignored && !(await tracePathExists(p, existingPaths))) {
+      result.reasons.delete(p)
+      continue
+    }
+
+    for (const parent of reason.parents) {
+      if (!(await tracePathExists(parent, existingPaths))) {
+        reason.parents.delete(parent)
+      }
+    }
+  }
+}
+
+async function tracePathExists(p: string, cache: Map<string, boolean>) {
+  const fullPath = path.resolve('/', p)
+  const cached = cache.get(fullPath)
+  if (cached !== undefined) return cached
+
+  const exists = await realpathExists(fullPath)
+  cache.set(fullPath, exists)
+  return exists
+}
+
+async function realpathExists(p: string) {
+  try {
+    await access(p)
+    return true
+  } catch {
+    return false
+  }
 }
 
 export async function exists(p: string): Promise<boolean> {
