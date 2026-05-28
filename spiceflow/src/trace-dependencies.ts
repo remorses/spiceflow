@@ -45,11 +45,15 @@ export async function traceAndCopyDependencies({
   )
 }
 
-async function safeReadFile(path: string): Promise<Buffer | null> {
+// Return Buffer for regular files, empty Buffer for non-regular files (sockets,
+// FIFOs, device files). We return empty instead of null because @vercel/nft's
+// emitDependency throws "File does not exist" on null, killing the entire trace.
+// An empty buffer just produces zero deps from the analyzer, which is correct.
+async function safeReadFile(filePath: string): Promise<Buffer | string | null> {
   try {
-    const s = await stat(path)
-    if (!s.isFile()) return null
-    return await readFile(path)
+    const s = await stat(filePath)
+    if (!s.isFile()) return ''
+    return await readFile(filePath)
   } catch {
     return null
   }
