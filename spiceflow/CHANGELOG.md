@@ -1,5 +1,13 @@
 # spiceflow
 
+## 1.26.0-rsc.2
+
+1. **Fix duplicate module instances under pnpm** — when spiceflow is a transitive dependency, `resolve.dedupe` silently fails. Replaced with a `resolveId`-based singleton enforcement that re-resolves `spiceflow`, `react`, and `react-dom` from spiceflow's own directory, ensuring all importers converge on the same physical files while respecting per-environment exports conditions (`react-server`, `ssr`, `browser`).
+
+2. **Fix production build crash on repeated `buildStart` cleanup** — the `buildStart` hook was wiping all environment output directories on every `builder.build()` call. Since plugin-rsc runs 5 sequential build steps, step 5 (SSR) would delete `dist/rsc/` and `dist/client/` built in earlier steps, then `writeAssetsManifest` would fail with `ENOENT: __vite_rsc_assets_manifest.js`. The cleanup now runs exactly once before the first build step.
+
+3. **Fix standalone trace crash on Unix domain sockets** — when Playwright/Chromium `SingletonSocket` files exist in `/tmp/`, the nf3 tracer would crash with `Unknown system error -102`. The custom `safeReadFile` now returns an empty string instead of `null` for non-regular files, which prevents `@vercel/nft`'s `emitDependency` from throwing "File does not exist". An empty string just produces zero deps from the analyzer, which is correct for sockets and FIFOs.
+
 ## 1.26.0-rsc.1
 
 1. **Detect duplicate spiceflow installations at build time** — when the Vite plugin resolves to a different copy of spiceflow than the project's `node_modules`, the build now fails immediately with a clear error message showing both paths and how to fix it (`pnpm dedupe spiceflow`). Previously, duplicate installations caused cryptic runtime errors like "FlightDataContext is missing".
