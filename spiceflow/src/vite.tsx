@@ -187,6 +187,7 @@ export default function spiceflow({
   let resolvedRscOutDir = path.join(resolvedOutDir, 'rsc')
   let resolvedSsrOutDir = path.join(resolvedOutDir, 'ssr')
   let resolvedBase = ''
+  let buildCleanedOnce = false
   let isCloudflareProject = false
   let isCloudflareRuntime = false
   let isVitestRuntime = false
@@ -502,6 +503,24 @@ export default function spiceflow({
         )
         assertSingleSpiceflowInstance(config.root)
       },
+      buildStart() {
+        // Clean environment output dirs once before the first build step.
+        // buildStart fires for every builder.build() call in the plugin-rsc
+        // 5-step pipeline, so we guard with a flag to avoid wiping outputs
+        // from earlier steps (e.g. step 5/SSR would delete dist/rsc built
+        // in step 3, causing writeAssetsManifest to fail with ENOENT).
+        if (buildCleanedOnce) return
+        buildCleanedOnce = true
+        for (const dir of [
+          resolvedClientOutDir,
+          resolvedSsrOutDir,
+          resolvedRscOutDir,
+        ]) {
+          try {
+            fs.rmSync(dir, { recursive: true, force: true })
+          } catch {}
+        }
+      },
       // Preserve all entry point exports in the RSC environment so user-defined
       // named exports (Durable Objects, Workflows, Queue consumers, etc.)
       // survive Rollup's tree-shaking and appear in the built Worker output.
@@ -587,6 +606,9 @@ export default function spiceflow({
 
         if (name === 'rsc' || name === 'ssr') {
           config.optimizeDeps.noDiscovery = false
+          // Vite's externalization check extracts the base package name from
+          // any import specifier (e.g. 'spiceflow/react' → 'spiceflow') via
+          // getNpmPackageName, so listing 'spiceflow' here covers all subpaths.
           addNoExternal(config, 'spiceflow')
 
           if (isCloudflareProject) {
