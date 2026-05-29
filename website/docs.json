@@ -40,6 +40,7 @@
         "pages": [
           "testing",
           "middleware-patterns",
+          "migrate-from-remix",
           "shadcn",
           "security",
           "docker"
