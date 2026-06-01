@@ -680,6 +680,36 @@ test('required query params enforced on href, Link, router.push, and fetch', () 
   void f('/about')
 })
 
+test('AnySpiceflow child does not poison parent ClientRoutes via .use()', () => {
+  // Parent with a real typed route
+  const parent = new Spiceflow().get('/api/projects', () => ({
+    projects: [] as { id: string }[],
+  }))
+
+  // Child typed as AnySpiceflow (simulates a dynamically-built app like Holocron)
+  const child: AnySpiceflow = new Spiceflow().get('/docs', () => 'docs')
+
+  // Mount the AnySpiceflow child — must NOT collapse parent types to any
+  const composed = parent.use(child)
+
+  const f = createSpiceflowFetch(composed)
+
+  async function assertTypedResponse() {
+    const result = await f('/api/projects')
+    // If ClientRoutes was poisoned to any, this would be true (any is assignable to true)
+    const resultIsAny: IsAny<typeof result> = false
+    void resultIsAny
+
+    // Narrow past the error union to verify the data shape is preserved
+    if (result instanceof Error) return
+    result.projects[0].id
+    // @ts-expect-error - typed response must stay narrow, not any
+    result.projects[0].nonexistent
+  }
+
+  assertTypedResponse
+})
+
 test('exported and context redirect accept plain strings', () => {
   const diagnostics = getDiagnosticsForSnippet(`
 import { Spiceflow } from './spiceflow.tsx'

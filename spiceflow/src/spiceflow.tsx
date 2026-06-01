@@ -1319,7 +1319,9 @@ export class Spiceflow<
     instance: NewSpiceflow,
   ): IsAny<NewSpiceflow> extends true
     ? this
-    : Spiceflow<
+    : IsAny<NewSpiceflow['_types']['ClientRoutes']> extends true
+      ? this
+      : Spiceflow<
         BasePath,
         Scoped,
         Singleton,
