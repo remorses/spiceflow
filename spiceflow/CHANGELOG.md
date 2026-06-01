@@ -1,5 +1,9 @@
 # spiceflow
 
+## 1.26.0-rsc.3
+
+1. **Fix `.use()` type inference when mounting an `AnySpiceflow` child app** — composing a dynamically-typed child (e.g. from a library that returns `AnySpiceflow`) would collapse the parent's `ClientRoutes` to `any`, breaking `createSpiceflowFetch` type safety for all routes on the composed app. The `.use()` overload now detects when the child's `ClientRoutes` is `any` and returns `this` unchanged, preserving the parent's typed routes.
+
 ## 1.26.0-rsc.2
 
 1. **Fix duplicate module instances under pnpm** — when spiceflow is a transitive dependency, `resolve.dedupe` silently fails. Replaced with a `resolveId`-based singleton enforcement that re-resolves `spiceflow`, `react`, and `react-dom` from spiceflow's own directory, ensuring all importers converge on the same physical files while respecting per-environment exports conditions (`react-server`, `ssr`, `browser`).
