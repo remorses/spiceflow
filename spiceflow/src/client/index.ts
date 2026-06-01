@@ -8,3 +8,4 @@ export { streamSSEResponse, TextDecoderStream }
 
 export { createSpiceflowFetch } from './fetch.ts'
 export type { SpiceflowFetch } from './fetch.ts'
+export { SpiceflowFetchError } from './errors.ts'

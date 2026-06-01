@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { createSpiceflowFetch } from './client/index.js'
 import { Spiceflow } from './spiceflow.js'
-import { SpiceflowFetchError } from './client/errors.js'
+import { SpiceflowFetchError } from './client/index.js'
 
 import { describe, expect, it, vi } from 'vitest'
 const app = new Spiceflow()

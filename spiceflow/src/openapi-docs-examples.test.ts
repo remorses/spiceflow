@@ -11,7 +11,7 @@ import { z } from 'zod'
 import { Spiceflow } from './spiceflow.js'
 import { openapi } from './openapi.js'
 import { createSpiceflowFetch } from './client/fetch.js'
-import { SpiceflowFetchError } from './client/errors.js'
+import { SpiceflowFetchError } from './client/index.js'
 import { json } from './error.js'
 
 // `string-dedent` is referenced in the doc example but is not a dependency
