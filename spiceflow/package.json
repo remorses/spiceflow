@@ -120,6 +120,10 @@
       "react-server": "./dist/federation.rsc.js",
       "default": "./dist/federation.default.js"
     },
+    "./federation-client": {
+      "types": "./dist/react/federated-payload.d.ts",
+      "default": "./dist/react/federated-payload.js"
+    },
     "./src/*": {
       "default": "./src/*.ts"
     },

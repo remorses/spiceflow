@@ -221,20 +221,39 @@ let requirePatched = false
 function ensureRequirePatched() {
   if (requirePatched) return
   requirePatched = true
-  const g: typeof globalThis & {
+  const g = globalThis as typeof globalThis & {
     __vite_rsc_client_require__?: (id: string) => unknown
-  } = globalThis
+    __webpack_require__?: (id: string) => unknown
+    __federation_require__?: (id: string) => unknown
+  }
   const orig = g.__vite_rsc_client_require__
-  if (!orig) return
-  g.__vite_rsc_client_require__ = (id: string) => {
-    const cleanId = id.split('$$cache=')[0]
-    const mod = remoteRegistry.get(cleanId)
-    if (mod) return mod
-    return orig(id)
+  if (orig) {
+    // Vite RSC host: patch the existing require to check remoteRegistry first
+    g.__vite_rsc_client_require__ = (id: string) => {
+      const cleanId = id.split('$$cache=')[0]
+      const mod = remoteRegistry.get(cleanId)
+      if (mod) return mod
+      return orig(id)
+    }
+  } else {
+    // Standalone (no Vite RSC host): set up require globals so that
+    // react-server-dom-webpack's Flight client can resolve remote modules.
+    // Covers both the original __webpack_require__ and any renamed variants
+    // (e.g. __federation_require__ used by standalone consumers that patch
+    // react-server-dom-webpack to avoid conflicts with real webpack apps).
+    const standaloneRequire = (id: string) => {
+      const cleanId = id.split('$$cache=')[0]
+      const mod = remoteRegistry.get(cleanId)
+      if (mod) return mod
+      throw new Error(`[federation] Module not found in remote registry: ${id}`)
+    }
+    g.__vite_rsc_client_require__ = standaloneRequire
+    g.__webpack_require__ = standaloneRequire
+    g.__federation_require__ = standaloneRequire
   }
 }
 
-async function loadFederatedClientModules({
+export async function loadFederatedClientModules({
   clientModules,
   remoteOrigin,
 }: {
@@ -258,9 +277,21 @@ async function loadFederatedClientModules({
   }
 }
 
+// Allow external consumers (non-Vite-RSC apps) to inject a Flight client
+// so decodeFederationPayload works without @vitejs/plugin-rsc/browser.
+let overrideFlightClient: FlightClientBrowser | null = null
+
+export function setFederationFlightClient(client: FlightClientBrowser) {
+  overrideFlightClient = client
+}
+
 async function getFlightClientBrowser(): Promise<FlightClientBrowser> {
+  if (overrideFlightClient) {
+    return overrideFlightClient
+  }
+
   const globalDecoder = globalThis.__spiceflow_createFromReadableStream
-  if (globalDecoder && typeof document === 'undefined') {
+  if (globalDecoder) {
     return {
       createFromReadableStream: globalDecoder,
       createFromFetch: <T>(responsePromise: Promise<Response>) => {
@@ -361,7 +392,7 @@ async function readFederationPrelude(
   }
 }
 
-async function decodeFederationPayloadDetails<T = unknown>(
+export async function decodeFederationPayloadDetails<T = unknown>(
   response: Response,
 ): Promise<DecodedFederationPayloadDetails<T>> {
   if (typeof window === 'undefined') {

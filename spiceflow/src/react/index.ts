@@ -22,7 +22,12 @@ export { useLoaderData } from './context.tsx'
 export { getActionAbortController } from './action-abort.ts'
 export {
   decodeFederationPayload,
+  decodeFederationPayloadDetails,
   RenderFederatedPayload,
+  setFederationFlightClient,
+  parseFederationPayload,
+  loadFederatedClientModules,
+  resolveFederatedUrl,
 } from './federated-payload.ts'
 export { ErrorBoundary } from './error-boundary.tsx'
 export { setReactErrorHandlers } from './error-handlers.ts'
