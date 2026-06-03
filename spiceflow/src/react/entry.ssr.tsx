@@ -173,6 +173,11 @@ export async function renderHtml({
       bootstrapScriptContent,
       signal: request.signal,
       onError(e) {
+        // Always log during prerender so build errors are visible instead of
+        // being swallowed as a generic "500 Internal Server Error" HTML shell
+        if (globalThis.__SPICEFLOW_PRERENDER) {
+          console.error('[spiceflow:prerender:onError]', e)
+        }
         const ctx = getErrorContext(e)
         if (ctx) {
           if (shouldReplaceCtx(ctx)) ssrErrorCtx = ctx
@@ -226,6 +231,10 @@ export async function renderHtml({
       if (res) return res
     }
   } catch (e) {
+    // Always log during prerender so build errors are visible
+    if (globalThis.__SPICEFLOW_PRERENDER) {
+      console.error('[spiceflow:prerender:catch]', e)
+    }
     // Client disconnects surface as abort errors when we race allReady.
     // Don't convert these to 500 error shells — just rethrow.
     if (e instanceof Error && e.name === 'AbortError') throw e

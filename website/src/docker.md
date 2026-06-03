@@ -67,3 +67,17 @@ CMD ["node", "dist/rsc/index.js"]
 docker build --platform linux/amd64 -t my-app .
 docker run -p 3000:3000 my-app
 ```
+
+## Fixing wrong dependency versions in `dist/node_modules`
+
+NFT traces transitive dependencies from whatever is installed in your local `node_modules/`. If a transitive dependency resolves to an old version (pulled in by a different package), that old version gets copied into `dist/node_modules/` and can break at runtime.
+
+For example, if `undici@5` is installed as a transitive dependency of some other package, NFT will copy that old CJS-only version into `dist/node_modules/undici/`. At runtime, ESM code that does `import { interceptors } from "undici"` will fail because the old version doesn't support named ESM exports.
+
+To fix this, install the correct version as a **direct dependency** in your project:
+
+```bash
+pnpm add undici@latest
+```
+
+This forces the package manager to hoist the latest version, so NFT traces that one instead of the old transitive copy. This pattern applies to any dependency where the traced version differs from what your code expects.
