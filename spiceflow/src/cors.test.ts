@@ -128,6 +128,27 @@ test('sub-app with cors handles OPTIONS even when parent app has no cors', async
   )
 })
 
+test('sub-app cors does not leak to neighboring base path prefix', async () => {
+  const subApp = new Spiceflow({ basePath: '/api' })
+    .use(cors())
+    .post('/hello', () => ({ ok: true }))
+
+  const mainApp = new Spiceflow().use(subApp)
+
+  const res = await mainApp.handle(
+    new Request('http://localhost/apiary/hello', {
+      method: 'OPTIONS',
+      headers: {
+        Origin: 'http://example.com',
+        'Access-Control-Request-Method': 'POST',
+      },
+    }),
+  )
+
+  expect(res.status).toBe(404)
+  expect(res.headers.get('Access-Control-Allow-Origin')).toBe(null)
+})
+
 test('CORS preserves headers on HEAD responses without adding a body', async () => {
   const app = new Spiceflow().use(cors()).get('/hello', () => ({ ok: true }))
 
