@@ -109,6 +109,12 @@ function getServerTimingDescriptions(header: string | null) {
   return Array.from(header.matchAll(/desc="([^"]+)"/g), (match) => match[1]!)
 }
 
+function getServerTimingNames(header: string | null) {
+  if (!header) return []
+
+  return header.split(', ').map((entry) => entry.split(';')[0]!)
+}
+
 describe('instrumentation', () => {
   test('no spans when tracer is not set', async () => {
     const app = new Spiceflow().get('/hello', () => 'world')
@@ -583,6 +589,15 @@ describe('instrumentation', () => {
         "handler - /users/:id > db.query",
       ]
     `)
+
+    expect(getServerTimingNames(res.headers.get('server-timing')))
+      .toMatchInlineSnapshot(`
+        [
+          "get-users-id",
+          "handler-users-id",
+          "handler-users-id-db.query",
+        ]
+      `)
   })
 
   test('server timing is omitted when explicitly disabled', async () => {
@@ -655,6 +670,16 @@ describe('instrumentation', () => {
           "middleware - authMiddleware",
           "middleware - authMiddleware > handler - /api/users/:id",
           "middleware - authMiddleware > handler - /api/users/:id > db.query",
+        ]
+      `)
+
+    expect(getServerTimingNames(res.headers.get('server-timing')))
+      .toMatchInlineSnapshot(`
+        [
+          "get-api-users-id",
+          "middleware-authmiddleware",
+          "middleware-authmiddleware-handler-api-users-id",
+          "middleware-authmiddleware-handler-api-users-id-db.query",
         ]
       `)
 
