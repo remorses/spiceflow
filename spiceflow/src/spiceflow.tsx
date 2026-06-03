@@ -1432,9 +1432,9 @@ export class Spiceflow<
       const requestUrl = new URL(request.url)
       const root = this.topLevelApp || this
       const allowed = root.allowedActionOrigins
-      const originHost = new URL(origin).host
+      const originUrl = URL.canParse(origin) ? new URL(origin) : null
       const isAllowed =
-        originHost === requestUrl.host ||
+        (originUrl && originUrl.host === requestUrl.host) ||
         allowed?.some((rule) =>
           rule instanceof RegExp ? rule.test(origin) : origin === rule,
         )
