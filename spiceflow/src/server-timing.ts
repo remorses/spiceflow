@@ -7,7 +7,6 @@ import type { SpiceflowSpan, SpiceflowTracer } from './instrumentation.js'
 
 type ServerTimingMetric = {
   name: string
-  parent?: ServerTimingMetric
   startedAt: number
   duration?: number
   order: number
@@ -44,19 +43,7 @@ function sanitizeServerTimingName(value: string) {
 }
 
 function getServerTimingDescription(metric: ServerTimingMetric) {
-  const names: string[] = []
-  let current: ServerTimingMetric | undefined = metric
-
-  while (current) {
-    names.unshift(current.name)
-    current = current.parent
-  }
-
-  if (names.length > 1) {
-    names.shift()
-  }
-
-  return names.join(' > ')
+  return metric.name
 }
 
 function runWithServerTimingMetric<T>(
@@ -162,10 +149,8 @@ export function createRequestTracing({
     const serverTimingStack = isServerTimingStack(store?.serverTimingStack)
       ? store.serverTimingStack
       : fallbackStack
-    const parent = serverTimingStack.at(-1)
     const metric: ServerTimingMetric = {
       name,
-      parent,
       startedAt: now(),
       order: nextOrder++,
     }

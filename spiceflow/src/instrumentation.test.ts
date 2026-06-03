@@ -583,19 +583,19 @@ describe('instrumentation', () => {
     expect(res.status).toBe(200)
     expect(getServerTimingDescriptions(res.headers.get('server-timing')))
       .toMatchInlineSnapshot(`
-      [
-        "GET /users/:id",
-        "handler - /users/:id",
-        "handler - /users/:id > db.query",
-      ]
-    `)
+        [
+          "GET /users/:id",
+          "handler - /users/:id",
+          "db.query",
+        ]
+      `)
 
     expect(getServerTimingNames(res.headers.get('server-timing')))
       .toMatchInlineSnapshot(`
         [
           "get-users-id",
           "handler-users-id",
-          "handler-users-id-db.query",
+          "db.query",
         ]
       `)
   })
@@ -668,8 +668,8 @@ describe('instrumentation', () => {
         [
           "GET /api/users/:id",
           "middleware - authMiddleware",
-          "middleware - authMiddleware > handler - /api/users/:id",
-          "middleware - authMiddleware > handler - /api/users/:id > db.query",
+          "handler - /api/users/:id",
+          "db.query",
         ]
       `)
 
@@ -678,8 +678,8 @@ describe('instrumentation', () => {
         [
           "get-api-users-id",
           "middleware-authmiddleware",
-          "middleware-authmiddleware-handler-api-users-id",
-          "middleware-authmiddleware-handler-api-users-id-db.query",
+          "handler-api-users-id",
+          "db.query",
         ]
       `)
 
