@@ -1432,13 +1432,17 @@ export class Spiceflow<
       const requestUrl = new URL(request.url)
       const root = this.topLevelApp || this
       const allowed = root.allowedActionOrigins
+      const originHost = new URL(origin).host
       const isAllowed =
-        origin === requestUrl.origin ||
+        originHost === requestUrl.host ||
         allowed?.some((rule) =>
           rule instanceof RegExp ? rule.test(origin) : origin === rule,
         )
       if (!isAllowed) {
-        return new Response('Forbidden: origin mismatch', { status: 403 })
+        return new Response(
+          `Forbidden: origin mismatch (request origin: "${origin}", server origin: "${requestUrl.origin}")`,
+          { status: 403 },
+        )
       }
     }
 
