@@ -6,7 +6,7 @@ icon: palette
 
 # shadcn/ui
 
-How to use [shadcn/ui](https://ui.shadcn.com) with Spiceflow. See [`example-shadcn/`](../example-shadcn) for a working example.
+How to use [shadcn/ui](https://ui.shadcn.com) with Spiceflow. See [`example-shadcn/`](https://github.com/remorses/spiceflow/tree/main/example-shadcn) for a working example.
 
 ## Package exports instead of tsconfig paths
 
@@ -95,7 +95,7 @@ export function cn(...inputs: ClassValue[]) {
 
 ### 4. Add CSS variables
 
-Your `src/globals.css` needs tailwind v4 theme variables for shadcn's semantic color tokens. See [`example-shadcn/src/globals.css`](../example-shadcn/src/globals.css) for the full file.
+Your `src/globals.css` needs tailwind v4 theme variables for shadcn's semantic color tokens. See [`example-shadcn/src/globals.css`](https://github.com/remorses/spiceflow/blob/main/example-shadcn/src/globals.css) for the full file.
 
 ```css
 @import 'tailwindcss';

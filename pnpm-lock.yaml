@@ -806,8 +806,8 @@ importers:
         specifier: ^4.20260519.1
         version: 4.20260603.1
       '@holocron.so/vite':
-        specifier: ^0.18.1
-        version: 0.18.1(@emotion/is-prop-valid@1.4.0)(@types/react@19.2.16)(babel-plugin-macros@3.1.0)(bufferutil@4.0.7)(use-sync-external-store@1.6.0(react@19.2.6))(utf-8-validate@6.0.3)(vite@8.0.16(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0)(tsx@4.22.4)(yaml@2.9.0))(workerd@1.20260601.1)(wrangler@4.97.0(@cloudflare/workers-types@4.20260603.1)(bufferutil@4.0.7)(utf-8-validate@6.0.3))
+        specifier: ^0.18.2
+        version: 0.18.2(@emotion/is-prop-valid@1.4.0)(@types/react@19.2.16)(babel-plugin-macros@3.1.0)(bufferutil@4.0.7)(use-sync-external-store@1.6.0(react@19.2.6))(utf-8-validate@6.0.3)(vite@8.0.16(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0)(tsx@4.22.4)(yaml@2.9.0))(workerd@1.20260601.1)(wrangler@4.97.0(@cloudflare/workers-types@4.20260603.1)(bufferutil@4.0.7)(utf-8-validate@6.0.3))
       '@tailwindcss/vite':
         specifier: ^4.3.0
         version: 4.3.0(vite@8.0.16(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0)(tsx@4.22.4)(yaml@2.9.0))
@@ -2000,8 +2000,8 @@ packages:
     resolution: {integrity: sha512-lBHtJGQk73yDYAx6WNyorzzfuhUrPVlHfOKizp6LqM3uCjHM5wraqHWHiDBYC4uRG1/8yOfCygbXYS5sBtf4kQ==}
     hasBin: true
 
-  '@holocron.so/vite@0.18.1':
-    resolution: {integrity: sha512-8OXw+zFKdDll3GVkvcrtgM5XIUaRNugl0wQ4vvlyjNBO8D4qs7iDp+ZiNm8Ff/fVrMgeTwdm4UJj3MiVLdBw4g==}
+  '@holocron.so/vite@0.18.2':
+    resolution: {integrity: sha512-um7I3ldKM9MZPWn1ucOuaHHnqBsAlZpACKHFG8sdSyB9uxI1JhNUVmGHJWglqKpbJQIdcM046+yovfgUCBrH6w==}
     hasBin: true
 
   '@hono/node-server@1.19.14':
@@ -9258,7 +9258,7 @@ snapshots:
       yaml: 2.9.0
       zod: 4.4.3
 
-  '@holocron.so/vite@0.18.1(@emotion/is-prop-valid@1.4.0)(@types/react@19.2.16)(babel-plugin-macros@3.1.0)(bufferutil@4.0.7)(use-sync-external-store@1.6.0(react@19.2.6))(utf-8-validate@6.0.3)(vite@8.0.16(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0)(tsx@4.22.4)(yaml@2.9.0))(workerd@1.20260601.1)(wrangler@4.97.0(@cloudflare/workers-types@4.20260603.1)(bufferutil@4.0.7)(utf-8-validate@6.0.3))':
+  '@holocron.so/vite@0.18.2(@emotion/is-prop-valid@1.4.0)(@types/react@19.2.16)(babel-plugin-macros@3.1.0)(bufferutil@4.0.7)(use-sync-external-store@1.6.0(react@19.2.6))(utf-8-validate@6.0.3)(vite@8.0.16(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0)(tsx@4.22.4)(yaml@2.9.0))(workerd@1.20260601.1)(wrangler@4.97.0(@cloudflare/workers-types@4.20260603.1)(bufferutil@4.0.7)(utf-8-validate@6.0.3))':
     dependencies:
       '@cloudflare/vite-plugin': 1.39.2(bufferutil@4.0.7)(utf-8-validate@6.0.3)(vite@8.0.16(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0)(tsx@4.22.4)(yaml@2.9.0))(workerd@1.20260601.1)(wrangler@4.97.0(@cloudflare/workers-types@4.20260603.1)(bufferutil@4.0.7)(utf-8-validate@6.0.3))
       '@fontsource-variable/inter': 5.2.8

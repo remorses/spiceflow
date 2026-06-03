@@ -71,6 +71,7 @@
       }
     ]
   },
+  "knownPaths": ["/docs/use-client-trap"],
   "redirects": [
     { "source": "/docs/cloudflare.md", "destination": "/cloudflare" },
     { "source": "/docs/custom-serialization.md", "destination": "/custom-serialization" },

@@ -6,7 +6,7 @@ icon: globe
 
 # Fetch Client (Advanced)
 
-Advanced fetch client patterns including headers, hooks, error handling, server-side usage, type-safe RPC, and path building. For basic usage see the [Fetch Client section in the README](../README.md#fetch-client).
+Advanced fetch client patterns including headers, hooks, error handling, server-side usage, type-safe RPC, and path building. For basic usage see the [Fetch Client section in the README](./index.mdx#fetch-client).
 
 ## Common Pitfalls
 

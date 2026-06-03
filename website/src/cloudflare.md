@@ -59,7 +59,7 @@ export default {
 }
 ```
 
-See [`example-cloudflare/`](../example-cloudflare) for a complete working example.
+See [`example-cloudflare/`](https://github.com/remorses/spiceflow/tree/main/example-cloudflare) for a complete working example.
 
 ### Terminal colors
 

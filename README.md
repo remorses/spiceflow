@@ -269,7 +269,7 @@ throw json({ error: 'server error' }, { status: 500 })
 throw json(42, { status: 404 })
 ```
 
-The fetch client picks up these types automatically — each non-200 status becomes a typed `SpiceflowFetchError` with the exact body shape. See [Preserving Client Type Safety](docs/openapi.md#preserving-client-type-safety) for the full client-side pattern.
+The fetch client picks up these types automatically — each non-200 status becomes a typed `SpiceflowFetchError` with the exact body shape. See [Preserving Client Type Safety](./website/src/openapi.md#preserving-client-type-safety) for the full client-side pattern.
 
 ## Middleware
 
@@ -423,7 +423,7 @@ export const app = new Spiceflow()
 
 In development, `staticGet` routes behave like normal `.get()` handlers — the handler runs on every request. At build time, Spiceflow calls each handler and writes the output to disk. The route path should include a file extension (`.json`, `.xml`, `.txt`) so the static file server can detect the correct MIME type.
 
-For authorization, proxy, non-blocking auth, cookies, and graceful shutdown patterns, see [Middleware Patterns](docs/middleware-patterns.md).
+For authorization, proxy, non-blocking auth, cookies, and graceful shutdown patterns, see [Middleware Patterns](./website/src/middleware-patterns.md).
 
 ## Error Handling
 
@@ -777,7 +777,7 @@ const safeFetch2 = createSpiceflowFetch('http://localhost:3000', {
 })
 ```
 
-The client also supports **onRequest/onResponse hooks**, **retries**, and a **custom fetch** function. If `onResponse` returns a non-undefined value, it replaces the default response parsing (useful for [custom serialization](docs/custom-serialization.md)):
+The client also supports **onRequest/onResponse hooks**, **retries**, and a **custom fetch** function. If `onResponse` returns a non-undefined value, it replaces the default response parsing (useful for [custom serialization](./website/src/custom-serialization.md)):
 
 ```ts
 const safeFetch = createSpiceflowFetch('http://localhost:3000', {
@@ -800,7 +800,7 @@ const greeting = await safeFetch('/hello')
 if (greeting instanceof Error) throw greeting
 ```
 
-For path matching patterns, error handling, server-side fetch, type-safe RPC, and path building, see **[Fetch Client (Advanced)](docs/fetch-client.md)**. To support types like `Date`, `Map`, `Set`, and `BigInt` across the wire, see **[Custom Serialization](docs/custom-serialization.md)**.
+For path matching patterns, error handling, server-side fetch, type-safe RPC, and path building, see **[Fetch Client (Advanced)](./website/src/fetch-client.md)**. To support types like `Date`, `Map`, `Set`, and `BigInt` across the wire, see **[Custom Serialization](./website/src/custom-serialization.md)**.
 
 ## OpenAPI
 
@@ -864,7 +864,7 @@ app.route({
 })
 ```
 
-For status-code response maps, centralized error responses with `onError`, shared Zod schemas across routes, hiding internal routes from the document, writing markdown descriptions with `string-dedent`, generating a local `openapi.json` file from a script, and preserving fetch client type safety with thrown error responses, see [OpenAPI docs](docs/openapi.md).
+For status-code response maps, centralized error responses with `onError`, shared Zod schemas across routes, hiding internal routes from the document, writing markdown descriptions with `string-dedent`, generating a local `openapi.json` file from a script, and preserving fetch client type safety with thrown error responses, see [OpenAPI docs](./website/src/openapi.md).
 
 ## Adding CORS Headers
 
@@ -897,11 +897,11 @@ await listener.stop()
 
 ## Graceful Shutdown
 
-The `preventProcessExitIfBusy` middleware prevents platforms like Fly.io from killing your app while processing long requests. See [Middleware Patterns](docs/middleware-patterns.md#graceful-shutdown) for usage.
+The `preventProcessExitIfBusy` middleware prevents platforms like Fly.io from killing your app while processing long requests. See [Middleware Patterns](./website/src/middleware-patterns.md#graceful-shutdown) for usage.
 
 ## Tracing (OpenTelemetry)
 
-Spiceflow has built-in OpenTelemetry tracing. Pass a `tracer` to the constructor and every request gets automatic spans for middleware, handlers, loaders, layouts, pages, and RSC serialization. Server timing is enabled by default when a tracer is provided, exposing those spans as a `Server-Timing` response header in Chrome DevTools with nested descriptions like `handler - /users/:id > db.query`. Set `serverTiming: false` to disable it. Handlers can also read `traceId` and `spanId` from `span.spanContext?.()` when the tracer supports it. See [Tracing docs](docs/tracing.md) for setup, span trees, custom spans, and examples. If you use Strada as your OTel backend, see [Observability with Strada](docs/strada.md).
+Spiceflow has built-in OpenTelemetry tracing. Pass a `tracer` to the constructor and every request gets automatic spans for middleware, handlers, loaders, layouts, pages, and RSC serialization. Server timing is enabled by default when a tracer is provided, exposing those spans as a `Server-Timing` response header in Chrome DevTools with nested descriptions like `handler - /users/:id > db.query`. Set `serverTiming: false` to disable it. Handlers can also read `traceId` and `spanId` from `span.spanContext?.()` when the tracer supports it. See [Tracing docs](./website/src/tracing.md) for setup, span trees, custom spans, and examples. If you use Strada as your OTel backend, see [Observability with Strada](./website/src/strada.md).
 
 ## Testing
 
@@ -925,7 +925,7 @@ expect(await res.text()).toContain('About')
 expect(res.loaderData).toEqual({ ... })
 ```
 
-The spiceflow Vite plugin auto-detects vitest and configures everything. Server actions become plain callable functions, middleware runs before pages, and `.state()` lets you inject test doubles for databases and services without mocking modules. See the full [Testing guide](docs/testing.md) for authentication patterns, stateful workflows, and dependency injection.
+The spiceflow Vite plugin auto-detects vitest and configures everything. Server actions become plain callable functions, middleware runs before pages, and `.state()` lets you inject test doubles for databases and services without mocking modules. See the full [Testing guide](./website/src/testing.md) for authentication patterns, stateful workflows, and dependency injection.
 
 ## React Framework (RSC)
 
@@ -957,7 +957,7 @@ export default defineConfig({
 
 ### Cloudflare RSC Setup
 
-For Cloudflare Workers deployment with RSC, see [Cloudflare docs](docs/cloudflare.md). See [`example-cloudflare/`](example-cloudflare) for a complete working example.
+For Cloudflare Workers deployment with RSC, see [Cloudflare docs](./website/src/cloudflare.md). See [`example-cloudflare/`](https://github.com/remorses/spiceflow/tree/main/example-cloudflare) for a complete working example.
 
 ### Tailwind CSS
 
@@ -1024,7 +1024,7 @@ export const app = new Spiceflow()
 
 ### shadcn/ui
 
-Spiceflow works with [shadcn/ui](https://ui.shadcn.com) out of the box. Instead of the usual `tsconfig.json` paths hack (`@/*`), use `package.json` `exports` for component imports — it's a standard Node.js feature that works across runtimes and lets other workspace packages import your components too. See [shadcn docs](docs/shadcn.md) for the full setup guide and [`example-shadcn/`](example-shadcn) for a working example.
+Spiceflow works with [shadcn/ui](https://ui.shadcn.com) out of the box. Instead of the usual `tsconfig.json` paths hack (`@/*`), use `package.json` `exports` for component imports — it's a standard Node.js feature that works across runtimes and lets other workspace packages import your components too. See [shadcn docs](./website/src/shadcn.md) for the full setup guide and [`example-shadcn/`](https://github.com/remorses/spiceflow/tree/main/example-shadcn) for a working example.
 
 ### App Entry
 
@@ -2263,7 +2263,7 @@ import { createSpiceflowFetch } from 'spiceflow/client'
 const f = createSpiceflowFetch('http://localhost:3000') // ✅ typed fetch
 ```
 
-Without the `declare module`, all APIs still work at runtime — they just accept any path without compile-time validation. See [docs/type-safety.md](docs/type-safety.md) for details on how the register pattern works inside inline handlers, autocomplete behavior, and multi-app workspaces.
+Without the `declare module`, all APIs still work at runtime — they just accept any path without compile-time validation. See [docs/type-safety.md](./website/src/type-safety.md) for details on how the register pattern works inside inline handlers, autocomplete behavior, and multi-app workspaces.
 
 ### Server Actions
 
@@ -2289,7 +2289,7 @@ export async function submitForm(formData: FormData) {
 
 On the client, `getActionAbortController()` returns the `AbortController` for the most recent in-flight call to a server action, or `undefined` if nothing is in-flight. Call `.abort()` to cancel the fetch.
 
-**Server actions are public POST endpoints.** Any HTTP client can call them — not just your own browser. CSRF protection (Origin header check) prevents cross-site form submissions, but it does not authenticate the caller. If a server action mutates data, creates resources, or does anything user-specific, it must authenticate and authorize the request explicitly. The same rule applies to all API routes (`.get()`, `.post()`, etc.) and any middleware that modifies state. See the [Security guide](docs/security.md) for patterns.
+**Server actions are public POST endpoints.** Any HTTP client can call them — not just your own browser. CSRF protection (Origin header check) prevents cross-site form submissions, but it does not authenticate the caller. If a server action mutates data, creates resources, or does anything user-specific, it must authenticate and authorize the request explicitly. The same rule applies to all API routes (`.get()`, `.post()`, etc.) and any middleware that modifies state. See the [Security guide](./website/src/security.md) for patterns.
 
 Server actions include CSRF protection. The `Origin` header of POST requests is checked against the app's origin. This check is **disabled in development** (when `vite dev` is running) so tunnels and proxies work without issues. In production, the origin check works automatically on any hosting platform (Cloudflare Workers, Node.js, Vercel, etc.) because the browser's `Origin` header matches the server's URL.
 
@@ -2634,11 +2634,11 @@ import { RenderFederatedPayload } from 'spiceflow/react'
 })
 ```
 
-See [Federation docs](docs/federation.md) for full setup, imperative decoding with `decodeFederationPayload`, import map deduplication, and external ESM components.
+See [Federation docs](./website/src/federation.md) for full setup, imperative decoding with `decodeFederationPayload`, import map deduplication, and external ESM components.
 
 ## Model Context Protocol (MCP)
 
-Spiceflow includes an MCP plugin that exposes your API routes as tools and resources for AI language models. Mount it with `.use(mcp())` and all routes become callable tools with proper input validation. See [MCP docs](docs/mcp.md) for full setup, client examples, and integrating with existing MCP servers.
+Spiceflow includes an MCP plugin that exposes your API routes as tools and resources for AI language models. Mount it with `.use(mcp())` and all routes become callable tools with proper input validation. See [MCP docs](./website/src/mcp.md) for full setup, client examples, and integrating with existing MCP servers.
 
 ## Cloudflare Bindings
 
@@ -2697,17 +2697,17 @@ export const app = new Spiceflow().route({
 })
 ```
 
-On Cloudflare Workers, `waitUntil` automatically delegates to the Workers `ExecutionContext.waitUntil`. On Node.js it is a no-op by default; pass a custom implementation via `new Spiceflow({ waitUntil: (p) => { ... } })` if you need background work to be tracked. See [Cloudflare docs](docs/cloudflare.md#background-tasks-waituntil) for full examples including Cloudflare integration and custom implementations.
+On Cloudflare Workers, `waitUntil` automatically delegates to the Workers `ExecutionContext.waitUntil`. On Node.js it is a no-op by default; pass a custom implementation via `new Spiceflow({ waitUntil: (p) => { ... } })` if you need background work to be tracked. See [Cloudflare docs](./website/src/cloudflare.md#background-tasks-waituntil) for full examples including Cloudflare integration and custom implementations.
 
 ## KV Page Caching
 
-Cache full-page HTML in Cloudflare KV with deployment-aware cache keys. See [Cloudflare docs](docs/cloudflare.md#kv-page-caching) for the full middleware example.
+Cache full-page HTML in Cloudflare KV with deployment-aware cache keys. See [Cloudflare docs](./website/src/cloudflare.md#kv-page-caching) for the full middleware example.
 
 ## Cross-Deployment Safety
 
 Spiceflow works across deployments without forced page reloads or cookies. When you deploy a new version, users with stale browser tabs continue working — both client navigations and server actions execute normally against the new server, as long as referenced client components remain backward-compatible.
 
-This works because RSC flight payloads contain **client reference IDs** (a hash of the file path), not chunk URLs. The old client resolves these IDs from its own baked-in manifest and loads its own chunks from CDN. No duplicate React instances, no hydration mismatches. See [Deployment Skew](docs/deployment-skew.md) for a deep dive.
+This works because RSC flight payloads contain **client reference IDs** (a hash of the file path), not chunk URLs. The old client resolves these IDs from its own baked-in manifest and loads its own chunks from CDN. No duplicate React instances, no hydration mismatches. See [Deployment Skew](./website/src/deployment-skew.md) for a deep dive.
 
 <details>
 <summary>Edge cases and encryption</summary>
@@ -2798,7 +2798,7 @@ export const config = {
 
 ## Docker Deployment
 
-The build output is self-contained — `dist/` includes all traced runtime dependencies, so you can copy it directly into a Docker image without installing packages at deploy time. See [Docker docs](docs/docker.md) for Dockerfile examples and cross-platform native module handling.
+The build output is self-contained — `dist/` includes all traced runtime dependencies, so you can copy it directly into a Docker image without installing packages at deploy time. See [Docker docs](./website/src/docker.md) for Dockerfile examples and cross-platform native module handling.
 
 ## Class Instances
 
