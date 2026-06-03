@@ -430,12 +430,16 @@ export class Spiceflow<
       }
 
       const matchedRoutesForMethod = app.router.match(method, pathWithoutPrefix)
-      const matchedRoutes = matchedRoutesForMethod?.length
+      // The router can return [[]] when the path exists but has no handler
+      // for the requested method (e.g. POST registered but OPTIONS requested).
+      // Check the inner array length to detect actual matches.
+      const hasActualMatches = (result: any) => result?.length && result[0]?.length
+      const matchedRoutes = hasActualMatches(matchedRoutesForMethod)
         ? matchedRoutesForMethod
         : method === 'HEAD'
           ? app.router.match('GET', pathWithoutPrefix)
           : undefined
-      if (!matchedRoutes?.length) {
+      if (!matchedRoutes || !hasActualMatches(matchedRoutes)) {
         foundApp = app
         continue
       }
