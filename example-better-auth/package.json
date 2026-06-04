@@ -9,7 +9,7 @@
     "test": "vitest"
   },
   "dependencies": {
-    "@types/react": "19.2.14",
+    "@types/react": "19.2.16",
     "@types/react-dom": "19.2.3",
     "better-auth": "^1.2.10",
     "drizzle-orm": "beta",
