@@ -236,20 +236,24 @@ function ensureRequirePatched() {
       return orig(id)
     }
   } else {
-    // Standalone (no Vite RSC host): set up require globals so that
+    // Standalone (no Vite RSC host): wrap existing require globals so that
     // react-server-dom-webpack's Flight client can resolve remote modules.
-    // Covers both the original __webpack_require__ and any renamed variants
-    // (e.g. __federation_require__ used by standalone consumers that patch
-    // react-server-dom-webpack to avoid conflicts with real webpack apps).
-    const standaloneRequire = (id: string) => {
-      const cleanId = id.split('$$cache=')[0]
-      const mod = remoteRegistry.get(cleanId)
-      if (mod) return mod
-      throw new Error(`[federation] Module not found in remote registry: ${id}`)
+    // Delegates to any existing global (e.g. real webpack runtime) if the
+    // module isn't in remoteRegistry, instead of clobbering it.
+    const wrapRequire = (fallback?: (id: string) => unknown) => {
+      return (id: string) => {
+        const cleanId = id.split('$$cache=')[0]
+        const mod = remoteRegistry.get(cleanId)
+        if (mod) return mod
+        if (fallback) return fallback(id)
+        throw new Error(
+          `[federation] Module not found in remote registry: ${id}`,
+        )
+      }
     }
-    g.__vite_rsc_client_require__ = standaloneRequire
-    g.__webpack_require__ = standaloneRequire
-    g.__federation_require__ = standaloneRequire
+    g.__vite_rsc_client_require__ = wrapRequire(g.__vite_rsc_client_require__)
+    g.__webpack_require__ = wrapRequire(g.__webpack_require__)
+    g.__federation_require__ = wrapRequire(g.__federation_require__)
   }
 }
 
@@ -607,26 +611,9 @@ export function setupFederationConsumer(options: FederationConsumerOptions) {
   const g = globalThis as any
 
   // SSR guard: blob URLs and import maps are browser-only. On the server
-  // we just wire up the Flight client so decodeFederationPayload can work
-  // in Node (e.g. Next.js API routes), but skip DOM-dependent setup.
-  if (typeof document === 'undefined') {
-    const callServer = () => {
-      throw new Error(
-        'Server actions are not supported in standalone federation consumers',
-      )
-    }
-    setFederationFlightClient({
-      createFromReadableStream<T>(stream: ReadableStream<Uint8Array>) {
-        return reactServerDomWebpack.createFromReadableStream(stream, {
-          callServer,
-        })
-      },
-      createFromFetch<T>(response: Promise<Response>) {
-        return reactServerDomWebpack.createFromFetch(response, { callServer })
-      },
-    })
-    return
-  }
+  // this is a safe no-op so the function can be called unconditionally in
+  // modules that run during both SSR and client rendering (e.g. Next.js).
+  if (typeof document === 'undefined') return
 
   // Idempotent: skip if already set up with the same modules to avoid
   // leaking blob URLs and duplicate import maps (React Strict Mode, HMR).
