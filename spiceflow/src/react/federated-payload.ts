@@ -604,9 +604,35 @@ interface FederationConsumerOptions {
 
 export function setupFederationConsumer(options: FederationConsumerOptions) {
   const { reactServerDomWebpack, modules } = options
+  const g = globalThis as any
+
+  // SSR guard: blob URLs and import maps are browser-only. On the server
+  // we just wire up the Flight client so decodeFederationPayload can work
+  // in Node (e.g. Next.js API routes), but skip DOM-dependent setup.
+  if (typeof document === 'undefined') {
+    const callServer = () => {
+      throw new Error(
+        'Server actions are not supported in standalone federation consumers',
+      )
+    }
+    setFederationFlightClient({
+      createFromReadableStream<T>(stream: ReadableStream<Uint8Array>) {
+        return reactServerDomWebpack.createFromReadableStream(stream, {
+          callServer,
+        })
+      },
+      createFromFetch<T>(response: Promise<Response>) {
+        return reactServerDomWebpack.createFromFetch(response, { callServer })
+      },
+    })
+    return
+  }
+
+  // Idempotent: skip if already set up with the same modules to avoid
+  // leaking blob URLs and duplicate import maps (React Strict Mode, HMR).
+  if (g[GLOBAL_KEY]) return
 
   // 1. Store modules on global for blob URL wrappers to read
-  const g = globalThis as any
   g[GLOBAL_KEY] = modules
 
   // 2. Create blob URL wrapper modules and inject import map
@@ -628,8 +654,6 @@ export function setupFederationConsumer(options: FederationConsumerOptions) {
   const script = document.createElement('script')
   script.type = 'importmap'
   script.textContent = JSON.stringify({ imports })
-  // Insert before any other scripts so the import map is available for
-  // subsequent dynamic imports of remote federation chunks.
   document.head.appendChild(script)
 
   // 3. Set up Flight client
@@ -649,9 +673,7 @@ export function setupFederationConsumer(options: FederationConsumerOptions) {
     },
   })
 
-  // 4. Patch require globals for standalone mode. This is also called
-  // lazily by decodeFederationPayload, but calling it here ensures the
-  // globals are ready before any federation code runs.
+  // 4. Patch require globals for standalone mode
   ensureRequirePatched()
 }
 
@@ -684,10 +706,12 @@ export function federationPatchWebpack() {
         {
           tag: 'script',
           children: [
-            `globalThis.__webpack_require__ = function(id) {`,
-            `  throw new Error('[federation] Module not found: ' + id);`,
-            `};`,
-            `globalThis.__webpack_require__.u = undefined;`,
+            `if (!globalThis.__webpack_require__) {`,
+            `  globalThis.__webpack_require__ = function(id) {`,
+            `    throw new Error('[federation] Module not found: ' + id);`,
+            `  };`,
+            `  globalThis.__webpack_require__.u = undefined;`,
+            `}`,
           ].join('\n'),
           injectTo: 'head-prepend' as const,
         },
