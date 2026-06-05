@@ -677,6 +677,28 @@ export function federationPatchWebpack() {
     transform(code: string, id: string) {
       if (!id.includes('react-server-dom-webpack')) return
       let patched = code
+      // Replace CJS require() calls for React packages with ESM imports.
+      // When react/react-dom are externalized, Rolldown keeps CJS require()
+      // in the output which fails in the browser. We hoist them to ESM
+      // imports and replace the require() with the imported namespace.
+      // Handles both standalone var declarations and comma-separated ones:
+      //   var ReactDOM = require("react-dom"),  <- comma-separated
+      //   var React = require("react");         <- standalone
+      const esmImports: string[] = []
+      // Match require("react-dom") or require("react") anywhere
+      const requireCallPattern =
+        /require\(["'](react(?:-dom)?(?:\/[^"']*)?|react-dom(?:\/[^"']*)?)["']\)/g
+      let idx = 0
+      patched = patched.replace(requireCallPattern, (match, specifier) => {
+        const varName = `__federation_esm_${idx++}__`
+        esmImports.push(
+          `import * as ${varName} from ${JSON.stringify(specifier)};`,
+        )
+        return varName
+      })
+      if (esmImports.length) {
+        patched = esmImports.join('\n') + '\n' + patched
+      }
       if (patched.includes('__webpack_require__.u')) {
         patched = patched.replaceAll('__webpack_require__.u', '({}).u')
       }
