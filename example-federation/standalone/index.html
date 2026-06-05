@@ -4,6 +4,18 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Standalone Federation Consumer</title>
+    <script type="importmap">
+      {
+        "imports": {
+          "react": "https://esm.sh/react@19.1.0",
+          "react/jsx-runtime": "https://esm.sh/react@19.1.0/jsx-runtime",
+          "react/jsx-dev-runtime": "https://esm.sh/react@19.1.0/jsx-dev-runtime",
+          "react-dom": "https://esm.sh/react-dom@19.1.0?external=react",
+          "react-dom/client": "https://esm.sh/react-dom@19.1.0/client?external=react",
+          "react-server-dom-webpack/client.browser": "https://esm.sh/react-server-dom-webpack@19.1.0/client.browser?external=react,react-dom"
+        }
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

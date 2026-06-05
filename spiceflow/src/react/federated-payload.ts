@@ -307,11 +307,11 @@ async function getFlightClientBrowser(): Promise<FlightClientBrowser> {
     }
   }
 
-  const rsc = await import('@vitejs/plugin-rsc/browser')
-  return {
-    createFromReadableStream: rsc.createFromReadableStream,
-    createFromFetch: rsc.createFromFetch,
-  }
+  throw new Error(
+    '[federation] No Flight client available. In a standalone consumer, ' +
+      'call setupFederationConsumer() before decoding federation payloads. ' +
+      'In a Vite RSC host, the global decoder is set automatically by entry.client.',
+  )
 }
 
 export async function decodeParsedFederationPayload<T = unknown>(
@@ -556,4 +556,142 @@ export async function RenderFederatedPayload({
   }
 
   return React.createElement(RemoteIsland, { parsed, isolateStyles })
+}
+
+// ---------------------------------------------------------------------------
+// Standalone federation consumer setup
+// ---------------------------------------------------------------------------
+// Sets up everything needed for a non-Vite-RSC app (plain React SPA, Next.js,
+// etc.) to consume federation payloads from a remote spiceflow server.
+//
+// Three things happen:
+// 1. Module globals: stores the host's React/ReactDOM module namespaces on a
+//    global so that blob-URL wrapper modules can re-export them. This ensures
+//    remote federation chunks (loaded via dynamic import) share the same React
+//    instance as the host app.
+// 2. Import map: injects a <script type="importmap"> with blob URLs that map
+//    bare specifiers ("react", "react-dom", etc.) to wrapper modules that read
+//    from the global. Requires browser support for multiple import maps
+//    (Chrome 133+, Firefox 136+, Safari 18.4+).
+// 3. Flight client: wraps react-server-dom-webpack's createFromReadableStream
+//    and createFromFetch so decodeFederationPayload works without
+//    @vitejs/plugin-rsc/browser.
+
+const GLOBAL_KEY = '__SPICEFLOW_FEDERATION__'
+
+interface FederationConsumerOptions {
+  // The react-server-dom-webpack/client.browser module. Must provide
+  // createFromReadableStream and createFromFetch.
+  reactServerDomWebpack: {
+    createFromReadableStream: (
+      stream: ReadableStream<Uint8Array>,
+      options?: any,
+    ) => PromiseLike<any>
+    createFromFetch: (
+      response: Promise<Response>,
+      options?: any,
+    ) => PromiseLike<any>
+  }
+  // Map of bare specifiers to their module namespace objects. The host app
+  // must pass its own bundled React modules so remote chunks use the same
+  // instance. Typical entries:
+  //   'react': import * as React from 'react'
+  //   'react/jsx-runtime': import * as JsxRuntime from 'react/jsx-runtime'
+  //   'react-dom': import * as ReactDOM from 'react-dom'
+  //   'react-dom/client': import * as ReactDOMClient from 'react-dom/client'
+  modules: Record<string, Record<string, unknown>>
+}
+
+export function setupFederationConsumer(options: FederationConsumerOptions) {
+  const { reactServerDomWebpack, modules } = options
+
+  // 1. Store modules on global for blob URL wrappers to read
+  const g = globalThis as any
+  g[GLOBAL_KEY] = modules
+
+  // 2. Create blob URL wrapper modules and inject import map
+  const imports: Record<string, string> = {}
+  for (const [specifier, mod] of Object.entries(modules)) {
+    const keys = Object.keys(mod).filter(
+      (k) => k !== '__esModule' && k !== 'default',
+    )
+    const ref = `globalThis[${JSON.stringify(GLOBAL_KEY)}][${JSON.stringify(specifier)}]`
+    const lines = [
+      `const __m = ${ref};`,
+      ...keys.map((k) => `export const ${k} = __m[${JSON.stringify(k)}];`),
+      `export default __m.default !== undefined ? __m.default : __m;`,
+    ]
+    const blob = new Blob([lines.join('\n')], { type: 'text/javascript' })
+    imports[specifier] = URL.createObjectURL(blob)
+  }
+
+  const script = document.createElement('script')
+  script.type = 'importmap'
+  script.textContent = JSON.stringify({ imports })
+  // Insert before any other scripts so the import map is available for
+  // subsequent dynamic imports of remote federation chunks.
+  document.head.appendChild(script)
+
+  // 3. Set up Flight client
+  const callServer = () => {
+    throw new Error(
+      'Server actions are not supported in standalone federation consumers',
+    )
+  }
+  setFederationFlightClient({
+    createFromReadableStream<T>(stream: ReadableStream<Uint8Array>) {
+      return reactServerDomWebpack.createFromReadableStream(stream, {
+        callServer,
+      })
+    },
+    createFromFetch<T>(response: Promise<Response>) {
+      return reactServerDomWebpack.createFromFetch(response, { callServer })
+    },
+  })
+
+  // 4. Patch require globals for standalone mode. This is also called
+  // lazily by decodeFederationPayload, but calling it here ensures the
+  // globals are ready before any federation code runs.
+  ensureRequirePatched()
+}
+
+// Vite plugin for standalone federation consumers. Two responsibilities:
+// 1. In dev mode, transforms react-server-dom-webpack source to rename
+//    __webpack_require__ so it doesn't crash outside a real webpack build.
+// 2. In all modes, injects a <script> into the HTML that stubs
+//    __webpack_require__ as a global. This covers the case where
+//    react-server-dom-webpack is externalized (e.g. loaded from esm.sh)
+//    and the transform hook never sees it.
+export function federationPatchWebpack() {
+  return {
+    name: 'spiceflow:federation-patch-webpack',
+    transform(code: string, id: string) {
+      if (!id.includes('react-server-dom-webpack')) return
+      let patched = code
+      if (patched.includes('__webpack_require__.u')) {
+        patched = patched.replaceAll('__webpack_require__.u', '({}).u')
+      }
+      if (patched.includes('__webpack_require__')) {
+        patched = patched.replaceAll(
+          '__webpack_require__',
+          '__federation_require__',
+        )
+      }
+      if (patched !== code) return { code: patched, map: null }
+    },
+    transformIndexHtml() {
+      return [
+        {
+          tag: 'script',
+          children: [
+            `globalThis.__webpack_require__ = function(id) {`,
+            `  throw new Error('[federation] Module not found: ' + id);`,
+            `};`,
+            `globalThis.__webpack_require__.u = undefined;`,
+          ].join('\n'),
+          injectTo: 'head-prepend' as const,
+        },
+      ]
+    },
+  }
 }
