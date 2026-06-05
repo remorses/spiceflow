@@ -664,19 +664,58 @@ export function setupFederationConsumer(options: FederationConsumerOptions) {
   ensureRequirePatched()
 }
 
-// Vite plugin for standalone federation consumers. Two responsibilities:
-// 1. In dev mode, transforms react-server-dom-webpack source to rename
-//    __webpack_require__ so it doesn't crash outside a real webpack build.
-// 2. In all modes, injects a <script> into the HTML that stubs
-//    __webpack_require__ as a global. This covers the case where
-//    react-server-dom-webpack is externalized (e.g. loaded from esm.sh)
-//    and the transform hook never sees it.
+// Virtual module ID for the require polyfill. Imported at the top of
+// react-server-dom-webpack so it evaluates before any CJS require() calls.
+const POLYFILL_ID = '\0federation-require-polyfill'
+
+// Vite plugin for standalone federation consumers. Handles two problems:
+// 1. react-server-dom-webpack is CJS and does require("react-dom") at the
+//    top level. When react-dom is externalized, Rolldown emits a require()
+//    call that fails in the browser.
+// 2. The Flight protocol uses __webpack_require__ to resolve remote client
+//    component modules.
+//
+// Solution: a virtual polyfill module eagerly imports the externalized React
+// packages via ESM and provides a synchronous require() + __webpack_require__
+// global backed by those imports. The polyfill is injected as a dependency of
+// react-server-dom-webpack so it evaluates first.
 export function federationPatchWebpack() {
   return {
     name: 'spiceflow:federation-patch-webpack',
+    resolveId(id: string) {
+      if (id === POLYFILL_ID) return id
+    },
+    load(id: string) {
+      if (id !== POLYFILL_ID) return
+      return [
+        `import * as __react from 'react';`,
+        `import * as __react_dom from 'react-dom';`,
+        `import * as __react_jsx from 'react/jsx-runtime';`,
+        `const __registry = {`,
+        `  'react': __react,`,
+        `  'react-dom': __react_dom,`,
+        `  'react/jsx-runtime': __react_jsx,`,
+        `  'react/jsx-dev-runtime': __react_jsx,`,
+        `};`,
+        `if (!globalThis.require) {`,
+        `  globalThis.require = (id) => {`,
+        `    const m = __registry[id];`,
+        `    if (m) return m;`,
+        `    throw new Error('[federation] require: module not found: ' + id);`,
+        `  };`,
+        `}`,
+        `if (!globalThis.__webpack_require__) {`,
+        `  globalThis.__webpack_require__ = globalThis.require;`,
+        `  globalThis.__webpack_require__.u = undefined;`,
+        `}`,
+      ].join('\n')
+    },
     transform(code: string, id: string) {
       if (!id.includes('react-server-dom-webpack')) return
       let patched = code
+      // Prepend the polyfill import so the require() global is ready
+      // before any CJS require("react-dom") calls in this module.
+      patched = `import ${JSON.stringify(POLYFILL_ID)};\n` + patched
       if (patched.includes('__webpack_require__.u')) {
         patched = patched.replaceAll('__webpack_require__.u', '({}).u')
       }
@@ -686,50 +725,7 @@ export function federationPatchWebpack() {
           '__federation_require__',
         )
       }
-      if (patched !== code) return { code: patched, map: null }
-    },
-    // Inject a synchronous require() polyfill that resolves modules from
-    // a pre-populated registry. This solves two problems at once:
-    // 1. react-server-dom-webpack is CJS and does require("react-dom") at
-    //    the top level. When react-dom is externalized, Rolldown emits a
-    //    require() call in the browser bundle which would otherwise fail.
-    // 2. The Flight protocol uses __webpack_require__ to resolve remote
-    //    client component modules. The polyfill covers both.
-    // Modules are registered by the app entry (setupFederationConsumer sets
-    // the global, and the import map resolves bare specifiers for dynamic
-    // imports). For synchronous require(), we eagerly import the externals
-    // and store them before the CJS code runs.
-    transformIndexHtml() {
-      return [
-        {
-          tag: 'script',
-          attrs: { type: 'module' },
-          children: [
-            // Eagerly import externals so they are available synchronously
-            `import * as __react from 'react';`,
-            `import * as __react_dom from 'react-dom';`,
-            `import * as __react_jsx from 'react/jsx-runtime';`,
-            `const __registry = {`,
-            `  'react': __react,`,
-            `  'react-dom': __react_dom,`,
-            `  'react/jsx-runtime': __react_jsx,`,
-            `  'react/jsx-dev-runtime': __react_jsx,`,
-            `};`,
-            `if (!globalThis.require) {`,
-            `  globalThis.require = (id) => {`,
-            `    const m = __registry[id];`,
-            `    if (m) return m;`,
-            `    throw new Error('[federation] require: module not found: ' + id);`,
-            `  };`,
-            `}`,
-            `if (!globalThis.__webpack_require__) {`,
-            `  globalThis.__webpack_require__ = globalThis.require;`,
-            `  globalThis.__webpack_require__.u = undefined;`,
-            `}`,
-          ].join('\n'),
-          injectTo: 'head-prepend' as const,
-        },
-      ]
+      return { code: patched, map: null }
     },
   }
 }
