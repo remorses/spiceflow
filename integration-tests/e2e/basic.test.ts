@@ -212,6 +212,14 @@ test.describe("not found", () => {
 		const text = await response.text();
 		expect(text).toBe("Not Found");
 	});
+
+	test("bare / redirects to base path when base is set", async () => {
+		test.skip(!basePath, "only relevant when BASEPATH is set");
+		const response = await fetch(`${baseURL}/`, { redirect: "manual" });
+		expect(response.status).toBe(302);
+		const location = response.headers.get("location") || "";
+		expect(location.startsWith(basePath)).toBe(true);
+	});
 });
 test.describe("API route priority over layout-only matches", () => {
 	// layout("/*") matches /api/hello but there's no page for it — the .get()

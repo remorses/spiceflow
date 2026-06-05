@@ -2111,6 +2111,16 @@ export class Spiceflow<
       })
     }
 
+    // When a base path is set and the request is for bare `/`, redirect to
+    // the base path so users see the app instead of a 404. Only the root app
+    // redirects — sub-apps mounted via .use() must not hijack `/`.
+    if (this.basePath && this.topLevelApp === this && (path === '/' || path === '')) {
+      return new Response(null, {
+        status: 302,
+        headers: { location: this.basePath + '/' },
+      })
+    }
+
     const requestTracing = createRequestTracing({
       tracer: this.tracer,
       serverTiming: this.serverTiming,
