@@ -677,28 +677,6 @@ export function federationPatchWebpack() {
     transform(code: string, id: string) {
       if (!id.includes('react-server-dom-webpack')) return
       let patched = code
-      // Replace CJS require() calls for React packages with ESM imports.
-      // When react/react-dom are externalized, Rolldown keeps CJS require()
-      // in the output which fails in the browser. We hoist them to ESM
-      // imports and replace the require() with the imported namespace.
-      // Handles both standalone var declarations and comma-separated ones:
-      //   var ReactDOM = require("react-dom"),  <- comma-separated
-      //   var React = require("react");         <- standalone
-      const esmImports: string[] = []
-      // Match require("react-dom") or require("react") anywhere
-      const requireCallPattern =
-        /require\(["'](react(?:-dom)?(?:\/[^"']*)?|react-dom(?:\/[^"']*)?)["']\)/g
-      let idx = 0
-      patched = patched.replace(requireCallPattern, (match, specifier) => {
-        const varName = `__federation_esm_${idx++}__`
-        esmImports.push(
-          `import * as ${varName} from ${JSON.stringify(specifier)};`,
-        )
-        return varName
-      })
-      if (esmImports.length) {
-        patched = esmImports.join('\n') + '\n' + patched
-      }
       if (patched.includes('__webpack_require__.u')) {
         patched = patched.replaceAll('__webpack_require__.u', '({}).u')
       }
@@ -710,15 +688,42 @@ export function federationPatchWebpack() {
       }
       if (patched !== code) return { code: patched, map: null }
     },
+    // Inject a synchronous require() polyfill that resolves modules from
+    // a pre-populated registry. This solves two problems at once:
+    // 1. react-server-dom-webpack is CJS and does require("react-dom") at
+    //    the top level. When react-dom is externalized, Rolldown emits a
+    //    require() call in the browser bundle which would otherwise fail.
+    // 2. The Flight protocol uses __webpack_require__ to resolve remote
+    //    client component modules. The polyfill covers both.
+    // Modules are registered by the app entry (setupFederationConsumer sets
+    // the global, and the import map resolves bare specifiers for dynamic
+    // imports). For synchronous require(), we eagerly import the externals
+    // and store them before the CJS code runs.
     transformIndexHtml() {
       return [
         {
           tag: 'script',
+          attrs: { type: 'module' },
           children: [
-            `if (!globalThis.__webpack_require__) {`,
-            `  globalThis.__webpack_require__ = function(id) {`,
-            `    throw new Error('[federation] Module not found: ' + id);`,
+            // Eagerly import externals so they are available synchronously
+            `import * as __react from 'react';`,
+            `import * as __react_dom from 'react-dom';`,
+            `import * as __react_jsx from 'react/jsx-runtime';`,
+            `const __registry = {`,
+            `  'react': __react,`,
+            `  'react-dom': __react_dom,`,
+            `  'react/jsx-runtime': __react_jsx,`,
+            `  'react/jsx-dev-runtime': __react_jsx,`,
+            `};`,
+            `if (!globalThis.require) {`,
+            `  globalThis.require = (id) => {`,
+            `    const m = __registry[id];`,
+            `    if (m) return m;`,
+            `    throw new Error('[federation] require: module not found: ' + id);`,
             `  };`,
+            `}`,
+            `if (!globalThis.__webpack_require__) {`,
+            `  globalThis.__webpack_require__ = globalThis.require;`,
             `  globalThis.__webpack_require__.u = undefined;`,
             `}`,
           ].join('\n'),
