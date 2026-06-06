@@ -120,6 +120,10 @@
       "react-server": "./dist/federation.rsc.js",
       "default": "./dist/federation.default.js"
     },
+    "./federation-client": {
+      "types": "./dist/react/federation-client.d.ts",
+      "default": "./dist/react/federation-client.js"
+    },
     "./src/*": {
       "default": "./src/*.ts"
     },
@@ -137,7 +141,8 @@
     }
   },
   "scripts": {
-    "build": "echo '<!-- DO NOT EDIT: This file is auto-generated from root README.md -->' > ./README.md && echo '' >> ./README.md && cat ../README.md >> ./README.md && pnpm tsc && pnpm check-entry",
+    "build-flight-client": "tsx scripts/build-flight-client.ts",
+    "build": "echo '<!-- DO NOT EDIT: This file is auto-generated from root README.md -->' > ./README.md && echo '' >> ./README.md && cat ../README.md >> ./README.md && pnpm build-flight-client && pnpm tsc && pnpm check-entry",
     "prepublishOnly": "rimraf dist \"*.tsbuildinfo\" && pnpm build",
     "typecheck": "pnpm build",
     "gen-openapi": "pnpm tsx scripts/openapi-fern.ts",
@@ -147,7 +152,7 @@
     "fern-docs": "pnpm run gen-openapi && fern generate --docs --force",
     "play-sdk:build": "pnpm vite build --config ./scripts/play-sdk.vite.ts",
     "check-entry": "esbuild src/index.ts --bundle --platform=node --format=esm --outfile=/dev/null",
-    "test": "pnpm tsc && pnpm vitest",
+    "test": "pnpm build-flight-client && pnpm tsc && pnpm vitest",
     "lint": "lintcn lint --fix",
     "prepare": "# pnpm build",
     "watch": "tsc -w"
@@ -190,6 +195,7 @@
     "@types/react-dom": "^19.2.3",
     "ai": "^5.0.14",
     "esbuild": "^0.27.4",
+    "react-server-dom-webpack": "19.2.4",
     "eventsource": "^3.0.5",
     "formdata-node": "^6.0.3",
     "js-base64": "^3.7.7",

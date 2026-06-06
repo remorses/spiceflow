@@ -5,6 +5,7 @@ import { createRoot, hydrateRoot, type Root } from 'react-dom/client'
 import { type ContextBridge, useContextBridge } from 'its-fine'
 import {
   decodeParsedFederationPayload,
+  injectFederationCss,
   resolveFederatedUrl,
   type FederatedClientModuleInfo,
   type ParsedFederatedFlightPayload,
@@ -208,11 +209,12 @@ export function RemoteIsland({
       )
     } else {
       // Default path: render directly in the container (no shadow DOM).
-      // Inject CSS into document.head (same timing as shadow path injects into shadow root).
-      injectCssLinks(document, clientModules, remoteOrigin)
+      // Start CSS injection and tree decoding in parallel, await both
+      // before rendering so components don't flash without styles.
+      const cssReady = injectFederationCss(metadata, remoteOrigin)
 
-      void getOrCreateTree({ parsed }).then(
-        (decoded) => {
+      void Promise.all([getOrCreateTree({ parsed }), cssReady]).then(
+        ([decoded]) => {
           if (!isMounted) return
           const tree = <Bridge>{decoded}</Bridge>
           if (!hasMountedRef.current && ssrHtml) {

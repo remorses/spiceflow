@@ -50,11 +50,54 @@ interface DecodedFederationPayloadDetails<T = unknown> {
   remoteOrigin: string
 }
 
+interface DecodeFederationOptions {
+  // Auto-inject CSS into document.head. Defaults to true.
+  // Set to false if you want to inject CSS into a custom target (e.g. Shadow DOM).
+  injectCss?: boolean
+}
+
 interface FlightClientBrowser {
   createFromReadableStream<T>(
     stream: ReadableStream<Uint8Array>,
   ): PromiseLike<T>
   createFromFetch<T>(response: Promise<Response>): PromiseLike<T>
+}
+
+// Inject CSS links from federation metadata into document.head.
+// Deduplicates by href so multiple calls with the same metadata are safe.
+// Returns a promise that resolves when all newly injected stylesheets have
+// loaded, so callers can await it to avoid a flash of unstyled content.
+// Exported for consumers who want to call it manually (e.g. Shadow DOM).
+export function injectFederationCss(
+  metadata: FederatedPayloadMetadata,
+  remoteOrigin: string,
+): Promise<void> {
+  if (typeof document === 'undefined') return Promise.resolve()
+  const allCss = new Set<string>()
+  for (const href of metadata.cssLinks) {
+    allCss.add(resolveFederatedUrl(href, remoteOrigin))
+  }
+  for (const mod of Object.values(metadata.clientModules)) {
+    for (const href of mod.css ?? []) {
+      allCss.add(resolveFederatedUrl(href, remoteOrigin))
+    }
+  }
+  const loadPromises: Promise<void>[] = []
+  for (const href of allCss) {
+    if (document.querySelector(`link[href="${CSS.escape(href)}"]`)) continue
+    const link = document.createElement('link')
+    link.rel = 'stylesheet'
+    link.href = href
+    loadPromises.push(
+      new Promise<void>((resolve) => {
+        link.onload = () => resolve()
+        link.onerror = () => resolve()
+      }),
+    )
+    document.head.appendChild(link)
+  }
+  if (loadPromises.length === 0) return Promise.resolve()
+  return Promise.all(loadPromises).then(() => undefined)
 }
 
 export function isJavaScriptContentType(contentType: string): boolean {
@@ -216,25 +259,44 @@ async function collectFederationPayload(
 
 const remoteRegistry = new Map<string, Record<string, unknown>>()
 
+// Bypasses bundler import() transformation (webpack, Vite, Rolldown).
+// Without this, bundlers replace import() with their own module loading
+// which can't handle HTTP URLs or runtime-computed specifiers.
+const dynamicImport = new Function('url', 'return import(url)') as (
+  url: string,
+) => Promise<any>
+
 let requirePatched = false
 
+// Patch the require globals so the Flight client resolves federation
+// modules from remoteRegistry. Two globals matter:
+//
+// __vite_rsc_client_require__ — set by vite-rsc in Vite RSC hosts.
+//   The Flight client calls __vite_rsc_require__ which dispatches to
+//   __vite_rsc_client_require__ for client references.
+//
+// __vite_rsc_require__ — called directly by the embedded pre-built
+//   Flight client in standalone mode (Next.js, plain SPA).
 function ensureRequirePatched() {
   if (requirePatched) return
   requirePatched = true
-  const g: typeof globalThis & {
-    __vite_rsc_client_require__?: (id: string) => unknown
-  } = globalThis
-  const orig = g.__vite_rsc_client_require__
-  if (!orig) return
-  g.__vite_rsc_client_require__ = (id: string) => {
-    const cleanId = id.split('$$cache=')[0]
-    const mod = remoteRegistry.get(cleanId)
-    if (mod) return mod
-    return orig(id)
+  const g = globalThis as any
+  const wrapRequire = (fallback?: (id: string) => unknown) => {
+    return (id: string) => {
+      const cleanId = id.split('$$cache=')[0]
+      const mod = remoteRegistry.get(cleanId)
+      if (mod) return mod
+      if (fallback) return fallback(id)
+      throw new Error(
+        `[federation] Module not found in remote registry: ${id}`,
+      )
+    }
   }
+  g.__vite_rsc_client_require__ = wrapRequire(g.__vite_rsc_client_require__)
+  g.__vite_rsc_require__ = wrapRequire(g.__vite_rsc_require__)
 }
 
-async function loadFederatedClientModules({
+export async function loadFederatedClientModules({
   clientModules,
   remoteOrigin,
 }: {
@@ -244,9 +306,7 @@ async function loadFederatedClientModules({
   for (const [moduleId, info] of Object.entries(clientModules)) {
     for (const chunkPath of info.chunks) {
       const chunkUrl = resolveFederatedUrl(chunkPath, remoteOrigin)
-      const mod: Record<string, unknown> = await import(
-        /* @vite-ignore */ chunkUrl
-      )
+      const mod: Record<string, unknown> = await dynamicImport(chunkUrl)
       const exportName = 'export_' + moduleId
       const exported = mod[exportName]
       if (isRecord(exported)) {
@@ -258,9 +318,21 @@ async function loadFederatedClientModules({
   }
 }
 
+// Allow external consumers (non-Vite-RSC apps) to inject a Flight client
+// so decodeFederationPayload works without @vitejs/plugin-rsc/browser.
+let overrideFlightClient: FlightClientBrowser | null = null
+
+export function setFederationFlightClient(client: FlightClientBrowser) {
+  overrideFlightClient = client
+}
+
 async function getFlightClientBrowser(): Promise<FlightClientBrowser> {
+  if (overrideFlightClient) {
+    return overrideFlightClient
+  }
+
   const globalDecoder = globalThis.__spiceflow_createFromReadableStream
-  if (globalDecoder && typeof document === 'undefined') {
+  if (globalDecoder) {
     return {
       createFromReadableStream: globalDecoder,
       createFromFetch: <T>(responsePromise: Promise<Response>) => {
@@ -276,11 +348,11 @@ async function getFlightClientBrowser(): Promise<FlightClientBrowser> {
     }
   }
 
-  const rsc = await import('@vitejs/plugin-rsc/browser')
-  return {
-    createFromReadableStream: rsc.createFromReadableStream,
-    createFromFetch: rsc.createFromFetch,
-  }
+  throw new Error(
+    '[federation] No Flight client available. In a standalone consumer, ' +
+      'call setupFederationConsumer() before decoding federation payloads. ' +
+      'In a Vite RSC host, the global decoder is set automatically by entry.client.',
+  )
 }
 
 export async function decodeParsedFederationPayload<T = unknown>(
@@ -361,8 +433,9 @@ async function readFederationPrelude(
   }
 }
 
-async function decodeFederationPayloadDetails<T = unknown>(
+export async function decodeFederationPayloadDetails<T = unknown>(
   response: Response,
+  options: DecodeFederationOptions = {},
 ): Promise<DecodedFederationPayloadDetails<T>> {
   if (typeof window === 'undefined') {
     throw new Error(
@@ -406,10 +479,20 @@ async function decodeFederationPayloadDetails<T = unknown>(
   }
 
   try {
+    // Start CSS injection before loading JS modules so the browser
+    // fetches stylesheets in parallel with client component chunks.
+    // We await the CSS promise later so components don't render
+    // before styles are ready (prevents flash of unstyled content).
+    const cssReady = options.injectCss !== false
+      ? injectFederationCss(metadata, remoteOrigin)
+      : undefined
+
     await loadFederatedClientModules({
       clientModules: metadata.clientModules,
       remoteOrigin,
     })
+
+    await cssReady
 
     ensureRequirePatched()
 
@@ -526,3 +609,166 @@ export async function RenderFederatedPayload({
 
   return React.createElement(RemoteIsland, { parsed, isolateStyles })
 }
+
+// ---------------------------------------------------------------------------
+// Standalone federation consumer setup
+// ---------------------------------------------------------------------------
+// Sets up everything needed for a non-Vite-RSC app (plain React SPA, Next.js,
+// etc.) to consume federation payloads from a remote spiceflow server.
+//
+// Three things happen:
+// 1. Module globals: stores the host's React/ReactDOM module namespaces on a
+//    global so that blob-URL wrapper modules can re-export them. This ensures
+//    remote federation chunks (loaded via dynamic import) share the same React
+//    instance as the host app.
+// 2. Import map: injects a <script type="importmap"> with blob URLs that map
+//    bare specifiers ("react", "react-dom", etc.) to wrapper modules that read
+//    from the global. Requires browser support for multiple import maps
+//    (Chrome 133+, Firefox 136+, Safari 18.4+).
+// 3. Flight client: wraps react-server-dom-webpack's createFromReadableStream
+//    and createFromFetch so decodeFederationPayload works without
+//    @vitejs/plugin-rsc/browser.
+
+const GLOBAL_KEY = '__SPICEFLOW_FEDERATION__'
+
+interface FederationConsumerOptions {
+  // The react-server-dom-webpack/client.browser module. When omitted,
+  // spiceflow auto-loads its embedded pre-built copy via a blob URL.
+  // Only pass this if you need a specific version or custom build.
+  reactServerDomWebpack?: {
+    createFromReadableStream: (
+      stream: ReadableStream<Uint8Array>,
+      options?: any,
+    ) => PromiseLike<any>
+    createFromFetch: (
+      response: Promise<Response>,
+      options?: any,
+    ) => PromiseLike<any>
+  }
+  // Map of bare specifiers to their module namespace objects. The host app
+  // must pass its own bundled React modules so remote chunks use the same
+  // instance. Typical entries:
+  //   'react': import * as React from 'react'
+  //   'react/jsx-runtime': import * as JsxRuntime from 'react/jsx-runtime'
+  //   'react-dom': import * as ReactDOM from 'react-dom'
+  //   'react-dom/client': import * as ReactDOMClient from 'react-dom/client'
+  modules: Record<string, Record<string, unknown>>
+}
+
+const SETUP_PROMISE_KEY = '__SPICEFLOW_FEDERATION_SETUP__'
+
+export async function setupFederationConsumer(
+  options: FederationConsumerOptions,
+) {
+  const g = globalThis as any
+
+  // SSR guard: blob URLs and import maps are browser-only.
+  if (typeof document === 'undefined') return
+
+  // Concurrent callers (React Strict Mode, HMR) await the same promise
+  // so setup completes fully before any caller proceeds.
+  if (g[SETUP_PROMISE_KEY]) return g[SETUP_PROMISE_KEY]
+
+  const promise = setupFederationConsumerInner(options).catch((error) => {
+    delete g[GLOBAL_KEY]
+    delete g[SETUP_PROMISE_KEY]
+    throw error
+  })
+  g[SETUP_PROMISE_KEY] = promise
+  return promise
+}
+
+async function setupFederationConsumerInner(
+  options: FederationConsumerOptions,
+) {
+  let { reactServerDomWebpack, modules } = options
+  const g = globalThis as any
+
+  // 1. Store modules on global for blob URL wrappers to read
+  g[GLOBAL_KEY] = modules
+
+  // 2. Create blob URL wrapper modules and inject import map.
+  //
+  // Why this is needed: the spiceflow remote's Vite build externalizes React
+  // (react, react-dom, spiceflow/react) so client component chunks are small
+  // and don't bundle their own copy of React. This means the built chunks
+  // contain bare specifiers like `import "react"`. When the standalone
+  // consumer dynamically imports those chunks from the remote origin, the
+  // browser resolves bare specifiers via import maps since no bundler is
+  // involved at that point.
+  //
+  // This import map does NOT affect the host app's own imports. In Next.js,
+  // webpack/turbopack resolves imports at build time and ignores import maps
+  // entirely. The map only matters for remote chunks loaded at runtime via
+  // dynamic import() from another origin.
+  const imports: Record<string, string> = {}
+  for (const [specifier, mod] of Object.entries(modules)) {
+    const keys = Object.keys(mod).filter(
+      (k) => k !== '__esModule' && k !== 'default',
+    )
+    const ref = `globalThis[${JSON.stringify(GLOBAL_KEY)}][${JSON.stringify(specifier)}]`
+    const lines = [
+      `const __m = ${ref};`,
+      ...keys.map((k) => `export const ${k} = __m[${JSON.stringify(k)}];`),
+      `export default __m.default !== undefined ? __m.default : __m;`,
+    ]
+    const blob = new Blob([lines.join('\n')], { type: 'text/javascript' })
+    imports[specifier] = URL.createObjectURL(blob)
+  }
+
+  const script = document.createElement('script')
+  script.type = 'importmap'
+  script.textContent = JSON.stringify({ imports })
+  document.head.appendChild(script)
+
+  // 3. Auto-load Flight client from embedded source if not provided.
+  // The embedded copy has __webpack_require__ replaced with
+  // globalThis.__vite_rsc_require__ and a require() shim for React.
+  if (!reactServerDomWebpack) {
+    const { FLIGHT_CLIENT_SOURCE } = await import(
+      './federation-flight-client-source.js'
+    )
+    // The Flight client's require("react") shim reads from this global
+    g.__FEDERATION_MODULES__ = {
+      react: modules['react'],
+      'react-dom': modules['react-dom'],
+    }
+    // Ensure __vite_rsc_require__ exists with .u stub before the module
+    // evaluates (it reads .u at the top level for chunk filename resolution)
+    if (!g.__vite_rsc_require__) {
+      const stub = ((id: string) => {
+        throw new Error(`[federation] Module not found: ${id}`)
+      }) as any
+      stub.u = undefined
+      g.__vite_rsc_require__ = stub
+    }
+    const blob = new Blob([FLIGHT_CLIENT_SOURCE], {
+      type: 'text/javascript',
+    })
+    const url = URL.createObjectURL(blob)
+    reactServerDomWebpack = await dynamicImport(url)
+    URL.revokeObjectURL(url)
+  }
+
+  // 4. Set up Flight client
+  const callServer = () => {
+    throw new Error(
+      'Server actions are not supported in standalone federation consumers',
+    )
+  }
+  setFederationFlightClient({
+    createFromReadableStream<T>(stream: ReadableStream<Uint8Array>) {
+      return reactServerDomWebpack!.createFromReadableStream(stream, {
+        callServer,
+      })
+    },
+    createFromFetch<T>(response: Promise<Response>) {
+      return reactServerDomWebpack!.createFromFetch(response, { callServer })
+    },
+  })
+
+  // 5. Patch require globals for standalone mode
+  ensureRequirePatched()
+}
+
+

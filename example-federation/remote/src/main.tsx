@@ -34,6 +34,43 @@ export const app = new Spiceflow()
 	return await encodeFederationPayload(<Chart {...props} />)
   })
 
+  .get('/api/chat', async ({ request }) => {
+    const url = new URL(request.url)
+    const message = url.searchParams.get('message') || 'hello'
+
+    // Simulate an AI chat response as a streaming async generator.
+    // Uses server-rendered JSX (no client components) because streaming
+    // federation emits metadata before client references are discovered.
+    async function* generateParts() {
+      const responses = [
+        `I received your messages: "${message}"`,
+        'Let me think about that for a moment...',
+        'Here is my detailed answer with **formatting**.',
+      ]
+
+      for (let i = 0; i < responses.length; i++) {
+        await new Promise((resolve) => setTimeout(resolve, 100))
+        yield {
+          type: 'text' as const,
+          content: (
+            <div data-testid={`chat-part-${i}`} style={{
+              padding: '12px 16px',
+              borderRadius: '12px',
+              background: '#f0f4ff',
+              border: '1px solid #c7d2fe',
+              margin: '4px 0',
+              fontFamily: 'system-ui, sans-serif',
+            }}>
+              {responses[i]}
+            </div>
+          ),
+        }
+      }
+    }
+
+    return await encodeFederationPayload({ stream: generateParts() })
+  })
+
 void app.listen(Number(process.env.PORT || 3001))
 
 declare module 'spiceflow/react' {

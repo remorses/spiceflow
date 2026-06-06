@@ -60,7 +60,10 @@ export function EsmIsland({
   const [LazyComponent] = useState(() => {
     if (typeof window === 'undefined') return null
     return lazy(async () => {
-      const mod = await import(/* @vite-ignore */ src)
+      const dynamicImport = new Function('url', 'return import(url)') as (
+        url: string,
+      ) => Promise<any>
+      const mod = await dynamicImport(src)
       const Component = mod.default || Object.values(mod).find(
         (v) => typeof v === 'function',
       )
