@@ -34,13 +34,6 @@ export function federationDevExternalizePlugin(
       enforce: 'pre',
       apply: 'serve',
 
-      // Disable Fast Refresh so @vitejs/plugin-react doesn't inject
-      // $RefreshReg$/$RefreshSig$ into client chunks. Federation consumers
-      // load these cross-origin where HMR preamble would throw.
-      config() {
-        return { server: { hmr: false } }
-      },
-
       configEnvironment(name, config: any) {
         if (name !== 'client') return
         // Exclude from dep optimization so Vite doesn't pre-bundle them
@@ -85,7 +78,8 @@ export function federationDevExternalizePlugin(
 }
 
 // Late-running transform that cleans up client component modules for federation:
-// strips /@id/ prefixes and CSS side-effect imports.
+// strips /@id/ prefixes, HMR/Fast Refresh artifacts, and CSS side-effect imports.
+// Only affects "use client" modules in the client environment.
 function federationDevCleanupPlugin(base: string): Plugin {
   return {
     name: 'spiceflow:federation-dev-cleanup',
@@ -110,9 +104,37 @@ function federationDevCleanupPlugin(base: string): Plugin {
         )
       }
 
-      // Only clean up artifacts for "use client" modules (federation chunks)
+      // Only clean up HMR artifacts for "use client" modules (federation chunks)
       if (!result.includes('"use client"') && !result.includes("'use client'")) {
         return result !== code ? result : null
+      }
+
+      // Strip /@vite/client HMR setup
+      result = result.replace(
+        /import\s*\{[^}]*\}\s*from\s*["'][^"']*@vite\/client["'];?\s*/g,
+        '',
+      )
+      result = result.replace(/import\.meta\.hot\s*=\s*[^;]+;?\s*/g, '')
+
+      // Strip @vitejs/plugin-react's Fast Refresh wrapper
+      result = result.replace(
+        /import\s*\*\s*as\s+RefreshRuntime\s+from\s*["'][^"']*@react-refresh["'];?\s*/g,
+        '',
+      )
+      result = result.replace(
+        /import\s*\*\s*as\s+__vite_react_currentExports\s+from\s*["'][^"']*["'];?\s*/g,
+        '',
+      )
+      result = result.replace(
+        /const inWebWorker\s*=[\s\S]*?function \$RefreshSig\$\(\)\s*\{[^}]*\}\s*(\/\/# sourceMappingURL=.*)?$/,
+        '',
+      )
+
+      // Stub $RefreshSig$/$RefreshReg$ as no-ops for inline calls
+      if (result.includes('$RefreshSig$') || result.includes('$RefreshReg$')) {
+        result =
+          'var $RefreshSig$ = () => (x) => x, $RefreshReg$ = () => {};\n' +
+          result
       }
 
       // Strip CSS side-effect imports (CSS is delivered via federation metadata)
