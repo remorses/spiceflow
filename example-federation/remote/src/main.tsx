@@ -43,7 +43,7 @@ export const app = new Spiceflow()
     // federation emits metadata before client references are discovered.
     async function* generateParts() {
       const responses = [
-        `I received your messages: "${message}"`,
+        `I received your message: "${message}"`,
         'Let me think about that for a moment...',
         'Here is my detailed answer with **formatting**.',
       ]
