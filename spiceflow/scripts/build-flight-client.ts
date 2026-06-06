@@ -2,6 +2,17 @@
 // pre-built copy of react-server-dom-webpack/client.browser as a string
 // constant. This runs BEFORE tsc so the generated file compiles normally.
 //
+// Why this is needed: RSC uses a binary protocol called Flight to serialize
+// React element trees into a stream. Decoding Flight streams requires a
+// Flight client, which is not part of react or react-dom. It lives in a
+// separate package (react-server-dom-webpack). In a normal spiceflow app,
+// @vitejs/plugin-rsc provides the Flight client automatically. But standalone
+// federation consumers (Next.js, plain SPA) don't use that plugin, so they
+// have no Flight client. This script pre-bundles the Flight client and embeds
+// it as a string constant so setupFederationConsumer() can load it at runtime
+// via a blob URL, without requiring the consumer to install or configure
+// react-server-dom-webpack themselves.
+//
 // The pre-built copy has two key transformations:
 // 1. __webpack_require__ → globalThis.__vite_rsc_require__ (same name as
 //    vite-rsc uses, so both Vite and non-Vite hosts share one global)
