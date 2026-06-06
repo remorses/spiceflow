@@ -105,6 +105,26 @@ for await (const part of decoded.stream) {
 }
 ```
 
+## spiceflow/react in the modules map
+
+Remote client components may import from `spiceflow/react` (e.g. `useRouterState`, `Link`). When they do, the consumer must provide a module for the `"spiceflow/react"` bare specifier in the `modules` map.
+
+`spiceflow/react` creates a **browser history instance** on import. If your remote components use `Link` or `router.push()`, those calls go through this history. In a **plain SPA**, this works as expected since spiceflow owns the routing.
+
+In a **Next.js app** (or any app with its own router), you have two options:
+
+**Option 1: pass `spiceflow/react` (the default).** Routing APIs like `Link` and `router.push()` will call `history.pushState` through spiceflow's history, which conflicts with Next.js's own router. The URL changes but Next.js doesn't know about the navigation, causing stale layouts and broken back/forward. Only do this if your remote components don't use any spiceflow routing APIs.
+
+**Option 2: pass a stub.** If your remote components use `useRouterState` but you don't want spiceflow's router to interfere, pass a minimal object that delegates to the host framework:
+
+```ts
+'spiceflow/react': {
+  useRouterState: () => ({ pathname: window.location.pathname }),
+},
+```
+
+If your remote components don't import from `spiceflow/react` at all, you can omit it from the `modules` map entirely. The shared chunk is emitted but never loaded.
+
 ## Shipping as an npm package
 
 The Vite library build produces ESM output with React externalized. Publish the whole `dist/` folder as an npm package with `peerDependencies` on React, including any generated chunks.
