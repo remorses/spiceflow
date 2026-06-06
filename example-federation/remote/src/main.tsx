@@ -71,7 +71,11 @@ export const app = new Spiceflow()
     return await encodeFederationPayload({ stream: generateParts() })
   })
 
-void app.listen(Number(process.env.PORT || 3001))
+// Only listen in production. In vite dev, the spiceflow plugin handles
+// requests through Vite's SSR middleware on Vite's own port.
+if (!import.meta.hot) {
+  void app.listen(Number(process.env.PORT || 3001))
+}
 
 declare module 'spiceflow/react' {
   interface SpiceflowRegister { app: typeof app }
