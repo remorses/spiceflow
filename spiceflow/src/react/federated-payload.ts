@@ -50,11 +50,54 @@ interface DecodedFederationPayloadDetails<T = unknown> {
   remoteOrigin: string
 }
 
+interface DecodeFederationOptions {
+  // Auto-inject CSS into document.head. Defaults to true.
+  // Set to false if you want to inject CSS into a custom target (e.g. Shadow DOM).
+  injectCss?: boolean
+}
+
 interface FlightClientBrowser {
   createFromReadableStream<T>(
     stream: ReadableStream<Uint8Array>,
   ): PromiseLike<T>
   createFromFetch<T>(response: Promise<Response>): PromiseLike<T>
+}
+
+// Inject CSS links from federation metadata into document.head.
+// Deduplicates by href so multiple calls with the same metadata are safe.
+// Returns a promise that resolves when all newly injected stylesheets have
+// loaded, so callers can await it to avoid a flash of unstyled content.
+// Exported for consumers who want to call it manually (e.g. Shadow DOM).
+export function injectFederationCss(
+  metadata: FederatedPayloadMetadata,
+  remoteOrigin: string,
+): Promise<void> {
+  if (typeof document === 'undefined') return Promise.resolve()
+  const allCss = new Set<string>()
+  for (const href of metadata.cssLinks) {
+    allCss.add(resolveFederatedUrl(href, remoteOrigin))
+  }
+  for (const mod of Object.values(metadata.clientModules)) {
+    for (const href of mod.css ?? []) {
+      allCss.add(resolveFederatedUrl(href, remoteOrigin))
+    }
+  }
+  const loadPromises: Promise<void>[] = []
+  for (const href of allCss) {
+    if (document.querySelector(`link[href="${CSS.escape(href)}"]`)) continue
+    const link = document.createElement('link')
+    link.rel = 'stylesheet'
+    link.href = href
+    loadPromises.push(
+      new Promise<void>((resolve) => {
+        link.onload = () => resolve()
+        link.onerror = () => resolve()
+      }),
+    )
+    document.head.appendChild(link)
+  }
+  if (loadPromises.length === 0) return Promise.resolve()
+  return Promise.all(loadPromises).then(() => undefined)
 }
 
 export function isJavaScriptContentType(contentType: string): boolean {
@@ -392,6 +435,7 @@ async function readFederationPrelude(
 
 export async function decodeFederationPayloadDetails<T = unknown>(
   response: Response,
+  options: DecodeFederationOptions = {},
 ): Promise<DecodedFederationPayloadDetails<T>> {
   if (typeof window === 'undefined') {
     throw new Error(
@@ -435,10 +479,20 @@ export async function decodeFederationPayloadDetails<T = unknown>(
   }
 
   try {
+    // Start CSS injection before loading JS modules so the browser
+    // fetches stylesheets in parallel with client component chunks.
+    // We await the CSS promise later so components don't render
+    // before styles are ready (prevents flash of unstyled content).
+    const cssReady = options.injectCss !== false
+      ? injectFederationCss(metadata, remoteOrigin)
+      : undefined
+
     await loadFederatedClientModules({
       clientModules: metadata.clientModules,
       remoteOrigin,
     })
+
+    await cssReady
 
     ensureRequirePatched()
 
@@ -633,7 +687,20 @@ async function setupFederationConsumerInner(
   // 1. Store modules on global for blob URL wrappers to read
   g[GLOBAL_KEY] = modules
 
-  // 2. Create blob URL wrapper modules and inject import map
+  // 2. Create blob URL wrapper modules and inject import map.
+  //
+  // Why this is needed: the spiceflow remote's Vite build externalizes React
+  // (react, react-dom, spiceflow/react) so client component chunks are small
+  // and don't bundle their own copy of React. This means the built chunks
+  // contain bare specifiers like `import "react"`. When the standalone
+  // consumer dynamically imports those chunks from the remote origin, the
+  // browser resolves bare specifiers via import maps since no bundler is
+  // involved at that point.
+  //
+  // This import map does NOT affect the host app's own imports. In Next.js,
+  // webpack/turbopack resolves imports at build time and ignores import maps
+  // entirely. The map only matters for remote chunks loaded at runtime via
+  // dynamic import() from another origin.
   const imports: Record<string, string> = {}
   for (const [specifier, mod] of Object.entries(modules)) {
     const keys = Object.keys(mod).filter(

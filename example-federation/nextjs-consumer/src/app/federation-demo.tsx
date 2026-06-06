@@ -6,7 +6,6 @@
 import { useState, useEffect, type ReactNode } from 'react'
 import {
   decodeFederationPayloadDetails,
-  resolveFederatedUrl,
   setupFederationConsumer,
 } from 'spiceflow/federation-client'
 
@@ -38,25 +37,6 @@ async function ensureFederationSetup() {
   setupDone = true
 }
 
-function injectFederationCss(
-  cssLinks: string[],
-  clientModules: Record<string, { css: string[] }>,
-  origin: string,
-) {
-  const allCss = new Set<string>()
-  for (const href of cssLinks) allCss.add(resolveFederatedUrl(href, origin))
-  for (const mod of Object.values(clientModules)) {
-    for (const href of (mod as any).css ?? []) allCss.add(resolveFederatedUrl(href, origin))
-  }
-  for (const href of allCss) {
-    if (document.querySelector(`link[href="${CSS.escape(href)}"]`)) continue
-    const link = document.createElement('link')
-    link.rel = 'stylesheet'
-    link.href = href
-    document.head.appendChild(link)
-  }
-}
-
 export function FederationDemo() {
   const [chartNode, setChartNode] = useState<ReactNode>(null)
   const [loading, setLoading] = useState(false)
@@ -79,13 +59,6 @@ export function FederationDemo() {
     try {
       const response = await fetch(`${remoteOrigin}/api/chart`)
       const decoded = await decodeFederationPayloadDetails<ReactNode>(response)
-
-      injectFederationCss(
-        decoded.metadata.cssLinks,
-        decoded.metadata.clientModules,
-        decoded.remoteOrigin,
-      )
-
       setChartNode(decoded.value)
     } catch (err) {
       console.error('Chart load error:', err)

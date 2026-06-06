@@ -4,7 +4,6 @@
 import { useState, type ReactNode } from 'react'
 import {
   decodeFederationPayloadDetails,
-  resolveFederatedUrl,
 } from 'spiceflow/federation-client'
 
 const remoteOrigin = 'http://localhost:3051'
@@ -18,26 +17,6 @@ interface ChatMessage {
   role: 'user' | 'assistant'
   text?: string
   parts: ReactNode[]
-}
-
-// Inject CSS links from federation metadata into the document head.
-function injectFederationCss(
-  cssLinks: string[],
-  clientModules: Record<string, { css: string[] }>,
-  remoteOrigin: string,
-) {
-  const allCss = new Set<string>()
-  for (const href of cssLinks) allCss.add(resolveFederatedUrl(href, remoteOrigin))
-  for (const mod of Object.values(clientModules)) {
-    for (const href of mod.css ?? []) allCss.add(resolveFederatedUrl(href, remoteOrigin))
-  }
-  for (const href of allCss) {
-    if (document.querySelector(`link[href="${CSS.escape(href)}"]`)) continue
-    const link = document.createElement('link')
-    link.rel = 'stylesheet'
-    link.href = href
-    document.head.appendChild(link)
-  }
 }
 
 export function ChatWidget() {
@@ -63,12 +42,6 @@ export function ChatWidget() {
       const decoded = await decodeFederationPayloadDetails<{
         stream: AsyncIterable<ChatPart>
       }>(response)
-
-      injectFederationCss(
-        decoded.metadata.cssLinks,
-        decoded.metadata.clientModules,
-        decoded.remoteOrigin,
-      )
 
       const parts: ReactNode[] = []
       for await (const part of decoded.value.stream) {
@@ -98,13 +71,6 @@ export function ChatWidget() {
     try {
       const response = await fetch(`${remoteOrigin}/api/chart`)
       const decoded = await decodeFederationPayloadDetails<ReactNode>(response)
-
-      injectFederationCss(
-        decoded.metadata.cssLinks,
-        decoded.metadata.clientModules,
-        decoded.remoteOrigin,
-      )
-
       setChartNode(decoded.value)
     } catch (error) {
       console.error('Chart error:', error)
