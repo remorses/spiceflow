@@ -6,8 +6,10 @@
     "dev": "next dev --port 3060",
     "build": "next build",
     "start": "next start --port 3060",
-    "pretest-e2e": "cd ../remote && pnpm build && cd ../nextjs-consumer && pnpm build",
-    "test-e2e": "playwright test"
+    "pretest-e2e": "cd ../remote && pnpm build",
+    "pretest-e2e-start": "cd ../remote && pnpm build && cd ../nextjs-consumer && pnpm build",
+    "test-e2e": "NEXTJS_MODE=dev playwright test",
+    "test-e2e-start": "playwright test"
   },
   "dependencies": {
     "next": "^15.4.0-canary.84",

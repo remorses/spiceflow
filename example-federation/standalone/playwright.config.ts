@@ -30,7 +30,7 @@ export default defineConfig({
       reuseExistingServer: true,
     },
     {
-      command: `pnpm preview --port ${standalonePort} --strict-port`,
+      command: `npx serve . -l ${standalonePort} --no-clipboard`,
       port: standalonePort,
       reuseExistingServer: true,
     },

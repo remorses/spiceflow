@@ -5,6 +5,11 @@ export default defineConfig({
   clearScreen: false,
   plugins: [react()],
   build: {
+    lib: {
+      entry: 'src/main.tsx',
+      formats: ['es'],
+      fileName: 'federation-standalone',
+    },
     rolldownOptions: {
       external: [
         'react',

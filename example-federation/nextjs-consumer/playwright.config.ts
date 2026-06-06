@@ -2,6 +2,7 @@ import { defineConfig, devices } from '@playwright/test'
 
 const remotePort = 3051
 const nextjsPort = 3060
+const useDevServer = process.env['NEXTJS_MODE'] === 'dev'
 
 export default defineConfig({
   testDir: 'e2e',
@@ -30,7 +31,7 @@ export default defineConfig({
       reuseExistingServer: true,
     },
     {
-      command: `pnpm start`,
+      command: useDevServer ? `pnpm dev` : `pnpm start`,
       port: nextjsPort,
       reuseExistingServer: true,
     },

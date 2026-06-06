@@ -2,10 +2,9 @@
   "name": "federation-standalone",
   "private": true,
   "type": "module",
+  "main": "dist/federation-standalone.js",
   "scripts": {
-    "dev": "vite dev",
     "build": "vite build",
-    "preview": "vite preview",
     "pretest-e2e": "cd ../remote && pnpm build && cd ../standalone && pnpm build",
     "test-e2e": "playwright test"
   },
@@ -20,6 +19,7 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.52.0",
-    "@vitejs/plugin-react": "^6.0.1"
+    "@vitejs/plugin-react": "^6.0.1",
+    "serve": "^14.2.4"
   }
 }

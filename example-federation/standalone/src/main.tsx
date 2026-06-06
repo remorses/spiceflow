@@ -1,10 +1,10 @@
-// Standalone federation consumer: a plain React SPA (no spiceflow, no RSC)
-// that consumes federation payloads from a remote spiceflow server.
-// This proves federation decode works outside the spiceflow framework.
+// Library entry for a standalone federation consumer npm package.
+// Built with Vite library mode; React is externalized so the host app
+// provides its own copy. Everything else (spiceflow/federation-client,
+// spiceflow/react) is bundled into the output.
 //
-// React and ReactDOM are externalized and resolved via import map in
-// index.html (esm.sh). This means both the app and remote federation
-// chunks share the same React instance without blob URLs.
+// Host apps import this package then call `await federationReady`
+// before rendering any federation components.
 
 import * as React from 'react'
 import * as ReactJsx from 'react/jsx-runtime'
@@ -12,9 +12,8 @@ import * as ReactDOM from 'react-dom'
 import * as ReactDOMClient from 'react-dom/client'
 import * as SpiceflowReact from 'spiceflow/react'
 import { setupFederationConsumer } from 'spiceflow/federation-client'
-import { ChatWidget } from './chat-widget'
 
-await setupFederationConsumer({
+export const federationReady = setupFederationConsumer({
   modules: {
     'react': React,
     'react/jsx-runtime': ReactJsx,
@@ -25,5 +24,4 @@ await setupFederationConsumer({
   },
 })
 
-const root = document.getElementById('root')!
-ReactDOMClient.createRoot(root).render(<ChatWidget />)
+export { ChatWidget } from './chat-widget'
