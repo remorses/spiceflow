@@ -140,6 +140,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
 }
 
+function isJavaScriptIdentifier(value: string): boolean {
+  return /^[$A-Z_a-z][$\w]*$/.test(value)
+}
+
 export async function* parseFederationPayload(
   response: Response,
   {
@@ -262,9 +266,12 @@ const remoteRegistry = new Map<string, Record<string, unknown>>()
 // Bypasses bundler import() transformation (webpack, Vite, Rolldown).
 // Without this, bundlers replace import() with their own module loading
 // which can't handle HTTP URLs or runtime-computed specifiers.
-const dynamicImport = new Function('url', 'return import(url)') as (
-  url: string,
-) => Promise<any>
+function dynamicImport(url: string): Promise<any> {
+  const importer = new Function('url', 'return import(url)') as (
+    url: string,
+  ) => Promise<any>
+  return importer(url)
+}
 
 let requirePatched = false
 
@@ -684,6 +691,23 @@ async function setupFederationConsumerInner(
   let { reactServerDomWebpack, modules } = options
   const g = globalThis as any
 
+  const jsxRuntime = modules['react/jsx-runtime']
+  const jsxDevRuntime = modules['react/jsx-dev-runtime']
+  if (
+    isRecord(jsxRuntime) &&
+    isRecord(jsxDevRuntime) &&
+    typeof jsxDevRuntime.jsxDEV !== 'function' &&
+    typeof jsxRuntime.jsx === 'function'
+  ) {
+    modules = {
+      ...modules,
+      'react/jsx-dev-runtime': {
+        ...jsxDevRuntime,
+        jsxDEV: jsxRuntime.jsx,
+      },
+    }
+  }
+
   // 1. Store modules on global for blob URL wrappers to read
   g[GLOBAL_KEY] = modules
 
@@ -697,19 +721,24 @@ async function setupFederationConsumerInner(
   // browser resolves bare specifiers via import maps since no bundler is
   // involved at that point.
   //
-  // This import map does NOT affect the host app's own imports. In Next.js,
-  // webpack/turbopack resolves imports at build time and ignores import maps
-  // entirely. The map only matters for remote chunks loaded at runtime via
-  // dynamic import() from another origin.
+  // This import map does NOT affect the host app's bundled imports. In
+  // Next.js, webpack/turbopack resolves imports at build time and ignores
+  // import maps entirely. The map is only needed for remote chunks loaded at
+  // runtime via dynamic import() from another origin.
   const imports: Record<string, string> = {}
   for (const [specifier, mod] of Object.entries(modules)) {
-    const keys = Object.keys(mod).filter(
-      (k) => k !== '__esModule' && k !== 'default',
+    const defaultExport = mod.default
+    const defaultKeys = isRecord(defaultExport) ? Object.keys(defaultExport) : []
+    const keys = [...new Set([...Object.keys(mod), ...defaultKeys])].filter(
+      (k) => k !== '__esModule' && k !== 'default' && isJavaScriptIdentifier(k),
     )
     const ref = `globalThis[${JSON.stringify(GLOBAL_KEY)}][${JSON.stringify(specifier)}]`
     const lines = [
       `const __m = ${ref};`,
-      ...keys.map((k) => `export const ${k} = __m[${JSON.stringify(k)}];`),
+      ...keys.map(
+        (k) =>
+          `export const ${k} = __m[${JSON.stringify(k)}] ?? __m.default?.[${JSON.stringify(k)}];`,
+      ),
       `export default __m.default !== undefined ? __m.default : __m;`,
     ]
     const blob = new Blob([lines.join('\n')], { type: 'text/javascript' })
@@ -770,5 +799,3 @@ async function setupFederationConsumerInner(
   // 5. Patch require globals for standalone mode
   ensureRequirePatched()
 }
-
-

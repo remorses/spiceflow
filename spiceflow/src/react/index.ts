@@ -23,6 +23,7 @@ export { getActionAbortController } from './action-abort.ts'
 export {
   decodeFederationPayload,
   decodeFederationPayloadDetails,
+  injectFederationCss,
   RenderFederatedPayload,
   setupFederationConsumer,
 } from './federated-payload.ts'
