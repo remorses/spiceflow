@@ -1,5 +1,47 @@
 # spiceflow
 
+## 1.26.0-rsc.5
+
+1. **Standalone federation consumer** — any React app (Next.js, plain SPA, etc.) can now consume federation payloads from a spiceflow remote without using the spiceflow framework. New `spiceflow/federation-client` subpath exports `setupFederationConsumer`, `decodeFederationPayload`, `decodeFederationPayloadDetails`, and `injectFederationCss`.
+
+   ```ts
+   import { setupFederationConsumer } from 'spiceflow/federation-client'
+
+   await setupFederationConsumer({
+     modules: {
+       'react': React,
+       'react/jsx-runtime': ReactJsx,
+       'react-dom': ReactDOM,
+       'react-dom/client': ReactDOMClient,
+       'spiceflow/react': SpiceflowReact,
+     },
+   })
+   ```
+
+   `setupFederationConsumer()` auto-loads an embedded pre-built Flight client, injects a blob URL import map for bare specifiers, and patches require globals for the Flight protocol. Safe to call during SSR (no-ops on the server). Idempotent and concurrent-safe across React Strict Mode and HMR.
+
+2. **Auto-inject federation CSS** — `decodeFederationPayload()` and `decodeFederationPayloadDetails()` now automatically inject remote stylesheets into `document.head` and wait for them to load before returning, preventing flash of unstyled content. Pass `{ injectCss: false }` to opt out for custom targets like Shadow DOM.
+
+   ```ts
+   const chartNode = await decodeFederationPayload<ReactNode>(response)
+   // CSS is already injected and loaded at this point
+   ```
+
+3. **Federation remotes work in `vite dev` mode** — client component chunks now keep bare `import "react"` specifiers in dev so federation consumers can resolve them via their import map when loading chunks cross-origin. The spiceflow plugin automatically configures OXC JSX transform for federation remotes, so `@vitejs/plugin-react` is no longer needed in the remote's vite config.
+
+   ```ts
+   // remote/vite.config.ts — no @vitejs/plugin-react needed
+   export default defineConfig({
+     base: 'http://localhost:3051',
+     plugins: [
+       spiceflow({
+         entry: './src/main.tsx',
+         federation: 'remote',
+       }),
+     ],
+   })
+   ```
+
 ## 1.26.0-rsc.4
 
 1. **CSRF origin check compares hosts only, ignoring protocol** — server actions behind TLS-terminating reverse proxies (Fly.io, Cloudflare, AWS ALB) no longer get false 403 errors when the `Origin` header uses `https` but the server sees `http`. The error message now includes both origins for easier debugging. Invalid `Origin` headers are handled gracefully with `URL.canParse` instead of throwing.
