@@ -1,0 +1,24 @@
+{
+  "name": "federation-nextjs-consumer",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev --port 3060",
+    "build": "next build",
+    "start": "next start --port 3060",
+    "pretest-e2e": "cd ../remote && pnpm build && cd ../nextjs-consumer && pnpm build",
+    "test-e2e": "playwright test"
+  },
+  "dependencies": {
+    "next": "^15.4.0-canary.84",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "spiceflow": "workspace:^"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.52.0",
+    "@types/react": "19.2.16",
+    "@types/react-dom": "19.2.3",
+    "typescript": "5.7.3"
+  }
+}
