@@ -4,6 +4,7 @@
   "type": "module",
   "main": "dist/federation-standalone.js",
   "scripts": {
+    "dev": "vite build --watch",
     "build": "vite build",
     "pretest-e2e": "cd ../remote && pnpm build && cd ../standalone && pnpm build",
     "test-e2e": "playwright test"

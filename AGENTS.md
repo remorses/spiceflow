@@ -122,6 +122,55 @@ pnpm test-e2e
 
 Both remote and host servers start automatically via `webServer` in the host's `playwright.config.ts`. Always rebuild both after changing `spiceflow/src/` — stale dist files are the most common cause of federation test failures.
 
+## standalone federation consumer (manual testing)
+
+The `example-federation/standalone/` folder tests that a Vite library mode build of a federation consumer works from a plain `index.html`. It simulates shipping an npm package that bundles `spiceflow/federation-client` and externalizes React.
+
+To run it manually for interactive testing or debugging the federation client:
+
+```bash
+# 1. rebuild spiceflow dist (if you changed spiceflow/src/)
+cd spiceflow && pnpm tsc
+
+# 2. start the remote in dev mode
+cd example-federation/remote && pnpm exec vite dev --port 3051
+
+# 3. in another terminal, start the standalone library in watch mode
+cd example-federation/standalone && pnpm dev
+
+# 4. in another terminal, serve the static files
+cd example-federation/standalone && npx serve . -l 3053
+```
+
+Open `http://localhost:3053`. The `pnpm dev` command runs `vite build --watch`, so editing `src/chat-widget.tsx` or `src/main.tsx` rebuilds the library automatically. Refresh the browser to pick up changes.
+
+The remote runs in `vite dev` mode so client chunks are served from source with React externalized for cross-origin federation consumers. HMR/Fast Refresh is disabled for remote chunks (the `federation-dev-externalize` plugin sets `server.hmr = false`); refresh the consumer page after editing remote files.
+
+E2e tests: `cd example-federation/standalone && pnpm test-e2e`
+
+## nextjs federation consumer (manual testing)
+
+The `example-federation/nextjs-consumer/` tests that `spiceflow/federation-client` works inside a Next.js app bundled by webpack/turbopack.
+
+To run it manually:
+
+```bash
+# 1. rebuild spiceflow dist (if you changed spiceflow/src/)
+cd spiceflow && pnpm tsc
+
+# 2. start the remote in dev mode (or use pnpm build + node dist/rsc/index.js)
+cd example-federation/remote && pnpm exec vite dev --port 3051
+
+# 3. in another terminal, start the Next.js dev server
+cd example-federation/nextjs-consumer && pnpm dev
+```
+
+Open `http://localhost:3060`. Click "Load Remote Chart" to fetch and render a federated component from the remote.
+
+E2e tests run in two modes:
+- `pnpm test-e2e` — dev mode (`next dev`)
+- `pnpm test-e2e-start` — production mode (`next build` + `next start`)
+
 ## rebuild dist before testing
 
 The Vite SSR middleware imports from `spiceflow/dist/` (the compiled package), NOT from source. If you modify files in `spiceflow/src/`, you must rebuild before e2e tests will pick up the changes:

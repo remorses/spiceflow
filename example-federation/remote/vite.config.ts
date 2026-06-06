@@ -1,5 +1,7 @@
+// @vitejs/plugin-react is not needed for federation remotes. The spiceflow
+// plugin enables OXC JSX transform and disables Fast Refresh automatically,
+// since federation client chunks are loaded cross-origin by consumers.
 import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
 import spiceflow from 'spiceflow/vite'
 
 // REMOTE_ORIGIN must be set to the remote's public URL so all built asset
@@ -18,6 +20,5 @@ export default defineConfig({
       entry: './src/main.tsx',
       federation: 'remote',
     }),
-    react(),
   ],
 })

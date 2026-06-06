@@ -59,14 +59,13 @@ test.describe('standalone federation consumer', () => {
     const counter = page.getByTestId('remote-counter')
     await expect(counter).toBeVisible({ timeout: DECODE_TIMEOUT })
 
-    // Wait for CSS to load (it's fetched from the remote origin)
-    await page.waitForTimeout(1000)
-
-    const borderColor = await counter.evaluate(
-      (el) => getComputedStyle(el).borderColor,
-    )
-    // #3b82f6 = rgb(59, 130, 246) from counter.css
-    expect(borderColor).toBe('rgb(59, 130, 246)')
+    // Wait for remote CSS to load and apply (#3b82f6 = rgb(59, 130, 246))
+    await expect
+      .poll(
+        () => counter.evaluate((el) => getComputedStyle(el).borderColor),
+        { timeout: 5000 },
+      )
+      .toBe('rgb(59, 130, 246)')
   })
 
   test('no React errors in console', async ({ page }) => {

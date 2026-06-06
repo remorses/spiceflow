@@ -26,6 +26,7 @@ import { prerenderPlugin } from './react/prerender.js'
 import { serverFileGuardPlugin } from './server-file-guard.js'
 import { logger } from './logger.js'
 import { traceAndCopyDependencies } from './trace-dependencies.js'
+import { federationDevExternalizePlugin } from './federation-dev-externalize.js'
 import { vercelPlugin } from './vercel.js'
 
 const require = createRequire(import.meta.url)
@@ -1019,13 +1020,22 @@ export default function spiceflow({
 
       return `export default ${JSON.stringify(importMapJson)}`
     }),
-    // Externalize React for remote apps so bare specifiers are resolved
-    // by the host's import map. Can't be always-on because React is CJS
-    // and Rolldown's interop generates require() that fails in browsers.
+    // Externalize React for remote federation apps so bare specifiers are
+    // resolved by the host's import map. In build mode, Rolldown externalizes
+    // them. In dev mode, the companion plugin strips Vite's /@id/ prefix so
+    // the browser sees bare specifiers and resolves them via the import map.
     ...(isRemote
       ? [
           {
             name: 'spiceflow:federation-remote',
+            // Enable OXC JSX transform so federation remotes don't need
+            // @vitejs/plugin-react. The spiceflow federation plugin handles
+            // JSX and disables Fast Refresh automatically.
+            config() {
+              return {
+                oxc: { jsx: { runtime: 'automatic' } },
+              }
+            },
             configEnvironment(name: string, config: any) {
               if (name !== 'client') return
               config.build ??= {}
@@ -1038,6 +1048,7 @@ export default function spiceflow({
               config.build.rollupOptions.external = REACT_EXTERNALS
             },
           } satisfies Plugin,
+          ...federationDevExternalizePlugin(REACT_EXTERNALS),
         ]
       : []),
   ]
