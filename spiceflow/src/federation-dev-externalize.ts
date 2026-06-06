@@ -11,8 +11,8 @@
 // Three mechanisms work together:
 // 1. configEnvironment: excludes externalized modules from dep optimization
 // 2. resolveId hook: returns { id, external: true } so Vite skips resolution
-// 3. transform hook (late): strips /@id/ prefixes, HMR/Fast Refresh artifacts
-//    from @vitejs/plugin-react, and CSS side-effect imports
+// 3. transform hook (late): strips /@id/ prefixes and HMR/Fast Refresh
+//    artifacts from @vitejs/plugin-react
 import type { Plugin } from 'vite'
 
 const resolvedExternals = new Set<string>()
@@ -77,7 +77,7 @@ export function federationDevExternalizePlugin(
 }
 
 // Late-running transform that cleans up client component modules for federation:
-// strips /@id/ prefixes, HMR/Fast Refresh artifacts, and CSS side-effect imports.
+// strips /@id/ prefixes and HMR/Fast Refresh artifacts.
 // Only affects "use client" modules in the client environment.
 function federationDevCleanupPlugin(base: string): Plugin {
   return {
@@ -135,9 +135,6 @@ function federationDevCleanupPlugin(base: string): Plugin {
           'var $RefreshSig$ = () => (x) => x, $RefreshReg$ = () => {};\n' +
           result
       }
-
-      // Strip CSS side-effect imports (CSS is delivered via federation metadata)
-      result = result.replace(/import\s+["'][^"']*\.css["'];?\s*/g, '')
 
       return result !== code ? result : null
     },
