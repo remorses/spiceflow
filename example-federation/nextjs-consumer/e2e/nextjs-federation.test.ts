@@ -46,12 +46,9 @@ test.describe('nextjs federation consumer', () => {
     await counter.getByRole('button', { name: '+' }).click()
     await expect(counter).toContainText('counter: 2')
 
-    // Filter out known benign errors (CORS preflight, React dev warnings, etc.)
+    // Filter React dev-only warnings (not real errors, stripped in production)
     const realErrors = errors.filter(
-      (e) =>
-        !e.includes('Failed to load resource') &&
-        !e.includes('net::ERR') &&
-        !e.includes('unique "key" prop'),
+      (e) => !e.includes('unique "key" prop'),
     )
     expect(realErrors).toEqual([])
   })
