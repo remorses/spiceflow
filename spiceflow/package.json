@@ -121,8 +121,8 @@
       "default": "./dist/federation.default.js"
     },
     "./federation-client": {
-      "types": "./dist/react/federated-payload.d.ts",
-      "default": "./dist/react/federated-payload.js"
+      "types": "./dist/react/federation-client.d.ts",
+      "default": "./dist/react/federation-client.js"
     },
     "./src/*": {
       "default": "./src/*.ts"

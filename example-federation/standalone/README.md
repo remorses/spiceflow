@@ -70,24 +70,14 @@ export default defineConfig({
 ## Consuming federation payloads
 
 ```ts
-import {
-  decodeFederationPayloadDetails,
-  resolveFederatedUrl,
-} from 'spiceflow/federation-client'
+import { decodeFederationPayload } from 'spiceflow/federation-client'
 
 const response = await fetch('https://remote.example.com/api/chart')
-const decoded = await decodeFederationPayloadDetails<ReactNode>(response)
+const chartNode = await decodeFederationPayload<ReactNode>(response)
 
-// Inject remote CSS
-for (const href of decoded.metadata.cssLinks) {
-  const link = document.createElement('link')
-  link.rel = 'stylesheet'
-  link.href = resolveFederatedUrl(href, decoded.remoteOrigin)
-  document.head.appendChild(link)
-}
-
-// Render the decoded React element
-setChartNode(decoded.value)
+// CSS is auto-injected into document.head.
+// Render the decoded React element.
+setChartNode(chartNode)
 ```
 
 ### Streaming with async iterables
@@ -96,11 +86,11 @@ Federation endpoints can return async generators. The consumer receives parts in
 
 ```ts
 const response = await fetch(`${remoteOrigin}/api/chat?message=${message}`)
-const decoded = await decodeFederationPayloadDetails<{
+const decoded = await decodeFederationPayload<{
   stream: AsyncIterable<{ type: string; content: ReactNode }>
 }>(response)
 
-for await (const part of decoded.value.stream) {
+for await (const part of decoded.stream) {
   // Each part arrives as it's generated on the server.
   // part.content is a React element that may include client components.
   appendPart(part.content)

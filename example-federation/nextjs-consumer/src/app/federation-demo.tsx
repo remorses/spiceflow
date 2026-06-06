@@ -5,7 +5,7 @@
 
 import { useState, useEffect, type ReactNode } from 'react'
 import {
-  decodeFederationPayloadDetails,
+  decodeFederationPayload,
   setupFederationConsumer,
 } from 'spiceflow/federation-client'
 
@@ -58,8 +58,8 @@ export function FederationDemo() {
     setError(null)
     try {
       const response = await fetch(`${remoteOrigin}/api/chart`)
-      const decoded = await decodeFederationPayloadDetails<ReactNode>(response)
-      setChartNode(decoded.value)
+      const chartNode = await decodeFederationPayload<ReactNode>(response)
+      setChartNode(chartNode)
     } catch (err) {
       console.error('Chart load error:', err)
       setError(String(err))

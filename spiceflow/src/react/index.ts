@@ -24,11 +24,7 @@ export {
   decodeFederationPayload,
   decodeFederationPayloadDetails,
   RenderFederatedPayload,
-  setFederationFlightClient,
   setupFederationConsumer,
-  parseFederationPayload,
-  loadFederatedClientModules,
-  resolveFederatedUrl,
 } from './federated-payload.ts'
 export { ErrorBoundary } from './error-boundary.tsx'
 export { setReactErrorHandlers } from './error-handlers.ts'

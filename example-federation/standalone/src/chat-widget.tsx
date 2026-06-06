@@ -3,7 +3,7 @@
 // hydration in a plain React SPA.
 import { useState, type ReactNode } from 'react'
 import {
-  decodeFederationPayloadDetails,
+  decodeFederationPayload,
 } from 'spiceflow/federation-client'
 
 const remoteOrigin = 'http://localhost:3051'
@@ -39,12 +39,12 @@ export function ChatWidget() {
         `${remoteOrigin}/api/chat?message=${encodeURIComponent(message)}`,
       )
 
-      const decoded = await decodeFederationPayloadDetails<{
+      const decoded = await decodeFederationPayload<{
         stream: AsyncIterable<ChatPart>
       }>(response)
 
       const parts: ReactNode[] = []
-      for await (const part of decoded.value.stream) {
+      for await (const part of decoded.stream) {
         parts.push(part.content)
         const updatedParts = [...parts]
         setMessages((prev) => {
@@ -70,8 +70,8 @@ export function ChatWidget() {
     setLoading(true)
     try {
       const response = await fetch(`${remoteOrigin}/api/chart`)
-      const decoded = await decodeFederationPayloadDetails<ReactNode>(response)
-      setChartNode(decoded.value)
+      const chartNode = await decodeFederationPayload<ReactNode>(response)
+      setChartNode(chartNode)
     } catch (error) {
       console.error('Chart error:', error)
     } finally {

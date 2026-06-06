@@ -21,4 +21,4 @@ await setupFederationConsumer({
 
 `setupFederationConsumer()` auto-loads an embedded pre-built Flight client, injects a blob URL import map for bare specifiers, and patches require globals for the Flight protocol. Safe to call during SSR (no-ops on the server). Idempotent and concurrent-safe across React Strict Mode and HMR.
 
-Also export `decodeFederationPayloadDetails`, `setFederationFlightClient`, `parseFederationPayload`, `loadFederatedClientModules`, and `resolveFederatedUrl` from `spiceflow/federation-client`.
+Also export `decodeFederationPayload`, `decodeFederationPayloadDetails`, and `setupFederationConsumer` from `spiceflow/federation-client`.
