@@ -39,9 +39,11 @@ await setupFederationConsumer({
 })
 ```
 
-`setupFederationConsumer` auto-loads an embedded pre-built Flight client (no need to install `react-server-dom-webpack`). It injects a blob URL import map so remote federation chunks resolve bare specifiers like `react` to the host's copy.
+Spiceflow remotes externalize React when building client component chunks, so the built JS files contain bare `import "react"` specifiers instead of bundling their own copy. This keeps chunks small and prevents duplicate React instances. When the standalone consumer dynamically imports those chunks at runtime, the browser needs an import map to resolve the bare specifiers.
 
-React must be externalized in your build so remote federation chunks (loaded via dynamic `import()`) resolve `react` to the host's copy. In a real app like Next.js, React is already a peer dependency provided by the framework. The import map in this example's `index.html` is just a development convenience; in production you'd rely on your bundler's externalization.
+`setupFederationConsumer` handles this automatically: it creates blob URL wrapper modules for each entry in `modules` and injects a `<script type="importmap">` so the browser resolves `"react"` (and other bare specifiers) to the host app's copies. It also sets up the Flight client for decoding RSC payloads (no need to install `react-server-dom-webpack`).
+
+The import map only affects remote chunks loaded via dynamic `import()` from another origin. It does **not** interfere with the host app's own module resolution. In Next.js, webpack/turbopack resolves imports at build time and ignores browser import maps entirely.
 
 ### Vite config
 
