@@ -19,6 +19,7 @@ async function ensureFederationSetup() {
 
   const React = await import('react')
   const ReactJsx = await import('react/jsx-runtime')
+  const ReactJsxDev = await import('react/jsx-dev-runtime')
   const ReactDOM = await import('react-dom')
   const ReactDOMClient = await import('react-dom/client')
   const SpiceflowReact = await import('spiceflow/react')
@@ -27,7 +28,7 @@ async function ensureFederationSetup() {
     modules: {
       'react': React,
       'react/jsx-runtime': ReactJsx,
-      'react/jsx-dev-runtime': ReactJsx,
+      'react/jsx-dev-runtime': ReactJsxDev,
       'react-dom': ReactDOM,
       'react-dom/client': ReactDOMClient,
       'spiceflow/react': SpiceflowReact,
@@ -91,7 +92,7 @@ export function FederationDemo() {
             {error}
           </div>
         )}
-        {chartNode && <div data-testid="chart-container">{chartNode}</div>}
+        {chartNode !== null && <div data-testid="chart-container">{chartNode}</div>}
       </div>
     </div>
   )

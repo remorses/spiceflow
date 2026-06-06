@@ -53,6 +53,7 @@ Call `setupFederationConsumer` at the top level and export the setup promise alo
 ```ts
 import * as React from 'react'
 import * as ReactJsx from 'react/jsx-runtime'
+import * as ReactJsxDev from 'react/jsx-dev-runtime'
 import * as ReactDOM from 'react-dom'
 import * as ReactDOMClient from 'react-dom/client'
 import * as SpiceflowReact from 'spiceflow/react'
@@ -62,7 +63,7 @@ export const federationReady = setupFederationConsumer({
   modules: {
     'react': React,
     'react/jsx-runtime': ReactJsx,
-    'react/jsx-dev-runtime': ReactJsx,
+    'react/jsx-dev-runtime': ReactJsxDev,
     'react-dom': ReactDOM,
     'react-dom/client': ReactDOMClient,
     'spiceflow/react': SpiceflowReact,
@@ -74,7 +75,7 @@ export { ChatWidget } from './chat-widget'
 
 `setupFederationConsumer` creates blob URL wrapper modules for each entry in `modules` and injects a `<script type="importmap">` so the browser resolves `"react"` (and other bare specifiers) to the host app's copies. It also sets up the Flight client for decoding RSC payloads.
 
-The import map only affects remote chunks loaded via dynamic `import()` from another origin. It does **not** interfere with the host app's own module resolution. In Next.js, webpack/turbopack resolves imports at build time and ignores browser import maps entirely.
+The import map is only needed for remote chunks loaded via dynamic `import()` from another origin. It does **not** interfere with the host app's bundled module resolution. In Next.js, webpack/turbopack resolves imports at build time and ignores browser import maps entirely.
 
 ## Consuming federation payloads
 
@@ -106,12 +107,13 @@ for await (const part of decoded.stream) {
 
 ## Shipping as an npm package
 
-The Vite library build produces a single ESM file with React externalized. Publish it as an npm package with `peerDependencies` on React.
+The Vite library build produces ESM output with React externalized. Publish the whole `dist/` folder as an npm package with `peerDependencies` on React, including any generated chunks.
 
 ```
 your-federation-package/
   dist/
     federation-standalone.js   # Vite library mode output
+    *.js                       # generated chunks used by the library
   package.json                 # "main": "dist/federation-standalone.js"
 ```
 

@@ -8,6 +8,7 @@
 
 import * as React from 'react'
 import * as ReactJsx from 'react/jsx-runtime'
+import * as ReactJsxDev from 'react/jsx-dev-runtime'
 import * as ReactDOM from 'react-dom'
 import * as ReactDOMClient from 'react-dom/client'
 import * as SpiceflowReact from 'spiceflow/react'
@@ -17,7 +18,7 @@ export const federationReady = setupFederationConsumer({
   modules: {
     'react': React,
     'react/jsx-runtime': ReactJsx,
-    'react/jsx-dev-runtime': ReactJsx,
+    'react/jsx-dev-runtime': ReactJsxDev,
     'react-dom': ReactDOM,
     'react-dom/client': ReactDOMClient,
     'spiceflow/react': SpiceflowReact,

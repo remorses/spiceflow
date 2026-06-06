@@ -87,7 +87,7 @@ export function ChatWidget() {
         <button data-testid="load-chart" onClick={handleLoadChart} disabled={loading}>
           Load Remote Chart
         </button>
-        {chartNode && <div data-testid="chart-container">{chartNode}</div>}
+        {chartNode !== null && <div data-testid="chart-container">{chartNode}</div>}
       </div>
 
       <hr style={{ margin: '20px 0' }} />
