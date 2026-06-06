@@ -144,7 +144,7 @@ cd example-federation/standalone && npx serve . -l 3053
 
 Open `http://localhost:3053`. The `pnpm dev` command runs `vite build --watch`, so editing `src/chat-widget.tsx` or `src/main.tsx` rebuilds the library automatically. Refresh the browser to pick up changes.
 
-The remote runs in `vite dev` mode so client chunks are served from source with React externalized for cross-origin federation consumers. HMR/Fast Refresh is disabled for remote chunks (the `federation-dev-externalize` plugin sets `server.hmr = false`); refresh the consumer page after editing remote files.
+The remote runs in `vite dev` mode so client chunks are served from source with React externalized for cross-origin federation consumers. The `federation-dev-externalize` plugin strips Fast Refresh and HMR artifacts from `"use client"` modules so they work cross-origin. Refresh the consumer page after editing remote files.
 
 E2e tests: `cd example-federation/standalone && pnpm test-e2e`
 

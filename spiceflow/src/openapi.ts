@@ -470,6 +470,37 @@ export function openapi<Path extends string = '/openapi'>({
         'Content-Type': 'application/json',
       },
     })
+  }, {
+    detail: {
+      summary: 'Get OpenAPI specification',
+      description: 'Returns the OpenAPI specification document for this API in JSON format.',
+      tags: ['OpenAPI'],
+      responses: {
+        '200': {
+          description: 'OpenAPI specification document',
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  openapi: { type: 'string', description: 'OpenAPI version', example: '3.1.3' },
+                  info: {
+                    type: 'object',
+                    properties: {
+                      title: { type: 'string' },
+                      description: { type: 'string' },
+                      version: { type: 'string' },
+                    },
+                  },
+                  paths: { type: 'object', description: 'Available API endpoints' },
+                  components: { type: 'object', description: 'Reusable schema components' },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
   })
 
   return app

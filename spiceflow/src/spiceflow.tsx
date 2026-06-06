@@ -421,7 +421,8 @@ export class Spiceflow<
       let prefix = this.joinBasePaths(
         this.getAppAndParents(app).map((x) => x.basePath),
       ).replace(/\/$/, '')
-      if (prefix && !path.startsWith(prefix)) {
+      // Segment-aware prefix check: /api must not match /apiary
+      if (prefix && !(path === prefix || path.startsWith(prefix + '/'))) {
         continue
       }
       let pathWithoutPrefix = path
@@ -430,13 +431,23 @@ export class Spiceflow<
       }
 
       const matchedRoutesForMethod = app.router.match(method, pathWithoutPrefix)
-      const matchedRoutes = matchedRoutesForMethod?.length
+      // The router can return [[]] when the path exists but has no handler
+      // for the requested method (e.g. POST registered but OPTIONS requested).
+      // Check the inner array length to detect actual matches.
+      const matchedRoutes = hasActualRouteMatches(matchedRoutesForMethod)
         ? matchedRoutesForMethod
         : method === 'HEAD'
           ? app.router.match('GET', pathWithoutPrefix)
           : undefined
-      if (!matchedRoutes?.length) {
-        foundApp = app
+      if (!matchedRoutes || !hasActualRouteMatches(matchedRoutes)) {
+        // Only claim this app as the scope for not-found when it has a
+        // registered route on this path for some other method (e.g. POST
+        // exists but OPTIONS was requested). This ensures the sub-app's
+        // middlewares (like cors) run for preflight requests.
+        const hasRouteForPath = app.routes.some((route) =>
+          hasActualRouteMatches(app.router.match(route.method, pathWithoutPrefix)),
+        )
+        if (hasRouteForPath) foundApp = app
         continue
       }
 
@@ -1421,13 +1432,17 @@ export class Spiceflow<
       const requestUrl = new URL(request.url)
       const root = this.topLevelApp || this
       const allowed = root.allowedActionOrigins
+      const originUrl = URL.canParse(origin) ? new URL(origin) : null
       const isAllowed =
-        origin === requestUrl.origin ||
+        (originUrl && originUrl.host === requestUrl.host) ||
         allowed?.some((rule) =>
           rule instanceof RegExp ? rule.test(origin) : origin === rule,
         )
       if (!isAllowed) {
-        return new Response('Forbidden: origin mismatch', { status: 403 })
+        return new Response(
+          `Forbidden: origin mismatch (request origin: "${origin}", server origin: "${requestUrl.origin}")`,
+          { status: 403 },
+        )
       }
     }
 
@@ -2093,6 +2108,16 @@ export class Spiceflow<
       return new Response(null, {
         status: 302,
         headers: { location: `${cleanUrl.pathname}${cleanUrl.search}` },
+      })
+    }
+
+    // When a base path is set and the request is for bare `/`, redirect to
+    // the base path so users see the app instead of a 404. Only the root app
+    // redirects — sub-apps mounted via .use() must not hijack `/`.
+    if (this.basePath && this.topLevelApp === this && (path === '/' || path === '')) {
+      return new Response(null, {
+        status: 302,
+        headers: { location: this.basePath + '/' },
       })
     }
 
@@ -3419,6 +3444,12 @@ function pickBestRoute<T extends { route: InternalRoute; app?: AnySpiceflow }>(
     }
   }
   return best
+}
+
+// The trie router returns [[]] when a path node exists but has no handler
+// for the requested method. Check the inner array to detect real matches.
+function hasActualRouteMatches(result: any): boolean {
+  return Boolean(result?.[0]?.length)
 }
 
 function middlewarePathMatches(requestPath: string, pattern: string): boolean {

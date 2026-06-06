@@ -158,7 +158,7 @@ describe('MCP Plugin', () => {
             "name": "GET_api_mcp",
           },
           {
-            "description": "GET route for /api/_mcp_openapi",
+            "description": "GET route for /api/_mcp_openapi. Returns the OpenAPI specification document for this API in JSON format.",
             "inputSchema": {
               "properties": {},
               "type": "object",

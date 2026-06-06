@@ -43,7 +43,7 @@ export const app = new Spiceflow()
     // federation emits metadata before client references are discovered.
     async function* generateParts() {
       const responses = [
-        `I received your messages: "${message}"`,
+        `I received your message: "${message}"`,
         'Let me think about that for a moment...',
         'Here is my detailed answer with **formatting**.',
       ]
@@ -71,11 +71,7 @@ export const app = new Spiceflow()
     return await encodeFederationPayload({ stream: generateParts() })
   })
 
-// Only listen in production. In vite dev, the spiceflow plugin handles
-// requests through Vite's SSR middleware on Vite's own port.
-if (!import.meta.hot) {
-  void app.listen(Number(process.env.PORT || 3001))
-}
+void app.listen(Number(process.env.PORT || 3001))
 
 declare module 'spiceflow/react' {
   interface SpiceflowRegister { app: typeof app }

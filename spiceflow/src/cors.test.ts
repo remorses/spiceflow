@@ -104,6 +104,51 @@ test('CORS headers are set when an error is thrown in middleware', async () => {
   expect(errorRouteCallCount).toBe(0)
 })
 
+test('sub-app with cors handles OPTIONS even when parent app has no cors', async () => {
+  const subApp = new Spiceflow({ basePath: '/api' })
+    .use(cors())
+    .post('/hello', () => ({ ok: true }))
+
+  const mainApp = new Spiceflow().use(subApp)
+
+  const res = await mainApp.handle(
+    new Request('http://localhost/api/hello', {
+      method: 'OPTIONS',
+      headers: {
+        Origin: 'http://example.com',
+        'Access-Control-Request-Method': 'POST',
+      },
+    }),
+  )
+
+  expect(res.status).toBe(204)
+  expect(res.headers.get('Access-Control-Allow-Origin')).toBe('*')
+  expect(res.headers.get('Access-Control-Allow-Methods')).toBe(
+    'GET,HEAD,PUT,POST,DELETE,PATCH',
+  )
+})
+
+test('sub-app cors does not leak to neighboring base path prefix', async () => {
+  const subApp = new Spiceflow({ basePath: '/api' })
+    .use(cors())
+    .post('/hello', () => ({ ok: true }))
+
+  const mainApp = new Spiceflow().use(subApp)
+
+  const res = await mainApp.handle(
+    new Request('http://localhost/apiary/hello', {
+      method: 'OPTIONS',
+      headers: {
+        Origin: 'http://example.com',
+        'Access-Control-Request-Method': 'POST',
+      },
+    }),
+  )
+
+  expect(res.status).toBe(404)
+  expect(res.headers.get('Access-Control-Allow-Origin')).toBe(null)
+})
+
 test('CORS preserves headers on HEAD responses without adding a body', async () => {
   const app = new Spiceflow().use(cors()).get('/hello', () => ({ ok: true }))
 

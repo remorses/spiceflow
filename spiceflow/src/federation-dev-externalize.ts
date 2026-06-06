@@ -10,10 +10,9 @@
 //
 // Three mechanisms work together:
 // 1. configEnvironment: excludes externalized modules from dep optimization
-//    and disables OXC Fast Refresh for client chunks (overrides @vitejs/plugin-react)
 // 2. resolveId hook: returns { id, external: true } so Vite skips resolution
-// 3. transform hook (late): strips /@id/ prefix that vite:import-analysis adds
-//    for external modules, and strips CSS side-effect imports
+// 3. transform hook (late): strips /@id/ prefixes, HMR/Fast Refresh artifacts
+//    from @vitejs/plugin-react, and CSS side-effect imports
 import type { Plugin } from 'vite'
 
 const resolvedExternals = new Set<string>()

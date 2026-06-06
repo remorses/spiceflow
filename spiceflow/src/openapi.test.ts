@@ -308,24 +308,52 @@ test('openapi response', async () => {
         },
         "/base/openapi": {
           "get": {
+            "description": "Returns the OpenAPI specification document for this API in JSON format.",
             "responses": {
               "200": {
                 "content": {
-                  "*/*": {
-                    "schema": {},
+                  "application/json": {
+                    "schema": {
+                      "properties": {
+                        "components": {
+                          "description": "Reusable schema components",
+                          "type": "object",
+                        },
+                        "info": {
+                          "properties": {
+                            "description": {
+                              "type": "string",
+                            },
+                            "title": {
+                              "type": "string",
+                            },
+                            "version": {
+                              "type": "string",
+                            },
+                          },
+                          "type": "object",
+                        },
+                        "openapi": {
+                          "description": "OpenAPI version",
+                          "example": "3.1.3",
+                          "type": "string",
+                        },
+                        "paths": {
+                          "description": "Available API endpoints",
+                          "type": "object",
+                        },
+                      },
+                      "type": "object",
+                    },
                   },
                 },
-                "description": "",
-              },
-              "default": {
-                "content": {
-                  "*/*": {
-                    "schema": {},
-                  },
-                },
-                "description": "",
+                "description": "OpenAPI specification document",
               },
             },
+            "summary": "Get OpenAPI specification",
+            "tags": [
+              "OpenAPI",
+            ],
           },
         },
         "/base/queryParams": {

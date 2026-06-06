@@ -1,6 +1,6 @@
 {
   "name": "spiceflow",
-  "version": "1.26.0-rsc.3",
+  "version": "1.26.0-rsc.4",
   "description": "Simple API framework with RPC and type safety",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -165,7 +165,7 @@
   "author": "Tommaso De Rossi, morse <beats.by.morse@gmail.com>",
   "license": "MIT",
   "dependencies": {
-    "@vitejs/plugin-rsc": "0.5.21",
+    "@vitejs/plugin-rsc": "0.5.27",
     "eventsource-parser": "^3.0.2",
     "its-fine": "^2.0.0",
     "nf3": "0.3.16"
@@ -191,8 +191,8 @@
     "@modelcontextprotocol/sdk": "^1.25.3",
     "@types/node": "~24.0.1",
     "@types/ps-tree": "^1.1.6",
-    "@types/react": "19.2.16",
-    "@types/react-dom": "19.2.3",
+    "@types/react": "^19.2.16",
+    "@types/react-dom": "^19.2.3",
     "ai": "^5.0.14",
     "esbuild": "^0.27.4",
     "react-server-dom-webpack": "19.2.4",

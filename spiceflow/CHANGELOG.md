@@ -1,5 +1,17 @@
 # spiceflow
 
+## 1.26.0-rsc.4
+
+1. **CSRF origin check compares hosts only, ignoring protocol** — server actions behind TLS-terminating reverse proxies (Fly.io, Cloudflare, AWS ALB) no longer get false 403 errors when the `Origin` header uses `https` but the server sees `http`. The error message now includes both origins for easier debugging. Invalid `Origin` headers are handled gracefully with `URL.canParse` instead of throwing.
+
+2. **Export `SpiceflowFetchError` class from `spiceflow/client`** — consumers can now use `instanceof SpiceflowFetchError` to narrow errors returned by `createSpiceflowFetch`. Previously the class was internal-only and required structural casts to access `.status` and `.value`.
+
+3. **Fix sub-app CORS preflight with segment-aware base path matching** — OPTIONS requests to sub-app routes now correctly run the sub-app's middleware chain (including CORS). The base path check is now segment-aware: `/api` no longer matches `/apiary`. Sub-apps only claim ownership of a path when they have an actual route registered for it, so middleware like `cors()` runs for preflight requests even when no explicit OPTIONS handler is defined.
+
+4. **Simplify Server-Timing metric names** — span descriptions no longer include the full parent chain (e.g. `middleware - authMiddleware > handler - /api/users/:id > db.query` becomes just `db.query`). Metric names collapse consecutive hyphens and use the span's own name instead of the full ancestry.
+
+5. **Log prerender errors in SSR entry** — build-time prerender errors are now logged to the console instead of being swallowed as generic 500 error HTML shells.
+
 ## 1.26.0-rsc.3
 
 1. **Fix `.use()` type inference when mounting an `AnySpiceflow` child app** — composing a dynamically-typed child (e.g. from a library that returns `AnySpiceflow`) would collapse the parent's `ClientRoutes` to `any`, breaking `createSpiceflowFetch` type safety for all routes on the composed app. The `.use()` overload now detects when the child's `ClientRoutes` is `any` and returns `this` unchanged, preserving the parent's typed routes.
