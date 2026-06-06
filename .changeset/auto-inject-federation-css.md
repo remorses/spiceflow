@@ -13,6 +13,8 @@ setChartNode(chartNode)
 Pass `{ injectCss: false }` to `decodeFederationPayloadDetails` to opt out for custom targets like Shadow DOM:
 
 ```ts
+import { decodeFederationPayloadDetails, injectFederationCss } from 'spiceflow/federation-client'
+
 const decoded = await decodeFederationPayloadDetails(response, { injectCss: false })
-// manually inject into a shadow root or other target
+await injectFederationCss(decoded.metadata, decoded.remoteOrigin)
 ```
