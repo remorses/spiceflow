@@ -6,20 +6,24 @@
 // index.html (esm.sh). This means both the app and remote federation
 // chunks share the same React instance without blob URLs.
 
+import * as React from 'react'
+import * as ReactJsx from 'react/jsx-runtime'
+import * as ReactDOM from 'react-dom'
+import * as ReactDOMClient from 'react-dom/client'
 import * as SpiceflowReact from 'spiceflow/react'
-import ReactClient from 'react-server-dom-webpack/client.browser'
 import { setupFederationConsumer } from 'spiceflow/federation-client'
-import { createRoot } from 'react-dom/client'
 import { ChatWidget } from './chat-widget'
 
-setupFederationConsumer({
-  reactServerDomWebpack: ReactClient,
+await setupFederationConsumer({
   modules: {
-    // Only spiceflow/react needs a blob URL mapping — React itself is
-    // already in the HTML import map so remote chunks resolve it directly.
+    'react': React,
+    'react/jsx-runtime': ReactJsx,
+    'react/jsx-dev-runtime': ReactJsx,
+    'react-dom': ReactDOM,
+    'react-dom/client': ReactDOMClient,
     'spiceflow/react': SpiceflowReact,
   },
 })
 
 const root = document.getElementById('root')!
-createRoot(root).render(<ChatWidget />)
+ReactDOMClient.createRoot(root).render(<ChatWidget />)

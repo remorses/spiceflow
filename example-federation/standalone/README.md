@@ -17,21 +17,29 @@ The typical use case: build a Spiceflow remote that exposes components via feder
 
 ## Setup
 
-Two things are needed: **call `setupFederationConsumer`** before any federation decode, and **externalize React** so the host and remote chunks share the same instance.
+Call `setupFederationConsumer` before any federation decode, and **externalize React** so the host and remote chunks share the same instance.
 
 ```ts
-// entry.ts
+import * as React from 'react'
+import * as ReactJsx from 'react/jsx-runtime'
+import * as ReactDOM from 'react-dom'
+import * as ReactDOMClient from 'react-dom/client'
 import * as SpiceflowReact from 'spiceflow/react'
-import ReactClient from 'react-server-dom-webpack/client.browser'
 import { setupFederationConsumer } from 'spiceflow/federation-client'
 
-setupFederationConsumer({
-  reactServerDomWebpack: ReactClient,
+await setupFederationConsumer({
   modules: {
+    'react': React,
+    'react/jsx-runtime': ReactJsx,
+    'react/jsx-dev-runtime': ReactJsx,
+    'react-dom': ReactDOM,
+    'react-dom/client': ReactDOMClient,
     'spiceflow/react': SpiceflowReact,
   },
 })
 ```
+
+`setupFederationConsumer` auto-loads an embedded pre-built Flight client (no need to install `react-server-dom-webpack`). It injects a blob URL import map so remote federation chunks resolve bare specifiers like `react` to the host's copy.
 
 React must be externalized in your build so remote federation chunks (loaded via dynamic `import()`) resolve `react` to the host's copy. In a real app like Next.js, React is already a peer dependency provided by the framework. The import map in this example's `index.html` is just a development convenience; in production you'd rely on your bundler's externalization.
 
@@ -40,10 +48,9 @@ React must be externalized in your build so remote federation chunks (loaded via
 ```ts
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
-import { federationPatchWebpack } from 'spiceflow/federation-client'
 
 export default defineConfig({
-  plugins: [react(), federationPatchWebpack()],
+  plugins: [react()],
   build: {
     rolldownOptions: {
       external: [
@@ -57,10 +64,6 @@ export default defineConfig({
   },
 })
 ```
-
-`federationPatchWebpack()` does two things:
-- Converts CJS `require("react-dom")` calls inside `react-server-dom-webpack` to ESM imports, so externalized React packages resolve via import maps instead of failing with `require is not defined`
-- Injects a `__webpack_require__` stub into the HTML for the Flight protocol's module resolution
 
 ## Consuming federation payloads
 
