@@ -146,7 +146,7 @@ Open `http://localhost:3053`. The `pnpm dev` command runs `vite build --watch`, 
 
 The remote runs in `vite dev` mode so client chunks are served from source with React externalized for cross-origin federation consumers. The `federation-dev-externalize` plugin strips Fast Refresh and HMR artifacts from `"use client"` modules so they work cross-origin. Refresh the consumer page after editing remote files.
 
-E2e tests: `cd example-federation/standalone && pnpm test-e2e`
+E2e tests: `cd example-federation/standalone && pnpm test-e2e`. To cover the remote `vite dev` path and the `federation-dev-externalize` plugin, run `pnpm test-e2e-dev-remote`.
 
 ## nextjs federation consumer (manual testing)
 
@@ -170,6 +170,7 @@ Open `http://localhost:3060`. Click "Load Remote Chart" to fetch and render a fe
 E2e tests run in two modes:
 - `pnpm test-e2e` — dev mode (`next dev`)
 - `pnpm test-e2e-start` — production mode (`next build` + `next start`)
+- `pnpm test-e2e-dev-remote` — Next.js production mode against the remote `vite dev` server
 
 ## rebuild dist before testing
 

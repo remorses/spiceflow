@@ -2,6 +2,7 @@ import { defineConfig, devices } from '@playwright/test'
 
 const remotePort = 3051
 const standalonePort = 3053
+const useDevRemote = process.env['REMOTE_MODE'] === 'dev'
 
 export default defineConfig({
   testDir: 'e2e',
@@ -24,15 +25,17 @@ export default defineConfig({
   ],
   webServer: [
     {
-      command: `PORT=${remotePort} node dist/rsc/index.js`,
+      command: useDevRemote
+        ? `pnpm exec vite dev --host 127.0.0.1 --port ${remotePort}`
+        : `PORT=${remotePort} node dist/rsc/index.js`,
       cwd: '../remote',
       port: remotePort,
-      reuseExistingServer: true,
+      reuseExistingServer: false,
     },
     {
       command: `npx serve . -l ${standalonePort} --no-clipboard`,
       port: standalonePort,
-      reuseExistingServer: true,
+      reuseExistingServer: false,
     },
   ],
   fullyParallel: false,

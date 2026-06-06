@@ -9,7 +9,9 @@
     "pretest-e2e": "cd ../remote && pnpm build",
     "pretest-e2e-start": "cd ../remote && pnpm build && cd ../nextjs-consumer && pnpm build",
     "test-e2e": "NEXTJS_MODE=dev playwright test",
-    "test-e2e-start": "playwright test"
+    "test-e2e-start": "playwright test",
+    "pretest-e2e-dev-remote": "pnpm build",
+    "test-e2e-dev-remote": "REMOTE_MODE=dev playwright test"
   },
   "dependencies": {
     "next": "^15.4.0-canary.84",
