@@ -26,7 +26,6 @@ export {
   RenderFederatedPayload,
   setFederationFlightClient,
   setupFederationConsumer,
-  federationPatchWebpack,
   parseFederationPayload,
   loadFederatedClientModules,
   resolveFederatedUrl,

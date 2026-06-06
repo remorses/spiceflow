@@ -216,45 +216,41 @@ async function collectFederationPayload(
 
 const remoteRegistry = new Map<string, Record<string, unknown>>()
 
+// Bypasses bundler import() transformation (webpack, Vite, Rolldown).
+// Without this, bundlers replace import() with their own module loading
+// which can't handle HTTP URLs or runtime-computed specifiers.
+const dynamicImport = new Function('url', 'return import(url)') as (
+  url: string,
+) => Promise<any>
+
 let requirePatched = false
 
+// Patch the require globals so the Flight client resolves federation
+// modules from remoteRegistry. Two globals matter:
+//
+// __vite_rsc_client_require__ — set by vite-rsc in Vite RSC hosts.
+//   The Flight client calls __vite_rsc_require__ which dispatches to
+//   __vite_rsc_client_require__ for client references.
+//
+// __vite_rsc_require__ — called directly by the embedded pre-built
+//   Flight client in standalone mode (Next.js, plain SPA).
 function ensureRequirePatched() {
   if (requirePatched) return
   requirePatched = true
-  const g = globalThis as typeof globalThis & {
-    __vite_rsc_client_require__?: (id: string) => unknown
-    __webpack_require__?: (id: string) => unknown
-    __federation_require__?: (id: string) => unknown
-  }
-  const orig = g.__vite_rsc_client_require__
-  if (orig) {
-    // Vite RSC host: patch the existing require to check remoteRegistry first
-    g.__vite_rsc_client_require__ = (id: string) => {
+  const g = globalThis as any
+  const wrapRequire = (fallback?: (id: string) => unknown) => {
+    return (id: string) => {
       const cleanId = id.split('$$cache=')[0]
       const mod = remoteRegistry.get(cleanId)
       if (mod) return mod
-      return orig(id)
+      if (fallback) return fallback(id)
+      throw new Error(
+        `[federation] Module not found in remote registry: ${id}`,
+      )
     }
-  } else {
-    // Standalone (no Vite RSC host): wrap existing require globals so that
-    // react-server-dom-webpack's Flight client can resolve remote modules.
-    // Delegates to any existing global (e.g. real webpack runtime) if the
-    // module isn't in remoteRegistry, instead of clobbering it.
-    const wrapRequire = (fallback?: (id: string) => unknown) => {
-      return (id: string) => {
-        const cleanId = id.split('$$cache=')[0]
-        const mod = remoteRegistry.get(cleanId)
-        if (mod) return mod
-        if (fallback) return fallback(id)
-        throw new Error(
-          `[federation] Module not found in remote registry: ${id}`,
-        )
-      }
-    }
-    g.__vite_rsc_client_require__ = wrapRequire(g.__vite_rsc_client_require__)
-    g.__webpack_require__ = wrapRequire(g.__webpack_require__)
-    g.__federation_require__ = wrapRequire(g.__federation_require__)
   }
+  g.__vite_rsc_client_require__ = wrapRequire(g.__vite_rsc_client_require__)
+  g.__vite_rsc_require__ = wrapRequire(g.__vite_rsc_require__)
 }
 
 export async function loadFederatedClientModules({
@@ -267,9 +263,7 @@ export async function loadFederatedClientModules({
   for (const [moduleId, info] of Object.entries(clientModules)) {
     for (const chunkPath of info.chunks) {
       const chunkUrl = resolveFederatedUrl(chunkPath, remoteOrigin)
-      const mod: Record<string, unknown> = await import(
-        /* @vite-ignore */ chunkUrl
-      )
+      const mod: Record<string, unknown> = await dynamicImport(chunkUrl)
       const exportName = 'export_' + moduleId
       const exported = mod[exportName]
       if (isRecord(exported)) {
@@ -584,9 +578,10 @@ export async function RenderFederatedPayload({
 const GLOBAL_KEY = '__SPICEFLOW_FEDERATION__'
 
 interface FederationConsumerOptions {
-  // The react-server-dom-webpack/client.browser module. Must provide
-  // createFromReadableStream and createFromFetch.
-  reactServerDomWebpack: {
+  // The react-server-dom-webpack/client.browser module. When omitted,
+  // spiceflow auto-loads its embedded pre-built copy via a blob URL.
+  // Only pass this if you need a specific version or custom build.
+  reactServerDomWebpack?: {
     createFromReadableStream: (
       stream: ReadableStream<Uint8Array>,
       options?: any,
@@ -606,18 +601,34 @@ interface FederationConsumerOptions {
   modules: Record<string, Record<string, unknown>>
 }
 
-export function setupFederationConsumer(options: FederationConsumerOptions) {
-  const { reactServerDomWebpack, modules } = options
+const SETUP_PROMISE_KEY = '__SPICEFLOW_FEDERATION_SETUP__'
+
+export async function setupFederationConsumer(
+  options: FederationConsumerOptions,
+) {
   const g = globalThis as any
 
-  // SSR guard: blob URLs and import maps are browser-only. On the server
-  // this is a safe no-op so the function can be called unconditionally in
-  // modules that run during both SSR and client rendering (e.g. Next.js).
+  // SSR guard: blob URLs and import maps are browser-only.
   if (typeof document === 'undefined') return
 
-  // Idempotent: skip if already set up with the same modules to avoid
-  // leaking blob URLs and duplicate import maps (React Strict Mode, HMR).
-  if (g[GLOBAL_KEY]) return
+  // Concurrent callers (React Strict Mode, HMR) await the same promise
+  // so setup completes fully before any caller proceeds.
+  if (g[SETUP_PROMISE_KEY]) return g[SETUP_PROMISE_KEY]
+
+  const promise = setupFederationConsumerInner(options).catch((error) => {
+    delete g[GLOBAL_KEY]
+    delete g[SETUP_PROMISE_KEY]
+    throw error
+  })
+  g[SETUP_PROMISE_KEY] = promise
+  return promise
+}
+
+async function setupFederationConsumerInner(
+  options: FederationConsumerOptions,
+) {
+  let { reactServerDomWebpack, modules } = options
+  const g = globalThis as any
 
   // 1. Store modules on global for blob URL wrappers to read
   g[GLOBAL_KEY] = modules
@@ -643,7 +654,36 @@ export function setupFederationConsumer(options: FederationConsumerOptions) {
   script.textContent = JSON.stringify({ imports })
   document.head.appendChild(script)
 
-  // 3. Set up Flight client
+  // 3. Auto-load Flight client from embedded source if not provided.
+  // The embedded copy has __webpack_require__ replaced with
+  // globalThis.__vite_rsc_require__ and a require() shim for React.
+  if (!reactServerDomWebpack) {
+    const { FLIGHT_CLIENT_SOURCE } = await import(
+      './federation-flight-client-source.js'
+    )
+    // The Flight client's require("react") shim reads from this global
+    g.__FEDERATION_MODULES__ = {
+      react: modules['react'],
+      'react-dom': modules['react-dom'],
+    }
+    // Ensure __vite_rsc_require__ exists with .u stub before the module
+    // evaluates (it reads .u at the top level for chunk filename resolution)
+    if (!g.__vite_rsc_require__) {
+      const stub = ((id: string) => {
+        throw new Error(`[federation] Module not found: ${id}`)
+      }) as any
+      stub.u = undefined
+      g.__vite_rsc_require__ = stub
+    }
+    const blob = new Blob([FLIGHT_CLIENT_SOURCE], {
+      type: 'text/javascript',
+    })
+    const url = URL.createObjectURL(blob)
+    reactServerDomWebpack = await dynamicImport(url)
+    URL.revokeObjectURL(url)
+  }
+
+  // 4. Set up Flight client
   const callServer = () => {
     throw new Error(
       'Server actions are not supported in standalone federation consumers',
@@ -651,81 +691,17 @@ export function setupFederationConsumer(options: FederationConsumerOptions) {
   }
   setFederationFlightClient({
     createFromReadableStream<T>(stream: ReadableStream<Uint8Array>) {
-      return reactServerDomWebpack.createFromReadableStream(stream, {
+      return reactServerDomWebpack!.createFromReadableStream(stream, {
         callServer,
       })
     },
     createFromFetch<T>(response: Promise<Response>) {
-      return reactServerDomWebpack.createFromFetch(response, { callServer })
+      return reactServerDomWebpack!.createFromFetch(response, { callServer })
     },
   })
 
-  // 4. Patch require globals for standalone mode
+  // 5. Patch require globals for standalone mode
   ensureRequirePatched()
 }
 
-// Virtual module ID for the require polyfill. Imported at the top of
-// react-server-dom-webpack so it evaluates before any CJS require() calls.
-const POLYFILL_ID = '\0federation-require-polyfill'
 
-// Vite plugin for standalone federation consumers. Handles two problems:
-// 1. react-server-dom-webpack is CJS and does require("react-dom") at the
-//    top level. When react-dom is externalized, Rolldown emits a require()
-//    call that fails in the browser.
-// 2. The Flight protocol uses __webpack_require__ to resolve remote client
-//    component modules.
-//
-// Solution: a virtual polyfill module eagerly imports the externalized React
-// packages via ESM and provides a synchronous require() + __webpack_require__
-// global backed by those imports. The polyfill is injected as a dependency of
-// react-server-dom-webpack so it evaluates first.
-export function federationPatchWebpack() {
-  return {
-    name: 'spiceflow:federation-patch-webpack',
-    resolveId(id: string) {
-      if (id === POLYFILL_ID) return id
-    },
-    load(id: string) {
-      if (id !== POLYFILL_ID) return
-      return [
-        `import * as __react from 'react';`,
-        `import * as __react_dom from 'react-dom';`,
-        `import * as __react_jsx from 'react/jsx-runtime';`,
-        `const __registry = {`,
-        `  'react': __react,`,
-        `  'react-dom': __react_dom,`,
-        `  'react/jsx-runtime': __react_jsx,`,
-        `  'react/jsx-dev-runtime': __react_jsx,`,
-        `};`,
-        `if (!globalThis.require) {`,
-        `  globalThis.require = (id) => {`,
-        `    const m = __registry[id];`,
-        `    if (m) return m;`,
-        `    throw new Error('[federation] require: module not found: ' + id);`,
-        `  };`,
-        `}`,
-        `if (!globalThis.__webpack_require__) {`,
-        `  globalThis.__webpack_require__ = globalThis.require;`,
-        `  globalThis.__webpack_require__.u = undefined;`,
-        `}`,
-      ].join('\n')
-    },
-    transform(code: string, id: string) {
-      if (!id.includes('react-server-dom-webpack')) return
-      let patched = code
-      // Prepend the polyfill import so the require() global is ready
-      // before any CJS require("react-dom") calls in this module.
-      patched = `import ${JSON.stringify(POLYFILL_ID)};\n` + patched
-      if (patched.includes('__webpack_require__.u')) {
-        patched = patched.replaceAll('__webpack_require__.u', '({}).u')
-      }
-      if (patched.includes('__webpack_require__')) {
-        patched = patched.replaceAll(
-          '__webpack_require__',
-          '__federation_require__',
-        )
-      }
-      return { code: patched, map: null }
-    },
-  }
-}

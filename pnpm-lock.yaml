@@ -269,6 +269,34 @@ importers:
         specifier: ^6.0.1
         version: 6.0.2(vite@8.0.16(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0)(tsx@4.22.4)(yaml@2.9.0))
 
+  example-federation/nextjs-consumer:
+    dependencies:
+      next:
+        specifier: ^15.4.0-canary.84
+        version: 15.5.19(@opentelemetry/api@1.9.0)(@playwright/test@1.60.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      react:
+        specifier: 19.2.4
+        version: 19.2.4
+      react-dom:
+        specifier: 19.2.4
+        version: 19.2.4(react@19.2.4)
+      spiceflow:
+        specifier: workspace:^
+        version: link:../../spiceflow
+    devDependencies:
+      '@playwright/test':
+        specifier: ^1.52.0
+        version: 1.60.0
+      '@types/react':
+        specifier: 19.2.16
+        version: 19.2.16
+      '@types/react-dom':
+        specifier: 19.2.3
+        version: 19.2.3(@types/react@19.2.16)
+      typescript:
+        specifier: 5.7.3
+        version: 5.7.3
+
   example-federation/remote:
     dependencies:
       '@types/react':
@@ -311,9 +339,6 @@ importers:
       react-dom:
         specifier: 19.2.4
         version: 19.2.4(react@19.2.4)
-      react-server-dom-webpack:
-        specifier: 19.2.4
-        version: 19.2.4(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(webpack@5.105.4(esbuild@0.28.0))
       spiceflow:
         specifier: workspace:^
         version: link:../../spiceflow
@@ -786,6 +811,9 @@ importers:
       ps-tree:
         specifier: ^1.2.0
         version: 1.2.0
+      react-server-dom-webpack:
+        specifier: 19.2.4
+        version: 19.2.4(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(webpack@5.105.4(esbuild@0.27.7))
       rimraf:
         specifier: ^6.1.3
         version: 6.1.3
@@ -7999,10 +8027,6 @@ packages:
   webidl-conversions@3.0.1:
     resolution: {integrity: sha512-2JAn3z8AR6rjK8Sm8orRC0h/bcl/DqL7tRPdGZ4I1CjdF+EaMLmYxBHyXuKL849eucPFhvBoxMsflfOb8kxaeQ==}
 
-  webpack-sources@3.4.1:
-    resolution: {integrity: sha512-eACpxRN02yaawnt+uUNIF7Qje6A9zArxBbcAJjK1PK3S9Ycg5jIuJ8pW4q8EMnwNZCEGltcjkRx1QzOxOkKD8A==}
-    engines: {node: '>=10.13.0'}
-
   webpack-sources@3.5.0:
     resolution: {integrity: sha512-HPuy+uuoTCaaoEoI1LQ3JN9+vrPBvEesnnX1jADHy728cHSMlq4wUc4afYqahq2B1mhQVZxCXOkNTnXltr+2vQ==}
     engines: {node: '>=10.13.0'}
@@ -10881,6 +10905,7 @@ snapshots:
   '@types/node@25.9.1':
     dependencies:
       undici-types: 7.24.6
+    optional: true
 
   '@types/parse-json@4.0.2': {}
 
@@ -13798,7 +13823,7 @@ snapshots:
 
   jest-worker@27.5.1:
     dependencies:
-      '@types/node': 25.9.1
+      '@types/node': 24.0.1
       merge-stream: 2.0.0
       supports-color: 8.1.1
 
@@ -15151,15 +15176,6 @@ snapshots:
       - '@types/react'
       - supports-color
 
-  react-server-dom-webpack@19.2.4(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(webpack@5.105.4(esbuild@0.28.0)):
-    dependencies:
-      acorn-loose: 8.5.2
-      neo-async: 2.6.2
-      react: 19.2.4
-      react-dom: 19.2.4(react@19.2.4)
-      webpack: 5.105.4(esbuild@0.28.0)
-      webpack-sources: 3.4.1
-
   react-server-dom-webpack@19.2.4(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(webpack@5.105.4(esbuild@0.27.7)):
     dependencies:
       acorn-loose: 8.5.2
@@ -15167,8 +15183,7 @@ snapshots:
       react: 19.2.7
       react-dom: 19.2.7(react@19.2.7)
       webpack: 5.105.4(esbuild@0.27.7)
-      webpack-sources: 3.4.1
-    optional: true
+      webpack-sources: 3.5.0
 
   react-style-singleton@2.2.3(@types/react@19.2.16)(react@19.2.4):
     dependencies:
@@ -15788,17 +15803,6 @@ snapshots:
       webpack: 5.105.4(esbuild@0.27.7)
     optionalDependencies:
       esbuild: 0.27.7
-    optional: true
-
-  terser-webpack-plugin@5.6.1(esbuild@0.28.0)(webpack@5.105.4(esbuild@0.28.0)):
-    dependencies:
-      '@jridgewell/trace-mapping': 0.3.31
-      jest-worker: 27.5.1
-      schema-utils: 4.3.3
-      terser: 5.48.0
-      webpack: 5.105.4(esbuild@0.28.0)
-    optionalDependencies:
-      esbuild: 0.28.0
 
   terser@5.48.0:
     dependencies:
@@ -15969,7 +15973,8 @@ snapshots:
 
   undici-types@7.16.0: {}
 
-  undici-types@7.24.6: {}
+  undici-types@7.24.6:
+    optional: true
 
   undici-types@7.8.0: {}
 
@@ -16317,8 +16322,6 @@ snapshots:
 
   webidl-conversions@3.0.1: {}
 
-  webpack-sources@3.4.1: {}
-
   webpack-sources@3.5.0: {}
 
   webpack@5.105.4(esbuild@0.27.7):
@@ -16346,48 +16349,6 @@ snapshots:
       schema-utils: 4.3.3
       tapable: 2.3.3
       terser-webpack-plugin: 5.6.1(esbuild@0.27.7)(webpack@5.105.4(esbuild@0.27.7))
-      watchpack: 2.5.1
-      webpack-sources: 3.5.0
-    transitivePeerDependencies:
-      - '@minify-html/node'
-      - '@swc/core'
-      - '@swc/css'
-      - '@swc/html'
-      - clean-css
-      - cssnano
-      - csso
-      - esbuild
-      - html-minifier-terser
-      - lightningcss
-      - postcss
-      - uglify-js
-    optional: true
-
-  webpack@5.105.4(esbuild@0.28.0):
-    dependencies:
-      '@types/eslint-scope': 3.7.7
-      '@types/estree': 1.0.9
-      '@types/json-schema': 7.0.15
-      '@webassemblyjs/ast': 1.14.1
-      '@webassemblyjs/wasm-edit': 1.14.1
-      '@webassemblyjs/wasm-parser': 1.14.1
-      acorn: 8.16.0
-      acorn-import-phases: 1.0.4(acorn@8.16.0)
-      browserslist: 4.28.2
-      chrome-trace-event: 1.0.4
-      enhanced-resolve: 5.23.0
-      es-module-lexer: 2.1.0
-      eslint-scope: 5.1.1
-      events: 3.3.0
-      glob-to-regexp: 0.4.1
-      graceful-fs: 4.2.11
-      json-parse-even-better-errors: 2.3.1
-      loader-runner: 4.3.2
-      mime-types: 2.1.35
-      neo-async: 2.6.2
-      schema-utils: 4.3.3
-      tapable: 2.3.3
-      terser-webpack-plugin: 5.6.1(esbuild@0.28.0)(webpack@5.105.4(esbuild@0.28.0))
       watchpack: 2.5.1
       webpack-sources: 3.5.0
     transitivePeerDependencies:
