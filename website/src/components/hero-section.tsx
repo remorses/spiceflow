@@ -48,8 +48,8 @@ export function HeroSection({}) {
           className='flex flex-col items-center leading-none text-[40px] sm:text-[56px] md:text-[68px] text-foreground'
           style={{ fontFamily: HERO_FONT }}
         >
-          <span>the simplest way to</span>
-          <span>build React apps</span>
+          <span>the simplest way to build</span>
+          <span>full-stack React apps</span>
         </h1>
 
         <p className='text-center text-balance text-muted-foreground text-base sm:text-lg max-w-[540px]'>
