@@ -5,5 +5,6 @@ export {
   decodeFederationPayload,
   decodeFederationPayloadDetails,
   injectFederationCss,
+  resolveFederatedUrl,
   setupFederationConsumer,
 } from './federated-payload.ts'

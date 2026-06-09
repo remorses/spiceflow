@@ -59,6 +59,15 @@ test.describe('standalone federation consumer', () => {
     const counter = page.getByTestId('remote-counter')
     await expect(counter).toBeVisible({ timeout: DECODE_TIMEOUT })
 
+    // Verify a <link rel="stylesheet"> pointing to the remote origin exists in <head>
+    const remoteCssLinks = await page.evaluate(() => {
+      const links = Array.from(document.querySelectorAll('link[rel="stylesheet"]'))
+      return links
+        .map((l) => l.getAttribute('href') || '')
+        .filter((href) => href.includes('localhost:3051'))
+    })
+    expect(remoteCssLinks.length).toBeGreaterThan(0)
+
     // Wait for remote CSS to load and apply (#3b82f6 = rgb(59, 130, 246))
     await expect
       .poll(
@@ -66,6 +75,173 @@ test.describe('standalone federation consumer', () => {
         { timeout: 5000 },
       )
       .toBe('rgb(59, 130, 246)')
+
+    // Verify border-radius from counter.css (8px)
+    const borderRadius = await counter.evaluate(
+      (el) => getComputedStyle(el).borderRadius,
+    )
+    expect(borderRadius).toBe('8px')
+
+    // Verify button background from counter.css (#3b82f6)
+    const btnBg = await counter
+      .getByRole('button', { name: '+' })
+      .evaluate((el) => getComputedStyle(el).backgroundColor)
+    expect(btnBg).toBe('rgb(59, 130, 246)')
+  })
+
+  test('shadow DOM: CSS is inside shadow root, not in document.head', async ({ page }) => {
+    await page.goto('/')
+
+    await page.getByTestId('load-shadow-chart').click()
+
+    // Wait for the shadow DOM mount to contain the remote chart
+    await expect
+      .poll(
+        () =>
+          page.evaluate(() => {
+            const host = document.querySelector('[data-testid="shadow-chart-host"]')
+            if (!host) return 'no host'
+            if (!host.shadowRoot) return 'no shadow'
+            const mount = host.shadowRoot.querySelector('[data-mount]')
+            if (!mount) return 'no mount'
+            const chart = mount.querySelector('[data-testid="remote-chart"]')
+            return chart ? 'ready' : 'no chart'
+          }),
+        { timeout: DECODE_TIMEOUT },
+      )
+      .toBe('ready')
+
+    // Verify CSS links are inside the shadow root
+    const shadowCssLinks = await page.evaluate(() => {
+      const host = document.querySelector('[data-testid="shadow-chart-host"]')
+      const shadow = host?.shadowRoot
+      if (!shadow) return []
+      return Array.from(shadow.querySelectorAll('link[rel="stylesheet"]')).map(
+        (l) => l.getAttribute('href') || '',
+      )
+    })
+    expect(shadowCssLinks.length).toBeGreaterThan(0)
+    expect(shadowCssLinks.some((href) => href.includes('localhost:3051'))).toBe(true)
+
+    // Verify CSS links are NOT in document.head for the shadow chart
+    // (the normal chart test above may have injected its own links, so
+    // we only check that shadow CSS injection didn't also add to head)
+    const headCssAfterShadow = await page.evaluate(() => {
+      const links = Array.from(document.querySelectorAll('head link[rel="stylesheet"]'))
+      return links
+        .map((l) => l.getAttribute('href') || '')
+        .filter((href) => href.includes('localhost:3051'))
+    })
+    // Since we haven't clicked "Load Remote Chart" (only shadow), head should have 0 remote links
+    expect(headCssAfterShadow.length).toBe(0)
+
+    // Verify computed styles are applied inside the shadow DOM
+    const borderColor = await page.evaluate(() => {
+      const host = document.querySelector('[data-testid="shadow-chart-host"]')
+      const counter = host?.shadowRoot
+        ?.querySelector('[data-mount]')
+        ?.querySelector('[data-testid="remote-counter"]')
+      if (!counter) return ''
+      return getComputedStyle(counter).borderColor
+    })
+    expect(borderColor).toBe('rgb(59, 130, 246)')
+
+    const borderRadius = await page.evaluate(() => {
+      const host = document.querySelector('[data-testid="shadow-chart-host"]')
+      const counter = host?.shadowRoot
+        ?.querySelector('[data-mount]')
+        ?.querySelector('[data-testid="remote-counter"]')
+      if (!counter) return ''
+      return getComputedStyle(counter).borderRadius
+    })
+    expect(borderRadius).toBe('8px')
+  })
+
+  test('shadow DOM: host page styles do not affect shadow content', async ({ page }) => {
+    await page.goto('/')
+
+    // Inject a hostile global style that would break counter styling
+    await page.evaluate(() => {
+      const style = document.createElement('style')
+      style.textContent = `
+        [data-testid="remote-counter"] {
+          border-color: red !important;
+          border-radius: 0 !important;
+        }
+      `
+      document.head.appendChild(style)
+    })
+
+    await page.getByTestId('load-shadow-chart').click()
+
+    // Wait for chart to render in shadow DOM
+    await expect
+      .poll(
+        () =>
+          page.evaluate(() => {
+            const host = document.querySelector('[data-testid="shadow-chart-host"]')
+            if (!host?.shadowRoot) return 'no shadow'
+            return host.shadowRoot.querySelector('[data-testid="remote-counter"]')
+              ? 'ready'
+              : 'no counter'
+          }),
+        { timeout: DECODE_TIMEOUT },
+      )
+      .toBe('ready')
+
+    // The hostile global style should NOT penetrate the shadow boundary
+    const borderColor = await page.evaluate(() => {
+      const host = document.querySelector('[data-testid="shadow-chart-host"]')
+      const counter = host?.shadowRoot
+        ?.querySelector('[data-mount]')
+        ?.querySelector('[data-testid="remote-counter"]')
+      if (!counter) return ''
+      return getComputedStyle(counter).borderColor
+    })
+    // Should still be the original blue, not red
+    expect(borderColor).toBe('rgb(59, 130, 246)')
+  })
+
+  test('shadow DOM: client component hydrates and is interactive', async ({ page }) => {
+    await page.goto('/')
+
+    await page.getByTestId('load-shadow-chart').click()
+
+    // Wait for counter inside shadow DOM
+    await expect
+      .poll(
+        () =>
+          page.evaluate(() => {
+            const host = document.querySelector('[data-testid="shadow-chart-host"]')
+            const counter = host?.shadowRoot
+              ?.querySelector('[data-mount]')
+              ?.querySelector('[data-testid="remote-counter"]')
+            return counter?.textContent?.includes('counter: 0') ?? false
+          }),
+        { timeout: DECODE_TIMEOUT },
+      )
+      .toBe(true)
+
+    // Click + button inside shadow DOM
+    await page.evaluate(() => {
+      const host = document.querySelector('[data-testid="shadow-chart-host"]')
+      const btn = host?.shadowRoot
+        ?.querySelector('[data-mount]')
+        ?.querySelector('[data-testid="remote-counter"] button')
+      if (btn instanceof HTMLElement) btn.click()
+    })
+
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          const host = document.querySelector('[data-testid="shadow-chart-host"]')
+          const counter = host?.shadowRoot
+            ?.querySelector('[data-mount]')
+            ?.querySelector('[data-testid="remote-counter"]')
+          return counter?.textContent ?? ''
+        }),
+      )
+      .toContain('counter: 1')
   })
 
   test('no React errors in console', async ({ page }) => {

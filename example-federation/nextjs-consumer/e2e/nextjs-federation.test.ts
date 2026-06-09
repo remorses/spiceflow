@@ -53,6 +53,47 @@ test.describe('nextjs federation consumer', () => {
     expect(realErrors).toEqual([])
   })
 
+  test('remote CSS is injected and applied', async ({ page }) => {
+    await page.goto('/')
+
+    const loadBtn = page.getByTestId('load-chart')
+    await expect(loadBtn).toHaveText('Load Remote Chart', { timeout: 10_000 })
+
+    await loadBtn.click()
+
+    const counter = page.getByTestId('remote-counter')
+    await expect(counter).toBeVisible({ timeout: DECODE_TIMEOUT })
+
+    // Verify a <link rel="stylesheet"> pointing to the remote origin exists in <head>
+    const remoteCssLink = await page.evaluate(() => {
+      const links = Array.from(document.querySelectorAll('link[rel="stylesheet"]'))
+      return links
+        .map((l) => l.getAttribute('href') || '')
+        .filter((href) => href.includes('localhost:3051'))
+    })
+    expect(remoteCssLink.length).toBeGreaterThan(0)
+
+    // Verify computed border color from counter.css (#3b82f6 = rgb(59, 130, 246))
+    await expect
+      .poll(
+        () => counter.evaluate((el) => getComputedStyle(el).borderColor),
+        { timeout: 5000 },
+      )
+      .toBe('rgb(59, 130, 246)')
+
+    // Verify computed border-radius from counter.css (8px)
+    const borderRadius = await counter.evaluate(
+      (el) => getComputedStyle(el).borderRadius,
+    )
+    expect(borderRadius).toBe('8px')
+
+    // Verify button background from counter.css (#3b82f6)
+    const btnBg = await counter
+      .getByRole('button', { name: '+' })
+      .evaluate((el) => getComputedStyle(el).backgroundColor)
+    expect(btnBg).toBe('rgb(59, 130, 246)')
+  })
+
   test('no error state after loading chart', async ({ page }) => {
     await page.goto('/')
 
