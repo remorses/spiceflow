@@ -58,6 +58,7 @@ export const serveStatic = (options: ServeStaticOptions): MiddlewareHandler => {
     const headers = new Headers({
       'content-length': String(stat.size),
       'last-modified': stat.mtime,
+      'access-control-allow-origin': '*',
     })
     const mimeType = getMimeType(path, options.mimes)
     if (mimeType) {

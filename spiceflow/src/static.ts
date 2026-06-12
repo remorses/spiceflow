@@ -84,6 +84,7 @@ export const serveStatic = <E extends Env = Env>(
         'Content-Type',
         mimeType || 'application/octet-stream',
       )
+      response.headers.set('Access-Control-Allow-Origin', '*')
       await options.onFound?.(candidatePath, c)
       return response
     }

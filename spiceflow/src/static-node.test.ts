@@ -205,6 +205,23 @@ test('encoded backslash traversal falls through instead of serving files', async
   }
 })
 
+test('static responses include CORS header', async () => {
+  const root = await createStaticRoot({
+    'image.png': 'fake-png-data',
+  })
+
+  try {
+    const app = new Spiceflow().use(serveStatic({ root }))
+
+    const res = await app.handle(new Request('http://localhost/image.png'))
+
+    expect(res.status).toBe(200)
+    expect(res.headers.get('access-control-allow-origin')).toBe('*')
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
 test('onFound and onNotFound callbacks receive resolved asset paths', async () => {
   const root = await createStaticRoot({
     'hello.txt': 'from static',
