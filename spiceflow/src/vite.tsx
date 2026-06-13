@@ -443,6 +443,9 @@ export default function spiceflow({
           // Disable Vite's built-in SPA fallback middleware so it doesn't
           // intercept unmatched paths with a 200 before our middleware runs.
           appType: 'custom' as const,
+          // Disable clear screen by default so build logs and dev server
+          // output stay visible. Users can opt back in with clearScreen: true.
+          ...(userConfig.clearScreen === true ? {} : { clearScreen: false }),
           server: {
             // Default to strictPort so the dev server fails fast when the port
             // is taken instead of silently picking a random one. Skip when the
