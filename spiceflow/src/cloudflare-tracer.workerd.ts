@@ -2,10 +2,11 @@
 // from cloudflare:workers into SpiceflowTracer so spiceflow automatically gets
 // span trees on Cloudflare without the user passing a tracer.
 //
-// The CF Span only supports setAttribute() and isTraced. Methods the CF API
-// doesn't support yet (setStatus, recordException, updateName, spanContext, end)
-// are filled with no-ops. CF auto-ends spans when the enterSpan callback returns.
-import { tracing } from 'cloudflare:workers'
+// Uses import * and optional chaining so older wrangler versions that don't
+// export tracing from cloudflare:workers don't crash at import time.
+import * as cfWorkers from 'cloudflare:workers'
 import { createCloudflareTracer } from './cloudflare-tracer-adapter.js'
 
-export const cloudflareTracer = createCloudflareTracer(tracing.enterSpan)
+export const cloudflareTracer = (cfWorkers as any).tracing?.enterSpan
+  ? createCloudflareTracer((cfWorkers as any).tracing.enterSpan)
+  : undefined
