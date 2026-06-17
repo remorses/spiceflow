@@ -110,6 +110,7 @@ import {
   appendServerTimingHeader,
   createRequestTracing,
 } from './server-timing.js'
+import { cloudflareTracer } from '#cloudflare-tracer'
 
 let globalIndex = 0
 
@@ -526,7 +527,7 @@ export class Spiceflow<
   ) {
     this.scoped = options.scoped
     this.allowedActionOrigins = options.allowedActionOrigins
-    this.tracer = options.tracer
+    this.tracer = options.tracer ?? cloudflareTracer
     this.serverTiming = options.serverTiming ?? true
 
     this.waitUntilFn = options.waitUntil || defaultWaitUntil

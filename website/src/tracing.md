@@ -228,6 +228,24 @@ Every request span, middleware span, handler span, and custom child span created
 
 If you already use the generic OTel setup from the section above, Sentry picks up those spans too. The difference is that with `Sentry.getClient()!.tracer` you skip installing `@opentelemetry/api` as a direct dependency.
 
+## Cloudflare Workers
+
+On Cloudflare Workers, tracing is **automatic**. Spiceflow detects the Cloudflare runtime and uses the native [`tracing.enterSpan()`](https://developers.cloudflare.com/workers/observability/traces/custom-spans/) API without any setup. Just enable tracing in your `wrangler.jsonc`:
+
+```jsonc
+{
+  "observability": {
+    "traces": {
+      "enabled": true
+    }
+  }
+}
+```
+
+All spiceflow spans (middleware, handlers, loaders, layouts, RSC serialization) appear alongside Cloudflare's automatic platform spans (KV, D1, fetch) in the dashboard. If you pass an explicit `tracer`, it takes priority over the automatic one.
+
+See the [Cloudflare page](/cloudflare#automatic-tracing) for details and limitations.
+
 ## Zero overhead without tracer
 
-When no `tracer` is passed, every instrumentation point is skipped entirely — no strings allocated, no objects created, no extra async wrappers. The `span` and `tracer` on the handler context use no-op implementations whose empty methods V8 inlines away.
+When no `tracer` is passed (and the runtime is not Cloudflare), every instrumentation point is skipped entirely — no strings allocated, no objects created, no extra async wrappers. The `span` and `tracer` on the handler context use no-op implementations whose empty methods V8 inlines away.

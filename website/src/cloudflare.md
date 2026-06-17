@@ -92,6 +92,51 @@ vite build && wrangler deploy
 
 Without `CLOUDFLARE_ENV=preview`, the generated `dist/rsc/wrangler.json` will contain the top-level config (production name, routes, KV namespaces, etc.) and `--env preview` will be ignored at deploy time.
 
+## Automatic Tracing
+
+On Cloudflare Workers, spiceflow automatically instruments every request with [custom spans](https://developers.cloudflare.com/workers/observability/traces/custom-spans/) using the native `tracing.enterSpan()` API. No `tracer` option needed; just enable tracing in `wrangler.jsonc`:
+
+```jsonc
+// wrangler.jsonc
+{
+  "observability": {
+    "traces": {
+      "enabled": true
+    }
+  }
+}
+```
+
+Every request produces spans for middleware, handlers, loaders, layouts, pages, and RSC serialization. These appear alongside Cloudflare's automatic platform spans (KV reads, D1 queries, fetch calls) in the Cloudflare dashboard and OpenTelemetry exports.
+
+```
+GET /dashboard [server]
+├── middleware - auth
+├── loader - /dashboard        ← spiceflow span
+├── page - /dashboard          ← spiceflow span
+├── env.MY_KV.get("key")      ← automatic CF span
+└── rsc.serialize              ← spiceflow span
+```
+
+Custom spans created with `context.tracer.startActiveSpan()` in your handlers also appear in the trace tree. The `span` and `tracer` on the handler context work the same as with an OTel tracer.
+
+If you pass an explicit `tracer` to the Spiceflow constructor, it takes priority over the automatic Cloudflare tracer.
+
+<details>
+<summary>Cloudflare span limitations</summary>
+
+The Cloudflare tracing API is newer than OTel and doesn't support all `SpiceflowSpan` methods yet. These are filled with no-ops:
+
+- `span.setStatus()` — no-op (CF planned for future)
+- `span.recordException()` — no-op (CF planned for future)
+- `span.updateName()` — no-op
+- `span.spanContext()` — returns `undefined` (CF planned for future)
+- `span.end()` — no-op (CF auto-ends spans when the callback returns)
+
+`span.setAttribute()` works fully and attributes appear in traces.
+
+</details>
+
 ## Background Tasks (`waitUntil`)
 
 Spiceflow provides a `waitUntil` function in the handler context that allows you to schedule tasks in the background in a cross platform way. It will use the Cloudflare Workers `waitUntil` if present. It's currently a no-op in Node.js.

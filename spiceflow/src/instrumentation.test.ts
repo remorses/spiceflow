@@ -5,6 +5,7 @@ import { test, describe, expect } from 'vitest'
 import { Spiceflow } from './spiceflow.js'
 import type { SpiceflowTracer, SpiceflowSpan } from './instrumentation.js'
 import { noopSpan, noopTracer } from './instrumentation.js'
+import { createCloudflareTracer } from './cloudflare-tracer-adapter.js'
 
 interface TestSpan {
   name: string
@@ -694,5 +695,91 @@ describe('instrumentation', () => {
     // Custom span is a child of the handler span
     const dbSpan = spans.find((s) => s.name === 'db.query')!
     expect(dbSpan.parent?.name).toBe('handler - /api/users/:id')
+  })
+})
+
+describe('cloudflare tracer adapter', () => {
+  test('wraps enterSpan into SpiceflowTracer.startActiveSpan', () => {
+    const calls: { name: string; attrs: Record<string, any> }[] = []
+    const mockEnterSpan = (name: string, callback: (span: any) => any) => {
+      const attrs: Record<string, any> = {}
+      const cfSpan = {
+        setAttribute(k: string, v: any) { attrs[k] = v },
+        isTraced: true,
+      }
+      calls.push({ name, attrs })
+      return callback(cfSpan)
+    }
+
+    const tracer = createCloudflareTracer(mockEnterSpan)
+    const result = tracer.startActiveSpan('test-span', (span) => {
+      span.setAttribute('foo', 'bar')
+      return 42
+    })
+
+    expect(result).toBe(42)
+    expect(calls).toHaveLength(1)
+    expect(calls[0].name).toBe('test-span')
+    expect(calls[0].attrs).toEqual({ foo: 'bar' })
+  })
+
+  test('forwards options.attributes to CF span', () => {
+    const attrs: Record<string, any> = {}
+    const mockEnterSpan = (_name: string, callback: (span: any) => any) => {
+      return callback({
+        setAttribute(k: string, v: any) { attrs[k] = v },
+        isTraced: true,
+      })
+    }
+
+    const tracer = createCloudflareTracer(mockEnterSpan)
+    tracer.startActiveSpan(
+      'req',
+      { attributes: { 'http.method': 'GET', 'url.path': '/hello' } },
+      (span) => {
+        span.setAttribute('custom', true)
+        return null
+      },
+    )
+
+    expect(attrs).toEqual({
+      'http.method': 'GET',
+      'url.path': '/hello',
+      custom: true,
+    })
+  })
+
+  test('noop methods do not throw', () => {
+    const mockEnterSpan = (_name: string, callback: (span: any) => any) => {
+      return callback({ setAttribute() {}, isTraced: false })
+    }
+
+    const tracer = createCloudflareTracer(mockEnterSpan)
+    tracer.startActiveSpan('test', (span) => {
+      expect(span.setStatus({ code: 2 })).toBe(span)
+      expect(span.updateName('new')).toBe(span)
+      expect(span.spanContext?.()).toBeUndefined()
+      span.recordException(new Error('test'))
+      span.end()
+    })
+  })
+
+  test('works as tracer in Spiceflow app', async () => {
+    const spanNames: string[] = []
+    const mockEnterSpan = (name: string, callback: (span: any) => any) => {
+      spanNames.push(name)
+      return callback({
+        setAttribute() {},
+        isTraced: true,
+      })
+    }
+
+    const tracer = createCloudflareTracer(mockEnterSpan)
+    const app = new Spiceflow({ tracer }).get('/hello', () => 'world')
+    const res = await app.handle(new Request('http://localhost/hello'))
+
+    expect(res.status).toBe(200)
+    expect(spanNames).toContain('GET')
+    expect(spanNames).toContain('handler - /hello')
   })
 })

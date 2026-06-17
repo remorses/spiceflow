@@ -50,6 +50,10 @@
       "workerd": "./dist/wait-until.workerd.js",
       "default": "./dist/wait-until.js"
     },
+    "#cloudflare-tracer": {
+      "workerd": "./dist/cloudflare-tracer.workerd.js",
+      "default": "./dist/cloudflare-tracer.js"
+    },
     "#node-server": {
       "types": "./dist/_node-server.d.ts",
       "bun": "./dist/_node-server.js",
