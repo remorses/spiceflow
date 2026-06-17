@@ -466,7 +466,7 @@ throw Object.assign(new Error('Invalid input'), { status: 400 })
 
 ## Async Generators (Streaming)
 
-Async generators will create a server sent event response.
+Route handlers that are **async generators** automatically produce a Server-Sent Events response. Each `yield` sends a `data: ...\n\n` chunk to the client. Works with `.get()`, `.post()`, and `.route()`.
 
 ```ts
 // server.ts
@@ -474,20 +474,18 @@ import { Spiceflow } from 'spiceflow'
 
 export const app = new Spiceflow().route({
   method: 'GET',
-  path: '/sseStream',
+  path: '/api/progress',
   async *handler() {
-    yield { message: 'Start' }
-    await new Promise((resolve) => setTimeout(resolve, 1000))
-    yield { message: 'Middle' }
-    await new Promise((resolve) => setTimeout(resolve, 1000))
-    yield { message: 'End' }
+    yield { status: 'generating', progress: 0.5 }
+    await someWork()
+    yield { status: 'done', progress: 1.0 }
   },
 })
 
 export type App = typeof app
 ```
 
-Server-Sent Events (SSE) format — the server sends events as `data: {"message":"Start"}\n\n` chunks.
+The typed fetch client detects async generator routes and returns an `AsyncGenerator` instead of a plain object. TypeScript infers the yield type automatically via `ReplaceGeneratorWithAsyncGenerator` in the type system.
 
 ```ts
 // client.ts
@@ -495,18 +493,40 @@ import { createSpiceflowFetch } from 'spiceflow/client'
 
 const safeFetch = createSpiceflowFetch('http://localhost:3000')
 
-async function fetchStream() {
-  const stream = await safeFetch('/sseStream')
-  if (stream instanceof Error) {
-    console.error('Error fetching stream:', stream.message)
-    return
-  }
-  for await (const chunk of stream) {
-    console.log('Stream chunk:', chunk)
-  }
-}
+const stream = await safeFetch('/api/progress')
+if (stream instanceof Error) throw stream
 
-fetchStream()
+// stream is AsyncGenerator<{ status: string, progress: number }>
+for await (const event of stream) {
+  console.log(event.status, event.progress)
+}
+```
+
+### Aborting a Stream
+
+Pass an `AbortController` signal to cancel the stream. The server stops the generator and cleans up.
+
+```ts
+const controller = new AbortController()
+
+// abort after 5 seconds
+setTimeout(() => controller.abort(), 5000)
+
+const stream = await safeFetch('/api/progress', {
+  signal: controller.signal,
+})
+if (stream instanceof Error) throw stream
+
+for await (const event of stream) {
+  console.log(event)
+}
+// loop exits cleanly on abort, no error thrown
+```
+
+With **curl**, use `-N` to disable buffering and stream events line by line:
+
+```bash
+curl -N http://localhost:3000/api/progress
 ```
 
 ## Not Found Handler
