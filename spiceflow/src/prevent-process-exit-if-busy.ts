@@ -4,14 +4,29 @@ import { Spiceflow } from './spiceflow.js'
 import { pendingWaitUntilCount } from '#wait-until'
 
 interface GracefulShutdownOptions {
+  /** Maximum seconds to wait for in-flight requests before forcing exit. Default: `60` (1 minute). */
   maxWaitSeconds?: number
+  /** How often to check if requests have drained, in milliseconds. Default: `250`. */
   checkIntervalMs?: number
 }
 
+/**
+ * Middleware that delays process exit on SIGINT/SIGTERM until all in-flight
+ * requests and pending `waitUntil` promises have settled.
+ *
+ * Useful on platforms like Fly.io that send SIGTERM during deploys.
+ *
+ * ```ts
+ * import { Spiceflow, preventProcessExitIfBusy } from 'spiceflow'
+ *
+ * const app = new Spiceflow()
+ *   .use(preventProcessExitIfBusy({ maxWaitSeconds: 60 }))
+ * ```
+ */
 export function preventProcessExitIfBusy(
   options: GracefulShutdownOptions = {},
 ): any {
-  const { maxWaitSeconds = 300, checkIntervalMs = 250 } = options
+  const { maxWaitSeconds = 60, checkIntervalMs = 250 } = options
 
   let inFlightRequests = 0
   let isShuttingDown = false

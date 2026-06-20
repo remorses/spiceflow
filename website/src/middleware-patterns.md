@@ -283,7 +283,7 @@ export const app = new Spiceflow()
 
 ## Graceful Shutdown
 
-The `preventProcessExitIfBusy` middleware prevents platforms like Fly.io from killing your app while processing long requests (e.g., AI payloads). Fly.io can wait up to 5 minutes for graceful shutdown.
+The `preventProcessExitIfBusy` middleware prevents platforms like Fly.io from killing your app while processing long requests (e.g., AI payloads). When the process receives SIGTERM during a deploy, it waits for all active requests and pending `waitUntil` promises to complete before exiting.
 
 ```ts
 import { Spiceflow, preventProcessExitIfBusy } from 'spiceflow'
@@ -291,7 +291,7 @@ import { Spiceflow, preventProcessExitIfBusy } from 'spiceflow'
 export const app = new Spiceflow()
   .use(
     preventProcessExitIfBusy({
-      maxWaitSeconds: 300, // 5 minutes max wait (default: 300)
+      maxWaitSeconds: 60, // 1 minute max wait (default: 60)
       checkIntervalMs: 250, // Check interval (default: 250ms)
     }),
   )
@@ -300,7 +300,6 @@ export const app = new Spiceflow()
     path: '/ai/generate',
     async handler({ request }) {
       const prompt = await request.json()
-      // Long-running AI generation
       const result = await generateAIResponse(prompt)
       return result
     },
@@ -308,5 +307,3 @@ export const app = new Spiceflow()
 
 app.listen(3000)
 ```
-
-When receiving SIGTERM during deployment, the middleware waits for all active requests to complete before exiting. Perfect for AI workloads that may take minutes to process.
