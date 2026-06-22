@@ -333,4 +333,72 @@ describe('honoMiddleware adapter', () => {
     expect(method).toBe('POST')
     expect(path).toBe('/api/submit')
   })
+
+  test('c.executionCtx.waitUntil is available', async () => {
+    let waitUntilCalled = false
+    const useWaitUntil: HonoMiddlewareHandler = async (c, next) => {
+      c.executionCtx.waitUntil(
+        Promise.resolve().then(() => {
+          waitUntilCalled = true
+        }),
+      )
+      await next()
+    }
+
+    const app = new Spiceflow()
+      .use(honoMiddleware(useWaitUntil))
+      .get('/hello', () => 'world')
+
+    const res = await app.handle(new Request('http://localhost/hello'))
+    expect(res.status).toBe(200)
+    // waitUntil runs async, give it a tick
+    await new Promise((r) => setTimeout(r, 10))
+    expect(waitUntilCalled).toBe(true)
+  })
+
+  test('streaming response passes through with hono headers', async () => {
+    const addHeader: HonoMiddlewareHandler = async (c, next) => {
+      c.header('x-stream', 'yes')
+      await next()
+    }
+
+    const app = new Spiceflow()
+      .use(honoMiddleware(addHeader))
+      .get('/stream', () => {
+        const stream = new ReadableStream({
+          start(controller) {
+            controller.enqueue(new TextEncoder().encode('chunk1'))
+            controller.enqueue(new TextEncoder().encode('chunk2'))
+            controller.close()
+          },
+        })
+        return new Response(stream, {
+          headers: { 'content-type': 'text/plain' },
+        })
+      })
+
+    const res = await app.handle(new Request('http://localhost/stream'))
+    expect(res.headers.get('x-stream')).toBe('yes')
+    expect(await res.text()).toBe('chunk1chunk2')
+  })
+
+  test('multiple handlers in single honoMiddleware share c.set/c.get', async () => {
+    let gotValue = ''
+
+    const setVar: HonoMiddlewareHandler = async (c, next) => {
+      c.set('shared', 'hello')
+      await next()
+    }
+    const readVar: HonoMiddlewareHandler = async (c, next) => {
+      gotValue = c.get('shared') || ''
+      await next()
+    }
+
+    const app = new Spiceflow()
+      .use(honoMiddleware(setVar, readVar))
+      .get('/hello', () => 'world')
+
+    await app.handle(new Request('http://localhost/hello'))
+    expect(gotValue).toBe('hello')
+  })
 })

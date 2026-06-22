@@ -2,9 +2,8 @@
 // app with the middleware mounted, then delegates to it via fetch(). No manual
 // Context bridging needed; Hono handles everything natively.
 //
-// A new Hono app is created per request because the catch-all handler captures
-// the request-scoped spiceNext function. Hono apps are lightweight so this is
-// fine for middleware execution.
+// Uses a WeakMap keyed by Request to pass the request-scoped spiceNext to the
+// catch-all handler, so the Hono app is built once and reused across requests.
 
 import { Hono } from 'hono'
 import type { Env, MiddlewareHandler as HonoMiddlewareHandler } from 'hono'
@@ -43,13 +42,28 @@ export function honoMiddleware<E extends Env = Env>(
 ): MiddlewareHandler {
   let handlers: HonoMiddlewareHandler<E>[]
   let options: HonoAdapterOptions<E> | undefined
-  const last = args[args.length - 1]
-  if (typeof last === 'object' && last !== null && !('length' in last)) {
+  const last = args.at(-1)
+  if (typeof last !== 'function') {
     options = last as HonoAdapterOptions<E>
     handlers = args.slice(0, -1) as HonoMiddlewareHandler<E>[]
   } else {
     handlers = args as HonoMiddlewareHandler<E>[]
   }
+
+  // WeakMap keyed by Request for concurrency-safe request-scoped state
+  const requestState = new WeakMap<Request, () => Promise<Response>>()
+
+  const app = new Hono<E>()
+  for (const handler of handlers) {
+    app.use('*', handler)
+  }
+  app.all('*', async (c) => {
+    const spiceNext = requestState.get(c.req.raw)!
+    const downstream = await spiceNext()
+    // Use c.newResponse so hono merges any #preparedHeaders set by
+    // middleware via c.header() before next().
+    return c.newResponse(downstream.body, downstream.status as any, Object.fromEntries(downstream.headers))
+  })
 
   return async function honoAdapter(spiceCtx, spiceNext) {
     const env =
@@ -57,18 +71,17 @@ export function honoMiddleware<E extends Env = Env>(
         ? (options.env as Function)(spiceCtx)
         : options?.env
 
-    const app = new Hono<E>()
-    for (const handler of handlers) {
-      app.use('*', handler)
+    const executionCtx = {
+      waitUntil: spiceCtx.waitUntil,
+      passThroughOnException() {},
     }
-    app.all('*', async (c) => {
-      const downstream = await spiceNext()
-      // Use c.newResponse so hono merges any #preparedHeaders set by
-      // middleware via c.header() before next().
-      return c.newResponse(downstream.body, downstream as any)
-    })
 
-    return app.fetch(spiceCtx.request, env as any)
+    requestState.set(spiceCtx.request, spiceNext)
+    try {
+      return await app.fetch(spiceCtx.request, env as any, executionCtx as any)
+    } finally {
+      requestState.delete(spiceCtx.request)
+    }
   }
 }
 
