@@ -139,6 +139,10 @@
       "import": "./dist/react/entry.rsc.js",
       "default": "./dist/react/entry.rsc.js"
     },
+    "./hono": {
+      "types": "./dist/hono-adapter.d.ts",
+      "default": "./dist/hono-adapter.js"
+    },
     "./dist/*": {
       "types": "./dist/*.d.ts",
       "default": "./dist/*.js"
@@ -178,10 +182,14 @@
     "@modelcontextprotocol/sdk": "*",
     "react": "*",
     "react-dom": "*",
+    "hono": "^4.0.0",
     "zod": "^4.0.0"
   },
   "peerDependenciesMeta": {
     "@modelcontextprotocol/sdk": {
+      "optional": true
+    },
+    "hono": {
       "optional": true
     },
     "react": {
@@ -199,6 +207,7 @@
     "@types/react-dom": "^19.2.3",
     "ai": "^5.0.14",
     "esbuild": "^0.27.4",
+    "hono": "^4.12.0",
     "react-server-dom-webpack": "19.2.4",
     "eventsource": "^3.0.5",
     "formdata-node": "^6.0.3",
