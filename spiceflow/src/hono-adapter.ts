@@ -1,11 +1,8 @@
-// Adapter to use Hono middleware inside Spiceflow apps. Creates a real Hono
-// app with the middleware mounted, then delegates to it via fetch(). No manual
-// Context bridging needed; Hono handles everything natively.
-//
-// Uses a WeakMap keyed by Request to pass the request-scoped spiceNext to the
-// catch-all handler, so the Hono app is built once and reused across requests.
+// Adapter to use Hono middleware inside Spiceflow apps. Constructs a real Hono
+// Context and runs middleware directly via koa-style compose, bypassing Hono's
+// router dispatch for zero routing overhead.
 
-import { Hono } from 'hono'
+import { Context } from 'hono'
 import type { Env, MiddlewareHandler as HonoMiddlewareHandler } from 'hono'
 import type { MiddlewareHandler } from './types.js'
 import type { MiddlewareContext } from './context.js'
@@ -20,9 +17,8 @@ type HonoAdapterOptions<E extends Env = Env> = {
 
 /**
  * Wrap one or more Hono `MiddlewareHandler`s so they work with `app.use()` in
- * Spiceflow. Internally creates a Hono app, mounts the middleware, and calls
- * `hono.fetch()` per request. The Hono app's catch-all handler calls through
- * to spiceflow's downstream middleware chain.
+ * Spiceflow. Runs the middleware chain directly on a real Hono `Context`,
+ * bypassing Hono's router for minimal overhead.
  *
  * @example
  * ```ts
@@ -50,38 +46,55 @@ export function honoMiddleware<E extends Env = Env>(
     handlers = args as HonoMiddlewareHandler<E>[]
   }
 
-  // WeakMap keyed by Request for concurrency-safe request-scoped state
-  const requestState = new WeakMap<Request, () => Promise<Response>>()
-
-  const app = new Hono<E>()
-  for (const handler of handlers) {
-    app.use('*', handler)
-  }
-  app.all('*', async (c) => {
-    const spiceNext = requestState.get(c.req.raw)!
-    const downstream = await spiceNext()
-    // Use c.newResponse so hono merges any #preparedHeaders set by
-    // middleware via c.header() before next().
-    return c.newResponse(downstream.body, downstream.status as any, Object.fromEntries(downstream.headers))
-  })
-
   return async function honoAdapter(spiceCtx, spiceNext) {
     const env =
       typeof options?.env === 'function'
         ? (options.env as Function)(spiceCtx)
-        : options?.env
+        : options?.env ?? {}
 
     const executionCtx = {
       waitUntil: spiceCtx.waitUntil,
       passThroughOnException() {},
     }
 
-    requestState.set(spiceCtx.request, spiceNext)
-    try {
-      return await app.fetch(spiceCtx.request, env as any, executionCtx as any)
-    } finally {
-      requestState.delete(spiceCtx.request)
+    const c = new Context<E>(spiceCtx.request, {
+      env,
+      executionCtx,
+      path: spiceCtx.path,
+    } as any)
+
+    // Koa-style compose: run handlers sequentially, each calling next()
+    // to advance to the next handler, with spiceNext as the final handler.
+    let index = -1
+    const dispatch = async (i: number): Promise<void> => {
+      if (i <= index) throw new Error('next() called multiple times')
+      index = i
+
+      if (i < handlers.length) {
+        const result = await handlers[i](c, () => dispatch(i + 1))
+        if (result instanceof Response) {
+          c.res = result
+        }
+        return
+      }
+
+      // End of hono middleware chain — call spiceflow's downstream.
+      // Use c.newResponse to merge any #preparedHeaders set via c.header().
+      const downstream = await spiceNext()
+      c.res = c.newResponse(
+        downstream.body,
+        downstream.status as any,
+        Object.fromEntries(downstream.headers),
+      )
     }
+
+    await dispatch(0)
+
+    if (!c.finalized) {
+      return spiceNext()
+    }
+
+    return c.res
   }
 }
 
