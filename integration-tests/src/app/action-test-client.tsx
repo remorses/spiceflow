@@ -7,6 +7,7 @@ import {
 	simpleAction,
 	redirectAction,
 	redirectWithCookieAction,
+	redirectExternalSameServerAction,
 	jsxAction,
 	jsxStreamingAction,
 	throwingStreamingAction,
@@ -68,6 +69,12 @@ export function RedirectActionTest() {
 				onClick={() => redirectWithCookieAction()}
 			>
 				Redirect with cookie
+			</button>
+			<button
+				data-testid="call-external-redirect-action"
+				onClick={() => redirectExternalSameServerAction()}
+			>
+				Redirect external origin
 			</button>
 		</div>
 	);

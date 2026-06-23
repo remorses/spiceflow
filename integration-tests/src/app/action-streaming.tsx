@@ -1,7 +1,7 @@
 // Server actions for e2e tests: streaming, simple call, and redirect.
 "use server";
 
-import { redirect } from "spiceflow";
+import { getActionRequest, redirect } from "spiceflow";
 
 function sleep(ms: number) {
 	return new Promise((resolve) => setTimeout(resolve, ms));
@@ -27,6 +27,17 @@ export async function redirectWithCookieAction(): Promise<never> {
 	throw redirect("/other", {
 		headers: { "set-cookie": "action-redirect=1; Path=/" },
 	});
+}
+
+export async function redirectExternalSameServerAction(): Promise<never> {
+	const target = new URL(getActionRequest().url);
+	target.hostname = "127.0.0.1";
+	target.pathname = target.pathname.replace(
+		"/server-action-redirect",
+		"/other",
+	);
+	target.search = "";
+	throw redirect(target.toString());
 }
 
 export async function jsxAction(name: string) {

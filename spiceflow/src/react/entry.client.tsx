@@ -463,7 +463,7 @@ async function main() {
         if (redirectInfo) {
           const target = new URL(redirectInfo.location, window.location.href)
           if (target.origin !== window.location.origin) {
-            hardNavigate(target.href)
+            window.location.assign(target.href)
           } else {
             const nextHref = `${target.pathname}${target.search}${target.hash}`
             queueMicrotask(() => {

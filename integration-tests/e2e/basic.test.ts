@@ -2126,6 +2126,24 @@ test.describe("server actions", () => {
 		await expect(page.getByTestId("layout-mount-count")).toHaveText("1");
 	});
 
+	test("direct server action redirect adds a browser history entry", async ({
+		page,
+	}) => {
+		test.skip(isRemote, "cross-origin localhost redirect needs local server");
+		await page.goto(url("/server-action-redirect"));
+		await expect(page.getByTestId("layout-mount-count")).toHaveText("1", {
+			timeout: 10000,
+		});
+		await page.getByTestId("call-external-redirect-action").click();
+		await expect(page).toHaveURL(/chrome-error:\/\/chromewebdata\//, {
+			timeout: 10000,
+		});
+		await page.goBack();
+		await expect(page).toHaveURL(url("/server-action-redirect"), {
+			timeout: 10000,
+		});
+	});
+
 	test("direct server action redirect with set-cookie preserves cookie", async ({
 		page,
 	}) => {
