@@ -1910,10 +1910,23 @@ export class Spiceflow<
       const redirectResponse =
         getRedirectResponse(pageResult) ?? findLastLayoutValue(getRedirectResponse)
       if (redirectResponse) {
-        return mergeHeadersIntoResponse({
+        const merged = mergeHeadersIntoResponse({
           response: redirectResponse,
           source: routeHeaders,
         })
+        // For RSC fetches, the browser's fetch() auto-follows 3xx redirects.
+        // Cross-origin redirects (e.g. OAuth to Google) fail with CORS errors
+        // because the external server doesn't allow the app's origin.
+        // Wrap the redirect as a 200 with custom headers so the client can
+        // read the location and handle it without fetch trying to follow it.
+        if (isRscRequest(new URL(request.url))) {
+          const headers = new Headers(merged.headers)
+          headers.set('x-spiceflow-redirect', merged.headers.get('location') || '')
+          headers.set('x-spiceflow-redirect-status', String(merged.status))
+          headers.delete('location')
+          return new Response(null, { status: 200, headers })
+        }
+        return merged
       }
       const pageResponse = getReturnedResponse(pageResult)
       const httpResponse =

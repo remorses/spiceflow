@@ -193,6 +193,22 @@ async function fetchFlightResponse(args: {
 }) {
   const response = await fetch(args.url, { ...args.init, cache: 'no-store' })
 
+  // The server wraps redirects for RSC requests as 200 + x-spiceflow-redirect
+  // header to prevent fetch() from auto-following cross-origin redirects
+  // (which would fail with CORS errors, e.g. OAuth to Google).
+  const wrappedRedirect = response.headers.get('x-spiceflow-redirect')
+  if (wrappedRedirect) {
+    const redirectLocation = new URL(wrappedRedirect, args.url).toString()
+    const isSameOriginRedirect =
+      new URL(redirectLocation).origin === window.location.origin
+    if (args.kind === 'navigation' && isSameOriginRedirect) {
+      router.replace(redirectLocation)
+      return never()
+    }
+    hardNavigate(redirectLocation)
+    return never()
+  }
+
   const locationHeader = response.headers.get('location')
   const isRedirectResponse = response.status >= 300 && response.status <= 399
   if (locationHeader && isRedirectResponse) {
@@ -206,14 +222,15 @@ async function fetchFlightResponse(args: {
     hardNavigate(redirectLocation)
     return never()
   }
+
+  // fetch() auto-follows same-origin redirects (e.g. .get() returning 302).
+  // Detect this via response.redirected and do a client-side navigation to
+  // preserve SPA state instead of falling through to hardNavigate.
   if (response.redirected) {
     const redirectLocation = getDocumentLocationFromResponse({
       response,
       requestUrl: args.url,
     })
-    // For RSC navigations where the redirect stayed same-origin, do a
-    // client-side redirect so the SPA shell (layout state, scroll, etc.)
-    // is preserved instead of triggering a full page reload.
     const isSameOriginRedirect =
       response.url && new URL(response.url, args.url).origin === args.url.origin
     if (args.kind === 'navigation' && isSameOriginRedirect) {
