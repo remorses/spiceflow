@@ -27,6 +27,26 @@ This project uses pnpm workspaces to manage dependencies. Important scripts are 
 
 try to run commands inside the package folder that you are working on. for example you should never run `pnpm test` from the root
 
+## spiceflow duplication in consumer monorepos
+
+never add `pnpm.overrides` for spiceflow to fix duplicate installation errors. overrides pin a specific version that drifts from what `@holocron.so/vite` and other packages depend on, making the problem worse over time.
+
+instead, run `pnpm update -r spiceflow` to align all workspace packages to the latest version, then `pnpm dedupe spiceflow` to collapse duplicate copies. if duplicates persist, the consumer repo should add a `packageExtensions` entry to make `@holocron.so/vite` treat spiceflow as a peerDependency (since it currently lists it as a regular dep):
+
+```json
+"pnpm": {
+  "packageExtensions": {
+    "@holocron.so/vite": {
+      "peerDependencies": {
+        "spiceflow": "*"
+      }
+    }
+  }
+}
+```
+
+if you see an existing spiceflow override in `pnpm.overrides`, remove it and follow the steps above instead.
+
 # typescript
 
 Try to use object arguments for new typescript functions if the function would accept more than one argument, this way you can use the object as a sort of named argument feature, where order of arguments does not matter and it's easier to discover parameters.
