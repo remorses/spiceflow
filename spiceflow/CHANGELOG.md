@@ -1,5 +1,13 @@
 # spiceflow
 
+## 1.26.0-rsc.7
+
+1. **Fix CORS error on RSC redirects from loaders** — the previous fix only covered page/layout handlers. Redirects thrown from loaders or caught by `errorToResponse()` still returned raw 3xx responses, causing CORS errors for external URLs. The wrapping is now centralized at the final exit point in `fetch()`, catching all redirect responses regardless of origin.
+
+2. **Fix relative redirect URLs leaking `.rsc` suffix** — relative redirects like `?done=1` from server actions resolved against the RSC request URL (`/foo.rsc?__rsc=`) instead of the clean document URL (`/foo`), producing `/foo.rsc?done=1` in the browser. Redirect targets are now resolved against the stripped URL.
+
+3. **Fix Cloudflare tracing "Illegal invocation" crash** — `tracing.enterSpan` from `cloudflare:workers` was passed as a detached function reference, losing its `this` binding. The Cloudflare runtime threw "Illegal invocation: function called with incorrect `this` reference" on every request when tracing was enabled. Fixed by binding the method to its parent object.
+
 ## 1.26.0-rsc.6
 
 1. **Hono middleware adapter** — new `spiceflow/hono` subpath lets you use any Hono middleware in Spiceflow apps. The `honoMiddleware()` function wraps a Hono `MiddlewareHandler` so it works with `.use()`. All standard Hono APIs work: `c.req`, `c.header()`, `c.status()`, `c.json()`, `c.text()`, `c.redirect()`, `c.set()`/`c.get()`, `c.var`, and `c.env`.

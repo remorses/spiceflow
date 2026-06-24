@@ -7,6 +7,7 @@
 import * as cfWorkers from 'cloudflare:workers'
 import { createCloudflareTracer } from './cloudflare-tracer-adapter.js'
 
-export const cloudflareTracer = (cfWorkers as any).tracing?.enterSpan
-  ? createCloudflareTracer((cfWorkers as any).tracing.enterSpan)
+const tracing = (cfWorkers as any).tracing
+export const cloudflareTracer = tracing?.enterSpan
+  ? createCloudflareTracer(tracing.enterSpan.bind(tracing))
   : undefined
