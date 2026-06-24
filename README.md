@@ -1810,6 +1810,33 @@ export function DeleteButton({ id }: { id: string }) {
 }
 ```
 
+#### Action Buttons Without FormData
+
+When a server action takes **no arguments** (or only typed arguments, not `FormData`), skip the `<form>` wrapper entirely. Use `useTransition` for pending state instead of `useFormStatus` (which requires a parent `<form>`):
+
+```tsx
+// src/app/checkout-button.tsx
+'use client'
+
+import { useTransition } from 'react'
+import { startCheckout } from '../actions'
+
+export function CheckoutButton() {
+  const [pending, startTransition] = useTransition()
+  return (
+    <button
+      type="button"
+      disabled={pending}
+      onClick={() => startTransition(() => startCheckout())}
+    >
+      {pending ? 'Redirecting...' : 'Subscribe'}
+    </button>
+  )
+}
+```
+
+This is simpler than wrapping in a `<form action={startCheckout}>` with `useFormStatus()`, and avoids layout issues caused by the extra `<form>` element. Use `<form>` only when you actually need `FormData` (input fields) or progressive enhancement (works before JS loads).
+
 <details>
 <summary>Avoid deadlocks in client form actions</summary>
 
