@@ -1,5 +1,41 @@
 # spiceflow
 
+## 1.26.0-rsc.6
+
+1. **Hono middleware adapter** — new `spiceflow/hono` subpath lets you use any Hono middleware in Spiceflow apps. The `honoMiddleware()` function wraps a Hono `MiddlewareHandler` so it works with `.use()`. All standard Hono APIs work: `c.req`, `c.header()`, `c.status()`, `c.json()`, `c.text()`, `c.redirect()`, `c.set()`/`c.get()`, `c.var`, and `c.env`.
+
+   ```ts
+   import { Spiceflow } from 'spiceflow'
+   import { honoMiddleware } from 'spiceflow/hono'
+   import { cors } from 'hono/cors'
+   import { logger } from 'hono/logger'
+
+   const app = new Spiceflow()
+     .use(honoMiddleware(cors({ origin: '*' })))
+     .use(honoMiddleware(logger()))
+     .get('/api/users', () => [{ name: 'Tommy' }])
+   ```
+
+   For Cloudflare Workers, pass `env` to make bindings available on `c.env`:
+
+   ```ts
+   .use(honoMiddleware(myMiddleware, {
+     env: (ctx) => ctx.state.env,
+   }))
+   ```
+
+2. **Automatic Cloudflare Workers tracing** — when no `tracer` is passed and the app runs on Cloudflare Workers, spiceflow auto-detects the runtime and wraps `tracing.enterSpan()` from `cloudflare:workers` into the standard `SpiceflowTracer` interface. All span trees (middleware, handlers, loaders, layouts, pages, RSC serialization) appear in the Cloudflare dashboard with zero config beyond `observability.traces.enabled` in `wrangler.jsonc`. Falls back gracefully on older wrangler versions without the tracing export.
+
+3. **Fix CORS error on external redirects during RSC navigation** — when a `.page()` handler returns a redirect to a cross-origin URL (e.g. an OAuth provider), the browser's `fetch()` would auto-follow the 302 and hit the external domain without CORS headers, blocking the request. The server now wraps redirects as a 200 response with `x-spiceflow-redirect` headers for RSC requests, and the client reads those headers to perform the redirect via `hardNavigate()` or `router.replace()`.
+
+4. **Fix server action redirects to preserve browser history** — redirecting from a server action to an external URL (e.g. checkout or auth provider) now creates a browser history entry so users can press Back and return to the page that started the action, instead of replacing it.
+
+5. **Add `Access-Control-Allow-Origin: *` to static file responses** — static assets served by spiceflow now include CORS headers, enabling cross-origin federation consumers and CDN setups.
+
+6. **Default `clearScreen` to false** in the Vite plugin so terminal output is preserved across rebuilds.
+
+7. **Reduce `preventProcessExitIfBusy` default from 300s to 60s** — the grace period before force-exiting busy processes is now shorter to avoid long hangs during deploys.
+
 ## 1.26.0-rsc.5
 
 1. **Standalone federation consumer** — any React app (Next.js, plain SPA, etc.) can now consume federation payloads from a spiceflow remote without using the spiceflow framework. New `spiceflow/federation-client` subpath exports `setupFederationConsumer`, `decodeFederationPayload`, `decodeFederationPayloadDetails`, and `injectFederationCss`.
