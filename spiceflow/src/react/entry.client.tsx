@@ -33,6 +33,7 @@ import { FlightDataContext } from './context.js'
 import {
   getDocumentLocationFromResponse,
   isFlightResponse,
+  stripRscUrl,
 } from './deployment.js'
 import { getErrorContext, isRedirectError } from './errors.js'
 import { actionAbortControllers } from './action-abort.js'
@@ -198,7 +199,11 @@ async function fetchFlightResponse(args: {
   // (which would fail with CORS errors, e.g. OAuth to Google).
   const wrappedRedirect = response.headers.get('x-spiceflow-redirect')
   if (wrappedRedirect) {
-    const redirectLocation = new URL(wrappedRedirect, args.url).toString()
+    // Resolve relative redirects against the document URL, not the .rsc URL,
+    // to avoid leaking .rsc into browser URLs (e.g. redirect('?done=1')
+    // would resolve against /foo.rsc → /foo.rsc?done=1 instead of /foo?done=1).
+    const documentUrl = stripRscUrl(args.url)
+    const redirectLocation = new URL(wrappedRedirect, documentUrl).toString()
     const isSameOriginRedirect =
       new URL(redirectLocation).origin === window.location.origin
     if (args.kind === 'navigation' && isSameOriginRedirect) {

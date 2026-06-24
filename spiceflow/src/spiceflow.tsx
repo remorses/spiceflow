@@ -187,6 +187,18 @@ function appendHeaders(target: Headers, source: Headers) {
   return changed
 }
 
+// Wrap a redirect response for RSC fetches: return 200 with custom headers
+// so the client can read the location without fetch() auto-following the 3xx.
+function wrapRedirectForRsc(response: Response): Response {
+  const location = response.headers.get('location')
+  if (!location) return response
+  const headers = new Headers(response.headers)
+  headers.set('x-spiceflow-redirect', location)
+  headers.set('x-spiceflow-redirect-status', String(response.status))
+  headers.delete('location')
+  return new Response(null, { status: 200, headers })
+}
+
 function mergeHeadersIntoResponse({
   response,
   source,
@@ -1910,23 +1922,10 @@ export class Spiceflow<
       const redirectResponse =
         getRedirectResponse(pageResult) ?? findLastLayoutValue(getRedirectResponse)
       if (redirectResponse) {
-        const merged = mergeHeadersIntoResponse({
+        return mergeHeadersIntoResponse({
           response: redirectResponse,
           source: routeHeaders,
         })
-        // For RSC fetches, the browser's fetch() auto-follows 3xx redirects.
-        // Cross-origin redirects (e.g. OAuth to Google) fail with CORS errors
-        // because the external server doesn't allow the app's origin.
-        // Wrap the redirect as a 200 with custom headers so the client can
-        // read the location and handle it without fetch trying to follow it.
-        if (isRscRequest(new URL(request.url))) {
-          const headers = new Headers(merged.headers)
-          headers.set('x-spiceflow-redirect', merged.headers.get('location') || '')
-          headers.set('x-spiceflow-redirect-status', String(merged.status))
-          headers.delete('location')
-          return new Response(null, { status: 200, headers })
-        }
-        return merged
       }
       const pageResponse = getReturnedResponse(pageResult)
       const httpResponse =
@@ -2164,8 +2163,16 @@ export class Spiceflow<
           },
         )
 
+    // For RSC fetches, wrap redirect responses as 200 + custom headers.
+    // Without this, fetch() auto-follows 3xx redirects and cross-origin
+    // redirects (e.g. OAuth to Google) fail with CORS errors.
+    const finalResponse =
+      isRscRequest(u) && isRedirectStatus(response.status)
+        ? wrapRedirectForRsc(response)
+        : response
+
     return appendServerTimingHeader(
-      response,
+      finalResponse,
       requestTracing.getServerTimingHeader(),
     )
   }
