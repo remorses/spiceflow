@@ -1357,6 +1357,32 @@ export function Counter() {
 }
 ```
 
+### Don't export plain objects from `'use client'` files
+
+In RSC, the entire module marked with `'use client'` becomes an opaque client reference on the server. You can render client component references as JSX, but you **cannot spread or iterate** them. If a server component imports a plain object (like a component map or config) from a `'use client'` file and tries to spread it, the spread produces nothing.
+
+```tsx
+// BAD: server component can't spread this
+// my-components.tsx
+'use client'
+import { useState } from 'react'
+function Counter() { /* ... uses useState */ }
+function P({ children }) { return <p className="prose">{children}</p> }
+export const components = { p: P, counter: Counter }
+
+// GOOD: keep the map in a server-compatible file
+// counter.tsx
+'use client'
+export function Counter() { /* ... uses useState */ }
+
+// my-components.tsx (no 'use client')
+import { Counter } from './counter'
+function P({ children }) { return <p className="prose">{children}</p> }
+export const components = { p: P, counter: Counter }
+```
+
+Only components that use browser-only APIs (hooks, DOM refs) need `'use client'`. Pure JSX, config objects, and component maps must stay in server-compatible modules. Import individual client components into the server module, not the other way around.
+
 ### Loaders
 
 Loaders run on the server before page and layout handlers. They solve a common problem: when you need the same data in both server components and client components, or in both a layout and a page, without prop drilling or React context.
