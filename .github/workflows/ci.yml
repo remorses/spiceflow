@@ -27,6 +27,8 @@ jobs:
 
       - run: pnpm build
         working-directory: spiceflow
+      - run: pnpm run test-package-consumer
+        working-directory: spiceflow
       - run: pnpm build
       - run: pnpm test
 
