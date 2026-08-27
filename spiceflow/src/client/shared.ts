@@ -214,7 +214,7 @@ export async function* streamSSEResponse({
           1000 * 2 ** (maxRetries - retriesLeft - 1),
           10000,
         )
-        await new Promise((resolve) => setTimeout(resolve, backoffMs))
+        await waitForRetry(backoffMs, signal)
 
         try {
           currentResponse = await executeRequest()
@@ -425,6 +425,7 @@ export async function executeWithRetries({
         `Server error: ${response.status} ${response.statusText}`,
       )
     } catch (err) {
+      if (fetchInit.signal?.aborted) throw fetchInit.signal.reason
       lastError = err as Error
       if (attempt === retries) {
         throw err
@@ -433,7 +434,7 @@ export async function executeWithRetries({
 
     attempt++
     const backoffMs = Math.min(1000 * 2 ** (attempt - 1), 10000)
-    await new Promise((resolve) => setTimeout(resolve, backoffMs))
+    await waitForRetry(backoffMs, fetchInit.signal)
   }
 
   if (!response) {
@@ -441,4 +442,20 @@ export async function executeWithRetries({
   }
 
   return response
+}
+
+function waitForRetry(ms: number, signal?: AbortSignal | null) {
+  if (signal?.aborted) return Promise.reject(signal.reason)
+
+  return new Promise<void>((resolve, reject) => {
+    const onAbort = () => {
+      clearTimeout(timeout)
+      reject(signal?.reason)
+    }
+    const timeout = setTimeout(() => {
+      signal?.removeEventListener('abort', onAbort)
+      resolve()
+    }, ms)
+    signal?.addEventListener('abort', onAbort, { once: true })
+  })
 }

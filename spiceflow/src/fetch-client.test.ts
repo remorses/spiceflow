@@ -444,6 +444,23 @@ describe('fetch client retries', () => {
     expect(result.status).toBe(400)
     expect(attemptCount).toBe(1)
   })
+
+  it('stops retry backoff when aborted', async () => {
+    const controller = new AbortController()
+    const reason = new Error('cancelled')
+    let attemptCount = 0
+    const retryApp = new Spiceflow().get('/retry-abort', () => {
+      attemptCount++
+      controller.abort(reason)
+      throw new Response('Server error', { status: 500 })
+    })
+
+    const retryFetch = createSpiceflowFetch(retryApp, { retries: 2 })
+    await expect(
+      retryFetch('/retry-abort', { signal: controller.signal }),
+    ).rejects.toBe(reason)
+    expect(attemptCount).toBe(1)
+  })
 })
 
 // ── TypedResponse / json() ──────────────────────────────────────────────────

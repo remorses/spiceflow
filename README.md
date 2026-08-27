@@ -822,6 +822,43 @@ const greeting = await safeFetch('/hello')
 if (greeting instanceof Error) throw greeting
 ```
 
+### WebMCP tools
+
+`installWebMcp` exposes API routes to browser agents through the WebMCP API. It fetches the OpenAPI document at startup and uses the same fetch client for tool calls, including its authentication headers, hooks, and retries.
+
+Mount the OpenAPI plugin on the server:
+
+```ts
+import { openapi } from 'spiceflow/openapi'
+
+export const app = new Spiceflow()
+  .use(openapi())
+  .route({
+    method: 'POST',
+    path: '/users',
+    request: z.object({ name: z.string() }),
+    handler: async ({ request }) => createUser(await request.json()),
+  })
+```
+
+Then install its tools in browser code:
+
+```ts
+import { createSpiceflowFetch, installWebMcp } from 'spiceflow/client'
+
+const api = createSpiceflowFetch('')
+const uninstall = await installWebMcp({
+  fetch: api,
+  openapiPath: '/openapi',
+  exclude: [{ method: 'DELETE', path: '/users/:id' }],
+})
+
+// Later, remove only the tools installed by this call.
+uninstall()
+```
+
+By default, only routes with body, query, or path input schemas are exposed. Use `include` as an exact whitelist and `exclude` as an exact blacklist. Existing WebMCP tools with the same name are kept and not replaced. Installation errors are logged and return a no-op cleanup function, so WebMCP cannot prevent the application from starting. Tool results must be JSON-serializable.
+
 For path matching patterns, error handling, server-side fetch, type-safe RPC, and path building, see **[Fetch Client (Advanced)](./website/src/fetch-client.md)**. To support types like `Date`, `Map`, `Set`, and `BigInt` across the wire, see **[Custom Serialization](./website/src/custom-serialization.md)**.
 
 ## OpenAPI

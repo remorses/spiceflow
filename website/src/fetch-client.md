@@ -209,6 +209,47 @@ When typed fetch gets weird, check these first:
 
 </details>
 
+## WebMCP Tools
+
+Use `installWebMcp` to register API routes as browser WebMCP tools. The installer loads your OpenAPI document once, converts route inputs into JSON Schema, and executes tools through the supplied fetch client.
+
+```ts
+import { createSpiceflowFetch, installWebMcp } from 'spiceflow/client'
+
+const api = createSpiceflowFetch('https://api.example.com', {
+  headers: () => ({ Authorization: `Bearer ${getToken()}` }),
+})
+
+const uninstall = await installWebMcp({
+  fetch: api,
+  openapiPath: '/openapi',
+  include: [
+    { method: 'GET', path: '/users/:id' },
+    { method: 'POST', path: '/users' },
+  ],
+  exclude: [{ method: 'DELETE', path: '/users/:id' }],
+})
+```
+
+The server must mount `openapi()` at the configured path. By default, the installer exposes only operations with a body, query, or path schema. Supplying `include` changes this to an exact whitelist, including inputless routes when selected. `exclude` runs afterward and always wins.
+
+Route selectors use Spiceflow paths such as `/users/:id`. Leave out `method` to match every method at that exact path. Matching is exact and never treats a path as a prefix.
+
+Tool names use `detail.operationId` when present. Otherwise, the installer derives a name from the method and path. Add distinct `operationId` values when two derived names would collide.
+
+The installer reads the current document's tools before registration. A user-defined tool with the same name is left unchanged. The returned function unregisters only tools added by that installer call. Setup errors are logged to the console and return a no-op cleanup function, so WebMCP cannot block application startup.
+
+Tool results must be JSON-serializable. If an `onResponse` hook returns custom values such as `Map`, `Set`, or `BigInt`, convert them to plain JSON values before exposing that route.
+
+<details>
+<summary>WebMCP security rules</summary>
+
+WebMCP does not authenticate or authorize requests. Every exposed API route must still check the current user and their permissions. The installer does not expose header or cookie inputs to agents; credentials come from the fetch client and normal browser cookie handling.
+
+WebMCP is available only in supported secure browser contexts. Unsupported browsers return a no-op cleanup function without fetching the OpenAPI document. Cross-origin OpenAPI and route requests need the appropriate CORS configuration.
+
+</details>
+
 ## Headers
 
 Set headers globally on the client, per request, or dynamically with a function. Per-request headers are merged with global headers.
