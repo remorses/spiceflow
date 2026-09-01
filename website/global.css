@@ -1,6 +1,14 @@
 @reference "tailwindcss";
 @custom-variant dark (&:where(.dark, .dark *));
 
+:root {
+  --code-block-background: #f7f7f7;
+
+  @variant dark {
+    --code-block-background: var(--card);
+  }
+}
+
 @font-face {
   font-family: 'IvarText';
   src: url('/fonts/ivartext-regular.woff2') format('woff2');
