@@ -2592,18 +2592,38 @@ Each yielded element — whether a text paragraph, a weather card, or a stock ch
 
 **Always `throw redirect(...)`, never `return redirect(...)`.** Both work at runtime, but `throw` is safer for TypeScript: it prevents the redirect from contributing to the handler's inferred return type, which avoids circular TS7022 errors when using `SpiceflowRegister`. It also short-circuits the handler immediately, making control flow explicit.
 
+**Every app must render a 404 page** that explains the page was not found. The built-in `DefaultNotFoundPage` is unstyled. When no page matches, layout `children` is `null`. Handle that in the **root** `/*` layout: `LayoutContent` renders the first layout, so if that layout returns `{children}` and children is null, the page is blank white.
+
+<details>
+<summary>Do not add a catch-all <code>.page('/*')</code> next to API routes</summary>
+
+A wildcard **page** matches every GET, including mounted API routes (`/api/v2/*`) and aliases like `/signup`. Those requests then 404 as HTML instead of reaching the real handler.
+
+Put the not-found UI in the root layout instead. Set `response.status = 404` when `children == null`.
+
+</details>
+
 Use the handler context `redirect` and `response.status` inside `.page()` and `.layout()` handlers to control navigation and HTTP status codes:
 
 ```tsx
 import { Spiceflow } from 'spiceflow'
 
+function NotFound({ path }: { path?: string }) {
+  return (
+    <main>
+      <h1>Page not found</h1>
+      <p>{path ? `The page ${path} was not found.` : 'This page was not found.'}</p>
+    </main>
+  )
+}
+
 export const app = new Spiceflow()
   .page('/login', async () => <Login />)
-  .layout('/*', async ({ children, request }) => {
-    // When no page matches, children is null — render a custom 404
+  .layout('/*', async ({ children, request, response }) => {
+    if (children == null) response.status = 404
     return (
       <AppLayout>
-        {children ?? <NotFound />}
+        {children ?? <NotFound path={request.parsedUrl.pathname} />}
       </AppLayout>
     )
   })
@@ -2618,7 +2638,7 @@ export const app = new Spiceflow()
     const post = await getPost(params.id)
     if (!post) {
       response.status = 404
-      return <NotFound message={`Post ${params.id} not found`} />
+      return <NotFound path={`/posts/${params.id}`} />
     }
     return <Post post={post} />
   })
