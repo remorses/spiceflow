@@ -1682,6 +1682,7 @@ test.describe("Takumi standalone tracing @build", () => {
 });
 
 test.describe("prerender error @build", () => {
+	test.skip(() => isRemote, "skipped on remote deployments (local vite build)")
 	test("build fails with exit code 1 when a static page throws", async () => {
 		const tempDir = mkdtempSync(join(tmpdir(), "spiceflow-prerender-error-"));
 		let stdout = "";
@@ -3008,6 +3009,7 @@ test.describe("spiceflow dirs", () => {
 	test("publicDir and distDir resolve to correct paths in prod @build", async ({
 		page,
 	}) => {
+		test.skip(isRemote, "Vercel function layout uses client/, not dist/client")
 		await page.goto(url("/spiceflow-dirs"));
 		await expect(page.getByTestId("public-dir")).toHaveText("dist/client");
 		await expect(page.getByTestId("dist-dir")).toHaveText("dist");
