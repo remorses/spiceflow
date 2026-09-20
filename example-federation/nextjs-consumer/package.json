@@ -15,14 +15,14 @@
   },
   "dependencies": {
     "next": "^15.4.0-canary.84",
-    "react": "19.2.8",
-    "react-dom": "19.2.8",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
     "spiceflow": "workspace:^"
   },
   "devDependencies": {
     "@playwright/test": "^1.52.0",
-    "@types/react": "19.2.16",
-    "@types/react-dom": "19.2.3",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
     "typescript": "5.7.3"
   }
 }
