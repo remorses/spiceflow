@@ -435,6 +435,18 @@ export class Spiceflow<
     })
     return allRoutes
   }
+
+  /** Returns route metadata from this app and mounted apps. */
+  getRoutes() {
+    return this.getAllRoutes()
+      .filter(({ method, kind }) => !kind || method === 'GET')
+      .map(({ method, path, kind }) => ({
+        kind: getPublicRouteKind(kind),
+        method,
+        path,
+      }))
+  }
+
   private usedIds = new Set<string>()
 
   private generateRouteId(
@@ -3293,6 +3305,19 @@ export class Spiceflow<
   }
 }
 
+function getPublicRouteKind(
+  kind: NodeKind | undefined,
+): 'api' | 'page' | 'layout' | 'loader' {
+  if (kind === 'layout' || kind === 'loader') return kind
+  if (
+    kind === 'page' ||
+    kind === 'staticPage' ||
+    kind === 'staticPageWithoutHandler'
+  ) {
+    return 'page'
+  }
+  return 'api'
+}
 
 const METHODS = [
   'ALL',

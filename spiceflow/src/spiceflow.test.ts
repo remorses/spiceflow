@@ -1542,6 +1542,38 @@ test('does not append subapp basePath if it is the same as parent app', async ()
   `)
 })
 
+test('getRoutes returns each mounted page once as GET', () => {
+  const app = new Spiceflow()
+    .get('/api/health', () => ({ ok: true }))
+    .page('/posts/:slug', async ({ params }) => params.slug)
+    .use(
+      new Spiceflow({ basePath: '/docs' }).staticPage(
+        '/intro',
+        async () => 'Introduction',
+      ),
+    )
+
+  expect(app.getRoutes()).toMatchInlineSnapshot(`
+    [
+      {
+        "kind": "api",
+        "method": "GET",
+        "path": "/api/health",
+      },
+      {
+        "kind": "page",
+        "method": "GET",
+        "path": "/posts/:slug",
+      },
+      {
+        "kind": "page",
+        "method": "GET",
+        "path": "/docs/intro",
+      },
+    ]
+  `)
+})
+
 test('does not append subapp basePath if parent is prefix of subapp path', async () => {
   const app = new Spiceflow({ basePath: '/api' })
     .use(new Spiceflow({ basePath: '/api/sub' }).get('/users', () => 'users'))
