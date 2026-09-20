@@ -1,10 +1,15 @@
 ---
-title: shadcn/ui
-description: Use shadcn/ui components with Spiceflow.
-icon: palette
+$schema: https://holocron.so/frontmatter.json
+title: Use shadcn/ui components with Spiceflow
+sidebarTitle: shadcn
+description: Install and structure shadcn/ui in a Spiceflow app using package.json exports instead of tsconfig paths, with a working example you can copy.
+icon: "lucide:palette"
+prompt: |
+  Write the shadcn guide from @/example-shadcn/. Explain package.json exports instead of
+  tsconfig paths and the component folder layout.
 ---
 
-# shadcn/ui
+# Use shadcn/ui components with Spiceflow
 
 How to use [shadcn/ui](https://ui.shadcn.com) with Spiceflow. See [`example-shadcn/`](https://github.com/remorses/spiceflow/tree/main/example-shadcn) for a working example.
 

@@ -1,10 +1,15 @@
 ---
-title: Security Guide
-description: CSRF, authentication, and authorization patterns.
-icon: shield
+$schema: https://holocron.so/frontmatter.json
+title: CSRF, authentication, and authorization
+sidebarTitle: Security
+description: Treat Spiceflow routes and server actions as public endpoints. Cover CSRF Origin checks, session auth, and authorization for mutating handlers.
+icon: "lucide:shield"
+prompt: |
+  Write the security guide from @/spiceflow/src/react/entry.rsc.tsx, @/spiceflow/src/action-context.ts,
+  and @/spiceflow/src/cors.ts. Cover CSRF Origin checks and auth for server actions and routes.
 ---
 
-# Security Guide
+# CSRF, authentication, and authorization
 
 CSRF protection (the Origin header check on server actions) blocks cross-site form submissions. It does **not** authenticate the caller. Any HTTP client can call a server action or API route directly. Treat every `"use server"` function and every `.get()`/`.post()` route as a public endpoint.
 

@@ -1,10 +1,16 @@
 ---
-title: OpenAPI
-description: Generate OpenAPI 3.1 docs from your Zod schemas.
-icon: file-json
+$schema: https://holocron.so/frontmatter.json
+title: Generate OpenAPI 3.1 docs from Zod
+sidebarTitle: OpenAPI
+description: Generate an OpenAPI 3.1 document from Spiceflow Zod schemas, including response maps, hidden routes, reusable models, and typed fetch errors.
+icon: "lucide:file-json"
+prompt: |
+  Write the OpenAPI guide from @/spiceflow/src/openapi.ts and
+  @/spiceflow/src/openapi-docs-examples.test.ts. Cover response maps, hidden routes,
+  reusable schemas, and typed fetch errors.
 ---
 
-# OpenAPI
+# Generate OpenAPI 3.1 docs from Zod
 
 Spiceflow generates a full OpenAPI 3.1 document from your routes without you writing a single line of schema by hand. The `openapi` plugin walks every registered route and uses the Zod schemas you already passed to `request`, `query`, `params`, and `response` to produce the `paths`, `parameters`, `requestBody`, and `responses` sections for you.
 

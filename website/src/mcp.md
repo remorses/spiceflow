@@ -1,10 +1,15 @@
 ---
-title: Model Context Protocol (MCP)
-description: Expose API routes as tools for AI language models.
-icon: bot
+$schema: https://holocron.so/frontmatter.json
+title: Expose API routes as MCP tools
+sidebarTitle: MCP
+description: Mount the Model Context Protocol plugin so AI clients can call Spiceflow routes as tools and resources over SSE, with input validation included.
+icon: "lucide:bot"
+prompt: |
+  Write the MCP guide from @/spiceflow/src/mcp.ts, @/spiceflow/src/openapi-to-mcp.ts,
+  @/spiceflow/src/mcp-transport.ts, and @/example-mcp-app/.
 ---
 
-# Model Context Protocol (MCP)
+# Expose API routes as MCP tools
 
 Spiceflow includes a Model Context Protocol (MCP) plugin that exposes your API routes as tools and resources that can be used by AI language models like Claude. The MCP plugin makes it easy to let AI assistants interact with your API endpoints in a controlled way.
 

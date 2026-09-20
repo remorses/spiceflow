@@ -1,5 +1,5 @@
 {
-  "$schema": "https://unpkg.com/@holocron.so/vite/src/schema.json",
+  "$schema": "https://holocron.so/docs.json",
   "name": "Spiceflow",
   "description": "Type safe API and React Server Components framework",
   "favicon": "/favicon.ico",
@@ -24,31 +24,35 @@
   "navigation": {
     "global": {
       "anchors": [
-        { "anchor": "GitHub", "href": "https://github.com/remorses/spiceflow", "icon": "github", "placement": "tabs" },
-        { "anchor": "Changelog", "href": "https://github.com/remorses/spiceflow/releases", "icon": "newspaper", "placement": "tabs" }
+        { "anchor": "GitHub", "href": "https://github.com/remorses/spiceflow", "icon": "lucide:github", "placement": "tabs" },
+        { "anchor": "Changelog", "href": "https://github.com/remorses/spiceflow/releases", "icon": "lucide:newspaper", "placement": "tabs" }
       ]
     },
     "groups": [
       {
         "group": "Overview",
-        "icon": "home",
+        "icon": "lucide:home",
         "pages": ["index"]
       },
       {
+        "group": "Framework",
+        "icon": "lucide:layers",
+        "pages": ["api", "react", "react-data"]
+      },
+      {
         "group": "Guides",
-        "icon": "book-open",
+        "icon": "lucide:book-open",
         "pages": [
           "testing",
           "middleware-patterns",
           "migrate-from-remix",
           "shadcn",
-          "security",
-          "docker"
+          "security"
         ]
       },
       {
         "group": "Features",
-        "icon": "sparkles",
+        "icon": "lucide:sparkles",
         "pages": [
           "openapi",
           "mcp",
@@ -62,11 +66,12 @@
       },
       {
         "group": "Deployment",
-        "icon": "cloud-upload",
+        "icon": "lucide:cloud-upload",
         "pages": [
           "cloudflare",
-          "deployment-skew",
-          "service-bindings"
+          "service-bindings",
+          "docker",
+          "deployment-skew"
         ]
       }
     ]

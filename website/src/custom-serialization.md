@@ -1,10 +1,16 @@
 ---
-title: Custom Serialization
-description: Serialize Date, Map, Set, and BigInt across the wire.
-icon: arrow-left-right
+$schema: https://holocron.so/frontmatter.json
+title: Serialize Date, Map, Set, and BigInt
+sidebarTitle: Serialization
+description: Send Date, Map, Set, and BigInt through Spiceflow fetch and RSC payloads with custom serializers so non-JSON types survive the network round trip.
+icon: "lucide:arrow-left-right"
+prompt: |
+  Write the custom serialization guide from @/spiceflow/src/client/fetch.ts and
+  @/spiceflow/src/client/shared.ts. Show superjson for Date, Map, Set, and BigInt
+  on both the route handler and the onResponse fetch hook.
 ---
 
-# Custom Serialization
+# Serialize Date, Map, Set, and BigInt
 
 Spiceflow uses plain `JSON.stringify` for API route responses. Types like `Date`, `Map`, `Set`, and `BigInt` are **not** preserved across the wire by default. `Date` becomes an ISO string, `Map` and `Set` are dropped, and `BigInt` throws.
 
@@ -78,31 +84,31 @@ When `onResponse` returns a non-undefined value, it replaces the default respons
 
 ## How it works
 
-```
+```diagram
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │  Route handler                                                              │
 │                                                                             │
 │  superjsonResponse({ date: new Date(), ... })                               │
 │       │                                                                     │
-│       ▼                                                                     │
-│  superjson.serialize() ──▶ JSON with __superjsonMeta                        │
+│       v                                                                     │
+│  superjson.serialize() ──> JSON with __superjsonMeta                        │
 │       │                                                                     │
-│       ▼                                                                     │
+│       v                                                                     │
 │  Response { content-type: application/superjson }                           │
 └─────────────────────────────────────────────────────────────────────────────┘
                                        │
                                    HTTP wire
                                        │
-                                       ▼
+                                       v
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │  onResponse hook                                                            │
 │                                                                             │
 │  detect content-type: application/superjson                                 │
 │       │                                                                     │
-│       ▼                                                                     │
-│  superjson.deserialize() ──▶ Date, Set, Map, BigInt restored                │
+│       v                                                                     │
+│  superjson.deserialize() ──> Date, Set, Map, BigInt restored                │
 │       │                                                                     │
-│       ▼                                                                     │
+│       v                                                                     │
 │  return deserialized data (skips default JSON.parse)                        │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```

@@ -1,10 +1,15 @@
 ---
-title: Observability with Strada
-description: OpenTelemetry backend with error tracking and traces.
-icon: activity
+$schema: https://holocron.so/frontmatter.json
+title: OpenTelemetry backend with Strada
+sidebarTitle: Strada
+description: Send Spiceflow OpenTelemetry traces to Strada for error tracking, traces, logs, and metrics without adding a separate instrumentation stack.
+icon: "lucide:activity"
+prompt: |
+  Write the Strada guide from @/spiceflow/src/instrumentation.ts and
+  @https://strada.dev/docs. Show wiring the OTel exporter to a Strada project.
 ---
 
-# Observability with Strada
+# OpenTelemetry backend with Strada
 
 [Strada](https://strada.sh) is an OpenTelemetry backend with error tracking, logs, traces, metrics, analytics, and a SQL CLI. Use `@strada.sh/sdk` to configure OTel once, pass its tracer to Spiceflow, then use the same SDK for logs and handled exceptions.
 
@@ -122,10 +127,10 @@ setReactErrorHandlers({
 })
 ```
 
-| Handler | When it fires | React behavior after |
-|---|---|---|
-| `onCaughtError` | Error caught by an `ErrorBoundary` | Fallback UI renders |
-| `onUncaughtError` | Error not caught by any boundary | Tree unmounts |
-| `onRecoverableError` | Hydration mismatch or auto-recovery | Client re-render |
+| Handler              | When it fires                       | React behavior after |
+| -------------------- | ----------------------------------- | -------------------- |
+| `onCaughtError`      | Error caught by an `ErrorBoundary`  | Fallback UI renders  |
+| `onUncaughtError`    | Error not caught by any boundary    | Tree unmounts        |
+| `onRecoverableError` | Hydration mismatch or auto-recovery | Client re-render     |
 
 The handlers are set on `globalThis` and read by Spiceflow's client entry at hydration time. If you call `setReactErrorHandlers` after hydration, the handlers won't take effect. Always call it early, before any React rendering happens.

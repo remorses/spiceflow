@@ -1,10 +1,16 @@
 ---
-title: Middleware Patterns
-description: Authorization, proxying, cookies, and graceful shutdown.
-icon: layers
+$schema: https://holocron.so/frontmatter.json
+title: Auth, proxy, cookies, and graceful shutdown
+sidebarTitle: Middleware
+description: Spiceflow middleware patterns for authorization, request proxying, non-blocking auth, cookies, and graceful shutdown on platforms like Fly.io.
+icon: "lucide:waypoints"
+prompt: |
+  Write the middleware patterns guide from @/spiceflow/src/spiceflow.tsx,
+  @/spiceflow/src/prevent-process-exit-if-busy.ts, and @/spiceflow/src/hono-adapter.ts.
+  Cover auth, proxying, non-blocking auth, cookies, and graceful shutdown.
 ---
 
-# Middleware Patterns
+# Auth, proxy, cookies, and graceful shutdown
 
 Advanced middleware patterns for authentication, proxying, cookies, and graceful shutdown.
 

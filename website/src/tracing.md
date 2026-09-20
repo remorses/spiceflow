@@ -1,10 +1,15 @@
 ---
-title: Tracing (OpenTelemetry)
-description: Built-in OpenTelemetry tracing for every request.
-icon: scan-line
+$schema: https://holocron.so/frontmatter.json
+title: OpenTelemetry tracing for every request
+sidebarTitle: Tracing
+description: Pass an OpenTelemetry tracer to Spiceflow to record spans for every request, including Server-Timing, custom attributes, and Cloudflare adapters.
+icon: "lucide:scan-line"
+prompt: |
+  Write the tracing guide from @/spiceflow/src/instrumentation.ts, @/spiceflow/src/server-timing.ts,
+  and @/spiceflow/src/cloudflare-tracer-adapter.ts. Cover span trees, Server-Timing, and custom attributes.
 ---
 
-# Tracing (OpenTelemetry)
+# OpenTelemetry tracing for every request
 
 Spiceflow has built-in OpenTelemetry tracing. Pass a `tracer` to the constructor and every request gets automatic spans for middleware, handlers, loaders, layouts, pages, and RSC serialization — no monkey-patching, no plugins.
 
@@ -175,7 +180,7 @@ Libraries that use OpenTelemetry (like the [Vercel AI SDK](https://sdk.vercel.ai
 
 This works because the OTel `NodeSDK` registers an `AsyncLocalStorageContextManager` by default. When spiceflow calls `tracer.startActiveSpan()` for a request, the root span is stored in `AsyncLocalStorage`. Any library that calls `trace.getTracer()` from `@opentelemetry/api` inside your handler sees the active span and creates children, not roots.
 
-```
+```diagram
 GET /api/chat [server]
 ├── middleware - auth
 ├── handler - /api/chat
@@ -244,7 +249,7 @@ On Cloudflare Workers, tracing is **automatic**. Spiceflow detects the Cloudflar
 
 All spiceflow spans (middleware, handlers, loaders, layouts, RSC serialization) appear alongside Cloudflare's automatic platform spans (KV, D1, fetch) in the dashboard. If you pass an explicit `tracer`, it takes priority over the automatic one.
 
-See the [Cloudflare page](/cloudflare#automatic-tracing) for details and limitations.
+See the [Cloudflare page](./cloudflare.md#automatic-tracing) for details and limitations.
 
 ## Zero overhead without tracer
 

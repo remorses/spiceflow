@@ -1,10 +1,16 @@
 ---
-title: Testing with Vitest
-description: Unit test spiceflow routes, pages, actions, and middleware with vitest.
-icon: test-tube
+$schema: https://holocron.so/frontmatter.json
+title: Test routes, pages, and server actions
+sidebarTitle: Testing
+description: Call app.handle() from Vitest to unit-test Spiceflow routes, pages, server actions, and middleware. No browser, no build, sub-second feedback.
+icon: "lucide:test-tube"
+prompt: |
+  Write the testing guide from @/spiceflow/src/testing.ts, @/spiceflow/src/rsc-runtime.vitest.ts,
+  @/example-vitest/, and @/example-vitest-cloudflare/. Cover app.handle() tests, res.page,
+  auth flows, dependency injection, and the Cloudflare Workers pool.
 ---
 
-# Testing with Vitest
+# Test routes, pages, and server actions
 
 Test your spiceflow app directly with vitest. Call `app.handle()` on page and API routes, call server actions as plain functions, and assert on responses. No browser, no build, sub-second feedback.
 
@@ -576,7 +582,7 @@ Each test file gets a completely fresh storage snapshot. workerd implements this
 
 This is why `apply-migrations.ts` runs once per file: the fresh snapshot has no tables yet, so migrations are applied to each file's clean DB before its tests start.
 
-```
+```diagram
 pnpm test
 │
 ├─ vite.config.ts (Node.js)
@@ -635,11 +641,11 @@ test('waitUntil is callable', () => {
 
 **Cloudflare virtual module imports used in tests:**
 
-| Import | Module | Purpose |
-|---|---|---|
-| `env` | `cloudflare:workers` | Bindings from `wrangler.jsonc` (D1, KV, R2, etc.) |
-| `waitUntil` | `cloudflare:workers` | Extend Worker lifetime for background tasks |
-| `applyD1Migrations` | `cloudflare:test` | Apply SQL migrations to a D1 binding in tests |
+| Import              | Module               | Purpose                                           |
+| ------------------- | -------------------- | ------------------------------------------------- |
+| `env`               | `cloudflare:workers` | Bindings from `wrangler.jsonc` (D1, KV, R2, etc.) |
+| `waitUntil`         | `cloudflare:workers` | Extend Worker lifetime for background tasks       |
+| `applyD1Migrations` | `cloudflare:test`    | Apply SQL migrations to a D1 binding in tests     |
 
 ### Type Safety for Bindings
 

@@ -1,10 +1,16 @@
 ---
-title: Type-Safe Routing
-description: Compile-time route validation with the register pattern.
-icon: check-check
+$schema: https://holocron.so/frontmatter.json
+title: Type-safe routing with SpiceflowRegister
+sidebarTitle: Type Safety
+description: Register your app with SpiceflowRegister so router, Link, loaders, and the fetch client infer routes at compile time without passing generics.
+icon: "lucide:check-check"
+prompt: |
+  Write the type-safe routing guide from @/spiceflow/src/react/router.tsx,
+  @/spiceflow/src/types.ts, and @/spiceflow/src/any-spiceflow-types.test.ts.
+  Cover SpiceflowRegister, knownPaths, and multi-app workspaces.
 ---
 
-# Type-Safe Routing
+# Type-safe routing with SpiceflowRegister
 
 Spiceflow provides **compile-time route validation** for paths, params, query schemas, and loader data. This document explains how the type registry works, when to use it, and how to handle workspaces with multiple apps.
 
@@ -42,6 +48,24 @@ const f = createSpiceflowFetch('http://localhost:3000') // typed fetch
 ```
 
 Without the `declare module` block, all APIs still work at runtime. They just accept any string without compile-time validation.
+
+## Extra paths with `knownPaths`
+
+Some apps have valid routes that are not part of `typeof app` — mounted sub-apps, docs generators, or external route tables. Declare them with the optional `knownPaths` property, a string union of extra paths that flows into `router.href()`, `<Link>`, `router.push()`, and `router.replace()`. Param patterns (`:slug`) and wildcards (`*`) work like regular routes:
+
+```tsx
+declare module 'spiceflow/react' {
+  interface SpiceflowRegister {
+    app: typeof app
+    knownPaths: '/docs' | '/docs/:slug' | '/files/*'
+  }
+}
+
+router.href('/docs')                          // ✅ valid
+router.href('/docs/:slug', { slug: 'intro' }) // ✅ params validated
+router.href('/files/*', { '*': 'a/b.txt' })   // ✅ wildcard param
+router.href('/still-invalid')                 // ❌ compile error
+```
 
 ## Why not generics?
 
@@ -143,12 +167,12 @@ router.href('/shop')  // valid because adminApp includes customerApp's routes
 
 ### Summary
 
-| Setup | Register pattern | Generics | Notes |
-|---|---|---|---|
-| Single app | Yes | Not needed | Best DX |
-| Multiple apps, separate tsconfigs, no cross-imports | Yes (each app) | Not needed | Each project is isolated |
-| Multiple apps, one imports the other | Only the main app | Other apps use generics | Avoids declaration conflict |
-| Sub-app mounted via `.use()` | Only the parent | Sub-app uses parent's type or generics | Parent's type covers sub-app routes |
+| Setup                                               | Register pattern  | Generics                               | Notes                               |
+| --------------------------------------------------- | ----------------- | -------------------------------------- | ----------------------------------- |
+| Single app                                          | Yes               | Not needed                             | Best DX                             |
+| Multiple apps, separate tsconfigs, no cross-imports | Yes (each app)    | Not needed                             | Each project is isolated            |
+| Multiple apps, one imports the other                | Only the main app | Other apps use generics                | Avoids declaration conflict         |
+| Sub-app mounted via `.use()`                        | Only the parent   | Sub-app uses parent's type or generics | Parent's type covers sub-app routes |
 
 ## Type safety inside inline handlers
 
@@ -190,11 +214,11 @@ When you're typing inside a `.page()` handler that's part of the `const app = ..
 
 This is the same limitation TanStack Router has. Their workaround is code generation (a Vite plugin pre-generates the route tree). In spiceflow, this only affects autocomplete **inside the app chain** — it does not affect type errors or autocomplete in separate component files.
 
-| Location | Compile errors (tsc) | Autocomplete |
-|---|---|---|
+| Location                              | Compile errors (tsc)  | Autocomplete               |
+| ------------------------------------- | --------------------- | -------------------------- |
 | Inside `.page()` handler in the chain | ✅ All paths validated | Partial (only paths above) |
-| Separate component file | ✅ All paths validated | ✅ Full autocomplete |
-| Separate server component | ✅ All paths validated | ✅ Full autocomplete |
+| Separate component file               | ✅ All paths validated | ✅ Full autocomplete        |
+| Separate server component             | ✅ All paths validated | ✅ Full autocomplete        |
 
 For the best DX, use `router.href()` in component files where autocomplete is fully functional. Inside the chain, the compiler still catches all errors even if autocomplete is incomplete.
 

@@ -1,10 +1,16 @@
 ---
-title: Federation
-description: Compose multiple spiceflow apps at the RSC level.
-icon: puzzle
+$schema: https://holocron.so/frontmatter.json
+title: Compose remote RSC apps at runtime
+sidebarTitle: Federation
+description: Fetch and render React Server Components from another Spiceflow server, including streaming, CSS injection, and client component hydration.
+icon: "lucide:puzzle"
+prompt: |
+  Write the federation guide from @/spiceflow/src/federation.rsc.ts,
+  @/spiceflow/src/react/federation-client.ts, @/spiceflow/src/react/federated-payload.ts,
+  and @/example-federation/. Cover remote setup, consumers, streaming, CSS, and hydration.
 ---
 
-# Federation
+# Compose remote RSC apps at runtime
 
 Federation lets you compose multiple spiceflow apps at the React Server Component level. A **remote** app exposes components, and a **host** app embeds them — with full SSR, hydration, and client interactivity.
 

@@ -1,10 +1,16 @@
 ---
-title: Cloudflare
-description: Cloudflare Workers setup, observability, background tasks, and KV page caching.
-icon: cloud
+$schema: https://holocron.so/frontmatter.json
+title: Cloudflare Workers setup and bindings
+sidebarTitle: Cloudflare
+description: Deploy Spiceflow to Cloudflare Workers with wrangler, KV, waitUntil, observability, page caching, and the same RSC app you run on Node or Bun.
+icon: "lucide:cloud"
+prompt: |
+  Write the Cloudflare guide from @/example-cloudflare/, @/spiceflow/src/cloudflare.ts,
+  @/spiceflow/src/cloudflare-tracer.workerd.ts, and @/spiceflow/src/wait-until.workerd.ts.
+  Cover wrangler setup, preview environments, bindings, tracing, waitUntil, and KV page caching.
 ---
 
-# Cloudflare
+# Cloudflare Workers setup and bindings
 
 Cloudflare Workers setup, observability, background tasks, and KV page caching.
 
@@ -91,6 +97,40 @@ vite build && wrangler deploy
 ```
 
 Without `CLOUDFLARE_ENV=preview`, the generated `dist/rsc/wrangler.json` will contain the top-level config (production name, routes, KV namespaces, etc.) and `--env preview` will be ignored at deploy time.
+
+## Bindings
+
+The simplest way to read bindings is to import `env` directly from `cloudflare:workers`. Run `wrangler types` after changing `wrangler.jsonc` so Wrangler regenerates `worker-configuration.d.ts` — that gives `env` a type-safe `Env` shape automatically.
+
+```tsx
+import { Spiceflow } from 'spiceflow'
+import { env } from 'cloudflare:workers'
+
+export const app = new Spiceflow()
+  .route({
+    method: 'GET',
+    path: '/kv/:key',
+    async handler({ params }) {
+      const value = await env.KV.get(params.key)
+      return { key: params.key, value }
+    },
+  })
+  .route({
+    method: 'POST',
+    path: '/queue',
+    async handler({ request }) {
+      const body = await request.json()
+      await env.QUEUE.send(body)
+      return { success: true, message: 'Added to queue' }
+    },
+  })
+
+export default {
+  fetch(request: Request) {
+    return app.handle(request)
+  },
+}
+```
 
 ## Automatic Tracing
 
@@ -460,12 +500,11 @@ Key differences from native Workers Cache:
 
 ### Edge Cache vs KV Cache
 
-| | Workers Cache (wrangler config) | KV Cache (above) |
-|---|---|---|
-| **Storage** | CDN edge, regionally tiered | KV, globally replicated |
-| **Durability** | Ephemeral, can be evicted | Persistent until TTL |
-| **Latency** | Fastest (Worker doesn't run on hit) | ~10-50ms |
-| **Consistency** | Tiered, upper tier shared globally | Eventually consistent (~60s) |
-| **Best for** | High-traffic pages, API responses | Pages that must survive cache eviction |
-| **Setup** | `"cache": { "enabled": true }` in wrangler.jsonc | Requires KV binding in wrangler.jsonc |
-
+|                 | Workers Cache (wrangler config)                  | KV Cache (above)                       |
+| --------------- | ------------------------------------------------ | -------------------------------------- |
+| **Storage**     | CDN edge, regionally tiered                      | KV, globally replicated                |
+| **Durability**  | Ephemeral, can be evicted                        | Persistent until TTL                   |
+| **Latency**     | Fastest (Worker doesn't run on hit)              | \~10-50ms                              |
+| **Consistency** | Tiered, upper tier shared globally               | Eventually consistent (\~60s)          |
+| **Best for**    | High-traffic pages, API responses                | Pages that must survive cache eviction |
+| **Setup**       | `"cache": { "enabled": true }` in wrangler.jsonc | Requires KV binding in wrangler.jsonc  |

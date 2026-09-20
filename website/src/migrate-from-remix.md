@@ -1,10 +1,16 @@
 ---
-title: Migrating from Remix / React Router to Spiceflow
-description: Step-by-step guide to convert a Remix or React Router v7 app to Spiceflow with typed loaders, server actions, and RSC.
-icon: arrow-right-left
+$schema: https://holocron.so/frontmatter.json
+title: Migrate a Remix or React Router app
+sidebarTitle: Migrate from Remix
+description: Step-by-step guide to convert a Remix or React Router v7 app to Spiceflow with typed loaders, server actions, layouts, and React Server Components.
+icon: "lucide:arrow-right-left"
+prompt: |
+  Write the Remix migration guide from @/spiceflow/src/react/router.tsx,
+  @/spiceflow/src/react/components.tsx, and @/spiceflow/src/spiceflow.tsx.
+  Map Remix loaders, actions, layouts, and Link to their Spiceflow equivalents.
 ---
 
-# Migrating from Remix / React Router to Spiceflow
+# Migrate a Remix or React Router app
 
 Spiceflow replaces Remix's file-based routing with explicit route registration. The core concepts map directly: loaders stay loaders, actions become server actions, and everything remains type-safe through a register pattern.
 
@@ -34,13 +40,13 @@ declare module 'spiceflow/react' {
 }
 ```
 
-| Remix | Spiceflow |
-|---|---|
-| `routes/dashboard.tsx` | `.page('/dashboard', ...)` |
-| `routes/api.health.ts` (GET) | `.get('/api/health', ...)` |
-| `routes/api.webhooks.ts` (POST) | `.post('/api/webhooks', ...)` |
-| `routes/dashboard.tsx` layout | `.layout('/dashboard/*', ...)` |
-| Dynamic `$id` segments | `:id` segments |
+| Remix                           | Spiceflow                      |
+| ------------------------------- | ------------------------------ |
+| `routes/dashboard.tsx`          | `.page('/dashboard', ...)`     |
+| `routes/api.health.ts` (GET)    | `.get('/api/health', ...)`     |
+| `routes/api.webhooks.ts` (POST) | `.post('/api/webhooks', ...)`  |
+| `routes/dashboard.tsx` layout   | `.layout('/dashboard/*', ...)` |
+| Dynamic `$id` segments          | `:id` segments                 |
 
 ## Loaders and `useLoaderData`
 
@@ -267,15 +273,15 @@ export function ContactForm() {
 
 ### What changed
 
-| Remix | Spiceflow |
-|---|---|
-| `export async function action()` | `"use server"` file, imported directly in components |
-| `<Form method="post">` | `<form action={formAction}>` |
-| `useActionData()` | `useActionState(action, initialState)` |
-| `useNavigation().state !== 'idle'` | `useFormStatus().pending` |
-| `return json({ error })` in action | `return { error }` (plain object) |
-| `return redirect('/path')` in action | `throw redirect('/path')` |
-| Manual error display | `ErrorBoundary` from `spiceflow/react` catches throws |
+| Remix                                | Spiceflow                                             |
+| ------------------------------------ | ----------------------------------------------------- |
+| `export async function action()`     | `"use server"` file, imported directly in components  |
+| `<Form method="post">`               | `<form action={formAction}>`                          |
+| `useActionData()`                    | `useActionState(action, initialState)`                |
+| `useNavigation().state !== 'idle'`   | `useFormStatus().pending`                             |
+| `return json({ error })` in action   | `return { error }` (plain object)                     |
+| `return redirect('/path')` in action | `throw redirect('/path')`                             |
+| Manual error display                 | `ErrorBoundary` from `spiceflow/react` catches throws |
 
 ### Validation with `parseFormData`
 
@@ -387,20 +393,20 @@ router.replace('/settings')
 
 ## Import replacement reference
 
-| Remix / React Router import | Spiceflow replacement |
-|---|---|
-| `useLoaderData` from `react-router` | `useLoaderData` from `spiceflow/react` |
-| `useActionData` | `useActionState` from `react` |
-| `useNavigation` | `useFormStatus` from `react-dom` |
-| `Form` from `react-router` | `<form action={serverAction}>` |
-| `useSearchParams` | Props from `.page()` handler, or `useRouterState` |
-| `redirect` from `react-router` | `redirect` from `spiceflow` |
-| `json` / `data` from `react-router` | `json` from `spiceflow` (typed) |
-| `Link` from `react-router` | `Link` from `spiceflow/react` |
-| `href` from `react-router` | `router.href()` from `spiceflow/react` |
-| `useParams` | `useLoaderData` (params available in loaders) |
-| `useSubmit` | Server actions called directly |
-| `useFetcher` | Server actions + `useTransition` |
+| Remix / React Router import         | Spiceflow replacement                             |
+| ----------------------------------- | ------------------------------------------------- |
+| `useLoaderData` from `react-router` | `useLoaderData` from `spiceflow/react`            |
+| `useActionData`                     | `useActionState` from `react`                     |
+| `useNavigation`                     | `useFormStatus` from `react-dom`                  |
+| `Form` from `react-router`          | `<form action={serverAction}>`                    |
+| `useSearchParams`                   | Props from `.page()` handler, or `useRouterState` |
+| `redirect` from `react-router`      | `redirect` from `spiceflow`                       |
+| `json` / `data` from `react-router` | `json` from `spiceflow` (typed)                   |
+| `Link` from `react-router`          | `Link` from `spiceflow/react`                     |
+| `href` from `react-router`          | `router.href()` from `spiceflow/react`            |
+| `useParams`                         | `useLoaderData` (params available in loaders)     |
+| `useSubmit`                         | Server actions called directly                    |
+| `useFetcher`                        | Server actions + `useTransition`                  |
 
 ## Reusable actions with `"use server"` files
 

@@ -1,12 +1,121 @@
 ---
-title: Fetch Client (Advanced)
-description: Advanced fetch client patterns for headers, hooks, and RPC.
-icon: globe
+$schema: https://holocron.so/frontmatter.json
+title: Typed fetch client for Spiceflow routes
+sidebarTitle: Fetch Client
+description: createSpiceflowFetch infers path params, query, body, and response types from your routes. Use the same client in the browser or on the server.
+icon: "lucide:globe"
+prompt: |
+  Write the fetch client guide from @/spiceflow/src/client/fetch.ts, @/spiceflow/src/client/types.ts,
+  and @/spiceflow/src/client/webmcp.ts. Cover typed params, query, body, errors, SSE, and WebMCP.
 ---
 
-# Fetch Client (Advanced)
+# Typed fetch client for Spiceflow routes
 
-Advanced fetch client patterns including headers, hooks, error handling, server-side usage, type-safe RPC, and path building. For basic usage see the [Fetch Client section in the README](./index.mdx#fetch-client).
+`createSpiceflowFetch` provides a type-safe `fetch(path, options)` interface for calling your Spiceflow API. It gives you full type safety on **path params**, **query params**, **request body**, and **response data** — all inferred from your route definitions.
+
+## Basic Usage
+
+Export the app type from your server code:
+
+```ts
+// server.ts
+import { Spiceflow } from 'spiceflow'
+import { z } from 'zod'
+
+export const app = new Spiceflow()
+  .route({
+    method: 'GET',
+    path: '/hello',
+    handler() {
+      return 'Hello, World!'
+    },
+  })
+  .route({
+    method: 'POST',
+    path: '/users',
+    request: z.object({
+      name: z.string(),
+      email: z.string().email(),
+    }),
+    async handler({ request }) {
+      const body = await request.json()
+      return { id: '1', name: body.name, email: body.email }
+    },
+  })
+  .route({
+    method: 'GET',
+    path: '/users/:id',
+    handler({ params }) {
+      return { id: params.id }
+    },
+  })
+  .route({
+    method: 'GET',
+    path: '/search',
+    query: z.object({ q: z.string(), page: z.coerce.number().optional() }),
+    handler({ query }) {
+      return { results: [], query: query.q, page: query.page }
+    },
+  })
+  .route({
+    method: 'GET',
+    path: '/stream',
+    async *handler() {
+      yield 'Start'
+      yield 'Middle'
+      yield 'End'
+    },
+  })
+
+export type App = typeof app
+```
+
+Then use `createSpiceflowFetch` on the client side — when `SpiceflowRegister` is set, the fetch client is fully typed without importing server code:
+
+```ts
+// client.ts
+import { createSpiceflowFetch } from 'spiceflow/client'
+
+const safeFetch = createSpiceflowFetch('http://localhost:3000')
+
+// GET request — returns Error | Data, check with instanceof Error
+const greeting = await safeFetch('/hello')
+if (greeting instanceof Error) return greeting
+console.log(greeting) // 'Hello, World!' — TypeScript knows the type
+
+// POST with typed body — TypeScript requires { name: string, email: string }
+const user = await safeFetch('/users', {
+  method: 'POST',
+  body: { name: 'John', email: 'john@example.com' },
+})
+if (user instanceof Error) return user
+console.log(user.id, user.name, user.email) // fully typed
+
+// Path params — type-safe, TypeScript requires { id: string }
+const foundUser = await safeFetch('/users/:id', {
+  params: { id: '123' },
+})
+if (foundUser instanceof Error) return foundUser
+console.log(foundUser.id) // typed as string
+
+// Query params — typed from the route's Zod schema
+const searchResults = await safeFetch('/search', {
+  query: { q: 'hello', page: 1 },
+})
+if (searchResults instanceof Error) return searchResults
+console.log(searchResults.results, searchResults.query) // fully typed
+
+// Streaming — async generator routes return an AsyncGenerator
+const stream = await safeFetch('/stream')
+if (stream instanceof Error) return stream
+for await (const chunk of stream) {
+  console.log(chunk) // 'Start', 'Middle', 'End'
+}
+```
+
+The fetch client returns `Error | Data` directly following the [errore](https://errore.org) convention — use `instanceof Error` to check for errors with Go-style early returns, then the happy path continues with the narrowed data type. No `{ data, error }` destructuring, no null checks. On error, the returned `SpiceflowFetchError` has `status`, `value` (the parsed error body), and `response` (the raw Response object) properties.
+
+For headers, hooks, retries, and server-side usage keep reading below. To support types like `Date`, `Map`, `Set`, and `BigInt` across the wire, see [Custom Serialization](./custom-serialization.md).
 
 ## Common Pitfalls
 

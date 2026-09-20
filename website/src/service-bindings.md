@@ -1,25 +1,30 @@
 ---
-title: Service Bindings
-description: Split large Workers with Cloudflare service bindings.
-icon: split
+$schema: https://holocron.so/frontmatter.json
+title: Split Workers with service bindings
+sidebarTitle: Service Bindings
+description: Split a large Cloudflare Worker into smaller Spiceflow services and call them with service bindings while keeping types and routing intact.
+icon: "lucide:split"
+prompt: |
+  Write the service bindings guide from @/example-split-worker/.
+  Show how to split a heavy route into a dedicated Worker called through env bindings.
 ---
 
-# Splitting Large Workers with Service Bindings
+# Split Workers with service bindings
 
 When your Worker bundle exceeds the **10 MiB free tier** (or 25 MiB paid) limit, usually because of WASM modules, image libraries, or other heavy dependencies, you can extract the expensive code into a **separate dedicated Worker** and call it from the main Worker via a [Cloudflare service binding](https://developers.cloudflare.com/workers/runtime-apis/bindings/service-bindings/). Service binding calls execute on the same thread with near-zero latency; there is no network hop.
 
 Service bindings connect **two independently deployed Workers**, each with its own bundle size budget.
 
-```
-┌──────────────────────────────────────────────┐       ┌─────────────────────────────────────────────┐
-│  Main Worker (Spiceflow + Vite)              │       │  Dedicated Worker (Spiceflow only)          │
-│                                              │       │                                             │
-│  /            ──▶ React pages                │       │  /api/og ──▶ renderOgImage()                │
-│  /dashboard   ──▶ React pages                │       │              (WASM, heavy deps)             │
-│                                              │       │                                             │
-│  /api/og ────────────────────────────────────┤──────▶├  No Vite plugin needed                      │
-│          env.OG_WORKER.fetch(request)        │       │                                             │
-└──────────────────────────────────────────────┘       └─────────────────────────────────────────────┘
+```diagram
+┌─────────────────────────────────────────┐        ┌────────────────────────────────────────┐
+│  Main Worker (Spiceflow + Vite)         │        │  Dedicated Worker (Spiceflow only)     │
+│                                         │        │                                        │
+│  /           ──> React pages            │        │  /api/og ──> renderOgImage()           │
+│  /dashboard  ──> React pages            │        │              (WASM, heavy deps)        │
+│                                         │        │                                        │
+│  /api/og ──> env.OG_WORKER.fetch(req) ──┼───────>│  No Vite plugin needed                 │
+│                                         │        │                                        │
+└─────────────────────────────────────────┘        └────────────────────────────────────────┘
 ```
 
 ## Service binding config

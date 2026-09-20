@@ -5,195 +5,76 @@ description: 'Spiceflow is a super simple, fast, and type-safe API and React Ser
 
 # Spiceflow
 
-## When to load this skill
+A project uses spiceflow if anything imports from `spiceflow` or `spiceflow/react`, or constructs `new Spiceflow()`. The API surface is small but **very opinionated**, and the opinions are NOT guessable. Every framework has its own answer for forms, pending state, error display, and redirects; spiceflow's answers are frequently different from Next.js and from React defaults. Writing spiceflow code from memory, or from what "looks like Next.js", produces wrong code every time.
 
-**ALWAYS, before you touch ANY spiceflow code.** Not "when stuck", not "for big changes", not "if the task looks unusual" — every single time, including one-line edits.
+## How the docs work
 
-A project uses spiceflow if anything imports from `spiceflow` or `spiceflow/react`, or constructs `new Spiceflow()`. That covers:
-
-- routes (`.get`, `.post`, `.route`), pages, layouts, loaders
-- server actions, forms, `ErrorBoundary`, `parseFormData`, `useActionState`
-- redirects, cookies, navigation, `Link`, `router`, `ProgressBar`
-- the typed fetch client, middleware, tracing, OpenAPI
-
-The API surface is small but **very opinionated**, and the opinions are NOT guessable. Every framework has its own answer for forms, pending state, error display, and redirects; spiceflow's answers are frequently different from Next.js and from React defaults. Writing spiceflow code from memory, or from what "looks like Next.js", produces wrong code every time.
-
-If you already started editing spiceflow code without loading this skill, stop, load it, read the README, and re-check what you wrote.
-
-## Read the full README first
-
-Every time you work with spiceflow, you MUST fetch the **entire** README from the main branch. The README is the primary documentation and every section matters. You MUST read it completely, from start to finish, with no truncation. Partial reads cause you to miss critical API details, conventions, and patterns that lead to wrong implementations.
+Documentation lives at **https://getspiceflow.com**. Append `.md` to any page URL to get raw markdown. Fetch the docs index first if you have not read it this session:
 
 ```bash
-curl -s https://raw.githubusercontent.com/remorses/spiceflow/main/README.md
+curl -s https://getspiceflow.com/llms.txt
 ```
 
-If you are about to design any navigation, cookie, redirect, or refresh behavior and you have not fetched the README in this session, stop and fetch it first.
+`https://getspiceflow.com/llms-full.txt` contains every doc in one file, and `https://getspiceflow.com/docs.zip` downloads all markdown files for local grepping.
 
-**Do NOT truncate, summarize, or skip sections.** Never pipe to `head`, `tail`, `sed`, or any command that cuts the output short. Never stop reading early because it "looks long enough." The README contains sections on routing, RSC, server actions, layouts, error handling, forms, federation, deployment, and more. Missing any of them means missing framework behavior you will get wrong.
+Read every fetched doc **completely, with no truncation**. Never pipe to `head`, `tail`, or `sed`. Source code and runnable examples (`example-*` folders) live in the repo: https://github.com/remorses/spiceflow — read the code there when the docs are not enough.
 
-After reading the full README, check if it references any docs/ files relevant to your task. If it does, fetch those too in full:
+## ALWAYS read the feature doc before writing code
 
-```bash
-# Always read these when the task involves the corresponding feature
-curl -s https://raw.githubusercontent.com/remorses/spiceflow/main/docs/fetch-client.md
-curl -s https://raw.githubusercontent.com/remorses/spiceflow/main/docs/testing.md
-curl -s https://raw.githubusercontent.com/remorses/spiceflow/main/docs/openapi.md
-```
+Before touching code for a feature, fetch its doc in full. One page per branch:
 
-Read every referenced doc that is relevant to the task. These subdocuments contain API details, caveats, and examples that are not duplicated in the README. Skipping them is the same as skipping the README itself.
+| Task | Fetch |
+| --- | --- |
+| API routes, Zod validation, `json()`, typed errors, middleware, `serveStatic`, CORS, streaming/SSE, `.onError()`, `listen()`, Node adapters, Next.js mount, `waitUntil`, base path, class instances | https://getspiceflow.com/api.md |
+| Typed fetch client (`createSpiceflowFetch`), WebMCP | https://getspiceflow.com/fetch-client.md |
+| OpenAPI generation | https://getspiceflow.com/openapi.md |
+| MCP tools | https://getspiceflow.com/mcp.md |
+| Tracing / OpenTelemetry | https://getspiceflow.com/tracing.md (Strada projects: https://getspiceflow.com/strada.md) |
+| Custom serialization (`Date`, `Map`, `Set`, `BigInt`) | https://getspiceflow.com/custom-serialization.md |
+| RSC setup, Tailwind, shadcn, app entry, layouts, `<Head>` SEO, query params, `"use client"` components, code splitting, `router`, `Link`, redirects, `ProgressBar`, 404 pages | https://getspiceflow.com/react.md |
+| Loaders, `useLoaderData`, streaming with `use()`, forms, server actions, `parseFormData`, `useActionState`, `ErrorBoundary` | https://getspiceflow.com/react-data.md |
+| `SpiceflowRegister`, `knownPaths`, multi-app workspaces, circular TS7022 errors | https://getspiceflow.com/type-safety.md |
+| Federation / remote components | https://getspiceflow.com/federation.md |
+| Auth middleware, proxying, cookies, graceful shutdown | https://getspiceflow.com/middleware-patterns.md |
+| Securing actions and routes | https://getspiceflow.com/security.md |
+| Migrating from Remix / React Router | https://getspiceflow.com/migrate-from-remix.md |
+| Cloudflare Workers (setup, bindings, KV caching, edge cache) | https://getspiceflow.com/cloudflare.md |
+| Deploy skew, cross-deployment behavior | https://getspiceflow.com/deployment-skew.md |
+| Service bindings | https://getspiceflow.com/service-bindings.md |
+| Docker | https://getspiceflow.com/docker.md |
+| Dependency crashes with `useState is undefined` at startup | https://github.com/remorses/spiceflow/blob/main/docs/use-client-trap.md |
 
 ## Testing spiceflow apps
 
 Before writing any vitest tests for a spiceflow app, ALWAYS read the testing guide first:
 
 ```bash
-curl -s https://raw.githubusercontent.com/remorses/spiceflow/main/docs/testing.md
+curl -s https://getspiceflow.com/testing.md
 ```
 
-It covers setup, API route testing, page route testing, server actions, `createTestTracer` for span snapshots, HTML formatting with posthtml, DI with `.state()`, and better-auth integration patterns.
+Reference examples: [example-vitest](https://github.com/remorses/spiceflow/tree/main/example-vitest) (API routes, pages, actions, DI, tracing spans) and [example-vitest-cloudflare](https://github.com/remorses/spiceflow/tree/main/example-vitest-cloudflare) (tests inside workerd with D1 and KV).
 
-Reference examples for real-world usage:
+## Non-negotiable rules
 
-- **[example-vitest](https://github.com/remorses/spiceflow/tree/main/example-vitest)** — tests API routes, page routes, server actions, DI with state, tracing spans, and HTML snapshot formatting
-- **[example-vitest-cloudflare](https://github.com/remorses/spiceflow/tree/main/example-vitest-cloudflare)** — tests running inside Cloudflare Workers runtime (workerd) via `@cloudflare/vitest-pool-workers`, covering D1 database, KV, and `cloudflare:workers` APIs
+These are the landmines that break apps when guessed. Each links to its full doc.
 
-## Client navigation links
-
-Always import and use `Link` from `spiceflow/react` for navigational links in Spiceflow apps. Do not render raw `<a>` elements for links. `Link` enables client-side navigation while preserving normal anchor behavior for external URLs, hashes, `target`, `rel`, styling, and event handlers. `Link` supports external URLs too, so it is fine to use for ambiguous or user-provided links when you do not know ahead of time whether they are internal or external.
-
-**`Link` auto-prepends the Vite `base` path.** Never manually prepend the base path to `Link` href values. `<Link href="/dashboard" />` automatically renders as `<a href="/my-app/dashboard">` when the Vite base is `/my-app/`. Manually prepending causes double-prefixing. This only applies to `Link`; raw `fetch()` calls, `Response.redirect()`, and other non-Link URL construction still need manual base path handling.
-
-## `<Head>` is server-only
-
-`<Head>` renders nothing. It records its children during the RSC render, and spiceflow reads them back to build the document head. A `'use client'` module never runs in that render, so a `<Head>` inside one contributes nothing at all.
-
-Always put `<Head>` in the `.page()` or `.layout()` handler, never in a `'use client'` component:
-
-```tsx
-.page('/', async () => {
-  return (
-    <>
-      <Head>
-        <Head.Title>Dashboard | My App</Head.Title>
-        <Head.Meta name="description" content="Your account overview." />
-      </Head>
-      <InteractiveDashboard />
-    </>
-  )
-})
-```
-
-Importing `Head` into a `'use client'` module fails the build, and rendering one throws. To change the title from the browser after load, set `document.title` in an effect instead.
-
-## OpenTelemetry instrumentation
-
-Spiceflow supports automatic route instrumentation when you pass an OpenTelemetry-compatible tracer to the constructor:
+- **Always use `Link` from `spiceflow/react`, never raw `<a>`, for links.** `Link` auto-prepends the Vite `base` path; never prepend it manually. Raw `fetch()` and `Response.redirect()` still need manual base handling. → [navigation](https://getspiceflow.com/react.md)
+- **`<Head>` is server-only.** It records children during the RSC render; a `'use client'` module never runs there, so a `<Head>` inside one contributes nothing (and importing it fails the build). Put `<Head>` in `.page()` / `.layout()` handlers. Use `document.title` in an effect for client-side title changes. → [pages & layouts](https://getspiceflow.com/react.md)
+- **Always `throw redirect(...)`, never `return redirect(...)`.** Applies to `.page()`, `.layout()`, `.loader()`, `.get()`, `.post()`, server actions, and middleware. → [navigation](https://getspiceflow.com/react.md)
+- **Never call `router.refresh()` after a server action.** Successful actions already re-run loaders and reconcile the page. All navigation and refresh methods are fire-and-forget; never await a navigation commit inside a React form action (it can deadlock). → [forms & actions](https://getspiceflow.com/react-data.md)
+- **Server actions and API routes are public endpoints.** CSRF Origin checks do not authenticate the caller; every mutating action must read and verify a session or token itself via `getActionRequest()`. → [security](https://getspiceflow.com/security.md)
+- **Typed fetch client:** use `:param` paths with a `params` object (never interpolate IDs), return plain objects or `json(...)` from handlers (never `return new Response(...)`), pass `body` as a plain object, and check results with `instanceof Error`. → [fetch client](https://getspiceflow.com/fetch-client.md)
+- **Pass an OTel tracer in production apps** (`new Spiceflow({ tracer })`) so handlers get `span` and `tracer` on the context. → [tracing](https://getspiceflow.com/tracing.md)
+- **One spiceflow copy per monorepo.** Mismatched or duplicated versions cause `Types have separate declarations of a private property`. Fix with `pnpm update -r spiceflow` then `pnpm dedupe` (or `npm update spiceflow --workspaces` / `bun update -r spiceflow`). → [fetch client](https://getspiceflow.com/fetch-client.md)
+- **Circular TS7022 errors** happen when a `SpiceflowRegister`-typed API (`router.href()`, `createSpiceflowFetch()`, `useLoaderData()`) appears in a handler **return value** in the app entry. JSX, `throw`, event handlers, and separate files are always safe. → [type safety](https://getspiceflow.com/type-safety.md)
+- **Always 301 `www` to the apex in one hop** on new custom-domain sites. Point `www.example.com` at the same Cloudflare worker (`custom_domain`). Redirect `www` → `https://example.com` + path + query with status **301**. Never leave www on Vercel/Pages. Never use 307. Never chain `http://www` → `https://www` → apex.
 
 ```ts
-import { trace } from '@opentelemetry/api'
-import { Spiceflow } from 'spiceflow'
-
-const tracer = trace.getTracer('my-app')
-
-export const app = new Spiceflow({ tracer })
-  .get('/hello', ({ span }) => {
-    span.setAttribute('app.route', '/hello')
-    return { hello: 'world' }
-  })
+.use(({ request }, next) => {
+  const url = new URL(request.url)
+  if (!url.hostname.startsWith('www.')) return next()
+  url.hostname = url.hostname.slice('www.'.length)
+  url.protocol = 'https:'
+  throw redirect(url.toString(), { status: 301 })
+})
 ```
-
-When a project uses Strada for observability, read `docs/strada.md` and pass Strada's re-exported `trace` API to Spiceflow so spans go through the configured provider.
-
-Always pass a tracer for production Spiceflow apps unless there is a specific reason not to. The handler context then exposes `span` and `tracer`, so route code can add attributes or create child spans without manual request wrappers.
-
-## Typed fetch client rules
-
-When using the typed fetch client (`createSpiceflowFetch`), follow these rules:
-
-- **Use `:param` paths with a `params` object.** Never interpolate IDs into the path string. `` `/users/${id}` `` is just `string` and breaks all type inference.
-- **All packages in a monorepo must use the exact same spiceflow version.** Mismatched versions cause `Types have separate declarations of a private property` errors. Use `pnpm update -r spiceflow` (without `--latest`) to sync.
-- **Import API types from source files, not `dist/*.d.ts`.** Use `import type { App } from "website/src/server.tsx"`. This avoids build-order dependencies (server doesn't need to build before client can typecheck). If tsc fails on unresolvable modules in the server's transitive imports (like `cloudflare:workers`, CSS, etc.), add a small ambient `.d.ts` stub in the client package.
-- **Use `import type` for cross-workspace API types.** Never value-import the server app just to get fetch client typing.
-- **Keep the server package as a `devDependency`** of the client package for typechecking.
-- **Route handlers must return plain objects** for the response type to be inferred. Returning `res.json()` or `Response.json()` erases the type to `any`.
-- **Never `return new Response(...)`.** It erases the body type. Use `return json(...)` (preserves type and status) or `throw` anything (`throw new Response(...)` is fine since throws don't affect return type).
-- **`body` is a plain object**, not `JSON.stringify()`. The client serializes it automatically.
-- **Response is `Error | Data`.** Check with `instanceof Error`, then the happy path has the narrowed type.
-
-## Duplicate spiceflow in monorepos
-
-Spiceflow must be a single copy in `node_modules`. Duplicates cause type errors (`Types have separate declarations of a private property`) and Vite resolution bugs.
-
-**Always use `-r` (recursive) when updating spiceflow in a monorepo:**
-
-```bash
-# pnpm
-pnpm update -r spiceflow
-
-# npm
-npm update spiceflow --workspaces
-
-# bun
-bun update -r spiceflow
-```
-
-**When you hit weird type errors or Vite/spiceflow resolution issues, deduplicate first:**
-
-```bash
-# pnpm
-pnpm dedupe
-
-# npm
-npm dedupe --workspaces
-
-# bun (re-install deduplicates automatically)
-bun install
-```
-
-## Security: server actions and routes are public endpoints
-
-Server actions (`"use server"`) are **public POST endpoints**. Any HTTP client can call them directly, not just the app's own browser. CSRF protection (Origin header check) blocks cross-site form submissions but does NOT authenticate the caller. Every server action that mutates data, creates resources, or reads user-specific data MUST authenticate and authorize the request explicitly, for example by reading a session from cookies or a bearer token from headers. The same rule applies to all API routes (`.get()`, `.post()`, etc.) and middleware that modifies state.
-
-```tsx
-'use server'
-
-import { getActionRequest } from 'spiceflow'
-import { getUser } from './auth'
-
-export async function deleteProject(id: string) {
-  const { request } = getActionRequest()
-  const user = await getUser(request)
-  if (!user) throw new Error('Not authenticated')
-  if (!user.canDelete(id)) throw new Error('Not authorized')
-  await db.project.delete({ where: { id } })
-}
-```
-
-Never assume a server action is only reachable through your own UI. Treat every server action like a public API endpoint.
-
-## Always `throw redirect(...)`, never `return redirect(...)`
-
-Both work at runtime, but `throw` is safer: it prevents the redirect from contributing to the handler's inferred return type, avoiding circular TS7022 errors with `SpiceflowRegister`. It also short-circuits the handler immediately, making control flow explicit. This applies to `.page()`, `.layout()`, `.loader()`, `.get()`, `.post()`, server actions, and middleware.
-
-## Never `router.refresh()` after server actions
-
-Successful server actions re-run matching loaders and reconcile the current page. Do not call `router.refresh()` afterward. Use it only when data changes outside a server action.
-
-`router.refresh()` is fire-and-forget. Do not await a custom refresh or navigation commit helper inside a React form action because the transition can deadlock.
-
-## Circular types in app entry handlers
-
-Circular TypeScript errors (TS7022) happen when any API that reads from `SpiceflowRegister` (i.e. `typeof app`) appears in a handler's **return value**. This affects `router.href()`, `router.getLoaderData()`, `createSpiceflowFetch()`, `useLoaderData()`, `Link`, and any future API typed against the registered app.
-
-**Safe** (no circular):
-- Any registered API in **JSX children, attributes, or event handlers** (`.page()`, `.layout()`)
-- `throw` expressions: `throw redirect(router.href(...))` in any handler
-- Any registered API in **client components, server components, and separate files**
-
-**Circular** (causes TS7022):
-- Any registered API in a `.loader()` **return value**
-- Any registered API in a `.get()` or `.post()` **return value**
-- `return redirect(router.href(...))` inside `.page()` on paths **with loaders**
-
-The rule: circular happens when a `RegisteredApp`-typed expression reaches a **return value** that feeds `typeof app` inference. JSX, `throw`, and event handler callbacks don't feed return types. See `spiceflow/src/type-repros/registered-app-circular.test.ts` for the exact boundaries.

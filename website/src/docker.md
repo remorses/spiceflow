@@ -1,10 +1,15 @@
 ---
-title: Docker Deployment
-description: Self-contained builds with traced dependencies for Docker.
-icon: container
+$schema: https://holocron.so/frontmatter.json
+title: Self-contained Docker builds with tracing
+sidebarTitle: Docker
+description: Build a self-contained Spiceflow image with traced dependencies so Docker and other container platforms can run the app without extra install steps.
+icon: "lucide:container"
+prompt: |
+  Write the Docker guide from @/spiceflow/src/trace-dependencies.ts and @/spiceflow/src/vite.tsx.
+  Show a multi-stage Dockerfile for pnpm and bun using traced dependencies.
 ---
 
-# Docker Deployment
+# Self-contained Docker builds with tracing
 
 The build output is self-contained — `dist/` includes all traced runtime dependencies in `dist/node_modules/`, so you can copy it directly into a Docker image without installing packages at deploy time. The dependency tracing uses `@vercel/nft` to find exactly which files from `node_modules/` are needed at runtime, copying only those into `dist/node_modules/`. This keeps the image small — typically 5-50MB of dependencies instead of hundreds of megabytes. On Vercel and Cloudflare, this step is skipped since those platforms have their own bundling.
 

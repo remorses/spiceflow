@@ -1,10 +1,16 @@
 ---
-title: Deployment Skew
-description: How Spiceflow handles old clients talking to new servers.
-icon: git-branch
+$schema: https://holocron.so/frontmatter.json
+title: Deployment skew between clients and servers
+sidebarTitle: Deployment Skew
+description: How Spiceflow stamps a deployment id on Flight responses so stale browser clients detect a new deploy and hard-reload instead of breaking hydration.
+icon: "lucide:git-branch"
+prompt: |
+  Write the deployment skew guide from @/spiceflow/src/react/deployment.ts,
+  @/spiceflow/src/react/deployment-id.rsc.ts, and @/spiceflow/src/react/entry.client.tsx.
+  Explain how stale clients detect a new deploy and hard-reload.
 ---
 
-# Deployment Skew
+# Deployment skew between clients and servers
 
 How Spiceflow handles the case where the client is running code from an old deployment while the server has already been updated to a new one.
 
@@ -103,7 +109,7 @@ This only matters for inline server actions that capture variables. Top-level ex
 
 ## Summary
 
-```
+```diagram
 ┌──────────────────────────────────────────────────────────────────────┐
 │                What happens across deployments?                      │
 ├──────────────────────┬───────────────────────────────────────────────┤
