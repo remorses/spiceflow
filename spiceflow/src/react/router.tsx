@@ -105,6 +105,8 @@ type NavigationCommittedEvent = {
   previousScrollY: number
   savedScrollY: number | null
   source: 'navigate' | 'refresh'
+  historyIndex: number | null
+  previousHistoryIndex: number | null
 }
 
 export type RouterEvent = NavigationRequestedEvent | NavigationCommittedEvent
@@ -118,6 +120,8 @@ export type NavigationEvent = {
   previousScrollY: number
   savedScrollY: number | null
   source: 'navigate' | 'refresh'
+  historyIndex: number | null
+  previousHistoryIndex: number | null
 }
 
 export type ReadonlyURLSearchParams = Omit<
@@ -392,6 +396,27 @@ export function getLastNavigationEvent(): NavigationEvent | null {
   return getLastCommittedNavigationEvent(navigationEvents)
 }
 
+function getHistoryIndex(): number | null {
+  if (!isBrowser) return null
+  const index = window.history.state?.idx
+  return typeof index === 'number' ? index : null
+}
+
+export function getViewTransitionType(
+  event: NavigationEvent | null,
+): 'navigation-back' | 'navigation-forward' | null {
+  if (!event || event.action === 'LOADER_DATA') return null
+  if (event.action !== 'POP') return 'navigation-forward'
+  if (
+    event.historyIndex != null &&
+    event.previousHistoryIndex != null &&
+    event.historyIndex > event.previousHistoryIndex
+  ) {
+    return 'navigation-forward'
+  }
+  return 'navigation-back'
+}
+
 export function isHashOnlyLocationChange(args: {
   previousLocation: Location
   location: Location
@@ -411,6 +436,7 @@ if (isBrowser) {
         ? null
         : getLatestPendingNavigationRequest(navigationEvents)
     const previousLocation = getPreviousLocation(navigationEvents)
+    const previousCommitted = getLastCommittedNavigationEvent(navigationEvents)
     const event = appendNavigationEvent<NavigationCommittedEvent>({
       type: 'navigation-committed',
       requestId: pendingRequest?.requestId ?? null,
@@ -421,6 +447,8 @@ if (isBrowser) {
         action === 'POP' ? cachedScrollY : (pendingRequest?.scrollY ?? 0),
       savedScrollY: action === 'POP' ? getSavedScrollState() : null,
       source: pendingRequest?.method === 'refresh' ? 'refresh' : 'navigate',
+      historyIndex: getHistoryIndex(),
+      previousHistoryIndex: previousCommitted?.historyIndex ?? null,
     })
 
     recordScrollPosition({
@@ -630,6 +658,8 @@ export const router: RouterBase<RegisteredApp> = {
       previousScrollY: cachedScrollY,
       savedScrollY: null,
       source: 'navigate',
+      historyIndex: getHistoryIndex(),
+      previousHistoryIndex: getHistoryIndex(),
     }
     for (const cb of subscribers) {
       cb(event)

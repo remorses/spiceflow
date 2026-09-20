@@ -1,6 +1,6 @@
 // Browser entry point. Hydrates the React tree from the RSC payload
 // embedded in the HTML, sets up client-side navigation and server action calls.
-import React from 'react'
+import React, { addTransitionType } from 'react'
 import ReactDomClient from 'react-dom/client'
 import {
   __actionAbortControllers as actionAbortControllers,
@@ -8,6 +8,7 @@ import {
   __getDocumentLocationFromResponse as getDocumentLocationFromResponse,
   __getErrorContext as getErrorContext,
   __getLastNavigationEvent as getLastNavigationEvent,
+  __getViewTransitionType as getViewTransitionType,
   __getSavedScrollState as getSavedScrollState,
   __getScrollPositions as getScrollPositions,
   __isFlightResponse as isFlightResponse,
@@ -608,7 +609,12 @@ async function main() {
     }, [])
 
     React.useEffect(() => {
-      setPayload = (v) => startTransition(() => commitPayload(v))
+      setPayload = (v) =>
+        startTransition(() => {
+          const type = getViewTransitionType(getLastNavigationEvent())
+          if (type) addTransitionType(type)
+          commitPayload(v)
+        })
       setPayloadDirect = commitPayload
       if (!pendingPayload) return
       const nextPayload = pendingPayload

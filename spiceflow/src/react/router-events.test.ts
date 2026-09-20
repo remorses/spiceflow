@@ -6,6 +6,7 @@ import {
   getLatestPendingNavigationRequest,
   getLastNavigationEvent,
   getScrollPositions,
+  getViewTransitionType,
   isHashOnlyLocationChange,
   loadScrollPositions,
   recordScrollPosition,
@@ -47,6 +48,8 @@ describe('router event selectors', () => {
         previousScrollY: 1200,
         savedScrollY: null,
         source: 'navigate',
+        historyIndex: 1,
+        previousHistoryIndex: 0,
       },
       {
         id: 3,
@@ -115,6 +118,8 @@ describe('router event selectors', () => {
         previousScrollY: 100,
         savedScrollY: null,
         source: 'navigate',
+        historyIndex: 1,
+        previousHistoryIndex: 0,
       },
       {
         id: 3,
@@ -134,12 +139,15 @@ describe('router event selectors', () => {
         previousScrollY: 250,
         savedScrollY: null,
         source: 'refresh',
+        historyIndex: 1,
+        previousHistoryIndex: 1,
       },
     ]
 
     expect(getLastCommittedNavigationEvent(events)).toMatchInlineSnapshot(`
       {
         "action": "REPLACE",
+        "historyIndex": 1,
         "id": 4,
         "location": {
           "hash": "",
@@ -148,6 +156,7 @@ describe('router event selectors', () => {
           "search": "",
           "state": null,
         },
+        "previousHistoryIndex": 1,
         "previousLocation": {
           "hash": "",
           "key": "b",
@@ -216,5 +225,84 @@ describe('router event selectors', () => {
         location: location('/docs', { hash: '#intro' }),
       }),
     ).toBe(false)
+  })
+
+  test('maps navigation actions to view transition types', () => {
+    expect(
+      getViewTransitionType({
+        id: 1,
+        action: 'PUSH',
+        requestId: 1,
+        location: location('/next'),
+        previousLocation: location('/prev'),
+        previousScrollY: 0,
+        savedScrollY: null,
+        source: 'navigate',
+        historyIndex: 1,
+        previousHistoryIndex: 0,
+      }),
+    ).toBe('navigation-forward')
+
+    expect(
+      getViewTransitionType({
+        id: 2,
+        action: 'REPLACE',
+        requestId: 2,
+        location: location('/next'),
+        previousLocation: location('/prev'),
+        previousScrollY: 0,
+        savedScrollY: null,
+        source: 'refresh',
+        historyIndex: 1,
+        previousHistoryIndex: 1,
+      }),
+    ).toBe('navigation-forward')
+
+    expect(
+      getViewTransitionType({
+        id: 3,
+        action: 'POP',
+        requestId: null,
+        location: location('/prev'),
+        previousLocation: location('/next'),
+        previousScrollY: 0,
+        savedScrollY: 40,
+        source: 'navigate',
+        historyIndex: 0,
+        previousHistoryIndex: 1,
+      }),
+    ).toBe('navigation-back')
+
+    expect(
+      getViewTransitionType({
+        id: 5,
+        action: 'POP',
+        requestId: null,
+        location: location('/next'),
+        previousLocation: location('/prev'),
+        previousScrollY: 0,
+        savedScrollY: null,
+        source: 'navigate',
+        historyIndex: 2,
+        previousHistoryIndex: 1,
+      }),
+    ).toBe('navigation-forward')
+
+    expect(
+      getViewTransitionType({
+        id: 4,
+        action: 'LOADER_DATA',
+        requestId: null,
+        location: location('/same'),
+        previousLocation: location('/same'),
+        previousScrollY: 0,
+        savedScrollY: null,
+        source: 'navigate',
+        historyIndex: 1,
+        previousHistoryIndex: 1,
+      }),
+    ).toBe(null)
+
+    expect(getViewTransitionType(null)).toBe(null)
   })
 })

@@ -45,6 +45,7 @@ export {
 } from './errors.js'
 export {
   getLastNavigationEvent as __getLastNavigationEvent,
+  getViewTransitionType as __getViewTransitionType,
   getSavedScrollState as __getSavedScrollState,
   getScrollPositions as __getScrollPositions,
   recordScrollPosition as __recordScrollPosition,
