@@ -256,7 +256,7 @@ describe('router event selectors', () => {
         historyIndex: 1,
         previousHistoryIndex: 1,
       }),
-    ).toBe('navigation-forward')
+    ).toBe(null)
 
     expect(
       getViewTransitionType({

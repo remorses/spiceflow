@@ -182,8 +182,8 @@
   "peerDependencies": {
     "@modelcontextprotocol/sdk": "*",
     "hono": "^4.0.0",
-    "react": "*",
-    "react-dom": "*",
+    "react": ">=19.3.0",
+    "react-dom": ">=19.3.0",
     "vite": "^8.2.1",
     "zod": "^4.0.0"
   },

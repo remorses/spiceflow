@@ -402,10 +402,14 @@ function getHistoryIndex(): number | null {
   return typeof index === 'number' ? index : null
 }
 
+const initialHistoryIndex = getHistoryIndex()
+
 export function getViewTransitionType(
   event: NavigationEvent | null,
 ): 'navigation-back' | 'navigation-forward' | null {
-  if (!event || event.action === 'LOADER_DATA') return null
+  if (!event || event.action === 'LOADER_DATA' || event.source === 'refresh') {
+    return null
+  }
   if (event.action !== 'POP') return 'navigation-forward'
   if (
     event.historyIndex != null &&
@@ -448,7 +452,8 @@ if (isBrowser) {
       savedScrollY: action === 'POP' ? getSavedScrollState() : null,
       source: pendingRequest?.method === 'refresh' ? 'refresh' : 'navigate',
       historyIndex: getHistoryIndex(),
-      previousHistoryIndex: previousCommitted?.historyIndex ?? null,
+      previousHistoryIndex:
+        previousCommitted?.historyIndex ?? initialHistoryIndex,
     })
 
     recordScrollPosition({

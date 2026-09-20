@@ -392,6 +392,7 @@ async function main() {
   type PayloadArgs = {
     payload: Promise<ServerPayload>
     location?: Location
+    transitionType?: 'navigation-back' | 'navigation-forward'
   }
   type BrowserState = {
     payload: Promise<ServerPayload>
@@ -450,6 +451,7 @@ async function main() {
     applyPayload({
       payload,
       location: event.location,
+      transitionType: getViewTransitionType(event) ?? undefined,
     })
   }
 
@@ -611,8 +613,7 @@ async function main() {
     React.useEffect(() => {
       setPayload = (v) =>
         startTransition(() => {
-          const type = getViewTransitionType(getLastNavigationEvent())
-          if (type) addTransitionType(type)
+          if (v.transitionType) addTransitionType(v.transitionType)
           commitPayload(v)
         })
       setPayloadDirect = commitPayload

@@ -2,19 +2,36 @@
 'spiceflow': minor
 ---
 
-Update examples to React 19.3 and tag client navigations with React View Transition types.
+Tag client navigations with React 19.3 View Transition types.
 
-Client `router.push` / `replace` and history forward now call `addTransitionType('navigation-forward')`. History back uses `navigation-back`. Wrap page content in `<ViewTransition>` to animate those route changes:
+`router.push()`, user `router.replace()`, and history forward call `addTransitionType('navigation-forward')`. History back uses `navigation-back`. `router.refresh()`, loader updates, and server-action re-renders stay untyped.
+
+Wrap persistent layout children in `<ViewTransition>` and style the **update** trigger:
 
 ```tsx
 import { ViewTransition } from 'react'
 
 <ViewTransition
-  enter={{
-    'navigation-forward': 'slide-from-right',
-    'navigation-back': 'slide-from-left',
+  update={{
+    'navigation-forward': 'slide-forward',
+    'navigation-back': 'slide-back',
   }}
 >
   {children}
 </ViewTransition>
+```
+
+```css
+::view-transition-old(.slide-forward) {
+  animation-name: slide-to-left;
+}
+::view-transition-new(.slide-forward) {
+  animation-name: slide-from-right;
+}
+::view-transition-old(.slide-back) {
+  animation-name: slide-to-right;
+}
+::view-transition-new(.slide-back) {
+  animation-name: slide-from-left;
+}
 ```
