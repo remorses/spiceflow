@@ -8,6 +8,7 @@ import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import { AddressInfo } from 'node:net'
 import { SpiceflowRequest } from './spiceflow.js'
+import { serializeErrorBody } from './sanitize-error.js'
 
 function getErrorCode(error: unknown): string | undefined {
   if (!error || typeof error !== 'object') return undefined
@@ -46,11 +47,17 @@ function getAddressInfo(server: Server): AddressInfo {
   return address
 }
 
-export async function listenForNode(
-  handler: (request: Request) => Promise<Response> | Response,
-  port: number,
-  hostname: string = '0.0.0.0',
-): Promise<{
+export async function listenForNode({
+  handler,
+  port,
+  hostname = '0.0.0.0',
+  noStackTraces = false,
+}: {
+  handler: (request: Request) => Promise<Response> | Response
+  port: number
+  hostname?: string
+  noStackTraces?: boolean
+}): Promise<{
   port: number
   server: Server<typeof IncomingMessage, typeof ServerResponse>
   stop: () => Promise<void>
@@ -65,9 +72,11 @@ export async function listenForNode(
 
       console.error('Error handling request:', error)
       if (res.destroyed || res.writableEnded) return
+      // Body already streaming: cannot switch to a JSON error, just close it.
+      if (res.headersSent) return void res.end()
       res.statusCode = 500
-      const message = error instanceof Error ? error.message : 'Internal Server Error'
-      res.end(JSON.stringify({ message, ...(error instanceof Error && error.stack ? { stack: error.stack } : {}) }))
+      res.setHeader('content-type', 'application/json')
+      res.end(serializeErrorBody({ error, noStackTraces }))
     }
   })
 
@@ -191,8 +200,10 @@ export async function handleForNode(
 
     console.error('Error handling request:', error)
     if (res.destroyed || res.writableEnded) return
+    // Body already streaming: cannot switch to a JSON error, just close it.
+    if (res.headersSent) return void res.end()
     res.statusCode = 500
-    const message = error instanceof Error ? error.message : 'Internal Server Error'
-    res.end(JSON.stringify({ message, ...(error instanceof Error && error.stack ? { stack: error.stack } : {}) }))
+    res.setHeader('content-type', 'application/json')
+    res.end(serializeErrorBody({ error, noStackTraces: app.noStackTraces }))
   }
 }

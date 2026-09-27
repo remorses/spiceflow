@@ -1,8 +1,9 @@
-export async function listenForNode(
-  app: unknown,
-  port: number,
-  hostname: string = '0.0.0.0',
-) {
+export async function listenForNode(options: {
+  handler: unknown
+  port: number
+  hostname?: string
+  noStackTraces?: boolean
+}) {
   throw new Error(
     "Current runtime does not support the method 'listen' with node:http. Consider using the method 'handle' with your runtime's server primitive instead.",
   )

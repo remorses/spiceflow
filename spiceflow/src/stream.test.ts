@@ -60,7 +60,7 @@ describe('Stream', () => {
     expect(response).toBe(textEventStream(['a', 'b', 'c']))
   })
   it('handle errors after yield', async () => {
-    const app = new Spiceflow()
+    const app = new Spiceflow({ noStackTraces: true })
       .get('/', async function* () {
         yield 'a'
         await sleep(10)

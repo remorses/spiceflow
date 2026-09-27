@@ -15,6 +15,11 @@ describe('sanitizeErrorMessage', () => {
     expect(
       sanitizeErrorMessage('ENOENT: no such file or directory'),
     ).toMatchInlineSnapshot(`"ENOENT: no such file or directory"`)
+    expect(
+      sanitizeErrorMessage(
+        'Basic authentication failed: invalid token: expired, Bearer realm missing',
+      ),
+    ).toMatchInlineSnapshot(`"Basic authentication failed: invalid token: expired, Bearer realm missing"`)
     expect(sanitizeErrorMessage('')).toMatchInlineSnapshot(`""`)
   })
 
@@ -99,6 +104,36 @@ describe('sanitizeErrorMessage', () => {
     expect(
       sanitizeErrorMessage('spiceflow/src/react/entry.ssr.tsx'),
     ).toMatchInlineSnapshot(`"spiceflow/src/react/entry.ssr.tsx"`)
+  })
+
+  test('stack trace with many secret formats keeps paths and words readable', () => {
+    const stack = [
+      'Error: Upstream failed for /select-account with Bearer abcDEF123456ghiJKL and token eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U',
+      '  url: https://api.example.com/v1?token=abc123def456ghi789&access_token=ya29abc123def456&api_key=key123456789&client_secret=cs_abcdef123456',
+      '  s3: https://bucket.s3.amazonaws.com/k?X-Amz-Signature=abc123def456abc123def456 password=hunter2hunter2',
+      '  db: postgres://user:pass@db.internal:5432/app and redis://:redispw@cache:6379',
+      '  keys: sk_live_51Habcdefghijklmnop ghp_ABCDEFghijklmnopqrstuvwxyz1234 sha 3f786850e387550fdab836ed7e6dc881de23001b',
+      '  b64: dGhpcyBpcyBhIHNlY3JldCBrZXkgd2l0aCsrLz0 Authorization: Basic dXNlcjpwYXNzd29yZA== Cookie: session=abc123def456ghi789',
+      '  headers: x-api-key: abcdef1234567890abcdef {"password":"hunter2","apiKey":"abc123def456"}',
+      '  request id 550e8400-e29b-41d4-a716-446655440000',
+      '    at loadAccount (/Users/morse/Documents/GitHub/spiceflow-rsc/node_modules/.pnpm/react-server-dom-webpack@19.2.0/cjs/server.js:12:4)',
+      '    at /select-account (file:///app/dist/rsc/assets/index-DlK3m9Zq.js:34521:19)',
+      '    at async Spiceflow.handle (/app/node_modules/spiceflow/dist/spiceflow.js:2400:7)',
+    ].join('\n')
+    expect('\n' + sanitizeErrorMessage(stack)).toMatchInlineSnapshot(`
+      "
+      Error: Upstream failed for /select-account with Bearer [REDACTED] and token [REDACTED]
+        url: https://api.example.com/v1?token=[REDACTED]&access_token=[REDACTED]&api_key=[REDACTED]&client_secret=[REDACTED]
+        s3: https://bucket.s3.amazonaws.com/k?X-Amz-Signature=[REDACTED] password=[REDACTED]
+        db: postgres://user:[REDACTED]@db.internal:5432/app and redis://:[REDACTED]@cache:6379
+        keys: [REDACTED] [REDACTED] sha [REDACTED]
+        b64: [REDACTED] Authorization: Basic [REDACTED] Cookie: [REDACTED]
+        headers: x-api-key: [REDACTED] {"password":"[REDACTED]","apiKey":"[REDACTED]"}
+        request id 550e8400-e29b-41d4-a716-446655440000
+          at loadAccount (/Users/morse/Documents/GitHub/spiceflow-rsc/node_modules/.pnpm/react-server-dom-webpack@19.2.0/cjs/server.js:12:4)
+          at /select-account (file:///app/dist/rsc/assets/index-DlK3m9Zq.js:34521:19)
+          at async Spiceflow.handle (/app/node_modules/spiceflow/dist/spiceflow.js:2400:7)"
+    `)
   })
 
   test('mixed message keeps text and redacts secrets', () => {

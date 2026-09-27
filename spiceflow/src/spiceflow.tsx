@@ -62,7 +62,7 @@ import {
   contextToHeaders,
 } from './react/errors.js'
 import { formatServerError } from './react/format-server-error.js'
-import { sanitizeErrorMessage } from './react/sanitize-error.js'
+import { sanitizeErrorMessage, serializeErrorBody } from './sanitize-error.js'
 import {
   DEPLOYMENT_ID_HEADER,
   isDeploymentSkew,
@@ -399,6 +399,7 @@ export class Spiceflow<
   private waitUntilFn: WaitUntil
   tracer?: SpiceflowTracer
   serverTiming?: boolean
+  noStackTraces: boolean
 
   _types = {
     Prefix: '' as BasePath,
@@ -663,12 +664,15 @@ export class Spiceflow<
       allowedActionOrigins?: (string | RegExp)[]
       tracer?: SpiceflowTracer
       serverTiming?: boolean
+      /** Omit `stack` from default JSON error responses. Only the root app's value is used. */
+      noStackTraces?: boolean
     } = {},
   ) {
     this.scoped = options.scoped
     this.allowedActionOrigins = options.allowedActionOrigins
     this.tracer = options.tracer ?? cloudflareTracer
     this.serverTiming = options.serverTiming ?? true
+    this.noStackTraces = options.noStackTraces ?? false
 
     this.waitUntilFn = options.waitUntil || defaultWaitUntil
 
@@ -2834,13 +2838,7 @@ export class Spiceflow<
       status = 500
     }
     return new Response(
-      this.jsonSerialize(
-        {
-          ...err,
-          message: err?.message || 'Internal Server Error',
-          ...(err instanceof Error && err.stack ? { stack: err.stack } : {}),
-        },
-      ),
+      serializeErrorBody({ error: err, noStackTraces: this.noStackTraces }),
       { status, headers: { 'content-type': 'application/json' } },
     )
   }
@@ -3076,11 +3074,11 @@ export class Spiceflow<
         reusePort: true,
         error(error) {
           console.error(error)
-          const message = error instanceof Error ? error.message : 'Internal Server Error'
           return new Response(
-            app.jsonSerialize({ message, ...(error instanceof Error && error.stack ? { stack: error.stack } : {}) }),
+            serializeErrorBody({ error, noStackTraces: app.noStackTraces }),
             {
               status: 500,
+              headers: { 'content-type': 'application/json' },
             },
           )
         },
@@ -3118,7 +3116,12 @@ export class Spiceflow<
       }
     }
 
-    return listenForNode(handler, port, hostname)
+    return listenForNode({
+      handler,
+      port,
+      hostname,
+      noStackTraces: this.noStackTraces,
+    })
   }
 
   handleForNode = (
@@ -3268,12 +3271,10 @@ export class Spiceflow<
               controller.enqueue(
                 Buffer.from(
                   'event: error\ndata: ' +
-                    self.jsonSerialize(
-                      {
-                        ...error,
-                        message: error.message || error.name || 'Error',
-                      },
-                    ) +
+                    serializeErrorBody({
+                      error,
+                      noStackTraces: self.noStackTraces,
+                    }) +
                     '\n\n',
                 ),
               )

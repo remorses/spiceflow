@@ -24,7 +24,7 @@ import {
   type ReactServerErrorContext,
 } from './errors.js'
 import { formatServerError } from './format-server-error.js'
-import { sanitizeErrorMessage } from './sanitize-error.js'
+import { sanitizeErrorMessage } from '../sanitize-error.js'
 import { injectRSCPayload } from './transform.js'
 import { createRouterContextData } from '../router-context.js'
 import { deploymentIdBootstrapPrefix } from './deployment.js'

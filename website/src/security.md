@@ -228,3 +228,13 @@ test('user cannot delete another users project', async () => {
 ```
 
 Use `runAction` with a custom request to pass auth tokens to actions that call `getActionRequest()`. See [example-better-auth tests](https://github.com/remorses/spiceflow/blob/main/example-better-auth/src/main.test.ts) for a complete working example covering these patterns.
+
+## Error Responses
+
+Unhandled API errors return a JSON body with the message and **stack**. Secrets inside them (tokens, API keys, connection string passwords) are always redacted. To hide stack traces from clients, create the root app with `noStackTraces`:
+
+```ts
+const app = new Spiceflow({ noStackTraces: true })
+```
+
+See [Stack traces and redaction](./api.md#stack-traces-and-redaction) for what is redacted.

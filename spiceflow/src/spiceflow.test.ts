@@ -2591,6 +2591,73 @@ test('throwing Error with status property uses that status', async () => {
   })
 })
 
+test('default error body is sanitized and noStackTraces omits stack', async () => {
+  const throwing = new Spiceflow().get('/fail', () => {
+    throw Object.assign(
+      new Error(
+        'fetch failed for /select-account?token=abc123def456ghi789 with postgres://user:pass@db:5432/app',
+      ),
+      {
+        status: 502,
+        code: 'UPSTREAM',
+        config: { headers: { Authorization: 'Bearer sk_live_51Habcdefghijklmnop' } },
+      },
+    )
+  })
+  const request = () => new Request('http://localhost/fail')
+  const readBody = async (res: Response) => {
+    const body = await res.json()
+    if (typeof body.stack === 'string') {
+      body.stack = body.stack
+        .split('\n')
+        .slice(0, 2)
+        .join('\n')
+        .replaceAll(process.cwd(), '<cwd>')
+        .replace(/:\d+:\d+\)$/, ':<line>)')
+    }
+    return { status: res.status, body }
+  }
+
+  const withStack = new Spiceflow().use(throwing).onError(() => {})
+  // Sub-app value is ignored: the app handling the request decides.
+  const withoutStack = new Spiceflow({ noStackTraces: true })
+    .use(new Spiceflow({ noStackTraces: false }).use(throwing))
+    .onError(() => {})
+
+  expect(await readBody(await withStack.handle(request()))).toMatchInlineSnapshot(`
+    {
+      "body": {
+        "code": "UPSTREAM",
+        "config": {
+          "headers": {
+            "Authorization": "Bearer [REDACTED]",
+          },
+        },
+        "message": "fetch failed for /select-account?token=[REDACTED] with postgres://user:[REDACTED]@db:5432/app",
+        "stack": "Error: fetch failed for /select-account?token=[REDACTED] with postgres://user:[REDACTED]@db:5432/app
+        at Spiceflow./fail (<cwd>/src/spiceflow.test.ts:<line>)",
+        "status": 502,
+      },
+      "status": 502,
+    }
+  `)
+  expect(await readBody(await withoutStack.handle(request()))).toMatchInlineSnapshot(`
+    {
+      "body": {
+        "code": "UPSTREAM",
+        "config": {
+          "headers": {
+            "Authorization": "Bearer [REDACTED]",
+          },
+        },
+        "message": "fetch failed for /select-account?token=[REDACTED] with postgres://user:[REDACTED]@db:5432/app",
+        "status": 502,
+      },
+      "status": 502,
+    }
+  `)
+})
+
 test('route override - same method and path, second route wins', async () => {
   const app = new Spiceflow()
     .get('/test', () => 'first handler')

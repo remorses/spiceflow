@@ -600,6 +600,32 @@ Errors with a `status` property (or `statusCode`) are used as the HTTP status co
 throw Object.assign(new Error('Invalid input'), { status: 400 })
 ```
 
+### Stack traces and redaction
+
+The default error body includes the **stack** so you and your coding agents can find the failing line quickly. Pass `noStackTraces: true` to remove it in production:
+
+```ts
+const app = new Spiceflow({ noStackTraces: true })
+  .get('/fail', () => {
+    throw new Error('upstream failed')
+  })
+
+// GET /fail -> 500 {"message":"upstream failed"}
+```
+
+Only the app that handles the request reads this option. Set it on the root app; values on apps mounted with `.use()` are ignored. It also applies to SSE `event: error` payloads and to the fallback errors from `listen()` and `handleForNode()`.
+
+Spiceflow always **redacts** secrets in error bodies, with or without stacks. JWTs, `Bearer` and `Basic` credentials, `?token=` and other secret query params, connection string passwords, and common API key formats (`sk_live_`, `ghp_`, `AKIA`, ...) become `[REDACTED]`. File paths and route names stay readable:
+
+```json
+{
+  "message": "fetch failed for /select-account?token=[REDACTED] with postgres://user:[REDACTED]@db:5432/app",
+  "stack": "Error: fetch failed ...\n    at /select-account (file:///app/dist/rsc/assets/index-DlK3m9Zq.js:12:4)"
+}
+```
+
+React pages never send stacks in production. RSC and server action errors reach the browser only as a redacted message.
+
 ## Async Generators (Streaming)
 
 Route handlers that are **async generators** automatically produce a Server-Sent Events response. Each `yield` sends a `data: ...\n\n` chunk to the client. Works with `.get()`, `.post()`, and `.route()`.
