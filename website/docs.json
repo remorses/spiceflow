@@ -10,6 +10,10 @@
   "appearance": {
     "default": "system"
   },
+  "layout": {
+    "mode": "compact"
+  },
+  "decorativeLines": "none",
   "icons": {
     "library": "lucide"
   },

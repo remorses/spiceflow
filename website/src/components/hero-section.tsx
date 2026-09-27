@@ -1,5 +1,3 @@
-// Full-bleed hero with VideoBackgroundShader, serif title, and centered tagline.
-// Breaks out of the Above column constraint via w-screen + negative margin.
 'use client'
 
 import { useEffect, useState } from 'react'
@@ -15,12 +13,12 @@ function GitHubIcon({ className }: { className?: string }) {
   )
 }
 
-export function HeroSection({}) {
+export function HeroSection() {
   const [fontsReady, setFontsReady] = useState(false)
 
   useEffect(() => {
     const timeout = setTimeout(() => setFontsReady(true), 3000)
-    document.fonts.ready.then(() => setFontsReady(true))
+    void document.fonts.ready.then(() => setFontsReady(true))
     return () => clearTimeout(timeout)
   }, [])
 
@@ -28,7 +26,7 @@ export function HeroSection({}) {
     <div className='relative mt-4 lg:mt-8 mb-6 lg:mb-10 w-screen ml-[calc(-50vw+50%)] flex flex-col items-center overflow-hidden'>
       <VideoBackgroundShader
         src='/hero-bg.mp4'
-        className='absolute inset-0 w-full h-full'
+        className='absolute inset-y-0 left-1/2 w-full max-w-(--grid-max-width) -translate-x-1/2'
         canvasClassName='dark:opacity-60 opacity-40'
         dotStyle='ascii'
         dotColor='#e8940a'
@@ -36,7 +34,6 @@ export function HeroSection({}) {
         chars=' .:-~=spiceflow'
       />
 
-      {/* Foreground content */}
       <div
         className='relative z-[2] flex flex-col items-center justify-center text-center max-w-[820px] w-full px-5 pt-12 sm:pt-16 pb-14 sm:pb-20 gap-6'
         style={{
@@ -45,18 +42,13 @@ export function HeroSection({}) {
         }}
       >
         <h1
-          className='flex flex-col items-center leading-none text-[40px] sm:text-[56px] md:text-[68px] text-foreground'
+          className='flex flex-col items-center leading-none text-balance text-[40px] sm:text-[56px] md:text-[68px] text-foreground'
           style={{ fontFamily: HERO_FONT }}
         >
           <span>the simplest way to build</span>
           <span>full-stack React apps</span>
         </h1>
 
-        <p className='text-center text-balance text-muted-foreground text-base sm:text-lg max-w-[540px]'>
-          Type-safe APIs and React Server Components for Node.js, Bun, and Cloudflare Workers.
-        </p>
-
-        {/* CTAs */}
         <div className='flex gap-3 flex-wrap justify-center'>
           <a
             href='https://github.com/remorses/spiceflow'
