@@ -5,18 +5,21 @@
 
 const REDACTED = '[REDACTED]'
 
-const PEM_RE =
-  /-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----/g
+// All patterns must stay linear: error text can contain user input (URLs,
+// headers), so unbounded prefixes like `\b[\w-]*token` are ReDoS vectors.
+
+const PEM_BEGIN_RE = /-----BEGIN [A-Z ]{0,20}PRIVATE KEY-----/g
+const PEM_END_RE = /-----END [A-Z ]{0,20}PRIVATE KEY-----/g
 
 // JWT tokens: eyJ followed by base64url chars, with 2 or 3 dot-separated segments
 const JWT_RE =
-  /eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}(?:\.[A-Za-z0-9_-]{10,})?/g
+  /(?<![A-Za-z0-9_-])eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}(?:\.[A-Za-z0-9_-]{10,})?/g
 
 // Connection string credentials: scheme://user:password@host (user may be empty)
 const CONN_STRING_RE = /:\/\/([^:/?#@\s]*):([^@\s/]+)@/g
 
 const SECRET_KEY =
-  '[\\w-]*(?:token|secret|password|passwd|pwd|api[_-]?key|signature|sig|session|credentials?)'
+  '[\\w-]{0,32}(?:token|secret|password|passwd|pwd|api[_-]?key|signature|sig|session|credentials?)'
 
 // JSON fields: "password": "...", "apiKey": "..."
 const JSON_FIELD_RE = new RegExp(
@@ -27,12 +30,23 @@ const JSON_FIELD_RE = new RegExp(
 // Query/form params and cookie pairs: access_token=..., X-Amz-Signature=...
 const PARAM_RE = new RegExp(`\\b(${SECRET_KEY}=)[^\\s&"',;<>]+`, 'gi')
 
-// Authorization schemes: Bearer xxx, Basic xxx
+// Authorization header: always redact its value, whatever it looks like
+const AUTH_HEADER_RE =
+  /\b((?:proxy-)?authorization\s*:\s*)(?:(Bearer|Basic|Token|Digest)\s+)?[^\s,;"']+/gi
+
+// Bare schemes in prose: Bearer xxx, Basic xxx
 const AUTH_SCHEME_RE = /\b(Bearer|Basic)(\s+)([A-Za-z0-9._~+/-]{8,}=*)/gi
 
-// Header lines: x-api-key: ..., Cookie: ..., token: ...
-const HEADER_RE =
-  /\b((?:x-)?[\w-]*(?:api[_-]?key|token|secret|cookie)\s*:\s*)([^\s,;"']+)/gi
+// Credential headers: x-api-key: ..., Cookie: ..., client-secret: ...
+const CREDENTIAL_HEADER_RE =
+  /\b([\w-]{0,32}(?:api[_-]?key|secret|cookie)\s*:\s*)[^\s,;"']+/gi
+
+// token: ... is also common prose ("invalid token: expired")
+const TOKEN_HEADER_RE = /\b([\w-]{0,32}token\s*:\s*)([^\s,;"']+)/gi
+
+// Object keys whose values are always secret, whatever the value looks like
+const SENSITIVE_KEY_RE =
+  /token|secret|password|passwd|pwd|api[_-]?key|signature|session|credential|authorization|cookie/i
 
 // Common API key prefixes followed by high-entropy strings
 const API_KEY_PREFIX_RE =
@@ -89,19 +103,41 @@ function looksLikeCredential(value: string): boolean {
   return /\d/.test(value) || /[+/=]/.test(value) || (/[a-z]/.test(value) && /[A-Z]/.test(value))
 }
 
+// Linear scan: a lazy BEGIN...END regex goes quadratic on repeated BEGIN markers.
+function redactPem(text: string): string {
+  let result = ''
+  let cursor = 0
+  PEM_BEGIN_RE.lastIndex = 0
+  let begin: RegExpExecArray | null
+  while ((begin = PEM_BEGIN_RE.exec(text))) {
+    PEM_END_RE.lastIndex = begin.index
+    const end = PEM_END_RE.exec(text)
+    // No END after this BEGIN means none after later ones either
+    if (!end) break
+    result += text.slice(cursor, begin.index) + REDACTED
+    cursor = end.index + end[0].length
+    PEM_BEGIN_RE.lastIndex = cursor
+  }
+  return result + text.slice(cursor)
+}
+
 export function sanitizeErrorMessage(message: string): string {
   try {
     let result = message
 
-    result = result.replace(PEM_RE, REDACTED)
+    result = redactPem(result)
     result = result.replace(JWT_RE, REDACTED)
     result = result.replace(CONN_STRING_RE, `://$1:${REDACTED}@`)
     result = result.replace(JSON_FIELD_RE, `$1${REDACTED}"`)
     result = result.replace(PARAM_RE, `$1${REDACTED}`)
+    result = result.replace(AUTH_HEADER_RE, (_match, name, scheme) =>
+      scheme ? `${name}${scheme} ${REDACTED}` : `${name}${REDACTED}`,
+    )
     result = result.replace(AUTH_SCHEME_RE, (match, scheme, space, value) =>
       looksLikeCredential(value) ? `${scheme}${space}${REDACTED}` : match,
     )
-    result = result.replace(HEADER_RE, (match, name, value) =>
+    result = result.replace(CREDENTIAL_HEADER_RE, `$1${REDACTED}`)
+    result = result.replace(TOKEN_HEADER_RE, (match, name, value) =>
       value !== REDACTED && looksLikeCredential(value) ? `${name}${REDACTED}` : match,
     )
     result = result.replace(API_KEY_PREFIX_RE, REDACTED)
@@ -148,8 +184,14 @@ export function serializeErrorBody({
   if (!noStackTraces && error instanceof Error && error.stack) {
     body.stack = error.stack
   }
-  const replacer = (_key: string, value: unknown) =>
-    typeof value === 'string' ? sanitizeErrorMessage(value) : value
+  const replacer = (key: string, value: unknown) => {
+    const isPrimitive =
+      typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean'
+    if (isPrimitive && key !== 'message' && key !== 'stack' && SENSITIVE_KEY_RE.test(key)) {
+      return REDACTED
+    }
+    return typeof value === 'string' ? sanitizeErrorMessage(value) : value
+  }
   try {
     return JSON.stringify(body, replacer)
   } catch {

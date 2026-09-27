@@ -72,8 +72,8 @@ export async function listenForNode({
 
       console.error('Error handling request:', error)
       if (res.destroyed || res.writableEnded) return
-      // Body already streaming: cannot switch to a JSON error, just close it.
-      if (res.headersSent) return void res.end()
+      // Body already streaming: abort so the client sees a truncated response, not a clean end.
+      if (res.headersSent) return void res.destroy()
       res.statusCode = 500
       res.setHeader('content-type', 'application/json')
       res.end(serializeErrorBody({ error, noStackTraces }))
@@ -201,7 +201,7 @@ export async function handleForNode(
     console.error('Error handling request:', error)
     if (res.destroyed || res.writableEnded) return
     // Body already streaming: cannot switch to a JSON error, just close it.
-    if (res.headersSent) return void res.end()
+    if (res.headersSent) return void res.destroy()
     res.statusCode = 500
     res.setHeader('content-type', 'application/json')
     res.end(serializeErrorBody({ error, noStackTraces: app.noStackTraces }))

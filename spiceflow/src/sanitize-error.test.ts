@@ -136,6 +136,26 @@ describe('sanitizeErrorMessage', () => {
     `)
   })
 
+  test('credential headers redact plain-letter values', () => {
+    expect(
+      sanitizeErrorMessage(
+        'Authorization: Bearer supersecretvalue x-api-key: abcdefghijklmnopqrstuvwxyz authorization: plainsecret',
+      ),
+    ).toMatchInlineSnapshot(`"Authorization: Bearer [REDACTED] x-api-key: [REDACTED] authorization: [REDACTED]"`)
+  })
+
+  test('adversarial input stays linear', () => {
+    const inputs = [
+      'a-'.repeat(100_000),
+      '-----BEGIN PRIVATE KEY-----'.repeat(5_000),
+      'eyJ'.repeat(30_000),
+      'a-a-a-token'.repeat(10_000),
+    ]
+    const start = performance.now()
+    for (const input of inputs) sanitizeErrorMessage(input)
+    expect(performance.now() - start).toBeLessThan(1_000)
+  })
+
   test('mixed message keeps text and redacts secrets', () => {
     expect(
       sanitizeErrorMessage(

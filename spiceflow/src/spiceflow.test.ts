@@ -2600,7 +2600,8 @@ test('default error body is sanitized and noStackTraces omits stack', async () =
       {
         status: 502,
         code: 'UPSTREAM',
-        config: { headers: { Authorization: 'Bearer sk_live_51Habcdefghijklmnop' } },
+        password: 'hunter2',
+        config: { headers: { Authorization: 'Bearer plainsecret', 'x-session-id': 42 } },
       },
     )
   })
@@ -2630,10 +2631,12 @@ test('default error body is sanitized and noStackTraces omits stack', async () =
         "code": "UPSTREAM",
         "config": {
           "headers": {
-            "Authorization": "Bearer [REDACTED]",
+            "Authorization": "[REDACTED]",
+            "x-session-id": "[REDACTED]",
           },
         },
         "message": "fetch failed for /select-account?token=[REDACTED] with postgres://user:[REDACTED]@db:5432/app",
+        "password": "[REDACTED]",
         "stack": "Error: fetch failed for /select-account?token=[REDACTED] with postgres://user:[REDACTED]@db:5432/app
         at Spiceflow./fail (<cwd>/src/spiceflow.test.ts:<line>)",
         "status": 502,
@@ -2647,10 +2650,12 @@ test('default error body is sanitized and noStackTraces omits stack', async () =
         "code": "UPSTREAM",
         "config": {
           "headers": {
-            "Authorization": "Bearer [REDACTED]",
+            "Authorization": "[REDACTED]",
+            "x-session-id": "[REDACTED]",
           },
         },
         "message": "fetch failed for /select-account?token=[REDACTED] with postgres://user:[REDACTED]@db:5432/app",
+        "password": "[REDACTED]",
         "status": 502,
       },
       "status": 502,
