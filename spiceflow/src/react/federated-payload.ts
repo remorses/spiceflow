@@ -334,10 +334,9 @@ function federationModuleError(id: string, cause?: unknown): Error {
 // active chat session (blank page, `Uncaught undefined`). Host-first keeps
 // host modules on the exact same code path as without federation.
 //
-// Remote-only ids reach the registry through the failure paths: a prod host
-// loader throws synchronously ("client reference not found"), a dev host
-// loader rejects asynchronously (404 on `import("/<hash>")`), and the
-// standalone stub throws. All three fall back to remoteRegistry, and a
+// Remote-only ids reach the registry through the failure paths: the prod
+// host loader rejects ("client reference not found"), the dev host loader
+// rejects (404 on `import("/<hash>")`), and the standalone stub throws. All three fall back to remoteRegistry, and a
 // registry miss of an announced remote id produces a tagged federation error
 // scoped to the referencing component instead of crashing the whole page.
 // A host reload can never fix a broken remote, so remote ids never reload.

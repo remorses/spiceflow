@@ -10,6 +10,7 @@ import {
   getDocumentPath,
   isDeploymentSkew,
   readClientDeploymentId,
+  wrapRequireWithFallback,
 } from './deployment.js'
 
 describe('getDocumentPath', () => {
@@ -91,5 +92,38 @@ describe('readClientDeploymentId', () => {
 describe('DEPLOYMENT_ID_HEADER', () => {
   test('stable header name', () => {
     expect(DEPLOYMENT_ID_HEADER).toBe('x-spiceflow-deployment-id')
+  })
+})
+
+describe('wrapRequireWithFallback', () => {
+  test('keeps one promise per id, but a failed id asks the fallback again', async () => {
+    const calls: string[] = []
+    const require = wrapRequireWithFallback(
+      // Like the vite-rsc loader: memoized, so a missing id stays rejected
+      (id) => (id === 'ok' ? Promise.resolve({ ok: true }) : Promise.reject(new Error(`missing ${id}`))),
+      (id, _cleanId, cause) => {
+        calls.push(id)
+        throw cause
+      },
+    )
+    const ok = require('ok')
+    const firstMiss = require('gone') as Promise<unknown>
+    await firstMiss.catch(() => {})
+    const secondMiss = require('gone') as Promise<unknown>
+    await secondMiss.catch(() => {})
+    expect({
+      okIsCached: require('ok') === ok,
+      missIsNew: firstMiss !== secondMiss,
+      fallbackCalls: calls,
+    }).toMatchInlineSnapshot(`
+      {
+        "fallbackCalls": [
+          "gone",
+          "gone",
+        ],
+        "missIsNew": true,
+        "okIsCached": true,
+      }
+    `)
   })
 })

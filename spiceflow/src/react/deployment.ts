@@ -103,6 +103,9 @@ export function readClientDeploymentId(
 // Wrap __vite_rsc_*_require__ with per-ID caching and an error handler.
 // Cache guarantees same promise instance for repeated requires (React needs
 // this: preloadModule sets .status/.value, requireModule reads them back).
+// A rejected id is evicted, so a later require runs onError again: a blocked
+// recovery reload can retry once its guard window ends, and federation can
+// resolve an id that a later payload registered.
 export function wrapRequireWithFallback(
   original: ((id: string) => unknown) | undefined,
   onError: (id: string, cleanId: string, cause: unknown) => unknown,
@@ -120,7 +123,13 @@ export function wrapRequireWithFallback(
         return onError(id, cleanId, error)
       }
       if (loaded && typeof (loaded as PromiseLike<unknown>).then === 'function') {
-        return Promise.resolve(loaded).catch((error) => onError(id, cleanId, error))
+        const promise: Promise<unknown> = Promise.resolve(loaded)
+          .catch((error) => onError(id, cleanId, error))
+          .catch((error) => {
+            if (cache.get(id) === promise) cache.delete(id)
+            throw error
+          })
+        return promise
       }
       return loaded
     })()
@@ -135,7 +144,7 @@ export function wrapRequireWithFallback(
 const RECOVERY_STORAGE_KEY = '__spiceflow_module_recovery__'
 const RECOVERY_WINDOW_MS = 60_000
 
-export function recoveryReload(id: string, cleanId: string, err: unknown): never {
+export function recoveryReload(id: string, cleanId: string, err: unknown): Promise<never> {
   const deploymentId = readClientDeploymentId()
   const recoveryId = `${deploymentId}:${cleanId}`
 
@@ -159,5 +168,5 @@ export function recoveryReload(id: string, cleanId: string, err: unknown): never
   console.error('[spiceflow] Client module missing, reloading:', id, err)
   globalThis.location.replace(globalThis.location.href)
   // Never resolves — page is reloading
-  return new Promise<never>(() => {}) as never
+  return new Promise<never>(() => {})
 }
