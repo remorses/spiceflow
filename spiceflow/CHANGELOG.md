@@ -1,5 +1,53 @@
 # spiceflow
 
+## 1.26.0-rsc.19
+
+1. **`noStackTraces` option and secret redaction on every error path** — error responses keep stacks by default; turn them off in production:
+
+   ```ts
+   const app = new Spiceflow({ noStackTraces: true })
+   ```
+
+   This removes `stack` from JSON error bodies, SSE `event: error` payloads, and the `listen()` / `handleForNode()` fallbacks. Error messages, stacks, and extra fields are now always sanitized, but only secrets become `[REDACTED]`: JWTs, private keys, connection string passwords, known API key formats, long hex and high-entropy strings, and values after names like `token=`, `x-api-key:` or `Bearer`. Plain words (`invalid token: expired`), file paths, and UUIDs stay readable. Errors with a **4xx status are public**: their message is never redacted, in API responses, RSC renders, and server actions. Errors with circular fields no longer break the response.
+
+2. **WebMCP tools from the fetch client** — register your API routes as browser WebMCP tools for agents:
+
+   ```ts
+   import { createSpiceflowFetch, installWebMcp } from 'spiceflow/client'
+
+   const api = createSpiceflowFetch('https://api.example.com')
+   const uninstall = await installWebMcp({
+     fetch: api,
+     openapiPath: '/openapi',
+     include: [{ method: 'GET', path: '/users/:id' }],
+     exclude: [{ method: 'DELETE', path: '/users/:id' }],
+   })
+   ```
+
+   Input schemas come from your OpenAPI document. Tools the page already registered are kept. Setup errors are logged and return a no-op cleanup instead of blocking startup.
+
+3. **`app.getRoutes()` for route discovery** — list public route metadata (`path`, `method`, `kind`) of the app and mounted sub-apps, for example to build `sitemap.xml`:
+
+   ```ts
+   const pages = app.getRoutes().filter((r) => r.kind === 'page').map((r) => r.path)
+   ```
+
+4. **React 19.3 View Transition types on navigation** — `router.push()`, `router.replace()` and history forward tag the transition `navigation-forward`; history back uses `navigation-back`. Style them with `<ViewTransition update={{ 'navigation-forward': 'slide-forward', 'navigation-back': 'slide-back' }}>`. Refreshes, loader updates and server-action re-renders stay untyped. React, react-dom and types are bumped to 19.3.0.
+
+5. **`json()` in server actions** — throwing `json({ email: 'Invalid' }, { status: 400 })` now shows a readable message on the client (`email: Invalid`, or the `message` field if present) instead of `Expected action response to be text/x-component`. Returning `json({ ... })` delivers the parsed data to the client. Headers like `set-cookie` from thrown JSON responses are kept.
+
+6. **Fixed WebSocket upgrades on Cloudflare Workers** — returning a `101` response with a `webSocket` (for example a Durable Object `stub.fetch(request)`) threw `RangeError: Responses may only be constructed with status codes in the range 200 to 599`, because spiceflow rebuilt the response to add `Server-Timing`, CORS or deployment headers. It now works with default options:
+
+   ```ts
+   new Spiceflow().get('/live', ({ request }) => env.ROOM.get(id).fetch(request))
+   ```
+
+7. **Recover from missing client references after a deploy** — a stale tab that navigates to a page whose client chunk no longer exists now hard-reloads to fetch fresh assets, instead of crashing with `client reference not found`. A 60-second guard prevents reload loops; dev mode still shows the Vite overlay.
+
+8. **Fixed `spiceflow/vite` resolution in pnpm workspaces** — Vite 8 is now a required peer dependency, so the plugin resolves your Vite 8 install instead of a hoisted Vite 7.
+
+9. **New docs layout** — the README is a short entry point; each feature has its own page on https://getspiceflow.com (append `.md` for raw markdown), plus a new comparison page against Next.js App Router, Hono, and Elysia.
+
 ## 1.26.0-rsc.18
 
 1. **Toast notifications for uncaught server action errors** — when a server action throws and the caller has no `try/catch` or `ErrorBoundary`, the framework now shows a dismissable error toast instead of crashing the page. Users can also import `toast` from `spiceflow/react` for custom notifications:
