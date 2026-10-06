@@ -1,7 +1,14 @@
-// Redacts strings that look like secrets (API keys, tokens, JWTs, connection
-// string credentials, etc.) from error messages and stacks before they reach
-// the client. Used by every path that sends error text over the wire: JSON
-// error bodies, SSE error events, node/Bun fallbacks, RSC/SSR digests.
+// Redacts secrets from error text before it reaches the client. Used by every
+// path that sends error text over the wire: JSON error bodies, SSE error
+// events, node/Bun fallbacks, RSC/SSR digests, server action errors.
+//
+// A value is redacted only when it is a secret by format (JWT, PEM, known API
+// key prefix, connection string password, long hex, high-entropy string), or
+// when it follows a secret name (token=, password:, Bearer) AND looks like a
+// credential. Plain words stay readable: "Bearer realm missing", "token: expired".
+//
+// Errors with a 4xx status are public: their message is written for the
+// client and is never redacted (same convention as http-errors `expose`).
 
 const REDACTED = '[REDACTED]'
 
@@ -18,49 +25,53 @@ const JWT_RE =
 // Connection string credentials: scheme://user:password@host (user may be empty)
 const CONN_STRING_RE = /:\/\/([^:/?#@\s]*):([^@\s/]+)@/g
 
-const SECRET_KEY =
-  '[\\w-]{0,32}(?:token|secret|password|passwd|pwd|api[_-]?key|signature|sig|session|credentials?)'
-
-// JSON fields: "password": "...", "apiKey": "..."
-const JSON_FIELD_RE = new RegExp(
-  `("${SECRET_KEY}"\\s*:\\s*")(?:[^"\\\\]|\\\\.)*"`,
-  'gi',
-)
-
-// Query/form params and cookie pairs: access_token=..., X-Amz-Signature=...
-const PARAM_RE = new RegExp(`\\b(${SECRET_KEY}=)[^\\s&"',;<>]+`, 'gi')
-
-// Authorization header: always redact its value, whatever it looks like
-const AUTH_HEADER_RE =
-  /\b((?:proxy-)?authorization\s*:\s*)(?:(Bearer|Basic|Token|Digest)\s+)?[^\s,;"']+/gi
-
-// Bare schemes in prose: Bearer xxx, Basic xxx
-const AUTH_SCHEME_RE = /\b(Bearer|Basic)(\s+)([A-Za-z0-9._~+/-]{8,}=*)/gi
-
-// Credential headers: x-api-key: ..., Cookie: ..., client-secret: ...
-const CREDENTIAL_HEADER_RE =
-  /\b([\w-]{0,32}(?:api[_-]?key|secret|cookie)\s*:\s*)[^\s,;"']+/gi
-
-// token: ... is also common prose ("invalid token: expired")
-const TOKEN_HEADER_RE = /\b([\w-]{0,32}token\s*:\s*)([^\s,;"']+)/gi
-
-// Object keys whose values are always secret, whatever the value looks like
-const SENSITIVE_KEY_RE =
-  /token|secret|password|passwd|pwd|api[_-]?key|signature|session|credential|authorization|cookie/i
-
-// Common API key prefixes followed by high-entropy strings
+// Known API key prefixes followed by key chars
 const API_KEY_PREFIX_RE =
-  /\b(sk[-_]|pk[-_]|api[-_]?key[-_]?|AKIA|AIza|ghp_|gho_|ghs_|ghr_|ghu_|github_pat_|glpat-|npm_|xox[bpsar]-|whsec_|shpat_|shpss_|dop_v1_|sk_live_|pk_live_|sk_test_|pk_test_|rk_live_|rk_test_)[A-Za-z0-9_-]{8,}/g
+  /\b(sk[-_]|pk[-_]|AKIA|AIza|ghp_|gho_|ghs_|ghr_|ghu_|github_pat_|glpat-|npm_|xox[bpsar]-|whsec_|shpat_|shpss_|dop_v1_|rk_live_|rk_test_)[A-Za-z0-9_-]{8,}/g
 
 // Hex secrets (hashes, HMAC keys, API secrets): 32+ hex chars
 const HEX_RE = /\b[0-9a-fA-F]{32,}\b/g
 
-// Generic high-entropy: 20+ character strings of key chars without spaces.
+// Generic high-entropy: 20+ character strings of key chars without spaces
 const HIGH_ENTROPY_RE =
   /(?<![A-Za-z0-9_/-])[A-Za-z0-9_/-]{20,}(?![A-Za-z0-9_/-])/g
 
+// token=..., x-api-key: ..., "password":"..." with a secret name before the value.
+// Names are listed explicitly: a generic name pattern would swallow URLs
+// (`https:` + rest) and skip the params inside them.
+const NAMED_VALUE_RE =
+  /(?<![\w-])((?:x-amz-|x-|proxy-|set-|client[-_]?|access[-_]?|refresh[-_]?|id[-_]?|auth[-_]?)?(?:token|api[-_]?key|secret|password|passwd|authorization|cookie|signature))("?\s*[:=]\s*"?)([^\s&"',;<>]+)/gi
+
+// Bearer xxx, Basic xxx (also inside "Authorization: Bearer xxx")
+const AUTH_SCHEME_RE = /\b(Bearer|Basic)(\s+)([A-Za-z0-9._~+/-]+=*)/gi
+
+// Names compared after lowercasing and removing - and _
+const SECRET_NAMES = new Set([
+  'token',
+  'accesstoken',
+  'refreshtoken',
+  'idtoken',
+  'authtoken',
+  'apikey',
+  'xapikey',
+  'secret',
+  'clientsecret',
+  'password',
+  'passwd',
+  'authorization',
+  'proxyauthorization',
+  'cookie',
+  'setcookie',
+  'signature',
+  'xamzsignature',
+])
+
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+function isSecretName(name: string): boolean {
+  return SECRET_NAMES.has(name.toLowerCase().replace(/[-_]/g, ''))
+}
 
 function charClassCount(s: string): number {
   let mask = 0
@@ -82,6 +93,7 @@ function charClassCount(s: string): number {
   return count
 }
 
+// High-entropy check for strings with no context around them
 function isLikelySecret(s: string): boolean {
   if (s.length < 20) return false
   if (UUID_RE.test(s)) return false
@@ -96,11 +108,14 @@ function isLikelySecret(s: string): boolean {
   return true
 }
 
-// Values after "Bearer"/"Basic" or a header name must look like credentials,
-// so prose like "Basic authentication" or "token: expired" stays readable.
+// Lower bar for values after a secret name: a word like "expired" or
+// "realm" stays readable, anything with digits, mixed case or base64 symbols
+// is treated as a credential.
 function looksLikeCredential(value: string): boolean {
-  if (value.length < 8) return false
-  return /\d/.test(value) || /[+/=]/.test(value) || (/[a-z]/.test(value) && /[A-Z]/.test(value))
+  if (value.length < 6) return false
+  if (/\d/.test(value) || /[+/=]/.test(value)) return true
+  // Mixed case beyond a leading capital ("Bearer", "Required" stay readable)
+  return value.length >= 8 && /[a-z]/.test(value) && /.[A-Z]/.test(value)
 }
 
 // Linear scan: a lazy BEGIN...END regex goes quadratic on repeated BEGIN markers.
@@ -128,19 +143,15 @@ export function sanitizeErrorMessage(message: string): string {
     result = redactPem(result)
     result = result.replace(JWT_RE, REDACTED)
     result = result.replace(CONN_STRING_RE, `://$1:${REDACTED}@`)
-    result = result.replace(JSON_FIELD_RE, `$1${REDACTED}"`)
-    result = result.replace(PARAM_RE, `$1${REDACTED}`)
-    result = result.replace(AUTH_HEADER_RE, (_match, name, scheme) =>
-      scheme ? `${name}${scheme} ${REDACTED}` : `${name}${REDACTED}`,
-    )
+    result = result.replace(API_KEY_PREFIX_RE, REDACTED)
     result = result.replace(AUTH_SCHEME_RE, (match, scheme, space, value) =>
       looksLikeCredential(value) ? `${scheme}${space}${REDACTED}` : match,
     )
-    result = result.replace(CREDENTIAL_HEADER_RE, `$1${REDACTED}`)
-    result = result.replace(TOKEN_HEADER_RE, (match, name, value) =>
-      value !== REDACTED && looksLikeCredential(value) ? `${name}${REDACTED}` : match,
+    result = result.replace(NAMED_VALUE_RE, (match, name, separator, value) =>
+      value !== REDACTED && looksLikeCredential(value)
+        ? `${name}${separator}${REDACTED}`
+        : match,
     )
-    result = result.replace(API_KEY_PREFIX_RE, REDACTED)
     result = result.replace(HEX_RE, REDACTED)
 
     result = result.replace(HIGH_ENTROPY_RE, (match) => {
@@ -162,9 +173,23 @@ export function sanitizeErrorMessage(message: string): string {
   }
 }
 
+/** 4xx errors carry messages written for the client, like ValidationError. */
+export function isPublicError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false
+  const status = Reflect.get(error, 'status') ?? Reflect.get(error, 'statusCode')
+  return typeof status === 'number' && status >= 400 && status < 500
+}
+
+/** Message safe to send to the client: raw for public errors, redacted otherwise. */
+export function getClientErrorMessage(error: unknown, message: string): string {
+  if (isPublicError(error)) return message
+  return sanitizeErrorMessage(message)
+}
+
 /**
  * JSON body for an unhandled error: own enumerable fields (status, code, ...),
- * message, and stack unless noStackTraces is set. Every string is sanitized.
+ * message, and stack unless noStackTraces is set. Fields and stack are always
+ * sanitized; the message is kept as is for public (4xx) errors.
  */
 export function serializeErrorBody({
   error,
@@ -176,18 +201,17 @@ export function serializeErrorBody({
   const fields: Record<string, unknown> =
     error && typeof error === 'object' ? { ...error } : {}
   const rawMessage = error && typeof error === 'object' ? Reflect.get(error, 'message') : error
-  const body: Record<string, unknown> = {
-    ...fields,
-    message: (typeof rawMessage === 'string' && rawMessage) || 'Internal Server Error',
-  }
+  const message = (typeof rawMessage === 'string' && rawMessage) || 'Internal Server Error'
+  const clientMessage = getClientErrorMessage(error, message)
+  const body: Record<string, unknown> = { ...fields, message }
   delete body.stack
   if (!noStackTraces && error instanceof Error && error.stack) {
     body.stack = error.stack
   }
-  const replacer = (key: string, value: unknown) => {
-    const isPrimitive =
-      typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean'
-    if (isPrimitive && key !== 'message' && key !== 'stack' && SENSITIVE_KEY_RE.test(key)) {
+  function replacer(this: unknown, key: string, value: unknown) {
+    if (this === body && key === 'message') return clientMessage
+    // Structured field named like a secret: redact whatever the value looks like
+    if (typeof value === 'string' && key !== 'stack' && isSecretName(key)) {
       return REDACTED
     }
     return typeof value === 'string' ? sanitizeErrorMessage(value) : value
@@ -196,6 +220,10 @@ export function serializeErrorBody({
     return JSON.stringify(body, replacer)
   } catch {
     // Circular or non-serializable fields (e.g. HTTP client errors): drop them.
-    return JSON.stringify({ message: body.message, stack: body.stack }, replacer)
+    const fallback = { message, stack: body.stack }
+    return JSON.stringify(fallback, function (this: unknown, key, value) {
+      if (this === fallback && key === 'message') return clientMessage
+      return typeof value === 'string' ? sanitizeErrorMessage(value) : value
+    })
   }
 }

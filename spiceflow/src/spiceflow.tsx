@@ -62,7 +62,7 @@ import {
   contextToHeaders,
 } from './react/errors.js'
 import { formatServerError } from './react/format-server-error.js'
-import { sanitizeErrorMessage, serializeErrorBody } from './sanitize-error.js'
+import { getClientErrorMessage, serializeErrorBody } from './sanitize-error.js'
 import {
   DEPLOYMENT_ID_HEADER,
   isDeploymentSkew,
@@ -1714,7 +1714,8 @@ export class Spiceflow<
         extraHeaders.delete('content-length')
         return {
           actionError,
-          actionErrorDigest: sanitizeErrorMessage(message),
+          // The thrown Response body was written for the client: never redact it.
+          actionErrorDigest: message,
           returnValue: undefined,
           formState: undefined,
           temporaryReferences: undefined,
@@ -1741,7 +1742,7 @@ export class Spiceflow<
 
       return {
         actionError,
-        actionErrorDigest: sanitizeErrorMessage(actionError.message),
+        actionErrorDigest: getClientErrorMessage(actionError, actionError.message),
         returnValue: undefined,
         formState: undefined,
         temporaryReferences: undefined,
@@ -2243,7 +2244,7 @@ export class Spiceflow<
             if (verboseLogs) {
               console.error('[spiceflow:renderToReadableStream]', error)
             }
-            return sanitizeErrorMessage(error?.digest || error?.message)
+            return getClientErrorMessage(error, error?.digest || error?.message)
           },
           signal: request.signal,
         })

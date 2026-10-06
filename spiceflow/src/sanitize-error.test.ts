@@ -17,9 +17,9 @@ describe('sanitizeErrorMessage', () => {
     ).toMatchInlineSnapshot(`"ENOENT: no such file or directory"`)
     expect(
       sanitizeErrorMessage(
-        'Basic authentication failed: invalid token: expired, Bearer realm missing',
+        'Basic authentication failed: invalid token: expired, Bearer realm missing, password: required, cookie: missing, secret=false',
       ),
-    ).toMatchInlineSnapshot(`"Basic authentication failed: invalid token: expired, Bearer realm missing"`)
+    ).toMatchInlineSnapshot(`"Basic authentication failed: invalid token: expired, Bearer realm missing, password: required, cookie: missing, secret=false"`)
     expect(sanitizeErrorMessage('')).toMatchInlineSnapshot(`""`)
   })
 
@@ -136,12 +136,12 @@ describe('sanitizeErrorMessage', () => {
     `)
   })
 
-  test('credential headers redact plain-letter values', () => {
+  test('credential-shaped values after secret names are redacted, plain words are not', () => {
     expect(
       sanitizeErrorMessage(
-        'Authorization: Bearer supersecretvalue x-api-key: abcdefghijklmnopqrstuvwxyz authorization: plainsecret',
+        'Authorization: Bearer supersecretvalue x-api-key: Ab12cd34ef authorization: Bearer abc123def456 password=hunter2',
       ),
-    ).toMatchInlineSnapshot(`"Authorization: Bearer [REDACTED] x-api-key: [REDACTED] authorization: [REDACTED]"`)
+    ).toMatchInlineSnapshot(`"Authorization: Bearer supersecretvalue x-api-key: [REDACTED] authorization: Bearer [REDACTED] password=[REDACTED]"`)
   })
 
   test('adversarial input stays linear', () => {

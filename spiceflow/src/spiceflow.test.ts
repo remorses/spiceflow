@@ -2632,7 +2632,7 @@ test('default error body is sanitized and noStackTraces omits stack', async () =
         "config": {
           "headers": {
             "Authorization": "[REDACTED]",
-            "x-session-id": "[REDACTED]",
+            "x-session-id": 42,
           },
         },
         "message": "fetch failed for /select-account?token=[REDACTED] with postgres://user:[REDACTED]@db:5432/app",
@@ -2651,7 +2651,7 @@ test('default error body is sanitized and noStackTraces omits stack', async () =
         "config": {
           "headers": {
             "Authorization": "[REDACTED]",
-            "x-session-id": "[REDACTED]",
+            "x-session-id": 42,
           },
         },
         "message": "fetch failed for /select-account?token=[REDACTED] with postgres://user:[REDACTED]@db:5432/app",
@@ -2659,6 +2659,28 @@ test('default error body is sanitized and noStackTraces omits stack', async () =
         "status": 502,
       },
       "status": 502,
+    }
+  `)
+})
+
+test('4xx error messages are public and never redacted', async () => {
+  const app = new Spiceflow({ noStackTraces: true })
+    .get('/bad', () => {
+      throw Object.assign(
+        new Error('Header must be "Bearer abc123def456", got token=xyz789abc'),
+        { status: 400, apiKey: 'plain' },
+      )
+    })
+    .onError(() => {})
+  const res = await app.handle(new Request('http://localhost/bad'))
+  expect({ status: res.status, body: await res.json() }).toMatchInlineSnapshot(`
+    {
+      "body": {
+        "apiKey": "[REDACTED]",
+        "message": "Header must be "Bearer abc123def456", got token=xyz789abc",
+        "status": 400,
+      },
+      "status": 400,
     }
   `)
 })

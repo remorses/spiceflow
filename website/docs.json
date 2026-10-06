@@ -50,6 +50,7 @@
           "testing",
           "middleware-patterns",
           "migrate-from-remix",
+          "comparisons",
           "shadcn",
           "security"
         ]
@@ -83,6 +84,7 @@
   "knownPaths": ["/docs/use-client-trap"],
   "redirects": [
     { "source": "/docs/cloudflare.md", "destination": "/cloudflare" },
+    { "source": "/docs/comparisons.md", "destination": "/comparisons" },
     { "source": "/docs/custom-serialization.md", "destination": "/custom-serialization" },
     { "source": "/docs/deployment-skew.md", "destination": "/deployment-skew" },
     { "source": "/docs/docker.md", "destination": "/docker" },

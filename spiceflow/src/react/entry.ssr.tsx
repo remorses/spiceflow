@@ -24,7 +24,7 @@ import {
   type ReactServerErrorContext,
 } from './errors.js'
 import { formatServerError } from './format-server-error.js'
-import { sanitizeErrorMessage } from '../sanitize-error.js'
+import { getClientErrorMessage } from '../sanitize-error.js'
 import { injectRSCPayload } from './transform.js'
 import { createRouterContextData } from '../router-context.js'
 import { deploymentIdBootstrapPrefix } from './deployment.js'
@@ -247,10 +247,10 @@ export async function renderHtml({
         }
         if (e && typeof e === 'object') {
           const digest = Reflect.get(e, 'digest')
-          if (typeof digest === 'string') return sanitizeErrorMessage(digest)
+          if (typeof digest === 'string') return getClientErrorMessage(e, digest)
         }
-        if (e instanceof Error) return sanitizeErrorMessage(e.message)
-        return sanitizeErrorMessage(String(e))
+        if (e instanceof Error) return getClientErrorMessage(e, e.message)
+        return getClientErrorMessage(e, String(e))
       },
     }
 

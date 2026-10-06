@@ -615,7 +615,7 @@ const app = new Spiceflow({ noStackTraces: true })
 
 Only the app that handles the request reads this option. Set it on the root app; values on apps mounted with `.use()` are ignored. It also applies to SSE `event: error` payloads and to the fallback errors from `listen()` and `handleForNode()`.
 
-Spiceflow always **redacts** secrets in error bodies, with or without stacks. JWTs, `Bearer` and `Basic` credentials, `?token=` and other secret query params, connection string passwords, and common API key formats (`sk_live_`, `ghp_`, `AKIA`, ...) become `[REDACTED]`. File paths and route names stay readable:
+Spiceflow always **redacts** secrets in error bodies, with or without stacks. Only secrets are touched: JWTs, private keys, connection string passwords, known API key formats (`sk_live_`, `ghp_`, `AKIA`, ...), long hex or high-entropy strings, and credential-looking values after names like `token=`, `password:`, `x-api-key:` or `Bearer`. Plain words stay readable, so `invalid token: expired` or `Bearer realm missing` are not changed. File paths, route names, and UUIDs stay readable too:
 
 ```json
 {
@@ -624,7 +624,15 @@ Spiceflow always **redacts** secrets in error bodies, with or without stacks. JW
 }
 ```
 
-React pages never send stacks in production. RSC and server action errors reach the browser only as a redacted message.
+Errors with a **4xx status** are public. Their message is written for the client, so it is never redacted. Use this for messages you want users to see exactly:
+
+```ts
+throw Object.assign(new Error('Header must be "Bearer <token>"'), { status: 400 })
+```
+
+A thrown `Response` is also sent as is. Extra fields and the stack of a 4xx error are still sanitized.
+
+React pages never send stacks in production. RSC and server action errors reach the browser only as a message, redacted unless the error is public.
 
 ## Async Generators (Streaming)
 
