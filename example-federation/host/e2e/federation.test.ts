@@ -737,6 +737,9 @@ test.describe('federation', () => {
     // page errors.
     const pageErrors: string[] = []
     page.on('pageerror', (err) => pageErrors.push(err.message))
+    // A host reload cannot fix a broken remote, so stale-tab recovery must not run
+    let documentLoads = 0
+    page.on('load', () => documentLoads++)
 
     await page.goto('/broken-remote')
 
@@ -759,6 +762,7 @@ test.describe('federation', () => {
     // Give the decode a moment to fail, then confirm no uncaught errors
     await page.waitForTimeout(1000)
     expect(pageErrors).toEqual([])
+    expect(documentLoads).toBe(1)
   })
 
   test('flight events have client refs and model rows', async () => {

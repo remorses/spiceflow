@@ -22,3 +22,6 @@ export const __DOM_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE =
     ReactDOM,
     '__DOM_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE',
   )
+
+// Not in @types/react-dom, but part of the runtime exports
+export const browser = Reflect.get(ReactDOM, 'browser')

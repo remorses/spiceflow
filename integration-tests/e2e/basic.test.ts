@@ -575,6 +575,34 @@ test("client reference", async ({ page }) => {
 	await clientCounter.getByText("Client counter: 0").click();
 });
 
+test("unknown client reference after a deploy hard-reloads once", async ({
+	page,
+}) => {
+	test.skip(!isStart, "recovery is production-only; dev keeps the Vite overlay");
+	await page.goto(url("/"));
+	await page.getByText("[hydrated: 1]").click();
+
+	// Simulate a newer deploy: the navigation payload references a client
+	// module id this bundle does not know.
+	await page.route("**/scroll-restoration/page-a.rsc*", async (route) => {
+		const response = await route.fetch();
+		const body = (await response.text()).replace(
+			/(\d+:I\[")[^"]+"/,
+			'$1deploy-n-plus-1-missing"',
+		);
+		await route.fulfill({ response, body });
+	});
+	const documentLoads: string[] = [];
+	page.on("load", () => documentLoads.push(page.url()));
+
+	await page.getByRole("link", { name: "Scroll A", exact: true }).click();
+
+	// The reload fetches HTML, which the route does not touch, so it renders.
+	await expect(page.getByRole("heading", { name: "Page A" })).toBeVisible();
+	await expect(page).toHaveURL(url("/scroll-restoration/page-a"));
+	expect(documentLoads).toEqual([page.url()]);
+});
+
 test("document SSR preinitializes client chunks for client references", async ({
 	request,
 }) => {

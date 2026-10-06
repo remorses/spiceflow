@@ -3,7 +3,7 @@ import ReactDOM from 'react-dom'
 import { EventSourceParserStream } from 'eventsource-parser/stream'
 import { EsmIsland } from './esm-island.js'
 import { RemoteIsland } from './remote-island.js'
-import { recoveryReload, wrapRequireWithFallback } from './deployment.js'
+import { wrapRequireWithFallback } from './deployment.js'
 
 const encoder = new TextEncoder()
 
@@ -289,6 +289,8 @@ async function collectFederationPayload(
 }
 
 const remoteRegistry = new Map<string, Record<string, unknown>>()
+// Every id a remote announced, including ids whose chunks failed to load
+const announcedRemoteIds = new Set<string>()
 
 // Bypasses bundler import() transformation (webpack, Vite, Rolldown).
 // Without this, bundlers replace import() with their own module loading
@@ -312,22 +314,57 @@ function federationModuleError(id: string, cause?: unknown): Error {
   )
 }
 
-// Patch require globals: host loader → remoteRegistry → recovery/error.
-// Rebuilds from the original loader (stored by entry.client.tsx) so the
-// recovery wrapper doesn't swallow errors before federation checks the registry.
-// Standalone mode (no entry.client.tsx) wraps whatever is on the global.
+// Patch the require globals so the Flight client resolves federation
+// modules from remoteRegistry. Two globals matter:
+//
+// __vite_rsc_client_require__ — set by vite-rsc in Vite RSC hosts.
+//   The Flight client calls __vite_rsc_require__ which dispatches to
+//   __vite_rsc_client_require__ for client references.
+//
+// __vite_rsc_require__ — called directly by the embedded pre-built
+//   Flight client in standalone mode (Next.js, plain SPA).
+//
+// Resolution order: host loader → remoteRegistry → recovery or error.
+// The host loader MUST win for ids it can resolve. In same-site federation
+// (host === remote, e.g. holocron chat) the remote's module ids are the
+// host's own ids: after a federation decode populates remoteRegistry, a
+// registry-first lookup would shadow the host loader and return the module
+// namespace synchronously where the host flight client expects the host
+// loader's promise — which broke client-side navigation on pages with an
+// active chat session (blank page, `Uncaught undefined`). Host-first keeps
+// host modules on the exact same code path as without federation.
+//
+// Remote-only ids reach the registry through the failure paths: a prod host
+// loader throws synchronously ("client reference not found"), a dev host
+// loader rejects asynchronously (404 on `import("/<hash>")`), and the
+// standalone stub throws. All three fall back to remoteRegistry, and a
+// registry miss of an announced remote id produces a tagged federation error
+// scoped to the referencing component instead of crashing the whole page.
+// A host reload can never fix a broken remote, so remote ids never reload.
+// Ids no remote announced are host refs: they use the production stale-tab
+// recovery hook from entry.client.tsx when it is installed.
+//
+// The original host loader is read from __vite_rsc_client_require_original__
+// so the entry.client.tsx recovery wrapper does not reload before the
+// registry is checked. wrapRequireWithFallback returns the same promise
+// instance for repeated requires of an id: React's flight client requires
+// each reference twice (preloadModule() sets .status/.value on the promise,
+// requireModule() reads them back), and a fresh promise on the second call
+// crashes the page with `Uncaught undefined`.
 function ensureRequirePatched() {
   if (requirePatched) return
   requirePatched = true
   const g = globalThis as any
-  const isBrowser = typeof window !== 'undefined'
 
   const patchGlobal = (name: string, originalName?: string) => {
     const original = (originalName && g[originalName]) || g[name]
-    g[name] = wrapRequireWithFallback(original, (_id, cleanId, cause) => {
+    g[name] = wrapRequireWithFallback(original, (id, cleanId, cause) => {
       const mod = remoteRegistry.get(cleanId)
       if (mod) return mod
-      if (isBrowser) return recoveryReload(_id, cleanId, cause)
+      const recover = g.__spiceflow_recover_client_ref__
+      if (recover && !announcedRemoteIds.has(cleanId)) {
+        return recover(id, cleanId, cause)
+      }
       throw federationModuleError(cleanId, cause)
     })
   }
@@ -347,6 +384,7 @@ export async function loadFederatedClientModules({
   remoteOrigin: string
 }) {
   for (const [moduleId, info] of Object.entries(clientModules)) {
+    announcedRemoteIds.add(moduleId)
     const exportName = 'export_' + moduleId
     let fallback: Record<string, unknown> | undefined
     for (const chunkPath of info.chunks) {

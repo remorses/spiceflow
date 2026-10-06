@@ -374,14 +374,17 @@ function wrapReturnValueErrors(value: unknown): unknown {
   return value
 }
 
-// Production-only: wrap client require so missing refs hard-reload instead of
-// crashing. Stores original loader on a global so federation can unwrap it.
+// Production-only: a host client ref whose chunk is gone (stale tab after a
+// deploy) hard-reloads instead of crashing. Dev keeps the Vite error overlay.
+// Federation rebuilds the loader from the original and calls the recovery hook
+// only for ids that are not remote, see ensureRequirePatched.
 function patchRequireWithRecovery() {
   if (import.meta.hot) return
   const g = globalThis as any
   const orig = g.__vite_rsc_client_require__
   if (!orig) return
   g.__vite_rsc_client_require_original__ = orig
+  g.__spiceflow_recover_client_ref__ = recoveryReload
   g.__vite_rsc_client_require__ = wrapRequireWithFallback(orig, recoveryReload)
 }
 
