@@ -46,7 +46,7 @@ import type { RegisteredApp } from './react/router.js'
 
 import React, { createElement } from 'react'
 import { ZodType } from 'zod'
-import { isAsyncIterable, isResponse, isTruthy, redirect } from './utils.js'
+import { copyResponse, isAsyncIterable, isResponse, isTruthy, redirect } from './utils.js'
 
 import {
   DefaultNotFoundPage,
@@ -308,11 +308,7 @@ async function stampDeploymentIdHeader(
   if (!deploymentId) return response
   const headers = new Headers(response.headers)
   headers.set(DEPLOYMENT_ID_HEADER, deploymentId)
-  return new Response(response.body, {
-    status: response.status,
-    statusText: response.statusText,
-    headers,
-  })
+  return copyResponse(response, { headers })
 }
 
 function mergeHeadersIntoResponse({
@@ -331,11 +327,7 @@ function mergeHeadersIntoResponse({
     return response
   }
 
-  return new Response(response.body, {
-    status: response.status,
-    statusText: response.statusText,
-    headers,
-  })
+  return copyResponse(response, { headers })
 }
 
 export type SpiceflowServerError =
@@ -2649,11 +2641,7 @@ export class Spiceflow<
         contextResponse.status !== 200 &&
         response.status === 200
       ) {
-        response = new Response(response.body, {
-          status: contextResponse.status,
-          statusText: response.statusText,
-          headers: response.headers,
-        })
+        response = copyResponse(response, { status: contextResponse.status })
       }
 
       const result = finalizeResponse(response, shouldStripHeadBody)

@@ -12,6 +12,7 @@
 // offers. For most apps, prefer the native Workers Cache instead.
 
 import { MiddlewareHandler } from './types.js'
+import { copyResponse } from './utils.js'
 
 // Cloudflare extends the standard CacheStorage with a `default` property
 // that gives access to the zone's default edge cache without calling
@@ -189,10 +190,6 @@ function cloneIfImmutable(response: Response): Response {
     response.headers.delete(key)
     return response
   } catch {
-    return new Response(response.body, {
-      status: response.status,
-      statusText: response.statusText,
-      headers: new Headers(response.headers),
-    })
+    return copyResponse(response, { headers: new Headers(response.headers) })
   }
 }

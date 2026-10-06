@@ -126,6 +126,23 @@ export function isResponse(result: any): result is Response {
   return false
 }
 
+/**
+ * Copy a Response with a new status or headers. Keeps the Cloudflare `webSocket` of a 101
+ * upgrade: `new Response(response.body, init)` alone drops it and throws for status 101.
+ */
+export function copyResponse(
+  response: Response,
+  { status = response.status, headers = response.headers }: { status?: number; headers?: HeadersInit } = {},
+): Response {
+  const init: ResponseInit & { webSocket?: unknown } = {
+    status,
+    statusText: response.statusText,
+    headers,
+  }
+  if ('webSocket' in response && response.webSocket) init.webSocket = response.webSocket
+  return new Response(response.body, init)
+}
+
 export function isTruthy<T>(x: T | undefined | null | false): x is T {
   return Boolean(x)
 }

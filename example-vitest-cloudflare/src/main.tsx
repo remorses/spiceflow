@@ -1,6 +1,7 @@
 // Spiceflow app for testing inside the Cloudflare Workers runtime (workerd).
 // Exercises pages, layouts, API routes, and cloudflare:workers APIs.
 import { Spiceflow } from 'spiceflow'
+import { cors } from 'spiceflow/cors'
 import { Head } from 'spiceflow/react'
 import { waitUntil, env } from 'cloudflare:workers'
 
@@ -72,6 +73,15 @@ export const app = new Spiceflow({ name: 'cloudflare-vitest' })
   .get('/api/env-check', () => {
     return { hasEnv: env != null }
   })
+  // Echo WebSocket. Mounted with cors() so middleware rewraps the 101 response.
+  .use(
+    new Spiceflow().use(cors()).get('/api/ws', () => {
+      const [client, server] = Object.values(new WebSocketPair())
+      server.accept()
+      server.addEventListener('message', (e) => server.send(`echo ${e.data}`))
+      return new Response(null, { status: 101, webSocket: client })
+    }),
+  )
   .get('/api/redirect', () => {
     return Response.redirect('http://localhost/api/hello', 302)
   })

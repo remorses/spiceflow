@@ -4,6 +4,7 @@
 
 import { routerContextStorage } from './router-context.js'
 import type { SpiceflowSpan, SpiceflowTracer } from './instrumentation.js'
+import { copyResponse } from './utils.js'
 
 type ServerTimingMetric = {
   name: string
@@ -103,11 +104,7 @@ export function appendServerTimingHeader(
   const headers = new Headers(response.headers)
   headers.append('server-timing', value)
 
-  return new Response(response.body, {
-    status: response.status,
-    statusText: response.statusText,
-    headers,
-  })
+  return copyResponse(response, { headers })
 }
 
 export function createRequestTracing({

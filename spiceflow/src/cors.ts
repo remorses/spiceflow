@@ -1,3 +1,4 @@
+import { copyResponse } from './utils.js'
 import { MiddlewareHandler } from './types.js'
 /**
  * Options for configuring CORS (Cross-Origin Resource Sharing) middleware.
@@ -141,10 +142,6 @@ function cloneIfImmutable(response: Response) {
     response.headers.delete(key)
     return response
   } catch {
-    return new Response(response.body, {
-      status: response.status,
-      statusText: response.statusText,
-      headers: new Headers(response.headers),
-    })
+    return copyResponse(response, { headers: new Headers(response.headers) })
   }
 }

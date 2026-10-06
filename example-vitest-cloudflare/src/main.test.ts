@@ -164,6 +164,34 @@ describe('waitUntil in route handler', () => {
   })
 })
 
+describe('websocket upgrade', () => {
+  test('101 response keeps its webSocket through cors and server timing', async () => {
+    const res = await app.handle(
+      new Request('http://localhost/api/ws', {
+        headers: { upgrade: 'websocket', origin: 'https://example.com' },
+      }),
+    )
+    const ws = res.webSocket
+    if (!ws) throw new Error(`no webSocket on response, status ${res.status}`)
+    ws.accept()
+    const reply = new Promise<string>((resolve) => {
+      ws.addEventListener('message', (e) => resolve(String(e.data)))
+    })
+    ws.send('hi')
+    expect({
+      status: res.status,
+      reply: await reply,
+      cors: res.headers.get('access-control-allow-origin'),
+    }).toMatchInlineSnapshot(`
+      {
+        "cors": "*",
+        "reply": "echo hi",
+        "status": 101,
+      }
+    `)
+  })
+})
+
 describe('middleware auth', () => {
   test('GET /api/admin/secret without auth returns error', async () => {
     const result = await f('/api/admin/secret')
