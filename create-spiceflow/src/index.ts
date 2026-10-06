@@ -9,7 +9,6 @@ import {
   outro,
   select,
   text,
-  isCancel,
   cancel,
   spinner,
 } from '@clack/prompts'
@@ -100,7 +99,8 @@ async function askDir(): Promise<string> {
       if (!v) return 'Please enter a directory name'
     },
   })
-  if (isCancel(value)) {
+  // TODO: use isCancel once prompts return `typeof CANCEL_SYMBOL` instead of `symbol`
+  if (typeof value === 'symbol') {
     cancel('Cancelled')
     process.exit(0)
   }
@@ -116,11 +116,11 @@ async function askTemplate(): Promise<Template> {
       { value: 'cloudflare', label: 'Cloudflare Workers' },
     ],
   })
-  if (isCancel(value)) {
+  // TODO: use isCancel once prompts return `typeof CANCEL_SYMBOL` instead of `symbol`
+  if (typeof value === 'symbol') {
     cancel('Cancelled')
     process.exit(0)
   }
-  // narrowed by isCancel guard above
   return value
 }
 
