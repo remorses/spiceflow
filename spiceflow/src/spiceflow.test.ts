@@ -39,6 +39,30 @@ test('works', async () => {
   expect(await res.json()).toEqual('hi')
 })
 
+test('middleware can set headers on immutable handler responses', async () => {
+  const app = new Spiceflow()
+    .use(async (_, next) => {
+      const response = await next()
+      response.headers.set('x-middleware', '1')
+      return response
+    })
+    // Response.redirect() and fetch() responses have immutable headers
+    .get('/redirect', () => Response.redirect('https://example.com/', 302))
+
+  const res = await app.handle(new Request('http://localhost/redirect'))
+  expect({
+    status: res.status,
+    location: res.headers.get('location'),
+    middleware: res.headers.get('x-middleware'),
+  }).toMatchInlineSnapshot(`
+    {
+      "location": "https://example.com/",
+      "middleware": "1",
+      "status": 302,
+    }
+  `)
+})
+
 test('staticGet() works as a normal GET handler at runtime', async () => {
   const app = new Spiceflow().staticGet('/api/manifest.json', () => ({
     name: 'my-app',

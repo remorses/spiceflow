@@ -1,4 +1,3 @@
-import { copyResponse } from './utils.js'
 import { MiddlewareHandler } from './types.js'
 /**
  * Options for configuring CORS (Cross-Origin Resource Sharing) middleware.
@@ -47,7 +46,7 @@ export const cors = (options?: CORSOptions): MiddlewareHandler => {
   })(opts.origin)
 
   return async function cors(c, next) {
-    let response = cloneIfImmutable(await next())
+    let response = await next()
 
     const responseHeaders = response.headers
 
@@ -135,13 +134,3 @@ export const cors = (options?: CORSOptions): MiddlewareHandler => {
   }
 }
 
-function cloneIfImmutable(response: Response) {
-  try {
-    const key = 'x-spiceflow-probe'
-    response.headers.set(key, '1')
-    response.headers.delete(key)
-    return response
-  } catch {
-    return copyResponse(response, { headers: new Headers(response.headers) })
-  }
-}

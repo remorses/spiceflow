@@ -46,7 +46,14 @@ import type { RegisteredApp } from './react/router.js'
 
 import React, { createElement } from 'react'
 import { ZodType } from 'zod'
-import { copyResponse, isAsyncIterable, isResponse, isTruthy, redirect } from './utils.js'
+import {
+  copyResponse,
+  isAsyncIterable,
+  isResponse,
+  isTruthy,
+  redirect,
+  withMutableHeaders,
+} from './utils.js'
 
 import {
   DefaultNotFoundPage,
@@ -2788,7 +2795,8 @@ export class Spiceflow<
               )
             : await middleware(context, next)
           if (isResponse(result)) {
-            handlerResponse = result
+            handlerResponse = withMutableHeaders(result)
+            return handlerResponse
           }
           if (!result && index < middlewares.length) {
             return await next()
@@ -2804,15 +2812,14 @@ export class Spiceflow<
         if (handlerResponse) {
           return handlerResponse
         }
-        handlerResponse = await finalHandler()
+        // Middlewares may set headers on the response returned by next().
+        handlerResponse = withMutableHeaders(await finalHandler())
         return handlerResponse
       } catch (err) {
         // A thrown error or redirect short-circuits inner middlewares, so a later
         // serveStatic cannot replace an auth redirect with the protected file.
-        handlerResponse = await this.errorToResponse(
-          err,
-          context,
-          onErrorHandlers,
+        handlerResponse = withMutableHeaders(
+          await this.errorToResponse(err, context, onErrorHandlers),
         )
         return handlerResponse
       }

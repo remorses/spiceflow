@@ -14,7 +14,7 @@
 
 import { getStaticPathname, markStaticMiddleware } from './static.js'
 import { MiddlewareHandler } from './types.js'
-import { copyResponse } from './utils.js'
+import { withMutableHeaders } from './utils.js'
 
 // Cloudflare extends the standard CacheStorage with a `default` property
 // that gives access to the zone's default edge cache without calling
@@ -61,13 +61,11 @@ export function serveAssets(assets: AssetsBinding): MiddlewareHandler {
       return next()
     }
 
-    // Binding responses have immutable headers; copy so later middleware can set headers.
-    const headers = new Headers(response.headers)
+    if (!url.pathname.endsWith('.rsc')) return response
     // The client checks the Flight content type; `_headers` rules may not apply to binding fetches.
-    if (url.pathname.endsWith('.rsc')) {
-      headers.set('content-type', 'text/x-component;charset=utf-8')
-    }
-    return copyResponse(response, { headers })
+    const rscResponse = withMutableHeaders(response)
+    rscResponse.headers.set('content-type', 'text/x-component;charset=utf-8')
+    return rscResponse
   })
 }
 
@@ -153,7 +151,7 @@ export const headersCache = (
 
     // Never populate cache from HEAD misses — only GET responses are stored
     if (request.method === 'HEAD') {
-      const response = cloneIfImmutable(await next())
+      const response = await next()
       if (response) response.headers.set('X-Cache', 'BYPASS')
       return response
     }
@@ -162,28 +160,26 @@ export const headersCache = (
     const response = await next()
     if (!response) return response
 
-    const mutableResponse = cloneIfImmutable(response)
-
     // Determine if we should cache this response
     const shouldStore = customShouldCache
-      ? customShouldCache(request, mutableResponse)
-      : mutableResponse.status === 200 && isCacheable(mutableResponse)
+      ? customShouldCache(request, response)
+      : response.status === 200 && isCacheable(response)
 
     if (!shouldStore) {
-      mutableResponse.headers.set('X-Cache', 'BYPASS')
-      return mutableResponse
+      response.headers.set('X-Cache', 'BYPASS')
+      return response
     }
 
     // Clone before consuming the body for cache storage
-    const responseToCache = mutableResponse.clone()
+    const responseToCache = response.clone()
 
-    mutableResponse.headers.set('X-Cache', 'MISS')
+    response.headers.set('X-Cache', 'MISS')
 
     // Store in cache in the background. Catch to avoid noisy unhandled
     // rejections from non-cacheable responses (206, Vary: *, etc.)
     waitUntil(cache.put(cacheRequest, responseToCache).catch(() => {}))
 
-    return mutableResponse
+    return response
   }
 }
 
@@ -227,17 +223,3 @@ function isCacheable(response: Response): boolean {
   return false
 }
 
-/**
- * If the response headers are immutable (e.g. from a subrequest fetch()),
- * clone into a mutable Response so we can set X-Cache, etc.
- */
-function cloneIfImmutable(response: Response): Response {
-  try {
-    const key = 'x-spiceflow-probe'
-    response.headers.set(key, '1')
-    response.headers.delete(key)
-    return response
-  } catch {
-    return copyResponse(response, { headers: new Headers(response.headers) })
-  }
-}

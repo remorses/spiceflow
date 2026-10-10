@@ -143,6 +143,20 @@ export function copyResponse(
   return new Response(response.body, init)
 }
 
+/**
+ * fetch() responses have immutable headers, so `response.headers.set()` in a
+ * middleware throws. Copy only those; there is no API to read the headers guard.
+ */
+export function withMutableHeaders(response: Response): Response {
+  try {
+    response.headers.set('x-spiceflow-probe', '1')
+    response.headers.delete('x-spiceflow-probe')
+    return response
+  } catch {
+    return copyResponse(response, { headers: new Headers(response.headers) })
+  }
+}
+
 export function isTruthy<T>(x: T | undefined | null | false): x is T {
   return Boolean(x)
 }
