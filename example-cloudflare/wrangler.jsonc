@@ -8,6 +8,13 @@
     "nodejs_compat",
   ],
 
+  // Run the Worker before assets so middleware also runs for prerendered
+  // staticPage routes. Hashed Vite assets skip the Worker.
+  "assets": {
+    "binding": "ASSETS",
+    "run_worker_first": ["/*", "!/assets/*"],
+  },
+
   "observability": {
     "enabled": true,
     "traces": {

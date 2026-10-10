@@ -126,28 +126,38 @@ describe('cloudflare example', () => {
       }
     `)
 
-    // staticPage routes are prerendered into dist/client, so Cloudflare
-    // assets serve them without running the Worker (no server-timing header).
-    const [html, rsc] = await Promise.all([
+    // staticPage routes are prerendered into dist/client. run_worker_first
+    // runs the middleware, then serveAssets returns the prerendered file
+    // (asset responses carry an etag, Worker renders do not).
+    const [html, rsc, redirect] = await Promise.all([
       fetch(new URL('/about', server.baseUrl)),
       fetch(new URL('/about.rsc?__rsc=', server.baseUrl)),
+      fetch(new URL('/about-us', server.baseUrl), { redirect: 'manual' }),
     ])
     expect({
       htmlStatus: html.status,
-      htmlFromWorker: html.headers.has('server-timing'),
+      htmlFromAssets: html.headers.has('etag'),
+      htmlMiddleware: html.headers.get('x-middleware'),
       htmlHasContent: (await html.text()).includes('Static about page'),
       rscStatus: rsc.status,
-      rscFromWorker: rsc.headers.has('server-timing'),
+      rscFromAssets: rsc.headers.has('etag'),
+      rscMiddleware: rsc.headers.get('x-middleware'),
       rscContentType: rsc.headers.get('content-type'),
       rscHasDeploymentId: rsc.headers.has('x-spiceflow-deployment-id'),
+      redirectStatus: redirect.status,
+      redirectLocation: redirect.headers.get('location'),
     }).toMatchInlineSnapshot(`
       {
-        "htmlFromWorker": false,
+        "htmlFromAssets": true,
         "htmlHasContent": true,
+        "htmlMiddleware": "spiceflow",
         "htmlStatus": 200,
+        "redirectLocation": "/about",
+        "redirectStatus": 307,
         "rscContentType": "text/x-component;charset=utf-8",
-        "rscFromWorker": false,
+        "rscFromAssets": true,
         "rscHasDeploymentId": true,
+        "rscMiddleware": "spiceflow",
         "rscStatus": 200,
       }
     `)
