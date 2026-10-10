@@ -130,6 +130,9 @@ export namespace OpenAPIV3 {
     title?: string
     description?: string
     format?: string
+    // JSON Schema 2020-12 (OpenAPI 3.1+): encoded content of a string
+    contentMediaType?: string
+    contentSchema?: ReferenceObject | SchemaObject
     default?: any
     multipleOf?: number
     maximum?: number
@@ -187,6 +190,8 @@ export namespace OpenAPIV3 {
   }
   export interface MediaTypeObject {
     schema?: ReferenceObject | SchemaObject
+    /** OpenAPI 3.2: schema of each item of a sequential media type like text/event-stream */
+    itemSchema?: ReferenceObject | SchemaObject
     example?: any
     examples?: {
       [media: string]: ReferenceObject | ExampleObject

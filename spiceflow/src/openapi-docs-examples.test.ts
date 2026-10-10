@@ -459,7 +459,7 @@ describe('openapi docs examples compile and run', () => {
     const schema = await app
       .handle(new Request('http://localhost/openapi.json'))
       .then((r) => r.json())
-    expect(schema.openapi).toBe('3.1.3')
+    expect(schema.openapi).toBe('3.2.0')
     expect(schema.paths['/hello']).toBeTruthy()
     expect(schema.paths['/user']).toBeTruthy()
 

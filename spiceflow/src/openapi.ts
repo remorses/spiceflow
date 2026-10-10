@@ -139,10 +139,10 @@ const registerSchemaPath = ({
   const hooks = route.hooks
 
   let contentTypes = ['application/json']
+  // SSE routes: `response` describes one yielded item, non-200 statuses stay JSON errors
+  const isSse = isAsyncGenerator(route.handler)
 
-  if (isAsyncGenerator(route.handler) && !route.hooks?.response) {
-    contentTypes = ['text/event-stream']
-  } else if (hooks?.type) {
+  if (!isSse && hooks?.type) {
     contentTypes = Array.isArray(hooks.type) ? hooks.type : [hooks.type]
   }
 
@@ -304,6 +304,18 @@ const registerSchemaPath = ({
     }
   }
 
+  if (isSse) {
+    const ok = openapiResponse['200']
+    const item = ok && 'content' in ok ? ok.content?.['application/json']?.schema : undefined
+    openapiResponse = {
+      ...openapiResponse,
+      '200': {
+        description: ok && 'description' in ok ? ok.description : '',
+        content: { 'text/event-stream': { itemSchema: sseItemSchema(item) } },
+      },
+    }
+  }
+
   const parameters = [
     // ...mapProperties('header', headerSchema, models),
     ...mapProperties('path', paramsSchema, models),
@@ -438,7 +450,7 @@ export function openapi<Path extends string = '/openapi'>({
     }
 
     const doc = {
-      openapi: '3.1.3',
+      openapi: '3.2.0',
       ...{
         ...additional,
         // tags: documentation.tags?.filter(
@@ -483,7 +495,7 @@ export function openapi<Path extends string = '/openapi'>({
               schema: {
                 type: 'object',
                 properties: {
-                  openapi: { type: 'string', description: 'OpenAPI version', example: '3.1.3' },
+                  openapi: { type: 'string', description: 'OpenAPI version', example: '3.2.0' },
                   info: {
                     type: 'object',
                     properties: {
@@ -536,6 +548,28 @@ function getJsonSchema(schema: TypeSchema) {
 
 function isObjEmpty(obj: Record<string, any>) {
   return obj === undefined || Object.keys(obj).length === 0
+}
+
+/**
+ * One SSE event as spiceflow writes it: `event: message` with each yield as JSON `data`,
+ * `event: error` with the error body, `event: done` when the generator returns without yielding.
+ * https://spec.openapis.org/oas/v3.2.0.html#sequential-media-types
+ */
+function sseItemSchema(
+  data: OpenAPIV3.ReferenceObject | OpenAPIV3.SchemaObject | undefined,
+): OpenAPIV3.SchemaObject {
+  return {
+    type: 'object',
+    required: ['event', 'data'],
+    properties: {
+      event: { type: 'string', enum: ['message', 'error', 'done'] },
+      data: {
+        type: 'string',
+        contentMediaType: 'application/json',
+        contentSchema: data,
+      },
+    },
+  }
 }
 
 function isAsyncGenerator(fn: any): boolean {

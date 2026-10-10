@@ -167,7 +167,7 @@ test('openapi response', async () => {
         "title": "Spiceflow Docs",
         "version": "0.0.0",
       },
-      "openapi": "3.1.3",
+      "openapi": "3.2.0",
       "paths": {
         "/base/addBody": {
           "patch": {
@@ -335,7 +335,7 @@ test('openapi response', async () => {
                         },
                         "openapi": {
                           "description": "OpenAPI version",
-                          "example": "3.1.3",
+                          "example": "3.2.0",
                           "type": "string",
                         },
                         "paths": {
@@ -449,8 +449,28 @@ test('openapi response', async () => {
             "responses": {
               "200": {
                 "content": {
-                  "*/*": {
-                    "schema": {},
+                  "text/event-stream": {
+                    "itemSchema": {
+                      "properties": {
+                        "data": {
+                          "contentMediaType": "application/json",
+                          "type": "string",
+                        },
+                        "event": {
+                          "enum": [
+                            "message",
+                            "error",
+                            "done",
+                          ],
+                          "type": "string",
+                        },
+                      },
+                      "required": [
+                        "event",
+                        "data",
+                      ],
+                      "type": "object",
+                    },
                   },
                 },
                 "description": "",
@@ -475,15 +495,36 @@ test('openapi response', async () => {
             "responses": {
               "200": {
                 "content": {
-                  "application/json": {
-                    "schema": {
+                  "text/event-stream": {
+                    "itemSchema": {
                       "properties": {
-                        "count": {
-                          "type": "number",
+                        "data": {
+                          "contentMediaType": "application/json",
+                          "contentSchema": {
+                            "properties": {
+                              "count": {
+                                "type": "number",
+                              },
+                            },
+                            "required": [
+                              "count",
+                            ],
+                            "type": "object",
+                          },
+                          "type": "string",
+                        },
+                        "event": {
+                          "enum": [
+                            "message",
+                            "error",
+                            "done",
+                          ],
+                          "type": "string",
                         },
                       },
                       "required": [
-                        "count",
+                        "event",
+                        "data",
                       ],
                       "type": "object",
                     },
@@ -559,4 +600,119 @@ test('openapi hides page, layout, and loader routes', async () => {
   expect(schema.paths['/*']).toBeUndefined()
   expect(schema.paths['/manifest.json']).toBeTruthy()
   expect(schema.paths['/api/health']).toBeTruthy()
+})
+
+test('sse routes use OpenAPI 3.2 itemSchema for each event', async () => {
+  const app = new Spiceflow()
+    .use(openapi())
+    .route({
+      method: 'GET',
+      path: '/progress',
+      response: z.object({ progress: z.number() }),
+      async *handler() {
+        yield { progress: 1 }
+      },
+    })
+    .get('/untyped', async function* () {
+      yield 'hi'
+    })
+  const doc = await app
+    .handle(new Request('http://localhost/openapi'))
+    .then((r) => r.json())
+  expect({
+    openapi: doc.openapi,
+    progress: doc.paths['/progress'].get.responses,
+    untyped: doc.paths['/untyped'].get.responses,
+  }).toMatchInlineSnapshot(`
+    {
+      "openapi": "3.2.0",
+      "progress": {
+        "200": {
+          "content": {
+            "text/event-stream": {
+              "itemSchema": {
+                "properties": {
+                  "data": {
+                    "contentMediaType": "application/json",
+                    "contentSchema": {
+                      "properties": {
+                        "progress": {
+                          "type": "number",
+                        },
+                      },
+                      "required": [
+                        "progress",
+                      ],
+                      "type": "object",
+                    },
+                    "type": "string",
+                  },
+                  "event": {
+                    "enum": [
+                      "message",
+                      "error",
+                      "done",
+                    ],
+                    "type": "string",
+                  },
+                },
+                "required": [
+                  "event",
+                  "data",
+                ],
+                "type": "object",
+              },
+            },
+          },
+          "description": "",
+        },
+        "default": {
+          "content": {
+            "*/*": {
+              "schema": {},
+            },
+          },
+          "description": "",
+        },
+      },
+      "untyped": {
+        "200": {
+          "content": {
+            "text/event-stream": {
+              "itemSchema": {
+                "properties": {
+                  "data": {
+                    "contentMediaType": "application/json",
+                    "type": "string",
+                  },
+                  "event": {
+                    "enum": [
+                      "message",
+                      "error",
+                      "done",
+                    ],
+                    "type": "string",
+                  },
+                },
+                "required": [
+                  "event",
+                  "data",
+                ],
+                "type": "object",
+              },
+            },
+          },
+          "description": "",
+        },
+        "default": {
+          "content": {
+            "*/*": {
+              "schema": {},
+            },
+          },
+          "description": "",
+        },
+      },
+    }
+  `)
 })

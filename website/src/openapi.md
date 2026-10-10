@@ -1,18 +1,18 @@
 ---
 $schema: https://holocron.so/frontmatter.json
-title: Generate OpenAPI 3.1 docs from Zod
+title: Generate OpenAPI 3.2 docs from Zod
 sidebarTitle: OpenAPI
-description: Generate an OpenAPI 3.1 document from Spiceflow Zod schemas, including response maps, hidden routes, reusable models, and typed fetch errors.
+description: Generate an OpenAPI 3.2 document from Spiceflow Zod schemas, including response maps, SSE streams, hidden routes, reusable models, and typed fetch errors.
 icon: "lucide:file-json"
 prompt: |
   Write the OpenAPI guide from @/spiceflow/src/openapi.ts and
   @/spiceflow/src/openapi-docs-examples.test.ts. Cover response maps, hidden routes,
-  reusable schemas, and typed fetch errors.
+  reusable schemas, SSE item schemas, and typed fetch errors.
 ---
 
-# Generate OpenAPI 3.1 docs from Zod
+# Generate OpenAPI 3.2 docs from Zod
 
-Spiceflow generates a full OpenAPI 3.1 document from your routes without you writing a single line of schema by hand. The `openapi` plugin walks every registered route and uses the Zod schemas you already passed to `request`, `query`, `params`, and `response` to produce the `paths`, `parameters`, `requestBody`, and `responses` sections for you.
+Spiceflow generates a full OpenAPI 3.2 document from your routes without you writing a single line of schema by hand. The `openapi` plugin walks every registered route and uses the Zod schemas you already passed to `request`, `query`, `params`, and `response` to produce the `paths`, `parameters`, `requestBody`, and `responses` sections for you.
 
 There is nothing "magical" or decorator-based here — the same Zod schemas that validate the request at runtime and give you a typed handler context are also the input for the OpenAPI output.
 
@@ -285,6 +285,40 @@ export const usersApi = new Spiceflow({ basePath: '/users' })
 ```
 
 Any schema that appears in more than one route should live in a single `src/schemas.ts` file (or wherever you keep domain types) and be imported everywhere it is used. Keep it as one flat file until it actually grows too large — a single `schemas.ts` is easier to navigate than a `schemas/` folder with one file per type.
+
+## Streaming Routes (SSE)
+
+Async generator routes stream **Server-Sent Events**. Their `response` schema describes **one yielded item**, not the whole body. Spiceflow writes it as an OpenAPI 3.2 **`itemSchema`** on `text/event-stream`:
+
+```ts
+new Spiceflow().route({
+  method: 'GET',
+  path: '/progress',
+  response: z.object({ progress: z.number() }),
+  async *handler() {
+    yield { progress: 0.5 }
+    yield { progress: 1 }
+  },
+})
+```
+
+```yaml
+responses:
+  '200':
+    content:
+      text/event-stream:
+        itemSchema:
+          type: object
+          required: [event, data]
+          properties:
+            event: { type: string, enum: [message, error, done] }
+            data:
+              type: string
+              contentMediaType: application/json
+              contentSchema: { type: object, properties: { progress: { type: number } } }
+```
+
+Each `yield` is one `event: message` with the item as JSON `data`. A thrown error ends the stream with `event: error`. Other statuses in a status-code response map stay JSON responses, for errors thrown before the stream starts.
 
 ## Hiding Routes From the Document
 
