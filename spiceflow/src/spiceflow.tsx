@@ -542,13 +542,15 @@ export class Spiceflow<
   }
   private match(method: string, path: string) {
     let root = this
-    let foundApp: AnySpiceflow | undefined
     // remove trailing slash which can cause problems
     path = path.replace(/\/$/, '') || '/'
 
     // Collect matched routes from all apps so that more-specific child
     // routes are visible even when a less-specific parent route also matches.
     const allRoutes: MatchedRoute[] = []
+    // Apps whose prefix covers the path but have no handler for this method.
+    // Only scanned when nothing matched, so normal requests skip the per-route lookup.
+    const unmatchedApps: { app: AnySpiceflow; pathWithoutPrefix: string }[] = []
     const allApps = bfs(this)
     for (const app of allApps) {
       app.topLevelApp = root
@@ -574,14 +576,7 @@ export class Spiceflow<
           ? app.router.match('GET', pathWithoutPrefix)
           : undefined
       if (!matchedRoutes || !hasActualRouteMatches(matchedRoutes)) {
-        // Only claim this app as the scope for not-found when it has a
-        // registered route on this path for some other method (e.g. POST
-        // exists but OPTIONS was requested). This ensures the sub-app's
-        // middlewares (like cors) run for preflight requests.
-        const hasRouteForPath = app.routes.some((route) =>
-          hasActualRouteMatches(app.router.match(route.method, pathWithoutPrefix)),
-        )
-        if (hasRouteForPath) foundApp = app
+        unmatchedApps.push({ app, pathWithoutPrefix })
         continue
       }
 
@@ -598,21 +593,27 @@ export class Spiceflow<
 
       allRoutes.push(...routes)
     }
+    if (allRoutes.length) return allRoutes
 
-    return allRoutes.length
-      ? allRoutes
-      : [
-          {
-            app: foundApp || root,
-            route: {
-              hooks: {},
-              handler: notFoundHandler,
-              method,
-              path,
-            } as InternalRoute,
-            params: {},
-          },
-        ]
+    // Claim the last app with a route on this path for another method (e.g. POST
+    // exists but OPTIONS was requested), so its middlewares (like cors) run for preflight.
+    const foundApp = unmatchedApps.findLast(({ app, pathWithoutPrefix }) =>
+      app.routes.some((route) =>
+        hasActualRouteMatches(app.router.match(route.method, pathWithoutPrefix)),
+      ),
+    )?.app
+    return [
+      {
+        app: foundApp || root,
+        route: {
+          hooks: {},
+          handler: notFoundHandler,
+          method,
+          path,
+        } as InternalRoute,
+        params: {},
+      },
+    ]
   }
 
   state<const Name extends string | number | symbol, Value>(
@@ -2674,15 +2675,15 @@ export class Spiceflow<
     const isUnmatchedRoute =
       nonReactRoutes.length === 1 &&
       nonReactRoutes[0]?.route?.handler === notFoundHandler
-    const appHasReactPages = this.getAllRoutes().some(
-      (r) => r.kind === 'page' || r.kind === 'staticPage',
-    )
+    // Last: walking every app's routes is the only non-constant check.
     const shouldRenderReact404 =
       isUnmatchedRoute &&
       !reactRoutes.length &&
-      appHasReactPages &&
       isSafeMethod &&
-      isBrowserNavigation
+      isBrowserNavigation &&
+      bfs(this.topLevelApp || this).some((app) =>
+        app.routes.some((r) => r.kind === 'page' || r.kind === 'staticPage'),
+      )
     const hasPageMatch = typedReactRoutes.some(
       (x) => x.route.kind === 'page' || x.route.kind === 'staticPage',
     )
