@@ -451,25 +451,54 @@ test('openapi response', async () => {
                 "content": {
                   "text/event-stream": {
                     "itemSchema": {
-                      "properties": {
-                        "data": {
-                          "contentMediaType": "application/json",
-                          "type": "string",
-                        },
-                        "event": {
-                          "enum": [
-                            "message",
-                            "error",
-                            "done",
+                      "oneOf": [
+                        {
+                          "properties": {
+                            "data": {
+                              "contentMediaType": "application/json",
+                              "type": "string",
+                            },
+                            "event": {
+                              "const": "message",
+                              "type": "string",
+                            },
+                          },
+                          "required": [
+                            "event",
+                            "data",
                           ],
-                          "type": "string",
+                          "type": "object",
                         },
-                      },
-                      "required": [
-                        "event",
-                        "data",
+                        {
+                          "properties": {
+                            "data": {
+                              "contentMediaType": "application/json",
+                              "type": "string",
+                            },
+                            "event": {
+                              "const": "error",
+                              "type": "string",
+                            },
+                          },
+                          "required": [
+                            "event",
+                            "data",
+                          ],
+                          "type": "object",
+                        },
+                        {
+                          "properties": {
+                            "event": {
+                              "const": "done",
+                              "type": "string",
+                            },
+                          },
+                          "required": [
+                            "event",
+                          ],
+                          "type": "object",
+                        },
                       ],
-                      "type": "object",
                     },
                   },
                 },
@@ -497,36 +526,65 @@ test('openapi response', async () => {
                 "content": {
                   "text/event-stream": {
                     "itemSchema": {
-                      "properties": {
-                        "data": {
-                          "contentMediaType": "application/json",
-                          "contentSchema": {
-                            "properties": {
-                              "count": {
-                                "type": "number",
+                      "oneOf": [
+                        {
+                          "properties": {
+                            "data": {
+                              "contentMediaType": "application/json",
+                              "contentSchema": {
+                                "properties": {
+                                  "count": {
+                                    "type": "number",
+                                  },
+                                },
+                                "required": [
+                                  "count",
+                                ],
+                                "type": "object",
                               },
+                              "type": "string",
                             },
-                            "required": [
-                              "count",
-                            ],
-                            "type": "object",
+                            "event": {
+                              "const": "message",
+                              "type": "string",
+                            },
                           },
-                          "type": "string",
-                        },
-                        "event": {
-                          "enum": [
-                            "message",
-                            "error",
-                            "done",
+                          "required": [
+                            "event",
+                            "data",
                           ],
-                          "type": "string",
+                          "type": "object",
                         },
-                      },
-                      "required": [
-                        "event",
-                        "data",
+                        {
+                          "properties": {
+                            "data": {
+                              "contentMediaType": "application/json",
+                              "type": "string",
+                            },
+                            "event": {
+                              "const": "error",
+                              "type": "string",
+                            },
+                          },
+                          "required": [
+                            "event",
+                            "data",
+                          ],
+                          "type": "object",
+                        },
+                        {
+                          "properties": {
+                            "event": {
+                              "const": "done",
+                              "type": "string",
+                            },
+                          },
+                          "required": [
+                            "event",
+                          ],
+                          "type": "object",
+                        },
                       ],
-                      "type": "object",
                     },
                   },
                 },
@@ -603,7 +661,7 @@ test('openapi hides page, layout, and loader routes', async () => {
 })
 
 test('sse routes use OpenAPI 3.2 itemSchema for each event', async () => {
-  const app = new Spiceflow()
+  const app = new Spiceflow({ noStackTraces: true })
     .use(openapi())
     .route({
       method: 'GET',
@@ -616,6 +674,32 @@ test('sse routes use OpenAPI 3.2 itemSchema for each event', async () => {
     .get('/untyped', async function* () {
       yield 'hi'
     })
+    .get('/fails', async function* () {
+      yield { progress: 1 }
+      throw new Error('failed')
+    })
+    .get('/empty', async function* () {})
+  // Real events the itemSchema must describe: message, error, and done without data.
+  const body = (path: string) =>
+    app.handle(new Request(`http://localhost${path}`)).then((r) => r.text())
+  expect({ fails: await body('/fails'), empty: await body('/empty') })
+    .toMatchInlineSnapshot(`
+      {
+        "empty": "event: message
+      data: null
+
+      event: done
+
+      ",
+        "fails": "event: message
+      data: {"progress":1}
+
+      event: error
+      data: {"message":"failed"}
+
+      ",
+      }
+    `)
   const doc = await app
     .handle(new Request('http://localhost/openapi'))
     .then((r) => r.json())
@@ -631,36 +715,65 @@ test('sse routes use OpenAPI 3.2 itemSchema for each event', async () => {
           "content": {
             "text/event-stream": {
               "itemSchema": {
-                "properties": {
-                  "data": {
-                    "contentMediaType": "application/json",
-                    "contentSchema": {
-                      "properties": {
-                        "progress": {
-                          "type": "number",
+                "oneOf": [
+                  {
+                    "properties": {
+                      "data": {
+                        "contentMediaType": "application/json",
+                        "contentSchema": {
+                          "properties": {
+                            "progress": {
+                              "type": "number",
+                            },
+                          },
+                          "required": [
+                            "progress",
+                          ],
+                          "type": "object",
                         },
+                        "type": "string",
                       },
-                      "required": [
-                        "progress",
-                      ],
-                      "type": "object",
+                      "event": {
+                        "const": "message",
+                        "type": "string",
+                      },
                     },
-                    "type": "string",
-                  },
-                  "event": {
-                    "enum": [
-                      "message",
-                      "error",
-                      "done",
+                    "required": [
+                      "event",
+                      "data",
                     ],
-                    "type": "string",
+                    "type": "object",
                   },
-                },
-                "required": [
-                  "event",
-                  "data",
+                  {
+                    "properties": {
+                      "data": {
+                        "contentMediaType": "application/json",
+                        "type": "string",
+                      },
+                      "event": {
+                        "const": "error",
+                        "type": "string",
+                      },
+                    },
+                    "required": [
+                      "event",
+                      "data",
+                    ],
+                    "type": "object",
+                  },
+                  {
+                    "properties": {
+                      "event": {
+                        "const": "done",
+                        "type": "string",
+                      },
+                    },
+                    "required": [
+                      "event",
+                    ],
+                    "type": "object",
+                  },
                 ],
-                "type": "object",
               },
             },
           },
@@ -680,25 +793,54 @@ test('sse routes use OpenAPI 3.2 itemSchema for each event', async () => {
           "content": {
             "text/event-stream": {
               "itemSchema": {
-                "properties": {
-                  "data": {
-                    "contentMediaType": "application/json",
-                    "type": "string",
-                  },
-                  "event": {
-                    "enum": [
-                      "message",
-                      "error",
-                      "done",
+                "oneOf": [
+                  {
+                    "properties": {
+                      "data": {
+                        "contentMediaType": "application/json",
+                        "type": "string",
+                      },
+                      "event": {
+                        "const": "message",
+                        "type": "string",
+                      },
+                    },
+                    "required": [
+                      "event",
+                      "data",
                     ],
-                    "type": "string",
+                    "type": "object",
                   },
-                },
-                "required": [
-                  "event",
-                  "data",
+                  {
+                    "properties": {
+                      "data": {
+                        "contentMediaType": "application/json",
+                        "type": "string",
+                      },
+                      "event": {
+                        "const": "error",
+                        "type": "string",
+                      },
+                    },
+                    "required": [
+                      "event",
+                      "data",
+                    ],
+                    "type": "object",
+                  },
+                  {
+                    "properties": {
+                      "event": {
+                        "const": "done",
+                        "type": "string",
+                      },
+                    },
+                    "required": [
+                      "event",
+                    ],
+                    "type": "object",
+                  },
                 ],
-                "type": "object",
               },
             },
           },

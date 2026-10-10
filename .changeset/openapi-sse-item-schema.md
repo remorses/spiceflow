@@ -18,9 +18,10 @@ new Spiceflow().route({
 ```yaml
 text/event-stream:
   itemSchema:
-    properties:
-      event: { type: string, enum: [message, error, done] }
-      data: { type: string, contentMediaType: application/json, contentSchema: { ... } }
+    oneOf:
+      - { properties: { event: { const: message }, data: { contentSchema: { ... } } } }
+      - { properties: { event: { const: error }, data: { contentMediaType: application/json } } }
+      - { properties: { event: { const: done } } } # no data
 ```
 
 Before, SSE routes with a `response` schema were documented as a single `application/json` body, and SSE routes without one as `*/*`.

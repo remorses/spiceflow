@@ -308,17 +308,24 @@ responses:
     content:
       text/event-stream:
         itemSchema:
-          type: object
-          required: [event, data]
-          properties:
-            event: { type: string, enum: [message, error, done] }
-            data:
-              type: string
-              contentMediaType: application/json
-              contentSchema: { type: object, properties: { progress: { type: number } } }
+          oneOf:
+            - required: [event, data]
+              properties:
+                event: { const: message }
+                data:
+                  type: string
+                  contentMediaType: application/json
+                  contentSchema: { type: object, properties: { progress: { type: number } } }
+            - required: [event, data]
+              properties:
+                event: { const: error }
+                data: { type: string, contentMediaType: application/json }
+            - required: [event]
+              properties:
+                event: { const: done }
 ```
 
-Each `yield` is one `event: message` with the item as JSON `data`. A thrown error ends the stream with `event: error`. Other statuses in a status-code response map stay JSON responses, for errors thrown before the stream starts.
+Each `yield` is one `event: message` with the item as JSON `data`. A thrown error ends the stream with `event: error` and the error body as `data`. A generator that returns without yielding ends with `event: done`, which has no data. Other statuses in a status-code response map stay JSON responses, for errors thrown before the stream starts.
 
 ## Hiding Routes From the Document
 

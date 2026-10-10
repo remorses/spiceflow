@@ -133,6 +133,7 @@ export namespace OpenAPIV3 {
     // JSON Schema 2020-12 (OpenAPI 3.1+): encoded content of a string
     contentMediaType?: string
     contentSchema?: ReferenceObject | SchemaObject
+    const?: any
     default?: any
     multipleOf?: number
     maximum?: number

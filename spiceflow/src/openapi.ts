@@ -552,23 +552,36 @@ function isObjEmpty(obj: Record<string, any>) {
 
 /**
  * One SSE event as spiceflow writes it: `event: message` with each yield as JSON `data`,
- * `event: error` with the error body, `event: done` when the generator returns without yielding.
+ * `event: error` with the error body as JSON `data`, `event: done` with no data.
  * https://spec.openapis.org/oas/v3.2.0.html#sequential-media-types
  */
 function sseItemSchema(
   data: OpenAPIV3.ReferenceObject | OpenAPIV3.SchemaObject | undefined,
 ): OpenAPIV3.SchemaObject {
   return {
-    type: 'object',
-    required: ['event', 'data'],
-    properties: {
-      event: { type: 'string', enum: ['message', 'error', 'done'] },
-      data: {
-        type: 'string',
-        contentMediaType: 'application/json',
-        contentSchema: data,
+    oneOf: [
+      {
+        type: 'object',
+        required: ['event', 'data'],
+        properties: {
+          event: { type: 'string', const: 'message' },
+          data: { type: 'string', contentMediaType: 'application/json', contentSchema: data },
+        },
       },
-    },
+      {
+        type: 'object',
+        required: ['event', 'data'],
+        properties: {
+          event: { type: 'string', const: 'error' },
+          data: { type: 'string', contentMediaType: 'application/json' },
+        },
+      },
+      {
+        type: 'object',
+        required: ['event'],
+        properties: { event: { type: 'string', const: 'done' } },
+      },
+    ],
   }
 }
 
