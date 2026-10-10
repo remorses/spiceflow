@@ -4,8 +4,8 @@
     "jsx": "react-jsx",
     "module": "ESNext",
     "moduleResolution": "bundler",
-    "types": ["@cloudflare/workers-types", "vite/client"],
+    "types": ["vite/client"],
     "noEmit": true
   },
-  "include": ["src/**/*", "app/**/*"]
+  "include": ["src/**/*", "app/**/*", "worker-configuration.d.ts"]
 }
