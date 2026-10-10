@@ -174,6 +174,22 @@ declare module 'spiceflow/react' {
 }
 ```
 
+### Static pages run middleware
+
+`.staticPage()` renders a page **once at build time** into `.html` and `.rsc` files. On Node.js and Cloudflare Workers, middleware registered with `.use()` still runs before every static page request, so redirects, auth checks, and response headers work on static pages too:
+
+```tsx
+export const app = new Spiceflow()
+  .use(({ request, redirect }) => {
+    if (new URL(request.url).pathname === '/about-us') throw redirect('/about')
+  })
+  .staticPage('/about', async () => <About />)
+```
+
+This is very useful on **Cloudflare Workers**, where static assets are normally served before the Worker runs. Set `assets.run_worker_first` in `wrangler.jsonc` and add `serveAssets(env.ASSETS)` from `spiceflow/cloudflare` after your middleware. The Worker runs your `.use()` blocks, then returns the prerendered file without rendering again. See [Cloudflare prerendered pages](./website/src/cloudflare.md#prerendered-pages-staticpage).
+
+Middleware also runs while `vite build` prerenders the page. That request has no cookies or user headers, so a middleware that redirects it makes the build fail.
+
 ## Documentation
 
 The README is only an overview. The full documentation is split into feature docs — **always read the doc for the feature you are working on before writing code**. The API is small but opinionated, and the opinions are not guessable from other frameworks.

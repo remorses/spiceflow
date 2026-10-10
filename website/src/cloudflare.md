@@ -403,7 +403,7 @@ See the [Cloudflare Workers headers docs](https://developers.cloudflare.com/work
 
 ## Prerendered Pages (`staticPage`)
 
-`staticPage()` routes are rendered **once at build time** and written to the client output as static assets. Cloudflare serves them before the Worker runs: no Worker CPU, no Worker request, and the first visitor already gets a cached page.
+`staticPage()` routes are rendered **once at build time** and written to the client output as static assets. Cloudflare serves them before the Worker runs: no Worker CPU, no Worker request, and the first visitor already gets a cached page. To run middleware first, see [Middleware on Static Pages](#middleware-on-static-pages).
 
 ```tsx
 export const app = new Spiceflow()
@@ -426,6 +426,53 @@ spiceflow({ entry: './src/main.tsx', prerenderOrigin: 'https://example.com' })
 ```
 
 A prerendered page cannot read cookies, headers, or bindings that differ per request; use `.page()` plus [Workers Cache](#edge-caching-workers-cache) for those.
+
+### Middleware on Static Pages
+
+By default no Worker code runs for a prerendered page, so `.use()` middleware is skipped. To run **redirects, auth checks, or header changes** on static pages too, let the Worker run first and serve the prerendered files with `serveAssets`:
+
+```jsonc
+// wrangler.jsonc
+{
+  "assets": {
+    "binding": "ASSETS",
+    // hashed Vite assets still skip the Worker
+    "run_worker_first": ["/*", "!/assets/*"]
+  }
+}
+```
+
+```tsx
+import { env } from 'cloudflare:workers'
+import { Spiceflow } from 'spiceflow'
+import { serveAssets } from 'spiceflow/cloudflare'
+
+export const app = new Spiceflow()
+  .use(({ request, redirect }) => {
+    if (new URL(request.url).pathname === '/about-us') throw redirect('/about')
+  })
+  .use(serveAssets(env.ASSETS)) // after the middleware that must run first
+  .staticPage('/about', async () => <About />)
+```
+
+```
+GET /about ──► Worker ──► .use() middleware ──► serveAssets ──► env.ASSETS: about.html
+                               │                     │
+                         redirect / 401        404 ──► render the page in the Worker
+```
+
+`serveAssets` is the Cloudflare version of `serveStatic`. It serves `about.html` for `/about`, `about.rsc` for client navigations, and any other file in the client output, like `public/` files. If the binding has no file, the request falls through to your routes. The page is never rendered again, so the Worker only pays for the middleware.
+
+<details>
+<summary>Rules for middleware on static pages</summary>
+
+- Register `serveAssets` **after** the middlewares that must run first. Middlewares after it do not run for asset hits.
+- Cloudflare has no automatic fallback: when the Worker runs first, only `env.ASSETS.fetch()` can return an asset. Without `serveAssets`, static pages render again in the Worker and `public/` files return 404.
+- With `"run_worker_first": true`, hashed JS and CSS also go through the Worker. Prefer the pattern list above.
+- Do not use `"not_found_handling": "single-page-application"`: the binding would answer every path with `index.html`.
+- Middleware also runs when `vite build` prerenders the page. That request has no cookies or user headers. If a middleware redirects or rejects it, the build fails.
+
+</details>
 
 ## Edge Caching (Workers Cache)
 

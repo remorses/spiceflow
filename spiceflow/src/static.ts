@@ -27,9 +27,17 @@ export function isStaticMiddleware(handler: unknown): boolean {
   return Boolean((handler as any)?.[staticMiddlewareSymbol])
 }
 
-function markStaticMiddleware<T extends MiddlewareHandler>(handler: T): T {
+/** Static middlewares run before root catch-alls and not-found handlers, never before concrete API routes. */
+export function markStaticMiddleware<T extends MiddlewareHandler>(handler: T): T {
   ;(handler as any)[staticMiddlewareSymbol] = true
   return handler
+}
+
+/** Client RSC fetches (`?__rsc`) read the prerendered Flight file: /about → /about.rsc, / → /index.rsc. */
+export function getStaticPathname(url: URL): string {
+  if (!url.searchParams.has('__rsc') || url.pathname.endsWith('.rsc')) return url.pathname
+  const pathname = url.pathname.replace(/\/$/, '')
+  return pathname ? pathname + '.rsc' : '/index.rsc'
 }
 
 /**
@@ -106,12 +114,7 @@ function getResolvedFilePath<E extends Env>({
 
   if (!filename) {
     try {
-      const url = new URL(c.request.url)
-      filename = decodeURI(url.pathname)
-      // Serve prerendered .rsc Flight data files when the client requests RSC data
-      if (url.searchParams.has('__rsc') && !filename.endsWith('.rsc')) {
-        filename = filename + '.rsc'
-      }
+      filename = decodeURI(getStaticPathname(new URL(c.request.url)))
     } catch {
       return
     }

@@ -30,6 +30,60 @@ test('directory without index falls through instead of throwing EISDIR', async (
   }
 })
 
+test('RSC fetches read prerendered .rsc files, root uses index.rsc', async () => {
+  const root = await createStaticRoot({
+    'index.rsc': 'root flight',
+    'about.rsc': 'about flight',
+  })
+
+  try {
+    const app = new Spiceflow()
+      .use(serveStatic({ root }))
+      .get('/*', () => ({ route: 'catch-all' }))
+
+    const [rootRes, aboutRes] = await Promise.all([
+      app.handle(new Request('http://localhost/?__rsc=')),
+      app.handle(new Request('http://localhost/about?__rsc=')),
+    ])
+
+    expect([await rootRes.text(), await aboutRes.text()]).toMatchInlineSnapshot(`
+      [
+        "root flight",
+        "about flight",
+      ]
+    `)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('redirect thrown by earlier middleware is not replaced by a static file', async () => {
+  const root = await createStaticRoot({ 'secret.txt': 'protected' })
+
+  try {
+    const app = new Spiceflow()
+      .use(({ redirect }) => {
+        throw redirect('/login')
+      })
+      .use(serveStatic({ root }))
+      .get('/*', () => ({ route: 'catch-all' }))
+
+    const res = await app.handle(new Request('http://localhost/secret.txt'))
+
+    expect({
+      status: res.status,
+      location: res.headers.get('location'),
+    }).toMatchInlineSnapshot(`
+      {
+        "location": "/login",
+        "status": 307,
+      }
+    `)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
 test('concrete route wins over static file with the same path', async () => {
   const root = await createStaticRoot({
     hello: 'from static',
