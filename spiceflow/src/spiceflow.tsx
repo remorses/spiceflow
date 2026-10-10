@@ -2807,12 +2807,14 @@ export class Spiceflow<
         handlerResponse = await finalHandler()
         return handlerResponse
       } catch (err) {
+        // A thrown error or redirect short-circuits inner middlewares, so a later
+        // serveStatic cannot replace an auth redirect with the protected file.
         handlerResponse = await this.errorToResponse(
           err,
           context,
           onErrorHandlers,
         )
-        return await next()
+        return handlerResponse
       }
     }
 
