@@ -21,6 +21,9 @@ export const logger = {
   success(message: string, detail?: string) {
     console.log(format(colors.green('✓'), message, detail))
   },
+  warn(message: string) {
+    console.warn(format(colors.yellow('▲'), message))
+  },
   error(message: string) {
     console.error(format(colors.red('✗'), message))
   },

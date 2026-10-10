@@ -10,6 +10,18 @@
 /** Response header carrying the build deployment id on flight payloads. */
 export const DEPLOYMENT_ID_HEADER = 'x-spiceflow-deployment-id'
 
+/** Build-only endpoint that lists static routes, so Cloudflare builds can prerender through `vite preview`. */
+export const PRERENDER_ROUTES_PATH = '/__spiceflow/prerender-routes'
+
+/** Request header carrying the per-build token that unlocks the prerender behavior below. */
+export const PRERENDER_TOKEN_HEADER = 'x-spiceflow-prerender-token'
+
+/** Deployed origin to render prerendered pages for. Honored only with a valid prerender token. */
+export const PRERENDER_ORIGIN_HEADER = 'x-spiceflow-prerender-origin'
+
+/** Request header that makes SSR wait for every Suspense boundary, like for bots. */
+export const RENDER_MODE_HEADER = 'x-react-server-render-mode'
+
 /** Global set by the SSR bootstrap script before the client entry loads. */
 export const CLIENT_DEPLOYMENT_ID_GLOBAL = '__SPICEFLOW_DEPLOYMENT_ID__'
 

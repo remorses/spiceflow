@@ -41,6 +41,15 @@ export const app = new Spiceflow()
       </PokemonList>
     )
   })
+  // Prerendered at build time: Cloudflare static assets serve it, the Worker never runs.
+  .staticPage('/about', async function About() {
+    return (
+      <div className="flex flex-col items-center p-4">
+        <p>Static about page, prerendered at build time.</p>
+        <Link href="/">Back to list</Link>
+      </div>
+    )
+  })
   .layout('/pokemon/:id', ({ children }) => {
     return (
       <div className="flex flex-col items-center p-4">

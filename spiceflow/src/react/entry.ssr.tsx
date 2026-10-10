@@ -27,7 +27,7 @@ import { formatServerError } from './format-server-error.js'
 import { getClientErrorMessage } from '../sanitize-error.js'
 import { injectRSCPayload } from './transform.js'
 import { createRouterContextData } from '../router-context.js'
-import { deploymentIdBootstrapPrefix } from './deployment.js'
+import { deploymentIdBootstrapPrefix, RENDER_MODE_HEADER } from './deployment.js'
 
 const verboseLogs = process.env.SPICEFLOW_VERBOSE === '1'
 
@@ -267,7 +267,11 @@ export async function renderHtml({
         renderOptions,
       )
     }
-    if (prerender || isbot(request.headers.get('user-agent') || '')) {
+    const waitForAllReady =
+      prerender ||
+      request.headers.get(RENDER_MODE_HEADER) === 'prerender' ||
+      isbot(request.headers.get('user-agent') || '')
+    if (waitForAllReady) {
       await htmlStream.allReady
     } else {
       // Race allReady against a short timeout to catch redirect/notFound
@@ -365,17 +369,8 @@ export async function prerender(request: Request) {
 }
 
 export async function getPrerenderRoutes() {
-  let rsc = await importRscEnvironment()
-  const app = rsc.app
-  return app
-    .getAllRoutes()
-    .filter(
-      (route) =>
-        route.kind === 'staticPage' ||
-        route.kind === 'staticPageWithoutHandler' ||
-        route.kind === 'staticGet',
-    )
-    .filter((x) => x.method === 'GET')
+  const rsc = await importRscEnvironment()
+  return rsc.app.getPrerenderRoutes()
 }
 
 // Federation: decode a Flight payload and render it to an HTML string.

@@ -69,9 +69,12 @@ import {
   isDocumentRequest,
   isFlightResponse,
   isRscRequest,
+  PRERENDER_ORIGIN_HEADER,
+  PRERENDER_ROUTES_PATH,
+  PRERENDER_TOKEN_HEADER,
   stripRscUrl,
 } from './react/deployment.js'
-import { getDeploymentId } from '#deployment-id'
+import { getDeploymentId, getPrerenderToken } from '#deployment-id'
 
 import {
   __spiceflowVitestMode,
@@ -427,6 +430,17 @@ export class Spiceflow<
       })
     })
     return allRoutes
+  }
+
+  /** @internal GET routes written to disk at build time: staticPage() and staticGet(). */
+  getPrerenderRoutes() {
+    return this.getAllRoutes().filter(
+      (route) =>
+        route.method === 'GET' &&
+        (route.kind === 'staticPage' ||
+          route.kind === 'staticPageWithoutHandler' ||
+          route.kind === 'staticGet'),
+    )
   }
 
   /** Returns route metadata from this app and mounted apps. */
@@ -2295,6 +2309,16 @@ export class Spiceflow<
       incomingRequest instanceof SpiceflowRequest
         ? incomingRequest
         : new SpiceflowRequest(incomingRequest.url, incomingRequest)
+
+    // Build-time prerender (token-gated): list static routes, and render pages
+    // as if served from the deployed origin instead of the local preview server.
+    const isPrerender =
+      request.headers.has(PRERENDER_TOKEN_HEADER) && (await isPrerenderRequest(request))
+    const prerenderOrigin = isPrerender && request.headers.get(PRERENDER_ORIGIN_HEADER)
+    if (prerenderOrigin) {
+      const { pathname, search } = new URL(request.url)
+      request.overrideUrl(new URL(pathname + search, prerenderOrigin).href)
+    }
     const u = request.parsedUrl
 
     let path = u.pathname
@@ -2304,6 +2328,14 @@ export class Spiceflow<
       path = path.slice(0, -9)
     } else if (path.endsWith('.rsc')) {
       path = path.slice(0, -4)
+    }
+
+    // Cloudflare builds cannot import the Worker in Node, so the prerender step
+    // asks the running `vite preview` Worker for its static routes instead.
+    if (isPrerender && path === PRERENDER_ROUTES_PATH && request.method === 'GET') {
+      return Response.json(
+        this.getPrerenderRoutes().map(({ path, kind }) => ({ path, kind })),
+      )
     }
 
     if (path !== u.pathname) {
@@ -3425,6 +3457,12 @@ export class SpiceflowRequest<T = any> extends Request {
     })
     return this.jsonPromise
   }
+}
+
+/** True only for requests from this build's prerender step (vite preview). */
+async function isPrerenderRequest(request: Request): Promise<boolean> {
+  const token = await getPrerenderToken()
+  return !!token && request.headers.get(PRERENDER_TOKEN_HEADER) === token
 }
 
 export function bfs(tree: AnySpiceflow) {

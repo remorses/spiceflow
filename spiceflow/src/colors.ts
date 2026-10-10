@@ -16,4 +16,5 @@ export const colors = {
   dim: formatter('\x1b[2m', '\x1b[22m'),
   green: formatter('\x1b[32m', '\x1b[39m'),
   red: formatter('\x1b[31m', '\x1b[39m'),
+  yellow: formatter('\x1b[33m', '\x1b[39m'),
 }

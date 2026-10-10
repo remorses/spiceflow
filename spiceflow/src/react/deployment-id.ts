@@ -5,3 +5,7 @@
 export async function getDeploymentId(): Promise<string> {
   return ''
 }
+
+export async function getPrerenderToken(): Promise<string> {
+  return ''
+}

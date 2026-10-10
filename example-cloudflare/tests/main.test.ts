@@ -125,6 +125,32 @@ describe('cloudflare example', () => {
         "status": 200,
       }
     `)
+
+    // staticPage routes are prerendered into dist/client, so Cloudflare
+    // assets serve them without running the Worker (no server-timing header).
+    const [html, rsc] = await Promise.all([
+      fetch(new URL('/about', server.baseUrl)),
+      fetch(new URL('/about.rsc?__rsc=', server.baseUrl)),
+    ])
+    expect({
+      htmlStatus: html.status,
+      htmlFromWorker: html.headers.has('server-timing'),
+      htmlHasContent: (await html.text()).includes('Static about page'),
+      rscStatus: rsc.status,
+      rscFromWorker: rsc.headers.has('server-timing'),
+      rscContentType: rsc.headers.get('content-type'),
+      rscHasDeploymentId: rsc.headers.has('x-spiceflow-deployment-id'),
+    }).toMatchInlineSnapshot(`
+      {
+        "htmlFromWorker": false,
+        "htmlHasContent": true,
+        "htmlStatus": 200,
+        "rscContentType": "text/x-component;charset=utf-8",
+        "rscFromWorker": false,
+        "rscHasDeploymentId": true,
+        "rscStatus": 200,
+      }
+    `)
   })
 
   test('deployed worker serves the home page', async () => {

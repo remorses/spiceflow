@@ -401,6 +401,32 @@ Vite copies `public/` contents into the client build output, which becomes the C
 
 See the [Cloudflare Workers headers docs](https://developers.cloudflare.com/workers/static-assets/headers/) for path patterns, placeholders, and how to restrict CORS to specific origins.
 
+## Prerendered Pages (`staticPage`)
+
+`staticPage()` routes are rendered **once at build time** and written to the client output as static assets. Cloudflare serves them before the Worker runs: no Worker CPU, no Worker request, and the first visitor already gets a cached page.
+
+```tsx
+export const app = new Spiceflow()
+  .staticPage('/about', async () => <About />) // prerendered by `vite build`
+  .page('/dashboard', async () => <Dashboard />) // rendered by the Worker per request
+```
+
+```
+vite build ──► vite preview (built Worker in workerd) ──► GET /about, /about.rsc
+                                                            │
+dist/client/about.html, about.rsc, _headers  ◄──────────────┘
+```
+
+The Cloudflare SSR entry imports `cloudflare:*` modules that Node cannot load, so the build starts the built Worker with `vite preview` and fetches each static route from it. Client navigations load `/about.rsc` from assets; `_headers` gives it the Flight content type and the deployment id.
+
+Absolute URLs in prerendered pages (`og:url`, canonical) use the single host in your Worker `routes`. With several hosts, or none (`workers.dev`), pass the public origin:
+
+```ts
+spiceflow({ entry: './src/main.tsx', prerenderOrigin: 'https://example.com' })
+```
+
+A prerendered page cannot read cookies, headers, or bindings that differ per request; use `.page()` plus [Workers Cache](#edge-caching-workers-cache) for those.
+
 ## Edge Caching (Workers Cache)
 
 Cloudflare [Workers Cache](https://developers.cloudflare.com/workers/cache/) puts a **regionally tiered cache in front of your Worker**. On a cache hit, your Worker code never runs and you pay zero CPU time. Enable it with one line in `wrangler.jsonc` and control it with standard `Cache-Control` headers on your responses.

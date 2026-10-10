@@ -63,6 +63,7 @@ const dedupeImporter = path.join(__spiceflowDir, '_dedupe_importer_.js')
 // two builds in the same Node process get different ids. Shared across the
 // RSC/SSR/client environments of a single build via this module scope.
 let buildDeploymentId = createBuildDeploymentId()
+let buildPrerenderToken = crypto.randomUUID()
 let mintedDeploymentIdForCurrentBuild = false
 
 function createBuildDeploymentId(): string {
@@ -181,8 +182,13 @@ export default function spiceflow({
   externalizeShared,
   serveStaticImport = 'spiceflow',
   nft,
+  prerenderOrigin,
 }: {
   entry: string
+  /** Public origin (e.g. `https://example.com`) that `staticPage()` routes see as
+   *  `request.url` while prerendering, so absolute URLs like og:url are correct.
+   *  On Cloudflare it defaults to the single host in the Worker's `routes`. */
+  prerenderOrigin?: string
   /** Externalize React and shared deps from client chunks at build time so
    *  federation payloads use bare specifiers resolved by the host's import map. */
   externalizeShared?: boolean
@@ -246,6 +252,7 @@ export default function spiceflow({
         if (mintedDeploymentIdForCurrentBuild) return
         mintedDeploymentIdForCurrentBuild = true
         buildDeploymentId = createBuildDeploymentId()
+        buildPrerenderToken = crypto.randomUUID()
       },
     },
     {
@@ -395,7 +402,10 @@ export default function spiceflow({
         )
       },
     },
-    prerenderPlugin(),
+    prerenderPlugin({
+      getPrerenderToken: () => buildPrerenderToken,
+      origin: prerenderOrigin,
+    }),
     serverFileGuardPlugin(),
     outputModulePackagePlugin(),
     // Automatically generate Vercel Build Output when VERCEL=1 is set
@@ -917,7 +927,10 @@ export default function spiceflow({
     // Build timestamp inlined as a constant.
     // No runtime fs access needed, works on Node, Cloudflare, edge runtimes, etc.
     createVirtualPlugin('virtual:spiceflow-deployment-id', () => {
-      return `export default ${JSON.stringify(buildDeploymentId)}`
+      return [
+        `export default ${JSON.stringify(buildDeploymentId)}`,
+        `export const prerenderToken = ${JSON.stringify(buildPrerenderToken)}`,
+      ].join('\n')
     }),
     // Resolved directory paths for RSC runtime filesystem access.
     // In dev: publicDir = <cwd>/public, distDir = <cwd>.

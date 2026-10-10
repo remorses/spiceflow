@@ -22,6 +22,8 @@ declare module '#rsc-runtime' {
 declare module 'virtual:spiceflow-deployment-id' {
   const deploymentId: string | undefined
   export default deploymentId
+  /** Random per build; unlocks the prerender routes endpoint during `vite build`. */
+  export const prerenderToken: string | undefined
 }
 
 declare module 'virtual:spiceflow-dirs' {

@@ -11,6 +11,22 @@ export async function getDeploymentId(): Promise<string> {
   return deploymentIdPromise
 }
 
+let prerenderTokenPromise: Promise<string> | undefined
+
+/** Per-build token for the prerender routes endpoint. Empty in dev. */
+export async function getPrerenderToken(): Promise<string> {
+  prerenderTokenPromise ??= (async () => {
+    if (import.meta.hot) return ''
+    try {
+      const { prerenderToken } = await import('virtual:spiceflow-deployment-id')
+      return prerenderToken ?? ''
+    } catch {
+      return ''
+    }
+  })()
+  return prerenderTokenPromise
+}
+
 async function loadRuntimeDeploymentId(): Promise<string> {
   if (import.meta.hot) return ''
   try {
