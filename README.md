@@ -37,7 +37,7 @@ npm install spiceflow@rsc
 To let your AI coding agent know how to use spiceflow, run:
 
 ```bash
-npx -y skills add remorses/spiceflow
+npx -y skills add remorses/spiceflow -g -y
 ```
 
 Every documentation page is also available as raw markdown: append `.md` to any [getspiceflow.com](https://getspiceflow.com) URL, for example `https://getspiceflow.com/react-data.md`.
