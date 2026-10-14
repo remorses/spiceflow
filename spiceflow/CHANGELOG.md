@@ -1,5 +1,30 @@
 # spiceflow
 
+## 1.26.0-rsc.21
+
+1. **Cloudflare static pages always run middleware** — prerendered `staticPage()` and `staticGet()` files are no longer public assets that Cloudflare serves before the Worker. They are stored under `/cdn-cgi/_spiceflow/prerender/<deployment-id>/`, which visitors cannot fetch. The Worker runs your `.use()` middleware, then serves the stored file through the `ASSETS` binding without rendering again:
+
+   ```jsonc
+   // wrangler.jsonc
+   { "assets": { "binding": "ASSETS" } }
+   ```
+
+   ```tsx
+   new Spiceflow()
+     .use(({ request, redirect }) => {
+       if (new URL(request.url).pathname === '/about-us') throw redirect('/about')
+     })
+     .staticPage('/about', async () => <About />)
+   ```
+
+   ```
+   GET /about ──► Worker ──► .use() middleware ──► env.ASSETS: stored HTML (x-spiceflow-prerendered: 1)
+   ```
+
+   `serveAssets` and `assets.run_worker_first` are no longer needed, so `serveAssets` is removed from `spiceflow/cloudflare`. Without the `ASSETS` binding the build warns and static pages render on every request.
+
+2. **`cors()` works when registered after an auth middleware** — `cors()` now always runs first among the middlewares in scope. With `.use(auth).use(cors())`, 401s and redirects thrown by `auth` get CORS headers again, and preflight `OPTIONS` requests return `204` instead of failing with 401.
+
 ## 1.26.0-rsc.20
 
 1. **`staticPage()` prerendering on Cloudflare** — Cloudflare builds now prerender static pages too. `vite build` starts the built Worker with `vite preview`, fetches each static route, and writes `.html` and `.rsc` files to the client output. Cloudflare serves them as static assets before the Worker runs:
