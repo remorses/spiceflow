@@ -4,7 +4,8 @@
 // writes the real assets manifest — no stub needed.
 //
 //   Node        import dist/ssr entry ──► entry.fetchHandler(request)
-//   Cloudflare  vite.preview() runs the built Worker in workerd ──► fetch(previewUrl)
+//   Cloudflare  no static route calls in the bundle ──► skip
+//               vite.preview() runs the built Worker in workerd ──► fetch(previewUrl)
 //
 // Cloudflare SSR entries import `cloudflare:*` modules that Node cannot load,
 // so that build asks the running Worker for its routes (token-gated endpoint)
@@ -13,8 +14,10 @@
 // reads them through env.ASSETS (prerendered.workerd.ts).
 import fs from 'node:fs'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
+import { createRequire } from 'node:module'
 import path from 'node:path'
-import type { Plugin, PreviewServer } from 'vite'
+import { fileURLToPath, pathToFileURL } from 'node:url'
+import type { Plugin, PluginOption, PreviewServer } from 'vite'
 import { formatDuration, logger } from '../logger.js'
 import { resolveBuiltEntry } from '../trace-dependencies.js'
 import {
@@ -47,6 +50,14 @@ type PrerenderRoute = { path: string; kind?: string }
 /** Runs one prerender request against the built app. URL paths are origin-relative. */
 type PrerenderFetch = (pathAndQuery: string) => Promise<Response>
 
+const PRERENDER_CONCURRENCY = 8
+
+// Matches `.staticPage(` and `.staticGet(` calls in bundled module code
+const STATIC_ROUTE_CALL = /\.static(?:Page|Get)\s*\(/
+
+// Spiceflow's own modules define these methods, so they never count as calls
+const spiceflowPackageDir = fileURLToPath(new URL('../../', import.meta.url))
+
 export function prerenderPlugin({
   getPrerenderToken,
   origin,
@@ -59,15 +70,35 @@ export function prerenderPlugin({
   let rscOutDir = 'dist/rsc'
   let clientOutDir = 'dist/client'
   let isCloudflare = false
-  let configFile: string | false | undefined
+  let configFile: string | undefined
   let root = process.cwd()
   let mode = 'production'
+  let base = '/'
+  let envDir: string | false = root
+  let hasStaticRouteCalls = false
 
   return [
     {
       name: prerenderPlugin.name + ':build',
       enforce: 'post',
       apply: 'build',
+      // Routes are registered at runtime, so the Worker is the only exact source.
+      // Starting workerd costs seconds, so skip it when no server module calls
+      // staticPage() or staticGet(). Tree-shaken code is excluded, false positives
+      // only cost the startup.
+      generateBundle(_options, bundle) {
+        if (hasStaticRouteCalls || this.environment.name === 'client') return
+        hasStaticRouteCalls = Object.values(bundle).some(
+          (output) =>
+            output.type === 'chunk' &&
+            Object.entries(output.modules).some(
+              ([id, module]) =>
+                !id.startsWith(spiceflowPackageDir) &&
+                !!module.code &&
+                STATIC_ROUTE_CALL.test(module.code),
+            ),
+        )
+      },
       configResolved(config) {
         ssrOutDir = path.resolve(
           config.root,
@@ -85,6 +116,8 @@ export function prerenderPlugin({
         configFile = config.configFile
         root = config.root
         mode = config.mode
+        base = config.base
+        envDir = config.envDir
       },
       // order:"post" runs AFTER all other buildApp hooks — including
       // @vitejs/plugin-rsc which writes __vite_rsc_assets_manifest.js
@@ -95,12 +128,18 @@ export function prerenderPlugin({
         order: 'post',
         async handler() {
           if (isCloudflare) {
+            if (!hasStaticRouteCalls) {
+              logger.info('no staticPage() or staticGet() calls, skipping prerender')
+              return
+            }
             await prerenderCloudflare({
               clientOutDir,
               rscOutDir,
               configFile,
               root,
               mode,
+              base,
+              envDir,
               token: getPrerenderToken(),
               origin: origin ?? (await readCloudflareRouteOrigin(rscOutDir)),
             })
@@ -202,27 +241,45 @@ async function prerenderCloudflare({
   configFile,
   root,
   mode,
+  base,
+  envDir,
   token,
   origin,
 }: {
   clientOutDir: string
   rscOutDir: string
-  configFile: string | false | undefined
+  configFile: string | undefined
   root: string
   mode: string
+  base: string
+  envDir: string | false
   token: string
   origin?: string
 }) {
   logger.info('starting the built Worker with vite preview to prerender...')
   const { preview } = await import('vite')
+  const { cloudflare } = await importCloudflarePlugin(configFile ?? path.join(root, 'package.json'))
   let server: PreviewServer
   try {
+    // Only the Cloudflare plugin: user plugins (and their watchers) never start.
+    // Preview reads the built Worker from .wrangler/deploy/config.json, not plugin options.
     server = await preview({
       root,
       mode,
-      configFile,
+      base,
+      envDir,
+      configFile: false,
       logLevel: 'warn',
       preview: { port: 0, open: false, strictPort: false },
+      plugins: [
+        cloudflare({
+          // Local bindings are enough to render; remote-only ones (AI) throw only when called.
+          // Remote bindings also start a proxy session that preview close never disposes,
+          // so `vite build` would never exit. https://github.com/cloudflare/workers-sdk/issues/15173
+          remoteBindings: false,
+          inspectorPort: false,
+        }),
+      ],
     })
   } catch (cause) {
     throw new Error('Failed to start vite preview for prerendering', { cause })
@@ -265,6 +322,28 @@ async function prerenderCloudflare({
   }
 }
 
+type CloudflarePluginModule = {
+  cloudflare: (options: { remoteBindings?: boolean; inspectorPort?: number | false }) => PluginOption
+}
+
+/** Imports `@cloudflare/vite-plugin` the way the user's vite config resolves it.
+ *  Not a spiceflow dependency, and its exports have only an `import` condition,
+ *  so `createRequire().resolve()` cannot find it. */
+async function importCloudflarePlugin(from: string): Promise<CloudflarePluginModule> {
+  const name = '@cloudflare/vite-plugin'
+  // TODO: use module.findPackageJSON() once Node 22.14 is the minimum (Vite 8 allows 20.19)
+  const packageJsonPath = createRequire(from)
+    .resolve.paths(name)
+    ?.map((dir) => path.join(dir, name, 'package.json'))
+    .find((file) => fs.existsSync(file))
+  if (!packageJsonPath) throw new Error(`Cannot find ${name} from ${from}`)
+  const packageJson = JSON.parse(await readFile(packageJsonPath, 'utf8')) as {
+    exports: { '.': { import: string } }
+  }
+  const entry = path.resolve(path.dirname(packageJsonPath), packageJson.exports['.'].import)
+  return import(pathToFileURL(entry).href)
+}
+
 /** The Worker reads prerendered files through `env.ASSETS`. Without it, pages still work but render on every request. */
 async function warnIfNoAssetsBinding(rscOutDir: string) {
   const config = JSON.parse(
@@ -294,31 +373,63 @@ type RenderedRoute =
   | { kind: 'get'; route: string; body: Response }
   | { kind: 'page'; route: string; html: Response; rsc: Response }
 
-async function* renderRoutes({
+async function renderRoute({
+  route,
+  fetch,
+}: {
+  route: PrerenderRoute
+  fetch: PrerenderFetch
+}): Promise<RenderedRoute> {
+  if (route.kind === 'staticGet') {
+    // The route path should include a file extension (e.g. /api/data.json)
+    // so serveStatic can resolve the MIME type.
+    const body = await fetch(route.path)
+    if (!body.ok) await throwPrerenderError({ response: body, routePath: route.path })
+    return { kind: 'get', route: route.path, body }
+  }
+
+  const [rsc, html] = await Promise.all([
+    // __rsc returns the raw Flight stream without SSR rendering.
+    fetch(`${route.path}?__rsc=`),
+    // Without __rsc the Flight stream is SSR-rendered into a complete document.
+    fetch(route.path),
+  ])
+  if (!rsc.ok) await throwPrerenderError({ response: rsc, routePath: route.path })
+  if (!html.ok) await throwPrerenderError({ response: html, routePath: route.path })
+  return { kind: 'page', route: route.path, html, rsc }
+}
+
+/** Renders routes with at most PRERENDER_CONCURRENCY in flight. Results keep route order. */
+async function renderRoutes<T>({
   routes,
   fetch,
+  write,
 }: {
   routes: PrerenderRoute[]
   fetch: PrerenderFetch
-}): AsyncGenerator<RenderedRoute> {
-  for (const route of routes) {
-    if (route.kind === 'staticGet') {
-      // The route path should include a file extension (e.g. /api/data.json)
-      // so serveStatic can resolve the MIME type.
-      const body = await fetch(route.path)
-      if (!body.ok) await throwPrerenderError({ response: body, routePath: route.path })
-      yield { kind: 'get', route: route.path, body }
-      continue
+  write: (rendered: RenderedRoute, index: number) => Promise<T>
+}): Promise<T[]> {
+  const results: T[] = []
+  let next = 0
+  let failed = false
+  const worker = async () => {
+    while (next < routes.length && !failed) {
+      const index = next++
+      try {
+        results[index] = await write(await renderRoute({ route: routes[index]!, fetch }), index)
+      } catch (error) {
+        failed = true
+        throw error
+      }
     }
-
-    // __rsc returns the raw Flight stream without SSR rendering.
-    const rsc = await fetch(`${route.path}?__rsc=`)
-    if (!rsc.ok) await throwPrerenderError({ response: rsc, routePath: route.path })
-    // Without __rsc the Flight stream is SSR-rendered into a complete document.
-    const html = await fetch(route.path)
-    if (!html.ok) await throwPrerenderError({ response: html, routePath: route.path })
-    yield { kind: 'page', route: route.path, html, rsc }
   }
+  // Wait for every worker so the caller never closes the server mid-render
+  const settled = await Promise.allSettled(
+    Array.from({ length: Math.min(PRERENDER_CONCURRENCY, routes.length) }, worker),
+  )
+  const failure = settled.find((result) => result.status === 'rejected')
+  if (failure) throw failure.reason
+  return results
 }
 
 /** Node: public files that serveStatic serves after middleware. */
@@ -333,24 +444,27 @@ async function writePublicFiles({
 }) {
   const start = performance.now()
   logger.info('prerendering static routes...')
-  const manifest: PrerenderManifest = { entries: [] }
   let deploymentId = ''
 
-  for await (const rendered of renderRoutes({ routes, fetch })) {
-    if (rendered.kind === 'get') {
-      const body = Buffer.from(await rendered.body.arrayBuffer())
-      await writeOutFile({ clientOutDir, file: rendered.route, body })
-      manifest.entries.push({ route: rendered.route, file: rendered.route })
-      continue
-    }
-    deploymentId ||= rendered.rsc.headers.get(DEPLOYMENT_ID_HEADER) || ''
-    const isRoot = rendered.route === '/'
-    const dataFile = isRoot ? '/index.rsc' : rendered.route + '.rsc'
-    const htmlFile = isRoot ? '/index.html' : rendered.route + '.html'
-    await writeOutFile({ clientOutDir, file: dataFile, body: await rendered.rsc.text() })
-    await writeOutFile({ clientOutDir, file: htmlFile, body: await rendered.html.text() })
-    manifest.entries.push({ route: rendered.route, html: htmlFile, data: dataFile })
-  }
+  const entries = await renderRoutes({
+    routes,
+    fetch,
+    async write(rendered): Promise<PrerenderEntry> {
+      if (rendered.kind === 'get') {
+        const body = Buffer.from(await rendered.body.arrayBuffer())
+        await writeOutFile({ clientOutDir, file: rendered.route, body })
+        return { route: rendered.route, file: rendered.route }
+      }
+      deploymentId ||= rendered.rsc.headers.get(DEPLOYMENT_ID_HEADER) || ''
+      const isRoot = rendered.route === '/'
+      const dataFile = isRoot ? '/index.rsc' : rendered.route + '.rsc'
+      const htmlFile = isRoot ? '/index.html' : rendered.route + '.html'
+      await writeOutFile({ clientOutDir, file: dataFile, body: await rendered.rsc.text() })
+      await writeOutFile({ clientOutDir, file: htmlFile, body: await rendered.html.text() })
+      return { route: rendered.route, html: htmlFile, data: dataFile }
+    },
+  })
+  const manifest: PrerenderManifest = { entries }
 
   await writeFile(
     path.join(clientOutDir, '__prerender.json'),
@@ -375,10 +489,7 @@ async function writeWorkerOnlyFiles({
 }) {
   const start = performance.now()
   logger.info('prerendering static routes...')
-  const manifest: PrerenderedManifest = { routes: {} }
-  let index = 0
-  const store = async (response: Response, suffix: string): Promise<PrerenderedFile> => {
-    const file = `${index}-${suffix}`
+  const store = async (response: Response, file: string): Promise<PrerenderedFile> => {
     await writeOutFile({
       clientOutDir: outDir,
       file,
@@ -388,13 +499,23 @@ async function writeWorkerOnlyFiles({
     return { file, contentType: response.headers.get('content-type') || undefined }
   }
 
-  for await (const rendered of renderRoutes({ routes, fetch })) {
-    index++
-    manifest.routes[rendered.route] =
-      rendered.kind === 'get'
-        ? { body: await store(rendered.body, 'body') }
-        : { html: await store(rendered.html, 'html'), rsc: await store(rendered.rsc, 'rsc') }
-  }
+  const stored = await renderRoutes({
+    routes,
+    fetch,
+    // File names use the route position, so they do not depend on which fetch finishes first
+    async write(rendered, index) {
+      const prefix = index + 1
+      const files =
+        rendered.kind === 'get'
+          ? { body: await store(rendered.body, `${prefix}-body`) }
+          : {
+              html: await store(rendered.html, `${prefix}-html`),
+              rsc: await store(rendered.rsc, `${prefix}-rsc`),
+            }
+      return [rendered.route, files] as const
+    },
+  })
+  const manifest: PrerenderedManifest = { routes: Object.fromEntries(stored) }
 
   await writeOutFile({
     clientOutDir: outDir,

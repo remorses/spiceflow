@@ -27,12 +27,16 @@ afterEach(async () => {
 })
 
 describe('cloudflare example', () => {
-  test('build emits worker-compatible SSR output', async () => {
-    await runCommand({
+  // A remote-only binding (AI) used to make the prerender step start a remote
+  // proxy session that never closes, so `vite build` hung forever.
+  test('build emits worker-compatible SSR output and exits with remote bindings', async () => {
+    const { stdout, stderr } = await runCommand({
       command: 'pnpm',
       args: ['build'],
       cwd,
+      env: { CLOUDFLARE_VITE_WRANGLER_CONFIG_PATH: 'wrangler.remote-bindings.jsonc' },
     })
+    const output = stdout + stderr
 
     const rscSsrEntry = path.join(cwd, 'dist/rsc/ssr/index.js')
     const siblingSsrEntry = path.join(cwd, 'dist/ssr/index.js')
@@ -44,10 +48,14 @@ describe('cloudflare example', () => {
       usesCreateRequire: rscSsrSource.includes(
         'createRequire(import.meta.url)',
       ),
+      startsRemoteBindings: output.includes('remote connection'),
+      prerendered: output.includes('prerendered 2 static routes'),
     }).toMatchInlineSnapshot(`
       {
         "hasRscSsrEntry": true,
         "hasSiblingSsrEntry": false,
+        "prerendered": true,
+        "startsRemoteBindings": false,
         "usesCreateRequire": false,
       }
     `)

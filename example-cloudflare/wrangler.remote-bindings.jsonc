@@ -1,0 +1,37 @@
+{
+  // wrangler.jsonc plus a remote-only `ai` binding. The build test uses it
+  // (CLOUDFLARE_VITE_WRANGLER_CONFIG_PATH) to check that prerendering never
+  // starts remote bindings, whose proxy session kept `vite build` running forever.
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "spiceflow-cloudflare-example-1",
+  "main": "./src/main.tsx",
+  "compatibility_date": "2026-03-15",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "binding": "ASSETS",
+  },
+  "ai": {
+    "binding": "AI",
+  },
+  "kv_namespaces": [
+    {
+      "binding": "POKEMON_KV",
+      "id": "98c49e75debc4ec4bcb616355465b47d",
+      "preview_id": "b75a9c5aedfc4b50b3375739075f51db",
+    },
+  ],
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "MY_DURABLE_OBJECT",
+        "class_name": "MyDurableObject",
+      },
+    ],
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_classes": ["MyDurableObject"],
+    },
+  ],
+}

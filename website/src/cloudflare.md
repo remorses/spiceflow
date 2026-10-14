@@ -435,7 +435,7 @@ GET /about ──► Worker ──► .use() middleware ──► env.ASSETS: 1-
 
 The files live under **`/cdn-cgi/`**, a path Cloudflare keeps for itself: visitors get a 404 there, only the Worker can read it. So a prerendered page is never served without your middleware, and the page is never rendered again, so the Worker only pays for the middleware. Without the `ASSETS` binding the build warns and pages render on every request.
 
-The Cloudflare SSR entry imports `cloudflare:*` modules that Node cannot load, so the build starts the built Worker with `vite preview` and fetches each static route from it.
+The Cloudflare SSR entry imports `cloudflare:*` modules that Node cannot load, so the build starts the built Worker with `vite preview` and fetches each static route from it, 8 at a time. That preview loads only the Cloudflare plugin with **local bindings**: remote-only bindings like `ai` exist but throw if a prerendered page calls them. If no server code calls `.staticPage()` or `.staticGet()`, the build skips this step.
 
 Absolute URLs in prerendered pages (`og:url`, canonical) use the single host in your Worker `routes`. With several hosts, or none (`workers.dev`), pass the public origin:
 
@@ -450,6 +450,7 @@ spiceflow({ entry: './src/main.tsx', prerenderOrigin: 'https://example.com' })
 - Only the `content-type` of the prerendered response is stored. Set other headers like `cache-control` in middleware, which runs on every request.
 - Middleware also runs when `vite build` prerenders the page. That request has no cookies or user headers. If a middleware redirects or rejects it, the build fails.
 - `vite preview` does not block `/cdn-cgi/` like production does, so locally the files are also reachable directly.
+- Local D1, KV and Durable Object data during prerender comes from `.wrangler/state`, the default path. A custom `persistState` in `cloudflare()` is not used.
 
 </details>
 

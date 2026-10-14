@@ -16,14 +16,16 @@ export async function runCommand({
   command,
   args,
   cwd,
+  env,
 }: {
   command: string
   args: string[]
   cwd: string
+  env?: Record<string, string>
 }): Promise<CommandResult> {
   const child = spawn(command, args, {
     cwd,
-    env: process.env,
+    env: { ...process.env, ...env },
     stdio: ['ignore', 'pipe', 'pipe'],
   })
 
