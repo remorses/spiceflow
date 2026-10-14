@@ -1,5 +1,10 @@
 # spiceflow
 
+## 1.26.0-rsc.22
+
+1. **`vite build` on Cloudflare no longer hangs after prerendering** — with remote bindings like `ai` in `wrangler.jsonc`, the build used to print `prerendered N static routes` and then never exit. The prerender step now runs the built Worker with only the Cloudflare plugin and local bindings, so no remote proxy session is opened and your other Vite plugins do not run again. Remote-only bindings like `AI` still exist but throw if a prerendered page calls them.
+2. **Faster Cloudflare builds** — the prerender step is skipped when no server code calls `.staticPage()` or `.staticGet()`, so most apps never start workerd during the build. When static routes exist, they are fetched 8 at a time.
+
 ## 1.26.0-rsc.21
 
 1. **Cloudflare static pages always run middleware** — prerendered `staticPage()` and `staticGet()` files are no longer public assets that Cloudflare serves before the Worker. They are stored under `/cdn-cgi/_spiceflow/prerender/<deployment-id>/`, which visitors cannot fetch. The Worker runs your `.use()` middleware, then serves the stored file through the `ASSETS` binding without rendering again:
