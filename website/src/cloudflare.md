@@ -403,21 +403,39 @@ See the [Cloudflare Workers headers docs](https://developers.cloudflare.com/work
 
 ## Prerendered Pages (`staticPage`)
 
-`staticPage()` routes are rendered **once at build time** and written to the client output as static assets. Cloudflare serves them before the Worker runs: no Worker CPU, no Worker request, and the first visitor already gets a cached page. To run middleware first, see [Middleware on Static Pages](#middleware-on-static-pages).
+`staticPage()` and `staticGet()` routes are rendered **once at build time**. The Worker serves the stored response on every request, after your `.use()` middleware, so redirects, auth checks, and header changes work on static pages too:
 
 ```tsx
 export const app = new Spiceflow()
+  .use(({ request, redirect }) => {
+    if (new URL(request.url).pathname === '/about-us') throw redirect('/about')
+  })
   .staticPage('/about', async () => <About />) // prerendered by `vite build`
   .page('/dashboard', async () => <Dashboard />) // rendered by the Worker per request
 ```
 
-```
-vite build ──► vite preview (built Worker in workerd) ──► GET /about, /about.rsc
-                                                            │
-dist/client/about.html, about.rsc, _headers  ◄──────────────┘
+The Worker reads the files through the **assets binding**, so add one named `ASSETS`:
+
+```jsonc
+// wrangler.jsonc
+{
+  "assets": { "binding": "ASSETS" }
+}
 ```
 
-The Cloudflare SSR entry imports `cloudflare:*` modules that Node cannot load, so the build starts the built Worker with `vite preview` and fetches each static route from it. Client navigations load `/about.rsc` from assets; `_headers` gives it the Flight content type and the deployment id.
+```
+vite build ──► vite preview (built Worker in workerd) ──► GET /about, /about?__rsc
+                                                            │
+dist/client/cdn-cgi/_spiceflow/prerender/<deployment-id>/ ◄─┘   1-html, 1-rsc, manifest.json
+
+GET /about ──► Worker ──► .use() middleware ──► env.ASSETS: 1-html (x-spiceflow-prerendered: 1)
+                               │
+                         redirect / 401
+```
+
+The files live under **`/cdn-cgi/`**, a path Cloudflare keeps for itself: visitors get a 404 there, only the Worker can read it. So a prerendered page is never served without your middleware, and the page is never rendered again, so the Worker only pays for the middleware. Without the `ASSETS` binding the build warns and pages render on every request.
+
+The Cloudflare SSR entry imports `cloudflare:*` modules that Node cannot load, so the build starts the built Worker with `vite preview` and fetches each static route from it.
 
 Absolute URLs in prerendered pages (`og:url`, canonical) use the single host in your Worker `routes`. With several hosts, or none (`workers.dev`), pass the public origin:
 
@@ -425,52 +443,13 @@ Absolute URLs in prerendered pages (`og:url`, canonical) use the single host in 
 spiceflow({ entry: './src/main.tsx', prerenderOrigin: 'https://example.com' })
 ```
 
-A prerendered page cannot read cookies, headers, or bindings that differ per request; use `.page()` plus [Workers Cache](#edge-caching-workers-cache) for those.
-
-### Middleware on Static Pages
-
-By default no Worker code runs for a prerendered page, so `.use()` middleware is skipped. To run **redirects, auth checks, or header changes** on static pages too, let the Worker run first and serve the prerendered files with `serveAssets`:
-
-```jsonc
-// wrangler.jsonc
-{
-  "assets": {
-    "binding": "ASSETS",
-    // hashed Vite assets still skip the Worker
-    "run_worker_first": ["/*", "!/assets/*"]
-  }
-}
-```
-
-```tsx
-import { env } from 'cloudflare:workers'
-import { Spiceflow } from 'spiceflow'
-import { serveAssets } from 'spiceflow/cloudflare'
-
-export const app = new Spiceflow()
-  .use(({ request, redirect }) => {
-    if (new URL(request.url).pathname === '/about-us') throw redirect('/about')
-  })
-  .use(serveAssets(env.ASSETS)) // after the middleware that must run first
-  .staticPage('/about', async () => <About />)
-```
-
-```
-GET /about ──► Worker ──► .use() middleware ──► serveAssets ──► env.ASSETS: about.html
-                               │                     │
-                         redirect / 401        404 ──► render the page in the Worker
-```
-
-`serveAssets` is the Cloudflare version of `serveStatic`. It serves `about.html` for `/about`, `about.rsc` for client navigations, and any other file in the client output, like `public/` files. If the binding has no file, the request falls through to your routes. The page is never rendered again, so the Worker only pays for the middleware.
-
 <details>
-<summary>Rules for middleware on static pages</summary>
+<summary>Rules for static pages on Cloudflare</summary>
 
-- Register `serveAssets` **after** the middlewares that must run first. Middlewares after it do not run for asset hits.
-- Cloudflare has no automatic fallback: when the Worker runs first, only `env.ASSETS.fetch()` can return an asset. Without `serveAssets`, static pages render again in the Worker and `public/` files return 404.
-- With `"run_worker_first": true`, hashed JS and CSS also go through the Worker. Prefer the pattern list above.
-- Do not use `"not_found_handling": "single-page-application"`: the binding would answer every path with `index.html`.
+- A prerendered page cannot read cookies, headers, or bindings that differ per request; use `.page()` plus [Workers Cache](#edge-caching-workers-cache) for those.
+- Only the `content-type` of the prerendered response is stored. Set other headers like `cache-control` in middleware, which runs on every request.
 - Middleware also runs when `vite build` prerenders the page. That request has no cookies or user headers. If a middleware redirects or rejects it, the build fails.
+- `vite preview` does not block `/cdn-cgi/` like production does, so locally the files are also reachable directly.
 
 </details>
 

@@ -8,8 +8,9 @@
 //
 // Cloudflare SSR entries import `cloudflare:*` modules that Node cannot load,
 // so that build asks the running Worker for its routes (token-gated endpoint)
-// and fetches every page over HTTP. Cloudflare static assets then serve the
-// files before the Worker runs, and the `_headers` file sets their headers.
+// and fetches every page over HTTP. The files go to static assets under
+// /cdn-cgi/, which visitors cannot fetch: the Worker runs middleware, then
+// reads them through env.ASSETS (prerendered.workerd.ts).
 import fs from 'node:fs'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
@@ -18,11 +19,13 @@ import { formatDuration, logger } from '../logger.js'
 import { resolveBuiltEntry } from '../trace-dependencies.js'
 import {
   DEPLOYMENT_ID_HEADER,
+  PRERENDER_ASSETS_DIR,
   PRERENDER_ORIGIN_HEADER,
   PRERENDER_ROUTES_PATH,
   PRERENDER_TOKEN_HEADER,
   RENDER_MODE_HEADER,
 } from './deployment.js'
+import type { PrerenderedFile, PrerenderedManifest } from './prerendered.js'
 
 type MaybePromise<T> = Promise<T> | T
 
@@ -94,6 +97,7 @@ export function prerenderPlugin({
           if (isCloudflare) {
             await prerenderCloudflare({
               clientOutDir,
+              rscOutDir,
               configFile,
               root,
               mode,
@@ -176,7 +180,7 @@ async function prerenderNode(dirs: {
       path.resolve(entryPath)
     )
     const routes = await entry.getPrerenderRoutes()
-    await writePrerenderedRoutes({
+    await writePublicFiles({
       clientOutDir: dirs.clientOutDir,
       routes,
       fetch: (pathAndQuery) =>
@@ -194,6 +198,7 @@ async function prerenderNode(dirs: {
 
 async function prerenderCloudflare({
   clientOutDir,
+  rscOutDir,
   configFile,
   root,
   mode,
@@ -201,6 +206,7 @@ async function prerenderCloudflare({
   origin,
 }: {
   clientOutDir: string
+  rscOutDir: string
   configFile: string | false | undefined
   root: string
   mode: string
@@ -244,13 +250,31 @@ async function prerenderCloudflare({
         routePath: PRERENDER_ROUTES_PATH,
       })
     }
-    const routes = (await routesResponse.json()) as PrerenderRoute[]
-    await writePrerenderedRoutes({ clientOutDir, routes, fetch: fetchFromWorker })
+    const { deploymentId, routes } = (await routesResponse.json()) as {
+      deploymentId: string
+      routes: PrerenderRoute[]
+    }
+    if (routes.length) await warnIfNoAssetsBinding(rscOutDir)
+    await writeWorkerOnlyFiles({
+      outDir: path.join(clientOutDir, PRERENDER_ASSETS_DIR, deploymentId),
+      routes,
+      fetch: fetchFromWorker,
+    })
   } finally {
     await server.close()
   }
 }
 
+/** The Worker reads prerendered files through `env.ASSETS`. Without it, pages still work but render on every request. */
+async function warnIfNoAssetsBinding(rscOutDir: string) {
+  const config = JSON.parse(
+    await readFile(path.join(rscOutDir, 'wrangler.json'), 'utf8').catch(() => '{}'),
+  ) as { assets?: { binding?: string } }
+  if (config.assets?.binding === 'ASSETS') return
+  logger.warn(
+    'staticPage() routes render on every request: add `"assets": { "binding": "ASSETS" }` to wrangler.jsonc so the Worker can serve the prerendered files.',
+  )
+}
 async function throwPrerenderError({
   response,
   routePath,
@@ -266,7 +290,39 @@ async function throwPrerenderError({
   )
 }
 
-async function writePrerenderedRoutes({
+type RenderedRoute =
+  | { kind: 'get'; route: string; body: Response }
+  | { kind: 'page'; route: string; html: Response; rsc: Response }
+
+async function* renderRoutes({
+  routes,
+  fetch,
+}: {
+  routes: PrerenderRoute[]
+  fetch: PrerenderFetch
+}): AsyncGenerator<RenderedRoute> {
+  for (const route of routes) {
+    if (route.kind === 'staticGet') {
+      // The route path should include a file extension (e.g. /api/data.json)
+      // so serveStatic can resolve the MIME type.
+      const body = await fetch(route.path)
+      if (!body.ok) await throwPrerenderError({ response: body, routePath: route.path })
+      yield { kind: 'get', route: route.path, body }
+      continue
+    }
+
+    // __rsc returns the raw Flight stream without SSR rendering.
+    const rsc = await fetch(`${route.path}?__rsc=`)
+    if (!rsc.ok) await throwPrerenderError({ response: rsc, routePath: route.path })
+    // Without __rsc the Flight stream is SSR-rendered into a complete document.
+    const html = await fetch(route.path)
+    if (!html.ok) await throwPrerenderError({ response: html, routePath: route.path })
+    yield { kind: 'page', route: route.path, html, rsc }
+  }
+}
+
+/** Node: public files that serveStatic serves after middleware. */
+async function writePublicFiles({
   clientOutDir,
   routes,
   fetch,
@@ -280,43 +336,20 @@ async function writePrerenderedRoutes({
   const manifest: PrerenderManifest = { entries: [] }
   let deploymentId = ''
 
-  for (const route of routes) {
-    if (route.kind === 'staticGet') {
-      // staticGet: run the handler and write the raw response body to disk.
-      // The route path should include a file extension (e.g. /api/data.json)
-      // so serveStatic can resolve the MIME type.
-      const response = await fetch(route.path)
-      if (!response.ok) {
-        await throwPrerenderError({ response, routePath: route.path })
-      }
-      await writeOutFile({
-        clientOutDir,
-        file: route.path,
-        body: Buffer.from(await response.arrayBuffer()),
-      })
-      manifest.entries.push({ route: route.path, file: route.path })
+  for await (const rendered of renderRoutes({ routes, fetch })) {
+    if (rendered.kind === 'get') {
+      const body = Buffer.from(await rendered.body.arrayBuffer())
+      await writeOutFile({ clientOutDir, file: rendered.route, body })
+      manifest.entries.push({ route: rendered.route, file: rendered.route })
       continue
     }
-
-    // __rsc returns the raw Flight stream without SSR rendering.
-    const rscResponse = await fetch(`${route.path}?__rsc=`)
-    if (!rscResponse.ok) {
-      await throwPrerenderError({ response: rscResponse, routePath: route.path })
-    }
-    deploymentId ||= rscResponse.headers.get(DEPLOYMENT_ID_HEADER) || ''
-
-    // Without __rsc the Flight stream is SSR-rendered into a complete document.
-    const htmlResponse = await fetch(route.path)
-    if (!htmlResponse.ok) {
-      await throwPrerenderError({ response: htmlResponse, routePath: route.path })
-    }
-
-    const isRoot = route.path === '/'
-    const dataFile = isRoot ? '/index.rsc' : route.path + '.rsc'
-    const htmlFile = isRoot ? '/index.html' : route.path + '.html'
-    await writeOutFile({ clientOutDir, file: dataFile, body: await rscResponse.text() })
-    await writeOutFile({ clientOutDir, file: htmlFile, body: await htmlResponse.text() })
-    manifest.entries.push({ route: route.path, html: htmlFile, data: dataFile })
+    deploymentId ||= rendered.rsc.headers.get(DEPLOYMENT_ID_HEADER) || ''
+    const isRoot = rendered.route === '/'
+    const dataFile = isRoot ? '/index.rsc' : rendered.route + '.rsc'
+    const htmlFile = isRoot ? '/index.html' : rendered.route + '.html'
+    await writeOutFile({ clientOutDir, file: dataFile, body: await rendered.rsc.text() })
+    await writeOutFile({ clientOutDir, file: htmlFile, body: await rendered.html.text() })
+    manifest.entries.push({ route: rendered.route, html: htmlFile, data: dataFile })
   }
 
   await writeFile(
@@ -324,6 +357,50 @@ async function writePrerenderedRoutes({
     JSON.stringify(manifest, null, 2),
   )
   await appendRscHeaders({ clientOutDir, manifest, deploymentId })
+  logger.success(
+    `prerendered ${routes.length} static routes in ${formatDuration(performance.now() - start)}`,
+  )
+}
+
+/** Cloudflare: files under /cdn-cgi/ that only the Worker can read, so middleware always runs first.
+ *  Names have no extension: the asset server redirects `x.html` and `index.html` to pretty URLs. */
+async function writeWorkerOnlyFiles({
+  outDir,
+  routes,
+  fetch,
+}: {
+  outDir: string
+  routes: PrerenderRoute[]
+  fetch: PrerenderFetch
+}) {
+  const start = performance.now()
+  logger.info('prerendering static routes...')
+  const manifest: PrerenderedManifest = { routes: {} }
+  let index = 0
+  const store = async (response: Response, suffix: string): Promise<PrerenderedFile> => {
+    const file = `${index}-${suffix}`
+    await writeOutFile({
+      clientOutDir: outDir,
+      file,
+      body: Buffer.from(await response.arrayBuffer()),
+    })
+    // Other headers are not stored: preview adds its own, and middleware runs again per request
+    return { file, contentType: response.headers.get('content-type') || undefined }
+  }
+
+  for await (const rendered of renderRoutes({ routes, fetch })) {
+    index++
+    manifest.routes[rendered.route] =
+      rendered.kind === 'get'
+        ? { body: await store(rendered.body, 'body') }
+        : { html: await store(rendered.html, 'html'), rsc: await store(rendered.rsc, 'rsc') }
+  }
+
+  await writeOutFile({
+    clientOutDir: outDir,
+    file: 'manifest.json',
+    body: JSON.stringify(manifest, null, 2),
+  })
   logger.success(
     `prerendered ${routes.length} static routes in ${formatDuration(performance.now() - start)}`,
   )

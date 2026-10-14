@@ -126,39 +126,48 @@ describe('cloudflare example', () => {
       }
     `)
 
-    // staticPage routes are prerendered into dist/client. run_worker_first
-    // runs the middleware, then serveAssets returns the prerendered file
-    // (asset responses carry an etag, Worker renders do not).
-    const [html, rsc, redirect] = await Promise.all([
-      fetch(new URL('/about', server.baseUrl)),
-      fetch(new URL('/about.rsc?__rsc=', server.baseUrl)),
-      fetch(new URL('/about-us', server.baseUrl), { redirect: 'manual' }),
-    ])
-    expect({
-      htmlStatus: html.status,
-      htmlFromAssets: html.headers.has('etag'),
-      htmlMiddleware: html.headers.get('x-middleware'),
-      htmlHasContent: (await html.text()).includes('Static about page'),
-      rscStatus: rsc.status,
-      rscFromAssets: rsc.headers.has('etag'),
-      rscMiddleware: rsc.headers.get('x-middleware'),
-      rscContentType: rsc.headers.get('content-type'),
-      rscHasDeploymentId: rsc.headers.has('x-spiceflow-deployment-id'),
-      redirectStatus: redirect.status,
-      redirectLocation: redirect.headers.get('location'),
-    }).toMatchInlineSnapshot(`
+    expect(await getPrerenderSummary(server.baseUrl)).toMatchInlineSnapshot(`
       {
-        "htmlFromAssets": true,
+        "forgedTokenPrerendered": "1",
         "htmlHasContent": true,
         "htmlMiddleware": "spiceflow",
+        "htmlPrerendered": "1",
         "htmlStatus": 200,
         "redirectLocation": "/about",
         "redirectStatus": 307,
         "rscContentType": "text/x-component;charset=utf-8",
-        "rscFromAssets": true,
         "rscHasDeploymentId": true,
         "rscMiddleware": "spiceflow",
+        "rscPrerendered": "1",
         "rscStatus": 200,
+        "staticGetContentType": "application/json",
+        "staticGetMiddleware": "spiceflow",
+        "staticGetPrerendered": "1",
+      }
+    `)
+
+    // Prerendered files live under /cdn-cgi/, never at the public page URL,
+    // so Cloudflare cannot serve them before the Worker runs the middleware.
+    expect({
+      publicAboutHtml: fs.existsSync(path.join(cwd, 'dist/client/about.html')),
+      publicHeadersFile: fs.existsSync(path.join(cwd, 'dist/client/_headers')),
+      workerOnlyFiles: fs
+        .readdirSync(path.join(cwd, 'dist/client/cdn-cgi/_spiceflow/prerender'), {
+          recursive: true,
+        })
+        .map((file) => String(file).replace(/^[^/]+/, '<deployment-id>'))
+        .sort(),
+    }).toMatchInlineSnapshot(`
+      {
+        "publicAboutHtml": false,
+        "publicHeadersFile": false,
+        "workerOnlyFiles": [
+          "<deployment-id>",
+          "<deployment-id>/1-html",
+          "<deployment-id>/1-rsc",
+          "<deployment-id>/2-body",
+          "<deployment-id>/manifest.json",
+        ],
       }
     `)
   })
@@ -180,5 +189,70 @@ describe('cloudflare example', () => {
         "status": 200,
       }
     `)
+
+    // Only production blocks public /cdn-cgi/ requests; vite preview serves them.
+    const rsc = await fetch(new URL('/about.rsc?__rsc=', deployedUrl))
+    const deploymentId = rsc.headers.get('x-spiceflow-deployment-id')
+    const [manifest, storedHtml] = await Promise.all(
+      ['manifest.json', '1-html'].map((file) =>
+        fetch(new URL(`/cdn-cgi/_spiceflow/prerender/${deploymentId}/${file}`, deployedUrl)),
+      ),
+    )
+    expect({
+      ...(await getPrerenderSummary(deployedUrl)),
+      publicManifestStatus: manifest!.status,
+      publicStoredHtmlStatus: storedHtml!.status,
+    }).toMatchInlineSnapshot(`
+      {
+        "forgedTokenPrerendered": "1",
+        "htmlHasContent": true,
+        "htmlMiddleware": "spiceflow",
+        "htmlPrerendered": "1",
+        "htmlStatus": 200,
+        "publicManifestStatus": 404,
+        "publicStoredHtmlStatus": 404,
+        "redirectLocation": "/about",
+        "redirectStatus": 307,
+        "rscContentType": "text/x-component;charset=utf-8",
+        "rscHasDeploymentId": true,
+        "rscMiddleware": "spiceflow",
+        "rscPrerendered": "1",
+        "rscStatus": 200,
+        "staticGetContentType": "application/json",
+        "staticGetMiddleware": "spiceflow",
+        "staticGetPrerendered": "1",
+      }
+    `)
   })
 })
+
+/** staticPage and staticGet responses must come from the prerendered files, after middleware. */
+async function getPrerenderSummary(baseUrl: string) {
+  const [html, rsc, staticGet, forgedToken, redirect] = await Promise.all([
+    fetch(new URL('/about', baseUrl)),
+    fetch(new URL('/about.rsc?__rsc=', baseUrl)),
+    fetch(new URL('/build-info.json', baseUrl)),
+    // A wrong prerender token must not force a live render
+    fetch(new URL('/build-info.json', baseUrl), {
+      headers: { 'x-spiceflow-prerender-token': 'forged' },
+    }),
+    fetch(new URL('/about-us', baseUrl), { redirect: 'manual' }),
+  ])
+  return {
+    htmlStatus: html.status,
+    htmlPrerendered: html.headers.get('x-spiceflow-prerendered'),
+    htmlMiddleware: html.headers.get('x-middleware'),
+    htmlHasContent: (await html.text()).includes('Static about page'),
+    rscStatus: rsc.status,
+    rscPrerendered: rsc.headers.get('x-spiceflow-prerendered'),
+    rscMiddleware: rsc.headers.get('x-middleware'),
+    rscContentType: rsc.headers.get('content-type'),
+    rscHasDeploymentId: rsc.headers.has('x-spiceflow-deployment-id'),
+    staticGetPrerendered: staticGet.headers.get('x-spiceflow-prerendered'),
+    staticGetMiddleware: staticGet.headers.get('x-middleware'),
+    staticGetContentType: staticGet.headers.get('content-type'),
+    forgedTokenPrerendered: forgedToken.headers.get('x-spiceflow-prerendered'),
+    redirectStatus: redirect.status,
+    redirectLocation: redirect.headers.get('location'),
+  }
+}

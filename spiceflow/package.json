@@ -46,6 +46,11 @@
       "node": "./dist/router-context.js",
       "default": "./dist/router-context.default.js"
     },
+    "#prerendered": {
+      "types": "./dist/react/prerendered.d.ts",
+      "workerd": "./dist/react/prerendered.workerd.js",
+      "default": "./dist/react/prerendered.js"
+    },
     "#wait-until": {
       "workerd": "./dist/wait-until.workerd.js",
       "default": "./dist/wait-until.js"

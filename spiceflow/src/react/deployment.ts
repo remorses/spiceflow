@@ -19,6 +19,13 @@ export const PRERENDER_TOKEN_HEADER = 'x-spiceflow-prerender-token'
 /** Deployed origin to render prerendered pages for. Honored only with a valid prerender token. */
 export const PRERENDER_ORIGIN_HEADER = 'x-spiceflow-prerender-origin'
 
+/** Static assets folder for Cloudflare prerendered responses. Cloudflare keeps `/cdn-cgi/`
+ *  for itself, so visitors cannot fetch these files; only the Worker can, via `env.ASSETS`. */
+export const PRERENDER_ASSETS_DIR = '/cdn-cgi/_spiceflow/prerender'
+
+/** Response header on responses served from prerendered files. */
+export const PRERENDERED_HEADER = 'x-spiceflow-prerendered'
+
 /** Request header that makes SSR wait for every Suspense boundary, like for bots. */
 export const RENDER_MODE_HEADER = 'x-react-server-render-mode'
 

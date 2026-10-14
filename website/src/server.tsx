@@ -2,19 +2,16 @@
 // Holocron handles the docs rendering (including /llms.txt);
 // this file adds the /gh redirect.
 
-import { env } from 'cloudflare:workers'
 import { Spiceflow } from 'spiceflow'
-import { serveAssets } from 'spiceflow/cloudflare'
 import { app as holocronApp } from '@holocron.so/vite/app'
 
 export const app = new Spiceflow()
-  // Runs before prerendered staticPage routes too (assets.run_worker_first).
+  // Runs for prerendered staticPage routes too: the Worker serves their stored files.
   .use(async (_, next) => {
     const response = await next()
     response.headers.set('x-spiceflow-middleware', '1')
     return response
   })
-  .use(serveAssets(env.ASSETS))
   .get('/gh', ({ request }) => {
     return Response.redirect('https://github.com/remorses/spiceflow', 302)
   })

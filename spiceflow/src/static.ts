@@ -27,14 +27,13 @@ export function isStaticMiddleware(handler: unknown): boolean {
   return Boolean((handler as any)?.[staticMiddlewareSymbol])
 }
 
-/** Static middlewares run before root catch-alls and not-found handlers, never before concrete API routes. */
-export function markStaticMiddleware<T extends MiddlewareHandler>(handler: T): T {
+function markStaticMiddleware<T extends MiddlewareHandler>(handler: T): T {
   ;(handler as any)[staticMiddlewareSymbol] = true
   return handler
 }
 
 /** Client RSC fetches (`?__rsc`) read the prerendered Flight file: /about → /about.rsc, / → /index.rsc. */
-export function getStaticPathname(url: URL): string {
+function getStaticPathname(url: URL): string {
   if (!url.searchParams.has('__rsc') || url.pathname.endsWith('.rsc')) return url.pathname
   const pathname = url.pathname.replace(/\/$/, '')
   return pathname ? pathname + '.rsc' : '/index.rsc'

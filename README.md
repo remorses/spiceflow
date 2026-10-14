@@ -186,7 +186,7 @@ export const app = new Spiceflow()
   .staticPage('/about', async () => <About />)
 ```
 
-This is very useful on **Cloudflare Workers**, where static assets are normally served before the Worker runs. Set `assets.run_worker_first` in `wrangler.jsonc` and add `serveAssets(env.ASSETS)` from `spiceflow/cloudflare` after your middleware. The Worker runs your `.use()` blocks, then returns the prerendered file without rendering again. See [Cloudflare prerendered pages](./website/src/cloudflare.md#prerendered-pages-staticpage).
+On **Cloudflare Workers** the prerendered files are stored where only the Worker can read them, so Cloudflare never serves them before your middleware. Add an `ASSETS` binding in `wrangler.jsonc`; the Worker runs your `.use()` blocks, then returns the stored file without rendering again. See [Cloudflare prerendered pages](./website/src/cloudflare.md#prerendered-pages-staticpage).
 
 Middleware also runs while `vite build` prerenders the page. That request has no cookies or user headers, so a middleware that redirects it makes the build fail.
 

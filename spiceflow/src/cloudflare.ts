@@ -1,7 +1,6 @@
-// Cloudflare Workers middlewares: serveAssets (static assets binding) and
-// headersCache (edge cache via the Cache API, caches.default).
+// Cloudflare edge cache middleware using the Cache API (caches.default).
 //
-// headersCache is DEPRECATED: As of July 2026, Cloudflare Workers Cache makes this middleware
+// DEPRECATED: As of July 2026, Cloudflare Workers Cache makes this middleware
 // unnecessary for most use cases. Add `"cache": { "enabled": true }` to your
 // wrangler.jsonc and set Cache-Control headers on your responses; Cloudflare's
 // regionally tiered cache sits in front of your Worker and serves hits without
@@ -12,9 +11,7 @@
 // logic or custom shouldCache predicates that go beyond what wrangler config
 // offers. For most apps, prefer the native Workers Cache instead.
 
-import { getStaticPathname, markStaticMiddleware } from './static.js'
 import { MiddlewareHandler } from './types.js'
-import { withMutableHeaders } from './utils.js'
 
 // Cloudflare extends the standard CacheStorage with a `default` property
 // that gives access to the zone's default edge cache without calling
@@ -23,50 +20,6 @@ declare global {
   interface CacheStorage {
     default: Cache
   }
-}
-
-/** The Workers static assets binding (`assets.binding` in wrangler.jsonc). */
-type AssetsBinding = { fetch(request: Request): Promise<Response> }
-
-/**
- * Serves files from the Workers static assets binding, including prerendered
- * `staticPage()` HTML and `.rsc` files. It is the Cloudflare version of
- * `serveStatic`: register it after the middlewares that must run first.
- *
- * Use it with `assets.run_worker_first` in wrangler.jsonc. Without that,
- * Cloudflare serves assets before the Worker runs and no middleware runs.
- *
- * @example
- * ```ts
- * import { env } from 'cloudflare:workers'
- * import { serveAssets } from 'spiceflow/cloudflare'
- *
- * export const app = new Spiceflow()
- *   .use(({ request, redirect }) => {
- *     if (new URL(request.url).pathname === '/old-about') throw redirect('/about')
- *   })
- *   .use(serveAssets(env.ASSETS))
- *   .staticPage('/about', async () => <About />)
- * ```
- */
-export function serveAssets(assets: AssetsBinding): MiddlewareHandler {
-  return markStaticMiddleware(async function serveAssets({ request }, next) {
-    if (request.method !== 'GET' && request.method !== 'HEAD') return next()
-
-    const url = new URL(request.url)
-    url.pathname = getStaticPathname(url)
-    const response = await assets.fetch(new Request(url, request))
-    if (response.status === 404) {
-      await response.body?.cancel()
-      return next()
-    }
-
-    if (!url.pathname.endsWith('.rsc')) return response
-    // The client checks the Flight content type; `_headers` rules may not apply to binding fetches.
-    const rscResponse = withMutableHeaders(response)
-    rscResponse.headers.set('content-type', 'text/x-component;charset=utf-8')
-    return rscResponse
-  })
 }
 
 type HeadersCacheOptions = {

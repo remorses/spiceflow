@@ -82,6 +82,7 @@ import {
   stripRscUrl,
 } from './react/deployment.js'
 import { getDeploymentId, getPrerenderToken } from '#deployment-id'
+import { readPrerendered } from '#prerendered'
 
 import {
   __spiceflowVitestMode,
@@ -2341,9 +2342,10 @@ export class Spiceflow<
     // Cloudflare builds cannot import the Worker in Node, so the prerender step
     // asks the running `vite preview` Worker for its static routes instead.
     if (isPrerender && path === PRERENDER_ROUTES_PATH && request.method === 'GET') {
-      return Response.json(
-        this.getPrerenderRoutes().map(({ path, kind }) => ({ path, kind })),
-      )
+      return Response.json({
+        deploymentId: await getDeploymentId(),
+        routes: this.getPrerenderRoutes().map(({ path, kind }) => ({ path, kind })),
+      })
     }
 
     if (path !== u.pathname) {
@@ -2539,6 +2541,8 @@ export class Spiceflow<
           context,
           onErrorHandlers,
           async () => {
+            const prerendered = await readPrerendered({ request, path, rsc: isRscRequest(u) })
+            if (prerendered) return prerendered
             let res = await this.renderReact({
               request,
               context,
@@ -2600,6 +2604,10 @@ export class Spiceflow<
         context,
         onErrorHandlers,
         async () => {
+          if (route.route.kind === 'staticGet') {
+            const prerendered = await readPrerendered({ request, path, rsc: false })
+            if (prerendered) return prerendered
+          }
           // Pages run query validation to apply defaults (e.g. zod .default()) but
           // swallow errors so missing params don't show error pages.
           // API routes (.get, .post, etc.) still throw ValidationError on invalid query.

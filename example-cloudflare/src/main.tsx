@@ -2,7 +2,6 @@
 // Custom Worker default exports can still call `app.handle(request)` directly.
 import './globals.css'
 import { Spiceflow } from 'spiceflow'
-import { serveAssets } from 'spiceflow/cloudflare'
 import { Suspense } from 'react'
 import { Link, ProgressBar } from 'spiceflow/react'
 import { env } from 'cloudflare:workers'
@@ -15,15 +14,13 @@ type Pokemon = {
 }
 
 export const app = new Spiceflow()
-  // Runs for every Worker request, prerendered staticPage routes included
-  // (wrangler.jsonc sets assets.run_worker_first).
+  // Runs for every request, prerendered staticPage routes included.
   .use(async ({ request, redirect }, next) => {
     if (new URL(request.url).pathname === '/about-us') throw redirect('/about')
     const response = await next()
     response.headers.set('x-middleware', 'spiceflow')
     return response
   })
-  .use(serveAssets(env.ASSETS))
   .layout('/*', async ({ children }) => {
     return (
       <RootLayout>
@@ -51,7 +48,7 @@ export const app = new Spiceflow()
       </PokemonList>
     )
   })
-  // Prerendered at build time, then served by serveAssets after the middleware above.
+  // Prerendered at build time. The Worker serves the stored files after the middleware above.
   .staticPage('/about', async function About() {
     return (
       <div className="flex flex-col items-center p-4">
@@ -60,6 +57,9 @@ export const app = new Spiceflow()
       </div>
     )
   })
+  .staticGet('/build-info.json', () =>
+    Response.json({ builtAt: new Date().toISOString() }),
+  )
   .layout('/pokemon/:id', ({ children }) => {
     return (
       <div className="flex flex-col items-center p-4">

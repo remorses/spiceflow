@@ -4,9 +4,8 @@
   "main": "./src/server.tsx",
   "compatibility_date": "2026-03-15",
   "compatibility_flags": ["nodejs_compat"],
-  // Worker runs first so middleware also runs for prerendered staticPage routes.
+  // The Worker reads prerendered staticPage files through this binding.
   "assets": {
     "binding": "ASSETS",
-    "run_worker_first": ["/*", "!/assets/*"],
   },
 }
