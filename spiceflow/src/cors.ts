@@ -20,6 +20,13 @@ type CORSOptions = {
   cacheAge?: number
 }
 
+const corsMiddlewareSymbol = Symbol.for('spiceflow.cors')
+
+/** cors() runs before every other middleware in scope, so error responses thrown by earlier ones still get CORS headers. */
+export function isCorsMiddleware(handler: Function): boolean {
+  return corsMiddlewareSymbol in handler
+}
+
 export const cors = (options?: CORSOptions): MiddlewareHandler => {
   const defaults: CORSOptions = {
     origin: '*',
@@ -45,7 +52,7 @@ export const cors = (options?: CORSOptions): MiddlewareHandler => {
     }
   })(opts.origin)
 
-  return async function cors(c, next) {
+  const middleware: MiddlewareHandler = async function cors(c, next) {
     let response = await next()
 
     const responseHeaders = response.headers
@@ -132,5 +139,6 @@ export const cors = (options?: CORSOptions): MiddlewareHandler => {
 
     return response
   }
+  return Object.assign(middleware, { [corsMiddlewareSymbol]: true })
 }
 

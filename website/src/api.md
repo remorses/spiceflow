@@ -561,6 +561,8 @@ export const app = new Spiceflow().use(cors()).route({
 })
 ```
 
+`cors()` always runs **first** among the middlewares in scope, wherever you register it. Errors, 401s and redirects thrown by an auth middleware still get CORS headers, and preflight `OPTIONS` requests get a `204` even when they carry no credentials.
+
 ## Error Handling
 
 When a route handler or middleware throws an error, Spiceflow catches it and returns a JSON response with the error message and stack trace. **By default, unhandled errors are also logged to the console** with `Spiceflow unhandled error:` so you can see what went wrong during development.

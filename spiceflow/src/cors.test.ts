@@ -83,7 +83,6 @@ test('CORS headers are set for OPTIONS request when an error is thrown', async (
   expect(errorRouteCallCount).toBe(1)
 })
 
-// Errors short-circuit inner middlewares, so cors must be registered before the throwing one.
 test('CORS headers are set when an error is thrown in middleware', async () => {
   let errorRouteCallCount = 0
   const errorApp = new Spiceflow()
@@ -102,6 +101,163 @@ test('CORS headers are set when an error is thrown in middleware', async () => {
   expect(res.headers.get('Access-Control-Allow-Origin')).toBe('*')
   expect(await res.text()).toContain('middleware error')
   expect(errorRouteCallCount).toBe(0)
+})
+
+describe('cors registered after a middleware that throws', () => {
+  let routeCalls = 0
+  const app = new Spiceflow()
+    .use(({ request }) => {
+      if (!request.headers.get('authorization')) {
+        throw new Response('unauthorized', { status: 401 })
+      }
+    })
+    .use(({ request, redirect }) => {
+      if (new URL(request.url).pathname === '/old') throw redirect('/new')
+    })
+    .use(cors({ origin: ['http://example.com'], credentials: true }))
+    .get('/me', () => {
+      routeCalls++
+      return { ok: true }
+    })
+    .get('/old', () => 'old')
+
+  const headers = (extra: Record<string, string> = {}) => ({
+    Origin: 'http://example.com',
+    ...extra,
+  })
+
+  test('401 from the auth middleware has CORS headers', async () => {
+    const res = await app.handle(
+      new Request('http://localhost/me', { headers: headers() }),
+    )
+    expect({
+      status: res.status,
+      body: await res.text(),
+      origin: res.headers.get('Access-Control-Allow-Origin'),
+      credentials: res.headers.get('Access-Control-Allow-Credentials'),
+      vary: res.headers.get('Vary'),
+    }).toMatchInlineSnapshot(`
+      {
+        "body": "unauthorized",
+        "credentials": "true",
+        "origin": "http://example.com",
+        "status": 401,
+        "vary": "Origin",
+      }
+    `)
+    expect(routeCalls).toBe(0)
+  })
+
+  test('preflight without authorization succeeds', async () => {
+    const res = await app.handle(
+      new Request('http://localhost/me', {
+        method: 'OPTIONS',
+        headers: headers({
+          'Access-Control-Request-Method': 'GET',
+          'Access-Control-Request-Headers': 'authorization',
+        }),
+      }),
+    )
+    expect({
+      status: res.status,
+      origin: res.headers.get('Access-Control-Allow-Origin'),
+      methods: res.headers.get('Access-Control-Allow-Methods'),
+      allowHeaders: res.headers.get('Access-Control-Allow-Headers'),
+    }).toMatchInlineSnapshot(`
+      {
+        "allowHeaders": "authorization",
+        "methods": "GET,HEAD,PUT,POST,DELETE,PATCH",
+        "origin": "http://example.com",
+        "status": 204,
+      }
+    `)
+    expect(routeCalls).toBe(0)
+  })
+
+  test('thrown redirect has CORS headers', async () => {
+    const res = await app.handle(
+      new Request('http://localhost/old', {
+        headers: headers({ authorization: 'Bearer x' }),
+      }),
+    )
+    expect({
+      status: res.status,
+      location: res.headers.get('location'),
+      origin: res.headers.get('Access-Control-Allow-Origin'),
+    }).toMatchInlineSnapshot(`
+      {
+        "location": "/new",
+        "origin": "http://example.com",
+        "status": 307,
+      }
+    `)
+  })
+
+  test('authorized request reaches the route with CORS headers', async () => {
+    const res = await app.handle(
+      new Request('http://localhost/me', {
+        headers: headers({ authorization: 'Bearer x' }),
+      }),
+    )
+    expect({
+      status: res.status,
+      body: await res.json(),
+      origin: res.headers.get('Access-Control-Allow-Origin'),
+    }).toMatchInlineSnapshot(`
+      {
+        "body": {
+          "ok": true,
+        },
+        "origin": "http://example.com",
+        "status": 200,
+      }
+    `)
+    expect(routeCalls).toBe(1)
+  })
+})
+
+test('sub-app cors covers errors thrown by a parent middleware', async () => {
+  const api = new Spiceflow({ basePath: '/api' })
+    .use(cors())
+    .post('/hello', () => ({ ok: true }))
+  const app = new Spiceflow()
+    .use(({ request }) => {
+      if (!request.headers.get('authorization')) {
+        throw new Response('unauthorized', { status: 401 })
+      }
+    })
+    .use(api)
+
+  const preflight = await app.handle(
+    new Request('http://localhost/api/hello', {
+      method: 'OPTIONS',
+      headers: {
+        Origin: 'http://example.com',
+        'Access-Control-Request-Method': 'POST',
+      },
+    }),
+  )
+  const post = await app.handle(
+    new Request('http://localhost/api/hello', {
+      method: 'POST',
+      headers: { Origin: 'http://example.com' },
+    }),
+  )
+  expect({
+    preflight: [preflight.status, preflight.headers.get('Access-Control-Allow-Origin')],
+    post: [post.status, post.headers.get('Access-Control-Allow-Origin')],
+  }).toMatchInlineSnapshot(`
+    {
+      "post": [
+        401,
+        "*",
+      ],
+      "preflight": [
+        204,
+        "*",
+      ],
+    }
+  `)
 })
 
 test('sub-app with cors handles OPTIONS even when parent app has no cors', async () => {

@@ -109,6 +109,7 @@ import {
   ContextResponse,
 } from './context.js'
 import { isStaticMiddleware } from './static.js'
+import { isCorsMiddleware } from './cors.js'
 import {
   type SpiceflowTracer,
   type SpiceflowSpan,
@@ -2534,7 +2535,7 @@ export class Spiceflow<
 
         const shouldSsr = !!renderSsr && !isRscRequest(u)
         let response = await this.runMiddlewareChain(
-          appsInScope.flatMap((x) => x.middlewares),
+          hoistCorsMiddlewares(appsInScope.flatMap((x) => x.middlewares)),
           context,
           onErrorHandlers,
           async () => {
@@ -2582,7 +2583,9 @@ export class Spiceflow<
       }
       context['params'] = route.params
 
-      const scopedMiddlewares = appsInScope.flatMap((x) => x.middlewares)
+      const scopedMiddlewares = hoistCorsMiddlewares(
+        appsInScope.flatMap((x) => x.middlewares),
+      )
       const middlewares = scopedMiddlewares.filter((x) => !isStaticMiddleware(x))
       const staticMiddlewares = scopedMiddlewares.filter((x) =>
         isStaticMiddleware(x),
@@ -3466,6 +3469,15 @@ export class SpiceflowRequest<T = any> extends Request {
     })
     return this.jsonPromise
   }
+}
+
+/** cors() wraps the whole chain, so errors thrown by middlewares registered before it still get CORS headers. */
+function hoistCorsMiddlewares(middlewares: Function[]): Function[] {
+  if (!middlewares.some(isCorsMiddleware)) return middlewares
+  return [
+    ...middlewares.filter((x) => isCorsMiddleware(x)),
+    ...middlewares.filter((x) => !isCorsMiddleware(x)),
+  ]
 }
 
 /** True only for requests from this build's prerender step (vite preview). */
