@@ -1,5 +1,60 @@
 # spiceflow
 
+## 1.26.0-rsc.20
+
+1. **`staticPage()` prerendering on Cloudflare** — Cloudflare builds now prerender static pages too. `vite build` starts the built Worker with `vite preview`, fetches each static route, and writes `.html` and `.rsc` files to the client output. Cloudflare serves them as static assets before the Worker runs:
+
+   ```tsx
+   new Spiceflow().staticPage('/about', async () => <About />)
+   ```
+
+   ```
+   dist/client/about.html   served for /about, no Worker CPU
+   dist/client/about.rsc    served for client navigations
+   dist/client/_headers     /*.rsc: Content-Type text/x-component + deployment id
+   ```
+
+   Prerendered pages see the deployed origin in `request.url`, so `og:url` and canonical URLs are correct. On Cloudflare the origin is the single host in the Worker `routes`; pass `spiceflow({ prerenderOrigin: 'https://example.com' })` to set it explicitly (also used by Node builds). Prerendered HTML now waits for every Suspense boundary, so files contain final content instead of streamed fallbacks.
+
+2. **`serveAssets` in `spiceflow/cloudflare`** — run `.use()` middleware before prerendered `staticPage()` routes. Set `assets.run_worker_first` in `wrangler.jsonc`, then register `serveAssets(env.ASSETS)` after the middleware that must run first:
+
+   ```tsx
+   import { env } from 'cloudflare:workers'
+   import { serveAssets } from 'spiceflow/cloudflare'
+
+   export const app = new Spiceflow()
+     .use(({ request, redirect }) => {
+       if (new URL(request.url).pathname === '/about-us') throw redirect('/about')
+     })
+     .use(serveAssets(env.ASSETS))
+     .staticPage('/about', async () => <About />)
+   ```
+
+3. **OpenAPI 3.2.0 with SSE `itemSchema`** — OpenAPI documents are now version `3.2.0`. Async generator (SSE) routes describe their events with `itemSchema`. A route's `response` schema is now the schema of **one yielded item**, sent as JSON `data` of `event: message`; `event: error` and `event: done` are described separately:
+
+   ```ts
+   new Spiceflow().route({
+     method: 'GET',
+     path: '/progress',
+     response: z.object({ progress: z.number() }),
+     async *handler() {
+       yield { progress: 1 }
+     },
+   })
+   ```
+
+   Before, SSE routes with a `response` schema were documented as a single `application/json` body, and SSE routes without one as `*/*`.
+
+4. **Thrown middleware errors stop the chain** — a redirect or error thrown by a middleware now stops the inner middlewares. Before, a later `serveStatic` or `serveAssets` could replace an auth redirect or 401 with the protected file. Register `cors()` before middlewares that throw if their error responses need CORS headers.
+
+5. **Mutable headers from `next()`** — `response.headers.set()` in a middleware no longer throws "Can't modify immutable headers" when a handler returns a `fetch()` or `Response.redirect()` response.
+
+6. **Fixed federation hosts on React 19.3** — hosts built with `externalizeShared` failed to hydrate with `The requested module 'react' does not provide an export named 'addTransitionType'`. The shared `react`, `react-dom` and `react-dom/client` modules now export every runtime export. A federated remote with a broken client chunk no longer reloads the whole host page; it renders its SSR fallback. Client modules that failed to load are retried instead of cached as failed.
+
+7. **Fixed `serveStatic` for root and trailing-slash static pages** — client navigations to `staticPage('/')` or a trailing-slash path now get the prerendered `/index.rsc` or `/about.rsc` instead of rendering again.
+
+8. **Less routing work per request** — matched requests skip the not-found checks. In an app with 361 routes, `resolveRoutes` went from 11.8 µs to 0.3 µs and `match` from 3.7 µs to 1.9 µs per request.
+
 ## 1.26.0-rsc.19
 
 1. **`noStackTraces` option and secret redaction on every error path** — error responses keep stacks by default; turn them off in production:
