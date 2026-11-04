@@ -2386,9 +2386,11 @@ export class Spiceflow<
         request.headers.get('accept')?.includes('text/html'))
     ) {
       const cleanUrl = stripRscUrl(u)
+      // Collapse leading slashes: `//evil.com/x.rsc` must not redirect off-site.
+      const pathname = cleanUrl.pathname.replace(/^\/+/, '/')
       return new Response(null, {
         status: 302,
-        headers: { location: `${cleanUrl.pathname}${cleanUrl.search}` },
+        headers: { location: `${pathname}${cleanUrl.search}` },
       })
     }
 

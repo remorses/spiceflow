@@ -3916,6 +3916,18 @@ describe('.use() with page and layout routes', () => {
     expect(res.headers.get('location')).toBe('/page')
   })
 
+  test('.rsc document redirect never points to another host', async () => {
+    const app = new Spiceflow().get('/page', () => 'ok')
+
+    const res = await app.handle(
+      new Request('http://localhost//evil.com/x.rsc', {
+        headers: { 'sec-fetch-dest': 'document' },
+      }),
+    )
+    expect(res.status).toBe(302)
+    expect(res.headers.get('location')).toBe('/evil.com/x')
+  })
+
   test('programmatic RSC fetch without document headers is not redirected', async () => {
     const app = new Spiceflow().get('/page', () => 'ok')
 
