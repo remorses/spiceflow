@@ -47,6 +47,8 @@ export const serveStatic = (options: ServeStaticOptions): MiddlewareHandler => {
       result = { kind: 'miss' }
     }
 
+    // Keys come from request paths, so unique 404 URLs would grow it forever.
+    if (cache && cache.size >= 1000) cache.clear()
     cache?.set(path, result)
     return result
   }
@@ -100,5 +102,13 @@ export const serveStatic = (options: ServeStaticOptions): MiddlewareHandler => {
 
 function isIgnorableStaticError(err: unknown) {
   const code = (err as { code?: string } | undefined)?.code
-  return code === 'ENOENT' || code === 'ENOTDIR' || code === 'EISDIR'
+  // ENAMETOOLONG and ERR_INVALID_ARG_VALUE (null byte, e.g. GET /%00) come
+  // from junk URLs; without them those return a 500 with the stack.
+  return (
+    code === 'ENOENT' ||
+    code === 'ENOTDIR' ||
+    code === 'EISDIR' ||
+    code === 'ENAMETOOLONG' ||
+    code === 'ERR_INVALID_ARG_VALUE'
+  )
 }

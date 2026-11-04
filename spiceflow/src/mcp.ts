@@ -144,6 +144,7 @@ export function mcp<Path extends string = '/mcp'>({
       await server.connect(transport)
 
       request.signal.addEventListener('abort', () => {
+        transports.delete(transport.sessionId)
         transport.close().catch((error) => {
           console.error('Error closing transport:', error)
         })

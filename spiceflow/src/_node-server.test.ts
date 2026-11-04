@@ -52,6 +52,16 @@ test('nodeToWebRequest does not abort signal when response closes after finishin
   expect(request.signal.aborted).toBe(false)
 })
 
+// Regression: new URL('//evil.com/x', base) replaced the host, which bypassed
+// the server action origin check.
+test('nodeToWebRequest keeps the Host header for protocol-relative paths', () => {
+  const { req, res } = createFakeReqRes()
+  req.url = '//evil.com/x?a=1'
+  expect(nodeToWebRequest(req as any, res as any).url).toBe(
+    'http://localhost//evil.com/x?a=1',
+  )
+})
+
 test('shouldIgnoreRequestError suppresses abort errors', () => {
   expect(shouldIgnoreRequestError(new DOMException('aborted', 'AbortError'))).toBe(
     true,

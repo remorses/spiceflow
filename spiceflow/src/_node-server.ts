@@ -117,10 +117,10 @@ export function nodeToWebRequest(
     if (!res.writableFinished) abortController.abort()
   })
 
-  const url = new URL(
-    req.url || '',
-    `http://${req.headers.host || 'localhost'}`,
-  )
+  // Concatenate instead of new URL(req.url, base): a `//evil.com/x` path would
+  // replace the host, and the server action origin check compares against it.
+  const path = req.url?.startsWith('/') ? req.url : `/${req.url || ''}`
+  const url = new URL(`http://${req.headers.host || 'localhost'}${path}`)
 
   const hasBody = req.method !== 'GET' && req.method !== 'HEAD'
 
