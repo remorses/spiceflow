@@ -62,6 +62,15 @@ test('nodeToWebRequest keeps the Host header for protocol-relative paths', () =>
   )
 })
 
+test('nodeToWebRequest ignores a path smuggled in the Host header', () => {
+  const { req, res } = createFakeReqRes()
+  req.url = '/public'
+  req.headers.host = 'victim.com/admin?'
+  expect(nodeToWebRequest(req as any, res as any).url).toBe(
+    'http://victim.com/public',
+  )
+})
+
 test('shouldIgnoreRequestError suppresses abort errors', () => {
   expect(shouldIgnoreRequestError(new DOMException('aborted', 'AbortError'))).toBe(
     true,

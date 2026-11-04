@@ -117,10 +117,12 @@ export function nodeToWebRequest(
     if (!res.writableFinished) abortController.abort()
   })
 
-  // Concatenate instead of new URL(req.url, base): a `//evil.com/x` path would
-  // replace the host, and the server action origin check compares against it.
+  // Not new URL(req.url, base): a `//evil.com/x` path would replace the host,
+  // and the server action origin check compares against it. Only the origin is
+  // taken from Host, so a `victim.com/admin?` Host cannot change the path.
+  const origin = new URL(`http://${req.headers.host || 'localhost'}`).origin
   const path = req.url?.startsWith('/') ? req.url : `/${req.url || ''}`
-  const url = new URL(`http://${req.headers.host || 'localhost'}${path}`)
+  const url = new URL(origin + path)
 
   const hasBody = req.method !== 'GET' && req.method !== 'HEAD'
 
