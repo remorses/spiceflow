@@ -1,6 +1,6 @@
 ---
 name: spiceflow
-description: 'Spiceflow is a super simple, fast, and type-safe API and React Server Components framework for TypeScript. Works on Node.js, Bun, and Cloudflare Workers. ALWAYS load this skill BEFORE writing or editing ANY spiceflow code, including one-line changes: routes, pages, layouts, loaders, server actions, forms, ErrorBoundary, redirects, cookies, navigation, Link, router, ProgressBar, the typed fetch client, middleware, and OpenAPI. A project uses spiceflow if anything imports from "spiceflow" or "spiceflow/react", or constructs new Spiceflow(). The API is small but very opinionated and the opinions are NOT guessable; writing spiceflow code from memory or from what looks like Next.js produces wrong code every time.'
+description: 'Spiceflow is a super simple, fast, and type-safe API and React Server Components framework for TypeScript. Works on Node.js, Bun, and Cloudflare Workers. ALWAYS load this skill in any project that uses spiceflow, BEFORE writing or editing ANY spiceflow code, including one-line changes: routes, pages, layouts, loaders, server actions, forms, ErrorBoundary, redirects, cookies, navigation, Link, router, ProgressBar, the typed fetch client, middleware, and OpenAPI. A project uses spiceflow if anything imports from "spiceflow" or "spiceflow/react", or constructs new Spiceflow(). The API is small but very opinionated and the opinions are NOT guessable; writing spiceflow code from memory or from what looks like Next.js produces wrong code every time.'
 ---
 
 # Spiceflow
